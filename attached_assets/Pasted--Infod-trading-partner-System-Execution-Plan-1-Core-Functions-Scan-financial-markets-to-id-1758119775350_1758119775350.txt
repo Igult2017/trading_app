@@ -1,0 +1,113 @@
+
+Infod trading partner   – System Execution Plan
+1. Core Functions
+•	Scan financial markets to identify trading opportunities.
+•	Provide session tracking (London, New York, Tokyo, Sydney).
+o	Show current session.
+o	Display elapsed minutes since session start.
+•	Display upcoming economic data releases:
+o	Expected time.
+o	Forecast vs. previous release.
+o	Potential impact (positive/negative).
+•	Send real-time notifications when opportunities are found.
+
+2. Markets Covered
+•	Forex: Major pairs + crosses.
+•	Stocks: Major global equities.
+•	Crypto: Top market-cap pairs.
+
+3. Trading Strategies
+•	Scalping.
+•	Day trading.
+•	Swing trading.
+•	Opening Range Breakout (ORB).
+
+4. Analysis Framework
+•	Price Action + Smart Money Concepts (SMC).
+o	Use multi-timeframes: 1D, 4H, 30M, 15M (analysis), 1M (entries).
+o	Justification entries only.
+•	Technical Analysis (non-lagging tools only):
+o	Volume indicators.
+o	Momentum indicators.
+o	Trend direction indicators.
+o	Patterns such as Pennant , flags , wedges etc. Only use certainty patterns. Not patterns with uncertainty 
+•	Fundamental Analysis:
+o	Interest rate differentials.
+o	Macroeconomic news/events.
+o	Sentiment impacts.
+•	Market Structure & Patterns:
+o	Liquidity sweeps.
+o	Breakouts.
+o	Patterns 
+o	Order book insights (real-time).
+o	Overbought/Oversold confirmation.
+
+5. Signal Identification Process
+•	Identify high-probability setups based on confluence of:
+a)	Price Action + SMC.
+•	Imbalance 
+•	Institutional candles 
+•	FVG
+•	Order blocks 
+•	Liquidity voids 
+•	Breaker blocks 
+•	Mitigation blocks 
+•	Unmitigated demands 
+•	Unmitigated supplies 
+•	Finobacci for equilibrium or PD arrays 
+•	Price taking equal highs or lows in support and resistance to activate buys or sells 
+•	
+a)	Market structure.
+b)	Technical indicators.
+c)	Fundamentals.
+o	But where the system confirms a higher probability signal, it can provide it, give bias and also state it is not based on confluence 
+•	
+o	
+•	Signals are validated across multi-timeframes (1M, 5M, 30M, 4H, 1D, 1W).
+•	Best signals are chosen when trend confirmation aligns in 5M → 1W.
+•	Alternative signals: Accepted if strong confluence exists, even without full multi-timeframe alignment.
+
+6. Signal Management
+•	Track top 5 upcoming signals at a time.
+o	Monitor until confirmed or invalidated.
+o	Replace invalidated ones with new opportunities.
+o	Only post or provide confirmed signals 
+•	Avoid duplicate trades on the same pair/instrument, unless:
+o	First trade is for scalping.
+•	Confirmed signals include:
+o	Entry + Exit levels.
+o	Risk-to-Reward ratio (min 1:2)
+o	Supporting factors for bias.
+
+7. Trade History & Learning
+•	Store each trade with:
+o	Entry reason.
+o	Timeframe basis (HTF, TTF, ETF).
+o	Outcome (win/loss).
+o	Stop-loss or expiry details.
+•	Archive expired/lost trades into trade history.
+•	Auto-analysis: After every 50 trades, system reviews performance to refine strategies.
+
+8. Fundamentals Module
+•	Display news calendar with:
+o	Upcoming events.
+o	Expected vs. previous values.
+o	Projected market impact (positive/negative).
+•	Integrate news into signal filtering (avoid trading during high-risk events unless aligned with bias).
+
+9. Notifications & Outputs
+•	Real-time alerts for:
+o	New trading opportunities.
+o	Session changes.
+o	Data releases.
+•	Dashboard displays:
+o	Current session + timer.
+o	Upcoming events + expected impact.
+o	Confirmed signals with detailed reasoning. Show signals in a chart demonstrating your bias visually 
+o	Trade history with statistics in a button that directs users to where trade history is stored
+
+10. Risk & Performance Controls
+•	Ensure signals are high probability before alerting.
+•	Apply risk filters to avoid overexposure to the same instrument.
+•	Continuous system improvement using past trade data.
+
