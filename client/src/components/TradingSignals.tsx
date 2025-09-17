@@ -24,8 +24,8 @@ interface TradingSignal {
 export default function TradingSignals() {
   const [selectedSignal, setSelectedSignal] = useState<string | null>(null);
   
-  // TODO: Remove mock data - replace with real trading signals
-  const signals: TradingSignal[] = [
+  // TODO: Remove mock data - replace with real trading signals (max 5 active)
+  const activeSignals: TradingSignal[] = [
     {
       id: '1',
       symbol: 'EUR/USD',
@@ -96,6 +96,90 @@ export default function TradingSignals() {
         'Institutional candles'
       ],
       timestamp: new Date(Date.now() - 45 * 60 * 1000),
+      status: 'active'
+    },
+    {
+      id: '4',
+      symbol: 'USD/CHF',
+      type: 'sell',
+      strategy: 'scalping',
+      entry: 0.8950,
+      stopLoss: 0.8975,
+      takeProfit: 0.8900,
+      riskReward: 2.0,
+      timeframe: '15M',
+      confidence: 72,
+      reasoning: [
+        'Rejection at key resistance',
+        'Bearish momentum building',
+        'Support test expected'
+      ],
+      smcFactors: [
+        'Supply zone holding',
+        'Liquidity grabbed above',
+        'Fair value gap below'
+      ],
+      timestamp: new Date(Date.now() - 30 * 60 * 1000),
+      status: 'pending'
+    },
+    {
+      id: '5',
+      symbol: 'GOLD',
+      type: 'buy',
+      strategy: 'day',
+      entry: 2035.00,
+      stopLoss: 2025.00,
+      takeProfit: 2055.00,
+      riskReward: 2.0,
+      timeframe: '30M',
+      confidence: 88,
+      reasoning: [
+        'Demand zone confluence',
+        'Dollar weakness setup',
+        'Safe haven flow expected'
+      ],
+      smcFactors: [
+        'Order block activated',
+        'Imbalance mitigation',
+        'Institutional buying'
+      ],
+      timestamp: new Date(Date.now() - 20 * 60 * 1000),
+      status: 'active'
+    }
+  ];
+
+  // Signals that were recently replaced or expired (before being archived)
+  const previousSignals: TradingSignal[] = [
+    {
+      id: 'prev1',
+      symbol: 'AUD/USD',
+      type: 'buy',
+      strategy: 'swing',
+      entry: 0.6580,
+      stopLoss: 0.6550,
+      takeProfit: 0.6640,
+      riskReward: 2.0,
+      timeframe: '4H',
+      confidence: 75,
+      reasoning: ['Bounce off support', 'Bullish divergence'],
+      smcFactors: ['Demand zone test', 'Liquidity sweep'],
+      timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
+      status: 'executed'
+    },
+    {
+      id: 'prev2',
+      symbol: 'TSLA',
+      type: 'sell',
+      strategy: 'day',
+      entry: 248.50,
+      stopLoss: 252.00,
+      takeProfit: 241.00,
+      riskReward: 2.1,
+      timeframe: '1H',
+      confidence: 68,
+      reasoning: ['Resistance rejection', 'Volume decline'],
+      smcFactors: ['Supply zone active', 'Gap below'],
+      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
       status: 'executed'
     }
   ];
@@ -128,13 +212,17 @@ export default function TradingSignals() {
           <Target className="w-5 h-5" />
           Trading Signals
           <Badge variant="secondary" className="ml-auto">
-            {signals.filter(s => s.status === 'active').length} Active
+            {activeSignals.filter(s => s.status === 'active').length}/5 Active
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {signals.map((signal) => (
+        <div className="space-y-6">
+          {/* Active Signals Section */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Current Signals</h3>
+            <div className="space-y-4">
+              {activeSignals.map((signal) => (
             <div
               key={signal.id}
               className={`p-4 rounded-md border border-border hover-elevate transition-all ${
@@ -265,8 +353,90 @@ export default function TradingSignals() {
                   </div>
                 </div>
               )}
+              </div>
+            ))}
             </div>
-          ))}
+          </div>
+
+          {/* Previous Signals Section */}
+          {previousSignals.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+                Recently Expired
+                <span className="ml-2 text-xs font-normal normal-case">(Before Archive)</span>
+              </h3>
+              <div className="space-y-3">
+                {previousSignals.map((signal) => (
+                  <div
+                    key={signal.id}
+                    className="p-3 rounded-md border border-border bg-muted/20 opacity-75"
+                    data-testid={`card-prev-signal-${signal.id}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <Badge 
+                          variant="secondary"
+                          className="text-xs font-medium opacity-75"
+                          style={{ 
+                            backgroundColor: getSignalTypeColor(signal.type) + '20', 
+                            color: getSignalTypeColor(signal.type) 
+                          }}
+                        >
+                          {signal.type.toUpperCase()}
+                        </Badge>
+                        <div>
+                          <h4 className="font-semibold text-sm">
+                            {signal.symbol}
+                          </h4>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{signal.strategy}</span>
+                            <span>•</span>
+                            <span>{signal.timeframe}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatTimeAgo(signal.timestamp)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Badge variant="outline" className="text-xs">
+                        EXPIRED
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Entry:</span>
+                        <div className="font-mono font-semibold">
+                          {signal.entry.toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">R:R:</span>
+                        <div className="font-mono font-semibold">
+                          1:{signal.riskReward}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Confidence:</span>
+                        <div className="font-mono font-semibold">
+                          {signal.confidence}%
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Status:</span>
+                        <div className="font-semibold text-green-500">
+                          {signal.status.toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
