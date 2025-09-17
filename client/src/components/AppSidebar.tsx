@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Calendar, History, Home, Settings, Target, TrendingUp } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Calendar, History, Home, Settings, Target, TrendingUp } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -35,6 +35,11 @@ const menuItems = [
     title: 'Trade History',
     url: '/history',
     icon: History,
+  },
+  {
+    title: 'Pattern Training',
+    url: '/pattern-training',
+    icon: BookOpen,
   },
   {
     title: 'Analytics',
