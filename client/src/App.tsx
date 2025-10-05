@@ -9,6 +9,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Dashboard from "@/pages/Dashboard";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
+import EconomicCalendar from "@/pages/EconomicCalendar";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,10 +19,10 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={TradeHistoryPage} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/calendar" component={EconomicCalendar} />
       {/* TODO: Add other trading pages */}
       {/* <Route path="/markets" component={Markets} /> */}
       {/* <Route path="/signals" component={Signals} /> */}
-      {/* <Route path="/calendar" component={Calendar} /> */}
       <Route component={NotFound} />
     </Switch>
   );
