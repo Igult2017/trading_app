@@ -1,6 +1,6 @@
 # Overview
 
-The Infod Trading Partner System is a professional financial trading analysis platform designed to provide real-time market scanning, signal generation, and pattern training capabilities. The system focuses on Smart Money Concepts (SMC), multi-timeframe analysis, and advanced trading strategies including scalping, day trading, swing trading, and Opening Range Breakout (ORB). Built with a modern tech stack, it delivers a Bloomberg Terminal-inspired interface optimized for data-dense financial information and high-frequency decision making.
+The Infod Trading Partner System is a professional financial trading analysis platform designed to provide real-time market scanning, signal generation, trade history tracking, and analytics capabilities. The system focuses on Smart Money Concepts (SMC), multi-timeframe analysis, and advanced trading strategies including scalping, day trading, swing trading, and Opening Range Breakout (ORB). Built with a modern tech stack, it delivers a Bloomberg Terminal-inspired interface optimized for data-dense financial information and high-frequency decision making.
 
 # User Preferences
 
@@ -26,7 +26,8 @@ Preferred communication style: Simple, everyday language.
 - **Primary Database**: PostgreSQL with Neon serverless hosting for scalability
 - **ORM**: Drizzle ORM for type-safe database operations and migrations
 - **Schema Validation**: Zod for runtime type checking and data validation
-- **Pattern Training System**: Dedicated tables for storing trading pattern examples, categories, and training data with JSONB for flexible metadata storage
+- **Trade History System**: Backend storage for trade records with comprehensive details including entry/exit prices, P&L, strategy, and timeframe data
+- **Analytics Engine**: Real-time calculation of trading metrics including win rate, average P&L, risk-reward ratios from stored trade data
 
 ## Design System
 - **Color Palette**: Dark-mode primary with financial trading color scheme (trading blue, profit green, loss red, alert amber)
