@@ -114,8 +114,8 @@ export class MemStorage implements IStorage {
     const event: EconomicEvent = {
       ...insertEvent,
       id,
-      affectedCurrencies: insertEvent.affectedCurrencies ?? null,
-      affectedStocks: insertEvent.affectedStocks ?? null,
+      affectedCurrencies: insertEvent.affectedCurrencies ?? [],
+      affectedStocks: insertEvent.affectedStocks ?? [],
       description: insertEvent.description ?? null,
       expectedValue: insertEvent.expectedValue ?? null,
       previousValue: insertEvent.previousValue ?? null,
