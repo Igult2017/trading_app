@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTradeSchema } from "@shared/schema";
+import { insertTradeSchema, insertEconomicEventSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -94,6 +94,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analytics);
     } catch (error) {
       res.status(500).json({ error: "Failed to calculate analytics" });
+    }
+  });
+
+  app.get("/api/economic-events", async (req, res) => {
+    try {
+      const filters = {
+        region: req.query.region as string | undefined,
+        impactLevel: req.query.impactLevel as string | undefined,
+        currency: req.query.currency as string | undefined,
+      };
+      const events = await storage.getEconomicEvents(filters);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch economic events" });
+    }
+  });
+
+  app.get("/api/economic-events/:id", async (req, res) => {
+    try {
+      const event = await storage.getEconomicEventById(req.params.id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch event" });
+    }
+  });
+
+  app.post("/api/economic-events", async (req, res) => {
+    try {
+      const validatedData = insertEconomicEventSchema.parse(req.body);
+      const event = await storage.createEconomicEvent(validatedData);
+      res.status(201).json(event);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid event data" });
+    }
+  });
+
+  app.put("/api/economic-events/:id", async (req, res) => {
+    try {
+      const event = await storage.updateEconomicEvent(req.params.id, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update event" });
+    }
+  });
+
+  app.delete("/api/economic-events/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteEconomicEvent(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete event" });
     }
   });
 

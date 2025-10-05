@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -43,3 +43,34 @@ export const insertTradeSchema = createInsertSchema(trades).omit({
 
 export type InsertTrade = z.infer<typeof insertTradeSchema>;
 export type Trade = typeof trades.$inferSelect;
+
+export const economicEvents = pgTable("economic_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  eventType: text("event_type").notNull(),
+  country: text("country").notNull(),
+  region: text("region").notNull(),
+  currency: text("currency").notNull(),
+  impactLevel: text("impact_level").notNull(),
+  eventTime: timestamp("event_time").notNull(),
+  expectedValue: text("expected_value"),
+  previousValue: text("previous_value"),
+  actualValue: text("actual_value"),
+  unit: text("unit"),
+  futuresImpliedExpectation: text("futures_implied_expectation"),
+  surpriseFactor: text("surprise_factor"),
+  marketImpactAnalysis: text("market_impact_analysis"),
+  affectedCurrencies: text("affected_currencies").array(),
+  affectedStocks: text("affected_stocks").array(),
+  isReleased: boolean("is_released").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEconomicEventSchema = createInsertSchema(economicEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEconomicEvent = z.infer<typeof insertEconomicEventSchema>;
+export type EconomicEvent = typeof economicEvents.$inferSelect;

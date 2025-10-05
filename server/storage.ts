@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -11,15 +11,23 @@ export interface IStorage {
   createTrade(trade: InsertTrade): Promise<Trade>;
   updateTrade(id: string, trade: Partial<InsertTrade>): Promise<Trade | undefined>;
   deleteTrade(id: string): Promise<boolean>;
+  
+  getEconomicEvents(filters?: { region?: string; impactLevel?: string; currency?: string }): Promise<EconomicEvent[]>;
+  getEconomicEventById(id: string): Promise<EconomicEvent | undefined>;
+  createEconomicEvent(event: InsertEconomicEvent): Promise<EconomicEvent>;
+  updateEconomicEvent(id: string, event: Partial<InsertEconomicEvent>): Promise<EconomicEvent | undefined>;
+  deleteEconomicEvent(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private trades: Map<string, Trade>;
+  private economicEvents: Map<string, EconomicEvent>;
 
   constructor() {
     this.users = new Map();
     this.trades = new Map();
+    this.economicEvents = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -75,6 +83,66 @@ export class MemStorage implements IStorage {
 
   async deleteTrade(id: string): Promise<boolean> {
     return this.trades.delete(id);
+  }
+
+  async getEconomicEvents(filters?: { region?: string; impactLevel?: string; currency?: string }): Promise<EconomicEvent[]> {
+    let events = Array.from(this.economicEvents.values());
+    
+    if (filters) {
+      if (filters.region) {
+        events = events.filter(e => e.region === filters.region);
+      }
+      if (filters.impactLevel) {
+        events = events.filter(e => e.impactLevel === filters.impactLevel);
+      }
+      if (filters.currency) {
+        events = events.filter(e => e.currency === filters.currency);
+      }
+    }
+    
+    return events.sort((a, b) => 
+      new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
+    );
+  }
+
+  async getEconomicEventById(id: string): Promise<EconomicEvent | undefined> {
+    return this.economicEvents.get(id);
+  }
+
+  async createEconomicEvent(insertEvent: InsertEconomicEvent): Promise<EconomicEvent> {
+    const id = randomUUID();
+    const event: EconomicEvent = {
+      ...insertEvent,
+      id,
+      affectedCurrencies: insertEvent.affectedCurrencies ?? null,
+      affectedStocks: insertEvent.affectedStocks ?? null,
+      description: insertEvent.description ?? null,
+      expectedValue: insertEvent.expectedValue ?? null,
+      previousValue: insertEvent.previousValue ?? null,
+      actualValue: insertEvent.actualValue ?? null,
+      unit: insertEvent.unit ?? null,
+      futuresImpliedExpectation: insertEvent.futuresImpliedExpectation ?? null,
+      surpriseFactor: insertEvent.surpriseFactor ?? null,
+      marketImpactAnalysis: insertEvent.marketImpactAnalysis ?? null,
+      isReleased: insertEvent.isReleased ?? false,
+      createdAt: new Date(),
+    };
+    this.economicEvents.set(id, event);
+    return event;
+  }
+
+  async updateEconomicEvent(id: string, updateData: Partial<InsertEconomicEvent>): Promise<EconomicEvent | undefined> {
+    const event = this.economicEvents.get(id);
+    if (!event) {
+      return undefined;
+    }
+    const updatedEvent = { ...event, ...updateData };
+    this.economicEvents.set(id, updatedEvent);
+    return updatedEvent;
+  }
+
+  async deleteEconomicEvent(id: string): Promise<boolean> {
+    return this.economicEvents.delete(id);
   }
 }
 
