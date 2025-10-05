@@ -1,112 +1,35 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { History, TrendingUp, TrendingDown, Filter, Download } from 'lucide-react';
-
-interface Trade {
-  id: string;
-  symbol: string;
-  type: 'buy' | 'sell';
-  strategy: string;
-  entryPrice: number;
-  exitPrice: number;
-  quantity: number;
-  pnl: number;
-  pnlPercent: number;
-  outcome: 'win' | 'loss';
-  timeframe: string;
-  entryReason: string;
-  exitDate: Date;
-  duration: string;
-}
+import type { Trade } from '@shared/schema';
 
 export default function TradeHistory() {
   const [filter, setFilter] = useState<'all' | 'wins' | 'losses'>('all');
   
-  // TODO: Remove mock data - replace with real trade history
-  const trades: Trade[] = [
-    {
-      id: '1',
-      symbol: 'EUR/USD',
-      type: 'buy',
-      strategy: 'SMC + Volume',
-      entryPrice: 1.0820,
-      exitPrice: 1.0865,
-      quantity: 0.1,
-      pnl: 450,
-      pnlPercent: 4.16,
-      outcome: 'win',
-      timeframe: '15M',
-      entryReason: 'FVG retest + order block hold',
-      exitDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      duration: '2h 15m'
-    },
-    {
-      id: '2',
-      symbol: 'GBP/USD',
-      type: 'sell',
-      strategy: 'Breakout',
-      entryPrice: 1.2695,
-      exitPrice: 1.2745,
-      quantity: 0.1,
-      pnl: -500,
-      pnlPercent: -3.94,
-      outcome: 'loss',
-      timeframe: '30M',
-      entryReason: 'False breakout, SL hit',
-      exitDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      duration: '45m'
-    },
-    {
-      id: '3',
-      symbol: 'USD/JPY',
-      type: 'buy',
-      strategy: 'Trend Follow',
-      entryPrice: 149.80,
-      exitPrice: 150.45,
-      quantity: 0.1,
-      pnl: 650,
-      pnlPercent: 4.34,
-      outcome: 'win',
-      timeframe: '4H',
-      entryReason: 'HTF trend + demand zone',
-      exitDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      duration: '6h 30m'
-    },
-    {
-      id: '4',
-      symbol: 'BTC/USD',
-      type: 'buy',
-      strategy: 'ORB',
-      entryPrice: 42800,
-      exitPrice: 43350,
-      quantity: 0.01,
-      pnl: 550,
-      pnlPercent: 12.86,
-      outcome: 'win',
-      timeframe: '1H',
-      entryReason: 'Opening range breakout',
-      exitDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      duration: '3h 20m'
-    },
-    {
-      id: '5',
-      symbol: 'AUD/USD',
-      type: 'sell',
-      strategy: 'Reversal',
-      entryPrice: 0.6580,
-      exitPrice: 0.6620,
-      quantity: 0.1,
-      pnl: -400,
-      pnlPercent: -6.08,
-      outcome: 'loss',
-      timeframe: '15M',
-      entryReason: 'Failed reversal at resistance',
-      exitDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-      duration: '1h 10m'
-    }
-  ];
+  const { data: trades = [], isLoading } = useQuery<Trade[]>({
+    queryKey: ['/api/trades'],
+  });
+
+  if (isLoading) {
+    return (
+      <Card data-testid="card-trade-history">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Trade History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            Loading trades...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const filteredTrades = trades.filter(trade => {
     if (filter === 'wins') return trade.outcome === 'win';
@@ -114,10 +37,38 @@ export default function TradeHistory() {
     return true;
   });
 
-  const totalPnL = trades.reduce((sum, trade) => sum + trade.pnl, 0);
-  const winRate = (trades.filter(t => t.outcome === 'win').length / trades.length) * 100;
-  const avgWin = trades.filter(t => t.outcome === 'win').reduce((sum, t) => sum + t.pnl, 0) / trades.filter(t => t.outcome === 'win').length;
-  const avgLoss = Math.abs(trades.filter(t => t.outcome === 'loss').reduce((sum, t) => sum + t.pnl, 0) / trades.filter(t => t.outcome === 'loss').length);
+  const totalPnL = trades.reduce((sum, trade) => sum + parseFloat(trade.pnl), 0);
+  const winningTrades = trades.filter(t => t.outcome === 'win');
+  const losingTrades = trades.filter(t => t.outcome === 'loss');
+  const winRate = trades.length > 0 ? (winningTrades.length / trades.length) * 100 : 0;
+  const avgWin = winningTrades.length > 0 
+    ? winningTrades.reduce((sum, t) => sum + parseFloat(t.pnl), 0) / winningTrades.length 
+    : 0;
+  const avgLoss = losingTrades.length > 0
+    ? Math.abs(losingTrades.reduce((sum, t) => sum + parseFloat(t.pnl), 0) / losingTrades.length)
+    : 0;
+
+  if (trades.length === 0) {
+    return (
+      <Card data-testid="card-trade-history">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Trade History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <History className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">No trades yet</h3>
+            <p className="text-muted-foreground">
+              Your trade history will appear here once you start trading.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card data-testid="card-trade-history">
@@ -230,11 +181,11 @@ export default function TradeHistory() {
                 </div>
                 
                 <div className="text-right">
-                  <div className={`font-mono font-semibold text-sm ${trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(0)}
+                  <div className={`font-mono font-semibold text-sm ${parseFloat(trade.pnl) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {parseFloat(trade.pnl) >= 0 ? '+' : ''}${parseFloat(trade.pnl).toFixed(0)}
                   </div>
-                  <div className={`text-xs ${trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    ({trade.pnl >= 0 ? '+' : ''}{trade.pnlPercent.toFixed(2)}%)
+                  <div className={`text-xs ${parseFloat(trade.pnl) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    ({parseFloat(trade.pnl) >= 0 ? '+' : ''}{parseFloat(trade.pnlPercent).toFixed(2)}%)
                   </div>
                 </div>
               </div>
@@ -243,11 +194,11 @@ export default function TradeHistory() {
                 <div className="flex gap-4">
                   <div>
                     <span className="text-muted-foreground">Entry: </span>
-                    <span className="font-mono">{trade.entryPrice.toFixed(4)}</span>
+                    <span className="font-mono">{parseFloat(trade.entryPrice).toFixed(4)}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Exit: </span>
-                    <span className="font-mono">{trade.exitPrice.toFixed(4)}</span>
+                    <span className="font-mono">{parseFloat(trade.exitPrice).toFixed(4)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -270,7 +221,7 @@ export default function TradeHistory() {
               </div>
               
               <div className="mt-1 text-xs text-muted-foreground">
-                Closed: {trade.exitDate.toLocaleDateString()} {trade.exitDate.toLocaleTimeString()}
+                Closed: {new Date(trade.exitDate).toLocaleDateString()} {new Date(trade.exitDate).toLocaleTimeString()}
               </div>
             </div>
           ))}

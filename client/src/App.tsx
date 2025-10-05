@@ -7,7 +7,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import ThemeToggle from "@/components/ThemeToggle";
 import Dashboard from "@/pages/Dashboard";
-import PatternTraining from "@/pages/PatternTraining";
+import TradeHistoryPage from "@/pages/TradeHistoryPage";
+import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,12 +16,12 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/pattern-training" component={PatternTraining} />
+      <Route path="/history" component={TradeHistoryPage} />
+      <Route path="/analytics" component={Analytics} />
       {/* TODO: Add other trading pages */}
       {/* <Route path="/markets" component={Markets} /> */}
       {/* <Route path="/signals" component={Signals} /> */}
       {/* <Route path="/calendar" component={Calendar} /> */}
-      {/* <Route path="/history" component={TradeHistory} /> */}
       <Route component={NotFound} />
     </Switch>
   );
