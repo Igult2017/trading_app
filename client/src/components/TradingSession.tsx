@@ -2,69 +2,24 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Globe } from 'lucide-react';
-
-interface Session {
-  name: string;
-  city: string;
-  timezone: string;
-  openTime: string;
-  closeTime: string;
-  isActive: boolean;
-  color: string;
-}
+import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining } from '@/lib/tradingSessions';
 
 export default function TradingSession() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [sessions, setSessions] = useState(getActiveSessions());
   
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+      setSessions(getActiveSessions());
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // TODO: Remove mock data - replace with real session data
-  const sessions: Session[] = [
-    {
-      name: 'London',
-      city: 'London',
-      timezone: 'GMT',
-      openTime: '08:00',
-      closeTime: '17:00',
-      isActive: true,
-      color: 'hsl(120 60% 50%)'
-    },
-    {
-      name: 'New York',
-      city: 'New York',
-      timezone: 'EST',
-      openTime: '08:00',
-      closeTime: '17:00',
-      isActive: false,
-      color: 'hsl(210 100% 60%)'
-    },
-    {
-      name: 'Tokyo',
-      city: 'Tokyo',
-      timezone: 'JST',
-      openTime: '09:00',
-      closeTime: '15:00',
-      isActive: false,
-      color: 'hsl(45 90% 60%)'
-    },
-    {
-      name: 'Sydney',
-      city: 'Sydney',
-      timezone: 'AEST',
-      openTime: '09:00',
-      closeTime: '17:00',
-      isActive: false,
-      color: 'hsl(280 85% 70%)'
-    }
-  ];
-
-  const activeSession = sessions.find(s => s.isActive);
-  const sessionStartTime = new Date();
-  sessionStartTime.setHours(8, 0, 0, 0); // Mock session start at 8 AM
-  const elapsedMinutes = Math.floor((currentTime.getTime() - sessionStartTime.getTime()) / (1000 * 60));
+  const activeSessions = sessions.filter(s => s.isActive);
+  const primarySession = activeSessions[0];
+  const elapsedMinutes = primarySession ? getSessionElapsedMinutes(primarySession) : 0;
+  const remainingMinutes = primarySession ? getSessionTimeRemaining(primarySession) : 0;
 
   return (
     <Card data-testid="card-trading-session">
@@ -79,34 +34,55 @@ export default function TradingSession() {
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium" data-testid="text-current-time">
-              {currentTime.toLocaleTimeString()}
+              {currentTime.toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false })} UTC
             </span>
           </div>
-          {activeSession && (
-            <Badge 
-              variant="default" 
-              className="text-xs"
-              style={{ backgroundColor: activeSession.color }}
-              data-testid="badge-active-session"
-            >
-              {activeSession.name} Active
-            </Badge>
+          {activeSessions.length > 0 && (
+            <div className="flex gap-1 flex-wrap justify-end">
+              {activeSessions.map(session => (
+                <Badge 
+                  key={session.name}
+                  variant="default" 
+                  className="text-xs"
+                  style={{ backgroundColor: session.color }}
+                  data-testid={`badge-active-${session.name.toLowerCase()}`}
+                >
+                  {session.name}
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
 
-        {activeSession && (
+        {primarySession ? (
           <div className="p-3 border border-border rounded-md" data-testid="card-session-details">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-medium">{activeSession.name} Session</h3>
+              <h3 className="font-medium">{primarySession.name} Session</h3>
               <span className="text-xs text-muted-foreground">
-                {activeSession.openTime} - {activeSession.closeTime} {activeSession.timezone}
+                {primarySession.openTime} - {primarySession.closeTime} UTC
               </span>
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span data-testid="text-elapsed-time">
-                Elapsed: {Math.max(0, elapsedMinutes)} minutes
+                Elapsed: {elapsedMinutes} min
+              </span>
+              <span data-testid="text-remaining-time">
+                Remaining: {remainingMinutes} min
               </span>
             </div>
+            {activeSessions.length > 1 && (
+              <div className="mt-2 pt-2 border-t border-border">
+                <span className="text-xs text-muted-foreground">
+                  Overlapping with: {activeSessions.slice(1).map(s => s.name).join(', ')}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-3 border border-border rounded-md text-center" data-testid="card-session-closed">
+            <span className="text-sm text-muted-foreground">
+              Markets Closed - Weekend
+            </span>
           </div>
         )}
 

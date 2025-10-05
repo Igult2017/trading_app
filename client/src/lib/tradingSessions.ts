@@ -1,0 +1,131 @@
+export interface TradingSession {
+  name: string;
+  city: string;
+  timezone: string;
+  openTime: string;
+  closeTime: string;
+  isActive: boolean;
+  color: string;
+  openUTC: number;
+  closeUTC: number;
+}
+
+const SESSION_DEFINITIONS = [
+  {
+    name: 'Sydney',
+    city: 'Sydney',
+    timezone: 'AEST (UTC+10)',
+    openUTC: 22,
+    closeUTC: 7,
+    color: 'hsl(280 85% 70%)',
+  },
+  {
+    name: 'Tokyo',
+    city: 'Tokyo',
+    timezone: 'JST (UTC+9)',
+    openUTC: 0,
+    closeUTC: 9,
+    color: 'hsl(45 90% 60%)',
+  },
+  {
+    name: 'London',
+    city: 'London',
+    timezone: 'GMT (UTC+0)',
+    openUTC: 8,
+    closeUTC: 16.5,
+    color: 'hsl(120 60% 50%)',
+  },
+  {
+    name: 'New York',
+    city: 'New York',
+    timezone: 'EST (UTC-5)',
+    openUTC: 13,
+    closeUTC: 22,
+    color: 'hsl(210 100% 60%)',
+  },
+];
+
+function formatUTCTime(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+function isSessionActive(openUTC: number, closeUTC: number, currentUTC: number): boolean {
+  if (openUTC < closeUTC) {
+    return currentUTC >= openUTC && currentUTC < closeUTC;
+  } else {
+    return currentUTC >= openUTC || currentUTC < closeUTC;
+  }
+}
+
+export function getActiveSessions(): TradingSession[] {
+  const now = new Date();
+  const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const dayOfWeek = now.getUTCDay();
+  
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+  return SESSION_DEFINITIONS.map(session => {
+    const isActive = !isWeekend && isSessionActive(session.openUTC, session.closeUTC, currentUTC);
+    
+    return {
+      ...session,
+      openTime: formatUTCTime(session.openUTC),
+      closeTime: formatUTCTime(session.closeUTC),
+      isActive,
+    };
+  });
+}
+
+export function getActiveSessionNames(): string[] {
+  return getActiveSessions()
+    .filter(s => s.isActive)
+    .map(s => s.name);
+}
+
+export function getSessionStartTime(session: TradingSession): Date {
+  const now = new Date();
+  const sessionStart = new Date(now);
+  
+  const hours = Math.floor(session.openUTC);
+  const minutes = Math.round((session.openUTC - hours) * 60);
+  
+  sessionStart.setUTCHours(hours, minutes, 0, 0);
+  
+  if (session.openUTC > session.closeUTC && now.getUTCHours() < session.closeUTC) {
+    sessionStart.setUTCDate(sessionStart.getUTCDate() - 1);
+  }
+  
+  return sessionStart;
+}
+
+export function getSessionTimeRemaining(session: TradingSession): number {
+  if (!session.isActive) return 0;
+  
+  const now = new Date();
+  const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
+  
+  let timeRemaining: number;
+  
+  if (session.openUTC < session.closeUTC) {
+    timeRemaining = session.closeUTC - currentUTC;
+  } else {
+    if (currentUTC >= session.openUTC) {
+      timeRemaining = 24 - currentUTC + session.closeUTC;
+    } else {
+      timeRemaining = session.closeUTC - currentUTC;
+    }
+  }
+  
+  return Math.max(0, Math.floor(timeRemaining * 60));
+}
+
+export function getSessionElapsedMinutes(session: TradingSession): number {
+  if (!session.isActive) return 0;
+  
+  const sessionStart = getSessionStartTime(session);
+  const now = new Date();
+  
+  return Math.floor((now.getTime() - sessionStart.getTime()) / (1000 * 60));
+}
