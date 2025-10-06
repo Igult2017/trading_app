@@ -70,6 +70,7 @@ export const economicEvents = pgTable("economic_events", {
   affectedCurrencies: text("affected_currencies").array(),
   affectedStocks: text("affected_stocks").array(),
   isReleased: boolean("is_released").default(false),
+  telegramNotified: boolean("telegram_notified").default(false),
   sourceSite: text("source_site"),
   sourceUrl: text("source_url"),
   lastScraped: timestamp("last_scraped").defaultNow(),
@@ -80,7 +81,27 @@ export const insertEconomicEventSchema = createInsertSchema(economicEvents).omit
   id: true,
   createdAt: true,
   lastScraped: true,
+  telegramNotified: true,
 });
 
 export type InsertEconomicEvent = z.infer<typeof insertEconomicEventSchema>;
 export type EconomicEvent = typeof economicEvents.$inferSelect;
+
+export const telegramSubscribers = pgTable("telegram_subscribers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatId: text("chat_id").notNull().unique(),
+  phoneNumber: text("phone_number"),
+  username: text("username"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTelegramSubscriberSchema = createInsertSchema(telegramSubscribers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTelegramSubscriber = z.infer<typeof insertTelegramSubscriberSchema>;
+export type TelegramSubscriber = typeof telegramSubscribers.$inferSelect;
