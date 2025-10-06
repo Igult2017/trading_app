@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, AlertTriangle, BarChart3, Calendar } from 'lucide-react';
 
@@ -134,14 +133,14 @@ export default function MarketOverview() {
   };
 
   return (
-    <Card data-testid="card-market-overview">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+    <div data-testid="card-market-overview" className="bg-white dark:bg-background">
+      <div className="pb-4 mb-4 border-b border-border/50">
+        <div className="flex items-center gap-2 text-lg font-semibold">
           <Activity className="w-5 h-5" />
           Instruments to Watch
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+        </div>
+      </div>
+      <div>
         <div className="space-y-3">
           {watchlistData.map((item) => (
             <div
@@ -212,7 +211,7 @@ export default function MarketOverview() {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
