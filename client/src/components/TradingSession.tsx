@@ -158,7 +158,7 @@ export default function TradingSession() {
                 </div>
                 <Badge 
                   variant={session.isActive ? "default" : "secondary"}
-                  className="text-xs"
+                  className="text-xs mr-2"
                   style={session.isActive ? { backgroundColor: session.color } : {}}
                 >
                   {session.isActive ? 'Active' : 'Closed'}
