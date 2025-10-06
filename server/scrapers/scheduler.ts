@@ -87,14 +87,15 @@ export class ScraperScheduler {
     });
 
     this.notificationJob = cron.schedule('*/5 * * * *', async () => {
-      console.log('Checking for events to notify...');
+      console.log('Checking for events and sessions to notify...');
       await telegramNotificationService.checkAndNotifyUpcomingEvents();
+      await telegramNotificationService.checkAndNotifyTradingSessions();
     });
 
     console.log(`Scheduled upcoming events scrape: every ${upcomingIntervalMinutes} minutes`);
     console.log(`Scheduled full week scrape: ${scraperSettings.schedules.fullWeekScrapeTime}`);
     console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
-    console.log(`Scheduled Telegram notifications check: every 5 minutes`);
+    console.log(`Scheduled Telegram notifications (events, sessions, signals): every 5 minutes`);
 
     this.runUpcomingEventsScrape();
   }

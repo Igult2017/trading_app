@@ -4,9 +4,21 @@ import { telegramSubscribers, economicEvents } from '@shared/schema';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
 
+interface TradingSession {
+  name: string;
+  openUTC: number;
+  closeUTC: number;
+}
+
+const HIGH_VOLUME_SESSIONS: TradingSession[] = [
+  { name: 'London', openUTC: 8, closeUTC: 16.5 },
+  { name: 'New York', openUTC: 13, closeUTC: 22 }
+];
+
 export class TelegramNotificationService {
   private bot: TelegramBot | null = null;
   private isInitialized = false;
+  private notifiedSessions = new Set<string>();
 
   constructor() {
     this.initialize();
@@ -58,10 +70,11 @@ export class TelegramNotificationService {
             chatId,
             `✅ Welcome to Infod Trading Alerts!\n\n` +
             `You're now subscribed to receive notifications for:\n` +
+            `🔔 Trading Sessions - 5 min before London & NY open\n` +
             `📊 High impact economic events\n` +
             `📈 Medium impact economic events\n` +
+            `💹 New trading signal setups\n` +
             `📅 Data releases with expected impacts\n\n` +
-            `You'll receive alerts 30 minutes before each event.\n\n` +
             `Commands:\n` +
             `/stop - Pause notifications\n` +
             `/resume - Resume notifications\n` +
@@ -153,8 +166,10 @@ export class TelegramNotificationService {
             `📊 Subscription Status: ${status}\n` +
             `📅 Subscribed since: ${subDate}\n\n` +
             `Receiving notifications for:\n` +
-            `• High impact events\n` +
-            `• Medium impact events\n` +
+            `• Trading sessions (London & NY)\n` +
+            `• High impact economic events\n` +
+            `• Medium impact economic events\n` +
+            `• New trading signals\n` +
             `• Data releases`
           );
         }
@@ -260,6 +275,126 @@ export class TelegramNotificationService {
       }
     } catch (error) {
       console.error('Error checking upcoming events:', error);
+    }
+  }
+
+  async checkAndNotifyTradingSessions(): Promise<void> {
+    if (!this.isInitialized || !this.bot) {
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
+      const dayOfWeek = now.getUTCDay();
+      
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) {
+        return;
+      }
+
+      const subscribers = await db
+        .select()
+        .from(telegramSubscribers)
+        .where(eq(telegramSubscribers.isActive, true));
+
+      if (subscribers.length === 0) {
+        return;
+      }
+
+      for (const session of HIGH_VOLUME_SESSIONS) {
+        const sessionKey = `${session.name}-${now.toISOString().split('T')[0]}-${Math.floor(session.openUTC)}`;
+        
+        if (this.notifiedSessions.has(sessionKey)) {
+          continue;
+        }
+
+        const minutesToOpen = (session.openUTC - currentUTC) * 60;
+        
+        if (minutesToOpen > 0 && minutesToOpen <= 6) {
+          const message = 
+            `🔔 *${session.name} Session Opening Soon!*\n\n` +
+            `⏰ Opens in ${Math.ceil(minutesToOpen)} minutes\n` +
+            `🌍 High volume trading session\n` +
+            `💹 Increased volatility expected\n\n` +
+            `Prepare your trading setups!`;
+
+          for (const subscriber of subscribers) {
+            try {
+              await this.bot.sendMessage(subscriber.chatId, message, {
+                parse_mode: 'Markdown',
+              });
+            } catch (error) {
+              console.error(`Failed to send session alert to ${subscriber.chatId}:`, error);
+            }
+          }
+
+          this.notifiedSessions.add(sessionKey);
+          console.log(`Sent ${session.name} session alert`);
+        }
+      }
+
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      Array.from(this.notifiedSessions).forEach(key => {
+        const dateStr = key.split('-').slice(1, 4).join('-');
+        if (new Date(dateStr) < yesterday) {
+          this.notifiedSessions.delete(key);
+        }
+      });
+
+    } catch (error) {
+      console.error('Error checking trading sessions:', error);
+    }
+  }
+
+  async sendTradingSignalNotification(signal: any): Promise<void> {
+    if (!this.isInitialized || !this.bot) {
+      return;
+    }
+
+    try {
+      const subscribers = await db
+        .select()
+        .from(telegramSubscribers)
+        .where(eq(telegramSubscribers.isActive, true));
+
+      if (subscribers.length === 0) {
+        return;
+      }
+
+      const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
+      const confidenceEmoji = signal.confidence >= 80 ? '⭐⭐⭐' : signal.confidence >= 60 ? '⭐⭐' : '⭐';
+      
+      let message = `${typeEmoji} *New Trading Signal*\n\n`;
+      message += `💹 *${signal.symbol}* - ${signal.type.toUpperCase()}\n`;
+      message += `📊 Strategy: ${signal.strategy}\n`;
+      message += `⏱ Timeframe: ${signal.timeframe}\n`;
+      message += `${confidenceEmoji} Confidence: ${signal.confidence}%\n\n`;
+      message += `📍 Entry: ${signal.entry}\n`;
+      message += `🛑 Stop Loss: ${signal.stopLoss}\n`;
+      message += `🎯 Take Profit: ${signal.takeProfit}\n`;
+      message += `💰 Risk/Reward: 1:${signal.riskReward}\n`;
+
+      if (signal.reasoning && signal.reasoning.length > 0) {
+        message += `\n📝 *Analysis:*\n`;
+        signal.reasoning.slice(0, 2).forEach((reason: string) => {
+          message += `• ${reason}\n`;
+        });
+      }
+
+      for (const subscriber of subscribers) {
+        try {
+          await this.bot.sendMessage(subscriber.chatId, message, {
+            parse_mode: 'Markdown',
+          });
+        } catch (error) {
+          console.error(`Failed to send signal to ${subscriber.chatId}:`, error);
+        }
+      }
+
+      console.log(`Sent trading signal notification for ${signal.symbol}`);
+    } catch (error) {
+      console.error('Error sending trading signal notification:', error);
     }
   }
 
