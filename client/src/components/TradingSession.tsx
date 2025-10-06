@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Globe, TrendingUp, Timer } from 'lucide-react';
 import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining, formatMinutesToHoursAndMinutes } from '@/lib/tradingSessions';
@@ -25,14 +24,14 @@ export default function TradingSession() {
   const progressPercentage = totalSessionMinutes > 0 ? (elapsedMinutes / totalSessionMinutes) * 100 : 0;
 
   return (
-    <Card data-testid="card-trading-session" className="border-primary/20">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-          <Globe className="w-5 h-5 text-primary" />
+    <div data-testid="card-trading-session" className="bg-white dark:bg-background">
+      <div className="pb-4 mb-4 border-b border-border/50">
+        <div className="flex items-center gap-2 text-lg font-semibold">
+          <Globe className="w-5 h-5" />
           Global Trading Sessions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-5">
+        </div>
+      </div>
+      <div className="space-y-5">
         <div className="flex items-center justify-between p-4 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border border-border/50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-background rounded-md">
@@ -170,7 +169,7 @@ export default function TradingSession() {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
