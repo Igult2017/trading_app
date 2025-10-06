@@ -201,6 +201,21 @@ export class CacheService {
         return this.getTodayEvents();
     }
   }
+
+  async getEventById(id: string): Promise<typeof economicEvents.$inferSelect | undefined> {
+    try {
+      const event = await db
+        .select()
+        .from(economicEvents)
+        .where(eq(economicEvents.id, id))
+        .limit(1);
+
+      return event[0];
+    } catch (error) {
+      console.error('Error fetching event by ID:', error);
+      return undefined;
+    }
+  }
 }
 
 export const cacheService = new CacheService();

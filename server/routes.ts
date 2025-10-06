@@ -189,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/economic-events/:id", async (req, res) => {
     try {
-      const event = await storage.getEconomicEventById(req.params.id);
+      const event = await cacheService.getEventById(req.params.id);
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
       }
@@ -202,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/economic-events/:id/analysis", async (req, res) => {
     try {
-      const event = await storage.getEconomicEventById(req.params.id);
+      const event = await cacheService.getEventById(req.params.id);
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
       }
