@@ -25,7 +25,7 @@ export function Notifications() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/notifications/${id}/read`, 'PATCH');
+      return await apiRequest('PATCH', `/api/notifications/${id}/read`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -35,7 +35,7 @@ export function Notifications() {
 
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/notifications/read-all', 'PATCH');
+      return await apiRequest('PATCH', '/api/notifications/read-all');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -45,7 +45,7 @@ export function Notifications() {
 
   const deleteNotificationMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/notifications/${id}`, 'DELETE');
+      return await apiRequest('DELETE', `/api/notifications/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -55,7 +55,7 @@ export function Notifications() {
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/notifications/clear-all', 'DELETE');
+      return await apiRequest('DELETE', '/api/notifications/clear-all');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });

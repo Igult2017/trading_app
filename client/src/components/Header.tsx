@@ -62,7 +62,7 @@ export default function Header() {
 
   const testSignalMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/notifications/signal', 'POST', {
+      return await apiRequest('POST', '/api/notifications/signal', {
         symbol: 'EUR/USD',
         type: 'buy',
         strategy: 'scalping',
@@ -80,14 +80,14 @@ export default function Header() {
     },
     onSuccess: () => {
       toast({
-        title: "Test Signal Sent!",
-        description: "Check your Telegram for the notification.",
+        title: "Test Notification Created!",
+        description: "Check the notification bell icon to see it.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to send test notification.",
+        description: "Failed to create test notification.",
         variant: "destructive",
       });
     },

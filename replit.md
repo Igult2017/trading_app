@@ -103,18 +103,35 @@ Preferred communication style: Simple, everyday language.
 - **Economic Calendar**: Track high-impact economic events with filtering by region, impact level, and currency; displays pre-release expectations and post-release analysis
 - **Trading Sessions**: Live monitoring of Sydney, Tokyo, London, and New York sessions with overlap detection
 
-## Telegram Notification System
-- **Bot Integration**: node-telegram-bot-api for push notifications
-- **Commands**: /start (subscribe), /stop (pause), /resume (reactivate), /status (check subscription)
+## In-App Notification System
+- **Database Storage**: PostgreSQL table for persistent notification storage with read/unread status tracking
+- **NotificationService**: Backend service for CRUD operations on notifications (create, fetch, mark as read, delete)
 - **Notification Types**:
-  - **Trading Sessions**: 5-minute alerts before London (08:00 UTC) and New York (13:00 UTC) session open
-  - **Economic Events**: 30-minute advance notice for high/medium impact events
+  - **Trading Sessions**: Alerts 5 minutes before London (08:00 UTC) and New York (13:00 UTC) session open
+  - **Economic Events**: 30-minute advance notice for ALL impact levels (high, medium, and low)
   - **Trading Signals**: Instant alerts for new buy/sell setups with entry, stop-loss, take-profit, confidence, and analysis
+- **Real-time Updates**: Unread notification count refreshes every 30 seconds
+- **API Endpoints**:
+  - `GET /api/notifications` - Fetch all notifications (with limit)
+  - `GET /api/notifications/unread` - Fetch unread notifications only
+  - `PATCH /api/notifications/:id/read` - Mark specific notification as read
+  - `PATCH /api/notifications/read-all` - Mark all notifications as read
+  - `DELETE /api/notifications/:id` - Delete specific notification
+  - `DELETE /api/notifications/clear-all` - Clear all notifications
+  - `POST /api/notifications/signal` - Create trading signal notification
+- **UI Component**: Popover-based notification center in header with bell icon, unread badge, color-coded notifications by type/impact, and management controls
+
+## Telegram Notification System
+- **Bot Integration**: node-telegram-bot-api for push notifications (limited to critical alerts only)
+- **Commands**: /start (subscribe), /stop (pause), /resume (reactivate), /status (check subscription)
+- **Notification Types** (Telegram receives only):
+  - **Trading Sessions**: 5-minute alerts before London and New York session open
+  - **Economic Events**: 30-minute advance notice for HIGH and MEDIUM impact events only
 - **Scheduling**: Automated checks every 5 minutes via node-cron scheduler
 - **API Endpoints**:
   - `/api/notifications/status` - Check Telegram bot status
-  - `/api/notifications/signal` - Send trading signal notifications
-- **Frontend Integration**: Notification bell icon in header shows bot status, subscription info, and test notification button
+- **Frontend Integration**: Telegram setup dropdown in header shows bot status, subscription info, and test notification button
+- **Note**: All notifications appear in the dashboard notification center; Telegram is an optional secondary channel for critical alerts
 
 ## Future Integrations
 - **Market Data APIs**: Real-time feeds for Forex, Stocks, and Crypto markets
