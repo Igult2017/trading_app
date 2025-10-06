@@ -11,7 +11,10 @@ import {
   TrendingUp,
   Wifi,
   WifiOff,
-  Menu
+  Menu,
+  CheckCircle2,
+  XCircle,
+  Send
 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -20,7 +23,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 const mainNavItems = [
   { name: 'Dashboard', path: '/' },
@@ -45,6 +53,44 @@ export default function Header() {
   const [location] = useLocation();
   const [connectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connected');
   const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
+
+  const { data: notificationStatus } = useQuery({
+    queryKey: ['/api/notifications/status'],
+  });
+
+  const testSignalMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('/api/notifications/signal', 'POST', {
+        symbol: 'EUR/USD',
+        type: 'buy',
+        strategy: 'scalping',
+        entry: 1.0850,
+        stopLoss: 1.0825,
+        takeProfit: 1.0900,
+        riskReward: 2.0,
+        timeframe: '15M',
+        confidence: 85,
+        reasoning: [
+          'Test signal notification',
+          'Breaking above resistance'
+        ]
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test Signal Sent!",
+        description: "Check your Telegram for the notification.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send test notification.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const isActivePath = (path: string) => {
     if (path === '/') return location === '/';
@@ -131,15 +177,76 @@ export default function Header() {
           </div>
 
           {/* Notifications */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative"
-            data-testid="button-notifications"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative"
+                data-testid="button-notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {notificationStatus?.telegramBotActive && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Telegram Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <div className="px-2 py-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  {notificationStatus?.telegramBotActive ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-muted-foreground">Bot Status: Active</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4 text-red-500" />
+                      <span className="text-muted-foreground">Bot Status: Inactive</span>
+                    </>
+                  )}
+                </div>
+
+                {notificationStatus?.telegramBotActive && (
+                  <>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p className="font-semibold">You'll receive alerts for:</p>
+                      <ul className="list-disc list-inside space-y-0.5 ml-2">
+                        <li>Trading sessions (5 min before open)</li>
+                        <li>High/Medium impact economic events</li>
+                        <li>New trading signal setups</li>
+                      </ul>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => testSignalMutation.mutate()}
+                      disabled={testSignalMutation.isPending}
+                      data-testid="button-test-notification"
+                    >
+                      <Send className="w-3 h-3 mr-2" />
+                      {testSignalMutation.isPending ? 'Sending...' : 'Send Test Signal'}
+                    </Button>
+                  </>
+                )}
+
+                {!notificationStatus?.telegramBotActive && (
+                  <div className="text-xs text-muted-foreground">
+                    <p className="mb-2">To enable notifications:</p>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                      <li>Search for @InfodTradingBot on Telegram</li>
+                      <li>Send /start to subscribe</li>
+                      <li>Enjoy real-time trading alerts!</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Settings Dropdown */}
           <DropdownMenu>

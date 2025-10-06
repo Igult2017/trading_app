@@ -6,6 +6,7 @@ import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
+import { telegramNotificationService } from "./services/telegramNotification";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -247,6 +248,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete event" });
+    }
+  });
+
+  app.post("/api/notifications/signal", async (req, res) => {
+    try {
+      const signal = req.body;
+      
+      if (!signal.symbol || !signal.type || !signal.entry) {
+        return res.status(400).json({ error: "Invalid signal data" });
+      }
+
+      await telegramNotificationService.sendTradingSignalNotification(signal);
+      res.json({ success: true, message: "Signal notification sent" });
+    } catch (error) {
+      console.error("Error sending signal notification:", error);
+      res.status(500).json({ error: "Failed to send signal notification" });
+    }
+  });
+
+  app.get("/api/notifications/status", async (req, res) => {
+    try {
+      const isReady = telegramNotificationService.isReady();
+      res.json({ 
+        telegramBotActive: isReady,
+        message: isReady 
+          ? "Telegram notifications are active" 
+          : "Telegram bot is not configured"
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get notification status" });
     }
   });
 
