@@ -138,8 +138,8 @@ export default function StockSignals() {
               }`}
               data-testid={`card-stock-${signal.id}`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Badge 
                     variant="secondary"
                     className="text-xs font-medium shrink-0"
@@ -165,7 +165,7 @@ export default function StockSignals() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 ml-2">
                   <Badge 
                     variant="outline"
                     className={`text-xs ${getConfidenceColor(signal.confidence)}`}
