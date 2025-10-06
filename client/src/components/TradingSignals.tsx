@@ -205,14 +205,13 @@ export default function TradingSignals() {
   return (
     <div data-testid="card-trading-signals" className="bg-white dark:bg-background">
       <div className="pb-4 mb-4 border-b border-border/50">
-        <div className="flex items-center gap-2 text-lg font-semibold mb-3">
+        <div className="flex items-center gap-2 text-lg font-semibold">
           <Target className="w-5 h-5" />
-          Trading Signals
+          Currency, Gold, Oil and Crypto Signals
           <Badge variant="secondary" className="ml-auto">
             {activeSignals.filter(s => s.status === 'active').length}/5 Active
           </Badge>
         </div>
-        <h3 className="text-sm font-semibold text-muted-foreground tracking-wide">Currency, Gold, Oil and Crypto Signals</h3>
       </div>
       <div>
         <div>
