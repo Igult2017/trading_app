@@ -11,10 +11,10 @@ import {
   WifiOff,
   CheckCircle2,
   XCircle,
-  Send
+  Send,
+  ChevronDown
 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +35,13 @@ const mainNavItems = [
   { name: 'Calendar', path: '/calendar' },
   { name: 'History', path: '/history' },
   { name: 'Analytics', path: '/analytics' },
+];
+
+const strategyItems = [
+  { name: 'Scalping', path: '/strategies/scalping' },
+  { name: 'Day Trading', path: '/strategies/day' },
+  { name: 'Swing Trading', path: '/strategies/swing' },
+  { name: 'ORB Strategy', path: '/strategies/orb' },
 ];
 
 const quickLinks = [
@@ -120,19 +127,16 @@ export default function Header() {
           <div className="flex h-14 items-center justify-between px-4 md:px-6">
             {/* Left Section - Logo & Nav */}
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger data-testid="button-sidebar-toggle" className="md:hidden text-white" />
-                <Link href="/" data-testid="link-logo">
-                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity">
-                    <TrendingUp className="w-6 h-6 text-white" />
-                    <div className="hidden sm:block">
-                      <h1 className="text-base font-bold text-white leading-none">
-                        Infod Trading
-                      </h1>
-                    </div>
+              <Link href="/" data-testid="link-logo">
+                <div className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                  <div className="hidden sm:block">
+                    <h1 className="text-base font-bold text-white leading-none">
+                      Infod Trading
+                    </h1>
                   </div>
-                </Link>
-              </div>
+                </div>
+              </Link>
 
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center gap-1">
@@ -152,6 +156,32 @@ export default function Header() {
                     </Button>
                   </Link>
                 ))}
+                
+                {/* Trading Strategies Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-white/10"
+                      data-testid="button-strategies"
+                    >
+                      Strategies
+                      <ChevronDown className="ml-1 w-3.5 h-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {strategyItems.map((item) => (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link href={item.path}>
+                          <a className="w-full cursor-pointer" data-testid={`strategy-${item.name.toLowerCase().replace(' ', '-')}`}>
+                            {item.name}
+                          </a>
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </nav>
             </div>
 
@@ -289,9 +319,6 @@ export default function Header() {
               <div className="[&_button]:text-white [&_button]:hover:bg-white/10">
                 <ThemeToggle />
               </div>
-
-              {/* Mobile Menu */}
-              <SidebarTrigger data-testid="button-mobile-menu" className="hidden md:block text-white" />
             </div>
           </div>
         </div>
