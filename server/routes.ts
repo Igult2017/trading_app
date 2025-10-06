@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema } from "@shared/schema";
 import { getEconomicCalendar } from "./services/fmp";
+import { cacheService } from "./scrapers/cacheService";
+import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -98,12 +100,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/calendar/today", async (req, res) => {
+    try {
+      const events = await cacheService.getOrFetchEvents('today', economicCalendarScraper);
+      
+      const filters = {
+        region: req.query.region as string | undefined,
+        impactLevel: req.query.impactLevel as string | undefined,
+        currency: req.query.currency as string | undefined,
+      };
+      
+      let filteredEvents = events;
+      if (filters.region) {
+        filteredEvents = filteredEvents.filter(e => e.region === filters.region);
+      }
+      if (filters.impactLevel) {
+        filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
+      }
+      if (filters.currency) {
+        filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
+      }
+      
+      res.json(filteredEvents);
+    } catch (error) {
+      console.error('Error in /api/calendar/today:', error);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/calendar/week", async (req, res) => {
+    try {
+      const events = await cacheService.getOrFetchEvents('week', economicCalendarScraper);
+      
+      const filters = {
+        region: req.query.region as string | undefined,
+        impactLevel: req.query.impactLevel as string | undefined,
+        currency: req.query.currency as string | undefined,
+      };
+      
+      let filteredEvents = events;
+      if (filters.region) {
+        filteredEvents = filteredEvents.filter(e => e.region === filters.region);
+      }
+      if (filters.impactLevel) {
+        filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
+      }
+      if (filters.currency) {
+        filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
+      }
+      
+      res.json(filteredEvents);
+    } catch (error) {
+      console.error('Error in /api/calendar/week:', error);
+      res.json([]);
+    }
+  });
+
   app.get("/api/economic-events", async (req, res) => {
     try {
-      const fromDate = req.query.from ? new Date(req.query.from as string) : undefined;
-      const toDate = req.query.to ? new Date(req.query.to as string) : undefined;
-      
-      const events = await getEconomicCalendar(fromDate, toDate);
+      const events = await cacheService.getOrFetchEvents('upcoming', economicCalendarScraper);
       
       const filters = {
         region: req.query.region as string | undefined,
