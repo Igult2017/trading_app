@@ -1,0 +1,193 @@
+import { useState } from 'react';
+import { Link, useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { 
+  Search, 
+  Bell, 
+  Settings, 
+  ChevronDown, 
+  TrendingUp,
+  Wifi,
+  WifiOff,
+  Menu
+} from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const mainNavItems = [
+  { name: 'Dashboard', path: '/' },
+  { name: 'Markets', path: '/markets' },
+  { name: 'Signals', path: '/signals' },
+  { name: 'Calendar', path: '/calendar' },
+  { name: 'History', path: '/history' },
+  { name: 'Analytics', path: '/analytics' },
+];
+
+const quickLinks = [
+  { name: 'Major Pairs', tag: 'forex' },
+  { name: 'Indices', tag: 'indices' },
+  { name: 'Commodities', tag: 'commodities' },
+  { name: 'Crypto', tag: 'crypto' },
+  { name: 'Pre-Market', tag: 'pre-market' },
+  { name: 'After Hours', tag: 'after-hours' },
+  { name: 'High Impact News', tag: 'news', highlight: true },
+];
+
+export default function Header() {
+  const [location] = useLocation();
+  const [connectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connected');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const isActivePath = (path: string) => {
+    if (path === '/') return location === '/';
+    return location.startsWith(path);
+  };
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Main Header */}
+      <div className="flex h-16 items-center justify-between px-4 md:px-6">
+        {/* Left Section - Logo & Nav */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="md:hidden" />
+            <Link href="/" data-testid="link-logo">
+              <div className="flex items-center gap-2 cursor-pointer hover-elevate px-2 py-1 rounded-md transition-all">
+                <div className="relative">
+                  <TrendingUp className="w-7 h-7 text-primary" />
+                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                </div>
+                <div className="hidden sm:block">
+                  <h1 className="text-xl font-bold tracking-tight leading-none">
+                    Infod Trading
+                  </h1>
+                  <p className="text-[10px] text-muted-foreground leading-none">
+                    Partner System
+                  </p>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {mainNavItems.map((item) => (
+              <Link key={item.path} href={item.path}>
+                <Button
+                  variant={isActivePath(item.path) ? "default" : "ghost"}
+                  size="sm"
+                  className={`transition-colors ${
+                    isActivePath(item.path) 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'hover-elevate'
+                  }`}
+                  data-testid={`nav-${item.name.toLowerCase()}`}
+                >
+                  {item.name}
+                </Button>
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        {/* Center Section - Search */}
+        <div className="hidden md:flex flex-1 max-w-md mx-4">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search markets, pairs, indicators..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 h-9 bg-muted/30 border-border/50 focus:bg-background"
+              data-testid="input-search"
+            />
+          </div>
+        </div>
+
+        {/* Right Section - Actions */}
+        <div className="flex items-center gap-2">
+          {/* Connection Status */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-muted/30">
+            {connectionStatus === 'connected' ? (
+              <Wifi className="w-3.5 h-3.5 text-green-500" />
+            ) : connectionStatus === 'connecting' ? (
+              <Wifi className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
+            ) : (
+              <WifiOff className="w-3.5 h-3.5 text-red-500" />
+            )}
+            <span className="text-xs font-medium" data-testid="text-connection-status">
+              {connectionStatus === 'connected' ? 'Live' : 
+               connectionStatus === 'connecting' ? 'Connecting' : 'Offline'}
+            </span>
+          </div>
+
+          {/* Notifications */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative"
+            data-testid="button-notifications"
+          >
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+          </Button>
+
+          {/* Settings Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" data-testid="button-settings">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem>
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                Account
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                Preferences
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
+          {/* Mobile Menu */}
+          <SidebarTrigger data-testid="button-mobile-menu" className="hidden md:block" />
+        </div>
+      </div>
+
+      {/* Secondary Navigation Bar */}
+      <div className="border-t border-border/30 bg-muted/20">
+        <div className="flex items-center gap-1 px-4 md:px-6 h-10 overflow-x-auto scrollbar-hide">
+          {quickLinks.map((link) => (
+            <button
+              key={link.tag}
+              className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-md transition-colors hover-elevate ${
+                link.highlight 
+                  ? 'text-orange-500 dark:text-orange-400' 
+                  : 'text-muted-foreground'
+              }`}
+              data-testid={`quick-link-${link.tag}`}
+            >
+              {link.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </header>
+  );
+}
