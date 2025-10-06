@@ -141,11 +141,11 @@ export default function MarketOverview() {
         </div>
       </div>
       <div>
-        <div className="space-y-3">
+        <div className="divide-y divide-border/50">
           {watchlistData.map((item) => (
             <div
               key={item.symbol}
-              className="p-3 rounded-md border border-border hover-elevate transition-colors"
+              className="py-4 hover-elevate transition-colors"
               data-testid={`card-watchlist-${item.symbol.replace('/', '-')}`}
             >
               <div className="flex items-start justify-between mb-2">
