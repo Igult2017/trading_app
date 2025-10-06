@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -117,25 +116,23 @@ export default function StockSignals() {
   };
 
   return (
-    <Card data-testid="card-stock-signals">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+    <div data-testid="card-stock-signals" className="bg-white dark:bg-background">
+      <div className="pb-4 mb-4 border-b border-border/50">
+        <div className="flex items-center gap-2 text-lg font-semibold">
           <TrendingUp className="w-5 h-5" />
           Stock Signals
           <Badge variant="secondary" className="ml-auto">
             {stockSignals.filter(s => s.status === 'active').length} Active
           </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+        </div>
+      </div>
+      <div>
         <div className="divide-y divide-border/50">
           {stockSignals.map((signal, index) => (
             <div
               key={signal.id}
               onClick={() => setSelectedSignalId(selectedSignalId === signal.id ? null : signal.id)}
               className={`py-4 transition-all cursor-pointer ${
-                index === 0 ? '' : ''
-              } ${
                 selectedSignalId === signal.id ? 'bg-primary/5' : 'hover-elevate'
               }`}
               data-testid={`card-stock-${signal.id}`}
@@ -220,7 +217,7 @@ export default function StockSignals() {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Target, TrendingUp, TrendingDown, Clock, Eye, BarChart3 } from 'lucide-react';
@@ -204,17 +203,17 @@ export default function TradingSignals() {
   };
 
   return (
-    <Card data-testid="card-trading-signals">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+    <div data-testid="card-trading-signals" className="bg-white dark:bg-background">
+      <div className="pb-4 mb-4 border-b border-border/50">
+        <div className="flex items-center gap-2 text-lg font-semibold">
           <Target className="w-5 h-5" />
           Trading Signals
           <Badge variant="secondary" className="ml-auto">
             {activeSignals.filter(s => s.status === 'active').length}/5 Active
           </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+        </div>
+      </div>
+      <div>
         <div>
           {/* Active Signals Section */}
           <div>
@@ -442,7 +441,7 @@ export default function TradingSignals() {
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
