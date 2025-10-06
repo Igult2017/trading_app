@@ -149,7 +149,7 @@ export default function MarketOverview() {
               data-testid={`card-watchlist-${item.symbol.replace('/', '-')}`}
             >
               <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 ml-2">
                   <Badge 
                     variant="secondary"
                     className="text-xs font-medium"
@@ -179,8 +179,8 @@ export default function MarketOverview() {
                 </div>
               </div>
               
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-right">
+              <div className="flex items-center justify-between mb-2 ml-2">
+                <div className="text-left">
                   <div className="font-mono font-semibold text-sm" data-testid={`text-price-${item.symbol.replace('/', '-')}`}>
                     {formatPrice(item.price, item.symbol)}
                   </div>
@@ -197,7 +197,7 @@ export default function MarketOverview() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-2 text-xs">
+              <div className="flex items-start gap-2 text-xs ml-2">
                 <div className="flex items-center gap-1">
                   {getReasonIcon(item.watchReason)}
                   <Badge variant="secondary" className="text-xs">
