@@ -93,13 +93,13 @@ export function Notifications() {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative text-white hover:bg-white/10" 
+          className="relative" 
           data-testid="button-notifications"
         >
-          <Bell className="w-4 h-4" />
+          <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
               data-testid="badge-notification-count"
             >
               {unreadCount > 9 ? '9+' : unreadCount}
