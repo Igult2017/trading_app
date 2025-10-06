@@ -215,31 +215,34 @@ export default function TradingSignals() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
+        <div>
           {/* Active Signals Section */}
           <div>
-            <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Current Signals</h3>
-            <div className="space-y-4">
+            <h3 className="text-sm font-semibold mb-4 pb-2 text-muted-foreground uppercase tracking-wide border-b-2 border-border/60">Current Signals</h3>
+            <div className="divide-y divide-border/50">
               {activeSignals.map((signal) => (
             <div
               key={signal.id}
-              className={`p-4 rounded-md border border-border hover-elevate transition-all ${
-                selectedSignal === signal.id ? 'border-primary/50 bg-primary/5' : ''
+              className={`py-4 transition-all ${
+                selectedSignal === signal.id ? 'bg-primary/5' : 'hover-elevate'
               }`}
               data-testid={`card-signal-${signal.id}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <Badge 
-                    variant="secondary"
-                    className="text-xs font-medium"
-                    style={{ 
-                      backgroundColor: getSignalTypeColor(signal.type) + '20', 
-                      color: getSignalTypeColor(signal.type) 
-                    }}
-                  >
-                    {signal.type.toUpperCase()}
-                  </Badge>
+                  <div className="relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor: getSignalTypeColor(signal.type) }} />
+                    <Badge 
+                      variant="secondary"
+                      className="text-xs font-medium ml-3"
+                      style={{ 
+                        backgroundColor: getSignalTypeColor(signal.type) + '20', 
+                        color: getSignalTypeColor(signal.type) 
+                      }}
+                    >
+                      {signal.type.toUpperCase()}
+                    </Badge>
+                  </div>
                   <div>
                     <h4 className="font-semibold text-sm" data-testid={`text-symbol-${signal.id}`}>
                       {signal.symbol}
@@ -274,26 +277,26 @@ export default function TradingSignals() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-xs">
-                <div>
+              <div className="flex items-stretch gap-0 text-xs mb-3 ml-3">
+                <div className="flex-1 pr-4 border-r border-border/50">
                   <span className="text-muted-foreground">Entry:</span>
                   <div className="font-mono font-semibold" data-testid={`text-entry-${signal.id}`}>
                     {signal.entry.toLocaleString()}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1 px-4 border-r border-border/50">
                   <span className="text-muted-foreground">Stop Loss:</span>
                   <div className="font-mono font-semibold text-red-500">
                     {signal.stopLoss.toLocaleString()}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1 px-4 border-r border-border/50">
                   <span className="text-muted-foreground">Take Profit:</span>
                   <div className="font-mono font-semibold text-green-500">
                     {signal.takeProfit.toLocaleString()}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1 pl-4">
                   <span className="text-muted-foreground">R:R Ratio:</span>
                   <div className="font-mono font-semibold" data-testid={`text-rr-${signal.id}`}>
                     1:{signal.riskReward}
@@ -301,7 +304,7 @@ export default function TradingSignals() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between ml-3 pt-3 border-t border-border/30">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -325,7 +328,7 @@ export default function TradingSignals() {
               </div>
 
               {selectedSignal === signal.id && (
-                <div className="mt-4 pt-4 border-t border-border space-y-3" data-testid={`details-${signal.id}`}>
+                <div className="mt-4 pt-4 ml-3 border-t border-border space-y-3" data-testid={`details-${signal.id}`}>
                   <div>
                     <h5 className="font-medium text-sm mb-2">Technical Analysis Reasoning:</h5>
                     <ul className="space-y-1 text-xs">
@@ -358,30 +361,33 @@ export default function TradingSignals() {
 
           {/* Previous Signals Section */}
           {previousSignals.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+            <div className="mt-6 pt-6 border-t-2 border-border/60">
+              <h3 className="text-sm font-semibold mb-4 pb-2 text-muted-foreground uppercase tracking-wide border-b-2 border-border/60">
                 Recently Expired
                 <span className="ml-2 text-xs font-normal normal-case">(Before Archive)</span>
               </h3>
-              <div className="space-y-3">
+              <div className="divide-y divide-border/50">
                 {previousSignals.map((signal) => (
                   <div
                     key={signal.id}
-                    className="p-3 rounded-md border border-border bg-muted/20 opacity-75"
+                    className="py-3 opacity-75"
                     data-testid={`card-prev-signal-${signal.id}`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <Badge 
-                          variant="secondary"
-                          className="text-xs font-medium opacity-75"
-                          style={{ 
-                            backgroundColor: getSignalTypeColor(signal.type) + '20', 
-                            color: getSignalTypeColor(signal.type) 
-                          }}
-                        >
-                          {signal.type.toUpperCase()}
-                        </Badge>
+                        <div className="relative">
+                          <div className="absolute left-0 top-0 bottom-0 w-0.5 opacity-50" style={{ backgroundColor: getSignalTypeColor(signal.type) }} />
+                          <Badge 
+                            variant="secondary"
+                            className="text-xs font-medium opacity-75 ml-3"
+                            style={{ 
+                              backgroundColor: getSignalTypeColor(signal.type) + '20', 
+                              color: getSignalTypeColor(signal.type) 
+                            }}
+                          >
+                            {signal.type.toUpperCase()}
+                          </Badge>
+                        </div>
                         <div>
                           <h4 className="font-semibold text-sm">
                             {signal.symbol}
@@ -404,26 +410,26 @@ export default function TradingSignals() {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                      <div>
+                    <div className="flex items-stretch gap-0 text-xs ml-3 pt-2 border-t border-border/30">
+                      <div className="flex-1 pr-4 border-r border-border/50">
                         <span className="text-muted-foreground">Entry:</span>
                         <div className="font-mono font-semibold">
                           {signal.entry.toLocaleString()}
                         </div>
                       </div>
-                      <div>
+                      <div className="flex-1 px-4 border-r border-border/50">
                         <span className="text-muted-foreground">R:R:</span>
                         <div className="font-mono font-semibold">
                           1:{signal.riskReward}
                         </div>
                       </div>
-                      <div>
+                      <div className="flex-1 px-4 border-r border-border/50">
                         <span className="text-muted-foreground">Confidence:</span>
                         <div className="font-mono font-semibold">
                           {signal.confidence}%
                         </div>
                       </div>
-                      <div>
+                      <div className="flex-1 pl-4">
                         <span className="text-muted-foreground">Status:</span>
                         <div className="font-semibold text-green-500">
                           {signal.status.toUpperCase()}

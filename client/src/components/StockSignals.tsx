@@ -128,28 +128,33 @@ export default function StockSignals() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {stockSignals.map((signal) => (
+        <div className="divide-y divide-border/50">
+          {stockSignals.map((signal, index) => (
             <div
               key={signal.id}
               onClick={() => setSelectedSignalId(selectedSignalId === signal.id ? null : signal.id)}
-              className={`group p-3 rounded-md border border-border hover-elevate active-elevate-2 transition-all cursor-pointer ${
-                selectedSignalId === signal.id ? 'border-primary/50 bg-primary/5' : ''
+              className={`py-4 transition-all cursor-pointer ${
+                index === 0 ? '' : ''
+              } ${
+                selectedSignalId === signal.id ? 'bg-primary/5' : 'hover-elevate'
               }`}
               data-testid={`card-stock-${signal.id}`}
             >
-              <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Badge 
-                    variant="secondary"
-                    className="text-xs font-medium shrink-0"
-                    style={{ 
-                      backgroundColor: getSignalTypeColor(signal.type) + '20', 
-                      color: getSignalTypeColor(signal.type) 
-                    }}
-                  >
-                    {signal.type.toUpperCase()}
-                  </Badge>
+                  <div className="relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor: getSignalTypeColor(signal.type) }} />
+                    <Badge 
+                      variant="secondary"
+                      className="text-xs font-medium shrink-0 ml-3"
+                      style={{ 
+                        backgroundColor: getSignalTypeColor(signal.type) + '20', 
+                        color: getSignalTypeColor(signal.type) 
+                      }}
+                    >
+                      {signal.type.toUpperCase()}
+                    </Badge>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold text-sm" data-testid={`text-symbol-${signal.id}`}>
@@ -178,20 +183,20 @@ export default function StockSignals() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                <div>
+              <div className="flex items-stretch gap-0 text-xs mb-3 ml-3">
+                <div className="flex-1 pr-4 border-r border-border/50">
                   <span className="text-muted-foreground">Entry:</span>
                   <div className="font-mono font-semibold" data-testid={`text-entry-${signal.id}`}>
                     ${signal.entry.toFixed(2)}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1 px-4 border-r border-border/50">
                   <span className="text-muted-foreground">Stop:</span>
                   <div className="font-mono font-semibold text-red-500">
                     ${signal.stopLoss.toFixed(2)}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1 pl-4">
                   <span className="text-muted-foreground">Target:</span>
                   <div className="font-mono font-semibold text-green-500">
                     ${signal.takeProfit.toFixed(2)}
@@ -199,7 +204,7 @@ export default function StockSignals() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs ml-3 pt-2 border-t border-border/30">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <span>{signal.timeframe}</span>
                   <span>•</span>
