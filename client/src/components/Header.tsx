@@ -40,16 +40,6 @@ const mainNavItems = [
   { name: 'Analytics', path: '/analytics' },
 ];
 
-const quickLinks = [
-  { name: 'Major Pairs', tag: 'forex' },
-  { name: 'Indices', tag: 'indices' },
-  { name: 'Commodities', tag: 'commodities' },
-  { name: 'Crypto', tag: 'crypto' },
-  { name: 'Pre-Market', tag: 'pre-market' },
-  { name: 'After Hours', tag: 'after-hours' },
-  { name: 'High Impact News', tag: 'news', highlight: true },
-];
-
 export default function Header() {
   const [location] = useLocation();
   const [connectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connected');
@@ -278,25 +268,6 @@ export default function Header() {
 
           {/* Mobile Menu */}
           <SidebarTrigger data-testid="button-mobile-menu" className="hidden md:block" />
-        </div>
-      </div>
-
-      {/* Secondary Navigation Bar */}
-      <div className="border-t border-border/30 bg-muted/20">
-        <div className="flex items-center gap-1 px-4 md:px-6 h-10 overflow-x-auto scrollbar-hide">
-          {quickLinks.map((link) => (
-            <button
-              key={link.tag}
-              className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-md transition-colors hover-elevate ${
-                link.highlight 
-                  ? 'text-orange-500 dark:text-orange-400' 
-                  : 'text-muted-foreground'
-              }`}
-              data-testid={`quick-link-${link.tag}`}
-            >
-              {link.name}
-            </button>
-          ))}
         </div>
       </div>
     </header>
