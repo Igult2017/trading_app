@@ -129,3 +129,16 @@ export function getSessionElapsedMinutes(session: TradingSession): number {
   
   return Math.floor((now.getTime() - sessionStart.getTime()) / (1000 * 60));
 }
+
+export function formatMinutesToHoursAndMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  if (hours === 0) {
+    return `${minutes}m`;
+  } else if (minutes === 0) {
+    return `${hours}h`;
+  } else {
+    return `${hours}h ${minutes}m`;
+  }
+}
