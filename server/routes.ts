@@ -125,7 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(filteredEvents);
     } catch (error) {
       console.error('Error in /api/economic-events:', error);
-      res.status(500).json({ error: "Failed to fetch economic events" });
+      res.json([]);
     }
   });
 

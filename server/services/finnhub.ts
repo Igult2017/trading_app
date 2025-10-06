@@ -46,6 +46,17 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   'NZ': 'NZD',
 };
 
+function generateEventId(event: FinnhubEconomicEvent): string {
+  const str = `${event.time}-${event.event}-${event.country}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
+
 export async function fetchEconomicCalendar(fromDate?: string, toDate?: string) {
   const apiKey = process.env.FINNHUB_API_KEY;
   
@@ -63,12 +74,16 @@ export async function fetchEconomicCalendar(fromDate?: string, toDate?: string) 
     const response = await fetch(url);
     
     if (!response.ok) {
+      if (response.status === 403) {
+        console.error('Finnhub API key does not have access to economic calendar endpoint. This feature requires a paid plan or different API key.');
+        return [];
+      }
       throw new Error(`Finnhub API error: ${response.status} ${response.statusText}`);
     }
 
     const data: EconomicCalendarResponse = await response.json();
     
-    return data.economicCalendar
+    const events = data.economicCalendar
       .filter(event => {
         const impact = event.impact?.toLowerCase() || '';
         return impact === 'high' || impact === 'medium';
@@ -106,6 +121,7 @@ export async function fetchEconomicCalendar(fromDate?: string, toDate?: string) 
         }
 
         return {
+          id: generateEventId(event),
           title: event.event,
           description: `${country} - ${event.event}`,
           eventType: event.event.includes('GDP') ? 'GDP' : 
@@ -130,6 +146,10 @@ export async function fetchEconomicCalendar(fromDate?: string, toDate?: string) 
           isReleased: isReleased,
         };
       });
+    
+    return events.sort((a, b) => 
+      new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
+    );
   } catch (error) {
     console.error('Error fetching Finnhub economic calendar:', error);
     throw error;

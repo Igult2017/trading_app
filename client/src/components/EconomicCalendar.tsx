@@ -5,6 +5,7 @@ import { Calendar, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react'
 import { format } from 'date-fns';
 
 interface EconomicEvent {
+  id: string;
   title: string;
   currency: string;
   impactLevel: string;
@@ -23,14 +24,11 @@ export default function EconomicCalendar() {
 
   const events = allEvents.slice(0, 5);
 
-  const getImpactColor = (impact: string) => {
+  const getImpactVariant = (impact: string): "default" | "secondary" | "outline" => {
     const impactLower = impact?.toLowerCase() || '';
-    switch(impactLower) {
-      case 'high': return 'hsl(0 75% 60%)';
-      case 'medium': return 'hsl(45 90% 60%)';
-      case 'low': return 'hsl(120 60% 50%)';
-      default: return '';
-    }
+    if (impactLower === 'high') return 'default';
+    if (impactLower === 'medium') return 'secondary';
+    return 'outline';
   };
 
   const getMarketSentiment = (event: EconomicEvent) => {
@@ -91,38 +89,36 @@ export default function EconomicCalendar() {
           {events.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No upcoming events</p>
           ) : (
-            events.map((event, index) => {
+            events.map((event) => {
               const sentiment = getMarketSentiment(event);
               const eventTime = new Date(event.eventTime);
               
               return (
                 <div
-                  key={index}
+                  key={event.id}
                   className="p-3 rounded-md border border-border hover-elevate transition-colors"
-                  data-testid={`card-event-${index}`}
+                  data-testid={`card-event-${event.id}`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Badge 
                         variant="secondary"
                         className="text-xs font-medium"
-                        style={{ backgroundColor: getImpactColor(event.impactLevel) + '20', color: getImpactColor(event.impactLevel) }}
                       >
                         {event.currency}
                       </Badge>
-                      <span className="text-xs font-mono text-muted-foreground" data-testid={`text-time-${index}`}>
+                      <span className="text-xs font-mono text-muted-foreground" data-testid={`text-time-${event.id}`}>
                         {format(eventTime, 'HH:mm')}
                       </span>
                       {event.impactLevel?.toLowerCase() === 'high' && (
-                        <AlertTriangle className="w-3 h-3 text-red-500" />
+                        <AlertTriangle className="w-3 h-3 text-destructive" />
                       )}
                     </div>
                     <div className="flex items-center gap-1">
                       {sentiment.icon}
                       <Badge 
-                        variant="outline"
+                        variant={getImpactVariant(event.impactLevel)}
                         className="text-xs"
-                        style={{ borderColor: getImpactColor(event.impactLevel), color: getImpactColor(event.impactLevel) }}
                       >
                         {event.impactLevel?.toUpperCase() || 'MEDIUM'}
                       </Badge>
@@ -130,38 +126,45 @@ export default function EconomicCalendar() {
                   </div>
                   
                   <div className="mb-2">
-                    <h4 className="font-medium text-sm" data-testid={`text-event-${index}`}>
+                    <h4 className="font-medium text-sm" data-testid={`text-event-${event.id}`}>
                       {event.title}
                     </h4>
                   </div>
                   
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex gap-4">
-                      {event.expectedValue && (
-                        <div>
-                          <span className="text-muted-foreground">Forecast: </span>
-                          <span className="font-mono font-medium" data-testid={`text-forecast-${index}`}>
-                            {event.expectedValue}
-                          </span>
-                        </div>
-                      )}
-                      {event.previousValue && (
-                        <div>
-                          <span className="text-muted-foreground">Previous: </span>
-                          <span className="font-mono font-medium" data-testid={`text-previous-${index}`}>
-                            {event.previousValue}
-                          </span>
-                        </div>
-                      )}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex gap-4">
+                        {event.expectedValue && (
+                          <div>
+                            <span className="text-muted-foreground">Forecast: </span>
+                            <span className="font-mono font-medium" data-testid={`text-forecast-${event.id}`}>
+                              {event.expectedValue}
+                            </span>
+                          </div>
+                        )}
+                        {event.previousValue && (
+                          <div>
+                            <span className="text-muted-foreground">Previous: </span>
+                            <span className="font-mono font-medium" data-testid={`text-previous-${event.id}`}>
+                              {event.previousValue}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-xs font-medium ${
+                          sentiment.sentiment === 'Bullish' ? 'text-green-500' : 
+                          sentiment.sentiment === 'Bearish' ? 'text-red-500' : 'text-muted-foreground'
+                        }`}>
+                          {sentiment.sentiment}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`text-xs font-medium ${
-                        sentiment.sentiment === 'Bullish' ? 'text-green-500' : 
-                        sentiment.sentiment === 'Bearish' ? 'text-red-500' : 'text-muted-foreground'
-                      }`}>
-                        {sentiment.sentiment}
-                      </span>
-                    </div>
+                    {event.marketImpactAnalysis && (
+                      <div className="text-xs text-muted-foreground pt-1 border-t border-border">
+                        {event.marketImpactAnalysis}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
