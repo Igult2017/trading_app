@@ -29,6 +29,7 @@ import {
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { Notifications } from '@/components/Notifications';
 
 const mainNavItems = [
   { name: 'Dashboard', path: '/' },
@@ -176,23 +177,26 @@ export default function Header() {
             </span>
           </div>
 
-          {/* Notifications */}
+          {/* In-App Notifications */}
+          <Notifications />
+
+          {/* Telegram Setup */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 className="relative"
-                data-testid="button-notifications"
+                data-testid="button-telegram-setup"
               >
-                <Bell className="w-4 h-4" />
+                <Send className="w-4 h-4" />
                 {notificationStatus?.telegramBotActive && (
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full" />
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
-              <DropdownMenuLabel>Telegram Notifications</DropdownMenuLabel>
+              <DropdownMenuLabel>Telegram Setup</DropdownMenuLabel>
               <DropdownMenuSeparator />
               
               <div className="px-2 py-3 space-y-3">
@@ -213,12 +217,12 @@ export default function Header() {
                 {notificationStatus?.telegramBotActive && (
                   <>
                     <div className="text-xs text-muted-foreground space-y-1">
-                      <p className="font-semibold">You'll receive alerts for:</p>
+                      <p className="font-semibold">Telegram receives:</p>
                       <ul className="list-disc list-inside space-y-0.5 ml-2">
                         <li>Trading sessions (5 min before open)</li>
                         <li>High/Medium impact economic events</li>
-                        <li>New trading signal setups</li>
                       </ul>
+                      <p className="mt-2 text-xs">All notifications appear in the dashboard bell icon.</p>
                     </div>
 
                     <Button
@@ -229,18 +233,18 @@ export default function Header() {
                       data-testid="button-test-notification"
                     >
                       <Send className="w-3 h-3 mr-2" />
-                      {testSignalMutation.isPending ? 'Sending...' : 'Send Test Signal'}
+                      {testSignalMutation.isPending ? 'Sending...' : 'Send Test Notification'}
                     </Button>
                   </>
                 )}
 
                 {!notificationStatus?.telegramBotActive && (
                   <div className="text-xs text-muted-foreground">
-                    <p className="mb-2">To enable notifications:</p>
+                    <p className="mb-2">To enable Telegram alerts:</p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                       <li>Search for @InfodTradingBot on Telegram</li>
                       <li>Send /start to subscribe</li>
-                      <li>Enjoy real-time trading alerts!</li>
+                      <li>Receive important alerts via Telegram!</li>
                     </ol>
                   </div>
                 )}
