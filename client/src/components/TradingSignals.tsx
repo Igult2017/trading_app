@@ -217,7 +217,7 @@ export default function TradingSignals() {
         <div>
           {/* Active Signals Section */}
           <div>
-            <h3 className="text-sm font-semibold mb-4 pb-2 text-muted-foreground uppercase tracking-wide border-b-2 border-border/60">Current Signals</h3>
+            <h3 className="text-sm font-semibold mb-4 pb-2 text-muted-foreground tracking-wide border-b-2 border-border/60">Currency, Gold, Oil and Crypto Signals</h3>
             <div className="divide-y divide-border/50">
               {activeSignals.map((signal) => (
             <div
