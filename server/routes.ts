@@ -5,6 +5,7 @@ import { insertTradeSchema, insertEconomicEventSchema } from "@shared/schema";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
+import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -177,7 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
       }
       
-      res.json(filteredEvents);
+      const eventsWithSentiment = filteredEvents.map(event => updateEventWithSentiment(event));
+      
+      res.json(eventsWithSentiment);
     } catch (error) {
       console.error('Error in /api/economic-events:', error);
       res.json([]);
@@ -190,9 +193,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
       }
-      res.json(event);
+      const eventWithSentiment = updateEventWithSentiment(event);
+      res.json(eventWithSentiment);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch event" });
+    }
+  });
+
+  app.get("/api/economic-events/:id/analysis", async (req, res) => {
+    try {
+      const event = await storage.getEconomicEventById(req.params.id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const analysis = analyzeEventSentiment(event);
+      res.json({
+        event: updateEventWithSentiment(event),
+        analysis
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch event analysis" });
     }
   });
 

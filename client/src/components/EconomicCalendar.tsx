@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Calendar, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { format } from 'date-fns';
+import EventDetailsDialog from './EventDetailsDialog';
 
 interface EconomicEvent {
   id: string;
   title: string;
   currency: string;
+  countryCode?: string;
   impactLevel: string;
   eventTime: string;
   expectedValue: string | null;
@@ -15,14 +18,25 @@ interface EconomicEvent {
   actualValue: string | null;
   marketImpactAnalysis: string | null;
   isReleased: boolean;
+  preReleaseSentiment?: string;
+  postReleaseSentiment?: string;
+  expertSentiment?: string;
 }
 
 export default function EconomicCalendar() {
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   const { data: allEvents = [], isLoading } = useQuery<EconomicEvent[]>({
     queryKey: ['/api/economic-events'],
   });
 
   const events = allEvents.slice(0, 5);
+
+  const handleEventClick = (eventId: string) => {
+    setSelectedEventId(eventId);
+    setDialogOpen(true);
+  };
 
   const getImpactVariant = (impact: string): "default" | "secondary" | "outline" => {
     const impactLower = impact?.toLowerCase() || '';
@@ -32,23 +46,22 @@ export default function EconomicCalendar() {
   };
 
   const getMarketSentiment = (event: EconomicEvent) => {
-    if (!event.expectedValue || !event.actualValue) {
-      return { sentiment: 'neutral', icon: <div className="w-3 h-3 rounded-full bg-muted-foreground/50" /> };
+    let sentiment = 'neutral';
+    
+    if (event.isReleased && event.postReleaseSentiment) {
+      sentiment = event.postReleaseSentiment;
+    } else if (event.preReleaseSentiment) {
+      sentiment = event.preReleaseSentiment;
+    } else if (event.expertSentiment) {
+      sentiment = event.expertSentiment;
     }
     
-    const expected = parseFloat(event.expectedValue);
-    const actual = parseFloat(event.actualValue);
-    
-    if (isNaN(expected) || isNaN(actual)) {
-      return { sentiment: 'neutral', icon: <div className="w-3 h-3 rounded-full bg-muted-foreground/50" /> };
-    }
-    
-    if (actual > expected) {
+    if (sentiment === 'bullish') {
       return { 
         sentiment: 'Bullish', 
         icon: <TrendingUp className="w-3 h-3 text-green-500" />
       };
-    } else if (actual < expected) {
+    } else if (sentiment === 'bearish') {
       return { 
         sentiment: 'Bearish', 
         icon: <TrendingDown className="w-3 h-3 text-red-500" />
@@ -56,7 +69,7 @@ export default function EconomicCalendar() {
     }
     return { 
       sentiment: 'Neutral', 
-      icon: <div className="w-3 h-3 rounded-full bg-muted-foreground/50" />
+      icon: <Minus className="w-3 h-3 text-muted-foreground/50" />
     };
   };
 
@@ -96,7 +109,8 @@ export default function EconomicCalendar() {
               return (
                 <div
                   key={event.id}
-                  className="p-3 rounded-md border border-border hover-elevate transition-colors"
+                  onClick={() => handleEventClick(event.id)}
+                  className="p-3 rounded-md border border-border hover-elevate active-elevate-2 transition-colors cursor-pointer"
                   data-testid={`card-event-${event.id}`}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -105,7 +119,7 @@ export default function EconomicCalendar() {
                         variant="secondary"
                         className="text-xs font-medium"
                       >
-                        {event.currency}
+                        {event.currency || event.countryCode}
                       </Badge>
                       <span className="text-xs font-mono text-muted-foreground" data-testid={`text-time-${event.id}`}>
                         {format(eventTime, 'HH:mm')}
@@ -172,6 +186,12 @@ export default function EconomicCalendar() {
           )}
         </div>
       </CardContent>
+      
+      <EventDetailsDialog 
+        eventId={selectedEventId}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </Card>
   );
 }
