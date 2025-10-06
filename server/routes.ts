@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema } from "@shared/schema";
-import { fetchEconomicCalendar } from "./services/finnhub";
+import { getEconomicCalendar } from "./services/fmp";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -100,10 +100,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/economic-events", async (req, res) => {
     try {
-      const fromDate = req.query.from as string | undefined;
-      const toDate = req.query.to as string | undefined;
+      const fromDate = req.query.from ? new Date(req.query.from as string) : undefined;
+      const toDate = req.query.to ? new Date(req.query.to as string) : undefined;
       
-      const events = await fetchEconomicCalendar(fromDate, toDate);
+      const events = await getEconomicCalendar(fromDate, toDate);
       
       const filters = {
         region: req.query.region as string | undefined,
