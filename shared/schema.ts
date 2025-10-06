@@ -105,3 +105,23 @@ export const insertTelegramSubscriberSchema = createInsertSchema(telegramSubscri
 
 export type InsertTelegramSubscriber = z.infer<typeof insertTelegramSubscriberSchema>;
 export type TelegramSubscriber = typeof telegramSubscribers.$inferSelect;
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  impactLevel: text("impact_level"),
+  metadata: text("metadata"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+  isRead: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
