@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema } from "@shared/schema";
+import { fetchEconomicCalendar } from "./services/finnhub";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -99,14 +100,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/economic-events", async (req, res) => {
     try {
+      const fromDate = req.query.from as string | undefined;
+      const toDate = req.query.to as string | undefined;
+      
+      const events = await fetchEconomicCalendar(fromDate, toDate);
+      
       const filters = {
         region: req.query.region as string | undefined,
         impactLevel: req.query.impactLevel as string | undefined,
         currency: req.query.currency as string | undefined,
       };
-      const events = await storage.getEconomicEvents(filters);
-      res.json(events);
+      
+      let filteredEvents = events;
+      if (filters.region) {
+        filteredEvents = filteredEvents.filter(e => e.region === filters.region);
+      }
+      if (filters.impactLevel) {
+        filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
+      }
+      if (filters.currency) {
+        filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
+      }
+      
+      res.json(filteredEvents);
     } catch (error) {
+      console.error('Error in /api/economic-events:', error);
       res.status(500).json({ error: "Failed to fetch economic events" });
     }
   });
