@@ -55,7 +55,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
-  const { data: notificationStatus } = useQuery({
+  const { data: notificationStatus } = useQuery<{ telegramBotActive: boolean; message: string }>({
     queryKey: ['/api/notifications/status'],
   });
 

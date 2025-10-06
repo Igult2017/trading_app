@@ -103,8 +103,20 @@ Preferred communication style: Simple, everyday language.
 - **Economic Calendar**: Track high-impact economic events with filtering by region, impact level, and currency; displays pre-release expectations and post-release analysis
 - **Trading Sessions**: Live monitoring of Sydney, Tokyo, London, and New York sessions with overlap detection
 
+## Telegram Notification System
+- **Bot Integration**: node-telegram-bot-api for push notifications
+- **Commands**: /start (subscribe), /stop (pause), /resume (reactivate), /status (check subscription)
+- **Notification Types**:
+  - **Trading Sessions**: 5-minute alerts before London (08:00 UTC) and New York (13:00 UTC) session open
+  - **Economic Events**: 30-minute advance notice for high/medium impact events
+  - **Trading Signals**: Instant alerts for new buy/sell setups with entry, stop-loss, take-profit, confidence, and analysis
+- **Scheduling**: Automated checks every 5 minutes via node-cron scheduler
+- **API Endpoints**:
+  - `/api/notifications/status` - Check Telegram bot status
+  - `/api/notifications/signal` - Send trading signal notifications
+- **Frontend Integration**: Notification bell icon in header shows bot status, subscription info, and test notification button
+
 ## Future Integrations
 - **Market Data APIs**: Real-time feeds for Forex, Stocks, and Crypto markets
 - **WebSocket Services**: For live trading signals and session monitoring
 - **Chart Libraries**: For advanced technical analysis visualization
-- **Notification Services**: Push notifications for trading alerts and economic event releases
