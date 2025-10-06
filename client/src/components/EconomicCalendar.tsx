@@ -104,14 +104,14 @@ export default function EconomicCalendar() {
   }
 
   return (
-    <Card data-testid="card-economic-calendar">
-      <CardHeader className="pb-4">
+    <Card data-testid="card-economic-calendar" className="flex flex-col h-[calc(100vh-20rem)]">
+      <CardHeader className="pb-4 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">
           <Calendar className="w-5 h-5" />
           Economic Calendar
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-y-auto flex-1">
         <div className="space-y-4">
           {events.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No upcoming events</p>
