@@ -121,7 +121,7 @@ export default function StockSignals() {
         <div className="flex items-center gap-2 text-lg font-semibold">
           <TrendingUp className="w-5 h-5" />
           Stock Signals
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="secondary" className="ml-auto mr-2">
             {stockSignals.filter(s => s.status === 'active').length} Active
           </Badge>
         </div>
@@ -167,7 +167,7 @@ export default function StockSignals() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 shrink-0 ml-2">
+                <div className="flex items-center gap-2 shrink-0 ml-2 mr-2">
                   <Badge 
                     variant="outline"
                     className={`text-xs ${getConfidenceColor(signal.confidence)}`}
