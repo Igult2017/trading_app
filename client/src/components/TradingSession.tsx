@@ -130,28 +130,43 @@ export default function TradingSession() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {sessions.map((session) => (
+        <div className="space-y-0 divide-y divide-border/50">
+          {sessions.map((session, index) => (
             <div
               key={session.name}
-              className={`p-3 rounded-lg border transition-all hover-elevate ${
+              className={`py-4 transition-all ${
                 session.isActive 
-                  ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-transparent shadow-sm' 
-                  : 'border-border/50 bg-muted/20'
-              }`}
+                  ? 'hover-elevate' 
+                  : ''
+              } ${index === 0 ? 'pt-0' : ''}`}
               data-testid={`card-session-${session.name.toLowerCase()}`}
             >
-              <div className="text-sm font-semibold mb-1">{session.name}</div>
-              <div className="text-xs text-muted-foreground font-mono mb-2">
-                {session.openTime} - {session.closeTime}
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div 
+                      className="w-1 h-4 rounded-full" 
+                      style={{ backgroundColor: session.isActive ? session.color : 'hsl(var(--muted-foreground) / 0.3)' }}
+                    />
+                    <div className="text-sm font-semibold">{session.name}</div>
+                    {session.name === 'New York' && sessions.find(s => s.name === 'London')?.isActive && session.isActive && (
+                      <Badge variant="outline" className="text-xs ml-1">
+                        Overlaps with London
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono ml-5">
+                    {session.openTime} - {session.closeTime}
+                  </div>
+                </div>
+                <Badge 
+                  variant={session.isActive ? "default" : "secondary"}
+                  className="text-xs"
+                  style={session.isActive ? { backgroundColor: session.color } : {}}
+                >
+                  {session.isActive ? 'Active' : 'Closed'}
+                </Badge>
               </div>
-              <Badge 
-                variant={session.isActive ? "default" : "secondary"}
-                className="text-xs w-full justify-center"
-                style={session.isActive ? { backgroundColor: session.color } : {}}
-              >
-                {session.isActive ? 'Active' : 'Closed'}
-              </Badge>
             </div>
           ))}
         </div>
