@@ -403,7 +403,7 @@ export default function TradingSignals() {
                         </div>
                       </div>
                       
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs mr-2">
                         EXPIRED
                       </Badge>
                     </div>
