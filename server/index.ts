@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { scraperScheduler } from "./scrapers/scheduler";
 
 const app = express();
 app.use(express.json());
@@ -67,5 +68,23 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    scraperScheduler.start();
+  });
+
+  process.on('SIGTERM', () => {
+    log('SIGTERM signal received: closing HTTP server');
+    scraperScheduler.stop();
+    server.close(() => {
+      log('HTTP server closed');
+    });
+  });
+
+  process.on('SIGINT', () => {
+    log('SIGINT signal received: closing HTTP server');
+    scraperScheduler.stop();
+    server.close(() => {
+      log('HTTP server closed');
+    });
   });
 })();

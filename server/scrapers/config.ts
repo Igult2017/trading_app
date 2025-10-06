@@ -162,7 +162,7 @@ export const scraperSettings = {
   },
   schedules: {
     upcomingEventsInterval: 15 * 60 * 1000,
-    fullWeekScrapeTime: '00:00',
+    fullWeekScrapeTime: '0 0 * * *',
   },
 };
 
