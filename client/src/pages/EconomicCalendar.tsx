@@ -4,14 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, TrendingUp, Clock, AlertTriangle, DollarSign, BarChart3 } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Minus, Clock, AlertTriangle, DollarSign, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { EconomicEvent } from '@shared/schema';
+import EventDetailsDialog from '@/components/EventDetailsDialog';
 
 export default function EconomicCalendar() {
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const [impactFilter, setImpactFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: events = [], isLoading } = useQuery<EconomicEvent[]>({
     queryKey: ['/api/economic-events', regionFilter, impactFilter, currencyFilter],
@@ -45,6 +48,46 @@ export default function EconomicCalendar() {
     if (isNaN(exp) || isNaN(act)) return null;
     const diff = act - exp;
     return diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+  };
+
+  const getMarketSentiment = (event: EconomicEvent) => {
+    let sentiment = 'neutral';
+    
+    if (event.isReleased && event.postReleaseSentiment) {
+      sentiment = event.postReleaseSentiment;
+    } else if (event.preReleaseSentiment) {
+      sentiment = event.preReleaseSentiment;
+    } else if (event.expertSentiment) {
+      sentiment = event.expertSentiment;
+    }
+    
+    if (sentiment === 'bullish') {
+      return { 
+        sentiment: 'Bullish', 
+        icon: <TrendingUp className="w-3 h-3 text-green-500" />
+      };
+    } else if (sentiment === 'bearish') {
+      return { 
+        sentiment: 'Bearish', 
+        icon: <TrendingDown className="w-3 h-3 text-red-500" />
+      };
+    }
+    return { 
+      sentiment: 'Neutral', 
+      icon: <Minus className="w-3 h-3 text-muted-foreground/50" />
+    };
+  };
+
+  const handleEventClick = (eventId: string) => {
+    setSelectedEventId(eventId);
+    setDialogOpen(true);
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setSelectedEventId(null);
+    }
   };
 
   return (
@@ -139,8 +182,15 @@ export default function EconomicCalendar() {
                 Upcoming Events
               </h2>
               <div className="grid gap-4">
-                {upcomingEvents.map((event) => (
-                  <Card key={event.id} className="hover-elevate" data-testid={`card-event-${event.id}`}>
+                {upcomingEvents.map((event) => {
+                  const sentiment = getMarketSentiment(event);
+                  return (
+                  <Card 
+                    key={event.id} 
+                    className="hover-elevate active-elevate-2 cursor-pointer" 
+                    onClick={() => handleEventClick(event.id)}
+                    data-testid={`card-event-${event.id}`}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 space-y-2">
@@ -160,6 +210,15 @@ export default function EconomicCalendar() {
                             <Badge variant="outline" className="text-xs">
                               {event.country}
                             </Badge>
+                            <div className="flex items-center gap-1">
+                              {sentiment.icon}
+                              <span className={`text-xs font-medium ${
+                                sentiment.sentiment === 'Bullish' ? 'text-green-500' : 
+                                sentiment.sentiment === 'Bearish' ? 'text-red-500' : 'text-muted-foreground'
+                              }`}>
+                                {sentiment.sentiment}
+                              </span>
+                            </div>
                           </div>
 
                           <div>
@@ -212,7 +271,8 @@ export default function EconomicCalendar() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -226,8 +286,14 @@ export default function EconomicCalendar() {
               <div className="grid gap-4">
                 {recentEvents.map((event) => {
                   const surprise = calculateSurprise(event.expectedValue, event.actualValue);
+                  const sentiment = getMarketSentiment(event);
                   return (
-                    <Card key={event.id} className="hover-elevate" data-testid={`card-released-${event.id}`}>
+                    <Card 
+                      key={event.id} 
+                      className="hover-elevate active-elevate-2 cursor-pointer" 
+                      onClick={() => handleEventClick(event.id)}
+                      data-testid={`card-released-${event.id}`}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-2">
@@ -249,6 +315,15 @@ export default function EconomicCalendar() {
                               <Badge variant="default" className="text-xs bg-green-600">
                                 RELEASED
                               </Badge>
+                              <div className="flex items-center gap-1">
+                                {sentiment.icon}
+                                <span className={`text-xs font-medium ${
+                                  sentiment.sentiment === 'Bullish' ? 'text-green-500' : 
+                                  sentiment.sentiment === 'Bearish' ? 'text-red-500' : 'text-muted-foreground'
+                                }`}>
+                                  {sentiment.sentiment}
+                                </span>
+                              </div>
                             </div>
 
                             <div>
@@ -319,6 +394,12 @@ export default function EconomicCalendar() {
           )}
         </>
       )}
+      
+      <EventDetailsDialog 
+        eventId={selectedEventId}
+        open={dialogOpen}
+        onOpenChange={handleDialogOpenChange}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import TradingSession from '@/components/TradingSession';
 import MarketOverview from '@/components/MarketOverview';
-import EconomicCalendar from '@/components/EconomicCalendar';
+import StockSignals from '@/components/StockSignals';
 import TradingSignals from '@/components/TradingSignals';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
@@ -25,7 +25,7 @@ export default function Dashboard() {
       {/* Main Dashboard Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <EconomicCalendar />
+          <StockSignals />
         </div>
         
         <div className="lg:col-span-2 space-y-6">

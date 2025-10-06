@@ -24,7 +24,6 @@ interface TradingSignal {
 export default function TradingSignals() {
   const [selectedSignal, setSelectedSignal] = useState<string | null>(null);
   
-  // TODO: Remove mock data - replace with real trading signals (max 5 active)
   const activeSignals: TradingSignal[] = [
     {
       id: '1',
@@ -100,31 +99,31 @@ export default function TradingSignals() {
     },
     {
       id: '4',
-      symbol: 'USD/CHF',
+      symbol: 'WTI OIL',
       type: 'sell',
-      strategy: 'scalping',
-      entry: 0.8950,
-      stopLoss: 0.8975,
-      takeProfit: 0.8900,
-      riskReward: 2.0,
-      timeframe: '15M',
-      confidence: 72,
+      strategy: 'swing',
+      entry: 82.50,
+      stopLoss: 84.20,
+      takeProfit: 78.80,
+      riskReward: 2.2,
+      timeframe: '4H',
+      confidence: 76,
       reasoning: [
-        'Rejection at key resistance',
-        'Bearish momentum building',
-        'Support test expected'
+        'Resistance at $85 zone rejected',
+        'Oversupply concerns mounting',
+        'Technical breakdown imminent'
       ],
       smcFactors: [
-        'Supply zone holding',
-        'Liquidity grabbed above',
-        'Fair value gap below'
+        'Supply zone activated',
+        'Institutional selling pressure',
+        'Liquidity pool below $79'
       ],
       timestamp: new Date(Date.now() - 30 * 60 * 1000),
       status: 'pending'
     },
     {
       id: '5',
-      symbol: 'GOLD',
+      symbol: 'XAU/USD',
       type: 'buy',
       strategy: 'day',
       entry: 2035.00,
@@ -148,7 +147,6 @@ export default function TradingSignals() {
     }
   ];
 
-  // Signals that were recently replaced or expired (before being archived)
   const previousSignals: TradingSignal[] = [
     {
       id: 'prev1',
@@ -168,17 +166,17 @@ export default function TradingSignals() {
     },
     {
       id: 'prev2',
-      symbol: 'TSLA',
+      symbol: 'ETH/USD',
       type: 'sell',
       strategy: 'day',
-      entry: 248.50,
-      stopLoss: 252.00,
-      takeProfit: 241.00,
-      riskReward: 2.1,
+      entry: 2280.00,
+      stopLoss: 2310.00,
+      takeProfit: 2220.00,
+      riskReward: 2.0,
       timeframe: '1H',
       confidence: 68,
       reasoning: ['Resistance rejection', 'Volume decline'],
-      smcFactors: ['Supply zone active', 'Gap below'],
+      smcFactors: ['Supply zone active', 'Imbalance below'],
       timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
       status: 'executed'
     }
