@@ -208,7 +208,7 @@ export default function TradingSignals() {
         <div className="flex items-center gap-2 text-lg font-semibold">
           <Target className="w-5 h-5" />
           Currency, Gold, Oil and Crypto Signals
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="secondary" className="ml-auto mr-2">
             {activeSignals.filter(s => s.status === 'active').length}/5 Active
           </Badge>
         </div>
@@ -258,7 +258,7 @@ export default function TradingSignals() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mr-2">
                   <Badge 
                     variant="outline"
                     className="text-xs"
