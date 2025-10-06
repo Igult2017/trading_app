@@ -28,7 +28,23 @@ Preferred communication style: Simple, everyday language.
 - **Schema Validation**: Zod for runtime type checking and data validation
 - **Trade History System**: Backend storage for trade records with comprehensive details including entry/exit prices, P&L, strategy, and timeframe data
 - **Analytics Engine**: Real-time calculation of trading metrics including win rate, average P&L, risk-reward ratios from stored trade data
-- **Economic Calendar System**: Comprehensive database for economic events tracking high and medium impact releases with pre-release expectations and post-release analysis
+- **Economic Calendar System**: Web scraping-based system for economic events with automated data collection from Investing.com, 15-minute caching, and 7-day retention
+
+## Economic Calendar Data Scraping
+- **Primary Source**: Investing.com economic calendar
+- **Backup Sources**: ForexFactory, FXStreet, TradingEconomics (configured but disabled)
+- **Scraping Stack**: Cheerio for HTML parsing, Axios for HTTP requests
+- **Rate Limiting**: 3-second delays between requests, rotating user agents
+- **Caching Strategy**: 15-minute cache duration, 7-day data retention
+- **Scheduling**: 
+  - Upcoming events: Scraped every 15 minutes
+  - Full week data: Daily scrape at midnight (00:00 UTC)
+  - Cleanup: Hourly removal of old events
+- **Data Standardization**: All events normalized with title, country, date/time (UTC), impact level, forecast/actual/previous values, source attribution
+- **API Endpoints**:
+  - `/api/calendar/today` - Today's economic events
+  - `/api/calendar/week` - Week's economic events
+  - `/api/economic-events` - Upcoming events (24 hours)
 
 ## Design System
 - **Color Palette**: Dark-mode primary with financial trading color scheme (trading blue, profit green, loss red, alert amber)
@@ -68,6 +84,11 @@ Preferred communication style: Simple, everyday language.
 - **date-fns**: Lightweight date manipulation library
 - **wouter**: Minimalist routing library for React
 - **@replit/vite-plugin-**: Replit-specific development tooling for enhanced debugging
+
+## Web Scraping and Data Collection
+- **cheerio**: Fast, flexible HTML parsing for web scraping economic calendar data
+- **axios**: Promise-based HTTP client for fetching web pages with configurable headers and timeouts
+- **node-cron**: Task scheduler for automated scraping at regular intervals (every 15 minutes for upcoming events, daily for full week data)
 
 ## Styling and Design
 - **tailwindcss**: Utility-first CSS framework with custom trading-focused configuration
