@@ -297,8 +297,8 @@ export default function Header() {
         </div>
 
         {/* Hero Content */}
-        <div className="relative px-6 py-6 md:px-12 md:py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        <div className="relative px-4 py-3 md:px-8 md:py-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -306,18 +306,17 @@ export default function Header() {
               className="z-10"
             >
               <motion.h1 
-                className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight"
+                className="text-xl md:text-2xl font-bold text-white mb-1 leading-tight"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
                 Market opportunities
-                <br />
-                <span className="text-white/90">don't wait.</span>
+                <span className="text-white/90"> don't wait.</span>
               </motion.h1>
               
               <motion.p
-                className="text-lg md:text-xl text-white/95 mb-4 font-medium"
+                className="text-sm md:text-base text-white/95 mb-2 font-medium"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
@@ -331,17 +330,17 @@ export default function Header() {
                 transition={{ duration: 0.6, delay: 0.6 }}
               >
                 <Button 
-                  size="default" 
-                  className="bg-black hover:bg-black/90 text-white px-6 rounded-full shadow-2xl"
+                  size="sm" 
+                  className="bg-black hover:bg-black/90 text-white px-4 rounded-full shadow-2xl"
                   data-testid="button-hero-cta"
                 >
-                  <TrendingUp className="w-4 h-4 mr-2" />
+                  <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
                   Discover Trading Signals
                 </Button>
               </motion.div>
             </motion.div>
 
-            <div className="relative h-32 md:h-40 lg:h-48 flex items-end justify-center gap-2 md:gap-3 lg:gap-4">
+            <div className="relative h-16 md:h-20 lg:h-24 flex items-end justify-center gap-1.5 md:gap-2">
               {bars.map((bar, index) => (
                 <motion.div
                   key={index}
