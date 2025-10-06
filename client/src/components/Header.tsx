@@ -1,17 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  Bell, 
   Settings, 
-  ChevronDown, 
   TrendingUp,
   Wifi,
   WifiOff,
-  Menu,
   CheckCircle2,
   XCircle,
   Send
@@ -27,7 +24,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Notifications } from '@/components/Notifications';
 
@@ -98,205 +95,345 @@ export default function Header() {
     return location.startsWith(path);
   };
 
+  const bars = [
+    { height: 60, delay: 0.1 },
+    { height: 85, delay: 0.2 },
+    { height: 45, delay: 0.3 },
+    { height: 95, delay: 0.4 },
+    { height: 70, delay: 0.5 },
+    { height: 55, delay: 0.6 },
+    { height: 90, delay: 0.7 },
+    { height: 65, delay: 0.8 },
+    { height: 80, delay: 0.9 },
+    { height: 50, delay: 1.0 },
+    { height: 75, delay: 1.1 },
+    { height: 40, delay: 1.2 },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      {/* Main Header */}
-      <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        {/* Left Section - Logo & Nav */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="md:hidden" />
-            <Link href="/" data-testid="link-logo">
-              <div className="flex items-center gap-2 cursor-pointer hover-elevate px-2 py-1 rounded-md transition-all">
-                <div className="relative">
-                  <TrendingUp className="w-7 h-7 text-primary" />
-                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl font-bold tracking-tight leading-none">
-                    Infod Trading
-                  </h1>
-                  <p className="text-[10px] text-muted-foreground leading-none">
-                    Partner System
-                  </p>
-                </div>
+    <header className="sticky top-0 z-50 w-full">
+      <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 dark:from-orange-600 dark:via-orange-700 dark:to-orange-900">
+        <div className="absolute inset-0 bg-black/10" />
+        
+        {/* Navigation Bar */}
+        <div className="relative border-b border-white/10">
+          <div className="flex h-14 items-center justify-between px-4 md:px-6">
+            {/* Left Section - Logo & Nav */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger data-testid="button-sidebar-toggle" className="md:hidden text-white" />
+                <Link href="/" data-testid="link-logo">
+                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                    <div className="hidden sm:block">
+                      <h1 className="text-base font-bold text-white leading-none">
+                        Infod Trading
+                      </h1>
+                    </div>
+                  </div>
+                </Link>
               </div>
-            </Link>
-          </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {mainNavItems.map((item) => (
-              <Link key={item.path} href={item.path}>
-                <Button
-                  variant={isActivePath(item.path) ? "default" : "ghost"}
-                  size="sm"
-                  className={`transition-colors ${
-                    isActivePath(item.path) 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'hover-elevate'
-                  }`}
-                  data-testid={`nav-${item.name.toLowerCase()}`}
-                >
-                  {item.name}
-                </Button>
-              </Link>
-            ))}
-          </nav>
-        </div>
+              {/* Desktop Navigation */}
+              <nav className="hidden lg:flex items-center gap-1">
+                {mainNavItems.map((item) => (
+                  <Link key={item.path} href={item.path}>
+                    <Button
+                      variant={isActivePath(item.path) ? "secondary" : "ghost"}
+                      size="sm"
+                      className={`transition-colors text-white ${
+                        isActivePath(item.path) 
+                          ? 'bg-white/20 hover:bg-white/30' 
+                          : 'hover:bg-white/10'
+                      }`}
+                      data-testid={`nav-${item.name.toLowerCase()}`}
+                    >
+                      {item.name}
+                    </Button>
+                  </Link>
+                ))}
+              </nav>
+            </div>
 
-        {/* Center Section - Search */}
-        <div className="hidden md:flex flex-1 max-w-md mx-4">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search markets, pairs, indicators..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 h-9 bg-muted/30 border-border/50 focus:bg-background"
-              data-testid="input-search"
-            />
-          </div>
-        </div>
+            {/* Center Section - Search */}
+            <div className="hidden md:flex flex-1 max-w-md mx-4">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70" />
+                <Input
+                  type="text"
+                  placeholder="Search markets, pairs, indicators..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 h-9 bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
 
-        {/* Right Section - Actions */}
-        <div className="flex items-center gap-2">
-          {/* Connection Status */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-muted/30">
-            {connectionStatus === 'connected' ? (
-              <Wifi className="w-3.5 h-3.5 text-green-500" />
-            ) : connectionStatus === 'connecting' ? (
-              <Wifi className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
-            ) : (
-              <WifiOff className="w-3.5 h-3.5 text-red-500" />
-            )}
-            <span className="text-xs font-medium" data-testid="text-connection-status">
-              {connectionStatus === 'connected' ? 'Live' : 
-               connectionStatus === 'connecting' ? 'Connecting' : 'Offline'}
-            </span>
-          </div>
-
-          {/* In-App Notifications */}
-          <Notifications />
-
-          {/* Telegram Setup */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="relative"
-                data-testid="button-telegram-setup"
-              >
-                <Send className="w-4 h-4" />
-                {notificationStatus?.telegramBotActive && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full" />
+            {/* Right Section - Actions */}
+            <div className="flex items-center gap-2">
+              {/* Connection Status */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-white/10">
+                {connectionStatus === 'connected' ? (
+                  <Wifi className="w-3.5 h-3.5 text-green-300" />
+                ) : connectionStatus === 'connecting' ? (
+                  <Wifi className="w-3.5 h-3.5 text-yellow-300 animate-pulse" />
+                ) : (
+                  <WifiOff className="w-3.5 h-3.5 text-red-300" />
                 )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72">
-              <DropdownMenuLabel>Telegram Setup</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              
-              <div className="px-2 py-3 space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  {notificationStatus?.telegramBotActive ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-muted-foreground">Bot Status: Active</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 text-red-500" />
-                      <span className="text-muted-foreground">Bot Status: Inactive</span>
-                    </>
-                  )}
-                </div>
+                <span className="text-xs font-medium text-white" data-testid="text-connection-status">
+                  {connectionStatus === 'connected' ? 'Live' : 
+                   connectionStatus === 'connecting' ? 'Connecting' : 'Offline'}
+                </span>
+              </div>
 
-                {notificationStatus?.telegramBotActive && (
-                  <>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p className="font-semibold">Telegram receives:</p>
-                      <ul className="list-disc list-inside space-y-0.5 ml-2">
-                        <li>Trading sessions (5 min before open)</li>
-                        <li>High/Medium impact economic events</li>
-                      </ul>
-                      <p className="mt-2 text-xs">All notifications appear in the dashboard bell icon.</p>
+              {/* In-App Notifications */}
+              <div className="[&_button]:text-white [&_button]:hover:bg-white/10">
+                <Notifications />
+              </div>
+
+              {/* Telegram Setup */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="relative text-white hover:bg-white/10"
+                    data-testid="button-telegram-setup"
+                  >
+                    <Send className="w-4 h-4" />
+                    {notificationStatus?.telegramBotActive && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-300 rounded-full" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Telegram Setup</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  <div className="px-2 py-3 space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      {notificationStatus?.telegramBotActive ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          <span className="text-muted-foreground">Bot Status: Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4 text-red-500" />
+                          <span className="text-muted-foreground">Bot Status: Inactive</span>
+                        </>
+                      )}
                     </div>
 
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={() => testSignalMutation.mutate()}
-                      disabled={testSignalMutation.isPending}
-                      data-testid="button-test-notification"
-                    >
-                      <Send className="w-3 h-3 mr-2" />
-                      {testSignalMutation.isPending ? 'Sending...' : 'Send Test Notification'}
-                    </Button>
-                  </>
-                )}
+                    {notificationStatus?.telegramBotActive && (
+                      <>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p className="font-semibold">Telegram receives:</p>
+                          <ul className="list-disc list-inside space-y-0.5 ml-2">
+                            <li>Trading sessions (5 min before open)</li>
+                            <li>High/Medium impact economic events</li>
+                          </ul>
+                          <p className="mt-2 text-xs">All notifications appear in the dashboard bell icon.</p>
+                        </div>
 
-                {!notificationStatus?.telegramBotActive && (
-                  <div className="text-xs text-muted-foreground">
-                    <p className="mb-2">To enable Telegram alerts:</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>Search for @InfodTradingBot on Telegram</li>
-                      <li>Send /start to subscribe</li>
-                      <li>Receive important alerts via Telegram!</li>
-                    </ol>
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => testSignalMutation.mutate()}
+                          disabled={testSignalMutation.isPending}
+                          data-testid="button-test-notification"
+                        >
+                          <Send className="w-3 h-3 mr-2" />
+                          {testSignalMutation.isPending ? 'Sending...' : 'Send Test Notification'}
+                        </Button>
+                      </>
+                    )}
+
+                    {!notificationStatus?.telegramBotActive && (
+                      <div className="text-xs text-muted-foreground">
+                        <p className="mb-2">To enable Telegram alerts:</p>
+                        <ol className="list-decimal list-inside space-y-1 ml-2">
+                          <li>Search for @InfodTradingBot on Telegram</li>
+                          <li>Send /start to subscribe</li>
+                          <li>Receive important alerts via Telegram!</li>
+                        </ol>
+                      </div>
+                    )}
                   </div>
-                )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Settings Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" data-testid="button-settings">
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    Account
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    Preferences
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Theme Toggle */}
+              <div className="[&_button]:text-white [&_button]:hover:bg-white/10">
+                <ThemeToggle />
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
-          {/* Settings Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid="button-settings">
-                <Settings className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem>
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                Preferences
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Theme Toggle */}
-          <ThemeToggle />
-
-          {/* Mobile Menu */}
-          <SidebarTrigger data-testid="button-mobile-menu" className="hidden md:block" />
+              {/* Mobile Menu */}
+              <SidebarTrigger data-testid="button-mobile-menu" className="hidden md:block text-white" />
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Secondary Navigation Bar */}
-      <div className="border-t border-border/30 bg-muted/20">
-        <div className="flex items-center gap-1 px-4 md:px-6 h-10 overflow-x-auto scrollbar-hide">
-          {quickLinks.map((link) => (
-            <button
-              key={link.tag}
-              className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-md transition-colors hover-elevate ${
-                link.highlight 
-                  ? 'text-orange-500 dark:text-orange-400' 
-                  : 'text-muted-foreground'
-              }`}
-              data-testid={`quick-link-${link.tag}`}
+        {/* Hero Content */}
+        <div className="relative px-6 py-6 md:px-12 md:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="z-10"
             >
-              {link.name}
-            </button>
-          ))}
+              <motion.h1 
+                className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                Market opportunities
+                <br />
+                <span className="text-white/90">don't wait.</span>
+              </motion.h1>
+              
+              <motion.p
+                className="text-lg md:text-xl text-white/95 mb-4 font-medium"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
+                Find your edge now.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+              >
+                <Button 
+                  size="default" 
+                  className="bg-black hover:bg-black/90 text-white px-6 rounded-full shadow-2xl"
+                  data-testid="button-hero-cta"
+                >
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Discover Trading Signals
+                </Button>
+              </motion.div>
+            </motion.div>
+
+            <div className="relative h-32 md:h-40 lg:h-48 flex items-end justify-center gap-2 md:gap-3 lg:gap-4">
+              {bars.map((bar, index) => (
+                <motion.div
+                  key={index}
+                  className="relative flex-1 bg-gradient-to-t from-black/40 to-black/60 rounded-t-lg shadow-lg"
+                  style={{
+                    maxWidth: '40px',
+                  }}
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ 
+                    height: `${bar.height}%`, 
+                    opacity: 1 
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    delay: bar.delay,
+                    ease: "easeOut"
+                  }}
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-t from-white/20 to-white/40 rounded-t-lg"
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    transition={{
+                      duration: 0.8,
+                      delay: bar.delay + 0.3,
+                      ease: "easeOut"
+                    }}
+                    style={{ transformOrigin: 'bottom' }}
+                  />
+                  
+                  <motion.div
+                    className="absolute -top-1 left-0 right-0 h-1 bg-white/60 rounded-full"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                      duration: 0.3,
+                      delay: bar.delay + 1
+                    }}
+                  />
+
+                  <motion.div
+                    className="absolute inset-0"
+                    animate={{
+                      boxShadow: [
+                        '0 0 0px rgba(255,255,255,0)',
+                        '0 0 20px rgba(255,255,255,0.3)',
+                        '0 0 0px rgba(255,255,255,0)'
+                      ]
+                    }}
+                    transition={{
+                      duration: 2,
+                      delay: bar.delay + 1.5,
+                      repeat: Infinity,
+                      repeatDelay: 1
+                    }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          <motion.div
+            className="absolute top-1/2 right-0 w-96 h-96 bg-orange-400/20 rounded-full blur-3xl -translate-y-1/2"
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3]
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        </div>
+
+        {/* Quick Links Bar */}
+        <div className="relative border-t border-white/10 bg-black/10">
+          <div className="flex items-center gap-1 px-4 md:px-6 h-10 overflow-x-auto scrollbar-hide">
+            {quickLinks.map((link) => (
+              <button
+                key={link.tag}
+                className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-md transition-colors hover:bg-white/10 ${
+                  link.highlight 
+                    ? 'text-orange-200' 
+                    : 'text-white/80'
+                }`}
+                data-testid={`quick-link-${link.tag}`}
+              >
+                {link.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </header>
