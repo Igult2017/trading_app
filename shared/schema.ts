@@ -50,10 +50,11 @@ export const economicEvents = pgTable("economic_events", {
   description: text("description"),
   eventType: text("event_type").notNull(),
   country: text("country").notNull(),
+  countryCode: text("country_code"),
   region: text("region").notNull(),
   currency: text("currency").notNull(),
   impactLevel: text("impact_level").notNull(),
-  eventTime: timestamp("event_time").notNull(),
+  eventTime: timestamp("event_time", { withTimezone: true }).notNull(),
   expectedValue: text("expected_value"),
   previousValue: text("previous_value"),
   actualValue: text("actual_value"),
@@ -64,12 +65,16 @@ export const economicEvents = pgTable("economic_events", {
   affectedCurrencies: text("affected_currencies").array(),
   affectedStocks: text("affected_stocks").array(),
   isReleased: boolean("is_released").default(false),
+  sourceSite: text("source_site"),
+  sourceUrl: text("source_url"),
+  lastScraped: timestamp("last_scraped").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertEconomicEventSchema = createInsertSchema(economicEvents).omit({
   id: true,
   createdAt: true,
+  lastScraped: true,
 });
 
 export type InsertEconomicEvent = z.infer<typeof insertEconomicEventSchema>;
