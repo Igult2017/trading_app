@@ -7,6 +7,7 @@ import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
+import { notificationService } from "./services/notificationService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -259,11 +260,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid signal data" });
       }
 
-      await telegramNotificationService.sendTradingSignalNotification(signal);
-      res.json({ success: true, message: "Signal notification sent" });
+      const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
+      const title = `${typeEmoji} ${signal.symbol} - ${signal.type.toUpperCase()}`;
+      const message = `Strategy: ${signal.strategy} | Entry: ${signal.entry} | SL: ${signal.stopLoss} | TP: ${signal.takeProfit} | R/R: 1:${signal.riskReward}`;
+      
+      await notificationService.createNotification({
+        type: 'trading_signal',
+        title,
+        message,
+        metadata: JSON.stringify(signal),
+      });
+
+      res.json({ success: true, message: "Signal notification created" });
     } catch (error) {
-      console.error("Error sending signal notification:", error);
-      res.status(500).json({ error: "Failed to send signal notification" });
+      console.error("Error creating signal notification:", error);
+      res.status(500).json({ error: "Failed to create signal notification" });
     }
   });
 

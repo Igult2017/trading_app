@@ -69,12 +69,11 @@ export class TelegramNotificationService {
           await this.bot?.sendMessage(
             chatId,
             `✅ Welcome to Infod Trading Alerts!\n\n` +
-            `You're now subscribed to receive notifications for:\n` +
+            `You're now subscribed to receive Telegram notifications for:\n` +
             `🔔 Trading Sessions - 5 min before London & NY open\n` +
             `📊 High impact economic events\n` +
-            `📈 Medium impact economic events\n` +
-            `💹 New trading signal setups\n` +
-            `📅 Data releases with expected impacts\n\n` +
+            `📈 Medium impact economic events\n\n` +
+            `ℹ️ Other notifications (like trading signals) can be viewed on the dashboard.\n\n` +
             `Commands:\n` +
             `/stop - Pause notifications\n` +
             `/resume - Resume notifications\n` +
@@ -165,12 +164,11 @@ export class TelegramNotificationService {
             chatId,
             `📊 Subscription Status: ${status}\n` +
             `📅 Subscribed since: ${subDate}\n\n` +
-            `Receiving notifications for:\n` +
+            `Receiving Telegram notifications for:\n` +
             `• Trading sessions (London & NY)\n` +
             `• High impact economic events\n` +
-            `• Medium impact economic events\n` +
-            `• New trading signals\n` +
-            `• Data releases`
+            `• Medium impact economic events\n\n` +
+            `ℹ️ View all notifications on the dashboard`
           );
         }
       } catch (error) {
@@ -347,56 +345,6 @@ export class TelegramNotificationService {
     }
   }
 
-  async sendTradingSignalNotification(signal: any): Promise<void> {
-    if (!this.isInitialized || !this.bot) {
-      return;
-    }
-
-    try {
-      const subscribers = await db
-        .select()
-        .from(telegramSubscribers)
-        .where(eq(telegramSubscribers.isActive, true));
-
-      if (subscribers.length === 0) {
-        return;
-      }
-
-      const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
-      const confidenceEmoji = signal.confidence >= 80 ? '⭐⭐⭐' : signal.confidence >= 60 ? '⭐⭐' : '⭐';
-      
-      let message = `${typeEmoji} *New Trading Signal*\n\n`;
-      message += `💹 *${signal.symbol}* - ${signal.type.toUpperCase()}\n`;
-      message += `📊 Strategy: ${signal.strategy}\n`;
-      message += `⏱ Timeframe: ${signal.timeframe}\n`;
-      message += `${confidenceEmoji} Confidence: ${signal.confidence}%\n\n`;
-      message += `📍 Entry: ${signal.entry}\n`;
-      message += `🛑 Stop Loss: ${signal.stopLoss}\n`;
-      message += `🎯 Take Profit: ${signal.takeProfit}\n`;
-      message += `💰 Risk/Reward: 1:${signal.riskReward}\n`;
-
-      if (signal.reasoning && signal.reasoning.length > 0) {
-        message += `\n📝 *Analysis:*\n`;
-        signal.reasoning.slice(0, 2).forEach((reason: string) => {
-          message += `• ${reason}\n`;
-        });
-      }
-
-      for (const subscriber of subscribers) {
-        try {
-          await this.bot.sendMessage(subscriber.chatId, message, {
-            parse_mode: 'Markdown',
-          });
-        } catch (error) {
-          console.error(`Failed to send signal to ${subscriber.chatId}:`, error);
-        }
-      }
-
-      console.log(`Sent trading signal notification for ${signal.symbol}`);
-    } catch (error) {
-      console.error('Error sending trading signal notification:', error);
-    }
-  }
 
   getBot(): TelegramBot | null {
     return this.bot;
