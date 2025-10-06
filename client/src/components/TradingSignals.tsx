@@ -206,8 +206,8 @@ export default function TradingSignals() {
   };
 
   return (
-    <Card data-testid="card-trading-signals">
-      <CardHeader className="pb-4">
+    <Card data-testid="card-trading-signals" className="flex flex-col h-[calc(50vh-8rem)]">
+      <CardHeader className="pb-4 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">
           <Target className="w-5 h-5" />
           Trading Signals
@@ -216,7 +216,7 @@ export default function TradingSignals() {
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-y-auto flex-1">
         <div className="space-y-6">
           {/* Active Signals Section */}
           <div>

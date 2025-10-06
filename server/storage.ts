@@ -114,6 +114,7 @@ export class MemStorage implements IStorage {
     const event: EconomicEvent = {
       ...insertEvent,
       id,
+      countryCode: insertEvent.countryCode ?? null,
       affectedCurrencies: insertEvent.affectedCurrencies ?? [],
       affectedStocks: insertEvent.affectedStocks ?? [],
       description: insertEvent.description ?? null,
@@ -124,7 +125,15 @@ export class MemStorage implements IStorage {
       futuresImpliedExpectation: insertEvent.futuresImpliedExpectation ?? null,
       surpriseFactor: insertEvent.surpriseFactor ?? null,
       marketImpactAnalysis: insertEvent.marketImpactAnalysis ?? null,
+      expertSentiment: insertEvent.expertSentiment ?? null,
+      preReleaseSentiment: insertEvent.preReleaseSentiment ?? null,
+      postReleaseSentiment: insertEvent.postReleaseSentiment ?? null,
+      currencyPairImpacts: insertEvent.currencyPairImpacts ?? null,
+      stockImpacts: insertEvent.stockImpacts ?? null,
+      sourceSite: insertEvent.sourceSite ?? null,
+      sourceUrl: insertEvent.sourceUrl ?? null,
       isReleased: insertEvent.isReleased ?? false,
+      lastScraped: new Date(),
       createdAt: new Date(),
     };
     this.economicEvents.set(id, event);
