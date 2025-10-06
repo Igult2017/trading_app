@@ -2,11 +2,13 @@ import * as cron from 'node-cron';
 import { economicCalendarScraper } from './economicCalendarScraper';
 import { cacheService } from './cacheService';
 import { scraperSettings } from './config';
+import { telegramNotificationService } from '../services/telegramNotification';
 
 export class ScraperScheduler {
   private upcomingEventsJob: ReturnType<typeof cron.schedule> | null = null;
   private fullWeekJob: ReturnType<typeof cron.schedule> | null = null;
   private cleanupJob: ReturnType<typeof cron.schedule> | null = null;
+  private notificationJob: ReturnType<typeof cron.schedule> | null = null;
   private isRunning = false;
 
   async runUpcomingEventsScrape(): Promise<void> {
@@ -84,9 +86,15 @@ export class ScraperScheduler {
       await this.runCleanup();
     });
 
+    this.notificationJob = cron.schedule('*/5 * * * *', async () => {
+      console.log('Checking for events to notify...');
+      await telegramNotificationService.checkAndNotifyUpcomingEvents();
+    });
+
     console.log(`Scheduled upcoming events scrape: every ${upcomingIntervalMinutes} minutes`);
     console.log(`Scheduled full week scrape: ${scraperSettings.schedules.fullWeekScrapeTime}`);
     console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
+    console.log(`Scheduled Telegram notifications check: every 5 minutes`);
 
     this.runUpcomingEventsScrape();
   }
@@ -107,6 +115,11 @@ export class ScraperScheduler {
     if (this.cleanupJob) {
       this.cleanupJob.stop();
       this.cleanupJob = null;
+    }
+
+    if (this.notificationJob) {
+      this.notificationJob.stop();
+      this.notificationJob = null;
     }
     
     console.log('Scheduler stopped');
