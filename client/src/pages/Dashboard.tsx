@@ -2,12 +2,16 @@ import TradingSession from '@/components/TradingSession';
 import MarketOverview from '@/components/MarketOverview';
 import StockSignals from '@/components/StockSignals';
 import TradingSignals from '@/components/TradingSignals';
+import { HeroSection } from '@/components/HeroSection';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 
 export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
+      {/* Hero Section */}
+      <HeroSection />
+
       {/* Trading Sessions */}
       <TradingSession />
 
