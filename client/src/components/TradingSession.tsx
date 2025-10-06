@@ -17,11 +17,6 @@ export default function TradingSession() {
   }, []);
 
   const activeSessions = sessions.filter(s => s.isActive);
-  const primarySession = activeSessions[0];
-  const elapsedMinutes = primarySession ? getSessionElapsedMinutes(primarySession) : 0;
-  const remainingMinutes = primarySession ? getSessionTimeRemaining(primarySession) : 0;
-  const totalSessionMinutes = elapsedMinutes + remainingMinutes;
-  const progressPercentage = totalSessionMinutes > 0 ? (elapsedMinutes / totalSessionMinutes) * 100 : 0;
 
   return (
     <div data-testid="card-trading-session" className="bg-white dark:bg-background">
@@ -61,64 +56,67 @@ export default function TradingSession() {
           )}
         </div>
 
-        {primarySession ? (
-          <div className="p-4 border border-primary/30 rounded-lg bg-gradient-to-br from-primary/5 to-transparent" data-testid="card-session-details">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-base">{primarySession.name} Session</h3>
-              </div>
-              <span className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
-                {primarySession.openTime} - {primarySession.closeTime} UTC
-              </span>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <Timer className="w-4 h-4 text-green-500" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Elapsed</div>
-                    <div className="text-sm font-bold tabular-nums text-foreground" data-testid="text-elapsed-time">
-                      {formatMinutesToHoursAndMinutes(elapsedMinutes)}
+        {activeSessions.length > 0 ? (
+          <div className="space-y-3">
+            {activeSessions.map((session) => {
+              const elapsed = getSessionElapsedMinutes(session);
+              const remaining = getSessionTimeRemaining(session);
+              const total = elapsed + remaining;
+              const progress = total > 0 ? (elapsed / total) * 100 : 0;
+              
+              return (
+                <div 
+                  key={session.name}
+                  className="p-4 border rounded-lg bg-gradient-to-br from-primary/5 to-transparent" 
+                  style={{ borderColor: `${session.color}50` }}
+                  data-testid="card-session-details"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" style={{ color: session.color }} />
+                      <h3 className="font-semibold text-base">{session.name} Session</h3>
+                    </div>
+                    <span className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
+                      {session.openTime} - {session.closeTime} UTC
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Timer className="w-4 h-4 text-green-500" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Elapsed</div>
+                          <div className="text-sm font-bold tabular-nums text-foreground" data-testid={`text-elapsed-time-${session.name.toLowerCase()}`}>
+                            {formatMinutesToHoursAndMinutes(elapsed)}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="h-8 w-px bg-border" />
+                      
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <div className="text-right">
+                          <div className="text-xs text-muted-foreground">Remaining</div>
+                          <div className="text-sm font-bold tabular-nums text-foreground" data-testid={`text-remaining-time-${session.name.toLowerCase()}`}>
+                            {formatMinutesToHoursAndMinutes(remaining)}
+                          </div>
+                        </div>
+                        <Clock className="w-4 h-4 text-orange-500" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Progress value={progress} className="h-2" style={{ backgroundColor: `${session.color}20` }} />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{Math.round(progress)}% Complete</span>
+                        <span>{formatMinutesToHoursAndMinutes(total)} Total</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                
-                <div className="h-8 w-px bg-border" />
-                
-                <div className="flex items-center gap-2 flex-1 justify-end">
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground">Remaining</div>
-                    <div className="text-sm font-bold tabular-nums text-foreground" data-testid="text-remaining-time">
-                      {formatMinutesToHoursAndMinutes(remainingMinutes)}
-                    </div>
-                  </div>
-                  <Clock className="w-4 h-4 text-orange-500" />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Progress value={progressPercentage} className="h-2" />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{Math.round(progressPercentage)}% Complete</span>
-                  <span>{formatMinutesToHoursAndMinutes(totalSessionMinutes)} Total</span>
-                </div>
-              </div>
-            </div>
-
-            {activeSessions.length > 1 && (
-              <div className="mt-3 pt-3 border-t border-border/50">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    Overlap
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {activeSessions.slice(1).map(s => s.name).join(', ')}
-                  </span>
-                </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         ) : (
           <div className="p-4 border border-border/50 rounded-lg text-center bg-muted/20" data-testid="card-session-closed">
