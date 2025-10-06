@@ -292,6 +292,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const notifications = await notificationService.getNotifications(limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/notifications/unread", async (req, res) => {
+    try {
+      const notifications = await notificationService.getUnreadNotifications();
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching unread notifications:", error);
+      res.status(500).json({ error: "Failed to fetch unread notifications" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      await notificationService.markAsRead(req.params.id);
+      res.json({ success: true, message: "Notification marked as read" });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch("/api/notifications/read-all", async (req, res) => {
+    try {
+      await notificationService.markAllAsRead();
+      res.json({ success: true, message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", async (req, res) => {
+    try {
+      await notificationService.deleteNotification(req.params.id);
+      res.json({ success: true, message: "Notification deleted" });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ error: "Failed to delete notification" });
+    }
+  });
+
+  app.delete("/api/notifications/clear-all", async (req, res) => {
+    try {
+      await notificationService.clearAllNotifications();
+      res.json({ success: true, message: "All notifications cleared" });
+    } catch (error) {
+      console.error("Error clearing all notifications:", error);
+      res.status(500).json({ error: "Failed to clear all notifications" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
