@@ -3,6 +3,7 @@ import { db } from '../db';
 import { telegramSubscribers, economicEvents } from '@shared/schema';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
+import { notificationService } from './notificationService';
 
 interface TradingSession {
   name: string;
@@ -201,32 +202,47 @@ export class TelegramNotificationService {
   }
 
   async sendEventNotification(event: any): Promise<void> {
-    if (!this.isInitialized || !this.bot) {
-      console.log('Telegram bot not initialized, skipping notification');
-      return;
-    }
-
     try {
-      const subscribers = await db
-        .select()
-        .from(telegramSubscribers)
-        .where(eq(telegramSubscribers.isActive, true));
-
-      if (subscribers.length === 0) {
-        console.log('No active Telegram subscribers');
-        return;
+      const impactEmoji = event.impactLevel === 'High' ? '🔴' : event.impactLevel === 'Medium' ? '🟡' : '🟢';
+      const timeStr = format(new Date(event.eventTime), 'MMM dd, HH:mm');
+      
+      const title = `${impactEmoji} ${event.impactLevel} Impact: ${event.title}`;
+      let message = `${event.country} (${event.currency}) - ${timeStr} UTC`;
+      
+      if (event.expectedValue || event.previousValue) {
+        const parts = [];
+        if (event.expectedValue) parts.push(`Expected: ${event.expectedValue}`);
+        if (event.previousValue) parts.push(`Previous: ${event.previousValue}`);
+        message += ` | ${parts.join(', ')}`;
       }
+      
+      await notificationService.createNotification({
+        type: 'economic_event',
+        title,
+        message,
+        impactLevel: event.impactLevel,
+        metadata: JSON.stringify(event),
+      });
 
-      const message = this.formatEventMessage(event);
+      if (this.isInitialized && this.bot && (event.impactLevel === 'High' || event.impactLevel === 'Medium')) {
+        const subscribers = await db
+          .select()
+          .from(telegramSubscribers)
+          .where(eq(telegramSubscribers.isActive, true));
 
-      for (const subscriber of subscribers) {
-        try {
-          await this.bot.sendMessage(subscriber.chatId, message, {
-            parse_mode: 'Markdown',
-          });
-          console.log(`Notification sent to ${subscriber.chatId}`);
-        } catch (error) {
-          console.error(`Failed to send notification to ${subscriber.chatId}:`, error);
+        if (subscribers.length > 0) {
+          const telegramMessage = this.formatEventMessage(event);
+
+          for (const subscriber of subscribers) {
+            try {
+              await this.bot.sendMessage(subscriber.chatId, telegramMessage, {
+                parse_mode: 'Markdown',
+              });
+              console.log(`Telegram notification sent to ${subscriber.chatId}`);
+            } catch (error) {
+              console.error(`Failed to send Telegram notification to ${subscriber.chatId}:`, error);
+            }
+          }
         }
       }
 
@@ -236,15 +252,11 @@ export class TelegramNotificationService {
         .where(eq(economicEvents.id, event.id));
 
     } catch (error) {
-      console.error('Error sending Telegram notifications:', error);
+      console.error('Error sending event notifications:', error);
     }
   }
 
   async checkAndNotifyUpcomingEvents(): Promise<void> {
-    if (!this.isInitialized) {
-      return;
-    }
-
     try {
       const now = new Date();
       const notificationWindow = new Date(now.getTime() + 30 * 60 * 1000);
@@ -261,13 +273,9 @@ export class TelegramNotificationService {
           )
         );
 
-      const highMediumEvents = upcomingEvents.filter(
-        event => event.impactLevel === 'High' || event.impactLevel === 'Medium'
-      );
+      console.log(`Found ${upcomingEvents.length} events to notify`);
 
-      console.log(`Found ${highMediumEvents.length} events to notify`);
-
-      for (const event of highMediumEvents) {
+      for (const event of upcomingEvents) {
         await this.sendEventNotification(event);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -277,10 +285,6 @@ export class TelegramNotificationService {
   }
 
   async checkAndNotifyTradingSessions(): Promise<void> {
-    if (!this.isInitialized || !this.bot) {
-      return;
-    }
-
     try {
       const now = new Date();
       const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
@@ -288,15 +292,6 @@ export class TelegramNotificationService {
       
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       if (isWeekend) {
-        return;
-      }
-
-      const subscribers = await db
-        .select()
-        .from(telegramSubscribers)
-        .where(eq(telegramSubscribers.isActive, true));
-
-      if (subscribers.length === 0) {
         return;
       }
 
@@ -310,20 +305,39 @@ export class TelegramNotificationService {
         const minutesToOpen = (session.openUTC - currentUTC) * 60;
         
         if (minutesToOpen > 0 && minutesToOpen <= 6) {
-          const message = 
-            `🔔 *${session.name} Session Opening Soon!*\n\n` +
-            `⏰ Opens in ${Math.ceil(minutesToOpen)} minutes\n` +
-            `🌍 High volume trading session\n` +
-            `💹 Increased volatility expected\n\n` +
-            `Prepare your trading setups!`;
+          const title = `🔔 ${session.name} Session Opening Soon!`;
+          const message = `Opens in ${Math.ceil(minutesToOpen)} minutes - High volume trading session with increased volatility expected`;
+          
+          await notificationService.createNotification({
+            type: 'trading_session',
+            title,
+            message,
+            metadata: JSON.stringify({ session: session.name, minutesToOpen: Math.ceil(minutesToOpen) }),
+          });
 
-          for (const subscriber of subscribers) {
-            try {
-              await this.bot.sendMessage(subscriber.chatId, message, {
-                parse_mode: 'Markdown',
-              });
-            } catch (error) {
-              console.error(`Failed to send session alert to ${subscriber.chatId}:`, error);
+          if (this.isInitialized && this.bot) {
+            const subscribers = await db
+              .select()
+              .from(telegramSubscribers)
+              .where(eq(telegramSubscribers.isActive, true));
+
+            if (subscribers.length > 0) {
+              const telegramMessage = 
+                `🔔 *${session.name} Session Opening Soon!*\n\n` +
+                `⏰ Opens in ${Math.ceil(minutesToOpen)} minutes\n` +
+                `🌍 High volume trading session\n` +
+                `💹 Increased volatility expected\n\n` +
+                `Prepare your trading setups!`;
+
+              for (const subscriber of subscribers) {
+                try {
+                  await this.bot.sendMessage(subscriber.chatId, telegramMessage, {
+                    parse_mode: 'Markdown',
+                  });
+                } catch (error) {
+                  console.error(`Failed to send session alert to ${subscriber.chatId}:`, error);
+                }
+              }
             }
           }
 
