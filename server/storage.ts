@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -17,17 +17,25 @@ export interface IStorage {
   createEconomicEvent(event: InsertEconomicEvent): Promise<EconomicEvent>;
   updateEconomicEvent(id: string, event: Partial<InsertEconomicEvent>): Promise<EconomicEvent | undefined>;
   deleteEconomicEvent(id: string): Promise<boolean>;
+  
+  getTradingSignals(filters?: { status?: string; assetClass?: string; symbol?: string }): Promise<TradingSignal[]>;
+  getTradingSignalById(id: string): Promise<TradingSignal | undefined>;
+  createTradingSignal(signal: InsertTradingSignal): Promise<TradingSignal>;
+  updateTradingSignal(id: string, signal: Partial<InsertTradingSignal>): Promise<TradingSignal | undefined>;
+  deleteTradingSignal(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private trades: Map<string, Trade>;
   private economicEvents: Map<string, EconomicEvent>;
+  private tradingSignals: Map<string, TradingSignal>;
 
   constructor() {
     this.users = new Map();
     this.trades = new Map();
     this.economicEvents = new Map();
+    this.tradingSignals = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -133,6 +141,7 @@ export class MemStorage implements IStorage {
       sourceSite: insertEvent.sourceSite ?? null,
       sourceUrl: insertEvent.sourceUrl ?? null,
       isReleased: insertEvent.isReleased ?? false,
+      telegramNotified: false,
       lastScraped: new Date(),
       createdAt: new Date(),
     };
@@ -152,6 +161,88 @@ export class MemStorage implements IStorage {
 
   async deleteEconomicEvent(id: string): Promise<boolean> {
     return this.economicEvents.delete(id);
+  }
+
+  async getTradingSignals(filters?: { status?: string; assetClass?: string; symbol?: string }): Promise<TradingSignal[]> {
+    let signals = Array.from(this.tradingSignals.values());
+    
+    if (filters) {
+      if (filters.status) {
+        signals = signals.filter(s => s.status === filters.status);
+      }
+      if (filters.assetClass) {
+        signals = signals.filter(s => s.assetClass === filters.assetClass);
+      }
+      if (filters.symbol) {
+        signals = signals.filter(s => s.symbol === filters.symbol);
+      }
+    }
+    
+    return signals.sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getTradingSignalById(id: string): Promise<TradingSignal | undefined> {
+    return this.tradingSignals.get(id);
+  }
+
+  async createTradingSignal(insertSignal: InsertTradingSignal): Promise<TradingSignal> {
+    const id = randomUUID();
+    const signal: TradingSignal = {
+      ...insertSignal,
+      id,
+      status: insertSignal.status ?? 'active',
+      confirmationTimeframe: insertSignal.confirmationTimeframe ?? null,
+      executionTimeframe: insertSignal.executionTimeframe ?? null,
+      interestRateDiffScore: insertSignal.interestRateDiffScore ?? null,
+      interestRateDiffValue: insertSignal.interestRateDiffValue ?? null,
+      interestRateNotes: insertSignal.interestRateNotes ?? null,
+      inflationImpactScore: insertSignal.inflationImpactScore ?? null,
+      inflationDifferential: insertSignal.inflationDifferential ?? null,
+      inflationNotes: insertSignal.inflationNotes ?? null,
+      trendScore: insertSignal.trendScore ?? null,
+      trendDirection: insertSignal.trendDirection ?? null,
+      trendStrength: insertSignal.trendStrength ?? null,
+      trendTimeframes: insertSignal.trendTimeframes ?? [],
+      smcScore: insertSignal.smcScore ?? null,
+      institutionalCandleDetected: insertSignal.institutionalCandleDetected ?? false,
+      institutionalCandleData: insertSignal.institutionalCandleData ?? null,
+      orderBlockType: insertSignal.orderBlockType ?? null,
+      orderBlockLevel: insertSignal.orderBlockLevel ?? null,
+      fvgDetected: insertSignal.fvgDetected ?? false,
+      fvgLevel: insertSignal.fvgLevel ?? null,
+      liquiditySweep: insertSignal.liquiditySweep ?? false,
+      liquiditySweepLevel: insertSignal.liquiditySweepLevel ?? null,
+      breakerBlockDetected: insertSignal.breakerBlockDetected ?? false,
+      bocChochDetected: insertSignal.bocChochDetected ?? null,
+      smcFactors: insertSignal.smcFactors ?? [],
+      technicalReasons: insertSignal.technicalReasons ?? [],
+      marketContext: insertSignal.marketContext ?? null,
+      strength: insertSignal.strength ?? null,
+      zonesTested: insertSignal.zonesTested ?? 0,
+      expiresAt: insertSignal.expiresAt ?? null,
+      executedAt: insertSignal.executedAt ?? null,
+      invalidatedAt: insertSignal.invalidatedAt ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.tradingSignals.set(id, signal);
+    return signal;
+  }
+
+  async updateTradingSignal(id: string, updateData: Partial<InsertTradingSignal>): Promise<TradingSignal | undefined> {
+    const signal = this.tradingSignals.get(id);
+    if (!signal) {
+      return undefined;
+    }
+    const updatedSignal = { ...signal, ...updateData, updatedAt: new Date() };
+    this.tradingSignals.set(id, updatedSignal);
+    return updatedSignal;
+  }
+
+  async deleteTradingSignal(id: string): Promise<boolean> {
+    return this.tradingSignals.delete(id);
   }
 }
 

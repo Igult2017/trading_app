@@ -1,0 +1,68 @@
+Institutional Candle Detection – “Backbone” Setup (Specification for Code Development)
+1. Purpose
+Design an algorithm to automatically detect institutional candles, plot key reference levels (open and MTH), track multi-timeframe confluence, and generate trade signals based on Smart Money Concepts (SMC) logic.
+________________________________________
+2. Timeframe Logic and Usage
+•	Daily timeframe (D1):
+o	Used for market structure overview, to see “the space” or the macro context.
+o	Defines the larger directional bias and key structural highs/lows.
+•	4H / 2H / 1H timeframes:
+o	Used to identify supply and demand zones, order blocks, liquidity pools, imbalances, breaker blocks, and other SMC reasons that justify a trade.
+o	Institutional candles detected here provide the main trading idea and directional bias.
+o	These timeframes are interchangeable — the idea is to find high-probability zones or institutional activity on any of them.
+•	30M / 15M timeframes:
+o	Used for confirmation and refinement of the setup.
+o	Confirm that price respects the institutional zone or reacts from the identified SMC area.
+o	Look for structural shifts, liquidity sweeps, or mitigation signals to validate trade intent.
+•	5M / 1M timeframes:
+o	Used for precise entry execution.
+o	Wait for the best entry signal such as a refined order block, BOS (Break of Structure), CHoCH (Change of Character), or liquidity grab within the confirmed zone.
+o	These two can also be used interchangeably — whichever provides the optimal risk-to-reward entry.
+________________________________________
+3. Institutional Candle Definition
+•	A bullish institutional candle is a bearish candle that occurs just before a strong bullish impulse which:
+o	Breaks previous market structure highs.
+o	Resumes a bullish trend.
+o	Or creates a new significant high.
+•	A bearish institutional candle is the opposite: a bullish candle before a strong bearish impulse that:
+o	Breaks previous structure lows.
+o	Resumes a bearish trend.
+o	Or creates a new significant low.
+•	These candles represent zones where large participants accumulated positions by moving price against the trend before reversing it in their favor.
+________________________________________
+4. Detection and Zone Drawing Rules
+•	Identify a large opposing candle (bearish before bullish move or bullish before bearish move) that immediately precedes a strong impulse breaking structure.
+•	Highlight this candle visually with a distinct color.
+•	Draw horizontal rays at:
+o	Open of the institutional candle.
+o	Midpoint (MTH) – calculated as (open + close) / 2.
+•	Annotate the line with metadata:
+o	Timeframe
+o	Candle type (bullish or bearish)
+o	Candle open and MTH price levels
+________________________________________
+5. Confluence and Multi-Timeframe Logic
+•	Start scanning from higher timeframes (Daily, 4H, 2H, 1H) to identify major institutional zones and key SMC structures.
+•	Confirm these zones on 15M or 30M by checking for price reaction, mitigation, or structural shifts.
+•	Drop down to 5M or 1M to find refined entry triggers inside those zones.
+•	Because each timeframe serves a complementary purpose, they can be used interchangeably for detection, confirmation, or entry depending on where the clearest setup forms.
+________________________________________
+6. Strength and Validation Logic
+•	If price reacts strongly from the institutional candle zone on first touch, label the zone as active and protected.
+•	If price revisits the zone multiple times with weaker reactions, reduce its strength score and mark as weakening.
+•	If price breaks through the zone, flip its role (e.g., bullish zone becomes resistance after a breakdown).
+________________________________________
+7. Execution Conditions (Entry Trigger)
+•	Price must return to or interact with a marked institutional zone.
+•	Entry is valid if:
+o	There’s a liquidity sweep and rejection inside the zone.
+o	A CHoCH or BOS confirms a reversal in the expected direction.
+o	A refined order block or FVG forms inside the zone on 5M or 1M.
+•	Place stop-loss just beyond the institutional zone low (for longs) or high (for shorts), with an ATR-based buffer if needed.
+________________________________________
+8. Summary of Process Flow
+•	Daily: Set macro context and bias.
+•	4H / 2H / 1H: Identify supply/demand zones, institutional candles, and SMC reasons.
+•	30M / 15M: Confirm reaction and validate intent.
+•	5M / 1M: Execute precise entry based on micro-structure signals.
+ 

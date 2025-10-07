@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -125,3 +125,71 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+export const tradingSignals = pgTable("trading_signals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: text("symbol").notNull(),
+  assetClass: text("asset_class").notNull(),
+  type: text("type").notNull(),
+  strategy: text("strategy").notNull(),
+  
+  entryPrice: decimal("entry_price", { precision: 12, scale: 5 }).notNull(),
+  stopLoss: decimal("stop_loss", { precision: 12, scale: 5 }).notNull(),
+  takeProfit: decimal("take_profit", { precision: 12, scale: 5 }).notNull(),
+  riskRewardRatio: decimal("risk_reward_ratio", { precision: 5, scale: 2 }).notNull(),
+  
+  primaryTimeframe: text("primary_timeframe").notNull(),
+  confirmationTimeframe: text("confirmation_timeframe"),
+  executionTimeframe: text("execution_timeframe"),
+  
+  overallConfidence: integer("overall_confidence").notNull(),
+  
+  interestRateDiffScore: decimal("interest_rate_diff_score", { precision: 5, scale: 2 }),
+  interestRateDiffValue: decimal("interest_rate_diff_value", { precision: 5, scale: 2 }),
+  interestRateNotes: text("interest_rate_notes"),
+  
+  inflationImpactScore: decimal("inflation_impact_score", { precision: 5, scale: 2 }),
+  inflationDifferential: decimal("inflation_differential", { precision: 5, scale: 2 }),
+  inflationNotes: text("inflation_notes"),
+  
+  trendScore: decimal("trend_score", { precision: 5, scale: 2 }),
+  trendDirection: text("trend_direction"),
+  trendStrength: text("trend_strength"),
+  trendTimeframes: text("trend_timeframes").array(),
+  
+  smcScore: decimal("smc_score", { precision: 5, scale: 2 }),
+  institutionalCandleDetected: boolean("institutional_candle_detected").default(false),
+  institutionalCandleData: jsonb("institutional_candle_data"),
+  orderBlockType: text("order_block_type"),
+  orderBlockLevel: decimal("order_block_level", { precision: 12, scale: 5 }),
+  fvgDetected: boolean("fvg_detected").default(false),
+  fvgLevel: decimal("fvg_level", { precision: 12, scale: 5 }),
+  liquiditySweep: boolean("liquidity_sweep").default(false),
+  liquiditySweepLevel: decimal("liquidity_sweep_level", { precision: 12, scale: 5 }),
+  breakerBlockDetected: boolean("breaker_block_detected").default(false),
+  bocChochDetected: text("boc_choch_detected"),
+  smcFactors: text("smc_factors").array(),
+  
+  technicalReasons: text("technical_reasons").array(),
+  marketContext: text("market_context"),
+  
+  status: text("status").notNull().default('active'),
+  strength: text("strength"),
+  zonesTested: integer("zones_tested").default(0),
+  
+  expiresAt: timestamp("expires_at"),
+  executedAt: timestamp("executed_at"),
+  invalidatedAt: timestamp("invalidated_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTradingSignalSchema = createInsertSchema(tradingSignals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTradingSignal = z.infer<typeof insertTradingSignalSchema>;
+export type TradingSignal = typeof tradingSignals.$inferSelect;
