@@ -1,13 +1,19 @@
 import { type Candle } from './marketData';
 
-export interface EqualLevel {
+export interface LiquidityPool {
   price: number;
   type: 'high' | 'low';
-  occurrences: number;
+  poolType: 'equal_levels' | 'swing' | 'session' | 'daily' | 'weekly' | 'monthly';
+  sessionName?: string; // For session pools: 'Asian', 'London', 'NY'
+  occurrences?: number; // For equal levels
   indices: number[];
   swept: boolean;
   sweepIndex?: number;
+  strength: 'strong' | 'moderate' | 'weak';
 }
+
+// Legacy type alias for backward compatibility
+export type EqualLevel = LiquidityPool;
 
 export interface SupplyDemandZone {
   type: 'supply' | 'demand';
@@ -52,7 +58,7 @@ export class LiquiditySweepDetector {
     const equalLows = this.findEqualPrices(lows, 'low');
     levels.push(...equalLows);
     
-    return levels.filter(level => level.occurrences >= this.MIN_OCCURRENCES);
+    return levels.filter(level => (level.occurrences || 0) >= this.MIN_OCCURRENCES);
   }
   
   /**
@@ -72,7 +78,7 @@ export class LiquiditySweepDetector {
       for (const [key, level] of Array.from(levels.entries())) {
         const tolerance = key * this.EQUAL_LEVEL_TOLERANCE;
         if (Math.abs(price - key) <= tolerance) {
-          level.occurrences++;
+          level.occurrences = (level.occurrences || 0) + 1;
           level.indices.push(index);
           foundLevel = true;
           break;
@@ -84,9 +90,11 @@ export class LiquiditySweepDetector {
         levels.set(price, {
           price,
           type,
+          poolType: 'equal_levels',
           occurrences: 1,
           indices: [index],
           swept: false,
+          strength: 'moderate', // Will be calculated based on occurrences later
         });
       }
     }
@@ -94,6 +102,193 @@ export class LiquiditySweepDetector {
     return Array.from(levels.values());
   }
   
+  /**
+   * Detect swing highs and lows (local peaks/troughs)
+   */
+  detectSwingLevels(candles: Candle[], lookback: number = 20): LiquidityPool[] {
+    const pools: LiquidityPool[] = [];
+    const recentCandles = candles.slice(-lookback);
+    
+    for (let i = 2; i < recentCandles.length - 2; i++) {
+      const current = recentCandles[i];
+      
+      // Check for swing high
+      if (current.high > recentCandles[i-1].high && 
+          current.high > recentCandles[i-2].high &&
+          current.high > recentCandles[i+1].high &&
+          current.high > recentCandles[i+2].high) {
+        pools.push({
+          price: current.high,
+          type: 'high',
+          poolType: 'swing',
+          indices: [candles.length - lookback + i],
+          swept: false,
+          strength: 'moderate',
+        });
+      }
+      
+      // Check for swing low
+      if (current.low < recentCandles[i-1].low && 
+          current.low < recentCandles[i-2].low &&
+          current.low < recentCandles[i+1].low &&
+          current.low < recentCandles[i+2].low) {
+        pools.push({
+          price: current.low,
+          type: 'low',
+          poolType: 'swing',
+          indices: [candles.length - lookback + i],
+          swept: false,
+          strength: 'moderate',
+        });
+      }
+    }
+    
+    return pools;
+  }
+
+  /**
+   * Detect session highs and lows (Asian, London, NY)
+   */
+  detectSessionLevels(candles: Candle[]): LiquidityPool[] {
+    const pools: LiquidityPool[] = [];
+    
+    // Get last 24 hours of data (assuming H1 candles)
+    const last24h = candles.slice(-24);
+    
+    // Session times in UTC
+    const sessions = [
+      { name: 'Asian', startHour: 0, endHour: 9 },
+      { name: 'London', startHour: 8, endHour: 17 },
+      { name: 'NY', startHour: 13, endHour: 22 },
+    ];
+    
+    for (const session of sessions) {
+      const sessionCandles = last24h.filter((c, i) => {
+        const hour = (i % 24);
+        return hour >= session.startHour && hour < session.endHour;
+      });
+      
+      if (sessionCandles.length > 0) {
+        const sessionHigh = Math.max(...sessionCandles.map(c => c.high));
+        const sessionLow = Math.min(...sessionCandles.map(c => c.low));
+        const highIndex = sessionCandles.findIndex(c => c.high === sessionHigh);
+        const lowIndex = sessionCandles.findIndex(c => c.low === sessionLow);
+        
+        pools.push({
+          price: sessionHigh,
+          type: 'high',
+          poolType: 'session',
+          sessionName: session.name,
+          indices: [candles.length - 24 + highIndex],
+          swept: false,
+          strength: 'strong', // Session levels are considered strong
+        });
+        
+        pools.push({
+          price: sessionLow,
+          type: 'low',
+          poolType: 'session',
+          sessionName: session.name,
+          indices: [candles.length - 24 + lowIndex],
+          swept: false,
+          strength: 'strong',
+        });
+      }
+    }
+    
+    return pools;
+  }
+
+  /**
+   * Detect daily, weekly, and monthly highs/lows
+   */
+  detectTimeframeLevels(candles: Candle[]): LiquidityPool[] {
+    const pools: LiquidityPool[] = [];
+    
+    // Daily high/low (last 24 H1 candles)
+    const dailyCandles = candles.slice(-24);
+    if (dailyCandles.length > 0) {
+      const dailyHigh = Math.max(...dailyCandles.map(c => c.high));
+      const dailyLow = Math.min(...dailyCandles.map(c => c.low));
+      const highIndex = dailyCandles.findIndex(c => c.high === dailyHigh);
+      const lowIndex = dailyCandles.findIndex(c => c.low === dailyLow);
+      
+      pools.push({
+        price: dailyHigh,
+        type: 'high',
+        poolType: 'daily',
+        indices: [candles.length - 24 + highIndex],
+        swept: false,
+        strength: 'strong',
+      });
+      
+      pools.push({
+        price: dailyLow,
+        type: 'low',
+        poolType: 'daily',
+        indices: [candles.length - 24 + lowIndex],
+        swept: false,
+        strength: 'strong',
+      });
+    }
+    
+    // Weekly high/low (last 120 H1 candles ~5 days)
+    const weeklyCandles = candles.slice(-120);
+    if (weeklyCandles.length > 0) {
+      const weeklyHigh = Math.max(...weeklyCandles.map(c => c.high));
+      const weeklyLow = Math.min(...weeklyCandles.map(c => c.low));
+      const highIndex = weeklyCandles.findIndex(c => c.high === weeklyHigh);
+      const lowIndex = weeklyCandles.findIndex(c => c.low === weeklyLow);
+      
+      pools.push({
+        price: weeklyHigh,
+        type: 'high',
+        poolType: 'weekly',
+        indices: [candles.length - 120 + highIndex],
+        swept: false,
+        strength: 'strong',
+      });
+      
+      pools.push({
+        price: weeklyLow,
+        type: 'low',
+        poolType: 'weekly',
+        indices: [candles.length - 120 + lowIndex],
+        swept: false,
+        strength: 'strong',
+      });
+    }
+    
+    // Monthly high/low (last 500 H1 candles ~20 days)
+    const monthlyCandles = candles.slice(-500);
+    if (monthlyCandles.length > 0) {
+      const monthlyHigh = Math.max(...monthlyCandles.map(c => c.high));
+      const monthlyLow = Math.min(...monthlyCandles.map(c => c.low));
+      const highIndex = monthlyCandles.findIndex(c => c.high === monthlyHigh);
+      const lowIndex = monthlyCandles.findIndex(c => c.low === monthlyLow);
+      
+      pools.push({
+        price: monthlyHigh,
+        type: 'high',
+        poolType: 'monthly',
+        indices: [candles.length - 500 + highIndex],
+        swept: false,
+        strength: 'strong',
+      });
+      
+      pools.push({
+        price: monthlyLow,
+        type: 'low',
+        poolType: 'monthly',
+        indices: [candles.length - 500 + lowIndex],
+        swept: false,
+        strength: 'strong',
+      });
+    }
+    
+    return pools;
+  }
+
   /**
    * Detect if a liquidity level has been swept
    */
@@ -260,26 +455,66 @@ export class LiquiditySweepDetector {
   }
   
   /**
+   * Detect ALL liquidity pools (equal levels, swing, session, timeframe)
+   */
+  detectAllLiquidityPools(candles: Candle[]): LiquidityPool[] {
+    const allPools: LiquidityPool[] = [];
+    
+    // 1. Equal highs/lows
+    const equalLevels = this.detectEqualLevels(candles, 30);
+    allPools.push(...equalLevels);
+    
+    // 2. Swing highs/lows
+    const swingLevels = this.detectSwingLevels(candles, 20);
+    allPools.push(...swingLevels);
+    
+    // 3. Session highs/lows
+    const sessionLevels = this.detectSessionLevels(candles);
+    allPools.push(...sessionLevels);
+    
+    // 4. Daily/Weekly/Monthly highs/lows
+    const timeframeLevels = this.detectTimeframeLevels(candles);
+    allPools.push(...timeframeLevels);
+    
+    return allPools;
+  }
+
+  /**
    * Main function: Analyze for liquidity sweep with supply/demand entry
    */
   analyzeLiquiditySweep(candles: Candle[]): LiquiditySweepResult {
     const reasoning: string[] = [];
     
-    // Step 1: Identify equal highs/lows (liquidity pools)
-    const equalLevels = this.detectEqualLevels(candles, 30);
+    // Step 1: Identify ALL liquidity pools
+    const allPools = this.detectAllLiquidityPools(candles);
     
-    if (equalLevels.length === 0) {
+    if (allPools.length === 0) {
       return {
         sweepDetected: false,
         confidence: 0,
-        reasoning: ['No equal highs/lows detected to form liquidity pools'],
+        reasoning: ['No liquidity pools detected'],
       };
     }
     
-    reasoning.push(`Identified ${equalLevels.length} liquidity pool(s)`);
+    // Count pools by type for reporting
+    const poolCounts = {
+      equal_levels: allPools.filter(p => p.poolType === 'equal_levels').length,
+      swing: allPools.filter(p => p.poolType === 'swing').length,
+      session: allPools.filter(p => p.poolType === 'session').length,
+      daily: allPools.filter(p => p.poolType === 'daily').length,
+      weekly: allPools.filter(p => p.poolType === 'weekly').length,
+      monthly: allPools.filter(p => p.poolType === 'monthly').length,
+    };
+    
+    const poolTypesSummary = Object.entries(poolCounts)
+      .filter(([_, count]) => count > 0)
+      .map(([type, count]) => `${count} ${type.replace('_', ' ')}`)
+      .join(', ');
+    
+    reasoning.push(`Identified liquidity pools: ${poolTypesSummary}`);
     
     // Step 2: Detect liquidity sweep
-    const sweptLevel = this.detectLiquiditySweep(candles, equalLevels);
+    const sweptLevel = this.detectLiquiditySweep(candles, allPools);
     
     if (!sweptLevel) {
       return {
@@ -289,8 +524,24 @@ export class LiquiditySweepDetector {
       };
     }
     
+    // Create descriptive label for the swept pool
+    let poolLabel = '';
+    if (sweptLevel.poolType === 'equal_levels') {
+      poolLabel = sweptLevel.type === 'high' ? 'Equal Highs' : 'Equal Lows';
+    } else if (sweptLevel.poolType === 'swing') {
+      poolLabel = sweptLevel.type === 'high' ? 'Swing High' : 'Swing Low';
+    } else if (sweptLevel.poolType === 'session') {
+      poolLabel = `${sweptLevel.sessionName} ${sweptLevel.type === 'high' ? 'High' : 'Low'}`;
+    } else if (sweptLevel.poolType === 'daily') {
+      poolLabel = sweptLevel.type === 'high' ? 'Daily High' : 'Daily Low';
+    } else if (sweptLevel.poolType === 'weekly') {
+      poolLabel = sweptLevel.type === 'high' ? 'Weekly High' : 'Weekly Low';
+    } else if (sweptLevel.poolType === 'monthly') {
+      poolLabel = sweptLevel.type === 'high' ? 'Monthly High' : 'Monthly Low';
+    }
+    
     reasoning.push(
-      `Liquidity sweep detected at ${sweptLevel.price.toFixed(5)} (${sweptLevel.type === 'high' ? 'Equal Highs' : 'Equal Lows'})`
+      `Liquidity sweep detected at ${sweptLevel.price.toFixed(5)} (${poolLabel})`
     );
     
     // Step 3: Identify supply/demand zones
@@ -385,7 +636,10 @@ export class LiquiditySweepDetector {
     if (mitigatedZone.strength === 'strong') confidence += 15;
     else if (mitigatedZone.strength === 'moderate') confidence += 8;
     
-    if (sweptLevel.occurrences >= 3) confidence += 10; // Multiple equal levels = stronger liquidity pool
+    // Multiple equal levels = stronger liquidity pool
+    if (sweptLevel.poolType === 'equal_levels' && (sweptLevel.occurrences || 0) >= 3) {
+      confidence += 10;
+    }
     
     return {
       sweepDetected: true,
