@@ -11,6 +11,16 @@ export interface InflationData {
   lastUpdate: Date;
 }
 
+export interface Candle {
+  timeframe: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  timestamp: Date;
+}
+
 export const CURRENT_INTEREST_RATES: Record<string, InterestRateData> = {
   USD: { currency: 'USD', rate: 5.50, lastUpdate: new Date('2025-10-01') },
   EUR: { currency: 'EUR', rate: 4.00, lastUpdate: new Date('2025-10-01') },

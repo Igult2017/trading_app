@@ -1,4 +1,6 @@
 import { type InsertTradingSignal } from "@shared/schema";
+import { LiquiditySweepDetector, type LiquiditySweepResult } from './liquiditySweepDetection';
+import { type Candle } from './marketData';
 
 export interface TimeframeData {
   timeframe: string;
@@ -51,6 +53,11 @@ const TIMEFRAME_HIERARCHY = {
 };
 
 export class SignalDetectionService {
+  private liquiditySweepDetector: LiquiditySweepDetector;
+
+  constructor() {
+    this.liquiditySweepDetector = new LiquiditySweepDetector();
+  }
   
   calculateInterestRateDifferential(
     baseCurrency: string,
@@ -237,7 +244,7 @@ export class SignalDetectionService {
   detectSmartMoneyFactors(
     data: TimeframeData[],
     institutionalCandle: InstitutionalCandleData | null
-  ): { score: number; factors: string[]; orderBlock: any; fvg: any; liquiditySweep: boolean } {
+  ): { score: number; factors: string[]; orderBlock: any; fvg: any; liquiditySweep: boolean; liquiditySweepData?: LiquiditySweepResult } {
     const factors: string[] = [];
     let score = 0;
     let orderBlock = null;
@@ -275,23 +282,44 @@ export class SignalDetectionService {
       }
     }
     
-    const highs = data.slice(-20).map(d => d.high);
-    const lows = data.slice(-20).map(d => d.low);
-    const recentHigh = Math.max(...highs.slice(-5));
-    const prevHigh = Math.max(...highs.slice(-20, -5));
-    const recentLow = Math.min(...lows.slice(-5));
-    const prevLow = Math.min(...lows.slice(-20, -5));
+    // Convert TimeframeData to Candle format for liquidity sweep detection
+    const candles: Candle[] = data.map(d => ({
+      timeframe: d.timeframe,
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+      volume: d.volume || 0,
+      timestamp: d.timestamp,
+    }));
     
-    if (recentHigh > prevHigh && data[data.length - 1].close < prevHigh) {
-      factors.push('Liquidity sweep above previous high detected');
-      liquiditySweep = true;
-      score += 20;
-    }
+    // Use advanced liquidity sweep detection
+    const liquiditySweepResult = this.liquiditySweepDetector.analyzeLiquiditySweep(candles);
     
-    if (recentLow < prevLow && data[data.length - 1].close > prevLow) {
-      factors.push('Liquidity sweep below previous low detected');
+    if (liquiditySweepResult.sweepDetected) {
       liquiditySweep = true;
-      score += 20;
+      
+      // Add liquidity sweep reasoning to factors
+      liquiditySweepResult.reasoning.forEach(reason => {
+        factors.push(reason);
+      });
+      
+      // Enhanced scoring based on sweep quality AND confirmed mitigation
+      if (liquiditySweepResult.supplyDemandZone && 
+          liquiditySweepResult.supplyDemandZone.mitigated &&
+          liquiditySweepResult.entryPrice && 
+          liquiditySweepResult.stopLoss) {
+        // High-quality setup: sweep + CONFIRMED zone mitigation with entry
+        score += 35;
+        if (liquiditySweepResult.supplyDemandZone.strength === 'strong') {
+          score += 15;
+        } else if (liquiditySweepResult.supplyDemandZone.strength === 'moderate') {
+          score += 8;
+        }
+      } else {
+        // Basic sweep detected, but no confirmed mitigation entry yet
+        score += 15;
+      }
     }
     
     const finalScore = Math.min(100, score) * SCORING_WEIGHTS.smartMoneyConcepts;
@@ -302,6 +330,7 @@ export class SignalDetectionService {
       orderBlock,
       fvg,
       liquiditySweep,
+      liquiditySweepData: liquiditySweepResult.sweepDetected ? liquiditySweepResult : undefined,
     };
   }
 
@@ -378,18 +407,41 @@ export class SignalDetectionService {
     }
     
     const latestPrice = h1Data[h1Data.length - 1].close;
-    const type = trendResult.direction === 'bullish' ? 'buy' : 'sell';
+    let type = trendResult.direction === 'bullish' ? 'buy' : 'sell';
+    let entryPrice = latestPrice;
+    let stopLoss: number;
+    let takeProfit: number;
     
-    const atr = this.calculateATR(h1Data.slice(-14));
-    const stopLoss = type === 'buy' 
-      ? latestPrice - (atr * 1.5)
-      : latestPrice + (atr * 1.5);
+    // Check if we have a CONFIRMED liquidity sweep with mitigated zone entry
+    if (smcResult.liquiditySweepData?.supplyDemandZone && 
+        smcResult.liquiditySweepData.supplyDemandZone.mitigated &&
+        smcResult.liquiditySweepData.entryPrice &&
+        smcResult.liquiditySweepData.stopLoss) {
+      // Use liquidity sweep entry logic (only when zone is mitigated)
+      entryPrice = smcResult.liquiditySweepData.entryPrice;
+      stopLoss = smcResult.liquiditySweepData.stopLoss;
+      
+      // Override type based on sweep direction
+      type = smcResult.liquiditySweepData.sweepType === 'bearish_sweep' ? 'sell' : 'buy';
+      
+      // Calculate take profit based on risk-reward
+      const risk = Math.abs(entryPrice - stopLoss);
+      takeProfit = type === 'buy' 
+        ? entryPrice + (risk * 2.5) // 1:2.5 R:R for sweep setups
+        : entryPrice - (risk * 2.5);
+    } else {
+      // Use traditional ATR-based entry
+      const atr = this.calculateATR(h1Data.slice(-14));
+      stopLoss = type === 'buy' 
+        ? latestPrice - (atr * 1.5)
+        : latestPrice + (atr * 1.5);
+      
+      takeProfit = type === 'buy'
+        ? latestPrice + (atr * 3)
+        : latestPrice - (atr * 3);
+    }
     
-    const takeProfit = type === 'buy'
-      ? latestPrice + (atr * 3)
-      : latestPrice - (atr * 3);
-    
-    const riskRewardRatio = Math.abs(takeProfit - latestPrice) / Math.abs(latestPrice - stopLoss);
+    const riskRewardRatio = Math.abs(takeProfit - entryPrice) / Math.abs(entryPrice - stopLoss);
     
     const technicalReasons: string[] = [];
     if (trendResult.timeframes.length > 0) {
@@ -402,12 +454,31 @@ export class SignalDetectionService {
       technicalReasons.push(`Inflation differential supports ${type} bias`);
     }
     
+    // Check if we have a confirmed liquidity sweep mitigation entry
+    const hasConfirmedSweepEntry = !!(
+      smcResult.liquiditySweepData?.supplyDemandZone && 
+      smcResult.liquiditySweepData.supplyDemandZone.mitigated &&
+      smcResult.liquiditySweepData.entryPrice && 
+      smcResult.liquiditySweepData.stopLoss
+    );
+    
+    // Add liquidity sweep information to technical reasons only if confirmed
+    if (hasConfirmedSweepEntry) {
+      const zoneType = smcResult.liquiditySweepData!.supplyDemandZone!.type;
+      const zoneStrength = smcResult.liquiditySweepData!.supplyDemandZone!.strength;
+      technicalReasons.push(
+        `Liquidity sweep followed by ${zoneStrength} ${zoneType} zone mitigation (High-probability setup)`
+      );
+    }
+    
     const signal: InsertTradingSignal = {
       symbol,
       assetClass,
       type,
-      strategy: 'institutional_backbone',
-      entryPrice: latestPrice.toString(),
+      strategy: hasConfirmedSweepEntry 
+        ? 'liquidity_sweep_mitigation' 
+        : 'institutional_backbone',
+      entryPrice: entryPrice.toString(),
       stopLoss: stopLoss.toString(),
       takeProfit: takeProfit.toString(),
       riskRewardRatio: riskRewardRatio.toFixed(2),
@@ -435,7 +506,9 @@ export class SignalDetectionService {
       liquiditySweep: smcResult.liquiditySweep,
       smcFactors: smcResult.factors,
       technicalReasons,
-      marketContext: `${trendResult.strength} ${trendResult.direction} trend with ${overallConfidence}% confidence`,
+      marketContext: hasConfirmedSweepEntry
+        ? `Post-liquidity sweep ${smcResult.liquiditySweepData!.supplyDemandZone!.type} zone entry`
+        : `${trendResult.strength} ${trendResult.direction} trend with ${overallConfidence}% confidence`,
       status: 'active',
       strength: overallConfidence >= 80 ? 'strong' : overallConfidence >= 60 ? 'moderate' : 'weak',
     };
