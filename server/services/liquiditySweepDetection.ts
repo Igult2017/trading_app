@@ -357,11 +357,12 @@ export class LiquiditySweepDetector {
       const confirmation = recentCandles[i + 1]; // Confirmation candle
       
       // Detect supply zone: Mark zone on BASE candle before bearish impulse
+      // Base candle can be bullish or bearish - use FULL RANGE (high to low)
       if (this.isSupplyZone(base, impulse, confirmation)) {
         const zone: SupplyDemandZone = {
           type: 'supply',
-          topPrice: Math.max(base.open, base.close), // Body high of base candle
-          bottomPrice: Math.min(base.open, base.close), // Body low of base candle
+          topPrice: base.high, // Full high of base candle
+          bottomPrice: base.low, // Full low of base candle
           formationIndex: startIndex + (i - 1), // Index of BASE candle
           strength: this.calculateZoneStrength(impulse, recentCandles.slice(i + 1)),
           mitigated: false, // Fresh/unmitigated zone
@@ -370,6 +371,7 @@ export class LiquiditySweepDetector {
       }
       
       // Detect demand zone: Mark zone on BASE candle before bullish impulse
+      // Base candle can be bullish or bearish - use FULL RANGE (high to low)
       if (this.isDemandZone(base, impulse, confirmation)) {
         const zone: SupplyDemandZone = {
           type: 'demand',
