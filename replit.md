@@ -1,6 +1,6 @@
 # Overview
 
-The Infod Trading Partner System is a professional financial trading analysis platform designed to provide real-time market scanning, signal generation, trade history tracking, and analytics capabilities. The system focuses on Smart Money Concepts (SMC), multi-timeframe analysis, and advanced trading strategies including scalping, day trading, swing trading, and Opening Range Breakout (ORB). Built with a modern tech stack, it delivers a Bloomberg Terminal-inspired interface optimized for data-dense financial information and high-frequency decision making.
+The Infod Trading Partner System is a professional financial analysis platform providing real-time market scanning, signal generation, trade history tracking, and analytics. It focuses on Smart Money Concepts (SMC), multi-timeframe analysis, and various trading strategies like scalping, day trading, swing trading, and Opening Range Breakout (ORB). The system features a Bloomberg Terminal-inspired interface, optimized for data-dense financial information and high-frequency decision-making.
 
 # User Preferences
 
@@ -8,170 +8,127 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
-## Frontend Architecture
-- **Framework**: React 18 with TypeScript for type safety and modern component patterns
-- **Build Tool**: Vite for fast development and optimized production builds
-- **Routing**: Wouter for lightweight client-side routing
-- **State Management**: TanStack React Query for server state management and caching
-- **UI Framework**: Radix UI primitives with shadcn/ui component library for accessibility and consistency
-- **Styling**: Tailwind CSS with custom design tokens optimized for financial trading interfaces
+## Frontend
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Routing**: Wouter
+- **State Management**: TanStack React Query
+- **UI Framework**: Radix UI with shadcn/ui
+- **Styling**: Tailwind CSS with custom financial trading tokens
 
-## Backend Architecture
-- **Runtime**: Node.js with Express.js framework for REST API endpoints
-- **Language**: TypeScript throughout for consistency and type safety
-- **Session Management**: Connect-pg-simple for PostgreSQL-backed session storage
-- **Development**: Hot module replacement with Vite integration for seamless full-stack development
+## Backend
+- **Runtime**: Node.js with Express.js
+- **Language**: TypeScript
+- **Session Management**: Connect-pg-simple for PostgreSQL-backed sessions
+- **Development**: Hot module replacement with Vite integration
 
-## Data Storage Solutions
-- **Primary Database**: PostgreSQL with Neon serverless hosting for scalability
-- **ORM**: Drizzle ORM for type-safe database operations and migrations
-- **Schema Validation**: Zod for runtime type checking and data validation
-- **Trade History System**: Backend storage for trade records with comprehensive details including entry/exit prices, P&L, strategy, and timeframe data
-- **Analytics Engine**: Real-time calculation of trading metrics including win rate, average P&L, risk-reward ratios from stored trade data
-- **Economic Calendar System**: Web scraping-based system for economic events with automated data collection from Investing.com, 15-minute caching, and 7-day retention
+## Data Storage
+- **Primary Database**: PostgreSQL with Neon serverless hosting
+- **ORM**: Drizzle ORM
+- **Schema Validation**: Zod
+- **Trade History**: Stores comprehensive trade records (entry/exit, P&L, strategy, timeframe).
+- **Analytics Engine**: Real-time calculation of trading metrics (win rate, P&L, risk-reward).
+- **Economic Calendar**: Web scraping-based system from Investing.com with 15-minute caching and 7-day retention.
 
 ## Economic Calendar Data Scraping
-- **Primary Source**: Investing.com economic calendar
-- **Backup Sources**: ForexFactory, FXStreet, TradingEconomics (configured but disabled)
-- **Scraping Stack**: Cheerio for HTML parsing, Axios for HTTP requests
-- **Rate Limiting**: 3-second delays between requests, rotating user agents
-- **Caching Strategy**: 15-minute cache duration, 7-day data retention
-- **Scheduling**: 
-  - Upcoming events: Scraped every 15 minutes
-  - Full week data: Daily scrape at midnight (00:00 UTC)
-  - Cleanup: Hourly removal of old events
-- **Data Standardization**: All events normalized with title, country, date/time (UTC), impact level, forecast/actual/previous values, source attribution
-- **API Endpoints**:
-  - `/api/calendar/today` - Today's economic events
-  - `/api/calendar/week` - Week's economic events
-  - `/api/economic-events` - Upcoming events (24 hours)
+- **Primary Source**: Investing.com
+- **Scraping Stack**: Cheerio (parsing), Axios (HTTP requests)
+- **Rate Limiting**: 3-second delays, rotating user agents
+- **Caching**: 15-minute cache, 7-day retention
+- **Scheduling**: Upcoming events (15 mins), full week (daily at 00:00 UTC), hourly cleanup.
+- **Data Standardization**: Normalizes event details (title, country, date/time, impact, forecast, actual, previous).
+- **API Endpoints**: `/api/calendar/today`, `/api/calendar/week`, `/api/economic-events`.
 
 ## Design System
-- **Color Palette**: Dark-mode primary with financial trading color scheme (trading blue, profit green, loss red, alert amber)
-- **Typography**: Inter font optimized for number readability with tabular figures
-- **Components**: Professional card-based layout with sidebar navigation (18rem width for trading-specific requirements)
-- **Responsive Design**: Mobile-first approach with breakpoints optimized for trading desk environments
+- **Color Palette**: Dark-mode with financial trading colors (blue, green, red, amber).
+- **Typography**: Inter font for number readability.
+- **Components**: Card-based layout with 18rem sidebar navigation.
+- **Responsive Design**: Mobile-first with trading desk breakpoints.
 
 ## Real-time Capabilities
-- **Market Data**: WebSocket connections planned for live market feeds and trading session tracking
-- **Session Monitoring**: Real-time tracking of London, New York, Tokyo, and Sydney trading sessions
-- **Signal Generation**: Live scanning and notification system for trading opportunities
+- **Market Data**: Planned WebSocket connections for live feeds.
+- **Session Monitoring**: Real-time tracking of major trading sessions (London, New York, Tokyo, Sydney).
+- **Signal Generation**: Live scanning and notification system for trading opportunities.
 
 ## Trading Analysis Framework
-- **Multi-timeframe Analysis**: 1D, 4H, 30M, 15M for analysis with 1M for precise entries
-- **Technical Indicators**: Non-lagging tools including volume, momentum, and trend direction indicators
-- **Pattern Recognition**: Support for institutional candles, Fair Value Gaps (FVG), order blocks, and liquidity sweeps
-- **Risk Management**: Integrated stop-loss and take-profit calculations with risk-reward ratios
-- **Economic Calendar**: Track high and medium impact economic events with pre-release expectations (forecast, previous, futures-implied) and post-release analysis (actual values, surprise factor, market impact assessment)
+- **Multi-timeframe Analysis**: 1D, 4H, 30M, 15M for analysis; 1M for entries.
+- **Technical Indicators**: Non-lagging volume, momentum, and trend indicators.
+- **Pattern Recognition**: Institutional candles, Fair Value Gaps (FVG), order blocks, liquidity sweeps.
+- **Risk Management**: Integrated stop-loss/take-profit with risk-reward ratios.
+- **Economic Calendar**: Tracks high/medium impact events with pre-release expectations and post-release analysis.
+
+## In-App Notification System
+- **Storage**: PostgreSQL table with read/unread status.
+- **Types**: Trading sessions (5 min before London/NY open), economic events (30 min advance for all impacts), trading signals.
+- **Real-time**: Unread count refreshes every 30 seconds.
+- **API Endpoints**: CRUD for notifications, mark as read, delete, signal creation.
+- **UI**: Popover in header with bell icon, badge, and management controls.
+
+## Telegram Notification System
+- **Integration**: node-telegram-bot-api for critical alerts.
+- **Commands**: `/start`, `/stop`, `/resume`, `/status`.
+- **Types**: Trading sessions (5 min before London/NY open), high/medium impact economic events (30 min advance).
+- **Scheduling**: Checks every 5 minutes.
+- **Frontend**: Telegram setup dropdown in header.
+
+## Supply/Demand Zone Detection
+- **Methodology**: Full range of base candle before institutional impulse.
+- **Differentiation**: Impulse direction determines zone type (bearish = supply, bullish = demand).
+- **Tracking**: Differentiates fresh vs. mitigated zones.
+- **Strength**: Calculated based on impulse magnitude and price reaction.
+
+## Liquidity Sweep Detection
+- **Pool Identification**: Detects Equal Highs/Lows, Swing Highs/Lows, Session Highs/Lows, Daily/Weekly/Monthly Highs/Lows.
+- **Sweep Detection**: Identifies price sweeping above/below liquidity pools.
+- **Mitigation**: Requires price to mitigate supply/demand zones after a sweep with structural confirmation.
+- **Entry Validation**: Close within zone AND next-candle reaction.
+- **Scoring**: +15 for sweep, +35+ for confirmed zone mitigation.
+- **Strategy Assignment**: "liquidity_sweep_mitigation" when criteria met.
+- **Reasoning**: Provides descriptive details of swept pools.
+
+## CHoCH (Change of Character) Detection
+- **Pattern Definition**: Identifies trend reversals through structural changes (HH/HL to LH/LL or vice versa).
+- **Swing Point Analysis**: Identifies HH, HL, LH, LL.
+- **Trend Change**: Bullish CHoCH (downtrend to HH), Bearish CHoCH (uptrend to LL).
+- **Entry Validation**: Confirmed CHoCH, targets unmitigated S/D zone, breaks 2+ S/D levels without mitigation, entry invalid if from unmitigated zone, rapid price push away from zone.
+- **Scoring**: +40 for valid CHoCH, +10 for 3+ levels broken, +10 for strong zone targeting.
+- **Priority**: Highest priority (CHoCH > liquidity sweep > traditional).
+- **Risk-Reward**: 1:3 R:R.
+
+## Real-Time Signal Generation
+- **Scanning Frequency**: Every 1 minute for 62 instruments (28 forex, 20 US stocks, 4 commodities, 4 crypto).
+- **Multi-Timeframe Analysis**: Higher TFs (1D, 4H) for bias/trend/zones; Lower TFs (1H, 15M) for entry confirmation.
+- **Pending Setups System**: Multi-stage validation (Forming <75% confidence, Monitoring, Ready >=70% confidence).
+- **Signal Thresholds**: Immediate (>=75%), Pending (50-74%), Ready (>=70%).
 
 # External Dependencies
 
 ## UI and Component Libraries
-- **@radix-ui/**: Complete suite of accessible UI primitives (accordion, dialog, dropdown, navigation, etc.)
-- **class-variance-authority**: Type-safe variant API for component styling
-- **cmdk**: Command palette interface for power user workflows
-- **embla-carousel-react**: Touch-friendly carousel components for data visualization
+- **@radix-ui/**: Accessible UI primitives.
+- **class-variance-authority**: Type-safe variant API for styling.
+- **cmdk**: Command palette.
+- **embla-carousel-react**: Touch-friendly carousels.
 
 ## Database and Data Management
-- **@neondatabase/serverless**: Serverless PostgreSQL with WebSocket support for real-time features
-- **drizzle-orm**: Type-safe ORM with PostgreSQL dialect
-- **drizzle-zod**: Schema validation integration
-- **connect-pg-simple**: PostgreSQL session store for Express
+- **@neondatabase/serverless**: Serverless PostgreSQL.
+- **drizzle-orm**: Type-safe ORM for PostgreSQL.
+- **drizzle-zod**: Schema validation.
+- **connect-pg-simple**: PostgreSQL session store.
 
 ## Development and Build Tools
-- **@tanstack/react-query**: Powerful data fetching and caching solution
-- **@hookform/resolvers**: Form validation with Zod integration
-- **date-fns**: Lightweight date manipulation library
-- **wouter**: Minimalist routing library for React
-- **@replit/vite-plugin-**: Replit-specific development tooling for enhanced debugging
+- **@tanstack/react-query**: Data fetching and caching.
+- **@hookform/resolvers**: Form validation with Zod.
+- **date-fns**: Date manipulation.
+- **wouter**: Minimalist React routing.
+- **@replit/vite-plugin-**: Replit-specific tooling.
 
 ## Web Scraping and Data Collection
-- **cheerio**: Fast, flexible HTML parsing for web scraping economic calendar data
-- **axios**: Promise-based HTTP client for fetching web pages with configurable headers and timeouts
-- **node-cron**: Task scheduler for automated scraping at regular intervals (every 15 minutes for upcoming events, daily for full week data)
+- **cheerio**: HTML parsing.
+- **axios**: HTTP client.
+- **node-cron**: Task scheduler.
 
 ## Styling and Design
-- **tailwindcss**: Utility-first CSS framework with custom trading-focused configuration
-- **tailwind-merge**: Intelligent Tailwind class merging
-- **clsx**: Conditional className utility
-- **lucide-react**: Modern icon library with financial and trading-specific icons
-
-## Current Features
-- **Dashboard**: Overview of trading performance and session monitoring with integrated animated hero header
-- **Hero Header**: Combined navigation and hero section with orange gradient background, animated trading bars, and integrated navigation (Dashboard, Markets, Signals, Calendar, History, Analytics). Includes search bar, connection status, notifications, Telegram setup, settings, and theme toggle all in one compact header
-- **Trade History**: Comprehensive record of all trades with filtering and search capabilities
-- **Analytics**: Real-time performance metrics with win rate, P&L analysis, and strategy breakdown
-- **Economic Calendar**: Track high-impact economic events with filtering by region, impact level, and currency; displays pre-release expectations and post-release analysis
-- **Trading Sessions**: Live monitoring of Sydney, Tokyo, London, and New York sessions with overlap detection
-
-## In-App Notification System
-- **Database Storage**: PostgreSQL table for persistent notification storage with read/unread status tracking
-- **NotificationService**: Backend service for CRUD operations on notifications (create, fetch, mark as read, delete)
-- **Notification Types**:
-  - **Trading Sessions**: Alerts 5 minutes before London (08:00 UTC) and New York (13:00 UTC) session open
-  - **Economic Events**: 30-minute advance notice for ALL impact levels (high, medium, and low)
-  - **Trading Signals**: Instant alerts for new buy/sell setups with entry, stop-loss, take-profit, confidence, and analysis
-- **Real-time Updates**: Unread notification count refreshes every 30 seconds
-- **API Endpoints**:
-  - `GET /api/notifications` - Fetch all notifications (with limit)
-  - `GET /api/notifications/unread` - Fetch unread notifications only
-  - `PATCH /api/notifications/:id/read` - Mark specific notification as read
-  - `PATCH /api/notifications/read-all` - Mark all notifications as read
-  - `DELETE /api/notifications/:id` - Delete specific notification
-  - `DELETE /api/notifications/clear-all` - Clear all notifications
-  - `POST /api/notifications/signal` - Create trading signal notification
-- **UI Component**: Popover-based notification center in header with bell icon, unread badge, color-coded notifications by type/impact, and management controls
-
-## Telegram Notification System
-- **Bot Integration**: node-telegram-bot-api for push notifications (limited to critical alerts only)
-- **Commands**: /start (subscribe), /stop (pause), /resume (reactivate), /status (check subscription)
-- **Notification Types** (Telegram receives only):
-  - **Trading Sessions**: 5-minute alerts before London and New York session open
-  - **Economic Events**: 30-minute advance notice for HIGH and MEDIUM impact events only
-- **Scheduling**: Automated checks every 5 minutes via node-cron scheduler
-- **API Endpoints**:
-  - `/api/notifications/status` - Check Telegram bot status
-- **Frontend Integration**: Telegram setup dropdown in header shows bot status, subscription info, and test notification button
-- **Note**: All notifications appear in the dashboard notification center; Telegram is an optional secondary channel for critical alerts
-
-## Supply/Demand Zone Detection System
-- **Zone Marking Method**: Both supply and demand zones use FULL RANGE (high to low) of BASE candle (last candle before institutional impulse)
-- **Base Candle**: Can be bullish or bearish - color doesn't matter
-- **Zone Differentiation**: Only impulse direction matters (bearish impulse = supply zone, bullish impulse = demand zone)
-- **Fresh vs Mitigated Tracking**: System tracks whether zones have been tapped by price (mitigated) or remain untouched (fresh/unmitigated)
-- **Zone Strength**: Calculated based on impulse magnitude and subsequent price reaction
-
-## Liquidity Sweep Detection System
-- **Enhanced Pool Detection**: Comprehensive liquidity pool identification matching real-world smart money patterns
-- **Pool Types Detected**:
-  - **Equal Highs/Lows (EQH, EQL)**: 2+ equal price levels forming liquidity pools
-  - **Swing Highs/Lows**: Local peaks and troughs with 2-candle confirmation
-  - **Session Highs/Lows**: Asian (00:00-09:00 UTC), London (08:00-17:00 UTC), NY (13:00-22:00 UTC) session extremes
-  - **Daily/Weekly/Monthly Highs/Lows**: Timeframe extremes for institutional liquidity targeting
-- **Sweep Detection**: Identifies when price sweeps above/below liquidity pools to trap retail traders
-- **Supply/Demand Mitigation**: Waits for price to mitigate supply/demand zones AFTER sweep with structural confirmation (candle close within zone + reaction)
-- **Entry Validation**: Requires both close within zone AND next-candle reaction before signaling high-probability entries
-- **Scoring System**: Awards +15 for sweep detection, +35+ for confirmed zone mitigation with strength bonuses
-- **Strategy Assignment**: Changes to "liquidity_sweep_mitigation" only when all validation criteria met, falls back to ATR-based entry otherwise
-- **Descriptive Reasoning**: Reports pool types swept (e.g., "London High swept at 1.23456", "Weekly Low mitigation confirmed")
-
-## CHoCH (Change of Character) Detection System
-- **Pattern Definition**: CHoCH identifies trend reversals when price structure changes (HH/HL → LH/LL or vice versa)
-- **Swing Point Analysis**: Identifies Higher Highs (HH), Higher Lows (HL), Lower Highs (LH), Lower Lows (LL) from price action
-- **Trend Change Detection**:
-  - **Bullish CHoCH**: Downtrend (LH, LL pattern) breaks when price makes Higher High
-  - **Bearish CHoCH**: Uptrend (HH, HL pattern) breaks when price makes Lower Low
-- **Entry Validation Rules** (from SMC methodology):
-  1. Valid CHoCH must be confirmed (trend change detected)
-  2. Target most recent UNMITIGATED demand/supply zone (formed before CHoCH)
-  3. Price must break 2+ demand/supply levels WITHOUT mitigation
-  4. Entry INVALID if price comes FROM unmitigated zone (zone still in control)
-  5. Look for rapid price push away from zone (creates imbalance)
-- **Scoring System**: Awards +40 for valid CHoCH entry, +10 for 3+ levels broken, +10 for strong zone targeting
-- **Strategy Priority**: CHoCH reversal setups take highest priority (CHoCH > liquidity sweep > traditional)
-- **Risk-Reward**: 1:3 R:R ratio for CHoCH setups (higher than standard due to reversal quality)
-
-## Future Integrations
-- **Market Data APIs**: Real-time feeds for Forex, Stocks, and Crypto markets
-- **WebSocket Services**: For live trading signals and session monitoring
-- **Chart Libraries**: For advanced technical analysis visualization
+- **tailwindcss**: Utility-first CSS framework.
+- **tailwind-merge**: Tailwind class merging.
+- **clsx**: Conditional className utility.
+- **lucide-react**: Icon library.
