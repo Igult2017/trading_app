@@ -1,13 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTradeSchema, insertEconomicEventSchema } from "@shared/schema";
+import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema } from "@shared/schema";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
 import { notificationService } from "./services/notificationService";
+import { signalDetectionService } from "./services/signalDetection";
+import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -350,6 +352,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error clearing all notifications:", error);
       res.status(500).json({ error: "Failed to clear all notifications" });
+    }
+  });
+
+  app.get("/api/trading-signals", async (req, res) => {
+    try {
+      const filters = {
+        status: req.query.status as string | undefined,
+        assetClass: req.query.assetClass as string | undefined,
+        symbol: req.query.symbol as string | undefined,
+      };
+      const signals = await storage.getTradingSignals(filters);
+      res.json(signals);
+    } catch (error) {
+      console.error("Error fetching trading signals:", error);
+      res.status(500).json({ error: "Failed to fetch trading signals" });
+    }
+  });
+
+  app.get("/api/trading-signals/:id", async (req, res) => {
+    try {
+      const signal = await storage.getTradingSignalById(req.params.id);
+      if (!signal) {
+        return res.status(404).json({ error: "Signal not found" });
+      }
+      res.json(signal);
+    } catch (error) {
+      console.error("Error fetching signal:", error);
+      res.status(500).json({ error: "Failed to fetch signal" });
+    }
+  });
+
+  app.post("/api/trading-signals/generate", async (req, res) => {
+    try {
+      const { symbol, assetClass, trend } = req.body;
+      
+      if (!symbol || !assetClass) {
+        return res.status(400).json({ error: "Symbol and assetClass are required" });
+      }
+
+      let interestRateData = null;
+      let inflationData = null;
+
+      if (assetClass === 'forex') {
+        const pair = parseCurrencyPair(symbol);
+        if (pair) {
+          const baseIR = getInterestRateData(pair.base);
+          const quoteIR = getInterestRateData(pair.quote);
+          const baseInf = getInflationData(pair.base);
+          const quoteInf = getInflationData(pair.quote);
+
+          if (baseIR && quoteIR) {
+            interestRateData = { base: baseIR, quote: quoteIR };
+          }
+          if (baseInf && quoteInf) {
+            inflationData = { base: baseInf, quote: quoteInf };
+          }
+        }
+      }
+
+      const currentPrice = req.body.currentPrice || 1.0850;
+      const trendBias = trend || 'bullish';
+
+      const dailyData = generateMockTimeframeData(currentPrice, trendBias, 30);
+      const h4Data = generateMockTimeframeData(currentPrice, trendBias, 25);
+      const h1Data = generateMockTimeframeData(currentPrice, trendBias, 20);
+      const m15Data = generateMockTimeframeData(currentPrice, trendBias, 15);
+
+      const signal = signalDetectionService.generateTradingSignal({
+        symbol,
+        assetClass,
+        interestRateData,
+        inflationData,
+        dailyData,
+        h4Data,
+        h1Data,
+        m15Data,
+      });
+
+      if (!signal) {
+        return res.status(400).json({ error: "Could not generate signal - confidence too low" });
+      }
+
+      const createdSignal = await storage.createTradingSignal(signal);
+
+      await notificationService.createNotification({
+        type: 'trading_signal',
+        title: `${signal.type === 'buy' ? '🟢' : '🔴'} ${symbol} - ${signal.type.toUpperCase()}`,
+        message: `Confidence: ${signal.overallConfidence}% | Entry: ${signal.entryPrice} | R:R: 1:${signal.riskRewardRatio}`,
+        metadata: JSON.stringify(createdSignal),
+      });
+
+      res.json(createdSignal);
+    } catch (error) {
+      console.error("Error generating signal:", error);
+      res.status(500).json({ error: "Failed to generate signal" });
+    }
+  });
+
+  app.post("/api/trading-signals", async (req, res) => {
+    try {
+      const validatedData = insertTradingSignalSchema.parse(req.body);
+      const signal = await storage.createTradingSignal(validatedData);
+      res.status(201).json(signal);
+    } catch (error) {
+      console.error("Error creating signal:", error);
+      res.status(400).json({ error: "Invalid signal data" });
+    }
+  });
+
+  app.patch("/api/trading-signals/:id", async (req, res) => {
+    try {
+      const signal = await storage.updateTradingSignal(req.params.id, req.body);
+      if (!signal) {
+        return res.status(404).json({ error: "Signal not found" });
+      }
+      res.json(signal);
+    } catch (error) {
+      console.error("Error updating signal:", error);
+      res.status(500).json({ error: "Failed to update signal" });
+    }
+  });
+
+  app.delete("/api/trading-signals/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteTradingSignal(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Signal not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting signal:", error);
+      res.status(500).json({ error: "Failed to delete signal" });
     }
   });
 

@@ -77,7 +77,7 @@ export class SignalDetectionService {
     const notes = `${baseCurrency}/${quoteCurrency}: ${differential.toFixed(2)}% differential, ${direction}`;
     
     return {
-      score: score * SCORING_WEIGHTS.interestRateDifferential * 100,
+      score: score * SCORING_WEIGHTS.interestRateDifferential,
       differential,
       notes,
     };
@@ -111,7 +111,7 @@ export class SignalDetectionService {
     const notes = `Inflation differential: ${differential.toFixed(2)}%. ${impact}`;
     
     return {
-      score: score * SCORING_WEIGHTS.inflation * 100,
+      score: score * SCORING_WEIGHTS.inflation,
       differential,
       notes,
     };
@@ -140,7 +140,7 @@ export class SignalDetectionService {
     const strength = alignmentScore >= 80 ? 'strong' : alignmentScore >= 60 ? 'moderate' : 'weak';
     
     return {
-      score: alignmentScore * SCORING_WEIGHTS.trend * 100,
+      score: alignmentScore * SCORING_WEIGHTS.trend,
       direction: dominantDirection,
       strength,
       timeframes: Array.from(new Set(alignedTimeframes)),
@@ -173,53 +173,59 @@ export class SignalDetectionService {
   ): InstitutionalCandleData | null {
     if (data.length < 3) return null;
     
-    for (let i = data.length - 3; i >= Math.max(0, data.length - 20); i--) {
-      const prevCandle = data[i];
-      const currentCandle = data[i + 1];
-      const nextCandle = data[i + 2];
+    for (let i = data.length - 2; i >= Math.max(1, data.length - 20); i--) {
+      const oppositeCandle = data[i - 1];
+      const impulseCandle = data[i];
       
-      const prevIsBearish = prevCandle.close < prevCandle.open;
-      const prevIsBullish = prevCandle.close > prevCandle.open;
+      const oppositeIsBearish = oppositeCandle.close < oppositeCandle.open;
+      const oppositeIsBullish = oppositeCandle.close > oppositeCandle.open;
       
-      const nextImpulse = Math.abs(nextCandle.close - nextCandle.open);
-      const prevBody = Math.abs(prevCandle.close - prevCandle.open);
+      const impulseIsBullish = impulseCandle.close > impulseCandle.open;
+      const impulseIsBearish = impulseCandle.close < impulseCandle.open;
       
-      const isStrongImpulse = nextImpulse > prevBody * 1.5;
+      const oppositeBody = Math.abs(oppositeCandle.close - oppositeCandle.open);
+      const impulseBody = Math.abs(impulseCandle.close - impulseCandle.open);
       
-      if (prevIsBearish && nextCandle.close > nextCandle.open && isStrongImpulse) {
-        const structureBreak = nextCandle.close > data.slice(0, i + 1).reduce((max, d) => Math.max(max, d.high), 0);
+      const isStrongImpulse = impulseBody > oppositeBody * 1.5;
+      
+      if (oppositeIsBearish && impulseIsBullish && isStrongImpulse) {
+        const prevHighs = data.slice(0, i - 1).map(d => d.high);
+        const prevStructureHigh = prevHighs.length > 0 ? Math.max(...prevHighs) : 0;
+        const structureBreak = impulseCandle.close > prevStructureHigh;
         
         if (structureBreak) {
           return {
             timeframe,
             candleType: 'bullish',
-            open: prevCandle.open,
-            close: prevCandle.close,
-            high: prevCandle.high,
-            low: prevCandle.low,
-            mth: (prevCandle.open + prevCandle.close) / 2,
-            timestamp: prevCandle.timestamp,
+            open: oppositeCandle.open,
+            close: oppositeCandle.close,
+            high: oppositeCandle.high,
+            low: oppositeCandle.low,
+            mth: (oppositeCandle.open + oppositeCandle.close) / 2,
+            timestamp: oppositeCandle.timestamp,
             structureBreak: true,
-            impulseMagnitude: nextImpulse,
+            impulseMagnitude: impulseBody,
           };
         }
       }
       
-      if (prevIsBullish && nextCandle.close < nextCandle.open && isStrongImpulse) {
-        const structureBreak = nextCandle.close < data.slice(0, i + 1).reduce((min, d) => Math.min(min, d.low), Infinity);
+      if (oppositeIsBullish && impulseIsBearish && isStrongImpulse) {
+        const prevLows = data.slice(0, i - 1).map(d => d.low);
+        const prevStructureLow = prevLows.length > 0 ? Math.min(...prevLows) : Infinity;
+        const structureBreak = impulseCandle.close < prevStructureLow;
         
         if (structureBreak) {
           return {
             timeframe,
             candleType: 'bearish',
-            open: prevCandle.open,
-            close: prevCandle.close,
-            high: prevCandle.high,
-            low: prevCandle.low,
-            mth: (prevCandle.open + prevCandle.close) / 2,
-            timestamp: prevCandle.timestamp,
+            open: oppositeCandle.open,
+            close: oppositeCandle.close,
+            high: oppositeCandle.high,
+            low: oppositeCandle.low,
+            mth: (oppositeCandle.open + oppositeCandle.close) / 2,
+            timestamp: oppositeCandle.timestamp,
             structureBreak: true,
-            impulseMagnitude: nextImpulse,
+            impulseMagnitude: impulseBody,
           };
         }
       }
@@ -288,7 +294,7 @@ export class SignalDetectionService {
       score += 20;
     }
     
-    const finalScore = Math.min(100, score) * SCORING_WEIGHTS.smartMoneyConcepts * 100;
+    const finalScore = Math.min(100, score) * SCORING_WEIGHTS.smartMoneyConcepts;
     
     return {
       score: finalScore,
