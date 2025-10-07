@@ -100,6 +100,10 @@ Preferred communication style: Simple, everyday language.
 - **Multi-Timeframe Analysis**: Higher TFs (1D, 4H) for bias/trend/zones; Lower TFs (1H, 15M) for entry confirmation.
 - **Pending Setups System**: Multi-stage validation (Forming <75% confidence, Monitoring, Ready >=70% confidence).
 - **Signal Thresholds**: Immediate (>=75%), Pending (50-74%), Ready (>=70%).
+- **Signal Lifecycle**: Active (4-hour expiry window) → Expired → Auto-archived to trade history.
+- **Expiry Tracking**: Live countdown timer displays time remaining until signal expires.
+- **Auto-Archival**: Expired signals automatically moved to trade history with duration and outcome tracking.
+- **Cleanup Scheduling**: Every 2 hours, expired signals are archived and removed from active list.
 
 # External Dependencies
 
