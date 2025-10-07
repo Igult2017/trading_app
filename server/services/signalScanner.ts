@@ -295,11 +295,6 @@ export class SignalScannerService {
 
       for (const signal of allSignals) {
         if (signal.expiresAt && new Date(signal.expiresAt) <= now) {
-          await storage.updateTradingSignal(signal.id, { 
-            status: 'expired',
-            invalidatedAt: now 
-          });
-
           const timeDuration = Math.floor((now.getTime() - new Date(signal.createdAt!).getTime()) / (1000 * 60));
           const durationText = `${Math.floor(timeDuration / 60)}h ${timeDuration % 60}m`;
 
@@ -320,7 +315,9 @@ export class SignalScannerService {
             duration: durationText
           });
 
-          console.log(`Expired signal moved to history: ${signal.symbol} - ${signal.type} (Duration: ${durationText})`);
+          await storage.deleteTradingSignal(signal.id);
+
+          console.log(`Expired signal archived to history: ${signal.symbol} - ${signal.type} (Duration: ${durationText})`);
         }
       }
     } catch (error) {
