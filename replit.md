@@ -134,6 +134,20 @@ Preferred communication style: Simple, everyday language.
 - **Frontend Integration**: Telegram setup dropdown in header shows bot status, subscription info, and test notification button
 - **Note**: All notifications appear in the dashboard notification center; Telegram is an optional secondary channel for critical alerts
 
+## Liquidity Sweep Detection System
+- **Enhanced Pool Detection**: Comprehensive liquidity pool identification matching real-world smart money patterns
+- **Pool Types Detected**:
+  - **Equal Highs/Lows (EQH, EQL)**: 2+ equal price levels forming liquidity pools
+  - **Swing Highs/Lows**: Local peaks and troughs with 2-candle confirmation
+  - **Session Highs/Lows**: Asian (00:00-09:00 UTC), London (08:00-17:00 UTC), NY (13:00-22:00 UTC) session extremes
+  - **Daily/Weekly/Monthly Highs/Lows**: Timeframe extremes for institutional liquidity targeting
+- **Sweep Detection**: Identifies when price sweeps above/below liquidity pools to trap retail traders
+- **Supply/Demand Mitigation**: Waits for price to mitigate supply/demand zones AFTER sweep with structural confirmation (candle close within zone + reaction)
+- **Entry Validation**: Requires both close within zone AND next-candle reaction before signaling high-probability entries
+- **Scoring System**: Awards +15 for sweep detection, +35+ for confirmed zone mitigation with strength bonuses
+- **Strategy Assignment**: Changes to "liquidity_sweep_mitigation" only when all validation criteria met, falls back to ATR-based entry otherwise
+- **Descriptive Reasoning**: Reports pool types swept (e.g., "London High swept at 1.23456", "Weekly Low mitigation confirmed")
+
 ## Future Integrations
 - **Market Data APIs**: Real-time feeds for Forex, Stocks, and Crypto markets
 - **WebSocket Services**: For live trading signals and session monitoring
