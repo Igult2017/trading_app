@@ -95,7 +95,7 @@ export class ScraperScheduler {
       await telegramNotificationService.checkAndNotifyTradingSessions();
     });
 
-    this.signalScanJob = cron.schedule('*/30 * * * *', async () => {
+    this.signalScanJob = cron.schedule('*/1 * * * *', async () => {
       console.log('Running automated signal market scan...');
       await signalScannerService.scanMarkets();
     });
@@ -109,7 +109,7 @@ export class ScraperScheduler {
     console.log(`Scheduled full week scrape: ${scraperSettings.schedules.fullWeekScrapeTime}`);
     console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
     console.log(`Scheduled Telegram notifications (events, sessions, signals): every 5 minutes`);
-    console.log('Scheduled automated signal scanning: every 30 minutes');
+    console.log('Scheduled automated signal scanning: every 1 minute');
     console.log('Scheduled signal cleanup: every 2 hours');
 
     this.runUpcomingEventsScrape();
