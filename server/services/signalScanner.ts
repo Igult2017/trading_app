@@ -4,17 +4,79 @@ import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockT
 import { notificationService } from "./notificationService";
 
 const TRADEABLE_INSTRUMENTS = [
+  // Major Forex Pairs (7)
   { symbol: 'EUR/USD', assetClass: 'forex', currentPrice: 1.0850 },
   { symbol: 'GBP/USD', assetClass: 'forex', currentPrice: 1.2650 },
   { symbol: 'USD/JPY', assetClass: 'forex', currentPrice: 149.50 },
+  { symbol: 'USD/CHF', assetClass: 'forex', currentPrice: 0.8750 },
   { symbol: 'AUD/USD', assetClass: 'forex', currentPrice: 0.6580 },
   { symbol: 'USD/CAD', assetClass: 'forex', currentPrice: 1.3550 },
-  { symbol: 'GBP/JPY', assetClass: 'forex', currentPrice: 185.50 },
+  { symbol: 'NZD/USD', assetClass: 'forex', currentPrice: 0.6150 },
+  
+  // EUR Crosses (6)
   { symbol: 'EUR/GBP', assetClass: 'forex', currentPrice: 0.8580 },
+  { symbol: 'EUR/JPY', assetClass: 'forex', currentPrice: 162.00 },
+  { symbol: 'EUR/CHF', assetClass: 'forex', currentPrice: 0.9500 },
+  { symbol: 'EUR/AUD', assetClass: 'forex', currentPrice: 1.6500 },
+  { symbol: 'EUR/CAD', assetClass: 'forex', currentPrice: 1.4700 },
+  { symbol: 'EUR/NZD', assetClass: 'forex', currentPrice: 1.7650 },
+  
+  // GBP Crosses (5)
+  { symbol: 'GBP/JPY', assetClass: 'forex', currentPrice: 185.50 },
+  { symbol: 'GBP/CHF', assetClass: 'forex', currentPrice: 1.1050 },
+  { symbol: 'GBP/AUD', assetClass: 'forex', currentPrice: 1.9250 },
+  { symbol: 'GBP/CAD', assetClass: 'forex', currentPrice: 1.7150 },
+  { symbol: 'GBP/NZD', assetClass: 'forex', currentPrice: 2.0550 },
+  
+  // JPY Crosses (4)
+  { symbol: 'AUD/JPY', assetClass: 'forex', currentPrice: 98.50 },
+  { symbol: 'CAD/JPY', assetClass: 'forex', currentPrice: 110.50 },
+  { symbol: 'CHF/JPY', assetClass: 'forex', currentPrice: 170.75 },
+  { symbol: 'NZD/JPY', assetClass: 'forex', currentPrice: 92.00 },
+  
+  // Other Crosses (6)
+  { symbol: 'AUD/CAD', assetClass: 'forex', currentPrice: 0.8920 },
+  { symbol: 'AUD/CHF', assetClass: 'forex', currentPrice: 0.5750 },
+  { symbol: 'AUD/NZD', assetClass: 'forex', currentPrice: 1.0700 },
+  { symbol: 'CAD/CHF', assetClass: 'forex', currentPrice: 0.6450 },
+  { symbol: 'NZD/CAD', assetClass: 'forex', currentPrice: 0.8340 },
+  { symbol: 'NZD/CHF', assetClass: 'forex', currentPrice: 0.5380 },
+  
+  // Major US Stocks - Tech (10)
+  { symbol: 'AAPL', assetClass: 'stock', currentPrice: 175.50 },
+  { symbol: 'MSFT', assetClass: 'stock', currentPrice: 378.25 },
+  { symbol: 'GOOGL', assetClass: 'stock', currentPrice: 140.85 },
+  { symbol: 'AMZN', assetClass: 'stock', currentPrice: 152.30 },
+  { symbol: 'NVDA', assetClass: 'stock', currentPrice: 495.75 },
+  { symbol: 'TSLA', assetClass: 'stock', currentPrice: 245.60 },
+  { symbol: 'META', assetClass: 'stock', currentPrice: 485.20 },
+  { symbol: 'NFLX', assetClass: 'stock', currentPrice: 475.80 },
+  { symbol: 'AMD', assetClass: 'stock', currentPrice: 155.40 },
+  { symbol: 'ORCL', assetClass: 'stock', currentPrice: 115.25 },
+  
+  // Major US Stocks - Finance & Others (10)
+  { symbol: 'JPM', assetClass: 'stock', currentPrice: 165.70 },
+  { symbol: 'BAC', assetClass: 'stock', currentPrice: 32.85 },
+  { symbol: 'GS', assetClass: 'stock', currentPrice: 385.40 },
+  { symbol: 'V', assetClass: 'stock', currentPrice: 265.30 },
+  { symbol: 'MA', assetClass: 'stock', currentPrice: 425.60 },
+  { symbol: 'JNJ', assetClass: 'stock', currentPrice: 158.90 },
+  { symbol: 'UNH', assetClass: 'stock', currentPrice: 512.75 },
+  { symbol: 'WMT', assetClass: 'stock', currentPrice: 165.40 },
+  { symbol: 'PG', assetClass: 'stock', currentPrice: 152.30 },
+  { symbol: 'DIS', assetClass: 'stock', currentPrice: 95.85 },
+  
+  // Commodities (4)
   { symbol: 'XAU/USD', assetClass: 'commodity', currentPrice: 2035.00 },
-  { symbol: 'WTI OIL', assetClass: 'commodity', currentPrice: 82.50 },
+  { symbol: 'XAG/USD', assetClass: 'commodity', currentPrice: 24.50 },
+  { symbol: 'WTI', assetClass: 'commodity', currentPrice: 82.50 },
+  { symbol: 'BRENT', assetClass: 'commodity', currentPrice: 86.75 },
+  
+  // Crypto (4)
   { symbol: 'BTC/USD', assetClass: 'crypto', currentPrice: 43200 },
   { symbol: 'ETH/USD', assetClass: 'crypto', currentPrice: 2280 },
+  { symbol: 'BNB/USD', assetClass: 'crypto', currentPrice: 315.50 },
+  { symbol: 'SOL/USD', assetClass: 'crypto', currentPrice: 98.75 },
 ];
 
 export class SignalScannerService {
