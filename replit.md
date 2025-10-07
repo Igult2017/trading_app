@@ -134,6 +134,13 @@ Preferred communication style: Simple, everyday language.
 - **Frontend Integration**: Telegram setup dropdown in header shows bot status, subscription info, and test notification button
 - **Note**: All notifications appear in the dashboard notification center; Telegram is an optional secondary channel for critical alerts
 
+## Supply/Demand Zone Detection System
+- **Zone Marking Method**: Both supply and demand zones use FULL RANGE (high to low) of BASE candle (last candle before institutional impulse)
+- **Base Candle**: Can be bullish or bearish - color doesn't matter
+- **Zone Differentiation**: Only impulse direction matters (bearish impulse = supply zone, bullish impulse = demand zone)
+- **Fresh vs Mitigated Tracking**: System tracks whether zones have been tapped by price (mitigated) or remain untouched (fresh/unmitigated)
+- **Zone Strength**: Calculated based on impulse magnitude and subsequent price reaction
+
 ## Liquidity Sweep Detection System
 - **Enhanced Pool Detection**: Comprehensive liquidity pool identification matching real-world smart money patterns
 - **Pool Types Detected**:
@@ -147,6 +154,22 @@ Preferred communication style: Simple, everyday language.
 - **Scoring System**: Awards +15 for sweep detection, +35+ for confirmed zone mitigation with strength bonuses
 - **Strategy Assignment**: Changes to "liquidity_sweep_mitigation" only when all validation criteria met, falls back to ATR-based entry otherwise
 - **Descriptive Reasoning**: Reports pool types swept (e.g., "London High swept at 1.23456", "Weekly Low mitigation confirmed")
+
+## CHoCH (Change of Character) Detection System
+- **Pattern Definition**: CHoCH identifies trend reversals when price structure changes (HH/HL → LH/LL or vice versa)
+- **Swing Point Analysis**: Identifies Higher Highs (HH), Higher Lows (HL), Lower Highs (LH), Lower Lows (LL) from price action
+- **Trend Change Detection**:
+  - **Bullish CHoCH**: Downtrend (LH, LL pattern) breaks when price makes Higher High
+  - **Bearish CHoCH**: Uptrend (HH, HL pattern) breaks when price makes Lower Low
+- **Entry Validation Rules** (from SMC methodology):
+  1. Valid CHoCH must be confirmed (trend change detected)
+  2. Target most recent UNMITIGATED demand/supply zone (formed before CHoCH)
+  3. Price must break 2+ demand/supply levels WITHOUT mitigation
+  4. Entry INVALID if price comes FROM unmitigated zone (zone still in control)
+  5. Look for rapid price push away from zone (creates imbalance)
+- **Scoring System**: Awards +40 for valid CHoCH entry, +10 for 3+ levels broken, +10 for strong zone targeting
+- **Strategy Priority**: CHoCH reversal setups take highest priority (CHoCH > liquidity sweep > traditional)
+- **Risk-Reward**: 1:3 R:R ratio for CHoCH setups (higher than standard due to reversal quality)
 
 ## Future Integrations
 - **Market Data APIs**: Real-time feeds for Forex, Stocks, and Crypto markets
