@@ -1,5 +1,5 @@
 import { type InsertTradingSignal } from "@shared/schema";
-import { LiquiditySweepDetector, type LiquiditySweepResult } from './liquiditySweepDetection';
+import { LiquiditySweepDetector, type LiquiditySweepResult, type CHoCHResult } from './liquiditySweepDetection';
 import { type Candle } from './marketData';
 
 export interface TimeframeData {
@@ -244,7 +244,15 @@ export class SignalDetectionService {
   detectSmartMoneyFactors(
     data: TimeframeData[],
     institutionalCandle: InstitutionalCandleData | null
-  ): { score: number; factors: string[]; orderBlock: any; fvg: any; liquiditySweep: boolean; liquiditySweepData?: LiquiditySweepResult } {
+  ): { 
+    score: number; 
+    factors: string[]; 
+    orderBlock: any; 
+    fvg: any; 
+    liquiditySweep: boolean; 
+    liquiditySweepData?: LiquiditySweepResult;
+    chochData?: CHoCHResult;
+  } {
     const factors: string[] = [];
     let score = 0;
     let orderBlock = null;
@@ -322,6 +330,32 @@ export class SignalDetectionService {
       }
     }
     
+    // Detect CHoCH (Change of Character) - trend reversal
+    const zones = this.liquiditySweepDetector.identifySupplyDemandZones(candles);
+    const chochResult = this.liquiditySweepDetector.detectCHoCH(candles, zones);
+    
+    if (chochResult.detected) {
+      // Add CHoCH reasoning to factors
+      chochResult.reasoning.forEach(reason => {
+        factors.push(reason);
+      });
+      
+      // Score based on CHoCH entry validity
+      if (chochResult.entryValid) {
+        // Valid CHoCH entry setup (high-probability)
+        score += 40;
+        if (chochResult.levelsBroken && chochResult.levelsBroken >= 3) {
+          score += 10;
+        }
+        if (chochResult.targetZone?.strength === 'strong') {
+          score += 10;
+        }
+      } else if (chochResult.detected) {
+        // CHoCH detected but entry not yet valid
+        score += 15;
+      }
+    }
+    
     const finalScore = Math.min(100, score) * SCORING_WEIGHTS.smartMoneyConcepts;
     
     return {
@@ -331,6 +365,7 @@ export class SignalDetectionService {
       fvg,
       liquiditySweep,
       liquiditySweepData: liquiditySweepResult.sweepDetected ? liquiditySweepResult : undefined,
+      chochData: chochResult.detected ? chochResult : undefined,
     };
   }
 
@@ -411,9 +446,32 @@ export class SignalDetectionService {
     let entryPrice = latestPrice;
     let stopLoss: number;
     let takeProfit: number;
+    let strategyType: 'liquidity_sweep_mitigation' | 'choch_reversal' | 'institutional_backbone' = 'institutional_backbone';
     
-    // Check if we have a CONFIRMED liquidity sweep with mitigated zone entry
-    if (smcResult.liquiditySweepData?.supplyDemandZone && 
+    // Priority 1: Check for VALID CHoCH entry (trend reversal with unmitigated zone)
+    if (smcResult.chochData?.entryValid && smcResult.chochData.targetZone) {
+      const zone = smcResult.chochData.targetZone;
+      
+      // Use CHoCH entry logic
+      entryPrice = (zone.topPrice + zone.bottomPrice) / 2;
+      
+      // Override type based on CHoCH direction
+      type = smcResult.chochData.chochType === 'bullish_choch' ? 'buy' : 'sell';
+      
+      if (type === 'buy') {
+        stopLoss = zone.bottomPrice - (zone.topPrice - zone.bottomPrice) * 0.3;
+        const risk = Math.abs(entryPrice - stopLoss);
+        takeProfit = entryPrice + (risk * 3); // 1:3 R:R for CHoCH setups
+      } else {
+        stopLoss = zone.topPrice + (zone.topPrice - zone.bottomPrice) * 0.3;
+        const risk = Math.abs(entryPrice - stopLoss);
+        takeProfit = entryPrice - (risk * 3);
+      }
+      
+      strategyType = 'choch_reversal';
+    } 
+    // Priority 2: Check for CONFIRMED liquidity sweep with mitigated zone entry
+    else if (smcResult.liquiditySweepData?.supplyDemandZone && 
         smcResult.liquiditySweepData.supplyDemandZone.mitigated &&
         smcResult.liquiditySweepData.entryPrice &&
         smcResult.liquiditySweepData.stopLoss) {
@@ -429,8 +487,11 @@ export class SignalDetectionService {
       takeProfit = type === 'buy' 
         ? entryPrice + (risk * 2.5) // 1:2.5 R:R for sweep setups
         : entryPrice - (risk * 2.5);
-    } else {
-      // Use traditional ATR-based entry
+      
+      strategyType = 'liquidity_sweep_mitigation';
+    } 
+    // Fallback: Use traditional ATR-based entry
+    else {
       const atr = this.calculateATR(h1Data.slice(-14));
       stopLoss = type === 'buy' 
         ? latestPrice - (atr * 1.5)
@@ -454,6 +515,17 @@ export class SignalDetectionService {
       technicalReasons.push(`Inflation differential supports ${type} bias`);
     }
     
+    // Check for CHoCH entry (highest priority)
+    if (strategyType === 'choch_reversal' && smcResult.chochData) {
+      const trend = smcResult.chochData.previousTrend === 'uptrend' ? 'Uptrend' : 'Downtrend';
+      const levelsBroken = smcResult.chochData.levelsBroken || 0;
+      const zoneType = smcResult.chochData.targetZone?.type || 'zone';
+      technicalReasons.push(
+        `CHoCH (Change of Character): ${trend} reversed with ${levelsBroken}+ levels broken`,
+        `Targeting unmitigated ${zoneType} zone (High-probability reversal setup)`
+      );
+    }
+    
     // Check if we have a confirmed liquidity sweep mitigation entry
     const hasConfirmedSweepEntry = !!(
       smcResult.liquiditySweepData?.supplyDemandZone && 
@@ -463,7 +535,7 @@ export class SignalDetectionService {
     );
     
     // Add liquidity sweep information to technical reasons only if confirmed
-    if (hasConfirmedSweepEntry) {
+    if (hasConfirmedSweepEntry && strategyType === 'liquidity_sweep_mitigation') {
       const zoneType = smcResult.liquiditySweepData!.supplyDemandZone!.type;
       const zoneStrength = smcResult.liquiditySweepData!.supplyDemandZone!.strength;
       technicalReasons.push(
@@ -471,13 +543,22 @@ export class SignalDetectionService {
       );
     }
     
+    // Determine market context based on strategy
+    let marketContext: string;
+    if (strategyType === 'choch_reversal') {
+      const trend = smcResult.chochData?.previousTrend === 'uptrend' ? 'uptrend' : 'downtrend';
+      marketContext = `CHoCH reversal from ${trend} targeting unmitigated zone`;
+    } else if (strategyType === 'liquidity_sweep_mitigation') {
+      marketContext = `Post-liquidity sweep ${smcResult.liquiditySweepData!.supplyDemandZone!.type} zone entry`;
+    } else {
+      marketContext = `${trendResult.strength} ${trendResult.direction} trend with ${overallConfidence}% confidence`;
+    }
+    
     const signal: InsertTradingSignal = {
       symbol,
       assetClass,
       type,
-      strategy: hasConfirmedSweepEntry 
-        ? 'liquidity_sweep_mitigation' 
-        : 'institutional_backbone',
+      strategy: strategyType,
       entryPrice: entryPrice.toString(),
       stopLoss: stopLoss.toString(),
       takeProfit: takeProfit.toString(),
@@ -506,9 +587,7 @@ export class SignalDetectionService {
       liquiditySweep: smcResult.liquiditySweep,
       smcFactors: smcResult.factors,
       technicalReasons,
-      marketContext: hasConfirmedSweepEntry
-        ? `Post-liquidity sweep ${smcResult.liquiditySweepData!.supplyDemandZone!.type} zone entry`
-        : `${trendResult.strength} ${trendResult.direction} trend with ${overallConfidence}% confidence`,
+      marketContext,
       status: 'active',
       strength: overallConfidence >= 80 ? 'strong' : overallConfidence >= 60 ? 'moderate' : 'weak',
     };

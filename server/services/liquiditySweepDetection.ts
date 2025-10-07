@@ -36,6 +36,25 @@ export interface LiquiditySweepResult {
   reasoning: string[];
 }
 
+export interface SwingPoint {
+  price: number;
+  index: number;
+  type: 'HH' | 'HL' | 'LH' | 'LL'; // Higher High, Higher Low, Lower High, Lower Low
+}
+
+export interface CHoCHResult {
+  detected: boolean;
+  chochType?: 'bullish_choch' | 'bearish_choch'; // Bullish CHoCH = trend changed to bullish
+  chochIndex?: number;
+  chochPrice?: number;
+  previousTrend?: 'uptrend' | 'downtrend';
+  targetZone?: SupplyDemandZone;
+  levelsBroken?: number; // Number of levels broken without mitigation
+  entryValid: boolean;
+  confidence: number;
+  reasoning: string[];
+}
+
 export class LiquiditySweepDetector {
   private readonly EQUAL_LEVEL_TOLERANCE = 0.0015; // 0.15% tolerance for equal highs/lows
   private readonly MIN_OCCURRENCES = 2; // Minimum equal highs/lows to form liquidity pool
@@ -672,5 +691,296 @@ export class LiquiditySweepDetector {
       confidence: Math.min(confidence, 95),
       reasoning,
     };
+  }
+
+  /**
+   * Identify swing points (HH, HL, LH, LL) for trend analysis
+   */
+  private identifySwingPoints(candles: Candle[], lookback: number = 30): SwingPoint[] {
+    const swingPoints: SwingPoint[] = [];
+    const recentCandles = candles.slice(-lookback);
+    const startIndex = candles.length - recentCandles.length;
+    
+    // Need at least 5 candles to identify swing points
+    if (recentCandles.length < 5) return swingPoints;
+    
+    let prevHigh: { price: number; index: number } | null = null;
+    let prevLow: { price: number; index: number } | null = null;
+    
+    for (let i = 2; i < recentCandles.length - 2; i++) {
+      const current = recentCandles[i];
+      const absoluteIndex = startIndex + i;
+      
+      // Detect swing high (local peak)
+      if (current.high > recentCandles[i-1].high && 
+          current.high > recentCandles[i-2].high &&
+          current.high > recentCandles[i+1].high &&
+          current.high > recentCandles[i+2].high) {
+        
+        if (prevHigh) {
+          // Compare with previous high to determine HH or LH
+          if (current.high > prevHigh.price) {
+            swingPoints.push({
+              price: current.high,
+              index: absoluteIndex,
+              type: 'HH', // Higher High
+            });
+          } else {
+            swingPoints.push({
+              price: current.high,
+              index: absoluteIndex,
+              type: 'LH', // Lower High
+            });
+          }
+        }
+        prevHigh = { price: current.high, index: absoluteIndex };
+      }
+      
+      // Detect swing low (local trough)
+      if (current.low < recentCandles[i-1].low && 
+          current.low < recentCandles[i-2].low &&
+          current.low < recentCandles[i+1].low &&
+          current.low < recentCandles[i+2].low) {
+        
+        if (prevLow) {
+          // Compare with previous low to determine HL or LL
+          if (current.low > prevLow.price) {
+            swingPoints.push({
+              price: current.low,
+              index: absoluteIndex,
+              type: 'HL', // Higher Low
+            });
+          } else {
+            swingPoints.push({
+              price: current.low,
+              index: absoluteIndex,
+              type: 'LL', // Lower Low
+            });
+          }
+        }
+        prevLow = { price: current.low, index: absoluteIndex };
+      }
+    }
+    
+    return swingPoints;
+  }
+
+  /**
+   * Detect CHoCH (Change of Character) - trend reversal signal
+   * Bullish CHoCH: Downtrend breaks (LH, LL → HH)
+   * Bearish CHoCH: Uptrend breaks (HH, HL → LL)
+   */
+  detectCHoCH(candles: Candle[], zones: SupplyDemandZone[]): CHoCHResult {
+    const reasoning: string[] = [];
+    const swingPoints = this.identifySwingPoints(candles);
+    
+    if (swingPoints.length < 3) {
+      return {
+        detected: false,
+        entryValid: false,
+        confidence: 0,
+        reasoning: ['Insufficient swing points for CHoCH detection'],
+      };
+    }
+    
+    // Analyze recent swing points to detect trend change
+    const recentSwings = swingPoints.slice(-5); // Look at last 5 swing points
+    
+    // Detect Bullish CHoCH: Downtrend (LH, LL) breaks with HH
+    const hasLH = recentSwings.some(s => s.type === 'LH');
+    const hasLL = recentSwings.some(s => s.type === 'LL');
+    const latestHH = recentSwings.filter(s => s.type === 'HH').pop();
+    
+    if (hasLH && hasLL && latestHH) {
+      reasoning.push('Bearish trend detected (LH, LL pattern)');
+      reasoning.push(`Bullish CHoCH: Price made Higher High at ${latestHH.price.toFixed(5)}`);
+      
+      return this.validateCHoCHEntry(
+        candles,
+        zones,
+        'bullish_choch',
+        latestHH.index,
+        latestHH.price,
+        'downtrend',
+        reasoning
+      );
+    }
+    
+    // Detect Bearish CHoCH: Uptrend (HH, HL) breaks with LL
+    const hasHH = recentSwings.some(s => s.type === 'HH');
+    const hasHL = recentSwings.some(s => s.type === 'HL');
+    const latestLL = recentSwings.filter(s => s.type === 'LL').pop();
+    
+    if (hasHH && hasHL && latestLL) {
+      reasoning.push('Bullish trend detected (HH, HL pattern)');
+      reasoning.push(`Bearish CHoCH: Price made Lower Low at ${latestLL.price.toFixed(5)}`);
+      
+      return this.validateCHoCHEntry(
+        candles,
+        zones,
+        'bearish_choch',
+        latestLL.index,
+        latestLL.price,
+        'uptrend',
+        reasoning
+      );
+    }
+    
+    return {
+      detected: false,
+      entryValid: false,
+      confidence: 0,
+      reasoning: ['No CHoCH pattern detected in recent price action'],
+    };
+  }
+
+  /**
+   * Validate CHoCH entry conditions
+   */
+  private validateCHoCHEntry(
+    candles: Candle[],
+    zones: SupplyDemandZone[],
+    chochType: 'bullish_choch' | 'bearish_choch',
+    chochIndex: number,
+    chochPrice: number,
+    previousTrend: 'uptrend' | 'downtrend',
+    reasoning: string[]
+  ): CHoCHResult {
+    // Determine target zone type based on CHoCH direction
+    const targetZoneType = chochType === 'bullish_choch' ? 'demand' : 'supply';
+    
+    // Find unmitigated zones BEFORE the CHoCH
+    const unmitigatedZones = zones.filter(z => 
+      z.type === targetZoneType && 
+      z.formationIndex < chochIndex &&
+      !z.mitigated
+    );
+    
+    if (unmitigatedZones.length === 0) {
+      reasoning.push(`No unmitigated ${targetZoneType} zones found before CHoCH`);
+      return {
+        detected: true,
+        chochType,
+        chochIndex,
+        chochPrice,
+        previousTrend,
+        entryValid: false,
+        confidence: 40,
+        levelsBroken: 0,
+        reasoning,
+      };
+    }
+    
+    // Get most recent unmitigated zone
+    const targetZone = unmitigatedZones[unmitigatedZones.length - 1];
+    
+    // Count levels broken between zone and CHoCH WITHOUT mitigation
+    const levelsBroken = this.countLevelsBrokenWithoutMitigation(
+      candles,
+      zones,
+      targetZone.formationIndex,
+      chochIndex,
+      targetZoneType
+    );
+    
+    reasoning.push(`Found unmitigated ${targetZoneType} zone from index ${targetZone.formationIndex}`);
+    reasoning.push(`Price broke ${levelsBroken} level(s) without mitigation`);
+    
+    // Entry is INVALID if price comes FROM an unmitigated zone (zone still in control)
+    if (this.priceComesFromUnmitigatedZone(candles, targetZone, chochIndex)) {
+      reasoning.push(`Entry INVALID: Price comes from unmitigated ${targetZoneType} zone (still in control)`);
+      return {
+        detected: true,
+        chochType,
+        chochIndex,
+        chochPrice,
+        previousTrend,
+        targetZone,
+        levelsBroken,
+        entryValid: false,
+        confidence: 35,
+        reasoning,
+      };
+    }
+    
+    // Entry requires 2+ levels broken
+    if (levelsBroken < 2) {
+      reasoning.push('Entry INVALID: Must break 2+ levels without mitigation');
+      return {
+        detected: true,
+        chochType,
+        chochIndex,
+        chochPrice,
+        previousTrend,
+        targetZone,
+        levelsBroken,
+        entryValid: false,
+        confidence: 45,
+        reasoning,
+      };
+    }
+    
+    // Valid CHoCH entry setup
+    reasoning.push(`✅ Valid CHoCH entry: ${levelsBroken}+ levels broken, targeting unmitigated ${targetZoneType} zone`);
+    
+    let confidence = 75;
+    if (levelsBroken >= 3) confidence += 10;
+    if (targetZone.strength === 'strong') confidence += 10;
+    
+    return {
+      detected: true,
+      chochType,
+      chochIndex,
+      chochPrice,
+      previousTrend,
+      targetZone,
+      levelsBroken,
+      entryValid: true,
+      confidence: Math.min(confidence, 95),
+      reasoning,
+    };
+  }
+
+  /**
+   * Count demand/supply levels broken without mitigation
+   */
+  private countLevelsBrokenWithoutMitigation(
+    candles: Candle[],
+    zones: SupplyDemandZone[],
+    startIndex: number,
+    endIndex: number,
+    targetZoneType: 'demand' | 'supply'
+  ): number {
+    const relevantZones = zones.filter(z => 
+      z.type === targetZoneType &&
+      z.formationIndex > startIndex &&
+      z.formationIndex < endIndex &&
+      !z.mitigated
+    );
+    
+    return relevantZones.length;
+  }
+
+  /**
+   * Check if price comes FROM an unmitigated zone (invalid entry)
+   */
+  private priceComesFromUnmitigatedZone(
+    candles: Candle[],
+    zone: SupplyDemandZone,
+    chochIndex: number
+  ): boolean {
+    // Check candles between zone formation and CHoCH
+    const relevantCandles = candles.slice(zone.formationIndex, chochIndex + 1);
+    
+    // If price was inside zone in the last 3-5 candles before CHoCH, it "comes from" the zone
+    const recentCandles = relevantCandles.slice(-5);
+    
+    for (const candle of recentCandles) {
+      if (candle.low <= zone.topPrice && candle.high >= zone.bottomPrice) {
+        return true; // Price was inside zone recently
+      }
+    }
+    
+    return false;
   }
 }
