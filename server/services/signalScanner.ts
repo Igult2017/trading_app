@@ -201,7 +201,12 @@ export class SignalScannerService {
         });
 
         if (existingActiveSignals.length === 0) {
-          const activeSignal = await storage.createTradingSignal(signal);
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+          const activeSignal = await storage.createTradingSignal({
+            ...signal,
+            expiresAt
+          });
           await storage.deletePendingSetup(pendingSetup.id);
           return activeSignal;
         }
@@ -235,7 +240,12 @@ export class SignalScannerService {
         });
 
         if (existingActiveSignals.length === 0) {
-          return await storage.createTradingSignal(signal);
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+          return await storage.createTradingSignal({
+            ...signal,
+            expiresAt
+          });
         }
       } else {
         const biasDirection = signal.type === 'buy' ? 'bullish' : 'bearish';
@@ -282,15 +292,35 @@ export class SignalScannerService {
     try {
       const allSignals = await storage.getTradingSignals({ status: 'active' });
       const now = new Date();
-      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
 
       for (const signal of allSignals) {
-        if (signal.createdAt && new Date(signal.createdAt) < fourHoursAgo) {
+        if (signal.expiresAt && new Date(signal.expiresAt) <= now) {
           await storage.updateTradingSignal(signal.id, { 
             status: 'expired',
-            expiresAt: now 
+            invalidatedAt: now 
           });
-          console.log(`Expired signal: ${signal.symbol} - ${signal.type}`);
+
+          const timeDuration = Math.floor((now.getTime() - new Date(signal.createdAt!).getTime()) / (1000 * 60));
+          const durationText = `${Math.floor(timeDuration / 60)}h ${timeDuration % 60}m`;
+
+          await storage.createTrade({
+            userId: null,
+            symbol: signal.symbol,
+            type: signal.type,
+            strategy: signal.strategy,
+            entryPrice: signal.entryPrice,
+            exitPrice: signal.entryPrice,
+            quantity: '1',
+            pnl: '0',
+            pnlPercent: '0',
+            outcome: 'expired',
+            timeframe: signal.primaryTimeframe,
+            entryReason: signal.marketContext || `${signal.strategy} setup - ${signal.overallConfidence}% confidence`,
+            exitDate: now,
+            duration: durationText
+          });
+
+          console.log(`Expired signal moved to history: ${signal.symbol} - ${signal.type} (Duration: ${durationText})`);
         }
       }
     } catch (error) {

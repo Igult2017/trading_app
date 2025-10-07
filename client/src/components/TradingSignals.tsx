@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Target, Clock, Eye, BarChart3 } from 'lucide-react';
+import { Target, Clock, Eye, BarChart3, Timer } from 'lucide-react';
 
 interface TradingSignal {
   id: string;
@@ -27,6 +27,45 @@ interface TradingSignal {
   status: string;
   strength?: string;
   createdAt: Date;
+  expiresAt?: Date;
+}
+
+function CountdownTimer({ expiresAt }: { expiresAt?: Date }) {
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+
+  useEffect(() => {
+    if (!expiresAt) return;
+
+    const updateTimer = () => {
+      const now = new Date();
+      const expiry = new Date(expiresAt);
+      const diffMs = expiry.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        setTimeRemaining('EXPIRED');
+        return;
+      }
+
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+      setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  if (!expiresAt) return <span className="text-muted-foreground">No expiry</span>;
+
+  return (
+    <span className={timeRemaining === 'EXPIRED' ? 'text-red-500 font-semibold' : 'text-foreground'}>
+      {timeRemaining}
+    </span>
+  );
 }
 
 export default function TradingSignals() {
@@ -34,11 +73,11 @@ export default function TradingSignals() {
   
   const { data: signals = [], isLoading } = useQuery<TradingSignal[]>({
     queryKey: ['/api/trading-signals'],
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 
-  const activeSignals = signals.filter(s => s.status === 'active' || s.status === 'pending');
-  const previousSignals = signals.filter(s => s.status === 'expired' || s.status === 'executed');
+  const activeSignals = signals.filter(s => s.status === 'active');
+  const previousSignals = signals.filter(s => s.status === 'expired' || s.status === 'invalidated');
 
   const getSignalTypeColor = (type: string) => {
     return type === 'buy' ? 'hsl(120 60% 50%)' : 'hsl(0 75% 60%)';
@@ -91,7 +130,7 @@ export default function TradingSignals() {
         {activeSignals.length === 0 && previousSignals.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No signals detected yet</p>
-            <p className="text-sm mt-2">Algorithm scanning markets every 30 minutes...</p>
+            <p className="text-sm mt-2">Scanning 62 instruments every minute...</p>
           </div>
         ) : (
           <div>
@@ -139,20 +178,23 @@ export default function TradingSignals() {
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2 mr-2">
-                          <Badge 
-                            variant="outline"
-                            className="text-xs"
-                            style={{ 
-                              borderColor: getConfidenceColor(signal.overallConfidence), 
-                              color: getConfidenceColor(signal.overallConfidence) 
-                            }}
-                          >
-                            {signal.overallConfidence}%
-                          </Badge>
-                          <Badge variant={signal.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                            {signal.status}
-                          </Badge>
+                        <div className="flex flex-col items-end gap-1.5 mr-2">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline"
+                              className="text-xs"
+                              style={{ 
+                                borderColor: getConfidenceColor(signal.overallConfidence), 
+                                color: getConfidenceColor(signal.overallConfidence) 
+                              }}
+                            >
+                              {signal.overallConfidence}%
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs">
+                            <Timer className="w-3 h-3 text-muted-foreground" />
+                            <CountdownTimer expiresAt={signal.expiresAt} />
+                          </div>
                         </div>
                       </div>
 
