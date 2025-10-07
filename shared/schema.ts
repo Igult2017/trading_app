@@ -193,3 +193,54 @@ export const insertTradingSignalSchema = createInsertSchema(tradingSignals).omit
 
 export type InsertTradingSignal = z.infer<typeof insertTradingSignalSchema>;
 export type TradingSignal = typeof tradingSignals.$inferSelect;
+
+export const pendingSetups = pgTable("pending_setups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: text("symbol").notNull(),
+  assetClass: text("asset_class").notNull(),
+  type: text("type").notNull(),
+  
+  setupStage: text("setup_stage").notNull(),
+  
+  potentialStrategy: text("potential_strategy"),
+  currentPrice: decimal("current_price", { precision: 12, scale: 5 }).notNull(),
+  
+  primaryTimeframe: text("primary_timeframe").notNull(),
+  confirmationTimeframe: text("confirmation_timeframe"),
+  
+  interestRateBias: text("interest_rate_bias"),
+  inflationBias: text("inflation_bias"),
+  trendBias: text("trend_bias"),
+  
+  chochDetected: boolean("choch_detected").default(false),
+  chochDirection: text("choch_direction"),
+  liquiditySweepDetected: boolean("liquidity_sweep_detected").default(false),
+  supplyDemandZoneTargeted: boolean("supply_demand_zone_targeted").default(false),
+  zoneLevel: decimal("zone_level", { precision: 12, scale: 5 }),
+  zoneMitigated: boolean("zone_mitigated").default(false),
+  
+  levelsBroken: integer("levels_broken").default(0),
+  confirmationsPending: text("confirmations_pending").array(),
+  
+  setupNotes: text("setup_notes").array(),
+  marketContext: text("market_context"),
+  
+  lastCheckedPrice: decimal("last_checked_price", { precision: 12, scale: 5 }),
+  lastCheckedAt: timestamp("last_checked_at").defaultNow(),
+  
+  readyForSignal: boolean("ready_for_signal").default(false),
+  invalidated: boolean("invalidated").default(false),
+  invalidationReason: text("invalidation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPendingSetupSchema = createInsertSchema(pendingSetups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPendingSetup = z.infer<typeof insertPendingSetupSchema>;
+export type PendingSetup = typeof pendingSetups.$inferSelect;
