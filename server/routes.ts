@@ -487,6 +487,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/pending-setups", async (req, res) => {
+    try {
+      const filters = {
+        symbol: req.query.symbol as string | undefined,
+        readyForSignal: req.query.readyForSignal === 'true' ? true : undefined,
+        invalidated: req.query.invalidated === 'true' ? true : false,
+      };
+      const setups = await storage.getPendingSetups(filters);
+      res.json(setups);
+    } catch (error) {
+      console.error("Error fetching pending setups:", error);
+      res.status(500).json({ error: "Failed to fetch pending setups" });
+    }
+  });
+
+  app.get("/api/pending-setups/:id", async (req, res) => {
+    try {
+      const setup = await storage.getPendingSetupById(req.params.id);
+      if (!setup) {
+        return res.status(404).json({ error: "Pending setup not found" });
+      }
+      res.json(setup);
+    } catch (error) {
+      console.error("Error fetching pending setup:", error);
+      res.status(500).json({ error: "Failed to fetch pending setup" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

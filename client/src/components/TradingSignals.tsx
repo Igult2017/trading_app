@@ -68,16 +68,27 @@ function CountdownTimer({ expiresAt }: { expiresAt?: Date }) {
   );
 }
 
-export default function TradingSignals() {
+interface TradingSignalsProps {
+  assetClassFilter?: string;
+  title?: string;
+}
+
+export default function TradingSignals({ assetClassFilter, title }: TradingSignalsProps = {}) {
   const [selectedSignal, setSelectedSignal] = useState<string | null>(null);
   
-  const { data: signals = [], isLoading } = useQuery<TradingSignal[]>({
+  const { data: allSignals = [], isLoading } = useQuery<TradingSignal[]>({
     queryKey: ['/api/trading-signals'],
     refetchInterval: 10000,
   });
 
+  const signals = assetClassFilter 
+    ? allSignals.filter(s => s.assetClass === assetClassFilter)
+    : allSignals;
+
   const activeSignals = signals.filter(s => s.status === 'active');
   const previousSignals = signals.filter(s => s.status === 'expired' || s.status === 'invalidated');
+
+  const displayTitle = title || 'Currency, Gold, Oil and Crypto Signals';
 
   const getSignalTypeColor = (type: string) => {
     return type === 'buy' ? 'hsl(120 60% 50%)' : 'hsl(0 75% 60%)';
@@ -106,7 +117,7 @@ export default function TradingSignals() {
         <div className="pb-4 mb-4 border-b border-border/50">
           <div className="flex items-center gap-2 text-lg font-semibold">
             <Target className="w-5 h-5" />
-            Currency, Gold, Oil and Crypto Signals
+            {displayTitle}
             <Badge variant="secondary" className="ml-auto mr-2">Loading...</Badge>
           </div>
         </div>
@@ -120,7 +131,7 @@ export default function TradingSignals() {
       <div className="pb-4 mb-4 border-b border-border/50">
         <div className="flex items-center gap-2 text-lg font-semibold">
           <Target className="w-5 h-5" />
-          Currency, Gold, Oil and Crypto Signals
+          {displayTitle}
           <Badge variant="secondary" className="ml-auto mr-2">
             {activeSignals.length}/{signals.length} Active
           </Badge>
