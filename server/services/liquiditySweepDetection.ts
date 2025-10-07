@@ -344,38 +344,40 @@ export class LiquiditySweepDetector {
   
   /**
    * Identify supply and demand zones
+   * Marks zones at the BASE candle (last candle before impulse) per SMC methodology
    */
   identifySupplyDemandZones(candles: Candle[], lookback: number = 50): SupplyDemandZone[] {
     const zones: SupplyDemandZone[] = [];
     const recentCandles = candles.slice(-lookback);
+    const startIndex = candles.length - recentCandles.length;
     
     for (let i = 1; i < recentCandles.length - 1; i++) {
-      const prev = recentCandles[i - 1];
-      const curr = recentCandles[i];
-      const next = recentCandles[i + 1];
+      const base = recentCandles[i - 1]; // Last candle before impulse
+      const impulse = recentCandles[i]; // The impulse candle
+      const confirmation = recentCandles[i + 1]; // Confirmation candle
       
-      // Detect supply zone (rejection from above)
-      if (this.isSupplyZone(prev, curr, next)) {
+      // Detect supply zone: Mark zone on BASE candle before bearish impulse
+      if (this.isSupplyZone(base, impulse, confirmation)) {
         const zone: SupplyDemandZone = {
           type: 'supply',
-          topPrice: Math.max(curr.high, prev.high),
-          bottomPrice: Math.min(curr.open, curr.close),
-          formationIndex: candles.length - lookback + i,
-          strength: this.calculateZoneStrength(curr, recentCandles.slice(i + 1)),
-          mitigated: false,
+          topPrice: Math.max(base.open, base.close), // Body high of base candle
+          bottomPrice: Math.min(base.open, base.close), // Body low of base candle
+          formationIndex: startIndex + (i - 1), // Index of BASE candle
+          strength: this.calculateZoneStrength(impulse, recentCandles.slice(i + 1)),
+          mitigated: false, // Fresh/unmitigated zone
         };
         zones.push(zone);
       }
       
-      // Detect demand zone (rejection from below)
-      if (this.isDemandZone(prev, curr, next)) {
+      // Detect demand zone: Mark zone on BASE candle before bullish impulse
+      if (this.isDemandZone(base, impulse, confirmation)) {
         const zone: SupplyDemandZone = {
           type: 'demand',
-          topPrice: Math.max(curr.open, curr.close),
-          bottomPrice: Math.min(curr.low, prev.low),
-          formationIndex: candles.length - lookback + i,
-          strength: this.calculateZoneStrength(curr, recentCandles.slice(i + 1)),
-          mitigated: false,
+          topPrice: base.high, // Full high of base candle
+          bottomPrice: base.low, // Full low of base candle
+          formationIndex: startIndex + (i - 1), // Index of BASE candle
+          strength: this.calculateZoneStrength(impulse, recentCandles.slice(i + 1)),
+          mitigated: false, // Fresh/unmitigated zone
         };
         zones.push(zone);
       }
