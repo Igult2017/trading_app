@@ -47,14 +47,15 @@ export class LiquiditySweepDetector {
   detectEqualLevels(candles: Candle[], lookback: number = 20): EqualLevel[] {
     const levels: EqualLevel[] = [];
     const recentCandles = candles.slice(-lookback);
+    const startIndex = candles.length - recentCandles.length; // Handle any size
     
     // Find equal highs
-    const highs = recentCandles.map((c, i) => ({ price: c.high, index: i }));
+    const highs = recentCandles.map((c, i) => ({ price: c.high, index: startIndex + i }));
     const equalHighs = this.findEqualPrices(highs, 'high');
     levels.push(...equalHighs);
     
     // Find equal lows
-    const lows = recentCandles.map((c, i) => ({ price: c.low, index: i }));
+    const lows = recentCandles.map((c, i) => ({ price: c.low, index: startIndex + i }));
     const equalLows = this.findEqualPrices(lows, 'low');
     levels.push(...equalLows);
     
@@ -108,6 +109,7 @@ export class LiquiditySweepDetector {
   detectSwingLevels(candles: Candle[], lookback: number = 20): LiquidityPool[] {
     const pools: LiquidityPool[] = [];
     const recentCandles = candles.slice(-lookback);
+    const startIndex = candles.length - recentCandles.length; // Handle any size
     
     for (let i = 2; i < recentCandles.length - 2; i++) {
       const current = recentCandles[i];
@@ -121,7 +123,7 @@ export class LiquiditySweepDetector {
           price: current.high,
           type: 'high',
           poolType: 'swing',
-          indices: [candles.length - lookback + i],
+          indices: [startIndex + i], // ✅ Absolute index
           swept: false,
           strength: 'moderate',
         });
@@ -136,7 +138,7 @@ export class LiquiditySweepDetector {
           price: current.low,
           type: 'low',
           poolType: 'swing',
-          indices: [candles.length - lookback + i],
+          indices: [startIndex + i], // ✅ Absolute index
           swept: false,
           strength: 'moderate',
         });
@@ -152,8 +154,9 @@ export class LiquiditySweepDetector {
   detectSessionLevels(candles: Candle[]): LiquidityPool[] {
     const pools: LiquidityPool[] = [];
     
-    // Get last 24 hours of data (assuming H1 candles)
+    // Get last 24 hours of data (or whatever is available)
     const last24h = candles.slice(-24);
+    const startIndex = candles.length - last24h.length; // Handle < 24 candles
     
     // Session times in UTC
     const sessions = [
@@ -163,36 +166,47 @@ export class LiquiditySweepDetector {
     ];
     
     for (const session of sessions) {
-      const sessionCandles = last24h.filter((c, i) => {
-        const hour = (i % 24);
-        return hour >= session.startHour && hour < session.endHour;
-      });
+      // Filter candles using actual timestamp UTC hours
+      const sessionCandlesWithIndex = last24h
+        .map((c, i) => ({
+          candle: c,
+          originalIndex: startIndex + i, // Correct index calculation
+        }))
+        .filter(({ candle }) => {
+          const utcHour = candle.timestamp.getUTCHours(); // Already a Date object
+          return utcHour >= session.startHour && utcHour < session.endHour;
+        });
       
-      if (sessionCandles.length > 0) {
-        const sessionHigh = Math.max(...sessionCandles.map(c => c.high));
-        const sessionLow = Math.min(...sessionCandles.map(c => c.low));
-        const highIndex = sessionCandles.findIndex(c => c.high === sessionHigh);
-        const lowIndex = sessionCandles.findIndex(c => c.low === sessionLow);
+      if (sessionCandlesWithIndex.length > 0) {
+        const sessionHigh = Math.max(...sessionCandlesWithIndex.map(s => s.candle.high));
+        const sessionLow = Math.min(...sessionCandlesWithIndex.map(s => s.candle.low));
         
-        pools.push({
-          price: sessionHigh,
-          type: 'high',
-          poolType: 'session',
-          sessionName: session.name,
-          indices: [candles.length - 24 + highIndex],
-          swept: false,
-          strength: 'strong', // Session levels are considered strong
-        });
+        const highItem = sessionCandlesWithIndex.find(s => s.candle.high === sessionHigh);
+        const lowItem = sessionCandlesWithIndex.find(s => s.candle.low === sessionLow);
         
-        pools.push({
-          price: sessionLow,
-          type: 'low',
-          poolType: 'session',
-          sessionName: session.name,
-          indices: [candles.length - 24 + lowIndex],
-          swept: false,
-          strength: 'strong',
-        });
+        if (highItem) {
+          pools.push({
+            price: sessionHigh,
+            type: 'high',
+            poolType: 'session',
+            sessionName: session.name,
+            indices: [highItem.originalIndex],
+            swept: false,
+            strength: 'strong', // Session levels are considered strong
+          });
+        }
+        
+        if (lowItem) {
+          pools.push({
+            price: sessionLow,
+            type: 'low',
+            poolType: 'session',
+            sessionName: session.name,
+            indices: [lowItem.originalIndex],
+            swept: false,
+            strength: 'strong',
+          });
+        }
       }
     }
     
@@ -205,9 +219,10 @@ export class LiquiditySweepDetector {
   detectTimeframeLevels(candles: Candle[]): LiquidityPool[] {
     const pools: LiquidityPool[] = [];
     
-    // Daily high/low (last 24 H1 candles)
+    // Daily high/low (last 24 H1 candles or whatever is available)
     const dailyCandles = candles.slice(-24);
     if (dailyCandles.length > 0) {
+      const dailyStartIndex = candles.length - dailyCandles.length;
       const dailyHigh = Math.max(...dailyCandles.map(c => c.high));
       const dailyLow = Math.min(...dailyCandles.map(c => c.low));
       const highIndex = dailyCandles.findIndex(c => c.high === dailyHigh);
@@ -217,7 +232,7 @@ export class LiquiditySweepDetector {
         price: dailyHigh,
         type: 'high',
         poolType: 'daily',
-        indices: [candles.length - 24 + highIndex],
+        indices: [dailyStartIndex + highIndex],
         swept: false,
         strength: 'strong',
       });
@@ -226,15 +241,16 @@ export class LiquiditySweepDetector {
         price: dailyLow,
         type: 'low',
         poolType: 'daily',
-        indices: [candles.length - 24 + lowIndex],
+        indices: [dailyStartIndex + lowIndex],
         swept: false,
         strength: 'strong',
       });
     }
     
-    // Weekly high/low (last 120 H1 candles ~5 days)
+    // Weekly high/low (last 120 H1 candles ~5 days or whatever is available)
     const weeklyCandles = candles.slice(-120);
     if (weeklyCandles.length > 0) {
+      const weeklyStartIndex = candles.length - weeklyCandles.length;
       const weeklyHigh = Math.max(...weeklyCandles.map(c => c.high));
       const weeklyLow = Math.min(...weeklyCandles.map(c => c.low));
       const highIndex = weeklyCandles.findIndex(c => c.high === weeklyHigh);
@@ -244,7 +260,7 @@ export class LiquiditySweepDetector {
         price: weeklyHigh,
         type: 'high',
         poolType: 'weekly',
-        indices: [candles.length - 120 + highIndex],
+        indices: [weeklyStartIndex + highIndex],
         swept: false,
         strength: 'strong',
       });
@@ -253,15 +269,16 @@ export class LiquiditySweepDetector {
         price: weeklyLow,
         type: 'low',
         poolType: 'weekly',
-        indices: [candles.length - 120 + lowIndex],
+        indices: [weeklyStartIndex + lowIndex],
         swept: false,
         strength: 'strong',
       });
     }
     
-    // Monthly high/low (last 500 H1 candles ~20 days)
+    // Monthly high/low (last 500 H1 candles ~20 days or whatever is available)
     const monthlyCandles = candles.slice(-500);
     if (monthlyCandles.length > 0) {
+      const monthlyStartIndex = candles.length - monthlyCandles.length;
       const monthlyHigh = Math.max(...monthlyCandles.map(c => c.high));
       const monthlyLow = Math.min(...monthlyCandles.map(c => c.low));
       const highIndex = monthlyCandles.findIndex(c => c.high === monthlyHigh);
@@ -271,7 +288,7 @@ export class LiquiditySweepDetector {
         price: monthlyHigh,
         type: 'high',
         poolType: 'monthly',
-        indices: [candles.length - 500 + highIndex],
+        indices: [monthlyStartIndex + highIndex],
         swept: false,
         strength: 'strong',
       });
@@ -280,7 +297,7 @@ export class LiquiditySweepDetector {
         price: monthlyLow,
         type: 'low',
         poolType: 'monthly',
-        indices: [candles.length - 500 + lowIndex],
+        indices: [monthlyStartIndex + lowIndex],
         swept: false,
         strength: 'strong',
       });
