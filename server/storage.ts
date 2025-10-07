@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -23,6 +23,12 @@ export interface IStorage {
   createTradingSignal(signal: InsertTradingSignal): Promise<TradingSignal>;
   updateTradingSignal(id: string, signal: Partial<InsertTradingSignal>): Promise<TradingSignal | undefined>;
   deleteTradingSignal(id: string): Promise<boolean>;
+  
+  getPendingSetups(filters?: { symbol?: string; readyForSignal?: boolean; invalidated?: boolean }): Promise<PendingSetup[]>;
+  getPendingSetupById(id: string): Promise<PendingSetup | undefined>;
+  createPendingSetup(setup: InsertPendingSetup): Promise<PendingSetup>;
+  updatePendingSetup(id: string, setup: Partial<InsertPendingSetup>): Promise<PendingSetup | undefined>;
+  deletePendingSetup(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -30,12 +36,14 @@ export class MemStorage implements IStorage {
   private trades: Map<string, Trade>;
   private economicEvents: Map<string, EconomicEvent>;
   private tradingSignals: Map<string, TradingSignal>;
+  private pendingSetups: Map<string, PendingSetup>;
 
   constructor() {
     this.users = new Map();
     this.trades = new Map();
     this.economicEvents = new Map();
     this.tradingSignals = new Map();
+    this.pendingSetups = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -243,6 +251,76 @@ export class MemStorage implements IStorage {
 
   async deleteTradingSignal(id: string): Promise<boolean> {
     return this.tradingSignals.delete(id);
+  }
+
+  async getPendingSetups(filters?: { symbol?: string; readyForSignal?: boolean; invalidated?: boolean }): Promise<PendingSetup[]> {
+    let setups = Array.from(this.pendingSetups.values());
+    
+    if (filters) {
+      if (filters.symbol) {
+        setups = setups.filter(s => s.symbol === filters.symbol);
+      }
+      if (filters.readyForSignal !== undefined) {
+        setups = setups.filter(s => s.readyForSignal === filters.readyForSignal);
+      }
+      if (filters.invalidated !== undefined) {
+        setups = setups.filter(s => s.invalidated === filters.invalidated);
+      }
+    }
+    
+    return setups.sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getPendingSetupById(id: string): Promise<PendingSetup | undefined> {
+    return this.pendingSetups.get(id);
+  }
+
+  async createPendingSetup(insertSetup: InsertPendingSetup): Promise<PendingSetup> {
+    const id = randomUUID();
+    const setup: PendingSetup = {
+      ...insertSetup,
+      id,
+      potentialStrategy: insertSetup.potentialStrategy ?? null,
+      confirmationTimeframe: insertSetup.confirmationTimeframe ?? null,
+      interestRateBias: insertSetup.interestRateBias ?? null,
+      inflationBias: insertSetup.inflationBias ?? null,
+      trendBias: insertSetup.trendBias ?? null,
+      chochDetected: insertSetup.chochDetected ?? false,
+      chochDirection: insertSetup.chochDirection ?? null,
+      liquiditySweepDetected: insertSetup.liquiditySweepDetected ?? false,
+      supplyDemandZoneTargeted: insertSetup.supplyDemandZoneTargeted ?? false,
+      zoneLevel: insertSetup.zoneLevel ?? null,
+      zoneMitigated: insertSetup.zoneMitigated ?? false,
+      levelsBroken: insertSetup.levelsBroken ?? 0,
+      confirmationsPending: insertSetup.confirmationsPending ?? [],
+      setupNotes: insertSetup.setupNotes ?? [],
+      marketContext: insertSetup.marketContext ?? null,
+      lastCheckedPrice: insertSetup.lastCheckedPrice ?? null,
+      lastCheckedAt: new Date(),
+      readyForSignal: insertSetup.readyForSignal ?? false,
+      invalidated: insertSetup.invalidated ?? false,
+      invalidationReason: insertSetup.invalidationReason ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.pendingSetups.set(id, setup);
+    return setup;
+  }
+
+  async updatePendingSetup(id: string, updateData: Partial<InsertPendingSetup>): Promise<PendingSetup | undefined> {
+    const setup = this.pendingSetups.get(id);
+    if (!setup) {
+      return undefined;
+    }
+    const updatedSetup = { ...setup, ...updateData, updatedAt: new Date(), lastCheckedAt: new Date() };
+    this.pendingSetups.set(id, updatedSetup);
+    return updatedSetup;
+  }
+
+  async deletePendingSetup(id: string): Promise<boolean> {
+    return this.pendingSetups.delete(id);
   }
 }
 
