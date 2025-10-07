@@ -14,7 +14,7 @@ const SESSION_DEFINITIONS = [
   {
     name: 'Sydney',
     city: 'Sydney',
-    timezone: 'AEST (UTC+10)',
+    timezone: 'AEDT (UTC+11)',
     openUTC: 22,
     closeUTC: 7,
     color: 'hsl(280 85% 70%)',
