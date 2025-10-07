@@ -3,12 +3,15 @@ import { economicCalendarScraper } from './economicCalendarScraper';
 import { cacheService } from './cacheService';
 import { scraperSettings } from './config';
 import { telegramNotificationService } from '../services/telegramNotification';
+import { signalScannerService } from '../services/signalScanner';
 
 export class ScraperScheduler {
   private upcomingEventsJob: ReturnType<typeof cron.schedule> | null = null;
   private fullWeekJob: ReturnType<typeof cron.schedule> | null = null;
   private cleanupJob: ReturnType<typeof cron.schedule> | null = null;
   private notificationJob: ReturnType<typeof cron.schedule> | null = null;
+  private signalScanJob: ReturnType<typeof cron.schedule> | null = null;
+  private signalCleanupJob: ReturnType<typeof cron.schedule> | null = null;
   private isRunning = false;
 
   async runUpcomingEventsScrape(): Promise<void> {
@@ -92,12 +95,25 @@ export class ScraperScheduler {
       await telegramNotificationService.checkAndNotifyTradingSessions();
     });
 
+    this.signalScanJob = cron.schedule('*/30 * * * *', async () => {
+      console.log('Running automated signal market scan...');
+      await signalScannerService.scanMarkets();
+    });
+
+    this.signalCleanupJob = cron.schedule('0 */2 * * *', async () => {
+      console.log('Running signal cleanup...');
+      await signalScannerService.cleanupExpiredSignals();
+    });
+
     console.log(`Scheduled upcoming events scrape: every ${upcomingIntervalMinutes} minutes`);
     console.log(`Scheduled full week scrape: ${scraperSettings.schedules.fullWeekScrapeTime}`);
     console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
     console.log(`Scheduled Telegram notifications (events, sessions, signals): every 5 minutes`);
+    console.log('Scheduled automated signal scanning: every 30 minutes');
+    console.log('Scheduled signal cleanup: every 2 hours');
 
     this.runUpcomingEventsScrape();
+    signalScannerService.scanMarkets();
   }
 
   stop(): void {
@@ -121,6 +137,16 @@ export class ScraperScheduler {
     if (this.notificationJob) {
       this.notificationJob.stop();
       this.notificationJob = null;
+    }
+
+    if (this.signalScanJob) {
+      this.signalScanJob.stop();
+      this.signalScanJob = null;
+    }
+
+    if (this.signalCleanupJob) {
+      this.signalCleanupJob.stop();
+      this.signalCleanupJob = null;
     }
     
     console.log('Scheduler stopped');

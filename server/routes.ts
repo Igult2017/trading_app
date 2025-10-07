@@ -391,8 +391,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Symbol and assetClass are required" });
       }
 
-      let interestRateData = null;
-      let inflationData = null;
+      let interestRateData = undefined;
+      let inflationData = undefined;
 
       if (assetClass === 'forex') {
         const pair = parseCurrencyPair(symbol);
