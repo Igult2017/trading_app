@@ -30,17 +30,17 @@ const SESSION_DEFINITIONS = [
   {
     name: 'London',
     city: 'London',
-    timezone: 'GMT (UTC+0)',
-    openUTC: 8,
-    closeUTC: 16.5,
+    timezone: 'BST (UTC+1)',
+    openUTC: 7,
+    closeUTC: 15.5,
     color: 'hsl(120 60% 50%)',
   },
   {
     name: 'New York',
     city: 'New York',
-    timezone: 'EST (UTC-5)',
-    openUTC: 13,
-    closeUTC: 22,
+    timezone: 'EDT (UTC-4)',
+    openUTC: 12,
+    closeUTC: 21,
     color: 'hsl(210 100% 60%)',
   },
 ];
