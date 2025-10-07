@@ -155,7 +155,64 @@ export class SignalScannerService {
     const dailyData = generateMockTimeframeData(currentPrice, trendBias, 30);
     const h4Data = generateMockTimeframeData(currentPrice, trendBias, 25);
     const h1Data = generateMockTimeframeData(currentPrice, trendBias, 20);
-    const m15Data = generateMockTimeframeData(currentPrice, trendBias, 15);
+    const m15Data = generateMockTimeframeData(currentPrice, trendBias, 18);
+    const m5Data = generateMockTimeframeData(currentPrice, trendBias, 15);
+    const m1Data = generateMockTimeframeData(currentPrice, trendBias, 12);
+
+    const existingPendingSetups = await storage.getPendingSetups({
+      symbol,
+      invalidated: false
+    });
+
+    if (existingPendingSetups.length > 0) {
+      const pendingSetup = existingPendingSetups[0];
+      
+      const signal = signalDetectionService.generateTradingSignal({
+        symbol,
+        assetClass,
+        interestRateData,
+        inflationData,
+        dailyData,
+        h4Data,
+        h1Data,
+        m15Data,
+      });
+
+      if (!signal) {
+        await storage.updatePendingSetup(pendingSetup.id, {
+          invalidated: true,
+          invalidationReason: 'Setup conditions no longer met',
+          lastCheckedPrice: currentPrice.toString()
+        });
+        return null;
+      }
+
+      const isReady = signal.overallConfidence >= 70;
+
+      if (isReady && !pendingSetup.readyForSignal) {
+        await storage.updatePendingSetup(pendingSetup.id, {
+          readyForSignal: true,
+          lastCheckedPrice: currentPrice.toString()
+        });
+
+        const existingActiveSignals = await storage.getTradingSignals({ 
+          symbol, 
+          status: 'active' 
+        });
+
+        if (existingActiveSignals.length === 0) {
+          const activeSignal = await storage.createTradingSignal(signal);
+          await storage.deletePendingSetup(pendingSetup.id);
+          return activeSignal;
+        }
+      } else {
+        await storage.updatePendingSetup(pendingSetup.id, {
+          lastCheckedPrice: currentPrice.toString()
+        });
+      }
+
+      return null;
+    }
 
     const signal = signalDetectionService.generateTradingSignal({
       symbol,
@@ -169,15 +226,43 @@ export class SignalScannerService {
     });
 
     if (signal) {
-      const existingSignals = await storage.getTradingSignals({ 
-        symbol, 
-        status: 'active' 
-      });
+      const isImmediatelyReady = signal.overallConfidence >= 75;
 
-      if (existingSignals.length === 0) {
-        return await storage.createTradingSignal(signal);
+      if (isImmediatelyReady) {
+        const existingActiveSignals = await storage.getTradingSignals({ 
+          symbol, 
+          status: 'active' 
+        });
+
+        if (existingActiveSignals.length === 0) {
+          return await storage.createTradingSignal(signal);
+        }
       } else {
-        console.log(`Active signal already exists for ${symbol}, skipping...`);
+        const biasDirection = signal.type === 'buy' ? 'bullish' : 'bearish';
+        
+        await storage.createPendingSetup({
+          symbol,
+          assetClass,
+          type: signal.type,
+          setupStage: 'forming',
+          potentialStrategy: signal.strategy,
+          currentPrice: currentPrice.toString(),
+          primaryTimeframe: '4H',
+          confirmationTimeframe: '15M',
+          interestRateBias: interestRateData ? biasDirection : null,
+          inflationBias: inflationData ? biasDirection : null,
+          trendBias: signal.trendDirection || null,
+          chochDetected: signal.bocChochDetected === 'bullish' || signal.bocChochDetected === 'bearish',
+          chochDirection: signal.bocChochDetected || null,
+          liquiditySweepDetected: signal.liquiditySweep || false,
+          supplyDemandZoneTargeted: signal.orderBlockType ? true : false,
+          zoneLevel: signal.orderBlockLevel ? signal.orderBlockLevel.toString() : null,
+          levelsBroken: 0,
+          confirmationsPending: ['higher_confidence', 'entry_confirmation'],
+          setupNotes: signal.technicalReasons || [],
+          marketContext: signal.marketContext || null,
+          lastCheckedPrice: currentPrice.toString(),
+        });
       }
     }
 
