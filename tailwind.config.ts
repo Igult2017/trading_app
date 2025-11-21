@@ -94,6 +94,9 @@ export default {
           sydney: "280 85% 70%",
           closed: "210 10% 50%",
         },
+        "primary-accent": "#e75518",
+        "bull-green": "#10b981",
+        "bear-red": "#ef4444",
       },
       fontFamily: {
         sans: ["Poppins", "var(--font-sans)"],

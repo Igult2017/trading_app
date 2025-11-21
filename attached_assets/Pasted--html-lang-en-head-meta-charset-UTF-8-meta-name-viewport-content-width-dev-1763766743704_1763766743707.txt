@@ -1,0 +1,318 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BullsendBears Modern Header</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        // Configure Tailwind to use Poppins as the default font
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // Changed from Inter to Poppins
+                        sans: ['Poppins', 'sans-serif'], 
+                    },
+                    colors: {
+                        'primary-accent': '#e75518', // Orange Accent
+                        'bull-green': '#10b981',    // Green 500
+                        'bear-red': '#ef4444',      // Red 500
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            /* Changed from Inter to Poppins */
+            font-family: 'Poppins', sans-serif;
+            background-color: #f7f7f7; /* Very light gray body background */
+        }
+        
+        /* Nav Link Underline Hover Effect */
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            position: relative;
+            white-space: nowrap; 
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: #e75518; /* Primary Orange accent line */
+            transition: width 0.3s ease-in-out;
+        }
+        
+        .nav-link:hover::after, .active-nav-link::after {
+            width: 100%;
+        }
+        .active-nav-link::after {
+            width: 100%;
+        }
+
+        /* Mobile Menu Slide-in */
+        #mobile-menu-toggle:checked ~ #mobile-menu {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        /* Hide scrollbar for the secondary nav bar (desktop) */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* --------------------------------------------- */
+        /* MARQUEE ANIMATION FIX & STYLING */
+        /* --------------------------------------------- */
+        .marquee-container {
+            /* Clips the overflowing content of the track */
+            overflow: hidden;
+            position: relative;
+            white-space: nowrap;
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .marquee-track {
+            /* Makes the track's width the total width of all content (2x the visible width) */
+            display: inline-flex;
+            min-width: max-content;
+            /* Animation for seamless loop */
+            animation: marquee 50s linear infinite;
+        }
+        
+        .marquee-track:hover {
+            animation-play-state: paused; /* Pause on hover for readability */
+        }
+
+        @keyframes marquee {
+            /* Moves the entire track left by exactly 50% (one full content block) */
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+        
+        /* --------------------------------------------- */
+        /* PULSE DOT ANIMATION */
+        /* --------------------------------------------- */
+        .signal-pulse-container {
+            position: absolute;
+            height: 100%;
+            width: 100%;
+            border-radius: 9999px; /* Tailwind's rounded-full */
+            background-color: var(--pulse-color, #10b981); /* Default green */
+            animation: pulse-ring 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.0); opacity: 0; }
+        }
+        
+        /* Specific styling for the Telegram icon in the bottom bar to make it stand out */
+        .telegram-link {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 2px solid transparent;
+            display: flex; /* To align the icon and text */
+            align-items: center;
+        }
+        .telegram-link:hover {
+            color: #1d90e6; /* Telegram blue on hover */
+            border-color: #1d90e6; 
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <header class="bg-white shadow-xl sticky top-0 z-50">
+        
+        <!-- SECONDARY TOP NAVIGATION BAR (Links and Utilities) -->
+        <div class="flex items-center justify-between px-4 md:px-8 py-2 bg-gray-50 border-b border-gray-200">
+            
+            <!-- Left: Navigation Links (Horizontal Scroll on Mobile) -->
+            <div class="flex flex-nowrap gap-x-6 py-1 overflow-x-auto no-scrollbar flex-shrink max-w-[50%] md:max-w-none">
+                <a class="nav-link text-sm font-semibold text-gray-900 active-nav-link flex-shrink-0" href="#">Dashboard</a>
+                <a class="nav-link text-sm font-medium text-gray-600 hover:text-gray-900 flex-shrink-0" href="#">Signals Feed</a>
+                <a class="nav-link text-sm font-medium text-gray-600 hover:text-gray-900 flex-shrink-0" href="#">Calendar</a>
+                <a class="nav-link text-sm font-medium text-gray-600 hover:text-gray-900 flex-shrink-0" href="#">Research</a>
+            </div>
+
+            <!-- Right: Desktop Utilities -->
+            <div class="hidden md:flex items-center space-x-3 md:space-x-4 ml-4 flex-shrink-0">
+                
+                <!-- Search Bar -->
+                <div class="relative hidden sm:block">
+                    <input type="text" placeholder="Search markets, pairs..." class="w-48 lg:w-64 px-4 py-2 text-gray-800 bg-gray-100 rounded-lg placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-accent transition duration-200 border border-transparent">
+                </div>
+
+                <!-- Live Status Indicator -->
+                <div class="flex items-center space-x-2 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                     <span class="relative flex h-2.5 w-2.5">
+                         <!-- Pulse color is set to yellow for market open status -->
+                         <span class="signal-pulse-container" style="--pulse-color: #f59e0b;"></span>
+                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span>
+                     </span>
+                     <span class="text-xs font-semibold text-gray-700">Market Open</span>
+                </div>
+                
+                <!-- Utility Icons -->
+                <button class="p-2 text-gray-600 transition duration-200 rounded-full hover:bg-gray-200 hover:text-gray-900" title="Notifications">
+                    <!-- Bell Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </button>
+
+                <button class="p-2 text-gray-600 transition duration-200 rounded-full hover:bg-gray-200 hover:text-gray-900" title="Profile">
+                    <!-- User Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- PRIMARY LOGO BAR WITH MARQUEE ALERTS -->
+        <nav class="flex items-center justify-between px-4 md:px-8 py-3.5">
+            
+            <div class="flex items-center w-full space-x-6 md:space-x-10">
+
+                <!-- Logo Block -->
+                <a href="#" class="flex flex-col flex-shrink-0 group">
+                    <div class="flex items-center text-2xl md:text-3xl font-extrabold tracking-tight leading-none">
+                        <span class="text-bull-green transition-transform duration-300 group-hover:scale-105">Bullsend</span>
+                        <span class="text-bear-red">Bears</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1 hidden sm:block">Clarity in Chaos. Your next move starts here.</p>
+                </a>
+
+                <!-- MARQUEE (Signal Alert) -->
+                <div class="hidden sm:flex items-center bg-gray-100 rounded-xl p-3 flex-grow shadow-inner cursor-pointer transition duration-200 hover:bg-gray-200 overflow-hidden max-w-xl min-w-0 border border-gray-200">
+                    
+                    <!-- Pulse indicator -->
+                    <div class="relative flex items-center h-3 w-3 mr-4 flex-shrink-0">
+                        <span class="signal-pulse-container" style="--pulse-color: #10b981;"></span>
+                        <span class="relative h-3 w-3 rounded-full bg-bull-green"></span>
+                    </div>
+
+                    <!-- Marquee Container (Clips content) -->
+                    <div class="marquee-container text-xs lg:text-sm font-semibold text-gray-900">
+                        
+                        <!-- Marquee Track (The element that scrolls) -->
+                        <div class="marquee-track">
+
+                            <!-- SET 1 (Full content block) -->
+                            <div class="marquee-set flex items-center whitespace-nowrap">
+                                <span class="text-bull-green font-bold mr-1">Signal:</span> Buy EUR/USD @ 1.0855 (15m)
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-bear-red font-bold mr-1">Alert:</span> Sell GOLD @ 2005.10 (30m)
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-primary-accent font-bold mr-1">Update:</span> Long USD/CAD Target 1 Hit
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-bull-green font-bold mr-1">Signal:</span> Buy AUD/NZD @ 1.0501 (1H)
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-bear-red font-bold mr-1">Alert:</span> Short SPX Target 2 Hit
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+                            </div>
+
+                            <!-- SET 2 (Duplicate for seamless loop) -->
+                            <div class="marquee-set flex items-center whitespace-nowrap">
+                                <span class="text-bull-green font-bold mr-1">Signal:</span> Buy EUR/USD @ 1.0855 (15m)
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-bear-red font-bold mr-1">Alert:</span> Sell GOLD @ 2005.10 (30m)
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-primary-accent font-bold mr-1">Update:</span> Long USD/CAD Target 1 Hit
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-bull-green font-bold mr-1">Signal:</span> Buy AUD/NZD @ 1.0501 (1H)
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+
+                                <span class="text-bear-red font-bold mr-1">Alert:</span> Short SPX Target 2 Hit
+                                <span class="mx-6 text-gray-400 font-normal">|</span> 
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View Button -->
+                    <a href="#" class="text-xs font-semibold text-primary-accent ml-4 flex-shrink-0 hover:underline">
+                        View All
+                    </a>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <div class="flex items-center space-x-4 flex-shrink-0">
+                
+                <!-- MOBILE MENU TOGGLE -->
+                <label for="mobile-menu-toggle" class="md:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition">
+                    <!-- Hamburger Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </label>
+            </div>
+            
+            <!-- Hidden Checkbox for Mobile Menu State -->
+            <input type="checkbox" id="mobile-menu-toggle" class="hidden">
+        </nav>
+        
+        <!-- Mobile Navigation Menu (Hidden by default) -->
+        <div id="mobile-menu" class="md:hidden absolute top-full left-0 w-full bg-white shadow-xl z-40 transition-transform duration-300 ease-in-out transform -translate-x-full opacity-0 border-t border-gray-100">
+            <div class="flex flex-col p-4 space-y-3">
+                <!-- Mobile Search Input -->
+                <input type="text" placeholder="Search markets, pairs..." class="w-full px-4 py-2 text-gray-800 bg-gray-100 rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-accent">
+                
+                <!-- Utility Icons (Mobile) -->
+                <div class="flex justify-around py-3 border-y border-gray-200">
+                    <a href="#" class="p-2 text-gray-700 transition duration-200 hover:text-gray-900" title="Notifications">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    </a>
+                    <a href="#" class="p-2 text-gray-700 transition duration-200 hover:text-gray-900" title="Profile">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </a>
+                    <a href="#" class="p-2 text-gray-700 transition duration-200 hover:text-gray-900" title="Settings">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51v.26a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.26a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1h-.26a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.26a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h.26a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.26a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.26z"></path></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Categories Bar (Market Nav) -->
+        <div class="flex overflow-x-auto no-scrollbar justify-start px-4 md:px-8 gap-6 md:gap-8 border-t border-gray-100 bg-gray-50">
+            <!-- Nav spans for category navigation - Dark text for light mode -->
+            <a href="#" class="text-sm font-semibold text-primary-accent py-3 border-b-2 border-primary-accent flex-shrink-0 whitespace-nowrap">Major Pairs</a>
+            <a href="#" class="text-sm font-medium text-gray-600 transition hover:text-gray-900 py-3 border-b-2 border-transparent hover:border-gray-400 flex-shrink-0 whitespace-nowrap">US Stocks</a>
+            <a href="#" class="text-sm font-medium text-gray-600 transition hover:text-gray-900 py-3 border-b-2 border-transparent hover:border-gray-400 flex-shrink-0 whitespace-nowrap">Commodities</a>
+            <a href="#" class="text-sm font-medium text-gray-600 transition hover:text-gray-900 py-3 border-b-2 border-transparent hover:border-gray-400 flex-shrink-0 whitespace-nowrap">Cryptocurrency</a>
+            
+            <!-- NEW: Telegram Link with Official Icon -->
+            <a href="#" class="telegram-link text-sm font-bold text-[#1d90e6] py-3 border-b-2 border-transparent hover:border-primary-accent flex-shrink-0 whitespace-nowrap space-x-1.5 flex items-center" title="Join Our Telegram Group">
+                <!-- Official Telegram Icon -->
+                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="currentColor">
+                    <path d="M120,0C53.7,0,0,53.7,0,120s53.7,120,120,120s120-53.7,120-120S186.3,0,120,0z M175.6,80.3
+                    l-22.3,105.1c-1.7,7.5-6.1,9.3-12.3,5.8l-34-25.1l-16.4,15.8c-1.8,1.8-3.3,3.3-6.8,3.3l2.4-34.3l62.5-56.5
+                    c2.7-2.4-0.6-3.7-4.2-1.3l-77.2,48.6l-33.2-10.4c-7.2-2.2-7.3-7.1,1.6-10.5l129.8-50.1C171.6,67.5,178.1,72.1,175.6,80.3z"/>
+                </svg>
+                <span>Join Telegram</span>
+            </a>
+            
+            <a href="#" class="text-sm font-medium text-gray-600 transition hover:text-gray-900 py-3 border-b-2 border-transparent hover:border-gray-400 flex-shrink-0 whitespace-nowrap hidden sm:block">Pre-Market News</a>
+        </div>
+    </header>
+
+    
+</body>
+</html>

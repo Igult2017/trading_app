@@ -335,4 +335,99 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Nav Link Underline Hover Effect */
+  .nav-link {
+    transition: all 0.2s ease-in-out;
+    position: relative;
+    white-space: nowrap;
+  }
+
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: #e75518;
+    transition: width 0.3s ease-in-out;
+  }
+
+  .nav-link:hover::after,
+  .active-nav-link::after {
+    width: 100%;
+  }
+
+  /* Hide scrollbar for the secondary nav bar */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Marquee Animation */
+  .marquee-container {
+    overflow: hidden;
+    position: relative;
+    white-space: nowrap;
+    flex-grow: 1;
+    min-width: 0;
+  }
+
+  .marquee-track {
+    display: inline-flex;
+    min-width: max-content;
+    animation: marquee 50s linear infinite;
+  }
+
+  .marquee-track:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* Pulse Dot Animation */
+  .signal-pulse-container {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    border-radius: 9999px;
+    background-color: var(--pulse-color, #10b981);
+    animation: pulse-ring 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.6);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  /* Telegram Link Styling */
+  .telegram-link {
+    transition: all 0.2s ease-in-out;
+    border-bottom: 2px solid transparent;
+    display: flex;
+    align-items: center;
+  }
+
+  .telegram-link:hover {
+    color: #1d90e6;
+    border-color: #1d90e6;
+  }
 }
