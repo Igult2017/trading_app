@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import Dashboard from "@/pages/Dashboard";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
@@ -31,11 +32,12 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="flex flex-col h-screen w-full">
+        <div className="flex flex-col min-h-screen w-full">
           <Header />
-          <main className="flex-1 overflow-auto bg-background">
+          <main className="flex-1 bg-background">
             <Router />
           </main>
+          <Footer />
         </div>
         <Toaster />
       </TooltipProvider>
