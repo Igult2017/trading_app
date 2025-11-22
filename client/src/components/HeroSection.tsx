@@ -77,7 +77,7 @@ export function HeroSection() {
             transition={{ duration: 0.6, delay: 0.3 }}
           >
             <button className="px-8 py-3 text-lg font-extrabold text-blue-600 bg-white rounded-full border-2 border-white hero-dotted-outline hover:bg-blue-50 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-              Start Free Trial <ArrowRight className="w-5 h-5" />
+              Subscribe <ArrowRight className="w-5 h-5" />
             </button>
             <button className="px-8 py-3 text-lg font-extrabold text-white bg-transparent rounded-full border-2 border-white hover:bg-white/10 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]">
               Learn More
