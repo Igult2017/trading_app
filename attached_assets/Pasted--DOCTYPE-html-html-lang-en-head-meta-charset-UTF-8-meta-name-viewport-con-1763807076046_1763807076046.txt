@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Dashboard Header Redesign</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font --><style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fa; /* Light Gray/Off-White */
+        }
+        .main-header {
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05); /* Lighter shadow for clean look */
+        }
+
+        /* Custom style to mimic the dotted outline effect */
+        .dotted-outline {
+            /* We use box-shadow to simulate a dotted/dashed border outside the primary border.
+               The dotted effect is achieved using 'outline: dashed'
+            */
+            outline: 1.5px dashed #3b82f6; /* Reduced thickness */
+            outline-offset: 3px; /* Reduced offset */
+        }
+
+        /* Custom style for the active sub-nav item */
+        .sub-nav-active {
+            color: #1e293b; /* Dark text for active link */
+            border-bottom: 3px solid #3b82f6; /* Blue underline */
+        }
+
+        /* Custom style for the hero buttons' dotted outline */
+        .hero-dotted-outline {
+            outline: 2px dashed white; /* White dashed outline for contrast */
+            outline-offset: 4px; /* Slightly larger offset for hero */
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Reusing the blue, green, and red from the initial trading dashboard context
+                        'primary-blue': '#3b82f6', 
+                        'accent-green': '#10b981',
+                        'accent-red': '#ef4444',
+                        // Light Theme Colors
+                        'light-bg': '#f7f9fa',
+                        'light-surface': '#ffffff',
+                        'light-border': '#e2e8f0',
+                        'light-text': '#1e293b', /* Dark text for contrast */
+                        'light-subtle': '#64748b', /* Medium grey for secondary text */
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen">
+
+    <!-- PROFESSIONAL TRADING HEADER (Hybrid Style) --><div class="main-header bg-light-surface border-b border-light-border sticky top-0 z-10">
+        <!-- TOP NAVIGATION BAR (Max w7xl, Centered content) --><nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            
+            <!-- Left Section: Logo and Context (UPDATED) --><div class="flex items-center space-x-4">
+                <!-- Logo: FindBuyandSellZones.com --><a href="#" class="flex items-center text-xl font-extrabold">
+                    <!-- Placeholder SVG for Bull/Bear Icon (Keeping the color green for 'Find' link) --><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-accent-green" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" />
+                    </svg>
+                    <!-- Colorized Name: Find(Green) Buy(Text) and Sell(Red) Zones.com(Text) -->
+                    <span class="text-accent-green">Find</span><span class="text-light-text">Buy</span><span class="text-light-text">and</span><span class="text-accent-red">Sell</span><span class="text-light-text">Zones.com</span>
+                </a>
+                
+                <!-- Separator and Signals Link --><div class="flex items-center space-x-4">
+                    <!-- Vertical Separator --><span class="h-6 w-px bg-light-border hidden sm:block"></span>
+                    
+                    <!-- Signals Link --><a href="#" class="text-base font-semibold text-light-subtle hover:text-primary-blue transition-colors hidden sm:block">Signals</a>
+                </div>
+            </div>
+
+            <!-- Right Section: Action Buttons --><div class="flex items-center space-x-3">
+                
+                <!-- Secondary Button: Login --><button class="px-5 py-2.5 text-base font-extrabold text-primary-blue bg-white rounded-full 
+                                border-2 border-primary-blue dotted-outline
+                                hover:bg-primary-blue/10 transition duration-150 transform hover:scale-[1.02] active:scale-[0.98]">
+                    Login
+                </button>
+                
+                <!-- Primary Button: Subscribe --><button class="px-6 py-2.5 text-base font-extrabold text-primary-blue bg-white rounded-full 
+                                border-2 border-primary-blue dotted-outline
+                                hover:bg-primary-blue/10 transition duration-150 transform hover:scale-[1.02] active:scale-[0.98]">
+                    Subscribe
+                </button>
+            </div>
+        </nav>
+
+        <!-- SUB-NAVIGATION BAR --><nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-light-surface">
+            <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm font-medium border-t border-light-border pt-2">
+                <!-- Active Link: Signals Feed --><a href="#" class="py-3 px-1 text-primary-blue sub-nav-active">Signals Feed</a>
+                
+                <!-- Secondary Links --><a href="#" class="py-3 px-1 text-light-subtle hover:text-light-text transition-colors">Calendar</a>
+                <a href="#" class="py-3 px-1 text-light-subtle hover:text-light-text transition-colors">Major Pairs</a>
+                <a href="#" class="py-3 px-1 text-light-subtle hover:text-light-text transition-colors">US Stocks</a>
+                <a href="#" class="py-3 px-1 text-light-subtle hover:text-light-text transition-colors">Commodities</a>
+                <a href="#" class="py-3 px-1 text-light-subtle hover:text-light-text transition-colors">Cryptocurrency</a>
+            </div>
+        </nav>
+        <!-- End SUB-NAVIGATION BAR --></div>
+
+    <!-- NEW HERO SECTION --><header class="bg-primary-blue py-16 sm:py-20 lg:py-24 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-between gap-12">
+            
+            <!-- Left Side: Text Content and Buttons --><div class="lg:w-1/2 text-center lg:text-left">
+                <!-- Headline is now ONLY the tagline, making it the central focus -->
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
+                    Less Charting. No worries. Only precision.
+                </h1>
+                <p class="mt-6 text-lg sm:text-xl text-primary-blue/80 max-w-xl mx-auto lg:mx-0">
+                    Access premium signals, real-time analytics, and expert research to confidently navigate global financial markets.
+                </p>
+                <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                    <!-- Primary CTA: Start Free Trial --><button class="px-8 py-3 text-lg font-extrabold text-primary-blue bg-white rounded-full 
+                                    border-2 border-white hero-dotted-outline
+                                    hover:bg-primary-blue/10 hover:text-white transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]">
+                        Start Free Trial <span class="ml-2">&rarr;</span>
+                    </button>
+                    <!-- Secondary CTA: Learn More --><button class="px-8 py-3 text-lg font-extrabold text-white bg-transparent rounded-full 
+                                    border-2 border-white
+                                    hover:bg-white/10 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]">
+                        Learn More
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Side: Image Grid (Placeholders for Trading/Finance) --><div class="lg:w-1/2 grid grid-cols-2 gap-4">
+                <div class="col-span-2 overflow-hidden rounded-xl shadow-lg">
+                    <img src="https://via.placeholder.com/600x400/3b82f6/ffffff?text=Market+Charts" alt="Market Charts" class="w-full h-full object-cover">
+                </div>
+                <div class="overflow-hidden rounded-xl shadow-lg">
+                    <img src="https://via.placeholder.com/300x400/10b981/ffffff?text=Trader+Focused" alt="Trader Focused" class="w-full h-full object-cover">
+                </div>
+                <div class="overflow-hidden rounded-xl shadow-lg">
+                    <img src="https://via.placeholder.com/300x400/ef4444/ffffff?text=Global+Markets" alt="Global Markets" class="w-full h-full object-cover">
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- END NEW HERO SECTION --><!-- Example Content Area --><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 text-light-subtle">
+        
+        <!-- Full-Width Search Bar (Moved from Header) --><div class="mb-8 border border-primary-blue/50 bg-white rounded-xl shadow-md">
+            <div class="relative flex items-center py-4 px-6">
+                <!-- Search Icon --><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-light-subtle mr-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <!-- Input Field --><input type="text" placeholder="Search markets, pairs, or signals..." class="flex-grow bg-transparent text-lg text-light-text placeholder-light-subtle focus:outline-none" />
+            </div>
+        </div>
+
+        <div class="h-64 p-8 rounded-xl border-2 border-dashed border-light-border text-center bg-light-surface">
+            <p class="text-light-text font-semibold">FindBuyandSellZones.com Dashboard Landing Content Area</p>
+            <p class="mt-2">The search bar is now below the header and full width.</p>
+        </div>
+    </div>
+
+</body>
+</html>

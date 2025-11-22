@@ -440,4 +440,22 @@
   .tiktok-hover-fix:hover {
     opacity: 0.85;
   }
+
+  /* Dotted outline effect for header buttons */
+  .dotted-outline {
+    outline: 1.5px dashed #3b82f6;
+    outline-offset: 3px;
+  }
+
+  /* Hero dotted outline effect */
+  .hero-dotted-outline {
+    outline: 2px dashed white;
+    outline-offset: 4px;
+  }
+
+  /* Active sub-nav item */
+  .sub-nav-active {
+    color: #3b82f6;
+    border-bottom: 3px solid #3b82f6;
+  }
 }
