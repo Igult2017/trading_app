@@ -458,4 +458,30 @@
     color: #3b82f6;
     border-bottom: 3px solid #3b82f6;
   }
+
+  /* Scroll animations for hero signals and news */
+  @keyframes scroll-up {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-50%);
+    }
+  }
+
+  .animate-scroll-up {
+    animation: scroll-up 20s linear infinite;
+  }
+
+  .animate-scroll-up:hover {
+    animation-play-state: paused;
+  }
+
+  .animate-scroll-up-slow {
+    animation: scroll-up 30s linear infinite;
+  }
+
+  .animate-scroll-up-slow:hover {
+    animation-play-state: paused;
+  }
 }
