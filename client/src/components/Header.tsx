@@ -35,16 +35,16 @@ export default function Header() {
         {/* Left: Navigation Links */}
         <div className="flex flex-nowrap gap-x-6 py-1 overflow-x-auto no-scrollbar flex-shrink max-w-[50%] md:max-w-none">
           {navLinks.map((link) => (
-            <Link key={link.path} href={link.path}>
-              <a
-                className={`nav-link text-sm font-medium flex-shrink-0 ${
-                  isActivePath(link.path)
-                    ? 'text-gray-900 font-semibold active-nav-link'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {link.name}
-              </a>
+            <Link
+              key={link.path}
+              href={link.path}
+              className={`nav-link text-sm font-medium flex-shrink-0 ${
+                isActivePath(link.path)
+                  ? 'text-gray-900 font-semibold active-nav-link'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {link.name}
             </Link>
           ))}
         </div>
@@ -87,14 +87,12 @@ export default function Header() {
         <div className="flex items-center w-full space-x-6 md:space-x-10">
 
           {/* Logo Block */}
-          <Link href="/">
-            <a className="flex flex-col flex-shrink-0 group">
-              <div className="flex items-center text-2xl md:text-3xl font-extrabold tracking-tight leading-none">
-                <span className="text-bull-green transition-transform duration-300 group-hover:scale-105">Bullsend</span>
-                <span className="text-bear-red">Bears</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1 hidden sm:block">Clarity in Chaos. Your next move starts here.</p>
-            </a>
+          <Link href="/" className="flex flex-col flex-shrink-0 group">
+            <div className="flex items-center text-2xl md:text-3xl font-extrabold tracking-tight leading-none">
+              <span className="text-bull-green transition-transform duration-300 group-hover:scale-105">Bullsend</span>
+              <span className="text-bear-red">Bears</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1 hidden sm:block">Clarity in Chaos. Your next move starts here.</p>
           </Link>
 
           {/* MARQUEE (Signal Alert) */}
@@ -151,10 +149,8 @@ export default function Header() {
             </div>
 
             {/* View Button */}
-            <Link href="/signals">
-              <a className="text-xs font-semibold text-primary-accent ml-4 flex-shrink-0 hover:underline">
-                View All
-              </a>
+            <Link href="/signals" className="text-xs font-semibold text-primary-accent ml-4 flex-shrink-0 hover:underline">
+              View All
             </Link>
           </div>
         </div>
@@ -197,16 +193,16 @@ export default function Header() {
       {/* Bottom Categories Bar */}
       <div className="flex overflow-x-auto no-scrollbar justify-start px-4 md:px-8 gap-6 md:gap-8 border-t border-gray-100 bg-gray-50">
         {categoryLinks.map((link) => (
-          <Link key={link.name} href={link.path}>
-            <a
-              className={`text-sm font-medium py-3 border-b-2 flex-shrink-0 whitespace-nowrap ${
-                link.active
-                  ? 'font-semibold text-primary-accent border-primary-accent'
-                  : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-400'
-              }`}
-            >
-              {link.name}
-            </a>
+          <Link
+            key={link.name}
+            href={link.path}
+            className={`text-sm font-medium py-3 border-b-2 flex-shrink-0 whitespace-nowrap ${
+              link.active
+                ? 'font-semibold text-primary-accent border-primary-accent'
+                : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-400'
+            }`}
+          >
+            {link.name}
           </Link>
         ))}
         
@@ -224,10 +220,8 @@ export default function Header() {
           <span>Join Telegram</span>
         </a>
         
-        <Link href="/news">
-          <a className="text-sm font-medium text-gray-600 transition hover:text-gray-900 py-3 border-b-2 border-transparent hover:border-gray-400 flex-shrink-0 whitespace-nowrap hidden sm:block">
-            Pre-Market News
-          </a>
+        <Link href="/news" className="text-sm font-medium text-gray-600 transition hover:text-gray-900 py-3 border-b-2 border-transparent hover:border-gray-400 flex-shrink-0 whitespace-nowrap hidden sm:block">
+          Pre-Market News
         </Link>
       </div>
     </header>

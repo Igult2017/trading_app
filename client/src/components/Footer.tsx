@@ -13,8 +13,8 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">Markets & Data</h3>
             <ul role="list" className="space-y-3">
-              <li><Link href="/"><a className="text-sm footer-link transition duration-150">Major Pairs</a></Link></li>
-              <li><Link href="/stocks"><a className="text-sm footer-link transition duration-150">Stocks & Equities</a></Link></li>
+              <li><Link href="/" className="text-sm footer-link transition duration-150">Major Pairs</Link></li>
+              <li><Link href="/stocks" className="text-sm footer-link transition duration-150">Stocks & Equities</Link></li>
               <li><a href="#" className="text-sm footer-link transition duration-150">Commodities</a></li>
               <li><a href="#" className="text-sm footer-link transition duration-150">Crypto Currencies</a></li>
               <li><a href="#" className="text-sm footer-link transition duration-150">High Impact News</a></li>
@@ -25,9 +25,9 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">Platform</h3>
             <ul role="list" className="space-y-3">
-              <li><Link href="/signals"><a className="text-sm footer-link transition duration-150">Signals & Alerts</a></Link></li>
+              <li><Link href="/signals" className="text-sm footer-link transition duration-150">Signals & Alerts</Link></li>
               <li><a href="#" className="text-sm footer-link transition duration-150">Trading Strategies</a></li>
-              <li><Link href="/analytics"><a className="text-sm footer-link transition duration-150">Analytics</a></Link></li>
+              <li><Link href="/analytics" className="text-sm footer-link transition duration-150">Analytics</Link></li>
               <li><a href="#" className="text-sm footer-link transition duration-150">API Access</a></li>
               <li><a href="#" className="text-sm footer-link transition duration-150">Documentation</a></li>
             </ul>
