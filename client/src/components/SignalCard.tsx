@@ -15,11 +15,11 @@ interface SignalCardProps {
 }
 
 const StatBlock = ({ label, value, colorClass = "text-foreground", icon: Icon }: any) => (
-  <div className="flex flex-col">
+  <div className="flex flex-col min-w-0">
     <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 flex items-center gap-1">
       {Icon && <Icon className="w-3 h-3" />} {label}
     </span>
-    <span className={`text-base font-extrabold ${colorClass}`}>{value}</span>
+    <span className={`text-sm font-extrabold ${colorClass} break-all tabular-nums`}>{value}</span>
   </div>
 );
 
@@ -59,35 +59,43 @@ export default function SignalCard({ signal }: SignalCardProps) {
         </div>
 
         {/* Stats Grid (Col 4-9) */}
-        <div className="md:col-span-6 grid grid-cols-4 gap-4 border-l border-r border-border px-4 md:px-8 py-2">
+        <div className="md:col-span-6 flex flex-wrap gap-4 border-l border-r border-border px-4 md:px-8 py-2">
           {hasCompleteData ? (
             <>
-              <StatBlock 
-                label="Entry Price" 
-                value={entryPrice} 
-                icon={DollarSign} 
-              />
-              <StatBlock 
-                label="Stop Loss" 
-                value={stopLoss} 
-                colorClass="text-destructive" 
-                icon={ArrowDownRight} 
-              />
-              <StatBlock 
-                label="Take Profit" 
-                value={takeProfit} 
-                colorClass="text-emerald-600 dark:text-emerald-400" 
-                icon={ArrowUpRight} 
-              />
-              <StatBlock 
-                label="R:R" 
-                value={riskRewardRatio} 
-                icon={BarChart2} 
-                colorClass="text-foreground" 
-              />
+              <div className="flex-1 min-w-[100px]">
+                <StatBlock 
+                  label="Entry Price" 
+                  value={entryPrice} 
+                  icon={DollarSign} 
+                />
+              </div>
+              <div className="flex-1 min-w-[100px]">
+                <StatBlock 
+                  label="Stop Loss" 
+                  value={stopLoss} 
+                  colorClass="text-destructive" 
+                  icon={ArrowDownRight} 
+                />
+              </div>
+              <div className="flex-1 min-w-[100px]">
+                <StatBlock 
+                  label="Take Profit" 
+                  value={takeProfit} 
+                  colorClass="text-emerald-600 dark:text-emerald-400" 
+                  icon={ArrowUpRight} 
+                />
+              </div>
+              <div className="flex-1 min-w-[80px]">
+                <StatBlock 
+                  label="R:R" 
+                  value={riskRewardRatio} 
+                  icon={BarChart2} 
+                  colorClass="text-foreground" 
+                />
+              </div>
             </>
           ) : (
-            <div className="col-span-4 text-sm font-semibold text-amber-600 dark:text-amber-400 flex items-center">
+            <div className="w-full text-sm font-semibold text-amber-600 dark:text-amber-400 flex items-center">
               <Info className="w-4 h-4 mr-2" /> Bias awaiting confirmation or entry.
             </div>
           )}
