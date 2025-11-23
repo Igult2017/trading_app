@@ -8,19 +8,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import type { TradingSignal } from '@shared/schema';
 
 interface SignalCardProps {
-  signal: {
-    id: string;
-    symbol: string;
-    type: string;
-    entryPrice?: string;
-    stopLoss?: string;
-    takeProfit?: string;
-    riskRewardRatio?: string;
-    overallConfidence?: number;
-    primaryTimeframe?: string;
-  };
+  signal: TradingSignal;
 }
 
 const StatBlock = ({ label, value, colorClass = "text-gray-900", icon: Icon }: any) => (
@@ -35,15 +26,20 @@ const StatBlock = ({ label, value, colorClass = "text-gray-900", icon: Icon }: a
 export default function SignalCard({ signal }: SignalCardProps) {
   const isBuy = signal.type?.toLowerCase() === 'buy';
   const winRateColor = (signal.overallConfidence ?? 0) >= 90 
-    ? 'text-emerald-700' 
-    : (signal.overallConfidence ?? 0) >= 80 ? 'text-amber-700' : 'text-gray-700';
+    ? 'text-emerald-600 dark:text-emerald-400' 
+    : (signal.overallConfidence ?? 0) >= 80 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground';
 
-  const hasCompleteData = signal.entryPrice && signal.entryPrice !== '—' && signal.entryPrice !== 'N/A';
+  const entryPrice = signal.entryPrice?.toString() || '—';
+  const stopLoss = signal.stopLoss?.toString() || '—';
+  const takeProfit = signal.takeProfit?.toString() || '—';
+  const riskRewardRatio = signal.riskRewardRatio?.toString() || '—';
+  
+  const hasCompleteData = entryPrice !== '—' && entryPrice !== 'N/A';
 
   return (
     <div 
-      className="bg-white border-l-4 border-r border-b border-gray-300 p-0 relative group hover:z-10 transition-all hover:border-gray-500" 
-      style={{ borderLeftColor: isBuy ? 'rgb(5 150 105 / 1)' : 'rgb(225 29 72 / 1)' }}
+      className="bg-card border-l-4 border-r border-b border-border p-0 relative group hover:z-10 transition-all hover:border-foreground/30" 
+      style={{ borderLeftColor: isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))' }}
       data-testid={`card-signal-${signal.id}`}
     >
       <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">
@@ -57,41 +53,41 @@ export default function SignalCard({ signal }: SignalCardProps) {
           >
             {signal.type}
           </Badge>
-          <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight" data-testid={`text-symbol-${signal.id}`}>
+          <h3 className="text-2xl font-extrabold text-foreground tracking-tight" data-testid={`text-symbol-${signal.id}`}>
             {signal.symbol}
           </h3>
         </div>
 
         {/* Stats Grid (Col 4-9) */}
-        <div className="md:col-span-6 grid grid-cols-4 gap-4 border-l border-r border-gray-200 px-4 md:px-8 py-2">
+        <div className="md:col-span-6 grid grid-cols-4 gap-4 border-l border-r border-border px-4 md:px-8 py-2">
           {hasCompleteData ? (
             <>
               <StatBlock 
                 label="Entry Price" 
-                value={signal.entryPrice} 
+                value={entryPrice} 
                 icon={DollarSign} 
               />
               <StatBlock 
                 label="Stop Loss" 
-                value={signal.stopLoss || '—'} 
-                colorClass="text-rose-600" 
+                value={stopLoss} 
+                colorClass="text-destructive" 
                 icon={ArrowDownRight} 
               />
               <StatBlock 
                 label="Take Profit" 
-                value={signal.takeProfit || '—'} 
-                colorClass="text-emerald-600" 
+                value={takeProfit} 
+                colorClass="text-emerald-600 dark:text-emerald-400" 
                 icon={ArrowUpRight} 
               />
               <StatBlock 
                 label="R:R" 
-                value={signal.riskRewardRatio || '—'} 
+                value={riskRewardRatio} 
                 icon={BarChart2} 
-                colorClass="text-gray-900" 
+                colorClass="text-foreground" 
               />
             </>
           ) : (
-            <div className="col-span-4 text-sm font-semibold text-amber-600 flex items-center">
+            <div className="col-span-4 text-sm font-semibold text-amber-600 dark:text-amber-400 flex items-center">
               <Info className="w-4 h-4 mr-2" /> Bias awaiting confirmation or entry.
             </div>
           )}
@@ -104,7 +100,7 @@ export default function SignalCard({ signal }: SignalCardProps) {
               <div className={`text-xl font-extrabold ${winRateColor}`} data-testid={`text-confidence-${signal.id}`}>
                 {signal.overallConfidence}%
               </div>
-              <div className="text-xs text-gray-500 uppercase tracking-widest mt-0.5">Confidence</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-widest mt-0.5">Confidence</div>
             </div>
           )}
           

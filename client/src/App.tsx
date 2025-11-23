@@ -10,6 +10,9 @@ import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
 import EconomicCalendar from "@/pages/EconomicCalendar";
 import Stocks from "@/pages/Stocks";
+import MajorPairs from "@/pages/MajorPairs";
+import Commodities from "@/pages/Commodities";
+import Cryptocurrency from "@/pages/Cryptocurrency";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +24,9 @@ function Router() {
       <Route path="/analytics" component={Analytics} />
       <Route path="/calendar" component={EconomicCalendar} />
       <Route path="/stocks" component={Stocks} />
+      <Route path="/major-pairs" component={MajorPairs} />
+      <Route path="/commodities" component={Commodities} />
+      <Route path="/crypto" component={Cryptocurrency} />
       <Route path="/markets" component={Stocks} />
       <Route path="/signals" component={Stocks} />
       <Route component={NotFound} />
