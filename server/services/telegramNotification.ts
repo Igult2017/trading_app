@@ -360,6 +360,55 @@ export class TelegramNotificationService {
   }
 
 
+  async sendTradingSignalNotification(signal: any): Promise<void> {
+    try {
+      if (!this.isInitialized || !this.bot) {
+        console.log('Telegram bot not initialized, skipping signal notification');
+        return;
+      }
+
+      const subscribers = await db
+        .select()
+        .from(telegramSubscribers)
+        .where(eq(telegramSubscribers.isActive, true));
+
+      if (subscribers.length === 0) {
+        console.log('No active Telegram subscribers for signal notification');
+        return;
+      }
+
+      const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
+      const directionEmoji = signal.type === 'buy' ? '📈' : '📉';
+      
+      const telegramMessage = 
+        `${typeEmoji} *NEW TRADING SIGNAL*\n\n` +
+        `${directionEmoji} *${signal.symbol}* - ${signal.type.toUpperCase()}\n` +
+        `📊 Asset: ${signal.assetClass.toUpperCase()}\n` +
+        `⚡ Confidence: ${signal.overallConfidence}%\n\n` +
+        `💰 *Entry:* ${signal.entryPrice}\n` +
+        `🛑 *Stop Loss:* ${signal.stopLoss}\n` +
+        `🎯 *Take Profit:* ${signal.takeProfit}\n` +
+        `📐 *Risk/Reward:* 1:${signal.riskRewardRatio}\n\n` +
+        `🧠 *Strategy:* ${signal.strategy}\n` +
+        `📋 *Reasoning:* ${signal.reasoning}\n\n` +
+        `⏰ Generated: ${new Date(signal.signalTime).toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+
+      for (const subscriber of subscribers) {
+        try {
+          await this.bot.sendMessage(subscriber.chatId, telegramMessage, {
+            parse_mode: 'Markdown',
+          });
+          console.log(`Trading signal sent to Telegram subscriber ${subscriber.chatId}`);
+        } catch (error) {
+          console.error(`Failed to send signal to Telegram ${subscriber.chatId}:`, error);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error sending trading signal to Telegram:', error);
+    }
+  }
+
   getBot(): TelegramBot | null {
     return this.bot;
   }
