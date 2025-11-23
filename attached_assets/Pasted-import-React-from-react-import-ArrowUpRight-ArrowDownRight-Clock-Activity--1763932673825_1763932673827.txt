@@ -1,0 +1,454 @@
+import React from 'react';
+import { 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Clock, 
+  Activity, 
+  BarChart2, 
+  Eye, 
+  ChevronRight,
+  Target,
+  Zap,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Info,
+  Layers, // Layers icon is no longer used in the card directly, but keeping for other potential uses
+  Search,
+  CheckCircle
+} from 'lucide-react';
+
+// --- Mock Data based on screenshots ---
+
+const cryptoSignals = [
+  {
+    id: 1,
+    pair: 'CAD/CHF',
+    type: 'BUY',
+    source: 'institutional_backbone',
+    timeframe: '1H',
+    postedTime: '0m ago',
+    entry: '0.6490',
+    stopLoss: '0.6470',
+    takeProfit: '0.6520',
+    rrRatio: '1:2.00',
+    winRate: 83,
+    expiry: '3h 59m 26s',
+    details: 'Show Details',
+  },
+  {
+    id: 2,
+    pair: 'NZD/CHF',
+    type: 'SELL',
+    source: 'institutional_backbone',
+    timeframe: '1H',
+    postedTime: '0m ago',
+    entry: '0.5375',
+    stopLoss: '0.5385',
+    takeProfit: '0.5345',
+    rrRatio: '1:3.00',
+    winRate: 96,
+    expiry: '3h 59m 26s',
+    details: 'Show Details',
+  },
+  {
+    id: 3,
+    pair: 'AUD/CHF',
+    type: 'SELL',
+    source: 'institutional_backbone',
+    timeframe: '4H',
+    postedTime: '0m ago',
+    entry: '—', 
+    stopLoss: '—',
+    takeProfit: '—',
+    rrRatio: '—',
+    winRate: 88,
+    expiry: '3h 59m 26s',
+    details: 'Show Details',
+  }
+];
+
+const stockSignals = [
+  {
+    id: 1,
+    ticker: 'AAPL',
+    name: 'Apple Inc.',
+    type: 'BUY',
+    entry: '$178.50',
+    stop: '$175.00',
+    target: '$185.00',
+    timeframe: '1D',
+    postedTime: '10m ago',
+    rr: '1:1.86',
+    confidence: 82,
+    status: 'active'
+  },
+  {
+    id: 2,
+    ticker: 'TSLA',
+    name: 'Tesla Inc.',
+    type: 'SELL',
+    entry: '$248.50',
+    stop: '$252.00',
+    target: '$241.00',
+    timeframe: '4H',
+    postedTime: '25m ago',
+    rr: '1:2.1',
+    confidence: 78,
+    status: 'pending'
+  },
+  {
+    id: 3,
+    ticker: 'NVDA',
+    name: 'NVIDIA Corp.',
+    type: 'BUY',
+    entry: '—',
+    stop: '—',
+    target: '—',
+    timeframe: '1W',
+    postedTime: '1h ago',
+    rr: '—',
+    confidence: 88,
+    status: 'active'
+  }
+];
+
+const watchlist = [
+  {
+    id: 1,
+    pair: 'EUR/USD',
+    type: 'FOREX',
+    timeframe: '4H',
+    keyLevel: '1.0870',
+    price: '1.0845',
+    change: '+0.11%',
+    changeType: 'up',
+    tag: 'TECHNICAL',
+    note: 'Approaching key resistance at 1.0870, potential breakout setup',
+    priority: 'HIGH'
+  },
+  {
+    id: 2,
+    pair: 'GBP/USD',
+    type: 'FOREX',
+    timeframe: '1D',
+    keyLevel: '1.2650',
+    price: '1.2678',
+    change: '-0.35%',
+    changeType: 'down',
+    tag: 'FUNDAMENTAL',
+    note: 'BoE policy decision tomorrow, volatility expected',
+    priority: 'HIGH'
+  },
+  {
+    id: 3,
+    pair: 'USD/JPY',
+    type: 'FOREX',
+    timeframe: '1H',
+    keyLevel: '150.50',
+    price: '150.33',
+    change: '+0.01%',
+    changeType: 'up',
+    tag: 'TECHNICAL',
+    note: 'Monitoring divergence on RSI at the 150.50 level.',
+    priority: 'MEDIUM'
+  }
+];
+
+// --- Utility Components ---
+
+const SectionHeader = ({ icon: Icon, title, countLabel }) => (
+  // Enhanced contrast header
+  <div className="flex items-center justify-between py-4 border-b-2 border-gray-900 bg-white px-6">
+    <div className="flex items-center gap-3">
+      <Icon className="w-5 h-5 text-gray-900" />
+      <h2 className="text-xl font-extrabold text-gray-900 tracking-tight uppercase">{title}</h2>
+    </div>
+    {countLabel && (
+      <span className="px-3 py-1 text-xs font-bold text-gray-900 bg-amber-200 uppercase tracking-widest border border-gray-900">
+        {countLabel}
+      </span>
+    )}
+  </div>
+);
+
+const Badge = ({ type, text }) => {
+  const isBuy = type === 'BUY' || type === 'up';
+  const isSell = type === 'SELL' || type === 'down';
+  
+  let bgClass = "bg-gray-100 text-gray-600 border-gray-300";
+  if (isBuy) bgClass = "bg-emerald-600 text-white border-emerald-600";
+  if (isSell) bgClass = "bg-rose-600 text-white border-rose-600";
+  if (type === 'FOREX') bgClass = "bg-blue-600 text-white border-blue-600";
+  if (type === 'HIGH') bgClass = "bg-red-600 text-white border-red-600";
+  if (type === 'MEDIUM') bgClass = "bg-amber-600 text-white border-amber-600";
+
+  return (
+    <span className={`px-3 py-1 text-xs font-bold uppercase tracking-widest border ${bgClass}`}>
+      {text || type}
+    </span>
+  );
+};
+
+const StatBlock = ({ label, value, colorClass = "text-gray-900", icon: Icon }) => (
+  <div className="flex flex-col">
+    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1 flex items-center gap-1">
+      {Icon && <Icon className="w-3 h-3" />} {label}
+    </span>
+    <span className={`text-base font-extrabold ${colorClass}`}>{value}</span>
+  </div>
+);
+
+const ActionButton = ({ text, icon: Icon, isPrimary = false }) => {
+    const primaryClasses = isPrimary ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700" : "bg-white text-gray-700 border-gray-400 hover:bg-gray-100";
+    return (
+        <button className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider px-4 py-2 border-2 transition-colors ${primaryClasses}`}>
+            <Icon className="w-4 h-4" />
+            {text}
+        </button>
+    );
+};
+
+// --- Card Components ---
+
+const CryptoCard = ({ signal }) => {
+  const isBuy = signal.type === 'BUY';
+  const accentColor = isBuy ? 'bg-emerald-600' : 'bg-rose-600';
+  const winRateColor = signal.winRate >= 90 ? 'text-emerald-700' : (signal.winRate >= 80 ? 'text-amber-700' : 'text-gray-700');
+
+  return (
+    // Card with subtle hover lift and strong horizontal lines
+    <div className="bg-white border-l-4 border-r border-b border-gray-300 p-0 relative group hover:z-10 transition-all hover:border-gray-500" style={{ borderColor: isBuy ? 'rgb(5 150 105 / 1)' : 'rgb(225 29 72 / 1)' }}>
+      
+      <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">
+        
+        {/* Signal Pair and Type (Col 1-3) */}
+        <div className="md:col-span-3 flex flex-col gap-2">
+          <Badge type={signal.type} />
+          <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight">{signal.pair}</h3>
+          {/* Removed source info from here */}
+        </div>
+
+        {/* Stats Grid (Col 4-9) */}
+        <div className="md:col-span-6 grid grid-cols-4 gap-4 border-l border-r border-gray-200 px-4 md:px-8 py-2">
+          {signal.entry !== '—' ? (
+            <>
+              <StatBlock label="Entry Price" value={signal.entry} icon={DollarSign} />
+              <StatBlock label="Stop Loss" value={signal.stopLoss} colorClass="text-rose-600" icon={ArrowDownRight} />
+              <StatBlock label="Take Profit" value={signal.takeProfit} colorClass="text-emerald-600" icon={ArrowUpRight} />
+              <StatBlock label="R:R" value={signal.rrRatio} icon={BarChart2} colorClass="text-gray-900" />
+            </>
+          ) : (
+            <div className="col-span-4 text-sm font-semibold text-amber-600 flex items-center">
+              <Info className="w-4 h-4 mr-2" /> Bias awaiting confirmation or entry.
+            </div>
+          )}
+        </div>
+
+        {/* Win Rate and Actions (Col 10-12) */}
+        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-3 pt-2">
+          <div className="text-right">
+              <div className={`text-xl font-extrabold ${winRateColor}`}>
+                  {signal.winRate}%
+              </div>
+              <div className="text-xs text-gray-500 uppercase tracking-widest mt-0.5">Confidence</div>
+          </div>
+          
+          <ActionButton text="Show Details" icon={Eye} isPrimary={true} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StockCard = ({ signal }) => {
+  const isBuy = signal.type === 'BUY';
+  const trendColor = isBuy ? 'text-emerald-500' : 'text-rose-500';
+  const TrendIcon = isBuy ? TrendingUp : TrendingDown;
+  
+  const statusClasses = signal.status === 'active' 
+    ? 'bg-blue-500 text-white' 
+    : 'bg-gray-200 text-gray-700';
+
+  return (
+    <div className="bg-white border-l-4 border-r border-b border-gray-300 p-0 relative group hover:z-10 transition-all hover:border-gray-500" style={{ borderColor: isBuy ? 'rgb(5 150 105 / 1)' : 'rgb(225 29 72 / 1)' }}>
+      
+      <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">
+        
+        {/* Ticker, Name, Type (Col 1-3) */}
+        <div className="md:col-span-3 flex flex-col gap-2">
+          <Badge type={signal.type} />
+          <div className="flex items-center gap-2">
+            <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight">{signal.ticker}</h3>
+            <TrendIcon className={`w-5 h-5 ${trendColor}`} />
+          </div>
+          <p className="text-sm text-gray-500">{signal.name}</p>
+        </div>
+
+        {/* Stats Grid (Col 4-9) */}
+        <div className="md:col-span-6 grid grid-cols-3 gap-4 border-l border-r border-gray-200 px-4 md:px-8 py-2">
+          {signal.entry !== '—' ? (
+            <>
+              <StatBlock label="Entry" value={signal.entry} icon={DollarSign} />
+              <StatBlock label="Stop" value={signal.stop} colorClass="text-rose-600" icon={ArrowDownRight} />
+              <StatBlock label="Target" value={signal.target} colorClass="text-emerald-600" icon={ArrowUpRight} />
+            </>
+          ) : (
+            <div className="col-span-3 text-sm font-semibold text-amber-600 flex items-center">
+              <Info className="w-4 h-4 mr-2" /> Waiting for activation price.
+            </div>
+          )}
+        </div>
+
+        {/* Confidence and Actions (Col 10-12) */}
+        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-3 pt-2">
+          <div className="text-right">
+            <div className={`text-sm font-semibold text-gray-700 uppercase tracking-widest`}>
+                {signal.timeframe}
+            </div>
+            <div className={`text-base font-semibold ${statusClasses} px-3 py-1 border border-gray-900 mt-1`}>
+                {signal.status}
+            </div>
+          </div>
+          <ActionButton text="Show Details" icon={Eye} isPrimary={true} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WatchlistItem = ({ item }) => {
+  const isUp = item.changeType === 'up';
+  const changeColor = isUp ? 'text-emerald-600' : 'text-rose-600';
+  const ChangeIcon = isUp ? ArrowUpRight : ArrowDownRight;
+  const isHighPriority = item.priority === 'HIGH';
+
+  return (
+    <div className={`bg-white border-b border-r border-l border-gray-200 p-0 group hover:bg-gray-50 transition-colors grid grid-cols-12 items-center text-gray-900 ${isHighPriority ? 'border-l-4 border-l-red-500' : ''}`}>
+      
+      {/* Pair and Type (Col 1-3) */}
+      <div className="col-span-4 py-4 px-6 flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold tracking-tight">{item.pair}</h3>
+            <span className="text-xs text-gray-500 font-medium">({item.timeframe})</span>
+        </div>
+        <p className="text-xs text-gray-500 italic line-clamp-1">{item.note}</p>
+      </div>
+
+      {/* Price and Change (Col 4-7) */}
+      <div className="col-span-3 py-4 px-6 border-l border-gray-200">
+        <div className="text-xl font-extrabold">{item.price}</div>
+        <div className={`text-xs font-bold flex items-center gap-1 ${changeColor}`}>
+            <ChangeIcon className="w-3 h-3" /> 
+            {item.change}
+        </div>
+      </div>
+
+      {/* Priority and Key Level (Col 8-10) */}
+      <div className="col-span-3 py-4 px-6 border-l border-gray-200 flex flex-col gap-1">
+        <Badge type={item.priority} text={item.priority} />
+        <div className="text-xs text-gray-600 flex items-center gap-1">
+          <Target className="w-3 h-3" /> {item.keyLevel}
+        </div>
+      </div>
+
+      {/* Action (Col 11-12) */}
+      <div className="col-span-2 py-4 px-3 border-l border-gray-200 flex justify-end">
+        <ActionButton text="Details" icon={Eye} isPrimary={true} />
+      </div>
+    </div>
+  );
+};
+
+
+// --- Main Dashboard ---
+
+const TradingDashboard = () => {
+  return (
+    <div className="min-h-screen bg-[#f7f7f7] text-gray-800 p-4 md:p-8" id="dashboard-container">
+      <style>
+        {`
+          /* Use Poppins for a professional, clean look */
+          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+          
+          #dashboard-container, #dashboard-container * {
+            font-family: 'Poppins', sans-serif !important;
+          }
+          /* Enforce sharp corners globally */
+          .border, .border-l-4 {
+            border-radius: 0 !important;
+          }
+        `}
+      </style>
+      
+      {/* Header */}
+      <header className="mb-8 max-w-7xl mx-auto bg-white border-2 border-gray-900 p-6">
+        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">AI Trading Market Analyzer</h1>
+        <p className="text-sm text-gray-500 mt-1">Consolidated view of real-time market data and instrument analysis.</p>
+      </header>
+
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Column: Signals (takes 8/12 = 2/3 width) */}
+        <div className="lg:col-span-8 flex flex-col gap-8">
+          
+          {/* Section 1: Currency & Crypto Bias */}
+          <section className="bg-white border-t-2 border-gray-900">
+            <SectionHeader 
+              icon={Target} 
+              title="Currency, Metals & Crypto Bias" 
+              countLabel="12 Active" 
+            />
+            <div className="flex flex-col">
+              {cryptoSignals.map(signal => (
+                <CryptoCard key={signal.id} signal={signal} />
+              ))}
+            </div>
+          </section>
+
+          {/* Section 2: Stocks Bias */}
+          <section className="bg-white border-t-2 border-gray-900">
+            <SectionHeader 
+              icon={Activity} 
+              title="Stock Bias" 
+              countLabel="3 Active" 
+            />
+            <div className="flex flex-col">
+              {stockSignals.map(signal => (
+                <StockCard key={signal.id} signal={signal} />
+              ))}
+            </div>
+          </section>
+
+        </div>
+
+        {/* Right Column: Watchlist (takes 4/12 = 1/3 width) */}
+        <div className="lg:col-span-4">
+          <section className="bg-white border-t-2 border-gray-900 sticky top-8">
+            <SectionHeader 
+              icon={Eye} 
+              title="Instruments Watchlist" 
+            />
+            <div className="flex flex-col">
+              {/* List Items */}
+              {watchlist.map(item => (
+                <WatchlistItem key={item.id} item={item} />
+              ))}
+            </div>
+            
+            <div className="p-4 border-t border-gray-300 bg-gray-100 text-center">
+              <button className="text-sm font-bold text-gray-700 hover:text-blue-600 uppercase tracking-wider flex items-center justify-center gap-1 w-full transition-colors">
+                <Search className="w-4 h-4"/> 
+                Search All Instruments 
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default TradingDashboard;
