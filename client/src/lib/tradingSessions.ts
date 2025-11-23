@@ -142,3 +142,35 @@ export function formatMinutesToHoursAndMinutes(totalMinutes: number): string {
     return `${hours}h ${minutes}m`;
   }
 }
+
+export function getMinutesUntilSessionOpen(session: TradingSession): number {
+  if (session.isActive) return 0;
+  
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+  if (isWeekend) {
+    // Calculate time until Monday 00:00 UTC, then add time to session open
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 2;
+    const hoursUntilMonday = (24 - now.getUTCHours() - 1) + (daysUntilMonday - 1) * 24;
+    const minutesUntilMonday = (60 - now.getUTCMinutes()) + hoursUntilMonday * 60;
+    
+    // Add time from Monday 00:00 to session open
+    const sessionOpenMinutes = Math.floor(session.openUTC * 60);
+    return minutesUntilMonday + sessionOpenMinutes;
+  }
+  
+  const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
+  let hoursUntilOpen: number;
+  
+  if (session.openUTC > currentUTC) {
+    // Session opens later today
+    hoursUntilOpen = session.openUTC - currentUTC;
+  } else {
+    // Session opens tomorrow
+    hoursUntilOpen = 24 - currentUTC + session.openUTC;
+  }
+  
+  return Math.floor(hoursUntilOpen * 60);
+}

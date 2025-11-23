@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Clock } from 'lucide-react';
-import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining, formatMinutesToHoursAndMinutes } from '@/lib/tradingSessions';
+import { Clock, Timer, Calendar } from 'lucide-react';
+import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining, formatMinutesToHoursAndMinutes, getMinutesUntilSessionOpen } from '@/lib/tradingSessions';
 import { Card } from '@/components/ui/card';
 
 export default function TradingSession() {
@@ -59,6 +59,7 @@ export default function TradingSession() {
             const remaining = getSessionTimeRemaining(session);
             const total = elapsed + remaining;
             const progress = total > 0 ? (elapsed / total) * 100 : 0;
+            const minutesUntilOpen = getMinutesUntilSessionOpen(session);
             
             return (
               <div
@@ -90,33 +91,61 @@ export default function TradingSession() {
                   </p>
                 </div>
 
-                {/* Progress Bar */}
+                {/* Active Session Timer */}
                 {session.isActive && (
-                  <div className="space-y-2" data-testid="card-session-details">
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full transition-all duration-1000"
-                        style={{ 
-                          width: `${progress}%`,
-                          backgroundColor: session.color
-                        }}
-                      />
+                  <div className="space-y-3" data-testid="card-session-details">
+                    {/* Elapsed and Remaining Time */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-muted/30 rounded-md p-2">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Timer className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wide">Elapsed</span>
+                        </div>
+                        <div className="text-xs font-extrabold text-foreground tabular-nums" data-testid={`text-elapsed-time-${session.name.toLowerCase()}`}>
+                          {formatMinutesToHoursAndMinutes(elapsed)}
+                        </div>
+                      </div>
+                      <div className="bg-muted/30 rounded-md p-2">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                          <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wide">Remaining</span>
+                        </div>
+                        <div className="text-xs font-extrabold text-foreground tabular-nums" data-testid={`text-remaining-time-${session.name.toLowerCase()}`}>
+                          {formatMinutesToHoursAndMinutes(remaining)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] font-bold">
-                      <span className="text-muted-foreground tabular-nums" data-testid={`text-elapsed-time-${session.name.toLowerCase()}`}>
-                        {formatMinutesToHoursAndMinutes(elapsed)}
-                      </span>
-                      <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                      <span className="text-muted-foreground tabular-nums" data-testid={`text-remaining-time-${session.name.toLowerCase()}`}>
-                        {formatMinutesToHoursAndMinutes(remaining)}
-                      </span>
+                    
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full transition-all duration-1000"
+                          style={{ 
+                            width: `${progress}%`,
+                            backgroundColor: session.color
+                          }}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-muted-foreground">{Math.round(progress)}% Complete</span>
+                      </div>
                     </div>
                   </div>
                 )}
                 
+                {/* Closed Session Timer */}
                 {!session.isActive && (
-                  <div className="text-center py-2" data-testid="card-session-closed">
-                    <Clock className="w-6 h-6 mx-auto text-muted-foreground opacity-30" />
+                  <div className="space-y-2" data-testid="card-session-closed">
+                    <div className="bg-muted/30 rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground opacity-50" />
+                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wide">Opens In</span>
+                      </div>
+                      <div className="text-sm font-extrabold text-foreground tabular-nums">
+                        {formatMinutesToHoursAndMinutes(minutesUntilOpen)}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
