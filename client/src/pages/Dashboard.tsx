@@ -65,71 +65,68 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Stock Signals */}
-          <div className="lg:col-span-1 space-y-6">
-            <section className="bg-card border-t-2 border-foreground">
-              <SectionHeader 
-                icon={Activity} 
-                title="Stock Bias" 
-                countLabel={`${stockSignals.length} Active`}
-              />
-              <div className="flex flex-col">
-                {signalsLoading ? (
-                  <div className="p-8 text-center text-muted-foreground">Loading stock signals...</div>
-                ) : stockSignals.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">No active stock signals at the moment</div>
-                ) : (
-                  stockSignals.slice(0, 10).map(signal => (
-                    <StockSignalCard key={signal.id} signal={signal} />
-                  ))
-                )}
-              </div>
-            </section>
-          </div>
+        {/* Full-Width Sections - NO SIDEBARS */}
+        <div className="space-y-8">
           
-          {/* Right Column: Currency/Crypto Signals and Instruments Watchlist */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Currency & Crypto Signals */}
-            <section className="bg-card border-t-2 border-foreground">
-              <SectionHeader 
-                icon={Target} 
-                title="Currency, Metals & Crypto Bias" 
-                countLabel={`${currencySignals.length} Active`}
-              />
-              <div className="flex flex-col">
-                {signalsLoading ? (
-                  <div className="p-8 text-center text-muted-foreground">Loading signals...</div>
-                ) : currencySignals.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">No active signals at the moment</div>
-                ) : (
-                  currencySignals.slice(0, 10).map(signal => (
-                    <SignalCard key={signal.id} signal={signal} />
-                  ))
-                )}
-              </div>
-            </section>
+          {/* Section 1: Currency, Metals & Crypto Bias - FULL WIDTH */}
+          <section className="bg-card border-t-2 border-foreground">
+            <SectionHeader 
+              icon={Target} 
+              title="Currency, Metals & Crypto Bias" 
+              countLabel={`${currencySignals.length} Active`}
+            />
+            <div className="flex flex-col">
+              {signalsLoading ? (
+                <div className="p-8 text-center text-muted-foreground">Loading signals...</div>
+              ) : currencySignals.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No active signals at the moment</div>
+              ) : (
+                currencySignals.slice(0, 10).map(signal => (
+                  <SignalCard key={signal.id} signal={signal} />
+                ))
+              )}
+            </div>
+          </section>
 
-            {/* Instruments Watchlist */}
-            <section className="bg-card border-t-2 border-foreground">
-              <SectionHeader 
-                icon={Eye} 
-                title="Instruments Watchlist" 
-              />
-              <div className="flex flex-col">
-                {setupsLoading ? (
-                  <div className="p-8 text-center text-muted-foreground">Loading watchlist...</div>
-                ) : watchlistItems.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">No instruments being monitored</div>
-                ) : (
-                  watchlistItems.slice(0, 8).map(item => (
-                    <WatchlistCard key={item.id} item={item} />
-                  ))
-                )}
-              </div>
-            </section>
-          </div>
+          {/* Section 2: Stock Bias - FULL WIDTH */}
+          <section className="bg-card border-t-2 border-foreground">
+            <SectionHeader 
+              icon={Activity} 
+              title="Stock Bias" 
+              countLabel={`${stockSignals.length} Active`}
+            />
+            <div className="flex flex-col">
+              {signalsLoading ? (
+                <div className="p-8 text-center text-muted-foreground">Loading stock signals...</div>
+              ) : stockSignals.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No active stock signals at the moment</div>
+              ) : (
+                stockSignals.slice(0, 10).map(signal => (
+                  <StockSignalCard key={signal.id} signal={signal} />
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Section 3: Instruments Watchlist - FULL WIDTH */}
+          <section className="bg-card border-t-2 border-foreground">
+            <SectionHeader 
+              icon={Eye} 
+              title="Instruments Watchlist" 
+            />
+            <div className="flex flex-col">
+              {setupsLoading ? (
+                <div className="p-8 text-center text-muted-foreground">Loading watchlist...</div>
+              ) : watchlistItems.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No instruments being monitored</div>
+              ) : (
+                watchlistItems.slice(0, 8).map(item => (
+                  <WatchlistCard key={item.id} item={item} />
+                ))
+              )}
+            </div>
+          </section>
+
         </div>
       </div>
     </div>
