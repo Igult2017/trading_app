@@ -98,7 +98,7 @@ export function HeroSection() {
               <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
               <span className="text-white text-xl font-bold">Live Signals</span>
             </div>
-            <div className="w-full h-64 overflow-hidden pt-14 px-4 pb-4">
+            <div className="w-full h-64 overflow-hidden pt-20 px-4 pb-4">
               <div className="space-y-2 animate-scroll-up">
                 {signals && signals.slice(0, 8).map((signal, idx) => (
                   <div
