@@ -1,7 +1,6 @@
 import { HeroSection } from '@/components/HeroSection';
 import TradingSession from '@/components/TradingSession';
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import SignalCard from '@/components/SignalCard';
 import StockSignalCard from '@/components/StockSignalCard';
@@ -53,17 +52,6 @@ export default function Dashboard() {
 
         {/* Trading Sessions */}
         <TradingSession />
-
-        {/* Alert Banner */}
-        <Card className="border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/20" data-testid="card-alert-banner">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-orange-500" />
-              <span className="text-sm font-medium">Market Alert:</span>
-              <span className="text-sm">High volatility expected during NFP release at 14:30 EST</span>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Full-Width Sections - NO SIDEBARS */}
         <div className="space-y-8">
