@@ -14,9 +14,9 @@ interface SignalCardProps {
   signal: TradingSignal;
 }
 
-const StatBlock = ({ label, value, colorClass = "text-gray-900", icon: Icon }: any) => (
+const StatBlock = ({ label, value, colorClass = "text-foreground", icon: Icon }: any) => (
   <div className="flex flex-col">
-    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1 flex items-center gap-1">
+    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 flex items-center gap-1">
       {Icon && <Icon className="w-3 h-3" />} {label}
     </span>
     <span className={`text-base font-extrabold ${colorClass}`}>{value}</span>

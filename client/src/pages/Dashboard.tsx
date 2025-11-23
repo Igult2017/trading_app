@@ -106,6 +106,7 @@ export default function Dashboard() {
               <Button 
                 variant="ghost" 
                 className="text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-1 w-full transition-colors"
+                data-testid="button-search-instruments"
               >
                 <Search className="w-4 h-4"/> 
                 Search All Instruments 
