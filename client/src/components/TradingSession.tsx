@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Globe, TrendingUp, Timer } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining, formatMinutesToHoursAndMinutes } from '@/lib/tradingSessions';
-import { Progress } from '@/components/ui/progress';
+import { Card } from '@/components/ui/card';
 
 export default function TradingSession() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -19,33 +19,29 @@ export default function TradingSession() {
   const activeSessions = sessions.filter(s => s.isActive);
 
   return (
-    <div data-testid="card-trading-session" className="bg-white dark:bg-background">
-      <div className="pb-4 mb-4 border-b border-border/50">
-        <div className="flex items-center gap-2 text-lg font-semibold">
-          <Globe className="w-5 h-5" />
-          Global Trading Sessions
-        </div>
-      </div>
-      <div className="space-y-5">
-        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border border-border/50">
+    <Card data-testid="card-trading-session" className="border-blue-500/50">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-background rounded-md">
-              <Clock className="w-5 h-5 text-primary" />
+            <div className="flex items-center justify-center w-10 h-10 rounded-md bg-blue-500/10">
+              <Clock className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground font-medium">Current Time</div>
-              <div className="text-lg font-bold tabular-nums" data-testid="text-current-time">
+              <h2 className="text-base font-extrabold text-foreground uppercase tracking-wide">Trading Sessions</h2>
+              <p className="text-xs text-muted-foreground font-semibold tabular-nums" data-testid="text-current-time">
                 {currentTime.toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false })} UTC
-              </div>
+              </p>
             </div>
           </div>
+          
           {activeSessions.length > 0 && (
-            <div className="flex gap-2 flex-wrap justify-end">
+            <div className="flex gap-2 flex-wrap">
               {activeSessions.map(session => (
                 <Badge 
                   key={session.name}
                   variant="default" 
-                  className="text-xs font-semibold px-3 py-1"
+                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-1"
                   style={{ backgroundColor: session.color }}
                   data-testid={`badge-active-${session.name.toLowerCase()}`}
                 >
@@ -56,118 +52,78 @@ export default function TradingSession() {
           )}
         </div>
 
-        {activeSessions.length > 0 ? (
-          <div className="space-y-3">
-            {activeSessions.map((session) => {
-              const elapsed = getSessionElapsedMinutes(session);
-              const remaining = getSessionTimeRemaining(session);
-              const total = elapsed + remaining;
-              const progress = total > 0 ? (elapsed / total) * 100 : 0;
-              
-              return (
-                <div 
-                  key={session.name}
-                  className="p-4 border rounded-lg bg-gradient-to-br from-primary/5 to-transparent" 
-                  style={{ borderColor: `${session.color}50` }}
-                  data-testid="card-session-details"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" style={{ color: session.color }} />
-                      <h3 className="font-semibold text-base">{session.name} Session</h3>
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
-                      {session.openTime} - {session.closeTime} UTC
-                    </span>
+        {/* Session Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {sessions.map((session) => {
+            const elapsed = getSessionElapsedMinutes(session);
+            const remaining = getSessionTimeRemaining(session);
+            const total = elapsed + remaining;
+            const progress = total > 0 ? (elapsed / total) * 100 : 0;
+            
+            return (
+              <div
+                key={session.name}
+                className={`relative overflow-hidden rounded-lg border-2 p-4 transition-all ${
+                  session.isActive 
+                    ? 'bg-card border-border hover-elevate' 
+                    : 'bg-muted/30 border-border/50 opacity-60'
+                }`}
+                style={session.isActive ? { borderLeftColor: session.color, borderLeftWidth: '4px' } : {}}
+                data-testid={`card-session-${session.name.toLowerCase()}`}
+              >
+                {/* Session Name and Status */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-extrabold text-foreground uppercase tracking-tight">
+                      {session.name}
+                    </h3>
+                    <Badge 
+                      variant={session.isActive ? "default" : "secondary"}
+                      className="text-[9px] font-bold uppercase px-1.5 py-0.5"
+                      style={session.isActive ? { backgroundColor: session.color } : {}}
+                    >
+                      {session.isActive ? 'LIVE' : 'CLOSED'}
+                    </Badge>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2 flex-1">
-                        <Timer className="w-4 h-4 text-green-500" />
-                        <div>
-                          <div className="text-xs text-muted-foreground">Elapsed</div>
-                          <div className="text-sm font-bold tabular-nums text-foreground" data-testid={`text-elapsed-time-${session.name.toLowerCase()}`}>
-                            {formatMinutesToHoursAndMinutes(elapsed)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="h-8 w-px bg-border" />
-                      
-                      <div className="flex items-center gap-2 flex-1 justify-end">
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground">Remaining</div>
-                          <div className="text-sm font-bold tabular-nums text-foreground" data-testid={`text-remaining-time-${session.name.toLowerCase()}`}>
-                            {formatMinutesToHoursAndMinutes(remaining)}
-                          </div>
-                        </div>
-                        <Clock className="w-4 h-4 text-orange-500" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Progress value={progress} className="h-2" style={{ backgroundColor: `${session.color}20` }} />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{Math.round(progress)}% Complete</span>
-                        <span>{formatMinutesToHoursAndMinutes(total)} Total</span>
-                      </div>
-                    </div>
-                  </div>
+                  <p className="text-[10px] text-muted-foreground font-mono font-semibold">
+                    {session.openTime} - {session.closeTime} UTC
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-4 border border-border/50 rounded-lg text-center bg-muted/20" data-testid="card-session-closed">
-            <Clock className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
-            <span className="text-sm font-medium text-muted-foreground">
-              Markets Closed - Weekend
-            </span>
-          </div>
-        )}
 
-        <div className="space-y-0 divide-y divide-border/50">
-          {sessions.map((session, index) => (
-            <div
-              key={session.name}
-              className={`py-4 transition-all ${
-                session.isActive 
-                  ? 'hover-elevate' 
-                  : ''
-              } ${index === 0 ? 'pt-0' : ''}`}
-              data-testid={`card-session-${session.name.toLowerCase()}`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div 
-                      className="w-1 h-4 rounded-full" 
-                      style={{ backgroundColor: session.isActive ? session.color : 'hsl(var(--muted-foreground) / 0.3)' }}
-                    />
-                    <div className="text-sm font-semibold">{session.name}</div>
-                    {session.name === 'New York' && sessions.find(s => s.name === 'London')?.isActive && session.isActive && (
-                      <Badge variant="outline" className="text-xs ml-1">
-                        Overlaps with London
-                      </Badge>
-                    )}
+                {/* Progress Bar */}
+                {session.isActive && (
+                  <div className="space-y-2" data-testid="card-session-details">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full transition-all duration-1000"
+                        style={{ 
+                          width: `${progress}%`,
+                          backgroundColor: session.color
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-bold">
+                      <span className="text-muted-foreground tabular-nums" data-testid={`text-elapsed-time-${session.name.toLowerCase()}`}>
+                        {formatMinutesToHoursAndMinutes(elapsed)}
+                      </span>
+                      <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                      <span className="text-muted-foreground tabular-nums" data-testid={`text-remaining-time-${session.name.toLowerCase()}`}>
+                        {formatMinutesToHoursAndMinutes(remaining)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono ml-5">
-                    {session.openTime} - {session.closeTime}
+                )}
+                
+                {!session.isActive && (
+                  <div className="text-center py-2" data-testid="card-session-closed">
+                    <Clock className="w-6 h-6 mx-auto text-muted-foreground opacity-30" />
                   </div>
-                </div>
-                <Badge 
-                  variant={session.isActive ? "default" : "secondary"}
-                  className="text-xs mr-2"
-                  style={session.isActive ? { backgroundColor: session.color } : {}}
-                >
-                  {session.isActive ? 'Active' : 'Closed'}
-                </Badge>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
