@@ -93,12 +93,12 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           {/* 1. Trading Signals Scroller */}
-          <div className="col-span-2 overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-blue-500 to-blue-700 relative">
-            <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
+          <div className="col-span-2 overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-blue-500 to-blue-700">
+            <div className="px-4 py-3 flex items-center gap-2 border-b border-white/20">
               <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
               <span className="text-white text-xl font-bold">Live Signals</span>
             </div>
-            <div className="w-full h-64 overflow-hidden pt-20 px-4 pb-4">
+            <div className="w-full h-52 overflow-hidden px-4 py-3">
               <div className="space-y-2 animate-scroll-up">
                 {signals && signals.slice(0, 8).map((signal, idx) => (
                   <div
