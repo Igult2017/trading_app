@@ -150,29 +150,29 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
 
       {/* Expanded Details Section */}
       {isExpanded && (
-        <div className="px-6 pb-4 pt-2 border-t border-border animate-in fade-in duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="px-4 pb-4 pt-3 border-t border-border animate-in fade-in duration-200">
+          <div className="space-y-3">
             {/* Market Context */}
             {item.marketContext && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+              <div className="space-y-1">
+                <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Market Context
                 </h4>
-                <p className="text-sm">{item.marketContext}</p>
+                <p className="text-xs leading-relaxed">{item.marketContext}</p>
               </div>
             )}
 
             {/* Setup Notes */}
             {item.setupNotes && item.setupNotes.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+              <div className="space-y-1">
+                <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Target className="w-3 h-3" /> Setup Notes
                 </h4>
-                <ul className="text-sm space-y-1">
+                <ul className="text-xs space-y-0.5">
                   {item.setupNotes.map((note: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
+                    <li key={idx} className="flex items-start gap-1">
                       <span className="text-primary">•</span>
-                      <span>{note}</span>
+                      <span className="break-words">{note}</span>
                     </li>
                   ))}
                 </ul>
@@ -181,15 +181,15 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
 
             {/* Confirmations Pending */}
             {item.confirmationsPending && item.confirmationsPending.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+              <div className="space-y-1">
+                <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Shield className="w-3 h-3" /> Confirmations Pending
                 </h4>
-                <ul className="text-sm space-y-1">
+                <ul className="text-xs space-y-0.5">
                   {item.confirmationsPending.map((conf: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
+                    <li key={idx} className="flex items-start gap-1">
                       <span className="text-amber-500">•</span>
-                      <span>{conf}</span>
+                      <span className="break-words">{conf}</span>
                     </li>
                   ))}
                 </ul>
@@ -197,37 +197,37 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
             )}
 
             {/* Setup Stats */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+            <div className="space-y-1">
+              <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
                 <BarChart2 className="w-3 h-3" /> Setup Stats
               </h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                 <div>
                   <span className="text-muted-foreground">Stage:</span>
-                  <span className="ml-2 font-semibold capitalize">{item.setupStage}</span>
+                  <span className="ml-1 font-semibold capitalize">{item.setupStage}</span>
                 </div>
                 {item.trendBias && (
                   <div>
                     <span className="text-muted-foreground">Trend:</span>
-                    <span className="ml-2 font-semibold">{item.trendBias}</span>
+                    <span className="ml-1 font-semibold">{item.trendBias}</span>
                   </div>
                 )}
                 {item.chochDetected && (
                   <div>
                     <span className="text-muted-foreground">CHOCH:</span>
-                    <span className="ml-2 font-semibold text-emerald-500">Detected</span>
+                    <span className="ml-1 font-semibold text-emerald-500">Yes</span>
                   </div>
                 )}
                 {item.liquiditySweepDetected && (
                   <div>
-                    <span className="text-muted-foreground">Liquidity Sweep:</span>
-                    <span className="ml-2 font-semibold text-emerald-500">Yes</span>
+                    <span className="text-muted-foreground">Sweep:</span>
+                    <span className="ml-1 font-semibold text-emerald-500">Yes</span>
                   </div>
                 )}
                 {item.zoneLevel && (
                   <div>
-                    <span className="text-muted-foreground">Zone Level:</span>
-                    <span className="ml-2 font-semibold">{item.zoneLevel}</span>
+                    <span className="text-muted-foreground">Zone:</span>
+                    <span className="ml-1 font-semibold">{item.zoneLevel}</span>
                   </div>
                 )}
               </div>
