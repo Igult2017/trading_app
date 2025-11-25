@@ -41,7 +41,7 @@ export function HeroSection() {
             Access premium signals, real-time analytics, and expert research to confidently navigate global financial markets.
           </motion.p>
           <motion.div 
-            className="mt-10 lg:mt-auto flex justify-center lg:justify-start"
+            className="mt-6 lg:mt-auto flex justify-center lg:justify-start"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
