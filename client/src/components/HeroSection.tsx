@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, TrendingUp, TrendingDown, Clock, Calendar } from 'lucide-react';
+import { ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
 interface TradingSignal {
   symbol: string;
@@ -9,39 +8,10 @@ interface TradingSignal {
   confidence: number;
 }
 
-interface EconomicEvent {
-  title: string;
-  country: string;
-  impactLevel: string;
-  eventTime: string;
-}
-
 export function HeroSection() {
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const { data: signals } = useQuery<TradingSignal[]>({
     queryKey: ['/api/trading-signals'],
   });
-
-  const { data: events } = useQuery<EconomicEvent[]>({
-    queryKey: ['/api/economic-events'],
-  });
-
-  const getCurrentSession = () => {
-    const hour = currentTime.getUTCHours();
-    if (hour >= 0 && hour < 8) return { name: 'Sydney', color: 'bg-yellow-500', active: true };
-    if (hour >= 0 && hour < 9) return { name: 'Tokyo', color: 'bg-red-500', active: true };
-    if (hour >= 8 && hour < 16) return { name: 'London', color: 'bg-blue-500', active: true };
-    if (hour >= 13 && hour < 21) return { name: 'New York', color: 'bg-green-500', active: true };
-    return { name: 'Off Hours', color: 'bg-gray-500', active: false };
-  };
-
-  const session = getCurrentSession();
 
   return (
     <header className="bg-blue-600 py-6 sm:py-8 lg:py-10 text-white">
@@ -85,20 +55,20 @@ export function HeroSection() {
           </motion.div>
         </motion.div>
 
-        {/* Right Side: Live Data Grid */}
+        {/* Right Side: Live Signals */}
         <motion.div 
-          className="lg:w-1/2 grid grid-cols-2 gap-4"
+          className="lg:w-1/2"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          {/* 1. Trading Signals Scroller */}
-          <div className="col-span-2 overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-blue-500 to-blue-700">
+          {/* Live Signals Card */}
+          <div className="overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-blue-500 to-blue-700">
             <div className="px-4 py-3 flex items-center gap-2 border-b border-white/20">
               <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
               <span className="text-white text-xl font-bold">Live Signals</span>
             </div>
-            <div className="w-full h-52 overflow-hidden px-4 py-3">
+            <div className="w-full h-72 overflow-hidden px-4 py-3">
               <div className="space-y-2 animate-scroll-up">
                 {signals && signals.slice(0, 8).map((signal, idx) => (
                   <div
@@ -118,53 +88,6 @@ export function HeroSection() {
                     </span>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Trading Session Tracker */}
-          <div className="overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-green-500 to-green-700">
-            <div className="w-full h-48 p-4 flex flex-col items-center justify-center text-white">
-              <Clock className="w-12 h-12 mb-3" />
-              <div className="text-2xl font-bold mb-2">{session.name}</div>
-              <div className="text-sm opacity-90 mb-3">
-                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} UTC
-              </div>
-              <div className={`${session.active 
-                ? 'bg-[#00BCD4] shadow-[0_0_15px_rgba(0,188,212,0.7),0_0_30px_rgba(0,188,212,0.4)]' 
-                : 'bg-gray-500'} px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 text-white border-2 border-[#00BCD4]/50`}>
-                <span className={`w-2 h-2 bg-white rounded-full ${session.active ? 'animate-pulse' : ''}`}></span>
-                {session.active ? 'ACTIVE' : 'CLOSED'}
-              </div>
-            </div>
-          </div>
-
-          {/* 3. High Impact News Tracker */}
-          <div className="overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-red-500 to-red-700 relative">
-            <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-              <Calendar className="w-4 h-4 text-white" />
-              <span className="text-white text-sm font-bold">High Impact</span>
-            </div>
-            <div className="w-full h-48 overflow-hidden pt-12 px-3 pb-3">
-              <div className="space-y-2 animate-scroll-up-slow">
-                {events && events.filter(e => e.impactLevel === 'high').slice(0, 5).map((event, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white/20 backdrop-blur-sm rounded-lg p-2"
-                  >
-                    <div className="text-white font-bold text-xs truncate">{event.title}</div>
-                    <div className="text-white/80 text-xs flex items-center gap-1 mt-1">
-                      <span className="font-semibold">{event.country}</span>
-                      <span>•</span>
-                      <span>{new Date(event.eventTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  </div>
-                ))}
-                {(!events || events.filter(e => e.impactLevel === 'high').length === 0) && (
-                  <div className="text-white/80 text-xs text-center py-4">
-                    No high impact events scheduled
-                  </div>
-                )}
               </div>
             </div>
           </div>
