@@ -4,11 +4,12 @@ import { TrendingUp } from 'lucide-react';
 
 const subNavLinks = [
   { name: 'Signals Feed', path: '/' },
-  { name: 'Calendar', path: '/calendar' },
+  { name: 'Economic Calendar', path: '/calendar' },
   { name: 'Major Pairs', path: '/major-pairs' },
   { name: 'US Stocks', path: '/stocks' },
   { name: 'Commodities', path: '/commodities' },
   { name: 'Cryptocurrency', path: '/crypto' },
+  { name: 'History', path: '/history' },
 ];
 
 export default function Header() {
@@ -50,6 +51,13 @@ export default function Header() {
             >
               Signals
             </Link>
+            <Link 
+              href="/join" 
+              className="text-base font-semibold text-muted-foreground hover:text-primary transition-colors hidden sm:block"
+              data-testid="link-join"
+            >
+              Join
+            </Link>
           </div>
         </div>
 
@@ -66,6 +74,12 @@ export default function Header() {
             data-testid="button-subscribe"
           >
             Subscribe
+          </button>
+          <button 
+            className="px-5 py-2.5 text-base font-extrabold text-destructive bg-card dark:bg-background rounded-full border-2 border-destructive dotted-outline hover:bg-muted dark:hover:bg-muted transition duration-150 transform hover:scale-[1.02] active:scale-[0.98]"
+            data-testid="button-block"
+          >
+            Block
           </button>
         </div>
       </nav>

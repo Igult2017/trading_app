@@ -13,6 +13,7 @@ import Stocks from "@/pages/Stocks";
 import MajorPairs from "@/pages/MajorPairs";
 import Commodities from "@/pages/Commodities";
 import Cryptocurrency from "@/pages/Cryptocurrency";
+import Join from "@/pages/Join";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/major-pairs" component={MajorPairs} />
       <Route path="/commodities" component={Commodities} />
       <Route path="/crypto" component={Cryptocurrency} />
+      <Route path="/join" component={Join} />
       <Route path="/markets" component={Stocks} />
       <Route path="/signals" component={Stocks} />
       <Route component={NotFound} />
