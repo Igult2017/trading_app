@@ -109,9 +109,39 @@ Preferred communication style: Simple, everyday language.
 - **Priority**: Highest priority (CHoCH > liquidity sweep > traditional).
 - **Risk-Reward**: 1:3 R:R.
 
+## Modular Strategy Engine Architecture
+- **Location**: `server/strategies/`
+- **Core Components**:
+  - `core/strategyRegistry.ts` - Central registry for all trading strategies
+  - `core/baseStrategy.ts` - Abstract base class for all strategies
+  - `core/types.ts` - Shared TypeScript types for strategies
+- **Shared Utilities**: `server/strategies/shared/`
+  - `zoneDetection.ts` - Supply/demand zone detection and tracking
+  - `swingPoints.ts` - Swing point detection (HH, HL, LH, LL) and broken structure
+  - `candlePatterns.ts` - Institutional candles, engulfing, pin bars, rejection candles
+  - `multiTimeframe.ts` - Multi-timeframe data fetching and candle generation
+- **Design Principles**:
+  - Strategies are independent and isolated - one failure doesn't affect others
+  - Shared utilities layer for common trading analysis functions
+  - Strategy registry enables easy enable/disable and stats tracking
+  - Each strategy implements `analyze()` method with standardized output
+
+## SMC Strategy #1 (Smart Money Concepts)
+- **Location**: `server/strategies/smc/`
+- **Files**: config.ts, h4Context.ts, m15Zones.ts, zoneRefinement.ts, entryDetection.ts, index.ts
+- **4-Step Analysis Process**:
+  1. **H4 Context**: Determines market control (supply/demand/neutral) and trend direction
+  2. **M15 Zone Detection**: Identifies unmitigated supply/demand zones, filters tradable zones
+  3. **Zone Refinement**: Refines M15 zones to M5 (1.3 pips) → M1 (3 pips), stays M5 if M1 is messy
+  4. **Entry Detection**: CHoCH, D/S-S/D flips, continuation patterns with zone reaction
+- **Entry Types**: CHoCH (40 base confidence), D/S-S/D Flip (35), Continuation (30)
+- **Confirmations**: Zone reaction (+15-20), reaction candle (+10), rejection candle (+10), strong zone (+10)
+- **Targets**: Nearest unmitigated zone → H4 supply/demand → default 3:1 R:R
+
 ## Real-Time Signal Generation
 - **Scanning Frequency**: Every 1 minute for 62 instruments (28 forex, 20 US stocks, 4 commodities, 4 crypto).
-- **Multi-Timeframe Analysis**: Higher TFs (1D, 4H) for bias/trend/zones; Lower TFs (1H, 15M) for entry confirmation.
+- **Strategy Engine**: Modular architecture runs all enabled strategies per instrument
+- **Multi-Timeframe Analysis**: H4 for context/targets; M15 for zones; M5/M1 for refinement and entry.
 - **Pending Setups System**: Multi-stage validation (Forming <75% confidence, Monitoring, Ready >=70% confidence).
 - **Signal Thresholds**: Immediate (>=75%), Pending (50-74%), Ready (>=70%).
 - **Signal Lifecycle**: Active (4-hour expiry window) → Expired → Auto-archived to trade history.

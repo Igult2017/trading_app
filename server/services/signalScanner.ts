@@ -1,11 +1,11 @@
 import { storage } from "../storage";
-import { signalDetectionService } from "./signalDetection";
-import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./marketData";
 import { notificationService } from "./notificationService";
 import { telegramNotificationService } from "./telegramNotification";
+import { strategyRegistry, initializeStrategies, StrategySignal, InstrumentData } from "../strategies";
+import { fetchMultiTimeframeData } from "../strategies/shared/multiTimeframe";
+import { getPrice } from "../lib/priceService";
 
 const TRADEABLE_INSTRUMENTS = [
-  // Major Forex Pairs (7)
   { symbol: 'EUR/USD', assetClass: 'forex', currentPrice: 1.0850 },
   { symbol: 'GBP/USD', assetClass: 'forex', currentPrice: 1.2650 },
   { symbol: 'USD/JPY', assetClass: 'forex', currentPrice: 149.50 },
@@ -14,7 +14,6 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'USD/CAD', assetClass: 'forex', currentPrice: 1.3550 },
   { symbol: 'NZD/USD', assetClass: 'forex', currentPrice: 0.6150 },
   
-  // EUR Crosses (6)
   { symbol: 'EUR/GBP', assetClass: 'forex', currentPrice: 0.8580 },
   { symbol: 'EUR/JPY', assetClass: 'forex', currentPrice: 162.00 },
   { symbol: 'EUR/CHF', assetClass: 'forex', currentPrice: 0.9500 },
@@ -22,20 +21,17 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'EUR/CAD', assetClass: 'forex', currentPrice: 1.4700 },
   { symbol: 'EUR/NZD', assetClass: 'forex', currentPrice: 1.7650 },
   
-  // GBP Crosses (5)
   { symbol: 'GBP/JPY', assetClass: 'forex', currentPrice: 185.50 },
   { symbol: 'GBP/CHF', assetClass: 'forex', currentPrice: 1.1050 },
   { symbol: 'GBP/AUD', assetClass: 'forex', currentPrice: 1.9250 },
   { symbol: 'GBP/CAD', assetClass: 'forex', currentPrice: 1.7150 },
   { symbol: 'GBP/NZD', assetClass: 'forex', currentPrice: 2.0550 },
   
-  // JPY Crosses (4)
   { symbol: 'AUD/JPY', assetClass: 'forex', currentPrice: 98.50 },
   { symbol: 'CAD/JPY', assetClass: 'forex', currentPrice: 110.50 },
   { symbol: 'CHF/JPY', assetClass: 'forex', currentPrice: 170.75 },
   { symbol: 'NZD/JPY', assetClass: 'forex', currentPrice: 92.00 },
   
-  // Other Crosses (6)
   { symbol: 'AUD/CAD', assetClass: 'forex', currentPrice: 0.8920 },
   { symbol: 'AUD/CHF', assetClass: 'forex', currentPrice: 0.5750 },
   { symbol: 'AUD/NZD', assetClass: 'forex', currentPrice: 1.0700 },
@@ -43,14 +39,12 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'NZD/CAD', assetClass: 'forex', currentPrice: 0.8340 },
   { symbol: 'NZD/CHF', assetClass: 'forex', currentPrice: 0.5380 },
   
-  // Major US Indices (5)
-  { symbol: 'US100', assetClass: 'stock', currentPrice: 21200.00 },
-  { symbol: 'US500', assetClass: 'stock', currentPrice: 5950.00 },
-  { symbol: 'US30', assetClass: 'stock', currentPrice: 43800.00 },
-  { symbol: 'RUSSELL2000', assetClass: 'stock', currentPrice: 2350.00 },
-  { symbol: 'VIX', assetClass: 'stock', currentPrice: 14.50 },
+  { symbol: 'US100', assetClass: 'index', currentPrice: 21200.00 },
+  { symbol: 'US500', assetClass: 'index', currentPrice: 5950.00 },
+  { symbol: 'US30', assetClass: 'index', currentPrice: 43800.00 },
+  { symbol: 'RUSSELL2000', assetClass: 'index', currentPrice: 2350.00 },
+  { symbol: 'VIX', assetClass: 'index', currentPrice: 14.50 },
   
-  // Major US Stocks - Tech (10)
   { symbol: 'AAPL', assetClass: 'stock', currentPrice: 175.50 },
   { symbol: 'MSFT', assetClass: 'stock', currentPrice: 378.25 },
   { symbol: 'GOOGL', assetClass: 'stock', currentPrice: 140.85 },
@@ -62,7 +56,6 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'AMD', assetClass: 'stock', currentPrice: 155.40 },
   { symbol: 'ORCL', assetClass: 'stock', currentPrice: 115.25 },
   
-  // Major US Stocks - Finance & Others (10)
   { symbol: 'JPM', assetClass: 'stock', currentPrice: 165.70 },
   { symbol: 'BAC', assetClass: 'stock', currentPrice: 32.85 },
   { symbol: 'GS', assetClass: 'stock', currentPrice: 385.40 },
@@ -74,21 +67,28 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'PG', assetClass: 'stock', currentPrice: 152.30 },
   { symbol: 'DIS', assetClass: 'stock', currentPrice: 95.85 },
   
-  // Commodities (4)
   { symbol: 'XAU/USD', assetClass: 'commodity', currentPrice: 2035.00 },
   { symbol: 'XAG/USD', assetClass: 'commodity', currentPrice: 24.50 },
   { symbol: 'WTI', assetClass: 'commodity', currentPrice: 82.50 },
   { symbol: 'BRENT', assetClass: 'commodity', currentPrice: 86.75 },
   
-  // Crypto (4)
   { symbol: 'BTC/USD', assetClass: 'crypto', currentPrice: 43200 },
   { symbol: 'ETH/USD', assetClass: 'crypto', currentPrice: 2280 },
   { symbol: 'BNB/USD', assetClass: 'crypto', currentPrice: 315.50 },
   { symbol: 'SOL/USD', assetClass: 'crypto', currentPrice: 98.75 },
 ];
 
+let strategiesInitialized = false;
+
 export class SignalScannerService {
   private isScanning: boolean = false;
+
+  constructor() {
+    if (!strategiesInitialized) {
+      initializeStrategies();
+      strategiesInitialized = true;
+    }
+  }
 
   async scanMarkets(): Promise<void> {
     if (this.isScanning) {
@@ -98,210 +98,137 @@ export class SignalScannerService {
 
     try {
       this.isScanning = true;
-      console.log('Starting market scan for trading signals...');
+      console.log('[SignalScanner] Starting modular market scan...');
 
-      const newSignals: any[] = [];
+      const stats = strategyRegistry.getStats();
+      console.log(`[SignalScanner] Running ${stats.enabledStrategies} enabled strategies`);
+
+      const newSignals: StrategySignal[] = [];
 
       for (const instrument of TRADEABLE_INSTRUMENTS) {
         try {
-          const signal = await this.analyzeInstrument(instrument);
-          if (signal) {
-            newSignals.push(signal);
-          }
+          const signals = await this.analyzeWithStrategies(instrument);
+          newSignals.push(...signals);
         } catch (error) {
           console.error(`Error analyzing ${instrument.symbol}:`, error);
         }
       }
 
       if (newSignals.length > 0) {
-        console.log(`Generated ${newSignals.length} new trading signals`);
+        console.log(`[SignalScanner] Generated ${newSignals.length} new trading signals`);
         
         for (const signal of newSignals) {
-          await notificationService.createNotification({
-            type: 'trading_signal',
-            title: `${signal.type === 'buy' ? '🟢' : '🔴'} ${signal.symbol} - ${signal.type.toUpperCase()}`,
-            message: `Confidence: ${signal.overallConfidence}% | Entry: ${signal.entryPrice} | R:R: 1:${signal.riskRewardRatio}`,
-            metadata: JSON.stringify(signal),
-          });
-          
-          await telegramNotificationService.sendTradingSignalNotification(signal);
+          await this.saveAndNotifySignal(signal);
         }
       } else {
-        console.log('No high-confidence signals found in this scan');
+        console.log('[SignalScanner] No high-confidence signals found in this scan');
       }
 
     } catch (error) {
-      console.error('Error during market scan:', error);
+      console.error('[SignalScanner] Error during market scan:', error);
     } finally {
       this.isScanning = false;
     }
   }
 
-  private async analyzeInstrument(instrument: { symbol: string; assetClass: string; currentPrice: number }): Promise<any | null> {
+  private async analyzeWithStrategies(instrument: { symbol: string; assetClass: string; currentPrice: number }): Promise<StrategySignal[]> {
     const { symbol, assetClass, currentPrice } = instrument;
 
-    let interestRateData = undefined;
-    let inflationData = undefined;
-
-    if (assetClass === 'forex') {
-      const pair = parseCurrencyPair(symbol);
-      if (pair) {
-        const baseIR = getInterestRateData(pair.base);
-        const quoteIR = getInterestRateData(pair.quote);
-        const baseInf = getInflationData(pair.base);
-        const quoteInf = getInflationData(pair.quote);
-
-        if (baseIR && quoteIR) {
-          interestRateData = { base: baseIR, quote: quoteIR };
-        }
-        if (baseInf && quoteInf) {
-          inflationData = { base: baseInf, quote: quoteInf };
-        }
+    let livePrice = currentPrice;
+    try {
+      const validAssetClass = assetClass as 'forex' | 'stock' | 'commodity' | 'crypto';
+      const priceResult = await getPrice(symbol, validAssetClass);
+      if (priceResult && priceResult.price) {
+        livePrice = priceResult.price;
       }
+    } catch (error) {
     }
 
-    const trendBias = this.determineTrendBias(symbol);
-    
-    const dailyData = generateMockTimeframeData(currentPrice, trendBias, 30);
-    const h4Data = generateMockTimeframeData(currentPrice, trendBias, 25);
-    const h1Data = generateMockTimeframeData(currentPrice, trendBias, 20);
-    const m15Data = generateMockTimeframeData(currentPrice, trendBias, 18);
-    const m5Data = generateMockTimeframeData(currentPrice, trendBias, 15);
-    const m1Data = generateMockTimeframeData(currentPrice, trendBias, 12);
+    const data = await fetchMultiTimeframeData(symbol, assetClass, livePrice);
 
-    const existingPendingSetups = await storage.getPendingSetups({
-      symbol,
-      invalidated: false
-    });
-
-    if (existingPendingSetups.length > 0) {
-      const pendingSetup = existingPendingSetups[0];
-      
-      const signal = signalDetectionService.generateTradingSignal({
-        symbol,
-        assetClass,
-        interestRateData,
-        inflationData,
-        dailyData,
-        h4Data,
-        h1Data,
-        m15Data,
-      });
-
-      if (!signal) {
-        await storage.updatePendingSetup(pendingSetup.id, {
-          invalidated: true,
-          invalidationReason: 'Setup conditions no longer met',
-          lastCheckedPrice: currentPrice.toString()
-        });
-        return null;
-      }
-
-      const isReady = signal.overallConfidence >= 70;
-
-      if (isReady && !pendingSetup.readyForSignal) {
-        await storage.updatePendingSetup(pendingSetup.id, {
-          readyForSignal: true,
-          lastCheckedPrice: currentPrice.toString()
-        });
-
-        const existingActiveSignals = await storage.getTradingSignals({ 
-          symbol, 
-          status: 'active' 
-        });
-
-        if (existingActiveSignals.length === 0) {
-          const now = new Date();
-          const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-          const activeSignal = await storage.createTradingSignal({
-            ...signal,
-            expiresAt
-          });
-          await storage.deletePendingSetup(pendingSetup.id);
-          return activeSignal;
-        }
-      } else {
-        await storage.updatePendingSetup(pendingSetup.id, {
-          lastCheckedPrice: currentPrice.toString()
-        });
-      }
-
-      return null;
-    }
-
-    const signal = signalDetectionService.generateTradingSignal({
+    const instrumentData: InstrumentData = {
       symbol,
       assetClass,
-      interestRateData,
-      inflationData,
-      dailyData,
-      h4Data,
-      h1Data,
-      m15Data,
+      currentPrice: livePrice,
+      data,
+    };
+
+    const existingActiveSignals = await storage.getTradingSignals({ 
+      symbol, 
+      status: 'active' 
     });
 
-    if (signal) {
-      const isImmediatelyReady = signal.overallConfidence >= 75;
-
-      if (isImmediatelyReady) {
-        const existingActiveSignals = await storage.getTradingSignals({ 
-          symbol, 
-          status: 'active' 
-        });
-
-        if (existingActiveSignals.length === 0) {
-          const now = new Date();
-          const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-          return await storage.createTradingSignal({
-            ...signal,
-            expiresAt
-          });
-        }
-      } else {
-        const biasDirection = signal.type === 'buy' ? 'bullish' : 'bearish';
-        
-        await storage.createPendingSetup({
-          symbol,
-          assetClass,
-          type: signal.type,
-          setupStage: 'forming',
-          potentialStrategy: signal.strategy,
-          currentPrice: currentPrice.toString(),
-          primaryTimeframe: '4H',
-          confirmationTimeframe: '15M',
-          interestRateBias: interestRateData ? biasDirection : null,
-          inflationBias: inflationData ? biasDirection : null,
-          trendBias: signal.trendDirection || null,
-          chochDetected: signal.bocChochDetected === 'bullish' || signal.bocChochDetected === 'bearish',
-          chochDirection: signal.bocChochDetected || null,
-          liquiditySweepDetected: signal.liquiditySweep || false,
-          supplyDemandZoneTargeted: signal.orderBlockType ? true : false,
-          zoneLevel: signal.orderBlockLevel ? signal.orderBlockLevel.toString() : null,
-          levelsBroken: 0,
-          confirmationsPending: ['higher_confidence', 'entry_confirmation'],
-          setupNotes: signal.technicalReasons || [],
-          marketContext: signal.marketContext || null,
-          lastCheckedPrice: currentPrice.toString(),
-        });
-      }
+    if (existingActiveSignals.length > 0) {
+      return [];
     }
 
-    return null;
+    const signals = await strategyRegistry.runAllStrategies(instrumentData);
+
+    return signals;
   }
 
-  private determineTrendBias(symbol: string): 'bullish' | 'bearish' | 'neutral' {
-    const bullishAssets = [
-      'EUR/USD', 'GBP/USD', 'AUD/USD', 'XAU/USD', 'BTC/USD', 'ETH/USD',
-      'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'META', 'AMZN', 'V', 'MA', 'UNH'
-    ];
-    const bearishAssets = [
-      'USD/JPY', 'USD/CAD', 'WTI',
-      'TSLA', 'NFLX', 'DIS', 'BAC', 'AMD'
-    ];
-    
-    if (bullishAssets.includes(symbol)) return 'bullish';
-    if (bearishAssets.includes(symbol)) return 'bearish';
-    return 'neutral';
+  private async saveAndNotifySignal(signal: StrategySignal): Promise<void> {
+    try {
+      const now = new Date();
+      const expiresAt = new Date(signal.expiresAt);
+
+      const dbSignal = await storage.createTradingSignal({
+        symbol: signal.symbol,
+        type: signal.direction,
+        strategy: signal.strategyName,
+        primaryTimeframe: signal.timeframe,
+        confirmationTimeframe: '1M',
+        entryPrice: signal.entryPrice.toString(),
+        stopLoss: signal.stopLoss.toString(),
+        takeProfit: signal.takeProfit.toString(),
+        riskRewardRatio: signal.riskRewardRatio.toString(),
+        overallConfidence: signal.confidence,
+        trendDirection: signal.marketContext.h4TrendDirection,
+        trendScore: signal.confidence.toString(),
+        smcScore: signal.confidence.toString(),
+        smcFactors: signal.entrySetup.confirmations,
+        orderBlockType: signal.entrySetup.entryZone.type,
+        orderBlockLevel: signal.entrySetup.entryZone.topPrice.toString(),
+        fvgDetected: false,
+        fvgLevel: null,
+        liquiditySweep: signal.entryType === 'liquidity_sweep',
+        bocChochDetected: signal.entryType === 'choch' ? signal.direction === 'buy' ? 'bullish' : 'bearish' : null,
+        technicalReasons: signal.reasoning.slice(0, 10),
+        marketContext: `${signal.strategyName} - ${signal.entryType} entry at ${signal.timeframe} zone`,
+        strength: signal.confidence >= 80 ? 'strong' : signal.confidence >= 60 ? 'moderate' : 'weak',
+        status: 'active',
+        expiresAt,
+      });
+
+      await notificationService.createNotification({
+        type: 'trading_signal',
+        title: `${signal.direction === 'buy' ? '🟢' : '🔴'} ${signal.symbol} - ${signal.direction.toUpperCase()}`,
+        message: `Strategy: ${signal.strategyName} | Entry: ${signal.entryType} | Confidence: ${signal.confidence}% | R:R: 1:${signal.riskRewardRatio}`,
+        metadata: JSON.stringify({
+          ...signal,
+          dbSignalId: dbSignal.id,
+        }),
+      });
+
+      const legacySignal = {
+        symbol: signal.symbol,
+        type: signal.direction,
+        strategy: signal.strategyName,
+        entryPrice: signal.entryPrice,
+        stopLoss: signal.stopLoss,
+        takeProfit: signal.takeProfit,
+        riskRewardRatio: signal.riskRewardRatio,
+        overallConfidence: signal.confidence,
+        technicalReasons: signal.reasoning,
+      };
+
+      await telegramNotificationService.sendTradingSignalNotification(legacySignal);
+
+      console.log(`[SignalScanner] Signal saved and notifications sent: ${signal.symbol} ${signal.direction}`);
+
+    } catch (error) {
+      console.error(`[SignalScanner] Error saving signal for ${signal.symbol}:`, error);
+    }
   }
 
   async cleanupExpiredSignals(): Promise<void> {
@@ -333,12 +260,24 @@ export class SignalScannerService {
 
           await storage.deleteTradingSignal(signal.id);
 
-          console.log(`Expired signal archived to history: ${signal.symbol} - ${signal.type} (Duration: ${durationText})`);
+          console.log(`[SignalScanner] Expired signal archived: ${signal.symbol} - ${signal.type} (Duration: ${durationText})`);
         }
       }
     } catch (error) {
-      console.error('Error cleaning up expired signals:', error);
+      console.error('[SignalScanner] Error cleaning up expired signals:', error);
     }
+  }
+
+  getStrategyStats() {
+    return strategyRegistry.getStats();
+  }
+
+  enableStrategy(strategyId: string): boolean {
+    return strategyRegistry.enableStrategy(strategyId);
+  }
+
+  disableStrategy(strategyId: string): boolean {
+    return strategyRegistry.disableStrategy(strategyId);
   }
 }
 
