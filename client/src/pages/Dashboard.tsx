@@ -67,18 +67,21 @@ export default function Dashboard() {
         {/* Full-Width Sections - NO SIDEBARS */}
         <div className="space-y-8">
           
-          {/* Section 1: Active Currency, Metals & Crypto Signals - ALL TIMEFRAMES CONFIRMED */}
+          {/* Section 1: Active Currency, Metals & Crypto Signals - ALL 4 TIERS CONFIRMED */}
           <section className="bg-card border-t-2 border-bull-green">
             <SectionHeader 
               icon={Target} 
               title="Active Signals - Currency, Metals & Crypto" 
               countLabel={`${activeCurrencySignals.length} Confirmed`}
             />
+            <p className="px-6 py-2 text-sm text-muted-foreground border-b border-border/50">
+              1D Context + Major Zone (4H/2H/1H) + Zone ID (30M/15M) + Entry Trigger (5M/3M/1M) all confirmed
+            </p>
             <div className="flex flex-col">
               {signalsLoading ? (
                 <div className="p-8 text-center text-muted-foreground">Loading signals...</div>
               ) : activeCurrencySignals.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No confirmed signals - waiting for LTF entry confirmation</div>
+                <div className="p-8 text-center text-muted-foreground">No confirmed signals - waiting for entry trigger on 5M/3M/1M</div>
               ) : (
                 activeCurrencySignals.slice(0, 10).map(signal => (
                   <SignalCard key={signal.id} signal={signal} />
@@ -87,18 +90,21 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Section 2: Active Stock & Index Signals - ALL TIMEFRAMES CONFIRMED */}
+          {/* Section 2: Active Stock & Index Signals - ALL 4 TIERS CONFIRMED */}
           <section className="bg-card border-t-2 border-bull-green">
             <SectionHeader 
               icon={Activity} 
               title="Active Signals - Stocks & Indices" 
               countLabel={`${activeStockSignals.length} Confirmed`}
             />
+            <p className="px-6 py-2 text-sm text-muted-foreground border-b border-border/50">
+              1D Context + Major Zone (4H/2H/1H) + Zone ID (30M/15M) + Entry Trigger (5M/3M/1M) all confirmed
+            </p>
             <div className="flex flex-col">
               {signalsLoading ? (
                 <div className="p-8 text-center text-muted-foreground">Loading stock signals...</div>
               ) : activeStockSignals.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No confirmed stock signals - waiting for LTF entry confirmation</div>
+                <div className="p-8 text-center text-muted-foreground">No confirmed stock signals - waiting for entry trigger on 5M/3M/1M</div>
               ) : (
                 activeStockSignals.slice(0, 10).map(signal => (
                   <StockSignalCard key={signal.id} signal={signal} />
@@ -107,21 +113,21 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Section 3: Watchlist - HTF CONFIRMED, AWAITING LTF */}
+          {/* Section 3: Watchlist - 3 TIERS CONFIRMED, AWAITING ENTRY TRIGGER */}
           <section className="bg-card border-t-2 border-amber-500">
             <SectionHeader 
               icon={Eye} 
-              title="Watchlist - Awaiting LTF Confirmation" 
-              countLabel={`${watchlistCurrencySignals.length + watchlistStockSignals.length} Pending`}
+              title="Watchlist - Awaiting Entry Trigger" 
+              countLabel={`${watchlistCurrencySignals.length + watchlistStockSignals.length + pendingWatchlistItems.length} Pending`}
             />
             <p className="px-6 py-2 text-sm text-muted-foreground border-b border-border/50">
-              Zone identified on HTF (4H/2H/30M). Waiting for entry confirmation on LTF (5M/3M/1M).
+              1D Context + Major Zone (4H/2H/1H) + Zone ID (30M/15M) confirmed. Watching 5M/3M/1M for entry trigger (DS-SD flip, continuation, or CHoCH).
             </p>
             <div className="flex flex-col">
               {signalsLoading ? (
                 <div className="p-8 text-center text-muted-foreground">Loading watchlist...</div>
-              ) : (watchlistCurrencySignals.length + watchlistStockSignals.length) === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No pending setups - scanning for HTF zones...</div>
+              ) : (watchlistCurrencySignals.length + watchlistStockSignals.length + pendingWatchlistItems.length) === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No pending setups - scanning for major zones on 4H/2H/1H...</div>
               ) : (
                 <>
                   {watchlistCurrencySignals.slice(0, 5).map(signal => (
@@ -129,6 +135,9 @@ export default function Dashboard() {
                   ))}
                   {watchlistStockSignals.slice(0, 5).map(signal => (
                     <StockSignalCard key={signal.id} signal={signal} isWatchlist={true} />
+                  ))}
+                  {pendingWatchlistItems.slice(0, 5).map(item => (
+                    <WatchlistCard key={`pending-${item.symbol}-${item.id}`} item={item} />
                   ))}
                 </>
               )}
