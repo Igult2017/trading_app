@@ -1,6 +1,6 @@
 # Overview
 
-The Infod Trading Partner System is a professional financial analysis platform providing real-time market scanning, signal generation, trade history tracking, and analytics. It focuses on Smart Money Concepts (SMC), multi-timeframe analysis, and various trading strategies like scalping, day trading, swing trading, and Opening Range Breakout (ORB). The system features a Bloomberg Terminal-inspired interface, optimized for data-dense financial information and high-frequency decision-making.
+The Infod Trading Partner System is a professional financial analysis platform designed for real-time market scanning, signal generation, trade history tracking, and advanced analytics. It specializes in Smart Money Concepts (SMC), multi-timeframe analysis, and various trading strategies including scalping, day trading, swing trading, and Opening Range Breakout (ORB). The system provides a Bloomberg Terminal-inspired interface, optimized for displaying dense financial information and supporting high-frequency trading decisions. Its primary purpose is to empower traders with sophisticated tools for identifying and acting on market opportunities.
 
 # User Preferences
 
@@ -9,234 +9,75 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Routing**: Wouter
-- **State Management**: TanStack React Query
-- **UI Framework**: Radix UI with shadcn/ui
-- **Styling**: Tailwind CSS with custom financial trading tokens
+- **Framework**: React 18 with TypeScript, using Vite for building.
+- **UI/UX**: Radix UI with shadcn/ui components, styled with Tailwind CSS, featuring a dark-mode palette inspired by financial trading colors (blue, green, red, amber) and Inter font for readability. Card-based layouts with an 18rem sidebar and mobile-first responsive design.
+- **State Management**: TanStack React Query for data fetching and caching.
+- **Routing**: Wouter for client-side navigation.
 
 ## Backend
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript
-- **Session Management**: Connect-pg-simple for PostgreSQL-backed sessions
-- **Development**: Hot module replacement with Vite integration
+- **Runtime**: Node.js with Express.js, written in TypeScript.
+- **Session Management**: PostgreSQL-backed sessions using `connect-pg-simple`.
 
 ## Data Storage
-- **Primary Database**: PostgreSQL with Neon serverless hosting
-- **ORM**: Drizzle ORM
-- **Schema Validation**: Zod
-- **Trade History**: Stores comprehensive trade records (entry/exit, P&L, strategy, timeframe).
-- **Analytics Engine**: Real-time calculation of trading metrics (win rate, P&L, risk-reward).
-- **Economic Calendar**: Web scraping-based system from Investing.com with 15-minute caching and 7-day retention.
-
-## Economic Calendar Data Scraping
-- **Primary Source**: Investing.com
-- **Scraping Stack**: Cheerio (parsing), Axios (HTTP requests)
-- **Rate Limiting**: 3-second delays, rotating user agents
-- **Caching**: 15-minute cache, 7-day retention
-- **Scheduling**: Upcoming events (15 mins), full week (daily at 00:00 UTC), hourly cleanup.
-- **Data Standardization**: Normalizes event details (title, country, date/time, impact, forecast, actual, previous).
-- **API Endpoints**: `/api/calendar/today`, `/api/calendar/week`, `/api/economic-events`.
-
-## Design System
-- **Color Palette**: Dark-mode with financial trading colors (blue, green, red, amber).
-- **Typography**: Inter font for number readability.
-- **Components**: Card-based layout with 18rem sidebar navigation.
-- **Responsive Design**: Mobile-first with trading desk breakpoints.
+- **Database**: PostgreSQL, hosted on Neon serverless.
+- **ORM**: Drizzle ORM with Zod for schema validation.
+- **Data**: Stores comprehensive trade history, real-time trading metrics, and scraped economic calendar data (15-minute cache, 7-day retention).
 
 ## Real-time Capabilities
-- **Market Data**: Live price feeds via Python/tessa integration (Yahoo Finance and CoinGecko).
+- **Market Data**: Live price feeds for various asset classes via Python/tessa integration (Yahoo Finance, CoinGecko).
 - **Session Monitoring**: Real-time tracking of major trading sessions (London, New York, Tokyo, Sydney).
-- **Signal Generation**: Live scanning and notification system for trading opportunities.
-
-## Python Price Service (tessa Integration)
-- **Location**: `server/python/price_service.py`
-- **Libraries**: tessa, yfinance, pycoingecko
-- **Data Sources**: 
-  - Yahoo Finance for stocks, forex, commodities
-  - CoinGecko for cryptocurrency (with Yahoo fallback)
-- **Node.js Bridge**: `server/lib/priceService.ts` - spawns Python subprocess with JSON I/O
-- **Caching**: 30-second in-memory cache to reduce API calls
-- **API Endpoints**:
-  - `GET /api/prices/status` - Check if price service is online
-  - `GET /api/prices/:symbol?assetClass=stock|forex|commodity|crypto` - Single price
-  - `POST /api/prices/batch` - Batch price requests (max 50 symbols)
-- **Frontend Hook**: `client/src/hooks/usePrices.ts` - React Query integration with auto-refresh
+- **Signal Generation**: Live scanning and notification system for trading opportunities, utilizing a modular strategy engine.
+- **In-App Notifications**: PostgreSQL-backed system for trading sessions, economic events, and signals, with real-time updates.
+- **Telegram Notifications**: Critical alerts for trading sessions and high/medium impact economic events via `node-telegram-bot-api`.
 
 ## Trading Analysis Framework
-- **Multi-timeframe Analysis**: 1D, 4H, 30M, 15M for analysis; 1M for entries.
-- **Technical Indicators**: Non-lagging volume, momentum, and trend indicators.
-- **Pattern Recognition**: Institutional candles, Fair Value Gaps (FVG), order blocks, liquidity sweeps.
+- **Methodologies**: Multi-timeframe analysis (1D, 4H, 30M, 15M, 1M), institutional candle patterns, Fair Value Gaps (FVG), order blocks, liquidity sweeps, Supply/Demand zone detection, and Change of Character (CHoCH) detection.
 - **Risk Management**: Integrated stop-loss/take-profit with risk-reward ratios.
-- **Economic Calendar**: Tracks high/medium impact events with pre-release expectations and post-release analysis.
+- **Strategy Engine**: Modular architecture (`server/strategies/`) allowing independent, isolated strategies with shared utilities (zone detection, swing points, candle patterns, multi-timeframe data).
+- **SMC Strategy Implementation**: A 5-step adaptive timeframe analysis process (Clarity Analysis, Context Analysis, Zone Detection, Zone Refinement, Entry Detection with LTF Confirmation) focusing on quality setups with confidence scoring.
 
-## In-App Notification System
-- **Storage**: PostgreSQL table with read/unread status.
-- **Types**: Trading sessions (5 min before London/NY open), economic events (30 min advance for all impacts), trading signals.
-- **Real-time**: Unread count refreshes every 30 seconds.
-- **API Endpoints**: CRUD for notifications, mark as read, delete, signal creation.
-- **UI**: Popover in header with bell icon, badge, and management controls.
+## AI Integration (Google Gemini)
+- **Role**: Gemini acts as an ASSISTANT for signal validation, confidence adjustment, risk assessment, and quick market scans for the refined SMC strategy.
+- **Critical Validation Rules**: Enforces no counter-trend trading unless CHoCH is confirmed, avoids unclear markets, and ensures trend alignment for signals.
 
-## Telegram Notification System
-- **Integration**: node-telegram-bot-api for critical alerts.
-- **Commands**: `/start`, `/stop`, `/resume`, `/status`.
-- **Types**: Trading sessions (5 min before London/NY open), high/medium impact economic events (30 min advance).
-- **Scheduling**: Checks every 5 minutes.
-- **Frontend**: Telegram setup dropdown in header.
+## PNG Chart Generation
+- **Functionality**: Generates professional, dark-themed trading charts with supply/demand zones, entry/SL/TP markers, and confidence percentages for Telegram. Utilizes `mplfinance` and `matplotlib` in Python.
 
-## Supply/Demand Zone Detection
-- **Methodology**: Full range of base candle before institutional impulse.
-- **Differentiation**: Impulse direction determines zone type (bearish = supply, bullish = demand).
-- **Tracking**: Differentiates fresh vs. mitigated zones.
-- **Strength**: Calculated based on impulse magnitude and price reaction.
-
-## Liquidity Sweep Detection
-- **Pool Identification**: Detects Equal Highs/Lows, Swing Highs/Lows, Session Highs/Lows, Daily/Weekly/Monthly Highs/Lows.
-- **Sweep Detection**: Identifies price sweeping above/below liquidity pools.
-- **Mitigation**: Requires price to mitigate supply/demand zones after a sweep with structural confirmation.
-- **Entry Validation**: Close within zone AND next-candle reaction.
-- **Scoring**: +15 for sweep, +35+ for confirmed zone mitigation.
-- **Strategy Assignment**: "liquidity_sweep_mitigation" when criteria met.
-- **Reasoning**: Provides descriptive details of swept pools.
-
-## CHoCH (Change of Character) Detection
-- **Pattern Definition**: Identifies trend reversals through structural changes (HH/HL to LH/LL or vice versa).
-- **Swing Point Analysis**: Identifies HH, HL, LH, LL.
-- **Trend Change**: Bullish CHoCH (downtrend to HH), Bearish CHoCH (uptrend to LL).
-- **Entry Validation**: Confirmed CHoCH, targets unmitigated S/D zone, breaks 2+ S/D levels without mitigation, entry invalid if from unmitigated zone, rapid price push away from zone.
-- **Scoring**: +40 for valid CHoCH, +10 for 3+ levels broken, +10 for strong zone targeting.
-- **Priority**: Highest priority (CHoCH > liquidity sweep > traditional).
-- **Risk-Reward**: 1:3 R:R.
-
-## Modular Strategy Engine Architecture
-- **Location**: `server/strategies/`
-- **Core Components**:
-  - `core/strategyRegistry.ts` - Central registry for all trading strategies
-  - `core/baseStrategy.ts` - Abstract base class for all strategies
-  - `core/types.ts` - Shared TypeScript types for strategies
-- **Shared Utilities**: `server/strategies/shared/`
-  - `zoneDetection.ts` - Supply/demand zone detection and tracking
-  - `swingPoints.ts` - Swing point detection (HH, HL, LH, LL) and broken structure
-  - `candlePatterns.ts` - Institutional candles, engulfing, pin bars, rejection candles
-  - `multiTimeframe.ts` - Multi-timeframe data fetching and candle generation
-- **Design Principles**:
-  - Strategies are independent and isolated - one failure doesn't affect others
-  - Shared utilities layer for common trading analysis functions
-  - Strategy registry enables easy enable/disable and stats tracking
-  - Each strategy implements `analyze()` method with standardized output
-
-## SMC Strategy #1 (Smart Money Concepts)
-- **Location**: `server/strategies/smc/`
-- **Files**: config.ts, clarityAnalysis.ts, h4Context.ts, m15Zones.ts, zoneRefinement.ts, entryDetection.ts, index.ts
-- **Adaptive Timeframe Selection**:
-  - **Primary Timeframes**: 4H (context) + 15M (zones) - used when clarity is good
-  - **Alternative Timeframes**: 2H (context) + 30M (zones) - used when primary lacks clarity
-  - **Entry Timeframes**: 5M, 3M, or 1M - whichever has best clarity
-  - **Clarity Scoring**: Trend consistency (35%) + Zone clarity (35%) + Structure clarity (30%)
-  - **Minimum Clarity**: 60% required to proceed, otherwise market is skipped
-- **5-Step Analysis Process**:
-  1. **Clarity Analysis**: Evaluates all timeframes, selects best context/zone/entry TFs
-  2. **Context Analysis (4H/2H)**: Determines market control (supply/demand/neutral) and trend direction
-  3. **Zone Detection (15M/30M)**: Identifies unmitigated supply/demand zones, filters tradable zones
-  4. **Zone Refinement**: 15M→5M→1M (or 30M→3M→1M based on zone TF), stays higher if lower is messy
-  5. **Entry Detection + LTF Confirmation**: CHoCH, D/S-S/D flips, continuation - requires LTF candle confirmation
-- **Quality Focus**: Skips unclear markets entirely - setups must be clearly identified
-- **Entry Types**: CHoCH (40 base confidence), D/S-S/D Flip (35), Continuation (30)
-- **Confirmations**: Zone reaction (+15-20), reaction candle (+10), rejection candle (+10), strong zone (+10)
-- **LTF Confirmation**: Buy requires bullish close + higher low or price break; Sell requires bearish close + lower high or price break
-- **Targets**: Nearest unmitigated zone → H4 supply/demand → default 3:1 R:R
-
-## Google Gemini AI Integration
-- **Location**: `server/services/geminiAnalysis.ts`
-- **Model**: gemini-2.5-flash
-- **API Key**: `GOOGLE_API_KEY` (stored as secret)
-- **Role**: Gemini acts as an ASSISTANT to our refined SMC strategy (NOT a replacement)
-- **Functions**:
-  - **Signal Validation**: Reviews signals from our SMC strategy and provides second opinion
-  - **Confidence Adjustment**: Suggests confidence changes (-20 to +20) based on additional context
-  - **Risk Assessment**: Identifies concerns or additional confirmations needed
-  - **Quick Market Scan**: Pre-screens instruments to identify potential setups
-- **Critical Validation Rules**:
-  - **No Counter-Trend Trading**: Do NOT trade against the trend unless CHoCH is confirmed
-  - **Avoid Unclear Markets**: Skip signals when market structure is choppy, ranging, or messy
-  - **Trend Alignment**: BUY signals only in bullish trend, SELL signals only in bearish trend
-  - **CHoCH Exception**: Counter-trend signals ONLY valid with confirmed Change of Character
-- **Output Format**: Structured validation result with recommendation (proceed/caution/skip)
-- **Fallback Rule**: ONLY use strategy signal as-is when Gemini API is unavailable (marked `isFallback: true`)
-- **API Endpoints**:
-  - `GET /api/gemini/status` - Check Gemini connection status
-  - `POST /api/gemini/validate` - Validate a signal from our SMC strategy
-  - `POST /api/gemini/scan` - Quick market scan for pre-screening
-
-## PNG Chart Generation (for Telegram)
-- **Location**: `server/python/chart_generator.py` + `server/services/chartGenerator.ts`
-- **Libraries**: mplfinance, matplotlib
-- **Features**:
-  - Professional dark-themed trading charts
-  - Supply/Demand zones visualization
-  - Entry, Stop Loss, Take Profit markers
-  - Confidence percentage display
-- **API Endpoints**:
-  - `GET /api/charts/status` - Check if chart generator is available
-  - `POST /api/charts/generate` - Generate signal chart PNG
-  - `POST /api/charts/cleanup` - Clean up old chart files
-- **Output**: PNG images saved to `/tmp/charts/` for Telegram delivery
-
-## Real-Time Signal Generation
-- **Scanning Frequency**: Every 1 minute for 62 instruments (28 forex, 20 US stocks, 4 commodities, 4 crypto).
-- **Strategy Engine**: Modular architecture runs all enabled strategies per instrument
-- **Adaptive Multi-Timeframe Analysis**:
-  - Primary: 4H (context) → 15M (zones) → 5M/1M (entry)
-  - Alternative: 2H (context) → 30M (zones) → 3M/1M (entry)
-  - Selection based on clarity scoring per timeframe
-- **Pending Setups System**: Multi-stage validation (Forming <75% confidence, Monitoring, Ready >=70% confidence).
-- **Signal Thresholds**: Immediate (>=75%), Pending (50-74%), Ready (>=70%).
-- **Signal Lifecycle**: Active (4-hour expiry window) → Expired → Auto-archived to trade history.
-- **Expiry Tracking**: Live countdown timer displays time remaining until signal expires.
-- **Auto-Archival**: Expired signals automatically moved to trade history with duration and outcome tracking.
-- **Cleanup Scheduling**: Every 2 hours, expired signals are archived and removed from active list.
+## Real-Time Signal Management
+- **Scanning**: Scans 62 instruments every minute using the modular strategy engine.
+- **Lifecycle**: Signals move through stages (Forming, Monitoring, Ready, Active, Expired, Archived). Active signals have a 4-hour expiry.
+- **Watchlist & Monitoring**: Tracks pending signals and monitors active signals for SL/TP hits, automatically archiving outcomes.
 
 # External Dependencies
 
 ## UI and Component Libraries
 - **@radix-ui/**: Accessible UI primitives.
-- **class-variance-authority**: Type-safe variant API for styling.
+- **class-variance-authority**: Type-safe styling variants.
 - **cmdk**: Command palette.
 - **embla-carousel-react**: Touch-friendly carousels.
+- **lucide-react**: Icon library.
 
 ## Database and Data Management
 - **@neondatabase/serverless**: Serverless PostgreSQL.
-- **drizzle-orm**: Type-safe ORM for PostgreSQL.
+- **drizzle-orm**: Type-safe ORM.
 - **drizzle-zod**: Schema validation.
 - **connect-pg-simple**: PostgreSQL session store.
-
-## Development and Build Tools
 - **@tanstack/react-query**: Data fetching and caching.
-- **@hookform/resolvers**: Form validation with Zod.
-- **date-fns**: Date manipulation.
-- **wouter**: Minimalist React routing.
-- **@replit/vite-plugin-**: Replit-specific tooling.
 
 ## Web Scraping and Data Collection
 - **cheerio**: HTML parsing.
 - **axios**: HTTP client.
 - **node-cron**: Task scheduler.
 
-## Styling and Design
-- **tailwindcss**: Utility-first CSS framework.
-- **tailwind-merge**: Tailwind class merging.
-- **clsx**: Conditional className utility.
-- **lucide-react**: Icon library.
-
 ## AI and Analysis
-- **@google/genai**: Google Gemini AI SDK for SMC and Wyckoff analysis.
-- **mplfinance**: Python library for generating trading charts (PNG signals).
+- **@google/genai**: Google Gemini AI SDK.
+- **mplfinance**: Python library for generating trading charts.
 - **matplotlib**: Chart rendering backend.
+- **tessa**, **yfinance**, **pycoingecko** (Python libraries): Market data fetching.
 
 ## External APIs
-- **Google Gemini API** (`GOOGLE_API_KEY`): AI-powered chart analysis using SMC and Wyckoff methods.
-- **Yahoo Finance** (yfinance): Free price data for stocks, forex, commodities.
+- **Google Gemini API**: AI-powered signal validation and market scanning.
+- **Yahoo Finance**: Free price data for stocks, forex, commodities.
 - **CoinGecko**: Free cryptocurrency price data.
-- **Telegram Bot API** (`TELEGRAM_BOT_TOKEN`): Signal notifications with PNG charts.
-- **Investing.com** (web scraping): Economic calendar data.
+- **Telegram Bot API**: Signal notifications with PNG charts.
+- **Investing.com**: Web scraped economic calendar data.

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Target, Clock, Eye, BarChart3, Timer } from 'lucide-react';
+import { Target, Clock, Eye, BarChart3, Timer, ListTodo, TrendingDown, TrendingUp } from 'lucide-react';
 
 interface TradingSignal {
   id: string;
@@ -86,6 +86,8 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
     : allSignals;
 
   const activeSignals = signals.filter(s => s.status === 'active');
+  const watchlistSignals = signals.filter(s => s.status === 'watchlist' || s.status === 'pending');
+  const completedSignals = signals.filter(s => s.status === 'stopped_out' || s.status === 'target_hit');
   const previousSignals = signals.filter(s => s.status === 'expired' || s.status === 'invalidated');
 
   const displayTitle = title || 'Currency, Gold, Oil and Crypto Signals';
@@ -132,9 +134,16 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
         <div className="flex items-center gap-2 text-lg font-semibold">
           <Target className="w-5 h-5" />
           {displayTitle}
-          <Badge variant="secondary" className="ml-auto mr-2">
-            {activeSignals.length}/{signals.length} Active
-          </Badge>
+          <div className="flex items-center gap-2 ml-auto mr-2">
+            <Badge variant="secondary">
+              {activeSignals.length} Active
+            </Badge>
+            {watchlistSignals.length > 0 && (
+              <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                {watchlistSignals.length} Watchlist
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
       <div>
@@ -368,6 +377,142 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Watchlist Section - Signals 1 step away from confirmation */}
+            {watchlistSignals.length > 0 && (
+              <div className="mt-6 pt-6 border-t-2 border-amber-500/30">
+                <h3 className="text-sm font-semibold mb-4 pb-2 text-amber-600 dark:text-amber-400 uppercase tracking-wide border-b-2 border-amber-500/30 flex items-center gap-2">
+                  <ListTodo className="w-4 h-4" />
+                  Watchlist
+                  <span className="ml-2 text-xs font-normal normal-case text-muted-foreground">(1 step from confirmation)</span>
+                </h3>
+                <div className="divide-y divide-border/50">
+                  {watchlistSignals.map((signal) => (
+                    <div
+                      key={signal.id}
+                      className="py-3 bg-amber-500/5 border-l-2 border-amber-500/50 pl-3"
+                      data-testid={`card-watchlist-signal-${signal.id}`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <Badge 
+                            variant="secondary"
+                            className="text-xs font-medium"
+                            style={{ 
+                              backgroundColor: getSignalTypeColor(signal.type) + '20', 
+                              color: getSignalTypeColor(signal.type) 
+                            }}
+                          >
+                            {signal.type.toUpperCase()}
+                          </Badge>
+                          <div>
+                            <h4 className="font-semibold text-sm">{signal.symbol}</h4>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{signal.strategy}</span>
+                              <span>•</span>
+                              <span>{signal.primaryTimeframe}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 dark:text-amber-400 mr-2">
+                          PENDING
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-stretch gap-0 text-xs pt-2 border-t border-border/30">
+                        <div className="flex-1 pr-4 border-r border-border/50">
+                          <span className="text-muted-foreground">Entry Zone:</span>
+                          <div className="font-mono font-semibold">
+                            {parseFloat(signal.entryPrice).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="flex-1 px-4 border-r border-border/50">
+                          <span className="text-muted-foreground">Confidence:</span>
+                          <div className="font-mono font-semibold" style={{ color: getConfidenceColor(signal.overallConfidence) }}>
+                            {signal.overallConfidence}%
+                          </div>
+                        </div>
+                        <div className="flex-1 pl-4">
+                          <span className="text-muted-foreground">Waiting for:</span>
+                          <div className="font-semibold text-amber-600 dark:text-amber-400">
+                            LTF Confirmation
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Completed Signals Section - Hit SL or TP */}
+            {completedSignals.length > 0 && (
+              <div className="mt-6 pt-6 border-t-2 border-border/60">
+                <h3 className="text-sm font-semibold mb-4 pb-2 text-muted-foreground uppercase tracking-wide border-b-2 border-border/60 flex items-center gap-2">
+                  Recently Closed
+                  <span className="ml-2 text-xs font-normal normal-case">(Hit SL/TP)</span>
+                </h3>
+                <div className="divide-y divide-border/50">
+                  {completedSignals.map((signal) => {
+                    const isWin = signal.status === 'target_hit';
+                    return (
+                      <div
+                        key={signal.id}
+                        className={`py-3 border-l-2 pl-3 ${isWin ? 'border-green-500/50 bg-green-500/5' : 'border-red-500/50 bg-red-500/5'}`}
+                        data-testid={`card-completed-signal-${signal.id}`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            {isWin ? (
+                              <TrendingUp className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <TrendingDown className="w-5 h-5 text-red-500" />
+                            )}
+                            <div>
+                              <h4 className="font-semibold text-sm">{signal.symbol}</h4>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{signal.type.toUpperCase()}</span>
+                                <span>•</span>
+                                <span>{signal.strategy}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <Badge 
+                            variant={isWin ? "default" : "destructive"} 
+                            className="text-xs mr-2"
+                          >
+                            {isWin ? 'TARGET HIT' : 'STOPPED OUT'}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-stretch gap-0 text-xs pt-2 border-t border-border/30">
+                          <div className="flex-1 pr-4 border-r border-border/50">
+                            <span className="text-muted-foreground">Entry:</span>
+                            <div className="font-mono font-semibold">
+                              {parseFloat(signal.entryPrice).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="flex-1 px-4 border-r border-border/50">
+                            <span className="text-muted-foreground">{isWin ? 'Target:' : 'Stop:'}</span>
+                            <div className={`font-mono font-semibold ${isWin ? 'text-green-500' : 'text-red-500'}`}>
+                              {isWin ? parseFloat(signal.takeProfit).toLocaleString() : parseFloat(signal.stopLoss).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="flex-1 pl-4">
+                            <span className="text-muted-foreground">Result:</span>
+                            <div className={`font-semibold ${isWin ? 'text-green-500' : 'text-red-500'}`}>
+                              {isWin ? '+' : '-'}{signal.riskRewardRatio}R
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

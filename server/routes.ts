@@ -13,6 +13,7 @@ import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockT
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
 import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
+import { signalMonitor } from "./services/signalMonitor";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -490,6 +491,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // WATCHLIST & SIGNAL MONITORING ROUTES
+  // ============================================
+
+  app.get("/api/signals/watchlist", async (req, res) => {
+    try {
+      const watchlistSignals = await signalMonitor.getWatchlistSignals();
+      res.json(watchlistSignals);
+    } catch (error) {
+      console.error("Error fetching watchlist:", error);
+      res.status(500).json({ error: "Failed to fetch watchlist" });
+    }
+  });
+
+  app.get("/api/signals/active", async (req, res) => {
+    try {
+      const activeSignals = await signalMonitor.getActiveSignals();
+      res.json(activeSignals);
+    } catch (error) {
+      console.error("Error fetching active signals:", error);
+      res.status(500).json({ error: "Failed to fetch active signals" });
+    }
+  });
+
+  app.post("/api/signals/:id/promote", async (req, res) => {
+    try {
+      const signal = await signalMonitor.promoteToActive(req.params.id);
+      if (!signal) {
+        return res.status(404).json({ error: "Signal not found" });
+      }
+      res.json(signal);
+    } catch (error) {
+      console.error("Error promoting signal:", error);
+      res.status(500).json({ error: "Failed to promote signal" });
+    }
+  });
+
+  app.post("/api/signals/:id/watchlist", async (req, res) => {
+    try {
+      const signal = await signalMonitor.moveToWatchlist(req.params.id);
+      if (!signal) {
+        return res.status(404).json({ error: "Signal not found" });
+      }
+      res.json(signal);
+    } catch (error) {
+      console.error("Error moving signal to watchlist:", error);
+      res.status(500).json({ error: "Failed to move signal to watchlist" });
+    }
+  });
+
+  app.post("/api/signals/check-outcomes", async (req, res) => {
+    try {
+      const outcomes = await signalMonitor.checkAllSignals();
+      res.json({ 
+        checked: outcomes.length,
+        outcomes: outcomes.filter(o => o.outcome !== 'active'),
+        message: "Signal outcomes checked"
+      });
+    } catch (error) {
+      console.error("Error checking signal outcomes:", error);
+      res.status(500).json({ error: "Failed to check signal outcomes" });
+    }
+  });
+
+  app.get("/api/signals/monitor/status", async (req, res) => {
+    try {
+      res.json({ 
+        status: "running",
+        message: "Signal monitor is active"
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get monitor status" });
+    }
+  });
+
   app.get("/api/pending-setups", async (req, res) => {
     try {
       const filters = {
@@ -750,6 +826,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to cleanup charts" });
     }
   });
+
+  // Start the signal monitor (checks SL/TP hits every 30 seconds)
+  signalMonitor.start(30000);
+  console.log('[Server] Signal monitor started - checking SL/TP every 30 seconds');
 
   const httpServer = createServer(app);
 
