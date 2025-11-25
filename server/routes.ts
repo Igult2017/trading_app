@@ -11,7 +11,7 @@ import { notificationService } from "./services/notificationService";
 import { signalDetectionService } from "./services/signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
-import { analyzeWithGemini, quickAnalyzeWithGemini, testGeminiConnection, isGeminiConfigured } from "./services/geminiAnalysis";
+import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
 import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -604,7 +604,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Full Gemini analysis (SMC + Wyckoff)
+  // Validate a signal from our SMC strategy using Gemini as assistant
+  app.post("/api/gemini/validate", async (req, res) => {
+    try {
+      const { signal, priceData, chartImagePath } = req.body;
+
+      if (!signal || !priceData || !Array.isArray(priceData)) {
+        return res.status(400).json({ error: "Signal and priceData array are required" });
+      }
+
+      if (!isGeminiConfigured()) {
+        return res.status(503).json({ error: "Gemini API not configured" });
+      }
+
+      const result = await validateSignalWithGemini(signal, priceData, chartImagePath);
+      res.json(result);
+    } catch (error) {
+      console.error("Gemini validation error:", error);
+      res.status(500).json({ error: "Failed to validate signal with Gemini" });
+    }
+  });
+
+  // Quick market scan to pre-screen instruments
+  app.post("/api/gemini/scan", async (req, res) => {
+    try {
+      const { symbol, priceData } = req.body;
+
+      if (!symbol || !priceData || !Array.isArray(priceData)) {
+        return res.status(400).json({ error: "Symbol and priceData array are required" });
+      }
+
+      if (!isGeminiConfigured()) {
+        return res.status(503).json({ error: "Gemini API not configured" });
+      }
+
+      const result = await quickMarketScan(symbol, priceData);
+      res.json(result);
+    } catch (error) {
+      console.error("Market scan error:", error);
+      res.status(500).json({ error: "Failed to scan market" });
+    }
+  });
+
+  // Legacy analyze endpoint (backward compatibility)
   app.post("/api/gemini/analyze", async (req, res) => {
     try {
       const { symbol, priceData, chartImagePath } = req.body;
@@ -618,11 +660,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await analyzeWithGemini(symbol, priceData, chartImagePath);
-      
-      if (result.error) {
-        return res.status(500).json({ error: result.error });
-      }
-
       res.json(result);
     } catch (error) {
       console.error("Gemini analysis error:", error);
@@ -630,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Quick scan (faster, single-pass analysis)
+  // Legacy quick-scan endpoint (backward compatibility)
   app.post("/api/gemini/quick-scan", async (req, res) => {
     try {
       const { symbol, priceData } = req.body;

@@ -151,15 +151,17 @@ Preferred communication style: Simple, everyday language.
 - **Location**: `server/services/geminiAnalysis.ts`
 - **Model**: gemini-2.5-flash
 - **API Key**: `GOOGLE_API_KEY` (stored as secret)
-- **Analysis Types**:
-  - **SMC Analysis**: Smart Money Concepts - identifies order blocks, FVGs, CHoCH, BOS patterns
-  - **Wyckoff Analysis**: Identifies accumulation/distribution phases, composite man actions
-  - **Combined Signal**: Merges both analyses for higher confidence signals
-- **Output Format**: Structured signals with entry, stop loss, take profit, and confidence scores
+- **Role**: Gemini acts as an ASSISTANT to our refined SMC strategy (NOT a replacement)
+- **Functions**:
+  - **Signal Validation**: Reviews signals from our SMC strategy and provides second opinion
+  - **Confidence Adjustment**: Suggests confidence changes (-20 to +20) based on additional context
+  - **Risk Assessment**: Identifies concerns or additional confirmations needed
+  - **Quick Market Scan**: Pre-screens instruments to identify potential setups
+- **Output Format**: Structured validation result with recommendation (proceed/caution/skip)
 - **API Endpoints**:
   - `GET /api/gemini/status` - Check Gemini connection status
-  - `POST /api/gemini/analyze` - Full SMC + Wyckoff analysis
-  - `POST /api/gemini/quick-scan` - Fast single-pass scan for screening
+  - `POST /api/gemini/validate` - Validate a signal from our SMC strategy
+  - `POST /api/gemini/scan` - Quick market scan for pre-screening
 
 ## PNG Chart Generation (for Telegram)
 - **Location**: `server/python/chart_generator.py` + `server/services/chartGenerator.ts`
