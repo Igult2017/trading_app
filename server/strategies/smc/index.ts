@@ -50,7 +50,7 @@ export class SMCStrategy extends BaseStrategy {
         data.h1
       );
 
-      this.logAnalysis(`Timeframe selection: ${tfSelection.contextTf}/${tfSelection.zoneTf}/${tfSelection.entryTf}`);
+      this.logAnalysis(`Timeframe selection: ${tfSelection.contextTf}/${tfSelection.zoneTf}/${tfSelection.entryTf}/${tfSelection.refinementTf}`);
       tfSelection.reasoning.forEach(r => this.logAnalysis(`  - ${r}`));
 
       if (!isMarketClear(tfSelection)) {
@@ -127,15 +127,15 @@ export class SMCStrategy extends BaseStrategy {
         }
 
         if (entryResult.hasValidEntry && entryResult.setup) {
-          const lowerTfConfirmed = this.confirmOnLowerTimeframe(
+          const refinementConfirmed = this.confirmOnRefinementTimeframe(
             data,
-            tfSelection.entryTf,
+            tfSelection.refinementTf,
             entryResult,
             direction
           );
 
-          if (!lowerTfConfirmed) {
-            this.logAnalysis(`Entry not confirmed on ${tfSelection.entryTf}, waiting...`);
+          if (!refinementConfirmed) {
+            this.logAnalysis(`Entry not confirmed on ${tfSelection.refinementTf}, waiting...`);
             if (entryResult.setup.confidence >= 50) {
               const pendingSetup = {
                 ...entryResult.setup,
@@ -198,13 +198,22 @@ export class SMCStrategy extends BaseStrategy {
 
   private getZoneCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
     switch (tf) {
-      case '15M': return data.m15;
-      case '30M': return data.m30;
-      default: return data.m15;
+      case '4H': return data.h4;
+      case '2H': return data.h2;
+      case '1H': return data.h1 || data.h2;
+      default: return data.h4;
     }
   }
 
   private getEntryCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
+    switch (tf) {
+      case '30M': return data.m30;
+      case '15M': return data.m15;
+      default: return data.m15;
+    }
+  }
+
+  private getRefinementCandlesForTf(data: MultiTimeframeData, tf: Timeframe): Candle[] {
     switch (tf) {
       case '5M': return data.m5;
       case '3M': return data.m3;
@@ -227,17 +236,17 @@ export class SMCStrategy extends BaseStrategy {
     };
   }
 
-  private confirmOnLowerTimeframe(
+  private confirmOnRefinementTimeframe(
     data: MultiTimeframeData,
-    entryTf: Timeframe,
+    refinementTf: Timeframe,
     entryResult: EntryDetectionResult,
     direction: SignalDirection
   ): boolean {
-    const entryCandles = this.getEntryCandles(data, entryTf);
-    if (entryCandles.length < 3) return false;
+    const refinementCandles = this.getRefinementCandlesForTf(data, refinementTf);
+    if (refinementCandles.length < 3) return false;
 
-    const lastCandle = entryCandles[entryCandles.length - 1];
-    const prevCandle = entryCandles[entryCandles.length - 2];
+    const lastCandle = refinementCandles[refinementCandles.length - 1];
+    const prevCandle = refinementCandles[refinementCandles.length - 2];
 
     if (direction === 'buy') {
       const bullishClose = lastCandle.close > lastCandle.open;
@@ -291,6 +300,7 @@ export class SMCStrategy extends BaseStrategy {
       `Context TF: ${tfSelection.contextTf} (clarity: ${tfSelection.contextClarity.score}%)`,
       `Zone TF: ${tfSelection.zoneTf} (clarity: ${tfSelection.zoneClarity.score}%)`,
       `Entry TF: ${tfSelection.entryTf} (clarity: ${tfSelection.entryClarity.score}%)`,
+      `Refinement TF: ${tfSelection.refinementTf} (clarity: ${tfSelection.refinementClarity.score}%)`,
       ...tfSelection.reasoning,
       ...h4Result.reasoning,
       ...m15Result.reasoning,
