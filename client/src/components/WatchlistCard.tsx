@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { PendingSetup } from '@shared/schema';
+import LivePriceDisplay from './LivePriceDisplay';
 
 const formatTimeAgo = (timestamp: Date | string) => {
   const now = new Date();
@@ -42,13 +43,23 @@ const DetailsIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const getAssetClassForSymbol = (symbol: string, assetClass?: string): 'stock' | 'forex' | 'commodity' | 'crypto' => {
+  if (assetClass === 'crypto' || assetClass === 'cryptocurrency') return 'crypto';
+  if (assetClass === 'commodity' || assetClass === 'commodities') return 'commodity';
+  if (assetClass === 'forex' || assetClass === 'currency') return 'forex';
+  if (assetClass === 'stock' || assetClass === 'stocks') return 'stock';
+  
+  if (symbol.includes('/USD') && ['BTC', 'ETH', 'BNB', 'SOL', 'XRP'].some(c => symbol.startsWith(c))) return 'crypto';
+  if (symbol.includes('/')) return 'forex';
+  if (['XAU', 'XAG', 'WTI', 'BRENT', 'GOLD', 'SILVER', 'OIL'].some(c => symbol.includes(c))) return 'commodity';
+  
+  return 'stock';
+};
+
 export default function WatchlistCard({ item, showProbability = false }: WatchlistCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const currentPrice = item.currentPrice?.toString() || '—';
-  const isPriceUp = parseFloat(currentPrice) > 0;
-  const changeColor = isPriceUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
-  const ChangeIcon = isPriceUp ? ArrowUpRight : ArrowDownRight;
+  const assetClass = getAssetClassForSymbol(item.symbol, item.assetClass);
   
   const priority = item.setupStage === 'ready' ? 'HIGH' : 'MEDIUM';
   const isHighPriority = priority === 'HIGH';
@@ -77,11 +88,14 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
           </p>
         </div>
 
-        {/* Price (Col 5-7) */}
+        {/* Live Price (Col 5-7) */}
         <div className="col-span-3 py-4 px-6 border-l border-border">
-          <div className="text-xl font-extrabold" data-testid={`text-price-${item.id}`}>
-            {currentPrice}
-          </div>
+          <LivePriceDisplay 
+            symbol={item.symbol} 
+            assetClass={assetClass}
+            size="md"
+            showChange={true}
+          />
         </div>
 
         {showProbability ? (

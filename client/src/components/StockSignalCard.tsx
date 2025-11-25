@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { TradingSignal } from '@shared/schema';
+import { LivePriceWithEntry } from './LivePriceDisplay';
 
 const formatTimeAgo = (timestamp: Date | string) => {
   const now = new Date();
@@ -53,10 +54,24 @@ const DetailsIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const getAssetClassForSymbol = (symbol: string, assetClass?: string): 'stock' | 'forex' | 'commodity' | 'crypto' => {
+  if (assetClass === 'crypto' || assetClass === 'cryptocurrency') return 'crypto';
+  if (assetClass === 'commodity' || assetClass === 'commodities') return 'commodity';
+  if (assetClass === 'forex' || assetClass === 'currency') return 'forex';
+  if (assetClass === 'stock' || assetClass === 'stocks') return 'stock';
+  
+  if (symbol.includes('/USD') && ['BTC', 'ETH', 'BNB', 'SOL', 'XRP'].some(c => symbol.startsWith(c))) return 'crypto';
+  if (symbol.includes('/')) return 'forex';
+  if (['XAU', 'XAG', 'WTI', 'BRENT', 'GOLD', 'SILVER', 'OIL'].some(c => symbol.includes(c))) return 'commodity';
+  
+  return 'stock';
+};
+
 export default function StockSignalCard({ signal }: StockSignalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   const isBuy = signal.type?.toLowerCase() === 'buy';
+  const assetClass = getAssetClassForSymbol(signal.symbol, signal.assetClass);
   const trendColor = isBuy ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400';
   const TrendIcon = isBuy ? TrendingUp : TrendingDown;
   const winRateColor = (signal.overallConfidence ?? 0) >= 90 
@@ -98,14 +113,22 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
         <div className="md:col-span-6 flex flex-wrap gap-4 border-l border-r border-border px-4 md:px-8 py-2">
           {hasCompleteData ? (
             <>
-              <div className="flex-1 min-w-[100px]">
+              <div className="flex-1 min-w-[90px]">
+                <LivePriceWithEntry 
+                  symbol={signal.symbol}
+                  assetClass={assetClass}
+                  entryPrice={signal.entryPrice}
+                  signalType={signal.type}
+                />
+              </div>
+              <div className="flex-1 min-w-[80px]">
                 <StatBlock 
                   label="Entry" 
                   value={entryPrice} 
                   icon={DollarSign} 
                 />
               </div>
-              <div className="flex-1 min-w-[100px]">
+              <div className="flex-1 min-w-[80px]">
                 <StatBlock 
                   label="Stop" 
                   value={stopLoss} 
@@ -113,7 +136,7 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
                   icon={ArrowDownRight} 
                 />
               </div>
-              <div className="flex-1 min-w-[100px]">
+              <div className="flex-1 min-w-[80px]">
                 <StatBlock 
                   label="Target" 
                   value={takeProfit} 
