@@ -2,6 +2,7 @@ import { storage } from "../storage";
 import { signalDetectionService } from "./signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./marketData";
 import { notificationService } from "./notificationService";
+import { telegramNotificationService } from "./telegramNotification";
 
 const TRADEABLE_INSTRUMENTS = [
   // Major Forex Pairs (7)
@@ -115,6 +116,8 @@ export class SignalScannerService {
             message: `Confidence: ${signal.overallConfidence}% | Entry: ${signal.entryPrice} | R:R: 1:${signal.riskRewardRatio}`,
             metadata: JSON.stringify(signal),
           });
+          
+          await telegramNotificationService.sendTradingSignalNotification(signal);
         }
       } else {
         console.log('No high-confidence signals found in this scan');
