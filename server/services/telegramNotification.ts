@@ -360,6 +360,18 @@ export class TelegramNotificationService {
   }
 
 
+  private escapeMarkdown(text: string): string {
+    if (!text) return '';
+    return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+  }
+
+  private formatPrice(price: any): string {
+    if (price === null || price === undefined) return 'N/A';
+    const num = parseFloat(price);
+    if (isNaN(num)) return String(price);
+    return num < 10 ? num.toFixed(5) : num.toFixed(2);
+  }
+
   async sendTradingSignalNotification(signal: any): Promise<void> {
     try {
       if (!this.isInitialized || !this.bot) {
@@ -380,24 +392,31 @@ export class TelegramNotificationService {
       const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
       const directionEmoji = signal.type === 'buy' ? '📈' : '📉';
       
+      const entryPrice = this.formatPrice(signal.entryPrice);
+      const stopLoss = this.formatPrice(signal.stopLoss);
+      const takeProfit = this.formatPrice(signal.takeProfit);
+      const riskReward = signal.riskRewardRatio ? parseFloat(signal.riskRewardRatio).toFixed(2) : '2.00';
+      const strategy = signal.strategy || 'Technical Analysis';
+      const confidence = signal.overallConfidence || 70;
+      
+      const now = new Date();
+      const timeStr = format(now, 'MMM dd, HH:mm');
+      
       const telegramMessage = 
-        `${typeEmoji} *NEW TRADING SIGNAL*\n\n` +
-        `${directionEmoji} *${signal.symbol}* - ${signal.type.toUpperCase()}\n` +
-        `📊 Asset: ${signal.assetClass.toUpperCase()}\n` +
-        `⚡ Confidence: ${signal.overallConfidence}%\n\n` +
-        `💰 *Entry:* ${signal.entryPrice}\n` +
-        `🛑 *Stop Loss:* ${signal.stopLoss}\n` +
-        `🎯 *Take Profit:* ${signal.takeProfit}\n` +
-        `📐 *Risk/Reward:* 1:${signal.riskRewardRatio}\n\n` +
-        `🧠 *Strategy:* ${signal.strategy}\n` +
-        `📋 *Reasoning:* ${signal.reasoning}\n\n` +
-        `⏰ Generated: ${new Date(signal.signalTime).toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+        `${typeEmoji} NEW TRADING SIGNAL\n\n` +
+        `${directionEmoji} ${signal.symbol} - ${signal.type.toUpperCase()}\n` +
+        `Asset: ${(signal.assetClass || 'forex').toUpperCase()}\n` +
+        `Confidence: ${confidence}%\n\n` +
+        `Entry: ${entryPrice}\n` +
+        `Stop Loss: ${stopLoss}\n` +
+        `Take Profit: ${takeProfit}\n` +
+        `Risk/Reward: 1:${riskReward}\n\n` +
+        `Strategy: ${strategy}\n` +
+        `Time: ${timeStr} UTC`;
 
       for (const subscriber of subscribers) {
         try {
-          await this.bot.sendMessage(subscriber.chatId, telegramMessage, {
-            parse_mode: 'Markdown',
-          });
+          await this.bot.sendMessage(subscriber.chatId, telegramMessage);
           console.log(`Trading signal sent to Telegram subscriber ${subscriber.chatId}`);
         } catch (error) {
           console.error(`Failed to send signal to Telegram ${subscriber.chatId}:`, error);
