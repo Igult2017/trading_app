@@ -1,0 +1,36 @@
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <rect width="500" height="500" fill="#050505" />
+  
+  <defs>
+    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#333333" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="500" height="500" fill="url(#grid)" />
+
+  <rect x="50" y="50" width="400" height="60" fill="#FF4136" opacity="0.15" />
+  <text x="440" y="90" fill="#FF4136" font-family="monospace" font-size="14" text-anchor="end">SELL ZONE</text>
+  
+  <rect x="50" y="390" width="400" height="60" fill="#00FF00" opacity="0.15" />
+  <text x="440" y="430" fill="#00FF00" font-family="monospace" font-size="14" text-anchor="end">BUY ZONE</text>
+
+  <rect x="140" y="180" width="20" height="60" fill="#FF4136" />
+  <line x1="150" y1="160" x2="150" y2="260" stroke="#FF4136" stroke-width="2" />
+  
+  <rect x="200" y="240" width="20" height="80" fill="#00FF00" /> <line x1="210" y1="220" x2="210" y2="340" stroke="#00FF00" stroke-width="2" />
+  
+  <rect x="260" y="220" width="20" height="40" fill="#FF4136" />
+  <line x1="270" y1="200" x2="270" y2="280" stroke="#FF4136" stroke-width="2" />
+
+  <circle cx="250" cy="250" r="180" fill="none" stroke="#00FF41" stroke-width="3" stroke-dasharray="60, 20" />
+  <circle cx="250" cy="250" r="20" fill="none" stroke="#00FF41" stroke-width="2" />
+  <line x1="50" y1="250" x2="450" y2="250" stroke="#00FF41" stroke-width="1" />
+  <line x1="250" y1="50" x2="250" y2="450" stroke="#00FF41" stroke-width="1" />
+  
+  <path d="M 235 250 L 265 250 M 250 235 L 250 265" stroke="#FFFFFF" stroke-width="2" />
+
+  <rect x="170" y="455" width="160" height="40" rx="5" fill="#000000" stroke="#00FF41" stroke-width="2" />
+  <text x="250" y="482" fill="#FFFFFF" font-family="Arial, sans-serif" font-weight="bold" font-size="24" text-anchor="middle" letter-spacing="3">FBSZ</text>
+  
+  <circle cx="250" cy="250" r="100" fill="url(#glow)" opacity="0.3" />
+</svg>
