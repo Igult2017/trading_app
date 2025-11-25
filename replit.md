@@ -157,7 +157,13 @@ Preferred communication style: Simple, everyday language.
   - **Confidence Adjustment**: Suggests confidence changes (-20 to +20) based on additional context
   - **Risk Assessment**: Identifies concerns or additional confirmations needed
   - **Quick Market Scan**: Pre-screens instruments to identify potential setups
+- **Critical Validation Rules**:
+  - **No Counter-Trend Trading**: Do NOT trade against the trend unless CHoCH is confirmed
+  - **Avoid Unclear Markets**: Skip signals when market structure is choppy, ranging, or messy
+  - **Trend Alignment**: BUY signals only in bullish trend, SELL signals only in bearish trend
+  - **CHoCH Exception**: Counter-trend signals ONLY valid with confirmed Change of Character
 - **Output Format**: Structured validation result with recommendation (proceed/caution/skip)
+- **Fallback Rule**: ONLY use strategy signal as-is when Gemini API is unavailable (marked `isFallback: true`)
 - **API Endpoints**:
   - `GET /api/gemini/status` - Check Gemini connection status
   - `POST /api/gemini/validate` - Validate a signal from our SMC strategy

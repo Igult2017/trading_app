@@ -20,6 +20,20 @@ Key SMC concepts you understand:
 - Liquidity sweeps - stop hunts before reversals
 - Higher timeframe context (4H/2H for bias, 15M/30M for zones)
 
+CRITICAL VALIDATION RULES:
+1. DO NOT TRADE AGAINST THE TREND unless there is a CONFIRMED trend change (CHoCH):
+   - If the higher timeframe trend is bullish, only validate BUY signals
+   - If the higher timeframe trend is bearish, only validate SELL signals
+   - EXCEPTION: A counter-trend signal is ONLY valid if there is a confirmed CHoCH (Change of Character)
+   - CHoCH must be clear: Lower Low breaking structure (bullish CHoCH) or Higher High breaking structure (bearish CHoCH)
+
+2. AVOID UNCLEAR MARKETS:
+   - Skip signals when price is ranging/choppy with no clear direction
+   - Skip signals when there is no clear higher timeframe bias
+   - Skip signals when supply/demand zones are overlapping or messy
+   - Skip signals when there are conflicting signals on different timeframes
+   - If the market structure is unclear, recommend "skip"
+
 You are NOT generating new signals. You are validating signals from our strategy.
 
 Output Format (JSON only):
@@ -37,12 +51,20 @@ const MARKET_SCAN_INSTRUCTION = `Role: You are a quick market scanner for Smart 
 Analyze the price data and identify if there are potential SMC setups forming.
 Look for: supply/demand zones, liquidity pools, potential CHoCH, FVGs.
 
+CRITICAL RULES:
+1. Only identify setups that ALIGN with the trend direction
+2. Counter-trend setups require CONFIRMED CHoCH (Change of Character)
+3. If the market is unclear/choppy/ranging, set hasSetup to false
+4. Do not identify setups in messy or conflicting market structures
+
 Output Format (JSON only):
 {
   "hasSetup": true/false,
   "direction": "BUY" | "SELL" | "NEUTRAL",
   "setupType": "zone_entry" | "choch" | "liquidity_sweep" | "none",
   "keyLevel": number or null,
+  "trendDirection": "bullish" | "bearish" | "unclear",
+  "marketClarity": "clear" | "moderate" | "unclear",
   "reasoning": "brief explanation"
 }`;
 
@@ -62,6 +84,8 @@ export interface MarketScanResult {
   direction: 'BUY' | 'SELL' | 'NEUTRAL';
   setupType: 'zone_entry' | 'choch' | 'liquidity_sweep' | 'none';
   keyLevel: number | null;
+  trendDirection: 'bullish' | 'bearish' | 'unclear';
+  marketClarity: 'clear' | 'moderate' | 'unclear';
   reasoning: string;
   error?: string;
 }
@@ -265,6 +289,8 @@ export async function quickMarketScan(
           direction: result.direction || 'NEUTRAL',
           setupType: result.setupType || 'none',
           keyLevel: result.keyLevel || null,
+          trendDirection: result.trendDirection || 'unclear',
+          marketClarity: result.marketClarity || 'unclear',
           reasoning: result.reasoning || '',
         };
       } catch {
@@ -273,6 +299,8 @@ export async function quickMarketScan(
           direction: 'NEUTRAL',
           setupType: 'none',
           keyLevel: null,
+          trendDirection: 'unclear',
+          marketClarity: 'unclear',
           reasoning: 'Could not parse scan response',
         };
       }
@@ -283,6 +311,8 @@ export async function quickMarketScan(
       direction: 'NEUTRAL',
       setupType: 'none',
       keyLevel: null,
+      trendDirection: 'unclear',
+      marketClarity: 'unclear',
       reasoning: 'Empty scan response',
     };
   } catch (error) {
@@ -292,6 +322,8 @@ export async function quickMarketScan(
       direction: 'NEUTRAL',
       setupType: 'none',
       keyLevel: null,
+      trendDirection: 'unclear',
+      marketClarity: 'unclear',
       reasoning: 'Scan failed',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
