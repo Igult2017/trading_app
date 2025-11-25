@@ -4,11 +4,28 @@ import {
   Eye, 
   BarChart2, 
   DollarSign,
-  Info
+  Info,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { TradingSignal } from '@shared/schema';
+
+const formatTimeAgo = (timestamp: Date | string) => {
+  const now = new Date();
+  const created = new Date(timestamp);
+  const diffMs = now.getTime() - created.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+};
 
 interface SignalCardProps {
   signal: TradingSignal;
@@ -101,20 +118,21 @@ export default function SignalCard({ signal }: SignalCardProps) {
           )}
         </div>
 
-        {/* Timeframe, Active Badge and Actions (Col 10-12) */}
+        {/* Timeframe, Time Ago and Actions (Col 10-12) */}
         <div className="md:col-span-3 flex flex-col items-start md:items-end gap-2 pt-2">
           {/* Timeframe */}
           <div className="text-sm font-bold text-muted-foreground uppercase">
             {signal.primaryTimeframe || '4H'}
           </div>
           
-          {/* Active Badge with Cyan Glow */}
-          {signal.status === 'active' && (
+          {/* Time Since Posted */}
+          {signal.createdAt && (
             <div 
-              className="px-4 py-1.5 rounded-lg text-sm font-bold text-white bg-[#00BCD4] border-2 border-[#00BCD4]/50 shadow-[0_0_12px_rgba(0,188,212,0.6),0_0_24px_rgba(0,188,212,0.3)]"
-              data-testid={`badge-active-${signal.id}`}
+              className="text-xs text-muted-foreground flex items-center gap-1"
+              data-testid={`time-ago-${signal.id}`}
             >
-              active
+              <Clock className="w-3 h-3" />
+              {formatTimeAgo(signal.createdAt)}
             </div>
           )}
           
