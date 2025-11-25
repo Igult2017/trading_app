@@ -130,8 +130,10 @@ export function HeroSection() {
               <div className="text-sm opacity-90 mb-3">
                 {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} UTC
               </div>
-              <div className={`${session.color} px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2`}>
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              <div className={`${session.active 
+                ? 'bg-[#00BCD4] shadow-[0_0_15px_rgba(0,188,212,0.7),0_0_30px_rgba(0,188,212,0.4)]' 
+                : 'bg-gray-500'} px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 text-white border-2 border-[#00BCD4]/50`}>
+                <span className={`w-2 h-2 bg-white rounded-full ${session.active ? 'animate-pulse' : ''}`}></span>
                 {session.active ? 'ACTIVE' : 'CLOSED'}
               </div>
             </div>
