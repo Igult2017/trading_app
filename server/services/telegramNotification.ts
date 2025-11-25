@@ -4,6 +4,13 @@ import { telegramSubscribers, economicEvents } from '@shared/schema';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { notificationService } from './notificationService';
+import { 
+  generateTradingSignalChart, 
+  readChartAsBuffer, 
+  ChartCandle, 
+  ZoneInfo 
+} from './chartGenerator';
+import { fetchMultiTimeframeData } from '../strategies/shared/multiTimeframe';
 
 interface TradingSession {
   name: string;
@@ -423,34 +430,113 @@ export class TelegramNotificationService {
         return;
       }
 
-      const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
-      const directionEmoji = signal.type === 'buy' ? '📈' : '📉';
+      const direction = signal.type || signal.direction || 'buy';
+      const typeEmoji = direction === 'buy' ? '🟢' : '🔴';
       
       const entryPrice = this.formatPrice(signal.entryPrice);
       const stopLoss = this.formatPrice(signal.stopLoss);
       const takeProfit = this.formatPrice(signal.takeProfit);
       const riskReward = signal.riskRewardRatio ? parseFloat(signal.riskRewardRatio).toFixed(2) : '2.00';
-      const strategy = signal.strategy || 'Technical Analysis';
-      const confidence = signal.overallConfidence || 70;
+      const confidence = signal.overallConfidence || signal.confidence || 70;
+      const timeframe = signal.timeframe || '15M';
       
       const now = new Date();
       const timeStr = format(now, 'MMM dd, HH:mm');
       
-      const telegramMessage = 
-        `${typeEmoji} ${signal.symbol} │ ${signal.type.toUpperCase()}\n` +
+      const telegramCaption = 
+        `${typeEmoji} *${signal.symbol}* │ ${direction.toUpperCase()}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `💰 Entry: ${entryPrice}\n` +
         `🛑 SL: ${stopLoss}\n` +
         `🎯 TP: ${takeProfit}\n` +
-        `📊 R:R 1:${riskReward} │ ${confidence}%\n` +
+        `📊 R:R 1:${riskReward} │ ${confidence}% confidence\n` +
+        `⏱ Timeframe: ${timeframe}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `🔗 View details: www.findbuyandsellzones.com/signals\n\n` +
-        `⚠️ Educational only — not financial advice. Trade responsibly.`;
+        `🔗 www.findbuyandsellzones.com/signals\n\n` +
+        `⚠️ Educational only — not financial advice.`;
+
+      let chartBuffer: Buffer | null = null;
+      
+      try {
+        console.log(`[Telegram] Generating chart for ${signal.symbol}...`);
+        
+        const currentPrice = parseFloat(signal.entryPrice) || 0;
+        const mtfData = await fetchMultiTimeframeData(signal.symbol, signal.assetClass || 'forex', currentPrice);
+        
+        if (mtfData && mtfData.m15 && mtfData.m15.length > 0) {
+          const candles: ChartCandle[] = mtfData.m15.slice(-60).map(c => ({
+            date: new Date(c.timestamp).toISOString(),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+            volume: c.volume || 0,
+          }));
+          
+          const supplyZones: ZoneInfo[] = [];
+          const demandZones: ZoneInfo[] = [];
+          
+          if (signal.zones) {
+            if (signal.zones.m15) {
+              signal.zones.m15.forEach((zone: any) => {
+                if (zone.type === 'supply') {
+                  supplyZones.push({ top: zone.topPrice, bottom: zone.bottomPrice });
+                } else {
+                  demandZones.push({ top: zone.topPrice, bottom: zone.bottomPrice });
+                }
+              });
+            }
+            if (signal.zones.h4) {
+              signal.zones.h4.forEach((zone: any) => {
+                if (zone.type === 'supply') {
+                  supplyZones.push({ top: zone.topPrice, bottom: zone.bottomPrice });
+                } else {
+                  demandZones.push({ top: zone.topPrice, bottom: zone.bottomPrice });
+                }
+              });
+            }
+          }
+          
+          const chartResult = await generateTradingSignalChart(
+            signal.symbol,
+            timeframe,
+            candles,
+            {
+              direction: direction.toUpperCase() as 'BUY' | 'SELL',
+              entryPrice: parseFloat(signal.entryPrice) || 0,
+              stopLoss: parseFloat(signal.stopLoss) || 0,
+              takeProfit: parseFloat(signal.takeProfit) || 0,
+              confidence: confidence,
+            },
+            supplyZones,
+            demandZones
+          );
+          
+          if (chartResult.success && chartResult.path) {
+            chartBuffer = readChartAsBuffer(chartResult.path);
+            console.log(`[Telegram] Chart generated successfully: ${chartResult.path}`);
+          } else {
+            console.log(`[Telegram] Chart generation failed: ${chartResult.error}`);
+          }
+        }
+      } catch (chartError) {
+        console.error('[Telegram] Error generating chart:', chartError);
+      }
 
       for (const subscriber of subscribers) {
         try {
-          await this.bot.sendMessage(subscriber.chatId, telegramMessage);
-          console.log(`Trading signal sent to Telegram subscriber ${subscriber.chatId}`);
+          if (chartBuffer) {
+            await this.bot.sendPhoto(subscriber.chatId, chartBuffer, {
+              caption: telegramCaption,
+              parse_mode: 'Markdown',
+            });
+            console.log(`Trading signal with chart sent to Telegram subscriber ${subscriber.chatId}`);
+          } else {
+            await this.bot.sendMessage(subscriber.chatId, telegramCaption, {
+              parse_mode: 'Markdown',
+            });
+            console.log(`Trading signal (text only) sent to Telegram subscriber ${subscriber.chatId}`);
+          }
         } catch (error) {
           console.error(`Failed to send signal to Telegram ${subscriber.chatId}:`, error);
         }
