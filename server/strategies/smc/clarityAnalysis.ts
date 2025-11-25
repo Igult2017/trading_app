@@ -8,7 +8,7 @@ import {
 } from '../core/types';
 import { detectSwingPoints, detectTrendFromSwings } from '../shared/swingPoints';
 import { detectSupplyDemandZones, getUnmitigatedZones } from '../shared/zoneDetection';
-import { SMC_CLARITY_CONFIG, CONTEXT_TIMEFRAME, ZONE_TIMEFRAMES, ENTRY_TIMEFRAMES, REFINEMENT_TIMEFRAMES } from './config';
+import { SMC_CLARITY_CONFIG, CONTEXT_TIMEFRAME, MAJOR_ZONE_TIMEFRAMES, ZONE_IDENTIFICATION_TIMEFRAMES, ENTRY_REFINEMENT_TIMEFRAMES } from './config';
 
 export interface ClarityResult {
   score: number;
@@ -20,15 +20,15 @@ export interface ClarityResult {
 }
 
 export interface TimeframeSelection {
-  contextTf: Timeframe;
-  zoneTf: Timeframe;
-  entryTf: Timeframe;
-  refinementTf: Timeframe;
+  dailyContextTf: Timeframe;
+  majorZoneTf: Timeframe;
+  zoneIdentificationTf: Timeframe;
+  entryRefinementTf: Timeframe;
   usedAlternative: boolean;
-  contextClarity: ClarityResult;
-  zoneClarity: ClarityResult;
-  entryClarity: ClarityResult;
-  refinementClarity: ClarityResult;
+  dailyContextClarity: ClarityResult;
+  majorZoneClarity: ClarityResult;
+  zoneIdentificationClarity: ClarityResult;
+  entryRefinementClarity: ClarityResult;
   reasoning: string[];
 }
 
@@ -148,18 +148,6 @@ function calculateStructureClarity(swingPoints: SwingPoint[]): number {
   return alternatingCount / (recentSwings.length - 1);
 }
 
-interface CandleDataMap {
-  d1?: Candle[];
-  h4: Candle[];
-  h2: Candle[];
-  h1?: Candle[];
-  m30: Candle[];
-  m15: Candle[];
-  m5: Candle[];
-  m3: Candle[];
-  m1: Candle[];
-}
-
 export function selectBestTimeframes(
   h4Candles: Candle[],
   h2Candles: Candle[],
@@ -190,142 +178,141 @@ export function selectBestTimeframes(
   const m3Clarity = analyzeClarity(m3Candles, '3M');
   const m1Clarity = analyzeClarity(m1Candles, '1M');
 
-  const contextTf: Timeframe = '1D';
-  const contextClarity = d1Clarity;
+  const dailyContextTf: Timeframe = '1D';
+  const dailyContextClarity = d1Clarity;
   
   if (d1Clarity.isClear) {
-    reasoning.push(`1D context: trend confirmed (clarity: ${d1Clarity.score}%)`);
+    reasoning.push(`1D Context: trend confirmed (clarity: ${d1Clarity.score}%)`);
   } else {
-    reasoning.push(`1D context: limited clarity (${d1Clarity.score}%), proceeding with caution`);
+    reasoning.push(`1D Context: limited clarity (${d1Clarity.score}%), proceeding with caution`);
   }
 
-  const allZoneOptions: { tf: Timeframe; clarity: ClarityResult }[] = [
+  const majorZoneOptions: { tf: Timeframe; clarity: ClarityResult }[] = [
     { tf: '4H' as Timeframe, clarity: h4Clarity },
     { tf: '2H' as Timeframe, clarity: h2Clarity },
     { tf: '1H' as Timeframe, clarity: h1Clarity },
-  ];
-  const zoneOptions = allZoneOptions.filter(o => o.clarity.score > 0);
+  ].filter(o => o.clarity.score > 0);
   
-  zoneOptions.sort((a, b) => b.clarity.score - a.clarity.score);
+  majorZoneOptions.sort((a, b) => b.clarity.score - a.clarity.score);
   
-  let zoneTf: Timeframe = '4H';
-  let zoneClarity = h4Clarity;
+  let majorZoneTf: Timeframe = '4H';
+  let majorZoneClarity = h4Clarity;
   let usedAlternative = false;
 
-  if (zoneOptions.length > 0) {
-    const bestZone = zoneOptions[0];
-    if (bestZone.clarity.isClear && bestZone.clarity.score >= 60) {
-      zoneTf = bestZone.tf;
-      zoneClarity = bestZone.clarity;
-      if (bestZone.tf !== '4H') usedAlternative = true;
-      reasoning.push(`Zone TF: ${bestZone.tf} (best clarity: ${bestZone.clarity.score}%)`);
+  if (majorZoneOptions.length > 0) {
+    const bestMajorZone = majorZoneOptions[0];
+    if (bestMajorZone.clarity.isClear && bestMajorZone.clarity.score >= 60) {
+      majorZoneTf = bestMajorZone.tf;
+      majorZoneClarity = bestMajorZone.clarity;
+      if (bestMajorZone.tf !== '4H') usedAlternative = true;
+      reasoning.push(`Major Zones: ${bestMajorZone.tf} (best clarity: ${bestMajorZone.clarity.score}%)`);
     } else if (h4Clarity.score >= 50) {
-      reasoning.push(`Zone TF: 4H (clarity: ${h4Clarity.score}%)`);
+      reasoning.push(`Major Zones: 4H (clarity: ${h4Clarity.score}%)`);
     } else {
-      const fallback = zoneOptions.find(o => o.clarity.score >= 50) || zoneOptions[0];
-      zoneTf = fallback.tf;
-      zoneClarity = fallback.clarity;
+      const fallback = majorZoneOptions.find(o => o.clarity.score >= 50) || majorZoneOptions[0];
+      majorZoneTf = fallback.tf;
+      majorZoneClarity = fallback.clarity;
       if (fallback.tf !== '4H') usedAlternative = true;
-      reasoning.push(`Zone TF: ${fallback.tf} (best available: ${fallback.clarity.score}%)`);
+      reasoning.push(`Major Zones: ${fallback.tf} (best available: ${fallback.clarity.score}%)`);
     }
   }
 
+  const zoneIdOptions: { tf: Timeframe; clarity: ClarityResult }[] = [
+    { tf: '30M' as Timeframe, clarity: m30Clarity },
+    { tf: '15M' as Timeframe, clarity: m15Clarity },
+  ];
+  zoneIdOptions.sort((a, b) => b.clarity.score - a.clarity.score);
+
+  let zoneIdentificationTf: Timeframe = '15M';
+  let zoneIdentificationClarity = m15Clarity;
+
+  const bestZoneId = zoneIdOptions[0];
+  if (bestZoneId.clarity.isClear && bestZoneId.clarity.score >= 60) {
+    zoneIdentificationTf = bestZoneId.tf;
+    zoneIdentificationClarity = bestZoneId.clarity;
+    if (bestZoneId.tf !== '15M') usedAlternative = true;
+    reasoning.push(`Zone ID: ${bestZoneId.tf} (best clarity: ${bestZoneId.clarity.score}%)`);
+  } else if (m15Clarity.score >= 50) {
+    reasoning.push(`Zone ID: 15M (clarity: ${m15Clarity.score}%)`);
+  } else {
+    const fallback = zoneIdOptions.find(o => o.clarity.score >= 50) || zoneIdOptions[0];
+    zoneIdentificationTf = fallback.tf;
+    zoneIdentificationClarity = fallback.clarity;
+    if (fallback.tf !== '15M') usedAlternative = true;
+    reasoning.push(`Zone ID: ${fallback.tf} (best available: ${fallback.clarity.score}%)`);
+  }
+
   const entryOptions: { tf: Timeframe; clarity: ClarityResult }[] = [
-    { tf: '30M', clarity: m30Clarity },
-    { tf: '15M', clarity: m15Clarity },
+    { tf: '5M' as Timeframe, clarity: m5Clarity },
+    { tf: '3M' as Timeframe, clarity: m3Clarity },
+    { tf: '1M' as Timeframe, clarity: m1Clarity },
   ];
   entryOptions.sort((a, b) => b.clarity.score - a.clarity.score);
 
-  let entryTf: Timeframe = '15M';
-  let entryClarity = m15Clarity;
+  let entryRefinementTf: Timeframe = '5M';
+  let entryRefinementClarity = m5Clarity;
 
   const bestEntry = entryOptions[0];
   if (bestEntry.clarity.isClear && bestEntry.clarity.score >= 60) {
-    entryTf = bestEntry.tf;
-    entryClarity = bestEntry.clarity;
-    if (bestEntry.tf !== '15M') usedAlternative = true;
-    reasoning.push(`Entry TF: ${bestEntry.tf} (best clarity: ${bestEntry.clarity.score}%)`);
-  } else if (m15Clarity.score >= 50) {
-    reasoning.push(`Entry TF: 15M (clarity: ${m15Clarity.score}%)`);
-  } else {
-    const fallback = entryOptions.find(o => o.clarity.score >= 50) || entryOptions[0];
-    entryTf = fallback.tf;
-    entryClarity = fallback.clarity;
-    if (fallback.tf !== '15M') usedAlternative = true;
-    reasoning.push(`Entry TF: ${fallback.tf} (best available: ${fallback.clarity.score}%)`);
-  }
-
-  const refinementOptions: { tf: Timeframe; clarity: ClarityResult }[] = [
-    { tf: '5M', clarity: m5Clarity },
-    { tf: '3M', clarity: m3Clarity },
-    { tf: '1M', clarity: m1Clarity },
-  ];
-  refinementOptions.sort((a, b) => b.clarity.score - a.clarity.score);
-
-  let refinementTf: Timeframe = '5M';
-  let refinementClarity = m5Clarity;
-
-  const bestRefinement = refinementOptions[0];
-  if (bestRefinement.clarity.isClear && bestRefinement.clarity.score >= 60) {
-    refinementTf = bestRefinement.tf;
-    refinementClarity = bestRefinement.clarity;
-    reasoning.push(`Refinement TF: ${bestRefinement.tf} (best clarity: ${bestRefinement.clarity.score}%)`);
+    entryRefinementTf = bestEntry.tf;
+    entryRefinementClarity = bestEntry.clarity;
+    reasoning.push(`Entry/Refinement: ${bestEntry.tf} (best clarity: ${bestEntry.clarity.score}%)`);
   } else if (m5Clarity.score >= 50) {
-    reasoning.push(`Refinement TF: 5M (clarity: ${m5Clarity.score}%)`);
+    reasoning.push(`Entry/Refinement: 5M (clarity: ${m5Clarity.score}%)`);
   } else {
-    const fallback = refinementOptions.find(o => o.clarity.score >= 40) || refinementOptions[0];
-    refinementTf = fallback.tf;
-    refinementClarity = fallback.clarity;
-    reasoning.push(`Refinement TF: ${fallback.tf} (best available: ${fallback.clarity.score}%)`);
+    const fallback = entryOptions.find(o => o.clarity.score >= 40) || entryOptions[0];
+    entryRefinementTf = fallback.tf;
+    entryRefinementClarity = fallback.clarity;
+    reasoning.push(`Entry/Refinement: ${fallback.tf} (best available: ${fallback.clarity.score}%)`);
   }
 
   return {
-    contextTf,
-    zoneTf,
-    entryTf,
-    refinementTf,
+    dailyContextTf,
+    majorZoneTf,
+    zoneIdentificationTf,
+    entryRefinementTf,
     usedAlternative,
-    contextClarity,
-    zoneClarity,
-    entryClarity,
-    refinementClarity,
+    dailyContextClarity,
+    majorZoneClarity,
+    zoneIdentificationClarity,
+    entryRefinementClarity,
     reasoning,
   };
 }
 
 export function isMarketClear(selection: TimeframeSelection): boolean {
   const minContextClarity = 40;
-  const minZoneClarity = 50;
-  const minEntryClarity = 50;
-  const minRefinementClarity = 40;
+  const minMajorZoneClarity = 50;
+  const minZoneIdClarity = 50;
+  const minEntryClarity = 40;
 
-  const contextOk = selection.contextClarity.score >= minContextClarity;
-  const zoneOk = selection.zoneClarity.score >= minZoneClarity;
-  const entryOk = selection.entryClarity.score >= minEntryClarity;
-  const refinementOk = selection.refinementClarity.score >= minRefinementClarity;
+  const contextOk = selection.dailyContextClarity.score >= minContextClarity;
+  const majorZoneOk = selection.majorZoneClarity.score >= minMajorZoneClarity;
+  const zoneIdOk = selection.zoneIdentificationClarity.score >= minZoneIdClarity;
+  const entryOk = selection.entryRefinementClarity.score >= minEntryClarity;
 
-  return contextOk && zoneOk && entryOk && refinementOk;
+  return contextOk && majorZoneOk && zoneIdOk && entryOk;
 }
 
 export function getMarketClarityStatus(selection: TimeframeSelection): string {
   if (!isMarketClear(selection)) {
     const issues: string[] = [];
-    if (selection.contextClarity.score < 40) issues.push('unclear 1D context');
-    if (selection.zoneClarity.score < 50) issues.push('unclear zone TF');
-    if (selection.entryClarity.score < 50) issues.push('unclear entry TF');
-    if (selection.refinementClarity.score < 40) issues.push('unclear refinement TF');
+    if (selection.dailyContextClarity.score < 40) issues.push('unclear 1D context');
+    if (selection.majorZoneClarity.score < 50) issues.push('unclear major zones');
+    if (selection.zoneIdentificationClarity.score < 50) issues.push('unclear zone ID');
+    if (selection.entryRefinementClarity.score < 40) issues.push('unclear entry TF');
     return `Market unclear: ${issues.join(', ')}`;
   }
 
-  return `Market clear: 1D/${selection.zoneTf}/${selection.entryTf}/${selection.refinementTf}`;
+  return `Market clear: 1D/${selection.majorZoneTf}/${selection.zoneIdentificationTf}/${selection.entryRefinementTf}`;
 }
 
 export function isWatchlistCandidate(selection: TimeframeSelection): boolean {
-  return selection.contextClarity.score >= 40 && 
-         selection.zoneClarity.score >= 50 && 
-         selection.entryClarity.score >= 50;
+  return selection.dailyContextClarity.score >= 40 && 
+         selection.majorZoneClarity.score >= 50 && 
+         selection.zoneIdentificationClarity.score >= 50;
 }
 
 export function isEntryConfirmed(selection: TimeframeSelection): boolean {
-  return isWatchlistCandidate(selection) && selection.refinementClarity.score >= 50;
+  return isWatchlistCandidate(selection) && selection.entryRefinementClarity.score >= 50;
 }

@@ -50,7 +50,7 @@ export class SMCStrategy extends BaseStrategy {
         data.h1
       );
 
-      this.logAnalysis(`Timeframe selection: ${tfSelection.contextTf}/${tfSelection.zoneTf}/${tfSelection.entryTf}/${tfSelection.refinementTf}`);
+      this.logAnalysis(`TF Selection: ${tfSelection.dailyContextTf}/${tfSelection.majorZoneTf}/${tfSelection.zoneIdentificationTf}/${tfSelection.entryRefinementTf}`);
       tfSelection.reasoning.forEach(r => this.logAnalysis(`  - ${r}`));
 
       if (!isMarketClear(tfSelection)) {
@@ -64,16 +64,16 @@ export class SMCStrategy extends BaseStrategy {
         };
       }
 
-      const contextCandles = this.getContextCandles(data, tfSelection.contextTf);
-      const h4Result = analyzeH4Context(contextCandles, currentPrice);
-      this.logAnalysis(`${tfSelection.contextTf} Control: ${h4Result.control}, Trend: ${h4Result.trend}`);
+      const contextCandles = this.getContextCandles(data);
+      const dailyContext = analyzeH4Context(contextCandles, currentPrice);
+      this.logAnalysis(`1D Context: ${dailyContext.control}, Trend: ${dailyContext.trend}`);
 
-      const zoneCandles = this.getZoneCandles(data, tfSelection.zoneTf);
-      const m15Result = analyzeM15Zones(zoneCandles, h4Result.control, currentPrice);
-      this.logAnalysis(`${tfSelection.zoneTf}: ${m15Result.tradableZones.length} tradable zones`);
+      const majorZoneCandles = this.getMajorZoneCandles(data, tfSelection.majorZoneTf);
+      const majorZonesResult = analyzeM15Zones(majorZoneCandles, dailyContext.control, currentPrice);
+      this.logAnalysis(`${tfSelection.majorZoneTf} Major Zones: ${majorZonesResult.tradableZones.length} zones found`);
 
-      if (m15Result.tradableZones.length === 0) {
-        this.logAnalysis('No tradable zones found, skipping...');
+      if (majorZonesResult.tradableZones.length === 0) {
+        this.logAnalysis('No major zones found, skipping...');
         return {
           strategyId: this.id,
           signals: [],
@@ -83,32 +83,40 @@ export class SMCStrategy extends BaseStrategy {
         };
       }
 
-      for (const tradableZone of m15Result.tradableZones.slice(0, 3)) {
-        const refinementCandles = this.getRefinementCandles(data, tfSelection);
+      for (const majorZone of majorZonesResult.tradableZones.slice(0, 3)) {
+        const zoneIdCandles = this.getZoneIdentificationCandles(data, tfSelection.zoneIdentificationTf);
+        const unmitigatedZonesResult = analyzeM15Zones(zoneIdCandles, dailyContext.control, currentPrice);
+        this.logAnalysis(`${tfSelection.zoneIdentificationTf}: ${unmitigatedZonesResult.tradableZones.length} unmitigated zones`);
+
+        const refinementCandles = this.getEntryRefinementCandles(data, tfSelection.entryRefinementTf);
         const refinementResult = refineZoneToLowerTimeframe(
-          tradableZone,
-          refinementCandles.intermediate,
-          refinementCandles.entry
+          majorZone,
+          zoneIdCandles,
+          refinementCandles
         );
 
-        const zoneToUse = refinementResult.refinedZone || tradableZone;
-        this.logAnalysis(`Using ${refinementResult.refinementLevel} zone for entry detection`);
+        const zoneToUse = refinementResult.refinedZone || majorZone;
+        
+        if (refinementResult.refinedZone) {
+          this.logAnalysis(`Zone refined on ${tfSelection.entryRefinementTf}`);
+        } else {
+          this.logAnalysis(`Using ${tfSelection.zoneIdentificationTf} zone (refinement unclear)`);
+        }
 
-        const direction: SignalDirection = tradableZone.type === 'demand' ? 'buy' : 'sell';
+        const direction: SignalDirection = majorZone.type === 'demand' ? 'buy' : 'sell';
 
         const nearestTarget = direction === 'buy'
-          ? findNearestUnmitigatedZone(m15Result.unmitigatedSupply, currentPrice, 'above')
-            || h4Result.nearestSupplyTarget
-          : findNearestUnmitigatedZone(m15Result.unmitigatedDemand, currentPrice, 'below')
-            || h4Result.nearestDemandTarget;
+          ? findNearestUnmitigatedZone(unmitigatedZonesResult.unmitigatedSupply, currentPrice, 'above')
+            || dailyContext.nearestSupplyTarget
+          : findNearestUnmitigatedZone(unmitigatedZonesResult.unmitigatedDemand, currentPrice, 'below')
+            || dailyContext.nearestDemandTarget;
 
-        const entryCandles = this.getEntryCandles(data, tfSelection.entryTf);
         const entryResult = detectEntry(
-          entryCandles,
+          refinementCandles,
           zoneToUse,
           direction,
           nearestTarget,
-          [...m15Result.allZones]
+          [...unmitigatedZonesResult.allZones]
         );
 
         if (!entryResult.hasValidEntry) {
@@ -118,31 +126,31 @@ export class SMCStrategy extends BaseStrategy {
               symbol: instrument.symbol,
               assetClass: instrument.assetClass,
               direction: direction,
-              timeframe: tfSelection.zoneTf,
+              timeframe: tfSelection.zoneIdentificationTf,
             };
             pendingSetups.push(pendingSetup);
-            this.logAnalysis(`Zone monitoring: ${direction} (${entryResult.setup.confidence}% confidence, awaiting entry)`);
+            this.logAnalysis(`Zone monitoring: ${direction} (${entryResult.setup.confidence}% confidence, awaiting entry trigger)`);
           }
           continue;
         }
 
         if (entryResult.hasValidEntry && entryResult.setup) {
-          const refinementConfirmed = this.confirmOnRefinementTimeframe(
+          const entryConfirmed = this.confirmEntryTrigger(
             data,
-            tfSelection.refinementTf,
+            tfSelection.entryRefinementTf,
             entryResult,
             direction
           );
 
-          if (!refinementConfirmed) {
-            this.logAnalysis(`Entry not confirmed on ${tfSelection.refinementTf}, waiting...`);
+          if (!entryConfirmed) {
+            this.logAnalysis(`Entry trigger not confirmed on ${tfSelection.entryRefinementTf}, watching...`);
             if (entryResult.setup.confidence >= 50) {
               const pendingSetup = {
                 ...entryResult.setup,
                 symbol: instrument.symbol,
                 assetClass: instrument.assetClass,
                 direction: direction,
-                timeframe: tfSelection.zoneTf,
+                timeframe: tfSelection.zoneIdentificationTf,
               };
               pendingSetups.push(pendingSetup);
               this.logAnalysis(`Added to watchlist: ${direction} (${entryResult.setup.confidence}%)`);
@@ -156,8 +164,8 @@ export class SMCStrategy extends BaseStrategy {
             const signal = this.buildSignal(
               instrument,
               entryResult,
-              h4Result,
-              m15Result,
+              dailyContext,
+              unmitigatedZonesResult,
               refinementResult,
               tfSelection,
               data
@@ -186,17 +194,11 @@ export class SMCStrategy extends BaseStrategy {
     };
   }
 
-  private getContextCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
-    switch (tf) {
-      case '1D': return data.d1 || data.h4;
-      case '4H': return data.h4;
-      case '2H': return data.h2;
-      case '1H': return data.h1 || data.h2;
-      default: return data.h4;
-    }
+  private getContextCandles(data: MultiTimeframeData): Candle[] {
+    return data.d1 || data.h4;
   }
 
-  private getZoneCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
+  private getMajorZoneCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
     switch (tf) {
       case '4H': return data.h4;
       case '2H': return data.h2;
@@ -205,7 +207,7 @@ export class SMCStrategy extends BaseStrategy {
     }
   }
 
-  private getEntryCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
+  private getZoneIdentificationCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
     switch (tf) {
       case '30M': return data.m30;
       case '15M': return data.m15;
@@ -213,7 +215,7 @@ export class SMCStrategy extends BaseStrategy {
     }
   }
 
-  private getRefinementCandlesForTf(data: MultiTimeframeData, tf: Timeframe): Candle[] {
+  private getEntryRefinementCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
     switch (tf) {
       case '5M': return data.m5;
       case '3M': return data.m3;
@@ -222,31 +224,17 @@ export class SMCStrategy extends BaseStrategy {
     }
   }
 
-  private getRefinementCandles(data: MultiTimeframeData, tfSelection: TimeframeSelection): { intermediate: Candle[], entry: Candle[] } {
-    if (tfSelection.zoneTf === '30M') {
-      return {
-        intermediate: data.m3,
-        entry: data.m1,
-      };
-    }
-
-    return {
-      intermediate: data.m5,
-      entry: tfSelection.entryTf === '1M' ? data.m1 : data.m3,
-    };
-  }
-
-  private confirmOnRefinementTimeframe(
+  private confirmEntryTrigger(
     data: MultiTimeframeData,
-    refinementTf: Timeframe,
+    entryTf: Timeframe,
     entryResult: EntryDetectionResult,
     direction: SignalDirection
   ): boolean {
-    const refinementCandles = this.getRefinementCandlesForTf(data, refinementTf);
-    if (refinementCandles.length < 3) return false;
+    const entryCandles = this.getEntryRefinementCandles(data, entryTf);
+    if (entryCandles.length < 3) return false;
 
-    const lastCandle = refinementCandles[refinementCandles.length - 1];
-    const prevCandle = refinementCandles[refinementCandles.length - 2];
+    const lastCandle = entryCandles[entryCandles.length - 1];
+    const prevCandle = entryCandles[entryCandles.length - 2];
 
     if (direction === 'buy') {
       const bullishClose = lastCandle.close > lastCandle.open;
@@ -287,23 +275,23 @@ export class SMCStrategy extends BaseStrategy {
   private buildSignal(
     instrument: InstrumentData,
     entryResult: EntryDetectionResult,
-    h4Result: H4AnalysisResult,
-    m15Result: M15ZoneResult,
+    dailyContext: H4AnalysisResult,
+    zonesResult: M15ZoneResult,
     refinementResult: RefinementResult,
     tfSelection: TimeframeSelection,
     data: MultiTimeframeData
   ): StrategySignal {
     const setup = entryResult.setup!;
-    const marketContext = buildMarketContext(h4Result, h4Result.swingPoints);
+    const marketContext = buildMarketContext(dailyContext, dailyContext.swingPoints);
 
     const allReasoning = [
-      `Context TF: ${tfSelection.contextTf} (clarity: ${tfSelection.contextClarity.score}%)`,
-      `Zone TF: ${tfSelection.zoneTf} (clarity: ${tfSelection.zoneClarity.score}%)`,
-      `Entry TF: ${tfSelection.entryTf} (clarity: ${tfSelection.entryClarity.score}%)`,
-      `Refinement TF: ${tfSelection.refinementTf} (clarity: ${tfSelection.refinementClarity.score}%)`,
+      `1D Context: trend ${dailyContext.trend} (clarity: ${tfSelection.dailyContextClarity.score}%)`,
+      `Major Zones: ${tfSelection.majorZoneTf} (clarity: ${tfSelection.majorZoneClarity.score}%)`,
+      `Zone ID: ${tfSelection.zoneIdentificationTf} (clarity: ${tfSelection.zoneIdentificationClarity.score}%)`,
+      `Entry/Refinement: ${tfSelection.entryRefinementTf} (clarity: ${tfSelection.entryRefinementClarity.score}%)`,
       ...tfSelection.reasoning,
-      ...h4Result.reasoning,
-      ...m15Result.reasoning,
+      ...dailyContext.reasoning,
+      ...zonesResult.reasoning,
       ...refinementResult.reasoning,
       ...entryResult.reasoning,
     ];
@@ -321,12 +309,12 @@ export class SMCStrategy extends BaseStrategy {
       takeProfit: setup.takeProfit,
       riskRewardRatio: setup.riskRewardRatio,
       confidence: setup.confidence,
-      timeframe: tfSelection.entryTf,
+      timeframe: tfSelection.entryRefinementTf,
       marketContext,
       entrySetup: setup,
       zones: {
-        h4: [...h4Result.unmitigatedSupply, ...h4Result.unmitigatedDemand],
-        m15: m15Result.allZones,
+        h4: [...dailyContext.unmitigatedSupply, ...dailyContext.unmitigatedDemand],
+        m15: zonesResult.allZones,
         m5: [],
         m1: [],
       },

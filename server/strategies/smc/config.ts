@@ -50,11 +50,11 @@ export interface TimeframePair {
 
 export const CONTEXT_TIMEFRAME: Timeframe = '1D';
 
-export const ZONE_TIMEFRAMES: Timeframe[] = ['4H', '2H', '1H'];
+export const MAJOR_ZONE_TIMEFRAMES: Timeframe[] = ['4H', '2H', '1H'];
 
-export const ENTRY_TIMEFRAMES: Timeframe[] = ['30M', '15M'];
+export const ZONE_IDENTIFICATION_TIMEFRAMES: Timeframe[] = ['30M', '15M'];
 
-export const REFINEMENT_TIMEFRAMES: Timeframe[] = ['5M', '3M', '1M'];
+export const ENTRY_REFINEMENT_TIMEFRAMES: Timeframe[] = ['5M', '3M', '1M'];
 
 export const PRIMARY_TIMEFRAMES: TimeframePair = {
   context: '4H',
