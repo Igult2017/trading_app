@@ -101,14 +101,20 @@ export default function SignalCard({ signal }: SignalCardProps) {
           )}
         </div>
 
-        {/* Win Rate and Actions (Col 10-12) */}
-        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-3 pt-2">
-          {signal.overallConfidence !== undefined && (
-            <div className="text-right">
-              <div className={`text-xl font-extrabold ${winRateColor}`} data-testid={`text-confidence-${signal.id}`}>
-                {signal.overallConfidence}%
-              </div>
-              <div className="text-xs text-muted-foreground uppercase tracking-widest mt-0.5">Confidence</div>
+        {/* Timeframe, Active Badge and Actions (Col 10-12) */}
+        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-2 pt-2">
+          {/* Timeframe */}
+          <div className="text-sm font-bold text-muted-foreground uppercase">
+            {signal.primaryTimeframe || '4H'}
+          </div>
+          
+          {/* Active Badge with Cyan Glow */}
+          {signal.status === 'active' && (
+            <div 
+              className="px-4 py-1.5 rounded-lg text-sm font-bold text-white bg-[#00BCD4] border-2 border-[#00BCD4]/50 shadow-[0_0_12px_rgba(0,188,212,0.6),0_0_24px_rgba(0,188,212,0.3)]"
+              data-testid={`badge-active-${signal.id}`}
+            >
+              active
             </div>
           )}
           
