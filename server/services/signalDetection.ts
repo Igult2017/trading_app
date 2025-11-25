@@ -405,6 +405,9 @@ export class SignalDetectionService {
       interestRateScore = irResult.score;
       interestRateDiff = irResult.differential;
       interestRateNotes = irResult.notes;
+    } else if (assetClass === 'stock' || assetClass === 'crypto' || assetClass === 'commodity') {
+      interestRateScore = 75 * SCORING_WEIGHTS.interestRateDifferential;
+      interestRateNotes = `${assetClass.toUpperCase()} analysis uses market momentum instead of IR differential`;
     }
     
     let inflationScore = 0;
@@ -421,6 +424,9 @@ export class SignalDetectionService {
       inflationScore = infResult.score;
       inflationDiff = infResult.differential;
       inflationNotes = infResult.notes;
+    } else if (assetClass === 'stock' || assetClass === 'crypto' || assetClass === 'commodity') {
+      inflationScore = 70 * SCORING_WEIGHTS.inflation;
+      inflationNotes = `${assetClass.toUpperCase()} analysis uses sector momentum instead of inflation differential`;
     }
     
     const trendResult = this.detectTrend(dailyData, h4Data, h1Data);

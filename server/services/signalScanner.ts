@@ -283,11 +283,17 @@ export class SignalScannerService {
   }
 
   private determineTrendBias(symbol: string): 'bullish' | 'bearish' | 'neutral' {
-    const bullishPairs = ['EUR/USD', 'GBP/USD', 'AUD/USD', 'XAU/USD', 'BTC/USD'];
-    const bearishPairs = ['USD/JPY', 'USD/CAD', 'WTI OIL'];
+    const bullishAssets = [
+      'EUR/USD', 'GBP/USD', 'AUD/USD', 'XAU/USD', 'BTC/USD', 'ETH/USD',
+      'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'META', 'AMZN', 'V', 'MA', 'UNH'
+    ];
+    const bearishAssets = [
+      'USD/JPY', 'USD/CAD', 'WTI',
+      'TSLA', 'NFLX', 'DIS', 'BAC', 'AMD'
+    ];
     
-    if (bullishPairs.includes(symbol)) return 'bullish';
-    if (bearishPairs.includes(symbol)) return 'bearish';
+    if (bullishAssets.includes(symbol)) return 'bullish';
+    if (bearishAssets.includes(symbol)) return 'bearish';
     return 'neutral';
   }
 
