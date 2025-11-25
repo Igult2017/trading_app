@@ -128,20 +128,32 @@ Preferred communication style: Simple, everyday language.
 
 ## SMC Strategy #1 (Smart Money Concepts)
 - **Location**: `server/strategies/smc/`
-- **Files**: config.ts, h4Context.ts, m15Zones.ts, zoneRefinement.ts, entryDetection.ts, index.ts
-- **4-Step Analysis Process**:
-  1. **H4 Context**: Determines market control (supply/demand/neutral) and trend direction
-  2. **M15 Zone Detection**: Identifies unmitigated supply/demand zones, filters tradable zones
-  3. **Zone Refinement**: Refines M15 zones to M5 (1.3 pips) → M1 (3 pips), stays M5 if M1 is messy
-  4. **Entry Detection**: CHoCH, D/S-S/D flips, continuation patterns with zone reaction
+- **Files**: config.ts, clarityAnalysis.ts, h4Context.ts, m15Zones.ts, zoneRefinement.ts, entryDetection.ts, index.ts
+- **Adaptive Timeframe Selection**:
+  - **Primary Timeframes**: 4H (context) + 15M (zones) - used when clarity is good
+  - **Alternative Timeframes**: 2H (context) + 30M (zones) - used when primary lacks clarity
+  - **Entry Timeframes**: 5M, 3M, or 1M - whichever has best clarity
+  - **Clarity Scoring**: Trend consistency (35%) + Zone clarity (35%) + Structure clarity (30%)
+  - **Minimum Clarity**: 60% required to proceed, otherwise market is skipped
+- **5-Step Analysis Process**:
+  1. **Clarity Analysis**: Evaluates all timeframes, selects best context/zone/entry TFs
+  2. **Context Analysis (4H/2H)**: Determines market control (supply/demand/neutral) and trend direction
+  3. **Zone Detection (15M/30M)**: Identifies unmitigated supply/demand zones, filters tradable zones
+  4. **Zone Refinement**: 15M→5M→1M (or 30M→3M→1M based on zone TF), stays higher if lower is messy
+  5. **Entry Detection + LTF Confirmation**: CHoCH, D/S-S/D flips, continuation - requires LTF candle confirmation
+- **Quality Focus**: Skips unclear markets entirely - setups must be clearly identified
 - **Entry Types**: CHoCH (40 base confidence), D/S-S/D Flip (35), Continuation (30)
 - **Confirmations**: Zone reaction (+15-20), reaction candle (+10), rejection candle (+10), strong zone (+10)
+- **LTF Confirmation**: Buy requires bullish close + higher low or price break; Sell requires bearish close + lower high or price break
 - **Targets**: Nearest unmitigated zone → H4 supply/demand → default 3:1 R:R
 
 ## Real-Time Signal Generation
 - **Scanning Frequency**: Every 1 minute for 62 instruments (28 forex, 20 US stocks, 4 commodities, 4 crypto).
 - **Strategy Engine**: Modular architecture runs all enabled strategies per instrument
-- **Multi-Timeframe Analysis**: H4 for context/targets; M15 for zones; M5/M1 for refinement and entry.
+- **Adaptive Multi-Timeframe Analysis**:
+  - Primary: 4H (context) → 15M (zones) → 5M/1M (entry)
+  - Alternative: 2H (context) → 30M (zones) → 3M/1M (entry)
+  - Selection based on clarity scoring per timeframe
 - **Pending Setups System**: Multi-stage validation (Forming <75% confidence, Monitoring, Ready >=70% confidence).
 - **Signal Thresholds**: Immediate (>=75%), Pending (50-74%), Ready (>=70%).
 - **Signal Lifecycle**: Active (4-hour expiry window) → Expired → Auto-archived to trade history.

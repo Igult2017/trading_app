@@ -1,4 +1,4 @@
-import { StrategyConfig } from '../core/types';
+import { StrategyConfig, Timeframe } from '../core/types';
 
 export const SMC_STRATEGY_CONFIG: StrategyConfig = {
   id: 'smc-v1',
@@ -11,8 +11,11 @@ export const SMC_STRATEGY_CONFIG: StrategyConfig = {
 
 export const SMC_ZONE_CONFIG = {
   h4LookbackCandles: 100,
+  h2LookbackCandles: 100,
+  m30LookbackCandles: 100,
   m15LookbackCandles: 100,
   m5LookbackCandles: 100,
+  m3LookbackCandles: 80,
   m1LookbackCandles: 60,
   minImpulseRatio: 0.6,
   maxRefinedZonePips: 3,
@@ -30,4 +33,29 @@ export const SMC_ENTRY_CONFIG = {
   defaultRiskReward: 3,
 };
 
-export const SMC_TIMEFRAME_PRIORITY = ['4H', '15M', '5M', '1M'] as const;
+export const SMC_CLARITY_CONFIG = {
+  minClarityScore: 60,
+  minZonesRequired: 1,
+  maxZonesForClarity: 5,
+  minSwingPointsRequired: 4,
+  minTrendConsistency: 0.6,
+};
+
+export interface TimeframePair {
+  context: Timeframe;
+  zone: Timeframe;
+}
+
+export const PRIMARY_TIMEFRAMES: TimeframePair = {
+  context: '4H',
+  zone: '15M',
+};
+
+export const ALTERNATIVE_TIMEFRAMES: TimeframePair = {
+  context: '2H',
+  zone: '30M',
+};
+
+export const ENTRY_TIMEFRAMES: Timeframe[] = ['5M', '3M', '1M'];
+
+export const SMC_TIMEFRAME_PRIORITY = ['4H', '2H', '30M', '15M', '5M', '3M', '1M'] as const;

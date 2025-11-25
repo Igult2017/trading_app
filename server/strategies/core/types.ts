@@ -1,4 +1,4 @@
-export type Timeframe = '1M' | '5M' | '15M' | '30M' | '1H' | '4H' | '1D' | '1W';
+export type Timeframe = '1M' | '3M' | '5M' | '15M' | '30M' | '1H' | '2H' | '4H' | '1D' | '1W';
 
 export type ZoneType = 'supply' | 'demand';
 
@@ -99,8 +99,11 @@ export interface StrategySignal {
 
 export interface MultiTimeframeData {
   h4: Candle[];
+  h2: Candle[];
+  m30: Candle[];
   m15: Candle[];
   m5: Candle[];
+  m3: Candle[];
   m1: Candle[];
   daily?: Candle[];
 }

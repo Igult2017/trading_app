@@ -9,10 +9,12 @@ export interface TimeframeConfig {
 
 export const TIMEFRAME_CONFIGS: Record<Timeframe, TimeframeConfig> = {
   '1M': { timeframe: '1M', period: '1d', interval: '1m', candleCount: 60 },
+  '3M': { timeframe: '3M', period: '2d', interval: '3m', candleCount: 80 },
   '5M': { timeframe: '5M', period: '5d', interval: '5m', candleCount: 100 },
   '15M': { timeframe: '15M', period: '5d', interval: '15m', candleCount: 100 },
   '30M': { timeframe: '30M', period: '10d', interval: '30m', candleCount: 100 },
   '1H': { timeframe: '1H', period: '1mo', interval: '1h', candleCount: 100 },
+  '2H': { timeframe: '2H', period: '2mo', interval: '2h', candleCount: 100 },
   '4H': { timeframe: '4H', period: '3mo', interval: '4h', candleCount: 100 },
   '1D': { timeframe: '1D', period: '1y', interval: '1d', candleCount: 252 },
   '1W': { timeframe: '1W', period: '2y', interval: '1wk', candleCount: 104 },
@@ -31,10 +33,12 @@ export function generateMockCandles(
 
   const timeframeMs: Record<Timeframe, number> = {
     '1M': 60 * 1000,
+    '3M': 3 * 60 * 1000,
     '5M': 5 * 60 * 1000,
     '15M': 15 * 60 * 1000,
     '30M': 30 * 60 * 1000,
     '1H': 60 * 60 * 1000,
+    '2H': 2 * 60 * 60 * 1000,
     '4H': 4 * 60 * 60 * 1000,
     '1D': 24 * 60 * 60 * 1000,
     '1W': 7 * 24 * 60 * 60 * 1000,
@@ -81,17 +85,23 @@ export async function fetchMultiTimeframeData(
 
   const volatility = getVolatilityForAsset(assetClass);
 
-  const [h4Data, m15Data, m5Data, m1Data] = await Promise.all([
+  const [h4Data, h2Data, m30Data, m15Data, m5Data, m3Data, m1Data] = await Promise.all([
     generateMockCandles(currentPrice, '4H', 100, volatility, trendBias),
+    generateMockCandles(currentPrice, '2H', 100, volatility, trendBias),
+    generateMockCandles(currentPrice, '30M', 100, volatility, trendBias),
     generateMockCandles(currentPrice, '15M', 100, volatility, trendBias),
     generateMockCandles(currentPrice, '5M', 100, volatility, trendBias),
+    generateMockCandles(currentPrice, '3M', 80, volatility, trendBias),
     generateMockCandles(currentPrice, '1M', 60, volatility, trendBias),
   ]);
 
   return {
     h4: h4Data,
+    h2: h2Data,
+    m30: m30Data,
     m15: m15Data,
     m5: m5Data,
+    m3: m3Data,
     m1: m1Data,
   };
 }
