@@ -10,6 +10,7 @@ const subNavLinks = [
   { name: 'Commodities', path: '/commodities' },
   { name: 'Cryptocurrency', path: '/crypto' },
   { name: 'History', path: '/history' },
+  { name: 'Blog', path: '/blog' },
 ];
 
 export default function Header() {
