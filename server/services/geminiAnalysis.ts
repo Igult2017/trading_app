@@ -54,6 +54,7 @@ export interface SignalValidationResult {
   recommendation: 'proceed' | 'caution' | 'skip';
   reasoning: string;
   error?: string;
+  isFallback?: boolean; // True ONLY when Gemini is unavailable and we use strategy signal as-is
 }
 
 export interface MarketScanResult {
@@ -219,14 +220,16 @@ Provide your validation in the exact JSON format specified.
     };
   } catch (error) {
     console.error('Gemini validation error:', error);
+    // ONLY when Gemini is unavailable (error): fallback to strategy signal as-is
     return {
-      validated: true, // Default to valid if Gemini fails
+      validated: true,
       confidenceAdjustment: 0,
-      concerns: ['Gemini validation unavailable'],
+      concerns: ['Gemini validation unavailable - using strategy signal as fallback'],
       strengths: [],
-      recommendation: 'caution',
-      reasoning: 'Gemini service error - using strategy signal as-is',
+      recommendation: 'proceed', // Fallback: proceed with strategy signal
+      reasoning: 'Gemini service unavailable - FALLBACK: using strategy signal as-is',
       error: error instanceof Error ? error.message : 'Unknown error',
+      isFallback: true, // Flag to indicate this is a fallback response
     };
   }
 }
