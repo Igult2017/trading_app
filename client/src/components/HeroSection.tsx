@@ -44,8 +44,8 @@ export function HeroSection() {
   const session = getCurrentSession();
 
   return (
-    <header className="bg-blue-600 py-16 sm:py-20 lg:py-24 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-between gap-12">
+    <header className="bg-blue-600 py-6 sm:py-8 lg:py-10 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-between gap-8">
         
         {/* Left Side: Text Content and Buttons */}
         <motion.div 
