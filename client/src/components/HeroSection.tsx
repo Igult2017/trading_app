@@ -41,7 +41,7 @@ export function HeroSection() {
             Access premium signals, real-time analytics, and expert research to confidently navigate global financial markets.
           </motion.p>
           <motion.div 
-            className="mt-6 lg:mt-auto flex justify-center lg:justify-start"
+            className="mt-10 lg:mt-auto pt-4 flex justify-center lg:justify-start"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
@@ -90,7 +90,7 @@ export function HeroSection() {
           </div>
           {/* Learn More Button */}
           <motion.div 
-            className="mt-4 lg:mt-auto flex justify-end"
+            className="mt-6 lg:mt-auto pt-4 flex justify-end"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
