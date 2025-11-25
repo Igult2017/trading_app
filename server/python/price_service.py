@@ -81,6 +81,18 @@ COMMODITIES_MAP = {
     "COPPER": "HG=F",       # Copper
 }
 
+# US Indices mapping for Yahoo Finance
+INDEX_MAP = {
+    "US100": "^NDX",        # NASDAQ 100
+    "US500": "^GSPC",       # S&P 500
+    "US30": "^DJI",         # Dow Jones Industrial Average
+    "RUSSELL2000": "^RUT",  # Russell 2000
+    "VIX": "^VIX",          # Volatility Index
+    "NASDAQ": "^IXIC",      # NASDAQ Composite
+    "SPX": "^GSPC",         # S&P 500 alternative name
+    "DJI": "^DJI",          # Dow Jones alternative name
+}
+
 
 def get_yahoo_price(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch price from Yahoo Finance"""
@@ -211,10 +223,12 @@ def get_price(symbol: str, asset_class: str = "stock") -> Dict[str, Any]:
                 result["error"] = f"Unknown commodity: {symbol}"
                 
         else:  # stock
-            # Direct stock symbol lookup
-            price_data = get_yahoo_price(symbol)
+            # Check if it's an index first
+            yahoo_symbol = INDEX_MAP.get(symbol.upper(), symbol)
+            price_data = get_yahoo_price(yahoo_symbol)
             if price_data:
                 result.update(price_data)
+                result["symbol"] = symbol  # Keep original symbol name
             else:
                 result["error"] = f"Could not fetch stock price for {symbol}"
                 

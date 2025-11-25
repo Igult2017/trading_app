@@ -43,6 +43,13 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'NZD/CAD', assetClass: 'forex', currentPrice: 0.8340 },
   { symbol: 'NZD/CHF', assetClass: 'forex', currentPrice: 0.5380 },
   
+  // Major US Indices (5)
+  { symbol: 'US100', assetClass: 'stock', currentPrice: 21200.00 },
+  { symbol: 'US500', assetClass: 'stock', currentPrice: 5950.00 },
+  { symbol: 'US30', assetClass: 'stock', currentPrice: 43800.00 },
+  { symbol: 'RUSSELL2000', assetClass: 'stock', currentPrice: 2350.00 },
+  { symbol: 'VIX', assetClass: 'stock', currentPrice: 14.50 },
+  
   // Major US Stocks - Tech (10)
   { symbol: 'AAPL', assetClass: 'stock', currentPrice: 175.50 },
   { symbol: 'MSFT', assetClass: 'stock', currentPrice: 378.25 },
