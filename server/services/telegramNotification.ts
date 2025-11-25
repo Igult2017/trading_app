@@ -412,7 +412,8 @@ export class TelegramNotificationService {
         `Take Profit: ${takeProfit}\n` +
         `Risk/Reward: 1:${riskReward}\n\n` +
         `Strategy: ${strategy}\n` +
-        `Time: ${timeStr} UTC`;
+        `Time: ${timeStr} UTC\n\n` +
+        `⚠️ Disclaimer: All signals are for educational purposes only — not financial advice. Trading is risky and you are solely responsible for your decisions. Always use proper risk management and personal discretion.`;
 
       for (const subscriber of subscribers) {
         try {
