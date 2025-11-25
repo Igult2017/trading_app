@@ -403,17 +403,15 @@ export class TelegramNotificationService {
       const timeStr = format(now, 'MMM dd, HH:mm');
       
       const telegramMessage = 
-        `${typeEmoji} NEW TRADING SIGNAL\n\n` +
-        `${directionEmoji} ${signal.symbol} - ${signal.type.toUpperCase()}\n` +
-        `Asset: ${(signal.assetClass || 'forex').toUpperCase()}\n` +
-        `Confidence: ${confidence}%\n\n` +
-        `Entry: ${entryPrice}\n` +
-        `Stop Loss: ${stopLoss}\n` +
-        `Take Profit: ${takeProfit}\n` +
-        `Risk/Reward: 1:${riskReward}\n\n` +
-        `Strategy: ${strategy}\n` +
-        `Time: ${timeStr} UTC\n\n` +
-        `⚠️ Disclaimer: All signals are for educational purposes only — not financial advice. Trading is risky and you are solely responsible for your decisions. Always use proper risk management and personal discretion.`;
+        `${typeEmoji} ${signal.symbol} │ ${signal.type.toUpperCase()}\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `💰 Entry: ${entryPrice}\n` +
+        `🛑 SL: ${stopLoss}\n` +
+        `🎯 TP: ${takeProfit}\n` +
+        `📊 R:R 1:${riskReward} │ ${confidence}%\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🔗 View details: www.findbuyandsellzones.com/signals\n\n` +
+        `⚠️ Educational only — not financial advice. Trade responsibly.`;
 
       for (const subscriber of subscribers) {
         try {
