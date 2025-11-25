@@ -109,7 +109,7 @@ export default function Dashboard() {
                 <div className="p-8 text-center text-muted-foreground">No instruments being monitored</div>
               ) : (
                 watchlistItems.slice(0, 8).map(item => (
-                  <WatchlistCard key={item.id} item={item} />
+                  <WatchlistCard key={item.id} item={item} showProbability={true} />
                 ))
               )}
             </div>

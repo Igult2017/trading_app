@@ -4,18 +4,26 @@ import {
   Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import type { PendingSetup } from '@shared/schema';
 
 interface WatchlistCardProps {
   item: PendingSetup;
+  showProbability?: boolean;
 }
 
-export default function WatchlistCard({ item }: WatchlistCardProps) {
+export default function WatchlistCard({ item, showProbability = false }: WatchlistCardProps) {
   const currentPrice = item.currentPrice?.toString() || '—';
   const isPriceUp = parseFloat(currentPrice) > 0;
   const changeColor = isPriceUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
   const ChangeIcon = isPriceUp ? ArrowUpRight : ArrowDownRight;
   
+  const priority = item.setupStage === 'ready' ? 'HIGH' : 'MEDIUM';
+  const isHighPriority = priority === 'HIGH';
+  const priorityBadgeClass = isHighPriority 
+    ? 'bg-destructive text-destructive-foreground border-destructive' 
+    : 'bg-amber-600 text-white dark:bg-amber-700 dark:text-white border-amber-600 dark:border-amber-700';
+
   return (
     <div 
       className="bg-card border-b border-r border-l border-border p-0 group hover:bg-muted/50 transition-colors grid grid-cols-12 items-center text-foreground"
@@ -47,18 +55,42 @@ export default function WatchlistCard({ item }: WatchlistCardProps) {
         </div>
       </div>
 
-      {/* Action (Col 8-12) */}
-      <div className="col-span-5 py-4 px-3 border-l border-border flex justify-end">
-        <Button 
-          size="sm" 
-          variant="default"
-          className="px-3 py-1 text-xs font-bold uppercase tracking-wider"
-          data-testid={`button-details-${item.id}`}
-        >
-          <Eye className="w-4 h-4 mr-1" />
-          Details
-        </Button>
-      </div>
+      {showProbability ? (
+        <>
+          {/* Priority Level (Col 8-10) - Only shown when showProbability is true */}
+          <div className="col-span-3 py-4 px-6 border-l border-border flex flex-col justify-center">
+            <Badge className={`w-fit px-3 py-1 text-xs font-bold uppercase tracking-widest border ${priorityBadgeClass}`}>
+              {priority}
+            </Badge>
+          </div>
+
+          {/* Action (Col 11-12) */}
+          <div className="col-span-2 py-4 px-3 border-l border-border flex justify-end">
+            <Button 
+              size="sm" 
+              variant="default"
+              className="px-3 py-1 text-xs font-bold uppercase tracking-wider"
+              data-testid={`button-details-${item.id}`}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Details
+            </Button>
+          </div>
+        </>
+      ) : (
+        /* Action (Col 8-12) - Full width when no probability shown */
+        <div className="col-span-5 py-4 px-3 border-l border-border flex justify-end">
+          <Button 
+            size="sm" 
+            variant="default"
+            className="px-3 py-1 text-xs font-bold uppercase tracking-wider"
+            data-testid={`button-details-${item.id}`}
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Details
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
