@@ -15,11 +15,11 @@ export function HeroSection() {
 
   return (
     <header className="bg-blue-600 py-6 sm:py-8 lg:py-10 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-start justify-between gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-start lg:items-stretch justify-between gap-8">
         
         {/* Left Side: Text Content and Buttons */}
         <motion.div 
-          className="lg:w-1/2 text-center lg:text-left"
+          className="lg:w-1/2 text-center lg:text-left flex flex-col"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -41,7 +41,7 @@ export function HeroSection() {
             Access premium signals, real-time analytics, and expert research to confidently navigate global financial markets.
           </motion.p>
           <motion.div 
-            className="mt-10 flex justify-center lg:justify-start"
+            className="mt-10 lg:mt-auto flex justify-center lg:justify-start"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
@@ -54,7 +54,7 @@ export function HeroSection() {
 
         {/* Right Side: Live Signals */}
         <motion.div 
-          className="lg:w-1/2"
+          className="lg:w-1/2 flex flex-col"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
@@ -90,7 +90,7 @@ export function HeroSection() {
           </div>
           {/* Learn More Button */}
           <motion.div 
-            className="mt-16 flex justify-end"
+            className="mt-4 lg:mt-auto flex justify-end"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
