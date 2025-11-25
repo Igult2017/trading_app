@@ -104,11 +104,13 @@ export class SignalScannerService {
       console.log(`[SignalScanner] Running ${stats.enabledStrategies} enabled strategies`);
 
       const newSignals: StrategySignal[] = [];
+      const allPendingSetups: any[] = [];
 
       for (const instrument of TRADEABLE_INSTRUMENTS) {
         try {
-          const signals = await this.analyzeWithStrategies(instrument);
-          newSignals.push(...signals);
+          const result = await this.analyzeWithStrategies(instrument);
+          newSignals.push(...result.signals);
+          allPendingSetups.push(...result.pendingSetups);
         } catch (error) {
           console.error(`Error analyzing ${instrument.symbol}:`, error);
         }
@@ -124,6 +126,13 @@ export class SignalScannerService {
         console.log('[SignalScanner] No high-confidence signals found in this scan');
       }
 
+      if (allPendingSetups.length > 0) {
+        console.log(`[SignalScanner] Found ${allPendingSetups.length} pending setups for watchlist`);
+        for (const setup of allPendingSetups) {
+          await this.saveWatchlistSignal(setup);
+        }
+      }
+
     } catch (error) {
       console.error('[SignalScanner] Error during market scan:', error);
     } finally {
@@ -131,7 +140,7 @@ export class SignalScannerService {
     }
   }
 
-  private async analyzeWithStrategies(instrument: { symbol: string; assetClass: string; currentPrice: number }): Promise<StrategySignal[]> {
+  private async analyzeWithStrategies(instrument: { symbol: string; assetClass: string; currentPrice: number }): Promise<{ signals: StrategySignal[]; pendingSetups: any[] }> {
     const { symbol, assetClass, currentPrice } = instrument;
 
     let livePrice = currentPrice;
@@ -159,12 +168,61 @@ export class SignalScannerService {
     });
 
     if (existingActiveSignals.length > 0) {
-      return [];
+      return { signals: [], pendingSetups: [] };
     }
 
-    const signals = await strategyRegistry.runAllStrategies(instrumentData);
+    const result = await strategyRegistry.runAllStrategiesWithPending(instrumentData);
 
-    return signals;
+    return result;
+  }
+
+  private async saveWatchlistSignal(setup: any): Promise<void> {
+    try {
+      const existingWatchlist = await storage.getTradingSignals({
+        symbol: setup.symbol,
+        status: 'watchlist'
+      });
+
+      if (existingWatchlist.length > 0) {
+        return;
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+      await storage.createTradingSignal({
+        symbol: setup.symbol,
+        assetClass: setup.assetClass || 'forex',
+        type: setup.direction || 'buy',
+        strategy: 'Smart Money Concepts',
+        primaryTimeframe: setup.timeframe || '15M',
+        confirmationTimeframe: '1M',
+        entryPrice: setup.entryZone?.midPrice?.toString() || '0',
+        stopLoss: setup.stopLoss?.toString() || '0',
+        takeProfit: setup.takeProfit?.toString() || '0',
+        riskRewardRatio: setup.riskRewardRatio?.toString() || '2',
+        overallConfidence: setup.confidence || 50,
+        trendDirection: setup.trendDirection || 'sideways',
+        trendScore: (setup.confidence || 50).toString(),
+        smcScore: (setup.confidence || 50).toString(),
+        smcFactors: setup.confirmations || [],
+        orderBlockType: setup.entryZone?.type || 'demand',
+        orderBlockLevel: setup.entryZone?.topPrice?.toString() || '0',
+        fvgDetected: false,
+        fvgLevel: null,
+        liquiditySweep: false,
+        bocChochDetected: null,
+        technicalReasons: setup.confirmations || ['Pending LTF confirmation'],
+        marketContext: `Watchlist: ${setup.symbol} - awaiting entry confirmation`,
+        strength: setup.confidence >= 60 ? 'moderate' : 'weak',
+        status: 'watchlist',
+        expiresAt,
+      });
+
+      console.log(`[SignalScanner] Added to watchlist: ${setup.symbol} (${setup.confidence}% confidence)`);
+    } catch (error) {
+      console.error(`[SignalScanner] Error saving watchlist signal:`, error);
+    }
   }
 
   private async saveAndNotifySignal(signal: StrategySignal): Promise<void> {
@@ -174,6 +232,7 @@ export class SignalScannerService {
 
       const dbSignal = await storage.createTradingSignal({
         symbol: signal.symbol,
+        assetClass: signal.assetClass || 'forex',
         type: signal.direction,
         strategy: signal.strategyName,
         primaryTimeframe: signal.timeframe,

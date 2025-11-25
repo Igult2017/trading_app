@@ -92,8 +92,14 @@ export class StrategyRegistry {
   }
 
   async runAllStrategies(instrument: InstrumentData): Promise<StrategySignal[]> {
+    const result = await this.runAllStrategiesWithPending(instrument);
+    return result.signals;
+  }
+
+  async runAllStrategiesWithPending(instrument: InstrumentData): Promise<{ signals: StrategySignal[]; pendingSetups: any[] }> {
     const enabledStrategies = this.getEnabledStrategies();
     const allSignals: StrategySignal[] = [];
+    const allPendingSetups: any[] = [];
 
     const results = await Promise.allSettled(
       enabledStrategies.map(strategy => this.runStrategy(strategy.id, instrument))
@@ -102,10 +108,17 @@ export class StrategyRegistry {
     for (const result of results) {
       if (result.status === 'fulfilled' && result.value) {
         allSignals.push(...result.value.signals);
+        if (result.value.pendingSetups && result.value.pendingSetups.length > 0) {
+          allPendingSetups.push(...result.value.pendingSetups.map(setup => ({
+            ...setup,
+            symbol: instrument.symbol,
+            assetClass: instrument.assetClass,
+          })));
+        }
       }
     }
 
-    return allSignals;
+    return { signals: allSignals, pendingSetups: allPendingSetups };
   }
 
   async runAllStrategiesForMultipleInstruments(

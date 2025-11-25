@@ -109,6 +109,21 @@ export class SMCStrategy extends BaseStrategy {
           [...m15Result.allZones]
         );
 
+        if (!entryResult.hasValidEntry) {
+          if (entryResult.setup && entryResult.setup.confidence >= 40) {
+            const pendingSetup = {
+              ...entryResult.setup,
+              symbol: instrument.symbol,
+              assetClass: instrument.assetClass,
+              direction: direction,
+              timeframe: tfSelection.zoneTf,
+            };
+            pendingSetups.push(pendingSetup);
+            this.logAnalysis(`Zone monitoring: ${direction} (${entryResult.setup.confidence}% confidence, awaiting entry)`);
+          }
+          continue;
+        }
+
         if (entryResult.hasValidEntry && entryResult.setup) {
           const lowerTfConfirmed = this.confirmOnLowerTimeframe(
             data,
@@ -120,7 +135,15 @@ export class SMCStrategy extends BaseStrategy {
           if (!lowerTfConfirmed) {
             this.logAnalysis(`Entry not confirmed on ${tfSelection.entryTf}, waiting...`);
             if (entryResult.setup.confidence >= 50) {
-              pendingSetups.push(entryResult.setup);
+              const pendingSetup = {
+                ...entryResult.setup,
+                symbol: instrument.symbol,
+                assetClass: instrument.assetClass,
+                direction: direction,
+                timeframe: tfSelection.zoneTf,
+              };
+              pendingSetups.push(pendingSetup);
+              this.logAnalysis(`Added to watchlist: ${direction} (${entryResult.setup.confidence}%)`);
             }
             continue;
           }
