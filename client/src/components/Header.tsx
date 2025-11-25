@@ -52,13 +52,15 @@ export default function Header() {
             >
               Signals
             </Link>
-            <Link 
-              href="/join" 
+            <a 
+              href="https://t.me/BuySellZonesBot" 
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-base font-semibold text-muted-foreground hover:text-primary transition-colors hidden sm:block"
-              data-testid="link-join"
+              data-testid="link-telegram"
             >
-              Join
-            </Link>
+              Join Telegram Notification
+            </a>
           </div>
         </div>
 
@@ -78,9 +80,9 @@ export default function Header() {
           </button>
           <button 
             className="px-5 py-2.5 text-base font-extrabold text-destructive bg-card dark:bg-background rounded-full border-2 border-destructive dotted-outline hover:bg-muted dark:hover:bg-muted transition duration-150 transform hover:scale-[1.02] active:scale-[0.98]"
-            data-testid="button-block"
+            data-testid="button-signup"
           >
-            Block
+            Signup
           </button>
         </div>
       </nav>
