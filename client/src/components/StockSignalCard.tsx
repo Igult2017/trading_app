@@ -1,14 +1,18 @@
+import { useState } from 'react';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
-  Eye, 
   DollarSign,
   Info,
   TrendingUp,
   TrendingDown,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  BarChart2,
+  Shield
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { TradingSignal } from '@shared/schema';
 
@@ -42,13 +46,14 @@ const StatBlock = ({ label, value, colorClass = "text-foreground", icon: Icon }:
 );
 
 export default function StockSignalCard({ signal }: StockSignalCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   const isBuy = signal.type?.toLowerCase() === 'buy';
   const trendColor = isBuy ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400';
   const TrendIcon = isBuy ? TrendingUp : TrendingDown;
-  
-  const statusClasses = signal.status === 'active' 
-    ? 'bg-primary text-primary-foreground' 
-    : 'bg-muted text-muted-foreground';
+  const winRateColor = (signal.overallConfidence ?? 0) >= 90 
+    ? 'text-emerald-600 dark:text-emerald-400' 
+    : (signal.overallConfidence ?? 0) >= 80 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground';
 
   const entryPrice = signal.entryPrice?.toString() || '—';
   const stopLoss = signal.stopLoss?.toString() || '—';
@@ -58,9 +63,10 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
 
   return (
     <div 
-      className="bg-card border-l-4 border-r border-b border-border p-0 relative group hover:z-10 transition-all hover:border-foreground/30" 
+      className="bg-card border-l-4 border-r border-b border-border p-0 relative group transition-all cursor-pointer" 
       style={{ borderLeftColor: isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))' }}
       data-testid={`card-stock-${signal.id}`}
+      onClick={() => setIsExpanded(!isExpanded)}
     >
       <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">
         
@@ -116,10 +122,18 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
           )}
         </div>
 
-        {/* Timeframe, Time Ago and Actions (Col 10-12) */}
+        {/* Timeframe, Time Ago and Chevron (Col 10-12) */}
         <div className="md:col-span-3 flex flex-col items-start md:items-end gap-2 pt-2">
-          <div className="text-sm font-bold text-muted-foreground uppercase">
-            {signal.primaryTimeframe || '4H'}
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-bold text-muted-foreground uppercase">
+              {signal.primaryTimeframe || '4H'}
+            </div>
+            
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            )}
           </div>
           
           {signal.createdAt && (
@@ -131,17 +145,92 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
               {formatTimeAgo(signal.createdAt)}
             </div>
           )}
-          
-          <Button 
-            size="sm"
-            className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
-            data-testid={`button-details-${signal.id}`}
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            Show Details
-          </Button>
         </div>
       </div>
+
+      {/* Expanded Details Section */}
+      {isExpanded && (
+        <div className="px-6 pb-6 pt-2 border-t border-border animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Market Context */}
+            {signal.marketContext && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> Market Context
+                </h4>
+                <p className="text-sm">{signal.marketContext}</p>
+              </div>
+            )}
+
+            {/* Technical Reasons */}
+            {signal.technicalReasons && signal.technicalReasons.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                  <Target className="w-3 h-3" /> Technical Reasons
+                </h4>
+                <ul className="text-sm space-y-1">
+                  {signal.technicalReasons.map((reason: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-primary">•</span>
+                      <span>{reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* SMC Factors */}
+            {signal.smcFactors && signal.smcFactors.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                  <Shield className="w-3 h-3" /> SMC Factors
+                </h4>
+                <ul className="text-sm space-y-1">
+                  {signal.smcFactors.map((factor: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-primary">•</span>
+                      <span>{factor}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Additional Stats */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                <BarChart2 className="w-3 h-3" /> Signal Stats
+              </h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {signal.overallConfidence && (
+                  <div>
+                    <span className="text-muted-foreground">Confidence:</span>
+                    <span className={`ml-2 font-semibold ${winRateColor}`}>{signal.overallConfidence}%</span>
+                  </div>
+                )}
+                {signal.trendStrength && (
+                  <div>
+                    <span className="text-muted-foreground">Trend:</span>
+                    <span className="ml-2 font-semibold">{signal.trendStrength}</span>
+                  </div>
+                )}
+                {signal.trendDirection && (
+                  <div>
+                    <span className="text-muted-foreground">Direction:</span>
+                    <span className="ml-2 font-semibold">{signal.trendDirection}</span>
+                  </div>
+                )}
+                {signal.riskRewardRatio && (
+                  <div>
+                    <span className="text-muted-foreground">R:R:</span>
+                    <span className="ml-2 font-semibold">{signal.riskRewardRatio}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
