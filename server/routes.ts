@@ -10,6 +10,7 @@ import { telegramNotificationService } from "./services/telegramNotification";
 import { notificationService } from "./services/notificationService";
 import { signalDetectionService } from "./services/signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
+import { getCachedPrice, getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -512,6 +513,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching pending setup:", error);
       res.status(500).json({ error: "Failed to fetch pending setup" });
+    }
+  });
+
+  // Real-time price data endpoints using Python/tessa
+  app.get("/api/prices/status", async (req, res) => {
+    try {
+      const isOnline = await pingPriceService();
+      res.json({ 
+        status: isOnline ? "online" : "offline",
+        message: isOnline ? "Price service is running" : "Price service is not available"
+      });
+    } catch (error) {
+      res.json({ status: "offline", message: "Price service error" });
+    }
+  });
+
+  app.get("/api/prices/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol;
+      const assetClass = (req.query.assetClass as string) || "stock";
+      
+      const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
+      if (!validAssetClasses.includes(assetClass)) {
+        return res.status(400).json({ error: "Invalid asset class" });
+      }
+      
+      const priceData = await getCachedPrice(
+        symbol, 
+        assetClass as "stock" | "forex" | "commodity" | "crypto"
+      );
+      
+      if (priceData.error) {
+        return res.status(404).json({ error: priceData.error });
+      }
+      
+      res.json(priceData);
+    } catch (error) {
+      console.error("Error fetching price:", error);
+      res.status(500).json({ error: "Failed to fetch price" });
+    }
+  });
+
+  app.post("/api/prices/batch", async (req, res) => {
+    try {
+      const { symbols } = req.body;
+      
+      if (!Array.isArray(symbols) || symbols.length === 0) {
+        return res.status(400).json({ error: "Symbols array is required" });
+      }
+      
+      if (symbols.length > 50) {
+        return res.status(400).json({ error: "Maximum 50 symbols per request" });
+      }
+      
+      const priceData = await getCachedMultiplePrices(symbols);
+      res.json(priceData);
+    } catch (error) {
+      console.error("Error fetching batch prices:", error);
+      res.status(500).json({ error: "Failed to fetch prices" });
     }
   });
 
