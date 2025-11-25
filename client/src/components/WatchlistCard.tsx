@@ -1,8 +1,7 @@
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
-  Eye, 
-  Target
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PendingSetup } from '@shared/schema';
@@ -13,7 +12,6 @@ interface WatchlistCardProps {
 
 export default function WatchlistCard({ item }: WatchlistCardProps) {
   const currentPrice = item.currentPrice?.toString() || '—';
-  const zoneLevel = item.zoneLevel?.toString() || null;
   const isPriceUp = parseFloat(currentPrice) > 0;
   const changeColor = isPriceUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
   const ChangeIcon = isPriceUp ? ArrowUpRight : ArrowDownRight;
@@ -49,17 +47,8 @@ export default function WatchlistCard({ item }: WatchlistCardProps) {
         </div>
       </div>
 
-      {/* Key Level (Col 8-10) */}
-      <div className="col-span-3 py-4 px-6 border-l border-border flex flex-col justify-center">
-        {zoneLevel && (
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
-            <Target className="w-3 h-3" /> {zoneLevel}
-          </div>
-        )}
-      </div>
-
-      {/* Action (Col 11-12) */}
-      <div className="col-span-2 py-4 px-3 border-l border-border flex justify-end">
+      {/* Action (Col 8-12) */}
+      <div className="col-span-5 py-4 px-3 border-l border-border flex justify-end">
         <Button 
           size="sm" 
           variant="default"
