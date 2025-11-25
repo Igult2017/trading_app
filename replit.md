@@ -46,9 +46,23 @@ Preferred communication style: Simple, everyday language.
 - **Responsive Design**: Mobile-first with trading desk breakpoints.
 
 ## Real-time Capabilities
-- **Market Data**: Planned WebSocket connections for live feeds.
+- **Market Data**: Live price feeds via Python/tessa integration (Yahoo Finance and CoinGecko).
 - **Session Monitoring**: Real-time tracking of major trading sessions (London, New York, Tokyo, Sydney).
 - **Signal Generation**: Live scanning and notification system for trading opportunities.
+
+## Python Price Service (tessa Integration)
+- **Location**: `server/python/price_service.py`
+- **Libraries**: tessa, yfinance, pycoingecko
+- **Data Sources**: 
+  - Yahoo Finance for stocks, forex, commodities
+  - CoinGecko for cryptocurrency (with Yahoo fallback)
+- **Node.js Bridge**: `server/lib/priceService.ts` - spawns Python subprocess with JSON I/O
+- **Caching**: 30-second in-memory cache to reduce API calls
+- **API Endpoints**:
+  - `GET /api/prices/status` - Check if price service is online
+  - `GET /api/prices/:symbol?assetClass=stock|forex|commodity|crypto` - Single price
+  - `POST /api/prices/batch` - Batch price requests (max 50 symbols)
+- **Frontend Hook**: `client/src/hooks/usePrices.ts` - React Query integration with auto-refresh
 
 ## Trading Analysis Framework
 - **Multi-timeframe Analysis**: 1D, 4H, 30M, 15M for analysis; 1M for entries.
