@@ -5,11 +5,28 @@ import {
   DollarSign,
   Info,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { TradingSignal } from '@shared/schema';
+
+const formatTimeAgo = (timestamp: Date | string) => {
+  const now = new Date();
+  const created = new Date(timestamp);
+  const diffMs = now.getTime() - created.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+};
 
 interface StockSignalCardProps {
   signal: TradingSignal;
@@ -99,18 +116,22 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
           )}
         </div>
 
-        {/* Confidence and Actions (Col 10-12) */}
-        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-3 pt-2">
-          <div className="text-right">
-            <div className="text-sm font-semibold text-foreground uppercase tracking-widest">
-              {signal.primaryTimeframe || '—'}
-            </div>
-            {signal.status && (
-              <div className={`text-base font-semibold ${statusClasses} px-3 py-1 border border-foreground mt-1`}>
-                {signal.status}
-              </div>
-            )}
+        {/* Timeframe, Time Ago and Actions (Col 10-12) */}
+        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-2 pt-2">
+          <div className="text-sm font-bold text-muted-foreground uppercase">
+            {signal.primaryTimeframe || '4H'}
           </div>
+          
+          {signal.createdAt && (
+            <div 
+              className="text-xs text-muted-foreground flex items-center gap-1"
+              data-testid={`time-ago-${signal.id}`}
+            >
+              <Clock className="w-3 h-3" />
+              {formatTimeAgo(signal.createdAt)}
+            </div>
+          )}
+          
           <Button 
             size="sm"
             className="px-4 py-2 text-xs font-bold uppercase tracking-wider"

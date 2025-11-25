@@ -1,11 +1,28 @@
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
-  Eye
+  Eye,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { PendingSetup } from '@shared/schema';
+
+const formatTimeAgo = (timestamp: Date | string) => {
+  const now = new Date();
+  const created = new Date(timestamp);
+  const diffMs = now.getTime() - created.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+};
 
 interface WatchlistCardProps {
   item: PendingSetup;
@@ -44,14 +61,14 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
         </p>
       </div>
 
-      {/* Price and Change (Col 5-7) */}
+      {/* Price and Time (Col 5-7) */}
       <div className="col-span-3 py-4 px-6 border-l border-border">
         <div className="text-xl font-extrabold" data-testid={`text-price-${item.id}`}>
           {currentPrice}
         </div>
-        <div className={`text-xs font-bold flex items-center gap-1 ${changeColor}`}>
-          <ChangeIcon className="w-3 h-3" /> 
-          Monitoring
+        <div className="text-xs text-muted-foreground flex items-center gap-1">
+          <Clock className="w-3 h-3" /> 
+          {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
         </div>
       </div>
 
