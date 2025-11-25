@@ -180,25 +180,61 @@ export class TelegramNotificationService {
 
   private formatEventMessage(event: any): string {
     const impactEmoji = event.impactLevel === 'High' ? '🔴' : '🟡';
-    const timeStr = format(new Date(event.eventTime), 'MMM dd, yyyy HH:mm');
+    const impactLabel = event.impactLevel === 'High' ? 'HIGH IMPACT' : 'MEDIUM IMPACT';
+    const timeStr = format(new Date(event.eventTime), 'MMM dd, HH:mm');
     
-    let message = `${impactEmoji} *${event.impactLevel} Impact Event*\n\n`;
-    message += `📊 *${event.title}*\n`;
+    let message = `${impactEmoji} ${impactLabel} NEWS\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📰 ${event.title}\n`;
     message += `🌍 ${event.country} (${event.currency})\n`;
-    message += `⏰ ${timeStr} UTC\n\n`;
+    message += `⏰ ${timeStr} UTC\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
 
-    if (event.expectedValue) {
-      message += `📈 Expected: ${event.expectedValue}\n`;
-    }
-    if (event.previousValue) {
-      message += `📉 Previous: ${event.previousValue}\n`;
+    if (event.expectedValue || event.previousValue) {
+      message += `📊 Forecast: ${event.expectedValue || 'N/A'}\n`;
+      message += `📉 Previous: ${event.previousValue || 'N/A'}\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
     }
     
-    if (event.marketImpactAnalysis) {
-      message += `\n💡 *Impact:*\n${event.marketImpactAnalysis}\n`;
-    }
+    const impactSummary = this.generateImpactSummary(event);
+    message += `💡 Expected Impact:\n${impactSummary}\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `🔗 More info: www.findbuyandsellzones.com/calendar\n\n`;
+    message += `⚠️ Educational only — not financial advice.`;
 
     return message;
+  }
+
+  private generateImpactSummary(event: any): string {
+    const currency = event.currency || 'USD';
+    const title = (event.title || '').toLowerCase();
+    
+    if (title.includes('interest rate') || title.includes('fomc') || title.includes('rate decision')) {
+      return `Rate decisions directly impact ${currency} strength. Higher rates = bullish ${currency}, lower rates = bearish ${currency}.`;
+    }
+    if (title.includes('nfp') || title.includes('non-farm') || title.includes('employment') || title.includes('jobs')) {
+      return `Employment data affects ${currency} significantly. Strong jobs = bullish ${currency}, weak jobs = bearish ${currency}.`;
+    }
+    if (title.includes('cpi') || title.includes('inflation') || title.includes('ppi')) {
+      return `Inflation data influences rate expectations. Higher inflation = potential rate hikes = bullish ${currency}.`;
+    }
+    if (title.includes('gdp') || title.includes('growth')) {
+      return `GDP reflects economic health. Strong growth = bullish ${currency}, weak growth = bearish ${currency}.`;
+    }
+    if (title.includes('pmi') || title.includes('manufacturing') || title.includes('services')) {
+      return `PMI above 50 = expansion (bullish ${currency}), below 50 = contraction (bearish ${currency}).`;
+    }
+    if (title.includes('retail') || title.includes('consumer')) {
+      return `Consumer spending drives growth. Strong retail = bullish ${currency}, weak retail = bearish ${currency}.`;
+    }
+    if (title.includes('trade') || title.includes('balance')) {
+      return `Trade surplus = bullish ${currency}, trade deficit = bearish ${currency}.`;
+    }
+    if (title.includes('housing') || title.includes('home')) {
+      return `Housing data reflects economic confidence. Strong housing = bullish ${currency}.`;
+    }
+    
+    return `${event.impactLevel} impact event for ${currency}. Watch for volatility around release time.`;
   }
 
   async sendEventNotification(event: any): Promise<void> {
@@ -235,9 +271,7 @@ export class TelegramNotificationService {
 
           for (const subscriber of subscribers) {
             try {
-              await this.bot.sendMessage(subscriber.chatId, telegramMessage, {
-                parse_mode: 'Markdown',
-              });
+              await this.bot.sendMessage(subscriber.chatId, telegramMessage);
               console.log(`Telegram notification sent to ${subscriber.chatId}`);
             } catch (error) {
               console.error(`Failed to send Telegram notification to ${subscriber.chatId}:`, error);
