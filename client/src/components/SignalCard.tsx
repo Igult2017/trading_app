@@ -6,7 +6,6 @@ import {
   DollarSign,
   Info,
   Clock,
-  ChevronDown,
   ChevronUp,
   Target,
   TrendingUp,
@@ -44,6 +43,15 @@ const StatBlock = ({ label, value, colorClass = "text-foreground", icon: Icon }:
   </div>
 );
 
+const DetailsIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="2" y="4" width="4" height="4"/>
+    <rect x="8" y="4" width="14" height="4"/>
+    <rect x="2" y="14" width="4" height="4"/>
+    <rect x="8" y="14" width="14" height="4"/>
+  </svg>
+);
+
 export default function SignalCard({ signal }: SignalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -61,10 +69,9 @@ export default function SignalCard({ signal }: SignalCardProps) {
 
   return (
     <div 
-      className="bg-card border-l-4 border-r border-b border-border p-0 relative group transition-all cursor-pointer" 
+      className="bg-card border-l-4 border-r border-b border-border p-0 relative group transition-all" 
       style={{ borderLeftColor: isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))' }}
       data-testid={`card-signal-${signal.id}`}
-      onClick={() => setIsExpanded(!isExpanded)}
     >
       <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">
         
@@ -125,20 +132,11 @@ export default function SignalCard({ signal }: SignalCardProps) {
           )}
         </div>
 
-        {/* Timeframe, Time Ago and Chevron (Col 10-12) */}
+        {/* Timeframe, Time Ago and Details Button (Col 10-12) */}
         <div className="md:col-span-3 flex flex-col items-start md:items-end gap-2 pt-2">
-          <div className="flex items-center gap-3">
-            {/* Timeframe */}
-            <div className="text-sm font-bold text-muted-foreground uppercase">
-              {signal.primaryTimeframe || '4H'}
-            </div>
-            
-            {/* Chevron */}
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-muted-foreground" />
-            )}
+          {/* Timeframe */}
+          <div className="text-sm font-bold text-muted-foreground uppercase">
+            {signal.primaryTimeframe || '4H'}
           </div>
           
           {/* Time Since Posted */}
@@ -151,6 +149,25 @@ export default function SignalCard({ signal }: SignalCardProps) {
               {formatTimeAgo(signal.createdAt)}
             </div>
           )}
+          
+          {/* Enhanced Details Button */}
+          <button 
+            className="flex items-center justify-center px-4 py-2 text-sm font-bold text-white bg-blue-600 shadow-lg transition-all duration-300 ease-in-out transform hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl active:bg-blue-800 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 lowercase"
+            data-testid={`button-details-${signal.id}`}
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="w-5 h-5 mr-2" />
+                hide details
+              </>
+            ) : (
+              <>
+                <DetailsIcon className="w-5 h-5 mr-2" />
+                show details
+              </>
+            )}
+          </button>
         </div>
       </div>
 

@@ -3,7 +3,6 @@ import {
   ArrowUpRight, 
   ArrowDownRight, 
   Clock,
-  ChevronDown,
   ChevronUp,
   Target,
   TrendingUp,
@@ -34,6 +33,15 @@ interface WatchlistCardProps {
   showProbability?: boolean;
 }
 
+const DetailsIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="2" y="4" width="4" height="4"/>
+    <rect x="8" y="4" width="14" height="4"/>
+    <rect x="2" y="14" width="4" height="4"/>
+    <rect x="8" y="14" width="14" height="4"/>
+  </svg>
+);
+
 export default function WatchlistCard({ item, showProbability = false }: WatchlistCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -50,9 +58,8 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
 
   return (
     <div 
-      className="bg-card border-b border-r border-l border-border p-0 group transition-colors cursor-pointer"
+      className="bg-card border-b border-r border-l border-border p-0 group transition-colors"
       data-testid={`card-watchlist-${item.id}`}
-      onClick={() => setIsExpanded(!isExpanded)}
     >
       <div className="grid grid-cols-12 items-center text-foreground">
         {/* Pair and Type (Col 1-4) */}
@@ -86,33 +93,57 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
               </Badge>
             </div>
 
-            {/* Time and Chevron (Col 11-12) */}
+            {/* Time and Details Button (Col 11-12) */}
             <div className="col-span-2 py-4 px-3 border-l border-border flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> 
-                  {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
-                </div>
-                {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" /> 
+                {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
               </div>
+              {/* Enhanced Details Button */}
+              <button 
+                className="flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 shadow-lg transition-all duration-300 ease-in-out transform hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl active:bg-blue-800 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 lowercase"
+                data-testid={`button-details-${item.id}`}
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-4 h-4 mr-1" />
+                    hide
+                  </>
+                ) : (
+                  <>
+                    <DetailsIcon className="w-4 h-4 mr-1" />
+                    details
+                  </>
+                )}
+              </button>
             </div>
           </>
         ) : (
-          /* Time and Chevron (Col 8-12) - Full width when no probability shown */
-          <div className="col-span-5 py-4 px-3 border-l border-border flex items-center justify-end gap-3">
+          /* Time and Details Button (Col 8-12) - Full width when no probability shown */
+          <div className="col-span-5 py-4 px-3 border-l border-border flex flex-col items-end gap-2">
             <div className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="w-3 h-3" /> 
               {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
             </div>
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            )}
+            {/* Enhanced Details Button */}
+            <button 
+              className="flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 shadow-lg transition-all duration-300 ease-in-out transform hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl active:bg-blue-800 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 lowercase"
+              data-testid={`button-details-${item.id}`}
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="w-4 h-4 mr-1" />
+                  hide
+                </>
+              ) : (
+                <>
+                  <DetailsIcon className="w-4 h-4 mr-1" />
+                  details
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>

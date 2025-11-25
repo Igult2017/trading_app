@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Button Design</title>
+    <!-- Load Poppins from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind to use Poppins font and custom colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // Changed to Poppins
+                        sans: ['Poppins', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary-blue': '#1D4ED8', // A deep, rich blue
+                        'hover-blue': '#1E40AF',   // Slightly darker for hover
+                        'active-blue': '#1E3A8A',  // Even darker for active state
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
+
+    <!-- Container for the single button -->
+    <div class="text-center">
+
+        <!-- The Single Button: High Visibility, Flat Style -->
+        <button id="btn1"
+            class="
+                flex items-center justify-center
+                px-8 py-4
+                text-xl font-bold text-white
+                bg-primary-blue
+                shadow-lg
+                transition-all duration-300 ease-in-out
+                transform
+                hover:bg-hover-blue hover:scale-[1.02] hover:shadow-xl
+                active:bg-active-blue active:scale-100
+                focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50
+                w-full max-w-sm md:w-auto
+                lowercase
+            "
+        >
+            <!-- Custom List/Details SVG Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 mr-3">
+                <rect x="2" y="4" width="4" height="4"/>
+                <rect x="8" y="4" width="14" height="4"/>
+                <rect x="2" y="14" width="4" height="4"/>
+                <rect x="8" y="14" width="14" height="4"/>
+            </svg>
+            show details
+        </button>
+
+    </div>
+
+    <script>
+        // Simple click listener for demonstration
+        document.getElementById('btn1').addEventListener('click', () => showMessage('The Enhanced Primary Button was clicked!'));
+
+        // Custom Message Box (instead of alert())
+        function showMessage(text) {
+            const container = document.getElementById('message-container');
+            if (!container) return;
+
+            // Create and show message
+            const message = document.createElement('div');
+            message.textContent = text;
+            message.className = "fixed top-5 right-5 bg-green-500 text-white px-4 py-3 shadow-xl z-50 opacity-0 transition-opacity duration-300";
+            container.appendChild(message);
+
+            // Fade in
+            setTimeout(() => message.style.opacity = 1, 10);
+
+            // Fade out and remove after 3 seconds
+            setTimeout(() => {
+                message.style.opacity = 0;
+                message.addEventListener('transitionend', () => message.remove());
+            }, 3000);
+        }
+
+        // Add a container for messages
+        document.body.insertAdjacentHTML('beforeend', '<div id="message-container"></div>');
+    </script>
+</body>
+</html>
