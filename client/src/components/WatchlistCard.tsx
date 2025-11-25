@@ -61,14 +61,10 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
         </p>
       </div>
 
-      {/* Price and Time (Col 5-7) */}
+      {/* Price (Col 5-7) */}
       <div className="col-span-3 py-4 px-6 border-l border-border">
         <div className="text-xl font-extrabold" data-testid={`text-price-${item.id}`}>
           {currentPrice}
-        </div>
-        <div className="text-xs text-muted-foreground flex items-center gap-1">
-          <Clock className="w-3 h-3" /> 
-          {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
         </div>
       </div>
 
@@ -81,8 +77,12 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
             </Badge>
           </div>
 
-          {/* Action (Col 11-12) */}
-          <div className="col-span-2 py-4 px-3 border-l border-border flex justify-end">
+          {/* Time and Action (Col 11-12) */}
+          <div className="col-span-2 py-4 px-3 border-l border-border flex flex-col items-end gap-2">
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" /> 
+              {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
+            </div>
             <Button 
               size="sm" 
               variant="default"
@@ -95,8 +95,12 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
           </div>
         </>
       ) : (
-        /* Action (Col 8-12) - Full width when no probability shown */
-        <div className="col-span-5 py-4 px-3 border-l border-border flex justify-end">
+        /* Time and Action (Col 8-12) - Full width when no probability shown */
+        <div className="col-span-5 py-4 px-3 border-l border-border flex flex-col items-end gap-2">
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <Clock className="w-3 h-3" /> 
+            {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
+          </div>
           <Button 
             size="sm" 
             variant="default"
