@@ -212,6 +212,32 @@ export class TelegramNotificationService {
     return message;
   }
 
+  private formatHighImpactEventMessage(event: any): string {
+    const timeStr = format(new Date(event.eventTime), 'MMM dd, HH:mm');
+    const now = new Date();
+    const eventTime = new Date(event.eventTime);
+    const minutesUntil = Math.ceil((eventTime.getTime() - now.getTime()) / (1000 * 60));
+    
+    let message = `🚨 *HIGH IMPACT NEWS ALERT*\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📰 *${event.title}*\n`;
+    message += `🌍 ${event.country} (${event.currency})\n`;
+    message += `⏰ In ${minutesUntil} minutes (${timeStr} UTC)\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+    if (event.expectedValue || event.previousValue) {
+      message += `📊 Forecast: ${event.expectedValue || 'N/A'}\n`;
+      message += `📉 Previous: ${event.previousValue || 'N/A'}\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    }
+    
+    message += `⚠️ *Expect high volatility!*\n`;
+    message += `Consider closing or reducing positions.\n\n`;
+    message += `🔗 www.findbuyandsellzones.com/calendar`;
+
+    return message;
+  }
+
   private generateImpactSummary(event: any): string {
     const currency = event.currency || 'USD';
     const title = (event.title || '').toLowerCase();
@@ -267,19 +293,21 @@ export class TelegramNotificationService {
         metadata: JSON.stringify(event),
       });
 
-      if (this.isInitialized && this.bot && (event.impactLevel === 'High' || event.impactLevel === 'Medium')) {
+      if (this.isInitialized && this.bot && event.impactLevel === 'High') {
         const subscribers = await db
           .select()
           .from(telegramSubscribers)
           .where(eq(telegramSubscribers.isActive, true));
 
         if (subscribers.length > 0) {
-          const telegramMessage = this.formatEventMessage(event);
+          const telegramMessage = this.formatHighImpactEventMessage(event);
 
           for (const subscriber of subscribers) {
             try {
-              await this.bot.sendMessage(subscriber.chatId, telegramMessage);
-              console.log(`Telegram notification sent to ${subscriber.chatId}`);
+              await this.bot.sendMessage(subscriber.chatId, telegramMessage, {
+                parse_mode: 'Markdown',
+              });
+              console.log(`High impact event notification sent to ${subscriber.chatId}`);
             } catch (error) {
               console.error(`Failed to send Telegram notification to ${subscriber.chatId}:`, error);
             }
@@ -345,8 +373,8 @@ export class TelegramNotificationService {
 
         const minutesToOpen = (session.openUTC - currentUTC) * 60;
         
-        if (minutesToOpen > 0 && minutesToOpen <= 6) {
-          const title = `🔔 ${session.name} Session Opening Soon!`;
+        if (minutesToOpen > 0 && minutesToOpen <= 5) {
+          const title = `🔔 ${session.name} Session Opening in 5 Minutes!`;
           const message = `Opens in ${Math.ceil(minutesToOpen)} minutes - High volume trading session with increased volatility expected`;
           
           await notificationService.createNotification({
@@ -364,11 +392,12 @@ export class TelegramNotificationService {
 
             if (subscribers.length > 0) {
               const telegramMessage = 
-                `🔔 *${session.name} Session Opening Soon!*\n\n` +
+                `🔔 *${session.name} Session Opening in 5 Minutes!*\n\n` +
                 `⏰ Opens in ${Math.ceil(minutesToOpen)} minutes\n` +
                 `🌍 High volume trading session\n` +
-                `💹 Increased volatility expected\n\n` +
-                `Prepare your trading setups!`;
+                `💹 Increased volatility expected\n` +
+                `📊 Prepare your setups!\n\n` +
+                `🔗 www.findbuyandsellzones.com`;
 
               for (const subscriber of subscribers) {
                 try {
