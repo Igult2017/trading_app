@@ -11,6 +11,8 @@ import { notificationService } from "./services/notificationService";
 import { signalDetectionService } from "./services/signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
+import { analyzeWithGemini, quickAnalyzeWithGemini, testGeminiConnection, isGeminiConfigured } from "./services/geminiAnalysis";
+import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -572,6 +574,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching batch prices:", error);
       res.status(500).json({ error: "Failed to fetch prices" });
+    }
+  });
+
+  // ============================================
+  // GEMINI AI ANALYSIS ROUTES
+  // ============================================
+
+  // Test Gemini connection
+  app.get("/api/gemini/status", async (req, res) => {
+    try {
+      const isConfigured = isGeminiConfigured();
+      if (!isConfigured) {
+        return res.json({ 
+          configured: false, 
+          connected: false, 
+          message: "GOOGLE_API_KEY not configured" 
+        });
+      }
+
+      const connectionTest = await testGeminiConnection();
+      res.json({
+        configured: true,
+        connected: connectionTest.success,
+        message: connectionTest.message,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check Gemini status" });
+    }
+  });
+
+  // Full Gemini analysis (SMC + Wyckoff)
+  app.post("/api/gemini/analyze", async (req, res) => {
+    try {
+      const { symbol, priceData, chartImagePath } = req.body;
+
+      if (!symbol || !priceData || !Array.isArray(priceData)) {
+        return res.status(400).json({ error: "Symbol and priceData array are required" });
+      }
+
+      if (!isGeminiConfigured()) {
+        return res.status(503).json({ error: "Gemini API not configured" });
+      }
+
+      const result = await analyzeWithGemini(symbol, priceData, chartImagePath);
+      
+      if (result.error) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Gemini analysis error:", error);
+      res.status(500).json({ error: "Failed to analyze with Gemini" });
+    }
+  });
+
+  // Quick scan (faster, single-pass analysis)
+  app.post("/api/gemini/quick-scan", async (req, res) => {
+    try {
+      const { symbol, priceData } = req.body;
+
+      if (!symbol || !priceData || !Array.isArray(priceData)) {
+        return res.status(400).json({ error: "Symbol and priceData array are required" });
+      }
+
+      if (!isGeminiConfigured()) {
+        return res.status(503).json({ error: "Gemini API not configured" });
+      }
+
+      const result = await quickAnalyzeWithGemini(symbol, priceData);
+      
+      if (!result) {
+        return res.status(500).json({ error: "Quick scan failed" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Quick scan error:", error);
+      res.status(500).json({ error: "Failed to perform quick scan" });
+    }
+  });
+
+  // ============================================
+  // CHART GENERATION ROUTES
+  // ============================================
+
+  // Check chart generator status
+  app.get("/api/charts/status", async (req, res) => {
+    try {
+      const available = await isChartGeneratorAvailable();
+      res.json({ available });
+    } catch (error) {
+      res.json({ available: false, error: "Failed to check chart generator status" });
+    }
+  });
+
+  // Generate signal chart
+  app.post("/api/charts/generate", async (req, res) => {
+    try {
+      const { symbol, timeframe, candles, signal, supplyZones, demandZones } = req.body;
+
+      if (!symbol || !timeframe || !candles || !Array.isArray(candles)) {
+        return res.status(400).json({ error: "Symbol, timeframe, and candles array are required" });
+      }
+
+      if (!signal || !signal.direction || !signal.entryPrice) {
+        return res.status(400).json({ error: "Signal with direction and entryPrice is required" });
+      }
+
+      const result = await generateTradingSignalChart(
+        symbol,
+        timeframe,
+        candles,
+        signal,
+        supplyZones || [],
+        demandZones || []
+      );
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || "Chart generation failed" });
+      }
+
+      res.json({ success: true, path: result.path });
+    } catch (error) {
+      console.error("Chart generation error:", error);
+      res.status(500).json({ error: "Failed to generate chart" });
+    }
+  });
+
+  // Cleanup old charts
+  app.post("/api/charts/cleanup", async (req, res) => {
+    try {
+      const maxAgeMs = req.body.maxAgeMs || 3600000; // Default 1 hour
+      cleanupOldCharts(maxAgeMs);
+      res.json({ success: true, message: "Old charts cleaned up" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to cleanup charts" });
     }
   });
 

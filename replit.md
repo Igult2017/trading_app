@@ -147,6 +147,34 @@ Preferred communication style: Simple, everyday language.
 - **LTF Confirmation**: Buy requires bullish close + higher low or price break; Sell requires bearish close + lower high or price break
 - **Targets**: Nearest unmitigated zone → H4 supply/demand → default 3:1 R:R
 
+## Google Gemini AI Integration
+- **Location**: `server/services/geminiAnalysis.ts`
+- **Model**: gemini-2.5-flash
+- **API Key**: `GOOGLE_API_KEY` (stored as secret)
+- **Analysis Types**:
+  - **SMC Analysis**: Smart Money Concepts - identifies order blocks, FVGs, CHoCH, BOS patterns
+  - **Wyckoff Analysis**: Identifies accumulation/distribution phases, composite man actions
+  - **Combined Signal**: Merges both analyses for higher confidence signals
+- **Output Format**: Structured signals with entry, stop loss, take profit, and confidence scores
+- **API Endpoints**:
+  - `GET /api/gemini/status` - Check Gemini connection status
+  - `POST /api/gemini/analyze` - Full SMC + Wyckoff analysis
+  - `POST /api/gemini/quick-scan` - Fast single-pass scan for screening
+
+## PNG Chart Generation (for Telegram)
+- **Location**: `server/python/chart_generator.py` + `server/services/chartGenerator.ts`
+- **Libraries**: mplfinance, matplotlib
+- **Features**:
+  - Professional dark-themed trading charts
+  - Supply/Demand zones visualization
+  - Entry, Stop Loss, Take Profit markers
+  - Confidence percentage display
+- **API Endpoints**:
+  - `GET /api/charts/status` - Check if chart generator is available
+  - `POST /api/charts/generate` - Generate signal chart PNG
+  - `POST /api/charts/cleanup` - Clean up old chart files
+- **Output**: PNG images saved to `/tmp/charts/` for Telegram delivery
+
 ## Real-Time Signal Generation
 - **Scanning Frequency**: Every 1 minute for 62 instruments (28 forex, 20 US stocks, 4 commodities, 4 crypto).
 - **Strategy Engine**: Modular architecture runs all enabled strategies per instrument
@@ -192,3 +220,15 @@ Preferred communication style: Simple, everyday language.
 - **tailwind-merge**: Tailwind class merging.
 - **clsx**: Conditional className utility.
 - **lucide-react**: Icon library.
+
+## AI and Analysis
+- **@google/genai**: Google Gemini AI SDK for SMC and Wyckoff analysis.
+- **mplfinance**: Python library for generating trading charts (PNG signals).
+- **matplotlib**: Chart rendering backend.
+
+## External APIs
+- **Google Gemini API** (`GOOGLE_API_KEY`): AI-powered chart analysis using SMC and Wyckoff methods.
+- **Yahoo Finance** (yfinance): Free price data for stocks, forex, commodities.
+- **CoinGecko**: Free cryptocurrency price data.
+- **Telegram Bot API** (`TELEGRAM_BOT_TOKEN`): Signal notifications with PNG charts.
+- **Investing.com** (web scraping): Economic calendar data.
