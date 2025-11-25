@@ -4,17 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, TrendingUp, TrendingDown, Minus, Clock, AlertTriangle, DollarSign, BarChart3 } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Minus, Clock, AlertTriangle, DollarSign, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import type { EconomicEvent } from '@shared/schema';
-import EventDetailsDialog from '@/components/EventDetailsDialog';
 
 export default function EconomicCalendar() {
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const [impactFilter, setImpactFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
   const { data: events = [], isLoading } = useQuery<EconomicEvent[]>({
     queryKey: ['/api/economic-events', regionFilter, impactFilter, currencyFilter],
@@ -79,15 +77,7 @@ export default function EconomicCalendar() {
   };
 
   const handleEventClick = (eventId: string) => {
-    setSelectedEventId(eventId);
-    setDialogOpen(true);
-  };
-
-  const handleDialogOpenChange = (open: boolean) => {
-    setDialogOpen(open);
-    if (!open) {
-      setSelectedEventId(null);
-    }
+    setExpandedEventId(expandedEventId === eventId ? null : eventId);
   };
 
   return (
@@ -184,10 +174,11 @@ export default function EconomicCalendar() {
               <div className="grid gap-4">
                 {upcomingEvents.map((event) => {
                   const sentiment = getMarketSentiment(event);
+                  const isExpanded = expandedEventId === event.id;
                   return (
                   <Card 
                     key={event.id} 
-                    className="hover-elevate active-elevate-2 cursor-pointer" 
+                    className="cursor-pointer transition-all duration-200" 
                     onClick={() => handleEventClick(event.id)}
                     data-testid={`card-event-${event.id}`}
                   >
@@ -207,9 +198,6 @@ export default function EconomicCalendar() {
                             <Badge variant="secondary" className="text-xs" data-testid={`badge-currency-${event.id}`}>
                               {event.currency}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {event.country}
-                            </Badge>
                             <div className="flex items-center gap-1">
                               {sentiment.icon}
                               <span className={`text-xs font-medium ${
@@ -223,9 +211,6 @@ export default function EconomicCalendar() {
 
                           <div>
                             <h3 className="font-semibold text-lg" data-testid={`text-title-${event.id}`}>{event.title}</h3>
-                            {event.description && (
-                              <p className="text-sm text-muted-foreground">{event.description}</p>
-                            )}
                           </div>
 
                           <div className="flex items-center gap-4 text-sm">
@@ -241,32 +226,59 @@ export default function EconomicCalendar() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t">
-                            {event.previousValue && (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Previous</p>
-                                <p className="font-medium" data-testid={`text-previous-${event.id}`}>
-                                  {event.previousValue} {event.unit}
-                                </p>
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="mt-4 pt-4 border-t space-y-4 animate-in fade-in duration-200">
+                              {event.description && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Description</p>
+                                  <p className="text-sm">{event.description}</p>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {event.previousValue && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Previous</p>
+                                    <p className="font-medium" data-testid={`text-previous-${event.id}`}>
+                                      {event.previousValue} {event.unit}
+                                    </p>
+                                  </div>
+                                )}
+                                {event.expectedValue && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Expected</p>
+                                    <p className="font-medium" data-testid={`text-expected-${event.id}`}>
+                                      {event.expectedValue} {event.unit}
+                                    </p>
+                                  </div>
+                                )}
+                                {event.futuresImpliedExpectation && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Futures Implied</p>
+                                    <p className="font-medium text-primary">
+                                      {event.futuresImpliedExpectation} {event.unit}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                            {event.expectedValue && (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Expected</p>
-                                <p className="font-medium" data-testid={`text-expected-${event.id}`}>
-                                  {event.expectedValue} {event.unit}
-                                </p>
-                              </div>
-                            )}
-                            {event.futuresImpliedExpectation && (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Futures Implied</p>
-                                <p className="font-medium text-primary">
-                                  {event.futuresImpliedExpectation} {event.unit}
-                                </p>
-                              </div>
-                            )}
-                          </div>
+
+                              {event.marketImpactAnalysis && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Market Impact Analysis</p>
+                                  <p className="text-sm">{event.marketImpactAnalysis}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-shrink-0">
+                          {isExpanded ? (
+                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -287,10 +299,11 @@ export default function EconomicCalendar() {
                 {recentEvents.map((event) => {
                   const surprise = calculateSurprise(event.expectedValue, event.actualValue);
                   const sentiment = getMarketSentiment(event);
+                  const isExpanded = expandedEventId === event.id;
                   return (
                     <Card 
                       key={event.id} 
-                      className="hover-elevate active-elevate-2 cursor-pointer" 
+                      className="cursor-pointer transition-all duration-200" 
                       onClick={() => handleEventClick(event.id)}
                       data-testid={`card-released-${event.id}`}
                     >
@@ -309,9 +322,6 @@ export default function EconomicCalendar() {
                               <Badge variant="secondary" className="text-xs">
                                 {event.currency}
                               </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {event.country}
-                              </Badge>
                               <Badge variant="default" className="text-xs bg-green-600">
                                 RELEASED
                               </Badge>
@@ -328,9 +338,6 @@ export default function EconomicCalendar() {
 
                             <div>
                               <h3 className="font-semibold text-lg">{event.title}</h3>
-                              {event.description && (
-                                <p className="text-sm text-muted-foreground">{event.description}</p>
-                              )}
                             </div>
 
                             <div className="flex items-center gap-4 text-sm">
@@ -340,48 +347,72 @@ export default function EconomicCalendar() {
                                   {format(new Date(event.eventTime), 'MMM dd, yyyy HH:mm')} UTC
                                 </span>
                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t">
-                              {event.previousValue && (
-                                <div className="space-y-1">
-                                  <p className="text-xs text-muted-foreground">Previous</p>
-                                  <p className="font-medium">
-                                    {event.previousValue} {event.unit}
-                                  </p>
-                                </div>
-                              )}
-                              {event.expectedValue && (
-                                <div className="space-y-1">
-                                  <p className="text-xs text-muted-foreground">Expected</p>
-                                  <p className="font-medium">
-                                    {event.expectedValue} {event.unit}
-                                  </p>
-                                </div>
-                              )}
-                              {event.actualValue && (
-                                <div className="space-y-1">
-                                  <p className="text-xs text-muted-foreground">Actual</p>
-                                  <p className="font-medium text-primary" data-testid={`text-actual-${event.id}`}>
-                                    {event.actualValue} {event.unit}
-                                  </p>
-                                </div>
-                              )}
-                              {surprise && (
-                                <div className="space-y-1">
-                                  <p className="text-xs text-muted-foreground">Surprise</p>
-                                  <p className={`font-medium ${parseFloat(surprise) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {surprise} {event.unit}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            {event.marketImpactAnalysis && (
-                              <div className="pt-2 border-t">
-                                <p className="text-xs text-muted-foreground mb-1">Market Impact Analysis</p>
-                                <p className="text-sm">{event.marketImpactAnalysis}</p>
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <BarChart3 className="w-4 h-4" />
+                                <span>{event.eventType}</span>
                               </div>
+                            </div>
+
+                            {/* Expanded Details */}
+                            {isExpanded && (
+                              <div className="mt-4 pt-4 border-t space-y-4 animate-in fade-in duration-200">
+                                {event.description && (
+                                  <div>
+                                    <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Description</p>
+                                    <p className="text-sm">{event.description}</p>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  {event.previousValue && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs text-muted-foreground">Previous</p>
+                                      <p className="font-medium">
+                                        {event.previousValue} {event.unit}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {event.expectedValue && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs text-muted-foreground">Expected</p>
+                                      <p className="font-medium">
+                                        {event.expectedValue} {event.unit}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {event.actualValue && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs text-muted-foreground">Actual</p>
+                                      <p className="font-medium text-primary" data-testid={`text-actual-${event.id}`}>
+                                        {event.actualValue} {event.unit}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {surprise && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs text-muted-foreground">Surprise</p>
+                                      <p className={`font-medium ${parseFloat(surprise) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {surprise} {event.unit}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {event.marketImpactAnalysis && (
+                                  <div>
+                                    <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Market Impact Analysis</p>
+                                    <p className="text-sm">{event.marketImpactAnalysis}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-shrink-0">
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-muted-foreground" />
                             )}
                           </div>
                         </div>
@@ -394,12 +425,6 @@ export default function EconomicCalendar() {
           )}
         </>
       )}
-      
-      <EventDetailsDialog 
-        eventId={selectedEventId}
-        open={dialogOpen}
-        onOpenChange={handleDialogOpenChange}
-      />
     </div>
   );
 }
