@@ -45,7 +45,9 @@ export class SMCStrategy extends BaseStrategy {
         data.m15,
         data.m5,
         data.m3,
-        data.m1
+        data.m1,
+        data.d1,
+        data.h1
       );
 
       this.logAnalysis(`Timeframe selection: ${tfSelection.contextTf}/${tfSelection.zoneTf}/${tfSelection.entryTf}`);
@@ -186,8 +188,10 @@ export class SMCStrategy extends BaseStrategy {
 
   private getContextCandles(data: MultiTimeframeData, tf: Timeframe): Candle[] {
     switch (tf) {
+      case '1D': return data.d1 || data.h4;
       case '4H': return data.h4;
       case '2H': return data.h2;
+      case '1H': return data.h1 || data.h2;
       default: return data.h4;
     }
   }

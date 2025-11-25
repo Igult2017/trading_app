@@ -98,14 +98,15 @@ export interface StrategySignal {
 }
 
 export interface MultiTimeframeData {
+  d1?: Candle[];
   h4: Candle[];
   h2: Candle[];
+  h1?: Candle[];
   m30: Candle[];
   m15: Candle[];
   m5: Candle[];
   m3: Candle[];
   m1: Candle[];
-  daily?: Candle[];
 }
 
 export interface StrategyConfig {

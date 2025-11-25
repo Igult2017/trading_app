@@ -85,9 +85,11 @@ export async function fetchMultiTimeframeData(
 
   const volatility = getVolatilityForAsset(assetClass);
 
-  const [h4Data, h2Data, m30Data, m15Data, m5Data, m3Data, m1Data] = await Promise.all([
+  const [d1Data, h4Data, h2Data, h1Data, m30Data, m15Data, m5Data, m3Data, m1Data] = await Promise.all([
+    generateMockCandles(currentPrice, '1D', 60, volatility, trendBias),
     generateMockCandles(currentPrice, '4H', 100, volatility, trendBias),
     generateMockCandles(currentPrice, '2H', 100, volatility, trendBias),
+    generateMockCandles(currentPrice, '1H', 100, volatility, trendBias),
     generateMockCandles(currentPrice, '30M', 100, volatility, trendBias),
     generateMockCandles(currentPrice, '15M', 100, volatility, trendBias),
     generateMockCandles(currentPrice, '5M', 100, volatility, trendBias),
@@ -96,8 +98,10 @@ export async function fetchMultiTimeframeData(
   ]);
 
   return {
+    d1: d1Data,
     h4: h4Data,
     h2: h2Data,
+    h1: h1Data,
     m30: m30Data,
     m15: m15Data,
     m5: m5Data,

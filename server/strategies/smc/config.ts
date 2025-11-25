@@ -10,8 +10,10 @@ export const SMC_STRATEGY_CONFIG: StrategyConfig = {
 };
 
 export const SMC_ZONE_CONFIG = {
+  d1LookbackCandles: 60,
   h4LookbackCandles: 100,
   h2LookbackCandles: 100,
+  h1LookbackCandles: 100,
   m30LookbackCandles: 100,
   m15LookbackCandles: 100,
   m5LookbackCandles: 100,
@@ -46,6 +48,12 @@ export interface TimeframePair {
   zone: Timeframe;
 }
 
+export const HTF_TIMEFRAMES: Timeframe[] = ['1D', '4H', '2H', '1H'];
+
+export const LTF_TIMEFRAMES: Timeframe[] = ['30M', '15M'];
+
+export const ENTRY_TIMEFRAMES: Timeframe[] = ['5M', '3M', '1M'];
+
 export const PRIMARY_TIMEFRAMES: TimeframePair = {
   context: '4H',
   zone: '15M',
@@ -56,6 +64,4 @@ export const ALTERNATIVE_TIMEFRAMES: TimeframePair = {
   zone: '30M',
 };
 
-export const ENTRY_TIMEFRAMES: Timeframe[] = ['5M', '3M', '1M'];
-
-export const SMC_TIMEFRAME_PRIORITY = ['4H', '2H', '30M', '15M', '5M', '3M', '1M'] as const;
+export const SMC_TIMEFRAME_PRIORITY = ['1D', '4H', '2H', '1H', '30M', '15M', '5M', '3M', '1M'] as const;
