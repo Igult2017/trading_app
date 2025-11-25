@@ -34,6 +34,7 @@ const formatTimeAgo = (timestamp: Date | string) => {
 
 interface StockSignalCardProps {
   signal: TradingSignal;
+  isWatchlist?: boolean;
 }
 
 const StatBlock = ({ label, value, colorClass = "text-foreground", icon: Icon }: any) => (
@@ -67,7 +68,7 @@ const getAssetClassForSymbol = (symbol: string, assetClass?: string): 'stock' | 
   return 'stock';
 };
 
-export default function StockSignalCard({ signal }: StockSignalCardProps) {
+export default function StockSignalCard({ signal, isWatchlist = false }: StockSignalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   const isBuy = signal.type?.toLowerCase() === 'buy';
@@ -86,8 +87,8 @@ export default function StockSignalCard({ signal }: StockSignalCardProps) {
 
   return (
     <div 
-      className="bg-card border-l-4 border-r border-b border-border p-0 relative group transition-all" 
-      style={{ borderLeftColor: isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))' }}
+      className={`bg-card border-l-4 border-r border-b border-border p-0 relative group transition-all ${isWatchlist ? 'opacity-80 bg-amber-500/5' : ''}`}
+      style={{ borderLeftColor: isWatchlist ? 'hsl(45 93% 47%)' : (isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))') }}
       data-testid={`card-stock-${signal.id}`}
     >
       <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">

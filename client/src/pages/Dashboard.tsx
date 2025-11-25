@@ -20,15 +20,26 @@ export default function Dashboard() {
     refetchInterval: 15000,
   });
 
-  // Filter signals by asset class with guards
-  const currencySignals = allSignals.filter(s => {
+  // Filter active signals (all timeframes confirmed) vs watchlist (HTF only)
+  const activeSignals = allSignals.filter(s => s.status === 'active');
+  const watchlistSignals = allSignals.filter(s => s.status === 'watchlist' || s.status === 'pending');
+  
+  // Split active signals by asset class
+  const activeCurrencySignals = activeSignals.filter(s => {
     const assetClass = s.assetClass?.toLowerCase();
     return assetClass === 'forex' || assetClass === 'crypto' || assetClass === 'commodity';
   });
-  const stockSignals = allSignals.filter(s => s.assetClass?.toLowerCase() === 'stock');
+  const activeStockSignals = activeSignals.filter(s => s.assetClass?.toLowerCase() === 'stock' || s.assetClass?.toLowerCase() === 'index');
   
-  // Filter pending setups for watchlist with guard
-  const watchlistItems = pendingSetups.filter(s => s.readyForSignal !== true);
+  // Split watchlist signals by asset class
+  const watchlistCurrencySignals = watchlistSignals.filter(s => {
+    const assetClass = s.assetClass?.toLowerCase();
+    return assetClass === 'forex' || assetClass === 'crypto' || assetClass === 'commodity';
+  });
+  const watchlistStockSignals = watchlistSignals.filter(s => s.assetClass?.toLowerCase() === 'stock' || s.assetClass?.toLowerCase() === 'index');
+  
+  // Pending setups from scanner (not yet saved as signals)
+  const pendingWatchlistItems = pendingSetups.filter(s => s.readyForSignal !== true);
 
   return (
     <div>
@@ -56,61 +67,70 @@ export default function Dashboard() {
         {/* Full-Width Sections - NO SIDEBARS */}
         <div className="space-y-8">
           
-          {/* Section 1: Currency, Metals & Crypto Bias - FULL WIDTH */}
-          <section className="bg-card border-t-2 border-foreground">
+          {/* Section 1: Active Currency, Metals & Crypto Signals - ALL TIMEFRAMES CONFIRMED */}
+          <section className="bg-card border-t-2 border-bull-green">
             <SectionHeader 
               icon={Target} 
-              title="Currency, Metals & Crypto Bias" 
-              countLabel={`${currencySignals.length} Active`}
+              title="Active Signals - Currency, Metals & Crypto" 
+              countLabel={`${activeCurrencySignals.length} Confirmed`}
             />
             <div className="flex flex-col">
               {signalsLoading ? (
                 <div className="p-8 text-center text-muted-foreground">Loading signals...</div>
-              ) : currencySignals.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No active signals at the moment</div>
+              ) : activeCurrencySignals.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No confirmed signals - waiting for LTF entry confirmation</div>
               ) : (
-                currencySignals.slice(0, 10).map(signal => (
+                activeCurrencySignals.slice(0, 10).map(signal => (
                   <SignalCard key={signal.id} signal={signal} />
                 ))
               )}
             </div>
           </section>
 
-          {/* Section 2: Stock Bias - FULL WIDTH */}
-          <section className="bg-card border-t-2 border-foreground">
+          {/* Section 2: Active Stock & Index Signals - ALL TIMEFRAMES CONFIRMED */}
+          <section className="bg-card border-t-2 border-bull-green">
             <SectionHeader 
               icon={Activity} 
-              title="Stock Bias" 
-              countLabel={`${stockSignals.length} Active`}
+              title="Active Signals - Stocks & Indices" 
+              countLabel={`${activeStockSignals.length} Confirmed`}
             />
             <div className="flex flex-col">
               {signalsLoading ? (
                 <div className="p-8 text-center text-muted-foreground">Loading stock signals...</div>
-              ) : stockSignals.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No active stock signals at the moment</div>
+              ) : activeStockSignals.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No confirmed stock signals - waiting for LTF entry confirmation</div>
               ) : (
-                stockSignals.slice(0, 10).map(signal => (
+                activeStockSignals.slice(0, 10).map(signal => (
                   <StockSignalCard key={signal.id} signal={signal} />
                 ))
               )}
             </div>
           </section>
 
-          {/* Section 3: Instruments Watchlist - FULL WIDTH */}
-          <section className="bg-card border-t-2 border-foreground">
+          {/* Section 3: Watchlist - HTF CONFIRMED, AWAITING LTF */}
+          <section className="bg-card border-t-2 border-amber-500">
             <SectionHeader 
               icon={Eye} 
-              title="Instruments Watchlist" 
+              title="Watchlist - Awaiting LTF Confirmation" 
+              countLabel={`${watchlistCurrencySignals.length + watchlistStockSignals.length} Pending`}
             />
+            <p className="px-6 py-2 text-sm text-muted-foreground border-b border-border/50">
+              Zone identified on HTF (4H/2H/30M). Waiting for entry confirmation on LTF (5M/3M/1M).
+            </p>
             <div className="flex flex-col">
-              {setupsLoading ? (
+              {signalsLoading ? (
                 <div className="p-8 text-center text-muted-foreground">Loading watchlist...</div>
-              ) : watchlistItems.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No instruments being monitored</div>
+              ) : (watchlistCurrencySignals.length + watchlistStockSignals.length) === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No pending setups - scanning for HTF zones...</div>
               ) : (
-                watchlistItems.slice(0, 8).map(item => (
-                  <WatchlistCard key={item.id} item={item} showProbability={true} />
-                ))
+                <>
+                  {watchlistCurrencySignals.slice(0, 5).map(signal => (
+                    <SignalCard key={signal.id} signal={signal} isWatchlist={true} />
+                  ))}
+                  {watchlistStockSignals.slice(0, 5).map(signal => (
+                    <StockSignalCard key={signal.id} signal={signal} isWatchlist={true} />
+                  ))}
+                </>
               )}
             </div>
           </section>
