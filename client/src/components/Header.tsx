@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { TrendingUp } from 'lucide-react';
+import { SiTelegram } from 'react-icons/si';
 
 const subNavLinks = [
   { name: 'Signals Feed', path: '/' },
@@ -56,10 +57,11 @@ export default function Header() {
               href="https://t.me/BuySellZonesBot" 
               target="_blank"
               rel="noopener noreferrer"
-              className="text-base font-semibold text-muted-foreground hover:text-primary transition-colors hidden sm:block"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-[#0088cc] bg-[#0088cc]/10 hover:bg-[#0088cc]/20 rounded-full transition-colors hidden sm:flex"
               data-testid="link-telegram"
             >
-              Join Telegram Notification
+              <SiTelegram className="w-4 h-4" />
+              Join Telegram
             </a>
           </div>
         </div>
