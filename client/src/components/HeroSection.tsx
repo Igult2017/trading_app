@@ -90,7 +90,7 @@ export function HeroSection() {
           </div>
           {/* Learn More Button */}
           <motion.div 
-            className="mt-8 flex justify-end"
+            className="mt-16 flex justify-end"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
