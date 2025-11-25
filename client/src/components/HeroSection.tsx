@@ -41,16 +41,13 @@ export function HeroSection() {
             Access premium signals, real-time analytics, and expert research to confidently navigate global financial markets.
           </motion.p>
           <motion.div 
-            className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+            className="mt-10 flex justify-center lg:justify-start"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
             <button className="px-8 py-3 text-lg font-extrabold text-blue-600 bg-white rounded-full border-2 border-white hero-dotted-outline hover:bg-blue-50 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
               Subscribe <ArrowRight className="w-5 h-5" />
-            </button>
-            <button className="px-8 py-3 text-lg font-extrabold text-white bg-transparent rounded-full border-2 border-white hover:bg-white/10 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]">
-              Learn More
             </button>
           </motion.div>
         </motion.div>
@@ -68,7 +65,7 @@ export function HeroSection() {
               <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
               <span className="text-white text-xl font-bold">Live Signals</span>
             </div>
-            <div className="w-full h-72 overflow-hidden px-4 py-3">
+            <div className="w-full h-56 overflow-hidden px-4 py-3">
               <div className="space-y-2 animate-scroll-up">
                 {signals && signals.slice(0, 8).map((signal, idx) => (
                   <div
@@ -91,6 +88,17 @@ export function HeroSection() {
               </div>
             </div>
           </div>
+          {/* Learn More Button */}
+          <motion.div 
+            className="mt-4 flex justify-end"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <button className="px-8 py-3 text-lg font-extrabold text-white bg-transparent rounded-full border-2 border-white hover:bg-white/10 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]">
+              Learn More
+            </button>
+          </motion.div>
         </motion.div>
       </div>
     </header>
