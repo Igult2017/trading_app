@@ -5,7 +5,6 @@ import {
   Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import type { PendingSetup } from '@shared/schema';
 
 interface WatchlistCardProps {
@@ -19,16 +18,9 @@ export default function WatchlistCard({ item }: WatchlistCardProps) {
   const changeColor = isPriceUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
   const ChangeIcon = isPriceUp ? ArrowUpRight : ArrowDownRight;
   
-  const priority = item.setupStage === 'ready' ? 'HIGH' : 'MEDIUM';
-  const isHighPriority = priority === 'HIGH';
-
-  const priorityBadgeClass = isHighPriority 
-    ? 'bg-destructive text-destructive-foreground border-destructive' 
-    : 'bg-amber-600 text-white dark:bg-amber-700 dark:text-white border-amber-600 dark:border-amber-700';
-
   return (
     <div 
-      className={`bg-card border-b border-r border-l border-border p-0 group hover:bg-muted/50 transition-colors grid grid-cols-12 items-center text-foreground ${isHighPriority ? 'border-l-4 border-l-destructive' : ''}`}
+      className="bg-card border-b border-r border-l border-border p-0 group hover:bg-muted/50 transition-colors grid grid-cols-12 items-center text-foreground"
       data-testid={`card-watchlist-${item.id}`}
     >
       {/* Pair and Type (Col 1-4) */}
@@ -57,11 +49,8 @@ export default function WatchlistCard({ item }: WatchlistCardProps) {
         </div>
       </div>
 
-      {/* Priority and Key Level (Col 8-10) */}
-      <div className="col-span-3 py-4 px-6 border-l border-border flex flex-col gap-1">
-        <Badge className={`w-fit px-3 py-1 text-xs font-bold uppercase tracking-widest border ${priorityBadgeClass}`}>
-          {priority}
-        </Badge>
+      {/* Key Level (Col 8-10) */}
+      <div className="col-span-3 py-4 px-6 border-l border-border flex flex-col justify-center">
         {zoneLevel && (
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <Target className="w-3 h-3" /> {zoneLevel}
