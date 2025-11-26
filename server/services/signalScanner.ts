@@ -3,9 +3,25 @@ import { notificationService } from "./notificationService";
 import { telegramNotificationService } from "./telegramNotification";
 import { strategyRegistry, initializeStrategies, StrategySignal, InstrumentData } from "../strategies";
 import { fetchMultiTimeframeData } from "../strategies/shared/multiTimeframe";
+import { Candle } from "../strategies/core/types";
 import { getPrice } from "../lib/priceService";
 import { filterTradeableInstruments, getActiveSession } from "../lib/marketHours";
 import { validateSignalWithGemini, SignalToValidate, PriceData } from "./geminiAnalysis";
+import { generateSignalChart, ChartCandle, ZoneInfo } from "./chartGenerator";
+import * as path from "path";
+import * as fs from "fs";
+
+interface MultiTimeframeData {
+  d1: Candle[];
+  h4: Candle[];
+  h2: Candle[];
+  h1: Candle[];
+  m30: Candle[];
+  m15: Candle[];
+  m5: Candle[];
+  m3: Candle[];
+  m1: Candle[];
+}
 
 const TRADEABLE_INSTRUMENTS = [
   { symbol: 'EUR/USD', assetClass: 'forex', currentPrice: 1.0850 },
@@ -244,8 +260,18 @@ export class SignalScannerService {
 
   private async saveAndNotifySignal(signal: StrategySignal): Promise<void> {
     try {
-      // Validate signal with Gemini AI before saving
-      const geminiValidation = await this.validateWithGemini(signal);
+      // Fetch MTF data for Gemini chart verification
+      let mtfData: MultiTimeframeData | undefined;
+      try {
+        const validAssetClass = (signal.assetClass || 'forex') as 'forex' | 'stock' | 'commodity' | 'crypto';
+        const fetchedData = await fetchMultiTimeframeData(signal.symbol, validAssetClass, signal.entryPrice);
+        mtfData = fetchedData as MultiTimeframeData;
+      } catch (e) {
+        console.log(`[Gemini] Could not fetch MTF data for ${signal.symbol}, proceeding without chart`);
+      }
+      
+      // Validate signal with Gemini AI before saving (with chart image)
+      const geminiValidation = await this.validateWithGemini(signal, mtfData);
       
       if (geminiValidation) {
         if (geminiValidation.recommendation === 'skip') {
@@ -335,7 +361,7 @@ export class SignalScannerService {
     }
   }
 
-  private async validateWithGemini(signal: StrategySignal): Promise<{
+  private async validateWithGemini(signal: StrategySignal, mtfData?: MultiTimeframeData): Promise<{
     validated: boolean;
     confidenceAdjustment: number;
     concerns: string[];
@@ -350,6 +376,114 @@ export class SignalScannerService {
         return null;
       }
 
+      console.log(`[Gemini] Generating chart for ${signal.symbol} validation...`);
+      
+      // Generate chart with zones for Gemini to analyze
+      let chartPath: string | undefined;
+      
+      if (mtfData) {
+        try {
+          // Prepare candles for chart
+          const chartCandles: ChartCandle[] = (mtfData.m15 || mtfData.m30 || []).slice(-50).map((c: Candle) => ({
+            date: new Date(c.timestamp).toISOString(),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }));
+
+          // Prepare zones
+          const supplyZones: ZoneInfo[] = [];
+          const demandZones: ZoneInfo[] = [];
+          
+          if (signal.entrySetup?.entryZone) {
+            const zone: ZoneInfo = {
+              top: signal.entrySetup.entryZone.topPrice,
+              bottom: signal.entrySetup.entryZone.bottomPrice,
+              strength: 'strong',
+              label: signal.entrySetup.entryZone.type === 'supply' ? 'Supply Zone' : 'Demand Zone'
+            };
+            if (signal.entrySetup.entryZone.type === 'supply') {
+              supplyZones.push(zone);
+            } else {
+              demandZones.push(zone);
+            }
+          }
+
+          // Generate chart
+          const outputPath = path.join('/tmp', `gemini_validation_${signal.symbol.replace('/', '_')}_${Date.now()}.png`);
+          
+          const chartResult = await generateSignalChart({
+            symbol: signal.symbol,
+            timeframe: signal.timeframe,
+            candles: chartCandles,
+            signal: {
+              direction: signal.direction.toUpperCase() as 'BUY' | 'SELL',
+              entry: signal.entryPrice,
+              stopLoss: signal.stopLoss,
+              takeProfit: signal.takeProfit,
+              confidence: signal.confidence,
+            },
+            supply_zones: supplyZones,
+            demand_zones: demandZones,
+            confirmations: signal.reasoning.slice(0, 5),
+            entry_type: signal.entryType,
+            trend: signal.marketContext?.h4TrendDirection || 'sideways',
+            output_path: outputPath,
+          });
+
+          if (chartResult.success && chartResult.path) {
+            chartPath = chartResult.path;
+            console.log(`[Gemini] Chart generated: ${chartPath}`);
+          }
+        } catch (chartError) {
+          console.log(`[Gemini] Chart generation failed, proceeding without image`);
+        }
+      }
+
+      // Build detailed analysis for Gemini to verify
+      const detailedAnalysis = `
+=== OUR ANALYSIS - PLEASE VERIFY ON THE CHART ===
+
+SYMBOL: ${signal.symbol}
+TIMEFRAME: ${signal.timeframe}
+SIGNAL: ${signal.direction.toUpperCase()}
+
+1. TREND ANALYSIS:
+   - Higher timeframe trend: ${signal.marketContext?.h4TrendDirection || 'unknown'}
+   - We believe the trend is ${signal.marketContext?.h4TrendDirection || 'sideways'} based on price structure
+   - Please verify: Can you see ${signal.marketContext?.h4TrendDirection === 'bullish' ? 'higher highs and higher lows' : signal.marketContext?.h4TrendDirection === 'bearish' ? 'lower highs and lower lows' : 'ranging price action'}?
+
+2. ZONE IDENTIFICATION:
+   - Zone type: ${signal.entrySetup?.entryZone?.type || 'unknown'}
+   - Zone range: ${signal.entrySetup?.entryZone?.bottomPrice?.toFixed(5)} - ${signal.entrySetup?.entryZone?.topPrice?.toFixed(5)}
+   - Please verify: Is this zone visible as a consolidation area before an impulsive move?
+   - Is the zone still unmitigated (price hasn't fully tested it)?
+
+3. ENTRY CONDITIONS:
+   - Entry type: ${signal.entryType}
+   - Entry price: ${signal.entryPrice.toFixed(5)}
+   - Current price should be at or near the zone
+   - Please verify: Is price actually at this zone level?
+
+4. OUR CONFIRMATIONS (please verify each):
+${signal.reasoning.map((r, i) => `   ${i + 1}. ${r}`).join('\n')}
+
+5. RISK MANAGEMENT:
+   - Stop Loss: ${signal.stopLoss.toFixed(5)}
+   - Take Profit: ${signal.takeProfit.toFixed(5)}
+   - Risk:Reward = 1:${signal.riskRewardRatio.toFixed(2)}
+
+6. CURRENT CONFIDENCE: ${signal.confidence}%
+
+QUESTION: Looking at the chart, can you confirm that:
+- The trend direction we identified is correct?
+- The zone we marked actually exists and is valid?
+- Price is currently at or near this zone?
+- Our stated confirmations are visible on the chart?
+- This is a high-probability setup worth taking?
+`;
+
       // Prepare signal data for validation
       const signalToValidate: SignalToValidate = {
         symbol: signal.symbol,
@@ -360,7 +494,7 @@ export class SignalScannerService {
         confidence: signal.confidence,
         strategy: signal.strategyName,
         entryType: signal.entryType,
-        reasoning: signal.reasoning.join('; '),
+        reasoning: detailedAnalysis,
         zones: signal.entrySetup?.entryZone ? [{
           type: signal.entrySetup.entryZone.type,
           top: signal.entrySetup.entryZone.topPrice,
@@ -368,16 +502,47 @@ export class SignalScannerService {
         }] : undefined
       };
 
-      // Prepare price data (simplified - just the key info)
-      const priceData: PriceData[] = [{
-        symbol: signal.symbol,
-        timeframe: signal.timeframe,
-        candles: [] // Gemini will use reasoning and zone info
-      }];
+      // Prepare price data with actual candles
+      const priceData: PriceData[] = [];
+      if (mtfData) {
+        if (mtfData.h4) {
+          priceData.push({
+            symbol: signal.symbol,
+            timeframe: '4H',
+            candles: mtfData.h4.slice(-20).map((c: Candle) => ({
+              date: new Date(c.timestamp).toISOString(),
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }))
+          });
+        }
+        if (mtfData.m15) {
+          priceData.push({
+            symbol: signal.symbol,
+            timeframe: '15M',
+            candles: mtfData.m15.slice(-30).map((c: Candle) => ({
+              date: new Date(c.timestamp).toISOString(),
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }))
+          });
+        }
+      }
 
-      console.log(`[Gemini] Validating ${signal.symbol} ${signal.direction} signal...`);
+      console.log(`[Gemini] Validating ${signal.symbol} ${signal.direction} with ${chartPath ? 'chart image' : 'price data'}...`);
       
-      const result = await validateSignalWithGemini(signalToValidate, priceData);
+      const result = await validateSignalWithGemini(signalToValidate, priceData, chartPath);
+      
+      // Clean up temp chart file
+      if (chartPath && fs.existsSync(chartPath)) {
+        try {
+          fs.unlinkSync(chartPath);
+        } catch (e) {}
+      }
       
       return result;
     } catch (error: any) {
