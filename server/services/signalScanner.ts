@@ -389,23 +389,15 @@ export class SignalScannerService {
         return null;
       }
 
-      console.log(`[Gemini] Generating chart for ${signal.symbol} validation...`);
+      console.log(`[Gemini] Generating multi-timeframe charts for ${signal.symbol} validation...`);
       
-      // Generate chart with zones for Gemini to analyze
-      let chartPath: string | undefined;
+      // Generate charts across ALL timeframes for Gemini to verify
+      const chartPaths: string[] = [];
+      const extendedCtx = signal.marketContext as any;
       
       if (mtfData) {
         try {
-          // Prepare candles for chart
-          const chartCandles: ChartCandle[] = (mtfData.m15 || mtfData.m30 || []).slice(-50).map((c: Candle) => ({
-            date: new Date(c.timestamp).toISOString(),
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-          }));
-
-          // Prepare zones
+          // Prepare zones for all charts
           const supplyZones: ZoneInfo[] = [];
           const demandZones: ZoneInfo[] = [];
           
@@ -423,34 +415,87 @@ export class SignalScannerService {
             }
           }
 
-          // Generate chart
-          const outputPath = path.join('/tmp', `gemini_validation_${signal.symbol.replace('/', '_')}_${Date.now()}.png`);
-          
-          const chartResult = await generateSignalChart({
-            symbol: signal.symbol,
-            timeframe: signal.timeframe,
-            candles: chartCandles,
-            signal: {
-              direction: signal.direction.toUpperCase() as 'BUY' | 'SELL',
-              entry: signal.entryPrice,
-              stopLoss: signal.stopLoss,
-              takeProfit: signal.takeProfit,
-              confidence: signal.confidence,
-            },
-            supply_zones: supplyZones,
-            demand_zones: demandZones,
-            confirmations: signal.reasoning.slice(0, 5),
-            entry_type: signal.entryType,
-            trend: signal.marketContext?.h4TrendDirection || 'sideways',
-            output_path: outputPath,
-          });
+          // 1. HTF Context Chart (Daily/H4) - shows trend direction
+          const htfData = mtfData.d1 || mtfData.h4;
+          if (htfData && htfData.length > 0) {
+            const htfCandles: ChartCandle[] = htfData.slice(-30).map((c: Candle) => ({
+              date: new Date(c.timestamp).toISOString(),
+              open: c.open, high: c.high, low: c.low, close: c.close,
+            }));
+            const htfPath = path.join('/tmp', `gemini_htf_${signal.symbol.replace('/', '_')}_${Date.now()}.png`);
+            const htfResult = await generateSignalChart({
+              symbol: signal.symbol,
+              timeframe: mtfData.d1 ? '1D' : 'H4',
+              candles: htfCandles,
+              supply_zones: supplyZones,
+              demand_zones: demandZones,
+              confirmations: [`HTF Trend: ${extendedCtx?.h4TrendDirection || 'unknown'}`],
+              trend: extendedCtx?.h4TrendDirection || 'sideways',
+              output_path: htfPath,
+            });
+            if (htfResult.success && htfResult.path) {
+              chartPaths.push(htfResult.path);
+              console.log(`[Gemini] HTF chart generated: ${htfResult.path}`);
+            }
+          }
 
-          if (chartResult.success && chartResult.path) {
-            chartPath = chartResult.path;
-            console.log(`[Gemini] Chart generated: ${chartPath}`);
+          // 2. Zone Identification Chart (M15/M30) - shows the zone
+          const zoneData = mtfData.m15 || mtfData.m30;
+          if (zoneData && zoneData.length > 0) {
+            const zoneCandles: ChartCandle[] = zoneData.slice(-50).map((c: Candle) => ({
+              date: new Date(c.timestamp).toISOString(),
+              open: c.open, high: c.high, low: c.low, close: c.close,
+            }));
+            const zonePath = path.join('/tmp', `gemini_zone_${signal.symbol.replace('/', '_')}_${Date.now()}.png`);
+            const zoneResult = await generateSignalChart({
+              symbol: signal.symbol,
+              timeframe: mtfData.m15 ? 'M15' : 'M30',
+              candles: zoneCandles,
+              supply_zones: supplyZones,
+              demand_zones: demandZones,
+              confirmations: [`Zone: ${signal.entrySetup?.entryZone?.type || 'unknown'}`],
+              trend: extendedCtx?.h4TrendDirection || 'sideways',
+              output_path: zonePath,
+            });
+            if (zoneResult.success && zoneResult.path) {
+              chartPaths.push(zoneResult.path);
+              console.log(`[Gemini] Zone chart generated: ${zoneResult.path}`);
+            }
+          }
+
+          // 3. Entry/Refinement Chart (M5/M3/M1) - shows entry trigger
+          const entryData = mtfData.m5 || mtfData.m3 || mtfData.m1;
+          if (entryData && entryData.length > 0) {
+            const entryCandles: ChartCandle[] = entryData.slice(-60).map((c: Candle) => ({
+              date: new Date(c.timestamp).toISOString(),
+              open: c.open, high: c.high, low: c.low, close: c.close,
+            }));
+            const entryPath = path.join('/tmp', `gemini_entry_${signal.symbol.replace('/', '_')}_${Date.now()}.png`);
+            const entryResult = await generateSignalChart({
+              symbol: signal.symbol,
+              timeframe: signal.timeframe,
+              candles: entryCandles,
+              signal: {
+                direction: signal.direction.toUpperCase() as 'BUY' | 'SELL',
+                entry: signal.entryPrice,
+                stopLoss: signal.stopLoss,
+                takeProfit: signal.takeProfit,
+                confidence: signal.confidence,
+              },
+              supply_zones: supplyZones,
+              demand_zones: demandZones,
+              confirmations: signal.reasoning.slice(0, 5),
+              entry_type: signal.entryType,
+              trend: extendedCtx?.h4TrendDirection || 'sideways',
+              output_path: entryPath,
+            });
+            if (entryResult.success && entryResult.path) {
+              chartPaths.push(entryResult.path);
+              console.log(`[Gemini] Entry chart generated: ${entryResult.path}`);
+            }
           }
         } catch (chartError) {
-          console.log(`[Gemini] Chart generation failed, proceeding without image`);
+          console.log(`[Gemini] Chart generation failed, proceeding without images`);
         }
       }
 
@@ -546,15 +591,17 @@ QUESTION: Looking at the chart, can you confirm that:
         }
       }
 
-      console.log(`[Gemini] Validating ${signal.symbol} ${signal.direction} with ${chartPath ? 'chart image' : 'price data'}...`);
+      console.log(`[Gemini] Validating ${signal.symbol} ${signal.direction} with ${chartPaths.length} chart images...`);
       
-      const result = await validateSignalWithGemini(signalToValidate, priceData, chartPath);
+      const result = await validateSignalWithGemini(signalToValidate, priceData, chartPaths);
       
-      // Clean up temp chart file
-      if (chartPath && fs.existsSync(chartPath)) {
-        try {
-          fs.unlinkSync(chartPath);
-        } catch (e) {}
+      // Clean up temp chart files
+      for (const chartPath of chartPaths) {
+        if (fs.existsSync(chartPath)) {
+          try {
+            fs.unlinkSync(chartPath);
+          } catch (e) {}
+        }
       }
       
       return result;
