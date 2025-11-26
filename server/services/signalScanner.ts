@@ -76,7 +76,6 @@ const TRADEABLE_INSTRUMENTS = [
   { symbol: 'BTC/USD', assetClass: 'crypto', currentPrice: 43200 },
   { symbol: 'ETH/USD', assetClass: 'crypto', currentPrice: 2280 },
   { symbol: 'BNB/USD', assetClass: 'crypto', currentPrice: 315.50 },
-  { symbol: 'SOL/USD', assetClass: 'crypto', currentPrice: 98.75 },
 ];
 
 let strategiesInitialized = false;
