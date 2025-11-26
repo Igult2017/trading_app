@@ -42,11 +42,21 @@ COPY --from=builder /app/dist ./dist
 # Copy Python scripts for chart generation
 COPY server/python ./server/python
 
+# Create startup script for environment variable checking
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'echo "=== Environment Check ===" ' >> /app/start.sh && \
+    echo 'echo "NODE_ENV: $NODE_ENV"' >> /app/start.sh && \
+    echo 'echo "DATABASE_URL set: $([ -n \"$DATABASE_URL\" ] && echo \"YES\" || echo \"NO\")"' >> /app/start.sh && \
+    echo 'echo "TELEGRAM_BOT_TOKEN set: $([ -n \"$TELEGRAM_BOT_TOKEN\" ] && echo \"YES\" || echo \"NO\")"' >> /app/start.sh && \
+    echo 'echo "========================="' >> /app/start.sh && \
+    echo 'exec node dist/index.prod.js' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
 # Expose port
 EXPOSE 5000
 
 # Set environment
 ENV NODE_ENV=production
 
-# Start the application (note: index.prod.js)
-CMD ["node", "dist/index.prod.js"]
+# Start the application with environment check
+CMD ["/app/start.sh"]
