@@ -73,3 +73,8 @@ outputType = "webview"
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_websocket:1.0.0"]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+TELEGRAM_BOT_TOKEN_CLEAN = "7995363734:AAHggflqUjCBRZ3TeSRtaiODSbLVFNcSVMg"

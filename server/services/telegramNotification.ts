@@ -33,7 +33,9 @@ export class TelegramNotificationService {
   }
 
   private async initialize(): Promise<void> {
-    let token = process.env.TELEGRAM_BOT_TOKEN;
+    // Prefer clean token env var (workaround for Replit secrets corruption)
+    // In production (Coolify), use TELEGRAM_BOT_TOKEN directly
+    let token = process.env.TELEGRAM_BOT_TOKEN_CLEAN || process.env.TELEGRAM_BOT_TOKEN;
     
     if (!token) {
       console.error('TELEGRAM_BOT_TOKEN not found. Telegram notifications disabled.');
@@ -43,12 +45,17 @@ export class TelegramNotificationService {
     // Clean the token - remove any whitespace or invisible characters
     token = token.trim().replace(/[\r\n\t\s]/g, '');
     
-    // Try to extract a valid token using regex pattern
-    // Telegram tokens are in format: 123456789:AAxxxxxx (bot_id:secret starting with AA)
-    const tokenMatch = token.match(/(\d{9,10}:AA[A-Za-z0-9_-]{30,40})/);
-    if (tokenMatch) {
-      token = tokenMatch[1];
-      console.log(`Extracted valid token pattern from stored value`);
+    // Check if token is the exact correct format (46 chars for this bot)
+    if (token.length >= 44 && token.length <= 50 && token.includes(':AA')) {
+      console.log(`Token format looks valid (${token.length} chars)`);
+    } else {
+      // Try to extract a valid token using regex pattern
+      // Telegram tokens are in format: 123456789:AAxxxxxx (bot_id:secret starting with AA)
+      const tokenMatch = token.match(/(\d{9,10}:AA[A-Za-z0-9_-]{30,40})/);
+      if (tokenMatch) {
+        token = tokenMatch[1];
+        console.log(`Extracted valid token pattern from stored value`);
+      }
     }
     
     // Log token info for debugging (mask the secret part)
