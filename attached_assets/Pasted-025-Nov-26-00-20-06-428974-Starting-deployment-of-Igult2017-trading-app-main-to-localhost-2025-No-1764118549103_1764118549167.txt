@@ -1,0 +1,442 @@
+025-Nov-26 00:20:06.428974
+Starting deployment of Igult2017/trading_app:main to localhost.
+2025-Nov-26 00:20:07.221135
+Preparing container with helper image: ghcr.io/coollabsio/coolify-helper:1.0.12
+2025-Nov-26 00:20:09.593115
+----------------------------------------
+2025-Nov-26 00:20:09.597154
+Importing Igult2017/trading_app:main (commit sha 2c7f70b7de8b1a35e67e45f7622500ff8282249b) to /artifacts/vcggww8gggwskk0cocc04k08.
+2025-Nov-26 00:20:13.332030
+Image not found (u0400oc0k0kgw40skg888s08:2c7f70b7de8b1a35e67e45f7622500ff8282249b). Building new image.
+2025-Nov-26 00:20:18.426525
+----------------------------------------
+2025-Nov-26 00:20:18.430655
+Building docker image started.
+2025-Nov-26 00:20:18.434270
+To check the current progress, click on Show Debug Logs.
+2025-Nov-26 00:21:42.720490
+Oops something is not okay, are you okay? 😢
+2025-Nov-26 00:21:42.755599
+#0 building with "default" instance using docker driver
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#1 [internal] load build definition from Dockerfile
+2025-Nov-26 00:21:42.755599
+#1 transferring dockerfile: 1.64kB done
+2025-Nov-26 00:21:42.755599
+#1 DONE 0.0s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+2025-Nov-26 00:21:42.755599
+#2 DONE 0.2s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#3 [internal] load .dockerignore
+2025-Nov-26 00:21:42.755599
+#3 transferring context: 133B done
+2025-Nov-26 00:21:42.755599
+#3 DONE 0.0s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#4 [builder 1/6] FROM docker.io/library/node:20-alpine@sha256:16858294071a56ffd4cce9f17b57136cc39e41507b40e245b4f8e906f7a19463
+2025-Nov-26 00:21:42.755599
+#4 DONE 0.0s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#5 [builder 2/6] WORKDIR /app
+2025-Nov-26 00:21:42.755599
+#5 CACHED
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#6 [internal] load build context
+2025-Nov-26 00:21:42.755599
+#6 transferring context: 14.92MB 0.3s done
+2025-Nov-26 00:21:42.755599
+#6 DONE 0.3s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#7 [builder 3/6] COPY package*.json ./
+2025-Nov-26 00:21:42.755599
+#7 DONE 0.1s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#8 [builder 4/6] RUN npm ci
+2025-Nov-26 00:21:42.755599
+#8 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#9 [production 3/9] RUN apk add --no-cache python3 py3-pip
+2025-Nov-26 00:21:42.755599
+#9 0.167 fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+2025-Nov-26 00:21:42.755599
+#9 0.370 fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+2025-Nov-26 00:21:42.755599
+#9 1.096 (1/23) Installing libbz2 (1.0.8-r6)
+2025-Nov-26 00:21:42.755599
+#9 1.105 (2/23) Installing libexpat (2.7.3-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.119 (3/23) Installing libffi (3.4.8-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.128 (4/23) Installing gdbm (1.24-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.133 (5/23) Installing xz-libs (5.8.1-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.140 (6/23) Installing mpdecimal (4.0.1-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.150 (7/23) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.162 (8/23) Installing libncursesw (6.5_p20250503-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.173 (9/23) Installing libpanelw (6.5_p20250503-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.177 (10/23) Installing readline (8.2.13-r1)
+2025-Nov-26 00:21:42.755599
+#9 1.188 (11/23) Installing sqlite-libs (3.49.2-r1)
+2025-Nov-26 00:21:42.755599
+#9 1.219 (12/23) Installing python3 (3.12.12-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.629 (13/23) Installing python3-pycache-pyc0 (3.12.12-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.886 (14/23) Installing pyc (3.12.12-r0)
+2025-Nov-26 00:21:42.755599
+#9 1.886 (15/23) Installing py3-setuptools-pyc (80.9.0-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.048 (16/23) Installing py3-pip-pyc (25.1.1-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.324 (17/23) Installing py3-parsing (3.2.3-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.346 (18/23) Installing py3-parsing-pyc (3.2.3-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.368 (19/23) Installing py3-packaging-pyc (25.0-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.383 (20/23) Installing python3-pyc (3.12.12-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.386 (21/23) Installing py3-packaging (25.0-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.403 (22/23) Installing py3-setuptools (80.9.0-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.625 (23/23) Installing py3-pip (25.1.1-r0)
+2025-Nov-26 00:21:42.755599
+#9 2.786 Executing busybox-1.37.0-r19.trigger
+2025-Nov-26 00:21:42.755599
+#9 2.809 OK: 66 MiB in 41 packages
+2025-Nov-26 00:21:42.755599
+#9 DONE 3.2s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#10 [production 4/9] RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
+2025-Nov-26 00:21:42.755599
+#10 1.465 Collecting matplotlib
+2025-Nov-26 00:21:42.755599
+#10 1.509   Downloading matplotlib-3.10.7-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (11 kB)
+2025-Nov-26 00:21:42.755599
+#10 1.555 Collecting mplfinance
+2025-Nov-26 00:21:42.755599
+#10 1.562   Downloading mplfinance-0.12.10b0-py3-none-any.whl.metadata (19 kB)
+2025-Nov-26 00:21:42.755599
+#10 1.819 Collecting pandas
+2025-Nov-26 00:21:42.755599
+#10 1.829   Downloading pandas-2.3.3-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (91 kB)
+2025-Nov-26 00:21:42.755599
+#10 2.269 Collecting numpy
+2025-Nov-26 00:21:42.755599
+#10 2.278   Downloading numpy-2.3.5-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (62 kB)
+2025-Nov-26 00:21:42.755599
+#10 2.444 Collecting contourpy>=1.0.1 (from matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 2.453   Downloading contourpy-1.3.3-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (5.5 kB)
+2025-Nov-26 00:21:42.755599
+#10 2.482 Collecting cycler>=0.10 (from matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 2.489   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+2025-Nov-26 00:21:42.755599
+#10 2.926 Collecting fonttools>=4.22.0 (from matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 2.937   Downloading fonttools-4.60.1-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (112 kB)
+2025-Nov-26 00:21:42.755599
+#10 3.121 Collecting kiwisolver>=1.3.1 (from matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 3.132   Downloading kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (6.3 kB)
+2025-Nov-26 00:21:42.755599
+#10 3.154 Requirement already satisfied: packaging>=20.0 in /usr/lib/python3.12/site-packages (from matplotlib) (25.0)
+2025-Nov-26 00:21:42.755599
+#10 3.605 Collecting pillow>=8 (from matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 3.615   Downloading pillow-12.0.0-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (8.8 kB)
+2025-Nov-26 00:21:42.755599
+#10 3.640 Requirement already satisfied: pyparsing>=3 in /usr/lib/python3.12/site-packages (from matplotlib) (3.2.3)
+2025-Nov-26 00:21:42.755599
+#10 3.688 Collecting python-dateutil>=2.7 (from matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 3.696   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+2025-Nov-26 00:21:42.755599
+#10 3.854 Collecting pytz>=2020.1 (from pandas)
+2025-Nov-26 00:21:42.755599
+#10 3.864   Downloading pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
+2025-Nov-26 00:21:42.755599
+#10 3.927 Collecting tzdata>=2022.7 (from pandas)
+2025-Nov-26 00:21:42.755599
+#10 3.938   Downloading tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+2025-Nov-26 00:21:42.755599
+#10 4.091 Collecting six>=1.5 (from python-dateutil>=2.7->matplotlib)
+2025-Nov-26 00:21:42.755599
+#10 4.125   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+2025-Nov-26 00:21:42.755599
+#10 4.173 Downloading matplotlib-3.10.7-cp312-cp312-musllinux_1_2_x86_64.whl (9.6 MB)
+2025-Nov-26 00:21:42.755599
+#10 4.990    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.6/9.6 MB 12.0 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 5.014 Downloading mplfinance-0.12.10b0-py3-none-any.whl (75 kB)
+2025-Nov-26 00:21:42.755599
+#10 5.071 Downloading pandas-2.3.3-cp312-cp312-musllinux_1_2_x86_64.whl (13.5 MB)
+2025-Nov-26 00:21:42.755599
+#10 5.424    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.5/13.5 MB 40.6 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 5.443 Downloading numpy-2.3.5-cp312-cp312-musllinux_1_2_x86_64.whl (18.5 MB)
+2025-Nov-26 00:21:42.755599
+#10 5.896    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18.5/18.5 MB 42.4 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 5.914 Downloading contourpy-1.3.3-cp312-cp312-musllinux_1_2_x86_64.whl (1.4 MB)
+2025-Nov-26 00:21:42.755599
+#10 5.982    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 23.0 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 5.994 Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+2025-Nov-26 00:21:42.755599
+#10 6.016 Downloading fonttools-4.60.1-cp312-cp312-musllinux_1_2_x86_64.whl (5.1 MB)
+2025-Nov-26 00:21:42.755599
+#10 6.208    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 28.3 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 6.218 Downloading kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_x86_64.whl (2.3 MB)
+2025-Nov-26 00:21:42.755599
+#10 6.268    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 49.2 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 6.276 Downloading pillow-12.0.0-cp312-cp312-musllinux_1_2_x86_64.whl (7.1 MB)
+2025-Nov-26 00:21:42.755599
+#10 6.403    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.1/7.1 MB 59.6 MB/s eta 0:00:00
+2025-Nov-26 00:21:42.755599
+#10 6.411 Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+2025-Nov-26 00:21:42.755599
+#10 6.435 Downloading pytz-2025.2-py2.py3-none-any.whl (509 kB)
+2025-Nov-26 00:21:42.755599
+#10 6.459 Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+2025-Nov-26 00:21:42.755599
+#10 6.482 Downloading tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+2025-Nov-26 00:21:42.755599
+#10 7.063 Installing collected packages: pytz, tzdata, six, pillow, numpy, kiwisolver, fonttools, cycler, python-dateutil, contourpy, pandas, matplotlib, mplfinance
+2025-Nov-26 00:21:42.755599
+#10 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#8 [builder 4/6] RUN npm ci
+2025-Nov-26 00:21:42.755599
+#8 17.32 npm warn deprecated har-validator@5.1.5: this library is no longer supported
+2025-Nov-26 00:21:42.755599
+#8 19.28 npm warn deprecated request@2.88.2: request has been deprecated, see https://github.com/request/request/issues/3142
+2025-Nov-26 00:21:42.755599
+#8 21.20 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2025-Nov-26 00:21:42.755599
+#8 23.46 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+2025-Nov-26 00:21:42.755599
+#8 23.52 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+2025-Nov-26 00:21:42.755599
+#8 25.44 npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+2025-Nov-26 00:21:42.755599
+#8 50.58
+2025-Nov-26 00:21:42.755599
+#8 50.58 added 691 packages, and audited 692 packages in 50s
+2025-Nov-26 00:21:42.755599
+#8 50.59
+2025-Nov-26 00:21:42.755599
+#8 50.59 148 packages are looking for funding
+2025-Nov-26 00:21:42.755599
+#8 50.59   run `npm fund` for details
+2025-Nov-26 00:21:42.755599
+#8 50.77
+2025-Nov-26 00:21:42.755599
+#8 50.77 17 vulnerabilities (3 low, 11 moderate, 1 high, 2 critical)
+2025-Nov-26 00:21:42.755599
+#8 50.77
+2025-Nov-26 00:21:42.755599
+#8 50.77 To address issues that do not require attention, run:
+2025-Nov-26 00:21:42.755599
+#8 50.77   npm audit fix
+2025-Nov-26 00:21:42.755599
+#8 50.77
+2025-Nov-26 00:21:42.755599
+#8 50.77 To address all issues (including breaking changes), run:
+2025-Nov-26 00:21:42.755599
+#8 50.77   npm audit fix --force
+2025-Nov-26 00:21:42.755599
+#8 50.77
+2025-Nov-26 00:21:42.755599
+#8 50.77 Run `npm audit` for details.
+2025-Nov-26 00:21:42.755599
+#8 50.78 npm notice
+2025-Nov-26 00:21:42.755599
+#8 50.78 npm notice New major version of npm available! 10.8.2 -> 11.6.4
+2025-Nov-26 00:21:42.755599
+#8 50.78 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.4
+2025-Nov-26 00:21:42.755599
+#8 50.78 npm notice To update run: npm install -g npm@11.6.4
+2025-Nov-26 00:21:42.755599
+#8 50.78 npm notice
+2025-Nov-26 00:21:42.755599
+#8 DONE 51.3s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#10 [production 4/9] RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
+2025-Nov-26 00:21:42.755599
+#10 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#11 [builder 5/6] COPY . .
+2025-Nov-26 00:21:42.755599
+#11 DONE 0.3s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#10 [production 4/9] RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
+2025-Nov-26 00:21:42.755599
+#10 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#12 [builder 6/6] RUN npm run build
+2025-Nov-26 00:21:42.755599
+#12 0.494
+2025-Nov-26 00:21:42.755599
+#12 0.494 > rest-express@1.0.0 build
+2025-Nov-26 00:21:42.755599
+#12 0.494 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+2025-Nov-26 00:21:42.755599
+#12 0.494
+2025-Nov-26 00:21:42.755599
+#12 1.095 vite v5.4.19 building for production...
+2025-Nov-26 00:21:42.755599
+#12 1.226 transforming...
+2025-Nov-26 00:21:42.755599
+#12 6.097
+2025-Nov-26 00:21:42.755599
+#12 6.097 A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+2025-Nov-26 00:21:42.755599
+#12 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#10 [production 4/9] RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
+2025-Nov-26 00:21:42.755599
+#10 55.74
+2025-Nov-26 00:21:42.755599
+#10 55.74 Successfully installed contourpy-1.3.3 cycler-0.12.1 fonttools-4.60.1 kiwisolver-1.4.9 matplotlib-3.10.7 mplfinance-0.12.10b0 numpy-2.3.5 pandas-2.3.3 pillow-12.0.0 python-dateutil-2.9.0.post0 pytz-2025.2 six-1.17.0 tzdata-2025.2
+2025-Nov-26 00:21:42.755599
+#10 55.75 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+2025-Nov-26 00:21:42.755599
+#10 DONE 56.9s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#12 [builder 6/6] RUN npm run build
+2025-Nov-26 00:21:42.755599
+#12 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#13 [production 5/9] COPY package*.json ./
+2025-Nov-26 00:21:42.755599
+#13 DONE 0.1s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#14 [production 6/9] RUN npm ci --omit=dev
+2025-Nov-26 00:21:42.755599
+#14 13.77 npm warn deprecated har-validator@5.1.5: this library is no longer supported
+2025-Nov-26 00:21:42.755599
+#14 16.13 npm warn deprecated request@2.88.2: request has been deprecated, see https://github.com/request/request/issues/3142
+2025-Nov-26 00:21:42.755599
+#14 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#12 [builder 6/6] RUN npm run build
+2025-Nov-26 00:21:42.755599
+#12 24.67 ✓ 2372 modules transformed.
+2025-Nov-26 00:21:42.755599
+#12 25.98 rendering chunks...
+2025-Nov-26 00:21:42.755599
+#12 26.00 computing gzip size...
+2025-Nov-26 00:21:42.755599
+#12 26.04 ../dist/public/index.html                   2.56 kB │ gzip:   1.03 kB
+2025-Nov-26 00:21:42.755599
+#12 26.04 ../dist/public/assets/index-BoYySNj7.css   87.11 kB │ gzip:  14.19 kB
+2025-Nov-26 00:21:42.755599
+#12 26.05
+2025-Nov-26 00:21:42.755599
+#12 26.05 (!) Some chunks are larger than 500 kB after minification. Consider:
+2025-Nov-26 00:21:42.755599
+#12 26.05 - Using dynamic import() to code-split the application
+2025-Nov-26 00:21:42.755599
+#12 26.05 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+2025-Nov-26 00:21:42.755599
+#12 26.05 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+2025-Nov-26 00:21:42.755599
+#12 26.05 ../dist/public/assets/index-BahNLi22.js   539.49 kB │ gzip: 162.14 kB
+2025-Nov-26 00:21:42.755599
+#12 26.05 ✓ built in 24.89s
+2025-Nov-26 00:21:42.755599
+#12 26.44
+2025-Nov-26 00:21:42.755599
+#12 26.44   dist/index.js  244.9kb
+2025-Nov-26 00:21:42.755599
+#12 26.44
+2025-Nov-26 00:21:42.755599
+#12 26.44 ⚡ Done in 144ms
+2025-Nov-26 00:21:42.755599
+#12 DONE 26.9s
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#14 [production 6/9] RUN npm ci --omit=dev
+2025-Nov-26 00:21:42.755599
+#14 16.67 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2025-Nov-26 00:21:42.755599
+#14 17.95 npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+2025-Nov-26 00:21:42.755599
+#14 ...
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#15 [production 7/9] COPY --from=builder /app/dist ./dist
+2025-Nov-26 00:21:42.755599
+#15 CACHED
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#16 [production 8/9] COPY --from=builder /app/client/dist ./client/dist
+2025-Nov-26 00:21:42.755599
+#16 ERROR: failed to calculate checksum of ref f1a1e2e4-6e71-4ef7-b288-97a67eb8894a::2dgf0ctd9tvitrxb9merdfi7w: "/app/client/dist": not found
+2025-Nov-26 00:21:42.755599
+2025-Nov-26 00:21:42.755599
+#14 [production 6/9] RUN npm ci --omit=dev
+2025-Nov-26 00:21:42.755599
+#14 CANCELED
+2025-Nov-26 00:21:42.755599
+------
+2025-Nov-26 00:21:42.755599
+> [production 8/9] COPY --from=builder /app/client/dist ./client/dist:
+2025-Nov-26 00:21:42.755599
+------
+2025-Nov-26 00:21:42.755599
+Dockerfile:49
+2025-Nov-26 00:21:42.755599
+--------------------
+2025-Nov-26 00:21:42.755599
+47 |     # Copy built files from builder stage
+2025-Nov-26 00:21:42.755599
+48 |     COPY --from=builder /app/dist ./dist
+2025-Nov-26 00:21:42.755599
+49 | >>> COPY --from=builder /app/client/dist ./client/dist
+2025-Nov-26 00:21:42.755599
+50 |
+2025-Nov-26 00:21:42.755599
+51 |     # Copy Python scripts for chart generation
+2025-Nov-26 00:21:42.755599
+--------------------
+2025-Nov-26 00:21:42.755599
+ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref f1a1e2e4-6e71-4ef7-b288-97a67eb8894a::2dgf0ctd9tvitrxb9merdfi7w: "/app/client/dist": not found
+2025-Nov-26 00:21:42.755599
+exit status 1
+2025-Nov-26 00:21:42.818949
+Deployment failed. Removing the new version of your application.
+2025-Nov-26 00:21:45.242889
+Gracefully shutting down build container: vcggww8gggwskk0cocc04k08

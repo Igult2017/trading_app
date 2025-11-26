@@ -12,7 +12,7 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (outputs to dist/ with frontend in dist/public/)
 RUN npm run build
 
 # Stage 2: Production
@@ -33,8 +33,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Copy built files from builder stage
+# dist/ contains both server (index.js) and frontend (public/)
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/client/dist ./client/dist
 
 # Copy Python scripts for chart generation
 COPY server/python ./server/python
