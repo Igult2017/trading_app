@@ -21,6 +21,7 @@ import {
   TimeframeSelection,
   ClarityResult,
 } from './clarityAnalysis';
+import { analyzeVolatility, hasCleanPriceAction, VolatilityAnalysis } from '../shared/candlePatterns';
 
 export class SMCStrategy extends BaseStrategy {
   constructor() {
@@ -55,6 +56,18 @@ export class SMCStrategy extends BaseStrategy {
 
       if (!isMarketClear(tfSelection)) {
         this.logAnalysis(`Skipping ${symbol}: ${getMarketClarityStatus(tfSelection)}`);
+        return {
+          strategyId: this.id,
+          signals: [],
+          pendingSetups: [],
+          errors: [],
+          analysisTimeMs: Date.now() - startTime,
+        };
+      }
+
+      const volatilityCheck = this.checkVolatility(data);
+      if (volatilityCheck.isVolatile) {
+        this.logAnalysis(`Skipping ${symbol}: ${volatilityCheck.reasons.join(', ')}`);
         return {
           strategyId: this.id,
           signals: [],
@@ -135,15 +148,15 @@ export class SMCStrategy extends BaseStrategy {
         }
 
         if (entryResult.hasValidEntry && entryResult.setup) {
-          const entryConfirmed = this.confirmEntryTrigger(
+          const entryConfirmation = this.confirmEntryTrigger(
             data,
             tfSelection.entryRefinementTf,
             entryResult,
             direction
           );
 
-          if (!entryConfirmed) {
-            this.logAnalysis(`Entry trigger not confirmed on ${tfSelection.entryRefinementTf}, watching...`);
+          if (!entryConfirmation.confirmed) {
+            this.logAnalysis(`Entry trigger not confirmed on ${tfSelection.entryRefinementTf}: ${entryConfirmation.confirmations.join(', ')}`);
             if (entryResult.setup.confidence >= 50) {
               const pendingSetup = {
                 ...entryResult.setup,
@@ -157,6 +170,13 @@ export class SMCStrategy extends BaseStrategy {
             }
             continue;
           }
+
+          this.logAnalysis(`Entry confirmed: ${entryConfirmation.confirmations.join(', ')}`);
+          
+          entryResult.setup.confirmations = [
+            ...entryResult.setup.confirmations,
+            ...entryConfirmation.confirmations
+          ];
 
           const confidence = entryResult.setup.confidence;
 
@@ -224,31 +244,147 @@ export class SMCStrategy extends BaseStrategy {
     }
   }
 
+  private checkVolatility(data: MultiTimeframeData): VolatilityAnalysis {
+    const h1Volatility = data.h1 ? analyzeVolatility(data.h1, 20) : null;
+    const m15Volatility = analyzeVolatility(data.m15, 20);
+    const m5Volatility = analyzeVolatility(data.m5, 20);
+
+    const reasons: string[] = [];
+    let isVolatile = false;
+
+    if (h1Volatility?.isVolatile) {
+      isVolatile = true;
+      reasons.push(...h1Volatility.reasons.map(r => `1H: ${r}`));
+    }
+
+    if (m15Volatility.isVolatile) {
+      isVolatile = true;
+      reasons.push(...m15Volatility.reasons.map(r => `15M: ${r}`));
+    }
+
+    if (m5Volatility.isVolatile && m5Volatility.rangeMultiplier > 3) {
+      isVolatile = true;
+      reasons.push(...m5Volatility.reasons.map(r => `5M: ${r}`));
+    }
+
+    if (!hasCleanPriceAction(data.m15, 15)) {
+      if (m15Volatility.avgWickRatio > 0.45) {
+        isVolatile = true;
+        reasons.push('15M: Choppy price action with unclear structure');
+      }
+    }
+
+    return {
+      isVolatile,
+      wickRatio: m15Volatility.wickRatio,
+      avgWickRatio: m15Volatility.avgWickRatio,
+      rangeMultiplier: m15Volatility.rangeMultiplier,
+      longWickCount: m15Volatility.longWickCount,
+      reasons,
+    };
+  }
+
   private confirmEntryTrigger(
     data: MultiTimeframeData,
     entryTf: Timeframe,
     entryResult: EntryDetectionResult,
     direction: SignalDirection
-  ): boolean {
+  ): { confirmed: boolean; confirmations: string[] } {
     const entryCandles = this.getEntryRefinementCandles(data, entryTf);
-    if (entryCandles.length < 3) return false;
+    if (entryCandles.length < 5) {
+      return { confirmed: false, confirmations: ['Insufficient entry candles'] };
+    }
+
+    const confirmations: string[] = [];
+    let confirmationCount = 0;
 
     const lastCandle = entryCandles[entryCandles.length - 1];
     const prevCandle = entryCandles[entryCandles.length - 2];
+    const prevPrevCandle = entryCandles[entryCandles.length - 3];
+
+    const lastWickRatio = (lastCandle.high - lastCandle.low) > 0
+      ? ((Math.max(lastCandle.open, lastCandle.close) - Math.min(lastCandle.open, lastCandle.close)) / 
+         (lastCandle.high - lastCandle.low))
+      : 0;
+
+    if (lastWickRatio < 0.3) {
+      return { confirmed: false, confirmations: ['Entry candle has too much wick - unclear direction'] };
+    }
 
     if (direction === 'buy') {
       const bullishClose = lastCandle.close > lastCandle.open;
+      const strongBody = lastWickRatio >= 0.5;
       const higherLow = lastCandle.low > prevCandle.low;
-      const priceReaction = lastCandle.close > prevCandle.high;
+      const higherHigh = lastCandle.high > prevCandle.high;
+      const breakPrevHigh = lastCandle.close > prevCandle.high;
+      const consecutiveBullish = prevCandle.close > prevCandle.open && bullishClose;
 
-      return bullishClose && (higherLow || priceReaction);
+      if (bullishClose && strongBody) {
+        confirmations.push('Strong bullish candle with clean body');
+        confirmationCount++;
+      }
+
+      if (higherLow && higherHigh) {
+        confirmations.push('Higher high and higher low formed');
+        confirmationCount++;
+      }
+
+      if (breakPrevHigh) {
+        confirmations.push('Closed above previous high - momentum confirmed');
+        confirmationCount++;
+      }
+
+      if (consecutiveBullish) {
+        confirmations.push('Consecutive bullish candles');
+        confirmationCount++;
+      }
+
+      const lowerWick = Math.min(lastCandle.open, lastCandle.close) - lastCandle.low;
+      const totalRange = lastCandle.high - lastCandle.low;
+      if (totalRange > 0 && lowerWick / totalRange > 0.5) {
+        confirmations.push('Bullish rejection wick from zone');
+        confirmationCount++;
+      }
+
     } else {
       const bearishClose = lastCandle.close < lastCandle.open;
+      const strongBody = lastWickRatio >= 0.5;
       const lowerHigh = lastCandle.high < prevCandle.high;
-      const priceReaction = lastCandle.close < prevCandle.low;
+      const lowerLow = lastCandle.low < prevCandle.low;
+      const breakPrevLow = lastCandle.close < prevCandle.low;
+      const consecutiveBearish = prevCandle.close < prevCandle.open && bearishClose;
 
-      return bearishClose && (lowerHigh || priceReaction);
+      if (bearishClose && strongBody) {
+        confirmations.push('Strong bearish candle with clean body');
+        confirmationCount++;
+      }
+
+      if (lowerHigh && lowerLow) {
+        confirmations.push('Lower high and lower low formed');
+        confirmationCount++;
+      }
+
+      if (breakPrevLow) {
+        confirmations.push('Closed below previous low - momentum confirmed');
+        confirmationCount++;
+      }
+
+      if (consecutiveBearish) {
+        confirmations.push('Consecutive bearish candles');
+        confirmationCount++;
+      }
+
+      const upperWick = lastCandle.high - Math.max(lastCandle.open, lastCandle.close);
+      const totalRange = lastCandle.high - lastCandle.low;
+      if (totalRange > 0 && upperWick / totalRange > 0.5) {
+        confirmations.push('Bearish rejection wick from zone');
+        confirmationCount++;
+      }
     }
+
+    const confirmed = confirmationCount >= 2;
+
+    return { confirmed, confirmations };
   }
 
   validateSetup(setup: EntrySetup, data: MultiTimeframeData): boolean {

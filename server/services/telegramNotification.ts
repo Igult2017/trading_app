@@ -547,15 +547,43 @@ export class TelegramNotificationService {
       const now = new Date();
       const timeStr = format(now, 'MMM dd, HH:mm');
       
-      const telegramCaption = 
+      const entryTypeDisplay = signal.entryType ? {
+        'choch': 'CHoCH',
+        'continuation': 'Trend Continuation',
+        'ds_sd_flip': 'Zone Flip',
+      }[signal.entryType] || signal.entryType : '';
+      
+      const trendInfo = signal.trend ? 
+        (signal.trend.toLowerCase() === 'bullish' ? 'Bullish' : 
+         signal.trend.toLowerCase() === 'bearish' ? 'Bearish' : 'Ranging') : '';
+      
+      const signalConfirmations = signal.confirmations || signal.reasons || [];
+      const confirmationText = signalConfirmations.length > 0 
+        ? signalConfirmations.slice(0, 3).map((c: string) => `  ${c}`).join('\n')
+        : '';
+      
+      let telegramCaption = 
         `${typeEmoji} *${signal.symbol}* │ ${direction.toUpperCase()}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `💰 Entry: ${entryPrice}\n` +
         `🛑 SL: ${stopLoss}\n` +
         `🎯 TP: ${takeProfit}\n` +
         `📊 R:R 1:${riskReward} │ ${confidence}% confidence\n` +
-        `⏱ Timeframe: ${timeframe}\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `⏱ Timeframe: ${timeframe}`;
+      
+      if (trendInfo) {
+        telegramCaption += ` │ ${trendInfo}`;
+      }
+      
+      if (entryTypeDisplay) {
+        telegramCaption += `\n📍 Entry Type: ${entryTypeDisplay}`;
+      }
+      
+      if (confirmationText) {
+        telegramCaption += `\n\n✅ *Confirmations:*\n${confirmationText}`;
+      }
+      
+      telegramCaption += `\n━━━━━━━━━━━━━━━━━━━━\n` +
         `🔗 www.findbuyandsellzones.com/signals\n\n` +
         `⚠️ Educational only — not financial advice.`;
 
@@ -601,6 +629,10 @@ export class TelegramNotificationService {
             }
           }
           
+          const confirmations: string[] = signal.confirmations || signal.reasons || [];
+          const entryType = signal.entryType || signal.entry_type || '';
+          const trend = signal.trend || '';
+
           const chartResult = await generateTradingSignalChart(
             signal.symbol,
             timeframe,
@@ -613,7 +645,12 @@ export class TelegramNotificationService {
               confidence: confidence,
             },
             supplyZones,
-            demandZones
+            demandZones,
+            {
+              confirmations,
+              entryType,
+              trend,
+            }
           );
           
           if (chartResult.success && chartResult.path) {

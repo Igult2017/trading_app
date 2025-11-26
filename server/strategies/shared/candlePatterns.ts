@@ -169,3 +169,116 @@ export function detectMomentumShift(candles: Candle[], lookback: number = 5): 'b
 
   return null;
 }
+
+export interface VolatilityAnalysis {
+  isVolatile: boolean;
+  wickRatio: number;
+  avgWickRatio: number;
+  rangeMultiplier: number;
+  longWickCount: number;
+  reasons: string[];
+}
+
+export function analyzeVolatility(candles: Candle[], lookback: number = 20): VolatilityAnalysis {
+  if (candles.length < lookback) {
+    return {
+      isVolatile: false,
+      wickRatio: 0,
+      avgWickRatio: 0,
+      rangeMultiplier: 1,
+      longWickCount: 0,
+      reasons: ['Insufficient data for volatility analysis'],
+    };
+  }
+
+  const recentCandles = candles.slice(-lookback);
+  const reasons: string[] = [];
+
+  const avgRange = recentCandles.reduce((sum, c) => sum + getCandleRange(c), 0) / recentCandles.length;
+  const avgBody = recentCandles.reduce((sum, c) => sum + getCandleBody(c), 0) / recentCandles.length;
+
+  let totalWickRatio = 0;
+  let longWickCount = 0;
+
+  for (const candle of recentCandles) {
+    const range = getCandleRange(candle);
+    const body = getCandleBody(candle);
+    const upperWick = getUpperWick(candle);
+    const lowerWick = getLowerWick(candle);
+    const totalWick = upperWick + lowerWick;
+
+    if (range > 0) {
+      const wickRatio = totalWick / range;
+      totalWickRatio += wickRatio;
+
+      if (wickRatio > 0.6) {
+        longWickCount++;
+      }
+    }
+  }
+
+  const avgWickRatio = totalWickRatio / recentCandles.length;
+  const lastCandle = recentCandles[recentCandles.length - 1];
+  const lastRange = getCandleRange(lastCandle);
+  const rangeMultiplier = avgRange > 0 ? lastRange / avgRange : 1;
+
+  let isVolatile = false;
+
+  if (avgWickRatio > 0.55) {
+    isVolatile = true;
+    reasons.push(`High wick ratio: ${(avgWickRatio * 100).toFixed(0)}% (market indecision)`);
+  }
+
+  if (longWickCount >= lookback * 0.4) {
+    isVolatile = true;
+    reasons.push(`Too many long wick candles: ${longWickCount}/${lookback}`);
+  }
+
+  if (rangeMultiplier > 2.5) {
+    isVolatile = true;
+    reasons.push(`Abnormal range expansion: ${rangeMultiplier.toFixed(1)}x average`);
+  }
+
+  const lastWickRatio = getCandleRange(lastCandle) > 0 
+    ? (getUpperWick(lastCandle) + getLowerWick(lastCandle)) / getCandleRange(lastCandle)
+    : 0;
+
+  if (lastWickRatio > 0.7) {
+    isVolatile = true;
+    reasons.push(`Current candle has extreme wicks: ${(lastWickRatio * 100).toFixed(0)}%`);
+  }
+
+  return {
+    isVolatile,
+    wickRatio: lastWickRatio,
+    avgWickRatio,
+    rangeMultiplier,
+    longWickCount,
+    reasons,
+  };
+}
+
+export function hasCleanPriceAction(candles: Candle[], lookback: number = 10): boolean {
+  if (candles.length < lookback) return false;
+
+  const recent = candles.slice(-lookback);
+  let cleanCandles = 0;
+
+  for (const candle of recent) {
+    const bodyRatio = getBodyToRangeRatio(candle);
+    if (bodyRatio >= 0.4) {
+      cleanCandles++;
+    }
+  }
+
+  return cleanCandles >= lookback * 0.6;
+}
+
+export function getWickToBodyRatio(candle: Candle): number {
+  const body = getCandleBody(candle);
+  const upperWick = getUpperWick(candle);
+  const lowerWick = getLowerWick(candle);
+
+  if (body === 0) return Infinity;
+  return (upperWick + lowerWick) / body;
+}

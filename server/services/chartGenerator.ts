@@ -22,6 +22,8 @@ export interface SignalInfo {
 export interface ZoneInfo {
   top: number;
   bottom: number;
+  strength?: 'strong' | 'moderate' | 'weak';
+  label?: string;
 }
 
 export interface ChartGeneratorInput {
@@ -31,6 +33,9 @@ export interface ChartGeneratorInput {
   signal?: SignalInfo;
   supply_zones?: ZoneInfo[];
   demand_zones?: ZoneInfo[];
+  confirmations?: string[];
+  entry_type?: string;
+  trend?: string;
   output_path: string;
 }
 
@@ -102,15 +107,18 @@ export async function generateTradingSignalChart(
     confidence: number;
   },
   supplyZones: ZoneInfo[] = [],
-  demandZones: ZoneInfo[] = []
+  demandZones: ZoneInfo[] = [],
+  options: {
+    confirmations?: string[];
+    entryType?: string;
+    trend?: string;
+  } = {}
 ): Promise<ChartGeneratorResult> {
-  // Generate unique filename
   const timestamp = Date.now();
   const safeSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `signal_${safeSymbol}_${timeframe}_${timestamp}.png`;
   const outputPath = path.join('/tmp/charts', filename);
   
-  // Ensure directory exists
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -129,6 +137,9 @@ export async function generateTradingSignalChart(
     },
     supply_zones: supplyZones,
     demand_zones: demandZones,
+    confirmations: options.confirmations || [],
+    entry_type: options.entryType || '',
+    trend: options.trend || '',
     output_path: outputPath,
   };
   
