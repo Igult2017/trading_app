@@ -5,6 +5,7 @@ import { strategyRegistry, initializeStrategies, StrategySignal, InstrumentData 
 import { fetchMultiTimeframeData } from "../strategies/shared/multiTimeframe";
 import { getPrice } from "../lib/priceService";
 import { filterTradeableInstruments, getActiveSession } from "../lib/marketHours";
+import { validateSignalWithGemini, SignalToValidate, PriceData } from "./geminiAnalysis";
 
 const TRADEABLE_INSTRUMENTS = [
   { symbol: 'EUR/USD', assetClass: 'forex', currentPrice: 1.0850 },
@@ -243,6 +244,34 @@ export class SignalScannerService {
 
   private async saveAndNotifySignal(signal: StrategySignal): Promise<void> {
     try {
+      // Validate signal with Gemini AI before saving
+      const geminiValidation = await this.validateWithGemini(signal);
+      
+      if (geminiValidation) {
+        if (geminiValidation.recommendation === 'skip') {
+          console.log(`[Gemini] REJECTED ${signal.symbol}: ${geminiValidation.reasoning}`);
+          return; // Don't save signals that Gemini recommends skipping
+        }
+        
+        // Adjust confidence based on Gemini's assessment
+        const adjustedConfidence = Math.max(0, Math.min(100, 
+          signal.confidence + geminiValidation.confidenceAdjustment
+        ));
+        signal.confidence = adjustedConfidence;
+        
+        // Log Gemini's validation
+        console.log(`[Gemini] ${geminiValidation.recommendation.toUpperCase()} ${signal.symbol}: ` +
+          `${geminiValidation.validated ? 'Validated' : 'Concerns'} ` +
+          `(Confidence: ${signal.confidence}%, Adj: ${geminiValidation.confidenceAdjustment > 0 ? '+' : ''}${geminiValidation.confidenceAdjustment})`);
+        
+        if (geminiValidation.concerns.length > 0) {
+          console.log(`[Gemini] Concerns: ${geminiValidation.concerns.join(', ')}`);
+        }
+        if (geminiValidation.strengths.length > 0) {
+          console.log(`[Gemini] Strengths: ${geminiValidation.strengths.join(', ')}`);
+        }
+      }
+      
       const now = new Date();
       const expiresAt = new Date(signal.expiresAt);
 
@@ -303,6 +332,57 @@ export class SignalScannerService {
 
     } catch (error) {
       console.error(`[SignalScanner] Error saving signal for ${signal.symbol}:`, error);
+    }
+  }
+
+  private async validateWithGemini(signal: StrategySignal): Promise<{
+    validated: boolean;
+    confidenceAdjustment: number;
+    concerns: string[];
+    strengths: string[];
+    recommendation: 'proceed' | 'caution' | 'skip';
+    reasoning: string;
+  } | null> {
+    try {
+      // Check if Gemini is available
+      if (!process.env.GOOGLE_API_KEY) {
+        console.log('[Gemini] API key not configured, skipping validation');
+        return null;
+      }
+
+      // Prepare signal data for validation
+      const signalToValidate: SignalToValidate = {
+        symbol: signal.symbol,
+        direction: signal.direction.toUpperCase() as 'BUY' | 'SELL',
+        entryPrice: signal.entryPrice,
+        stopLoss: signal.stopLoss,
+        takeProfit: signal.takeProfit,
+        confidence: signal.confidence,
+        strategy: signal.strategyName,
+        entryType: signal.entryType,
+        reasoning: signal.reasoning.join('; '),
+        zones: signal.entrySetup?.entryZone ? [{
+          type: signal.entrySetup.entryZone.type,
+          top: signal.entrySetup.entryZone.topPrice,
+          bottom: signal.entrySetup.entryZone.bottomPrice
+        }] : undefined
+      };
+
+      // Prepare price data (simplified - just the key info)
+      const priceData: PriceData[] = [{
+        symbol: signal.symbol,
+        timeframe: signal.timeframe,
+        candles: [] // Gemini will use reasoning and zone info
+      }];
+
+      console.log(`[Gemini] Validating ${signal.symbol} ${signal.direction} signal...`);
+      
+      const result = await validateSignalWithGemini(signalToValidate, priceData);
+      
+      return result;
+    } catch (error: any) {
+      console.error(`[Gemini] Validation error for ${signal.symbol}:`, error.message || error);
+      return null; // Proceed without Gemini validation if it fails
     }
   }
 
