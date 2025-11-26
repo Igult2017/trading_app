@@ -4,6 +4,7 @@ import { telegramNotificationService } from "./telegramNotification";
 import { strategyRegistry, initializeStrategies, StrategySignal, InstrumentData } from "../strategies";
 import { fetchMultiTimeframeData } from "../strategies/shared/multiTimeframe";
 import { getPrice } from "../lib/priceService";
+import { filterTradeableInstruments, getActiveSession } from "../lib/marketHours";
 
 const TRADEABLE_INSTRUMENTS = [
   { symbol: 'EUR/USD', assetClass: 'forex', currentPrice: 1.0850 },
@@ -103,11 +104,27 @@ export class SignalScannerService {
       const stats = strategyRegistry.getStats();
       console.log(`[SignalScanner] Running ${stats.enabledStrategies} enabled strategies`);
 
+      const { tradeable, skipped } = filterTradeableInstruments(TRADEABLE_INSTRUMENTS);
+      
+      if (skipped.length > 0) {
+        const skippedByClass: Record<string, number> = {};
+        for (const { instrument } of skipped) {
+          skippedByClass[instrument.assetClass] = (skippedByClass[instrument.assetClass] || 0) + 1;
+        }
+        const skippedSummary = Object.entries(skippedByClass)
+          .map(([cls, count]) => `${count} ${cls}`)
+          .join(', ');
+        console.log(`[SignalScanner] Skipping closed markets: ${skippedSummary}`);
+      }
+      
+      console.log(`[SignalScanner] Analyzing ${tradeable.length} instruments in open markets`);
+
       const newSignals: StrategySignal[] = [];
       const allPendingSetups: any[] = [];
 
-      for (const instrument of TRADEABLE_INSTRUMENTS) {
+      for (const instrument of tradeable) {
         try {
+          const session = getActiveSession(instrument.assetClass);
           const result = await this.analyzeWithStrategies(instrument);
           newSignals.push(...result.signals);
           allPendingSetups.push(...result.pendingSetups);
