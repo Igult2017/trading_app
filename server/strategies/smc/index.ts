@@ -268,7 +268,7 @@ export class SMCStrategy extends BaseStrategy {
     }
 
     if (!hasCleanPriceAction(data.m15, 15)) {
-      if (m15Volatility.avgWickRatio > 0.45) {
+      if (m15Volatility.avgWickRatio > 0.70 && m15Volatility.longWickCount > 14) {
         isVolatile = true;
         reasons.push('15M: Choppy price action with unclear structure');
       }

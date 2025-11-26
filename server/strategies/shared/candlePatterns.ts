@@ -224,17 +224,26 @@ export function analyzeVolatility(candles: Candle[], lookback: number = 20): Vol
 
   let isVolatile = false;
 
-  if (avgWickRatio > 0.55) {
+  let impulseCount = 0;
+  for (const candle of recentCandles) {
+    const bodyRatio = getBodyToRangeRatio(candle);
+    if (bodyRatio >= 0.45) {
+      impulseCount++;
+    }
+  }
+  const hasStrongImpulse = impulseCount >= lookback * 0.25;
+
+  if (avgWickRatio > 0.75 && !hasStrongImpulse) {
     isVolatile = true;
     reasons.push(`High wick ratio: ${(avgWickRatio * 100).toFixed(0)}% (market indecision)`);
   }
 
-  if (longWickCount >= lookback * 0.4) {
+  if (longWickCount > lookback * 0.7 && !hasStrongImpulse) {
     isVolatile = true;
     reasons.push(`Too many long wick candles: ${longWickCount}/${lookback}`);
   }
 
-  if (rangeMultiplier > 2.5) {
+  if (rangeMultiplier > 3.5) {
     isVolatile = true;
     reasons.push(`Abnormal range expansion: ${rangeMultiplier.toFixed(1)}x average`);
   }
@@ -243,7 +252,7 @@ export function analyzeVolatility(candles: Candle[], lookback: number = 20): Vol
     ? (getUpperWick(lastCandle) + getLowerWick(lastCandle)) / getCandleRange(lastCandle)
     : 0;
 
-  if (lastWickRatio > 0.7) {
+  if (lastWickRatio > 0.90 && !hasStrongImpulse) {
     isVolatile = true;
     reasons.push(`Current candle has extreme wicks: ${(lastWickRatio * 100).toFixed(0)}%`);
   }

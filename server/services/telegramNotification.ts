@@ -33,6 +33,13 @@ export class TelegramNotificationService {
   }
 
   private async initialize(): Promise<void> {
+    // DISABLED: Telegram bot polling causes 409 conflicts with other running instances
+    // Re-enable by setting TELEGRAM_ENABLED=true in environment
+    if (process.env.TELEGRAM_ENABLED !== 'true') {
+      console.log('[Telegram] Bot disabled - set TELEGRAM_ENABLED=true to enable');
+      return;
+    }
+
     // Prefer clean token env var (workaround for Replit secrets corruption)
     // In production (Coolify), use TELEGRAM_BOT_TOKEN directly
     let token = process.env.TELEGRAM_BOT_TOKEN_CLEAN || process.env.TELEGRAM_BOT_TOKEN;
