@@ -26,8 +26,8 @@ WORKDIR /app
 # Install Python for chart generation
 RUN apk add --no-cache python3 py3-pip
 
-# Install Python dependencies
-RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
+# Install Python dependencies (chart generation + price service)
+RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy tessa yfinance pycoingecko
 
 # Copy package files
 COPY package*.json ./

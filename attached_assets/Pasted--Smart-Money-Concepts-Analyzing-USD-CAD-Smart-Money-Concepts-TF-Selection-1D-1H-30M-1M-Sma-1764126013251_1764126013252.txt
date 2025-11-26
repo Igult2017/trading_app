@@ -1,0 +1,100 @@
+[Smart Money Concepts] Analyzing USD/CAD...
+[Smart Money Concepts] TF Selection: 1D/1H/30M/1M
+[Smart Money Concepts]   - 1D Context: trend confirmed (clarity: 60%)
+[Smart Money Concepts]   - Major Zones: 1H (best clarity: 69%)
+[Smart Money Concepts]   - Zone ID: 30M (best clarity: 72%)
+[Smart Money Concepts]   - Entry/Refinement: 1M (best clarity: 73%)
+[Smart Money Concepts] Skipping USD/CAD: 1H: High wick ratio: 67% (market indecision), 1H: Too many long wick candles: 11/20, 1H: Current candle has extreme wicks: 93%, 15M: High wick ratio: 72% (market indecision), 15M: Too many long wick candles: 16/20, 15M: Choppy price action with unclear structure
+[Smart Money Concepts] Analyzing NZD/USD...
+[Smart Money Concepts] TF Selection: 1D/1H/30M/5M
+[Smart Money Concepts]   - 1D Context: trend confirmed (clarity: 63%)
+[Smart Money Concepts]   - Major Zones: 1H (best clarity: 75%)
+[Smart Money Concepts]   - Zone ID: 30M (best clarity: 70%)
+[Smart Money Concepts]   - Entry/Refinement: 5M (best clarity: 64%)
+[Smart Money Concepts] Skipping NZD/USD: 1H: High wick ratio: 64% (market indecision), 1H: Too many long wick candles: 13/20, 15M: High wick ratio: 66% (market indecision), 15M: Too many long wick candles: 12/20, 15M: Choppy price action with unclear structure
+[Smart Money Concepts] Analyzing EUR/GBP...
+[Smart Money Concepts] TF Selection: 1D/4H/30M/3M
+[Smart Money Concepts]   - 1D Context: trend confirmed (clarity: 68%)
+[Smart Money Concepts]   - Major Zones: 4H (best clarity: 68%)
+[Smart Money Concepts]   - Zone ID: 30M (best clarity: 64%)
+[Smart Money Concepts]   - Entry/Refinement: 3M (best clarity: 68%)
+[Smart Money Concepts] Skipping EUR/GBP: 1H: High wick ratio: 68% (market indecision), 1H: Too many long wick candles: 12/20, 1H: Current candle has extreme wicks: 86%, 15M: High wick ratio: 75% (market indecision), 15M: Too many long wick candles: 18/20, 15M: Current candle has extreme wicks: 73%, 15M: Choppy price action with unclear structure
+[Smart Money Concepts] Analyzing EUR/JPY...
+[Smart Money Concepts] TF Selection: 1D/1H/15M/3M
+[Smart Money Concepts]   - 1D Context: trend confirmed (clarity: 61%)
+[Smart Money Concepts]   - Major Zones: 1H (best clarity: 70%)
+[Smart Money Concepts]   - Zone ID: 15M (best clarity: 83%)
+[Smart Money Concepts]   - Entry/Refinement: 3M (best clarity: 73%)
+[Smart Money Concepts] Skipping EUR/JPY: 1H: High wick ratio: 61% (market indecision), 1H: Too many long wick candles: 12/20, 15M: High wick ratio: 61% (market indecision), 15M: Too many long wick candles: 11/20, 15M: Choppy price action with unclear structure
+[Smart Money Concepts] Analyzing EUR/CHF...
+[Smart Money Concepts] TF Selection: 1D/2H/30M/1M
+[Smart Money Concepts]   - 1D Context: limited clarity (46%), proceeding with caution
+[Smart Money Concepts]   - Major Zones: 2H (best clarity: 72%)
+[Smart Money Concepts]   - Zone ID: 30M (best clarity: 74%)
+[Smart Money Concepts]   - Entry/Refinement: 1M (best clarity: 63%)
+[Smart Money Concepts] Skipping EUR/CHF: 1H: High wick ratio: 68% (market indecision), 1H: Too many long wick candles: 14/20, 15M: High wick ratio: 63% (market indecision), 15M: Too many long wick candles: 12/20, 15M: Choppy price action with unclear structure
+[Smart Money Concepts] Analyzing EUR/AUD...
+[Smart Money Concepts] TF Selection: 1D/4H/15M/5M
+[Smart Money Concepts]   - 1D Context: limited clarity (49%), proceeding with caution
+[Smart Money Concepts]   - Major Zones: 4H (best clarity: 73%)
+[Smart Money Concepts]   - Zone ID: 15M (clarity: 53%)
+[Smart Money Concepts]   - Entry/Refinement: 5M (best clarity: 69%)
+[Smart Money Concepts] Skipping EUR/AUD: 1H: High wick ratio: 63% (market indecision), 1H: Too many long wick candles: 13/20, 15M: High wick ratio: 75% (market indecision), 15M: Too many long wick candles: 15/20, 15M: Current candle has extreme wicks: 77%, 15M: Choppy price action with unclear structure
+[Smart Money Concepts] Analyzing EUR/CAD...
+[Smart Money Concepts] TF Selection: 1D/4H/30M/1M
+[Smart Money Concepts]   - 1D Context: limited clarity (44%), proceeding with caution
+[Smart Money Concepts]   - Major Zones: 4H (best clarity: 70%)
+[Smart Money Concepts]   - Zone ID: 30M (best clarity: 64%)
+[Smart Money Concepts]   - Entry/Refinement: 1M (best clarity: 68%)
+[Smart Money Concepts] Skipping EUR/CAD: 1H: High wick ratio: 61% (market indecision), 1H: Too many long wick candles: 11/20, 15M: High wick ratio: 62% (market indecision), 15M: Too many long wick candles: 9/20, 15M: Current candle has extreme wicks: 84%
+[Smart Money Concepts] Analyzing EUR/NZD...
+[Smart Money Concepts] TF Selection: 1D/1H/30M/3M
+[Smart Money Concepts]   - 1D Context: trend confirmed (clarity: 63%)
+[Smart Money Concepts]   - Major Zones: 1H (best clarity: 66%)
+[Smart Money Concepts]   - Zone ID: 30M (best clarity: 82%)
+[Smart Money Concepts]   - Entry/Refinement: 3M (best clarity: 72%)
+[Smart Money Concepts] Skipping EUR/NZD: 1H: High wick ratio: 68% (market indecision), 1H: Too many long wick candles: 15/20, 1H: Current candle has extreme wicks: 99%, 15M: High wick ratio: 62% (market indecision), 15M: Too many long wick candles: 11/20, 15M: Choppy price action with unclear structure
+Python price service error: 
+Error fetching price for NZD/USD: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+Python price service error: 
+Error fetching price for EUR/GBP: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+Python price service error: 
+Error fetching price for EUR/JPY: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+Python price service error: 
+Error fetching price for EUR/CHF: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+Python price service error: 
+Error fetching price for EUR/AUD: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+Python price service error: 
+Error fetching price for EUR/CAD: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+Python price service error: 
+Error fetching price for EUR/NZD: Error: Python process exited with code 1: 
+    at ChildProcess.<anonymous> (file:///app/dist/index.prod.js:3328:16)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at Socket.<anonymous> (node:internal/child_process:456:11)
+    at Socket.emit (node:events:524:28)
+    at Pipe.<anonymous> (node:net:343:12)
