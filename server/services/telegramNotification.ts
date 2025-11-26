@@ -554,11 +554,13 @@ export class TelegramNotificationService {
       const now = new Date();
       const timeStr = format(now, 'MMM dd, HH:mm');
       
-      const entryTypeDisplay = signal.entryType ? {
+      const entryTypeMap: Record<string, string> = {
         'choch': 'CHoCH',
         'continuation': 'Trend Continuation',
         'ds_sd_flip': 'Zone Flip',
-      }[signal.entryType] || signal.entryType : '';
+      };
+      const entryTypeDisplay = signal.entryType ? 
+        (entryTypeMap[signal.entryType as string] || signal.entryType) : '';
       
       const trendInfo = signal.trend ? 
         (signal.trend.toLowerCase() === 'bullish' ? 'Bullish' : 
