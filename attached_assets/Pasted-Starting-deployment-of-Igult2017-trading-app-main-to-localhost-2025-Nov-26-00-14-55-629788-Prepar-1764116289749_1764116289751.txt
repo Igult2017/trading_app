@@ -1,0 +1,386 @@
+Starting deployment of Igult2017/trading_app:main to localhost.
+2025-Nov-26 00:14:55.629788
+Preparing container with helper image: ghcr.io/coollabsio/coolify-helper:1.0.12
+2025-Nov-26 00:14:58.047647
+----------------------------------------
+2025-Nov-26 00:14:58.052293
+Importing Igult2017/trading_app:main (commit sha 26d922f0300cdc8803440be16efa96ea6cc6b124) to /artifacts/mko00og0oc8gwwk4o8wsgcok.
+2025-Nov-26 00:15:02.847576
+Image not found (u0400oc0k0kgw40skg888s08:26d922f0300cdc8803440be16efa96ea6cc6b124). Building new image.
+2025-Nov-26 00:15:08.207519
+----------------------------------------
+2025-Nov-26 00:15:08.212821
+Building docker image started.
+2025-Nov-26 00:15:08.217616
+To check the current progress, click on Show Debug Logs.
+2025-Nov-26 00:16:16.841949
+Oops something is not okay, are you okay? 😢
+2025-Nov-26 00:16:16.854884
+#0 building with "default" instance using docker driver
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#1 [internal] load build definition from Dockerfile
+2025-Nov-26 00:16:16.854884
+#1 transferring dockerfile: 885B 0.0s done
+2025-Nov-26 00:16:16.854884
+#1 DONE 0.1s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+2025-Nov-26 00:16:16.854884
+#2 DONE 0.6s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#3 [internal] load .dockerignore
+2025-Nov-26 00:16:16.854884
+#3 transferring context: 133B done
+2025-Nov-26 00:16:16.854884
+#3 DONE 0.0s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#4 [1/8] FROM docker.io/library/node:20-alpine@sha256:16858294071a56ffd4cce9f17b57136cc39e41507b40e245b4f8e906f7a19463
+2025-Nov-26 00:16:16.854884
+#4 resolve docker.io/library/node:20-alpine@sha256:16858294071a56ffd4cce9f17b57136cc39e41507b40e245b4f8e906f7a19463 0.0s done
+2025-Nov-26 00:16:16.854884
+#4 sha256:d4cda882e05ad84150274412fb534631d499c5216411b3d162ebac40e824f048 0B / 446B 0.1s
+2025-Nov-26 00:16:16.854884
+#4 sha256:16858294071a56ffd4cce9f17b57136cc39e41507b40e245b4f8e906f7a19463 7.67kB / 7.67kB done
+2025-Nov-26 00:16:16.854884
+#4 sha256:bcd88137d802e2482c9df3cdec71e0431857ebbbdba6973776b5593214056d86 1.72kB / 1.72kB done
+2025-Nov-26 00:16:16.854884
+#4 sha256:6fd15b1a333d8412f468ba380d71274e0059ebf8828b37926bff43ba7ca03898 6.50kB / 6.50kB done
+2025-Nov-26 00:16:16.854884
+#4 sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 0B / 42.76MB 0.1s
+2025-Nov-26 00:16:16.854884
+#4 sha256:d31fb19c9d765a3839243f009b51eb48b4d9e104cebc2ec210a649d47c538bef 0B / 1.26MB 0.1s
+2025-Nov-26 00:16:16.854884
+#4 ...
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#5 [internal] load build context
+2025-Nov-26 00:16:16.854884
+#5 transferring context: 14.90MB 0.3s done
+2025-Nov-26 00:16:16.854884
+#5 DONE 0.3s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#4 [1/8] FROM docker.io/library/node:20-alpine@sha256:16858294071a56ffd4cce9f17b57136cc39e41507b40e245b4f8e906f7a19463
+2025-Nov-26 00:16:16.854884
+#4 sha256:d4cda882e05ad84150274412fb534631d499c5216411b3d162ebac40e824f048 446B / 446B 0.2s done
+2025-Nov-26 00:16:16.854884
+#4 sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 10.49MB / 42.76MB 0.4s
+2025-Nov-26 00:16:16.854884
+#4 sha256:d31fb19c9d765a3839243f009b51eb48b4d9e104cebc2ec210a649d47c538bef 1.26MB / 1.26MB 0.2s done
+2025-Nov-26 00:16:16.854884
+#4 sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 19.92MB / 42.76MB 0.6s
+2025-Nov-26 00:16:16.854884
+#4 sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 32.51MB / 42.76MB 0.8s
+2025-Nov-26 00:16:16.854884
+#4 sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 41.94MB / 42.76MB 1.0s
+2025-Nov-26 00:16:16.854884
+#4 sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 42.76MB / 42.76MB 1.0s done
+2025-Nov-26 00:16:16.854884
+#4 extracting sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 0.1s
+2025-Nov-26 00:16:16.854884
+#4 extracting sha256:537c6f956080bc5b44a38de0951224e37050aa22b362f4e54156e36e46c2e173 2.4s done
+2025-Nov-26 00:16:16.854884
+#4 extracting sha256:d31fb19c9d765a3839243f009b51eb48b4d9e104cebc2ec210a649d47c538bef
+2025-Nov-26 00:16:16.854884
+#4 extracting sha256:d31fb19c9d765a3839243f009b51eb48b4d9e104cebc2ec210a649d47c538bef 0.1s done
+2025-Nov-26 00:16:16.854884
+#4 extracting sha256:d4cda882e05ad84150274412fb534631d499c5216411b3d162ebac40e824f048 done
+2025-Nov-26 00:16:16.854884
+#4 DONE 3.9s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#6 [2/8] WORKDIR /app
+2025-Nov-26 00:16:16.854884
+#6 DONE 0.1s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#7 [3/8] RUN apk add --no-cache python3 py3-pip
+2025-Nov-26 00:16:16.854884
+#7 0.248 fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+2025-Nov-26 00:16:16.854884
+#7 0.495 fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+2025-Nov-26 00:16:16.854884
+#7 1.223 (1/23) Installing libbz2 (1.0.8-r6)
+2025-Nov-26 00:16:16.854884
+#7 1.229 (2/23) Installing libexpat (2.7.3-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.236 (3/23) Installing libffi (3.4.8-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.241 (4/23) Installing gdbm (1.24-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.245 (5/23) Installing xz-libs (5.8.1-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.255 (6/23) Installing mpdecimal (4.0.1-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.266 (7/23) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.295 (8/23) Installing libncursesw (6.5_p20250503-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.313 (9/23) Installing libpanelw (6.5_p20250503-r0)
+2025-Nov-26 00:16:16.854884
+#7 1.319 (10/23) Installing readline (8.2.13-r1)
+2025-Nov-26 00:16:16.854884
+#7 1.332 (11/23) Installing sqlite-libs (3.49.2-r1)
+2025-Nov-26 00:16:16.854884
+#7 1.434 (12/23) Installing python3 (3.12.12-r0)
+2025-Nov-26 00:16:16.854884
+#7 2.198 (13/23) Installing python3-pycache-pyc0 (3.12.12-r0)
+2025-Nov-26 00:16:16.854884
+#7 2.494 (14/23) Installing pyc (3.12.12-r0)
+2025-Nov-26 00:16:16.854884
+#7 2.495 (15/23) Installing py3-setuptools-pyc (80.9.0-r0)
+2025-Nov-26 00:16:16.854884
+#7 2.630 (16/23) Installing py3-pip-pyc (25.1.1-r0)
+2025-Nov-26 00:16:16.854884
+#7 2.973 (17/23) Installing py3-parsing (3.2.3-r0)
+2025-Nov-26 00:16:16.854884
+#7 2.986 (18/23) Installing py3-parsing-pyc (3.2.3-r0)
+2025-Nov-26 00:16:16.854884
+#7 3.008 (19/23) Installing py3-packaging-pyc (25.0-r0)
+2025-Nov-26 00:16:16.854884
+#7 3.018 (20/23) Installing python3-pyc (3.12.12-r0)
+2025-Nov-26 00:16:16.854884
+#7 3.018 (21/23) Installing py3-packaging (25.0-r0)
+2025-Nov-26 00:16:16.854884
+#7 3.027 (22/23) Installing py3-setuptools (80.9.0-r0)
+2025-Nov-26 00:16:16.854884
+#7 3.170 (23/23) Installing py3-pip (25.1.1-r0)
+2025-Nov-26 00:16:16.854884
+#7 3.387 Executing busybox-1.37.0-r19.trigger
+2025-Nov-26 00:16:16.854884
+#7 3.452 OK: 66 MiB in 41 packages
+2025-Nov-26 00:16:16.854884
+#7 DONE 3.7s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#8 [4/8] COPY package*.json ./
+2025-Nov-26 00:16:16.854884
+#8 DONE 0.0s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#9 [5/8] RUN npm ci --only=production
+2025-Nov-26 00:16:16.854884
+#9 0.169 npm warn config only Use `--omit=dev` to omit dev dependencies from the install.
+2025-Nov-26 00:16:16.854884
+#9 11.04 npm warn deprecated har-validator@5.1.5: this library is no longer supported
+2025-Nov-26 00:16:16.854884
+#9 11.43 npm warn deprecated request@2.88.2: request has been deprecated, see https://github.com/request/request/issues/3142
+2025-Nov-26 00:16:16.854884
+#9 13.51 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2025-Nov-26 00:16:16.854884
+#9 14.88 npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+2025-Nov-26 00:16:16.854884
+#9 27.52
+2025-Nov-26 00:16:16.854884
+#9 27.52 added 582 packages, and audited 583 packages in 27s
+2025-Nov-26 00:16:16.854884
+#9 27.52
+2025-Nov-26 00:16:16.854884
+#9 27.52 136 packages are looking for funding
+2025-Nov-26 00:16:16.854884
+#9 27.52   run `npm fund` for details
+2025-Nov-26 00:16:16.854884
+#9 27.53
+2025-Nov-26 00:16:16.854884
+#9 27.53 10 vulnerabilities (3 low, 4 moderate, 1 high, 2 critical)
+2025-Nov-26 00:16:16.854884
+#9 27.53
+2025-Nov-26 00:16:16.854884
+#9 27.53 To address issues that do not require attention, run:
+2025-Nov-26 00:16:16.854884
+#9 27.53   npm audit fix
+2025-Nov-26 00:16:16.854884
+#9 27.53
+2025-Nov-26 00:16:16.854884
+#9 27.53 To address all issues (including breaking changes), run:
+2025-Nov-26 00:16:16.854884
+#9 27.53   npm audit fix --force
+2025-Nov-26 00:16:16.854884
+#9 27.53
+2025-Nov-26 00:16:16.854884
+#9 27.53 Run `npm audit` for details.
+2025-Nov-26 00:16:16.854884
+#9 27.53 npm notice
+2025-Nov-26 00:16:16.854884
+#9 27.53 npm notice New major version of npm available! 10.8.2 -> 11.6.4
+2025-Nov-26 00:16:16.854884
+#9 27.53 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.4
+2025-Nov-26 00:16:16.854884
+#9 27.53 npm notice To update run: npm install -g npm@11.6.4
+2025-Nov-26 00:16:16.854884
+#9 27.53 npm notice
+2025-Nov-26 00:16:16.854884
+#9 DONE 27.9s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#10 [6/8] COPY . .
+2025-Nov-26 00:16:16.854884
+#10 DONE 0.3s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#11 [7/8] RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
+2025-Nov-26 00:16:16.854884
+#11 1.401 Collecting matplotlib
+2025-Nov-26 00:16:16.854884
+#11 1.444   Downloading matplotlib-3.10.7-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (11 kB)
+2025-Nov-26 00:16:16.854884
+#11 1.481 Collecting mplfinance
+2025-Nov-26 00:16:16.854884
+#11 1.488   Downloading mplfinance-0.12.10b0-py3-none-any.whl.metadata (19 kB)
+2025-Nov-26 00:16:16.854884
+#11 1.682 Collecting pandas
+2025-Nov-26 00:16:16.854884
+#11 1.691   Downloading pandas-2.3.3-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (91 kB)
+2025-Nov-26 00:16:16.854884
+#11 1.901 Collecting numpy
+2025-Nov-26 00:16:16.854884
+#11 1.908   Downloading numpy-2.3.5-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (62 kB)
+2025-Nov-26 00:16:16.854884
+#11 1.987 Collecting contourpy>=1.0.1 (from matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 1.993   Downloading contourpy-1.3.3-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (5.5 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.013 Collecting cycler>=0.10 (from matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 2.019   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.216 Collecting fonttools>=4.22.0 (from matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 2.225   Downloading fonttools-4.60.1-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (112 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.304 Collecting kiwisolver>=1.3.1 (from matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 2.311   Downloading kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (6.3 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.321 Requirement already satisfied: packaging>=20.0 in /usr/lib/python3.12/site-packages (from matplotlib) (25.0)
+2025-Nov-26 00:16:16.854884
+#11 2.492 Collecting pillow>=8 (from matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 2.501   Downloading pillow-12.0.0-cp312-cp312-musllinux_1_2_x86_64.whl.metadata (8.8 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.509 Requirement already satisfied: pyparsing>=3 in /usr/lib/python3.12/site-packages (from matplotlib) (3.2.3)
+2025-Nov-26 00:16:16.854884
+#11 2.520 Collecting python-dateutil>=2.7 (from matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 2.524   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.577 Collecting pytz>=2020.1 (from pandas)
+2025-Nov-26 00:16:16.854884
+#11 2.582   Downloading pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.599 Collecting tzdata>=2022.7 (from pandas)
+2025-Nov-26 00:16:16.854884
+#11 2.605   Downloading tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.633 Collecting six>=1.5 (from python-dateutil>=2.7->matplotlib)
+2025-Nov-26 00:16:16.854884
+#11 2.638   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.651 Downloading matplotlib-3.10.7-cp312-cp312-musllinux_1_2_x86_64.whl (9.6 MB)
+2025-Nov-26 00:16:16.854884
+#11 2.783    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.6/9.6 MB 75.2 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 2.797 Downloading mplfinance-0.12.10b0-py3-none-any.whl (75 kB)
+2025-Nov-26 00:16:16.854884
+#11 2.809 Downloading pandas-2.3.3-cp312-cp312-musllinux_1_2_x86_64.whl (13.5 MB)
+2025-Nov-26 00:16:16.854884
+#11 3.076    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.5/13.5 MB 51.3 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 3.089 Downloading numpy-2.3.5-cp312-cp312-musllinux_1_2_x86_64.whl (18.5 MB)
+2025-Nov-26 00:16:16.854884
+#11 3.283    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18.5/18.5 MB 97.6 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 3.293 Downloading contourpy-1.3.3-cp312-cp312-musllinux_1_2_x86_64.whl (1.4 MB)
+2025-Nov-26 00:16:16.854884
+#11 3.313    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 83.0 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 3.318 Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+2025-Nov-26 00:16:16.854884
+#11 3.328 Downloading fonttools-4.60.1-cp312-cp312-musllinux_1_2_x86_64.whl (5.1 MB)
+2025-Nov-26 00:16:16.854884
+#11 3.391    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 96.7 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 3.399 Downloading kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_x86_64.whl (2.3 MB)
+2025-Nov-26 00:16:16.854884
+#11 3.429    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 85.2 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 3.437 Downloading pillow-12.0.0-cp312-cp312-musllinux_1_2_x86_64.whl (7.1 MB)
+2025-Nov-26 00:16:16.854884
+#11 3.530    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.1/7.1 MB 77.3 MB/s eta 0:00:00
+2025-Nov-26 00:16:16.854884
+#11 3.543 Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+2025-Nov-26 00:16:16.854884
+#11 3.558 Downloading pytz-2025.2-py2.py3-none-any.whl (509 kB)
+2025-Nov-26 00:16:16.854884
+#11 3.575 Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+2025-Nov-26 00:16:16.854884
+#11 3.589 Downloading tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+2025-Nov-26 00:16:16.854884
+#11 3.854 Installing collected packages: pytz, tzdata, six, pillow, numpy, kiwisolver, fonttools, cycler, python-dateutil, contourpy, pandas, matplotlib, mplfinance
+2025-Nov-26 00:16:16.854884
+#11 28.36
+2025-Nov-26 00:16:16.854884
+#11 28.36 Successfully installed contourpy-1.3.3 cycler-0.12.1 fonttools-4.60.1 kiwisolver-1.4.9 matplotlib-3.10.7 mplfinance-0.12.10b0 numpy-2.3.5 pandas-2.3.3 pillow-12.0.0 python-dateutil-2.9.0.post0 pytz-2025.2 six-1.17.0 tzdata-2025.2
+2025-Nov-26 00:16:16.854884
+#11 28.36 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+2025-Nov-26 00:16:16.854884
+#11 DONE 29.2s
+2025-Nov-26 00:16:16.854884
+2025-Nov-26 00:16:16.854884
+#12 [8/8] RUN npm run build
+2025-Nov-26 00:16:16.854884
+#12 0.299
+2025-Nov-26 00:16:16.854884
+#12 0.299 > rest-express@1.0.0 build
+2025-Nov-26 00:16:16.854884
+#12 0.299 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+2025-Nov-26 00:16:16.854884
+#12 0.299
+2025-Nov-26 00:16:16.854884
+#12 0.306 sh: vite: not found
+2025-Nov-26 00:16:16.854884
+#12 ERROR: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+2025-Nov-26 00:16:16.854884
+------
+2025-Nov-26 00:16:16.854884
+> [8/8] RUN npm run build:
+2025-Nov-26 00:16:16.854884
+0.299
+2025-Nov-26 00:16:16.854884
+0.299 > rest-express@1.0.0 build
+2025-Nov-26 00:16:16.854884
+0.299 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+2025-Nov-26 00:16:16.854884
+0.299
+2025-Nov-26 00:16:16.854884
+0.306 sh: vite: not found
+2025-Nov-26 00:16:16.854884
+------
+2025-Nov-26 00:16:16.854884
+Dockerfile:27
+2025-Nov-26 00:16:16.854884
+--------------------
+2025-Nov-26 00:16:16.854884
+25 |
+2025-Nov-26 00:16:16.854884
+26 |     # Build the application
+2025-Nov-26 00:16:16.854884
+27 | >>> RUN npm run build
+2025-Nov-26 00:16:16.854884
+28 |
+2025-Nov-26 00:16:16.854884
+29 |     # Expose port
+2025-Nov-26 00:16:16.854884
+--------------------
+2025-Nov-26 00:16:16.854884
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+2025-Nov-26 00:16:16.854884
+exit status 1
+2025-Nov-26 00:16:16.863504
+Deployment failed. Removing the new version of your application.
+2025-Nov-26 00:16:18.422063
+Gracefully shutting down build container: mko00og0oc8gwwk4o8wsgcok

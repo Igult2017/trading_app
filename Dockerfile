@@ -1,24 +1,43 @@
-FROM node:20-alpine
+# Stage 1: Build
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including dev for build)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Stage 2: Production
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
 # Install Python for chart generation
 RUN apk add --no-cache python3 py3-pip
 
-# Copy package files
-COPY package*.json ./
-
-# Install Node dependencies
-RUN npm ci --only=production
-
-# Copy source code
-COPY . .
-
 # Install Python dependencies
 RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy
 
-# Build the application
-RUN npm run build
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --omit=dev
+
+# Copy built files from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/client/dist ./client/dist
+
+# Copy Python scripts for chart generation
+COPY server/python ./server/python
 
 # Expose port
 EXPOSE 5000
@@ -27,4 +46,4 @@ EXPOSE 5000
 ENV NODE_ENV=production
 
 # Start the application
-CMD ["npm", "run", "start"]
+CMD ["node", "dist/index.js"]
