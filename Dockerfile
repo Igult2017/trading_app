@@ -12,8 +12,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application (outputs to dist/ with frontend in dist/public/)
-RUN npm run build
+# Build frontend with Vite
+RUN npx vite build
+
+# Build production server (uses index.prod.ts which has no vite imports)
+RUN npx esbuild server/index.prod.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 
 # Stage 2: Production
 FROM node:20-alpine AS production
@@ -33,7 +36,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Copy built files from builder stage
-# dist/ contains both server (index.js) and frontend (public/)
+# dist/ contains server (index.prod.js) and frontend (public/)
 COPY --from=builder /app/dist ./dist
 
 # Copy Python scripts for chart generation
@@ -45,5 +48,5 @@ EXPOSE 5000
 # Set environment
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Start the application (note: index.prod.js)
+CMD ["node", "dist/index.prod.js"]
