@@ -32,21 +32,81 @@ export class TelegramNotificationService {
     this.initialize();
   }
 
-  private initialize(): void {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
+  private async initialize(): Promise<void> {
+    let token = process.env.TELEGRAM_BOT_TOKEN;
     
     if (!token) {
       console.error('TELEGRAM_BOT_TOKEN not found. Telegram notifications disabled.');
       return;
     }
 
+    // Clean the token - remove any whitespace or invisible characters
+    token = token.trim().replace(/[\r\n\t\s]/g, '');
+    
+    // Log token info for debugging (mask the secret part)
+    const tokenParts = token.split(':');
+    if (tokenParts.length === 2) {
+      console.log(`Telegram token format: ${tokenParts[0]}:${tokenParts[1].substring(0, 5)}... (${tokenParts[1].length} chars)`);
+    } else {
+      console.log(`Telegram token has ${tokenParts.length} parts (expected 2)`);
+    }
+
+    // Validate token format (should be like 123456789:ABC-DEF...)
+    const tokenPattern = /^\d+:[A-Za-z0-9_-]+$/;
+    if (!tokenPattern.test(token)) {
+      console.error('TELEGRAM_BOT_TOKEN has invalid format. Expected format: 123456789:ABCdef...');
+      console.error(`Token length: ${token.length}, Contains colon: ${token.includes(':')}`);
+      return;
+    }
+
     try {
-      this.bot = new TelegramBot(token, { polling: true });
+      // First, test the token by calling getMe API
+      const testBot = new TelegramBot(token, { polling: false });
+      const botInfo = await testBot.getMe();
+      console.log(`Telegram bot verified: @${botInfo.username} (${botInfo.first_name})`);
+      
+      // Token is valid, now create the actual bot with polling
+      this.bot = new TelegramBot(token, { 
+        polling: {
+          interval: 2000,
+          autoStart: true,
+          params: {
+            timeout: 10
+          }
+        }
+      });
+      
+      // Handle polling errors gracefully
+      this.bot.on('polling_error', (error: any) => {
+        // Only log once per error type to avoid spam
+        const errorCode = error?.code || 'UNKNOWN';
+        const errorMessage = error?.message || 'Unknown error';
+        
+        if (errorCode === 'ETELEGRAM' && errorMessage.includes('404')) {
+          // Token became invalid, stop polling
+          console.error('Telegram bot token is invalid (404). Stopping bot.');
+          this.bot?.stopPolling();
+          this.isInitialized = false;
+        } else if (errorCode === 'EFATAL') {
+          console.error('Telegram fatal error:', errorMessage);
+        } else {
+          // Log other errors less frequently
+          console.error(`Telegram polling error [${errorCode}]:`, errorMessage);
+        }
+      });
+      
       this.isInitialized = true;
       this.setupCommands();
-      console.log('Telegram bot initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize Telegram bot:', error);
+      console.log('Telegram bot initialized successfully with polling');
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        console.error('Telegram bot token is invalid or bot was deleted. Please check with @BotFather.');
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        console.error('Telegram bot token is unauthorized. Please get a new token from @BotFather.');
+      } else {
+        console.error('Failed to initialize Telegram bot:', errorMessage);
+      }
     }
   }
 
