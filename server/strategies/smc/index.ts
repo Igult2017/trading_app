@@ -432,6 +432,15 @@ export class SMCStrategy extends BaseStrategy {
       ...entryResult.reasoning,
     ];
 
+    // Extend marketContext with confirmed timeframes
+    const extendedContext = {
+      ...marketContext,
+      contextTimeframe: '1D',
+      majorZoneTimeframe: tfSelection.majorZoneTf,
+      zoneTimeframe: tfSelection.zoneIdentificationTf,
+      refinedTimeframe: tfSelection.entryRefinementTf,
+    };
+
     return {
       id: this.createSignalId(),
       strategyId: this.id,
@@ -446,7 +455,7 @@ export class SMCStrategy extends BaseStrategy {
       riskRewardRatio: setup.riskRewardRatio,
       confidence: setup.confidence,
       timeframe: tfSelection.entryRefinementTf,
-      marketContext,
+      marketContext: extendedContext as any,
       entrySetup: setup,
       zones: {
         h4: [...dailyContext.unmitigatedSupply, ...dailyContext.unmitigatedDemand],

@@ -340,7 +340,9 @@ export class SignalScannerService {
         }),
       });
 
-      const legacySignal = {
+      // Prepare signal with confirmed findings for Telegram
+      const extendedContext = signal.marketContext as any;
+      const telegramSignal = {
         symbol: signal.symbol,
         type: signal.direction,
         strategy: signal.strategyName,
@@ -349,10 +351,21 @@ export class SignalScannerService {
         takeProfit: signal.takeProfit,
         riskRewardRatio: signal.riskRewardRatio,
         overallConfidence: signal.confidence,
-        technicalReasons: signal.reasoning,
+        timeframe: signal.timeframe,
+        // Confirmed findings from analysis
+        trend: extendedContext?.h4TrendDirection || 'unknown',
+        htfTimeframe: extendedContext?.contextTimeframe || '1D',
+        zoneType: signal.entrySetup?.entryZone?.type || (signal.direction === 'buy' ? 'demand' : 'supply'),
+        zoneTimeframe: extendedContext?.zoneTimeframe || 'M15',
+        refinedTimeframe: extendedContext?.refinedTimeframe || signal.timeframe,
+        entryType: signal.entryType,
+        assetClass: signal.assetClass,
+        zones: signal.entrySetup?.entryZone ? {
+          m15: [signal.entrySetup.entryZone]
+        } : undefined,
       };
 
-      await telegramNotificationService.sendTradingSignalNotification(legacySignal);
+      await telegramNotificationService.sendTradingSignalNotification(telegramSignal);
 
       console.log(`[SignalScanner] Signal saved and notifications sent: ${signal.symbol} ${signal.direction}`);
 

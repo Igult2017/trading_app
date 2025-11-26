@@ -551,50 +551,41 @@ export class TelegramNotificationService {
       const confidence = signal.overallConfidence || signal.confidence || 70;
       const timeframe = signal.timeframe || '15M';
       
-      const now = new Date();
-      const timeStr = format(now, 'MMM dd, HH:mm');
-      
       const entryTypeMap: Record<string, string> = {
         'choch': 'CHoCH',
-        'continuation': 'Trend Continuation',
+        'continuation': 'Continuation',
         'ds_sd_flip': 'Zone Flip',
+        'liquidity_sweep': 'Liquidity Sweep',
+        'bos': 'Break of Structure',
       };
-      const entryTypeDisplay = signal.entryType ? 
+      const entryTrigger = signal.entryType ? 
         (entryTypeMap[signal.entryType as string] || signal.entryType) : '';
       
-      const trendInfo = signal.trend ? 
+      const trendDisplay = signal.trend ? 
         (signal.trend.toLowerCase() === 'bullish' ? 'Bullish' : 
          signal.trend.toLowerCase() === 'bearish' ? 'Bearish' : 'Ranging') : '';
       
-      const signalConfirmations = signal.confirmations || signal.reasons || [];
-      const confirmationText = signalConfirmations.length > 0 
-        ? signalConfirmations.slice(0, 3).map((c: string) => `  ${c}`).join('\n')
-        : '';
+      const zoneType = signal.zoneType || (direction === 'buy' ? 'Demand' : 'Supply');
+      
+      const htfContext = signal.htfTimeframe || 'H4';
+      const zoneTimeframe = signal.zoneTimeframe || 'M15';
+      const refinedTimeframe = signal.refinedTimeframe || 'M5';
       
       let telegramCaption = 
         `${typeEmoji} *${signal.symbol}* │ ${direction.toUpperCase()}\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `*CONFIRMED FINDINGS:*\n` +
+        `• HTF Trend: ${trendDisplay} (${htfContext})\n` +
+        `• Zone: ${zoneType} (${zoneTimeframe})\n` +
+        `• Refined: ${refinedTimeframe}\n` +
+        `• Trigger: ${entryTrigger}\n\n` +
+        `*TRADE LEVELS:*\n` +
+        `Entry: ${entryPrice}\n` +
+        `SL: ${stopLoss}\n` +
+        `TP: ${takeProfit}\n` +
+        `R:R 1:${riskReward} │ ${confidence}%\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `💰 Entry: ${entryPrice}\n` +
-        `🛑 SL: ${stopLoss}\n` +
-        `🎯 TP: ${takeProfit}\n` +
-        `📊 R:R 1:${riskReward} │ ${confidence}% confidence\n` +
-        `⏱ Timeframe: ${timeframe}`;
-      
-      if (trendInfo) {
-        telegramCaption += ` │ ${trendInfo}`;
-      }
-      
-      if (entryTypeDisplay) {
-        telegramCaption += `\n📍 Entry Type: ${entryTypeDisplay}`;
-      }
-      
-      if (confirmationText) {
-        telegramCaption += `\n\n✅ *Confirmations:*\n${confirmationText}`;
-      }
-      
-      telegramCaption += `\n━━━━━━━━━━━━━━━━━━━━\n` +
-        `🔗 www.findbuyandsellzones.com/signals\n\n` +
-        `⚠️ Educational only — not financial advice.`;
+        `Verified by AI │ findbuyandsellzones.com`;
 
       let chartBuffer: Buffer | null = null;
       
