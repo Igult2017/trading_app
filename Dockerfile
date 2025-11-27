@@ -1,5 +1,4 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -19,15 +18,27 @@ RUN npx vite build
 RUN npx esbuild server/index.prod.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 
 # Stage 2: Production
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Install Python for chart generation
-RUN apk add --no-cache python3 py3-pip
+# Install Python and pip (Debian has pre-built wheels, much faster than Alpine)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies (chart generation + price service)
-RUN pip3 install --break-system-packages matplotlib mplfinance pandas numpy tessa yfinance pycoingecko
+# Install Python dependencies with no-cache-dir to reduce image size
+# Using pre-built wheels from PyPI (much faster than Alpine compilation)
+RUN pip3 install --no-cache-dir --break-system-packages \
+    matplotlib \
+    mplfinance \
+    pandas \
+    numpy \
+    tessa \
+    yfinance \
+    pycoingecko
 
 # Copy package files
 COPY package*.json ./
