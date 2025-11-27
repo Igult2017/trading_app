@@ -1,89 +1,239 @@
-import { eq } from "drizzle-orm";
-import { telegramSubscribers } from "./schema"; // adjust import if needed
-import { db } from "./db";
-import { format } from "date-fns";
-import type TelegramBot from "node-telegram-bot-api";
+// ✅ Force TELEGRAM_ENABLED to true - no env var needed
+process.env.TELEGRAM_ENABLED = 'true';
 
-export function registerStartCommand(bot: TelegramBot) {
+import TelegramBot from 'node-telegram-bot-api';
+import { db } from '../db';
+import { telegramSubscribers, economicEvents } from '@shared/schema';
+import { eq, and, lte, gte } from 'drizzle-orm';
+import { format } from 'date-fns';
+import { notificationService } from './notificationService';
+import { 
+  generateTradingSignalChart, 
+  readChartAsBuffer, 
+  ChartCandle, 
+  ZoneInfo 
+} from './chartGenerator';
+import { fetchMultiTimeframeData } from '../strategies/shared/multiTimeframe';
 
-  bot.onText(/\/start/, async (msg) => {
-    const chatId = msg.chat.id; // IMPORTANT: no toString yet
-    const username = msg.from?.username || null;
-    const firstName = msg.from?.first_name || null;
-    const lastName = msg.from?.last_name || null;
+interface TradingSession {
+  name: string;
+  openUTC: number;
+  closeUTC: number;
+}
 
-    console.log("==== /start triggered ====");
-    console.log("Chat ID:", chatId);
-    console.log("User:", username, firstName, lastName);
+const HIGH_VOLUME_SESSIONS: TradingSession[] = [
+  { name: 'London', openUTC: 8, closeUTC: 16.5 },
+  { name: 'New York', openUTC: 13, closeUTC: 22 }
+];
 
+export class TelegramNotificationService {
+  private bot: TelegramBot | null = null;
+  private isInitialized = false;
+  private notifiedSessions = new Set<string>();
+
+  static async create(): Promise<TelegramNotificationService> {
+    const service = new TelegramNotificationService();
+    await service.initialize();
+    return service;
+  }
+
+  private constructor() {}
+
+  private async initialize(): Promise<void> {
     try {
-      // ✅ Check if subscriber exists
-      const existingSubscriber = await db
-        .select()
-        .from(telegramSubscribers)
-        .where(eq(telegramSubscribers.chatId, chatId))
-        .limit(1);
+      console.log('[Telegram] Initializing bot...');
 
-      // ✅ If not exists → create one
-      if (existingSubscriber.length === 0) {
-        await db.insert(telegramSubscribers).values({
-          chatId,
-          username,
-          firstName,
-          lastName,
-          phoneNumber: null,
-          isActive: true,
-          createdAt: new Date(), // THIS IS CRITICAL
-        });
+      let token = process.env.TELEGRAM_BOT_TOKEN_CLEAN || process.env.TELEGRAM_BOT_TOKEN;
+      
+      if (!token) {
+        console.error('❌ TELEGRAM_BOT_TOKEN not found.');
+        return;
       }
 
-      // ✅ Fetch updated subscriber
-      const subscriber = await db
-        .select()
-        .from(telegramSubscribers)
-        .where(eq(telegramSubscribers.chatId, chatId))
-        .limit(1);
+      token = token.trim().replace(/[\r\n\t\s]/g, '');
 
-      const subDate = subscriber[0]?.createdAt
-        ? format(new Date(subscriber[0].createdAt), "dd MMM yyyy")
-        : "Unknown";
+      const tokenPattern = /^\d+:[A-Za-z0-9_-]+$/;
+      if (!tokenPattern.test(token)) {
+        console.error('❌ TELEGRAM_BOT_TOKEN invalid format.');
+        return;
+      }
 
-      const welcomeMessage = `
-✅ *Bot Activated Successfully*
+      const testBot = new TelegramBot(token, { polling: false });
+      const botInfo = await testBot.getMe();
 
-👤 User: ${firstName ?? ""} ${lastName ?? ""}
-🔗 Username: ${username ? `@${username}` : "N/A"}
-🗓 Member since: ${subDate}
-📊 Status: Active
+      console.log(`✅ Telegram bot verified: @${botInfo.username}`);
 
-Type /help to see what I can do.
-      `;
-
-      await bot.sendMessage(chatId, welcomeMessage, {
-        parse_mode: "Markdown",
+      this.bot = new TelegramBot(token, { 
+        polling: {
+          interval: 2000,
+          autoStart: true,
+          params: { timeout: 10 }
+        }
       });
+
+      this.bot.on('polling_error', (error: any) => {
+        console.error('Polling error:', error);
+      });
+
+      this.isInitialized = true;
+      this.setupCommands();
 
     } catch (error: any) {
-      console.error("❌ START COMMAND ERROR:", error);
-
-      const debugMessage = `
-❌ *Internal error occurred*
-
-Here is the real reason:
-
-\`${error.message}\`
-
-This is NOT a Telegram error — it is a Database or Schema issue.
-
-Fix this and the bot will work.
-`;
-
-      await bot.sendMessage(chatId, debugMessage, {
-        parse_mode: "Markdown"
-      });
+      console.error('❌ Telegram init error:', error.message || error);
     }
+  }
 
-  });
+  private setupCommands(): void {
+    if (!this.bot) return;
 
+    // =================================================
+    // ✅ START COMMAND — FULL ERROR CAPTURE ENABLED ✅
+    // =================================================
+    this.bot.onText(/\/start/, async (msg) => {
+      const chatId = msg.chat.id;
+      const user = msg.from;
+
+      console.log("\n==== /start command hit ====");
+      console.log("Chat ID:", chatId);
+      console.log("User:", user?.username, user?.first_name);
+
+      try {
+        const existingSubscriber = await db
+          .select()
+          .from(telegramSubscribers)
+          .where(eq(telegramSubscribers.chatId, chatId))
+          .limit(1);
+
+        if (existingSubscriber.length === 0) {
+
+          await db.insert(telegramSubscribers).values({
+            chatId,
+            username: user?.username || null,
+            firstName: user?.first_name || null,
+            lastName: user?.last_name || null,
+            phoneNumber: null,
+            isActive: true,
+            createdAt: new Date()
+          });
+
+          await this.bot.sendMessage(
+            chatId,
+            `✅ Welcome to Infod Trading Alerts!\n\nYou have been subscribed successfully ✅`
+          );
+
+        } else if (!existingSubscriber[0].isActive) {
+
+          await db
+            .update(telegramSubscribers)
+            .set({ isActive: true })
+            .where(eq(telegramSubscribers.chatId, chatId));
+
+          await this.bot.sendMessage(chatId, `✅ Welcome back! Notifications resumed.`);
+
+        } else {
+          await this.bot.sendMessage(chatId, `👋 You are already subscribed.`);
+        }
+
+      } catch (error: any) {
+        console.error('\n❌ /start command FAILURE');
+        console.error(error);
+
+        const cleanError =
+          error?.message?.substring(0, 350) ||
+          JSON.stringify(error)?.substring(0, 350) ||
+          'Unknown error';
+
+        await this.bot.sendMessage(
+          chatId,
+          `❌ *SUBSCRIBE ERROR*\n\n\`${cleanError}\`\n\nThis is a database / schema problem.`,
+          { parse_mode: "Markdown" }
+        );
+      }
+    });
+
+    // =================================================
+    this.bot.onText(/\/stop/, async (msg) => {
+      const chatId = msg.chat.id;
+
+      try {
+        await db
+          .update(telegramSubscribers)
+          .set({ isActive: false })
+          .where(eq(telegramSubscribers.chatId, chatId));
+
+        await this.bot?.sendMessage(chatId, `⏸️ Notifications paused.`);
+      } catch (error) {
+        console.error('Error /stop:', error);
+      }
+    });
+
+    // =================================================
+    this.bot.onText(/\/resume/, async (msg) => {
+      const chatId = msg.chat.id;
+
+      try {
+        await db
+          .update(telegramSubscribers)
+          .set({ isActive: true })
+          .where(eq(telegramSubscribers.chatId, chatId));
+
+        await this.bot?.sendMessage(chatId, `▶️ Notifications resumed.`);
+      } catch (error) {
+        console.error('Error /resume:', error);
+      }
+    });
+
+    // =================================================
+    this.bot.onText(/\/status/, async (msg) => {
+      const chatId = msg.chat.id;
+
+      try {
+        const subscriber = await db
+          .select()
+          .from(telegramSubscribers)
+          .where(eq(telegramSubscribers.chatId, chatId))
+          .limit(1);
+
+        if (subscriber.length === 0) {
+          await this.bot?.sendMessage(chatId, `❌ You are not subscribed.`);
+        } else {
+          const status = subscriber[0].isActive ? '✅ Active' : '⏸️ Paused';
+          const subDate = subscriber[0].createdAt
+            ? format(new Date(subscriber[0].createdAt), 'MMM dd, yyyy')
+            : 'Unknown';
+
+          await this.bot?.sendMessage(
+            chatId,
+            `📊 Subscription Status: ${status}\n📅 Since: ${subDate}`
+          );
+        }
+      } catch (error: any) {
+        console.error('Error /status:', error);
+        await this.bot?.sendMessage(chatId, `❌ ${error.message}`);
+      }
+    });
+  }
+
+  getBot(): TelegramBot | null {
+    return this.bot;
+  }
+
+  isReady(): boolean {
+    return this.isInitialized;
+  }
 }
+
+// ✅ Initialize the service
+let telegramNotificationService: TelegramNotificationService | null = null;
+
+(async () => {
+  try {
+    telegramNotificationService = await TelegramNotificationService.create();
+    console.log('✅ Telegram Notification Service is ready');
+  } catch (error) {
+    console.error('❌ Failed to init Telegram:', error);
+  }
+})();
+
+export { telegramNotificationService };
 
