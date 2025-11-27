@@ -22,7 +22,7 @@ interface TradingSession {
 }
 
 const HIGH_VOLUME_SESSIONS: TradingSession[] = [
-  { name: 'London', openUTC: 8, closeUTC: 16. 5 },
+  { name: 'London', openUTC: 8, closeUTC: 16.5 },
   { name: 'New York', openUTC: 13, closeUTC: 22 }
 ];
 
@@ -709,3 +709,4 @@ let telegramNotificationService: TelegramNotificationService | null = null;
 })();
 
 export { telegramNotificationService };
+
