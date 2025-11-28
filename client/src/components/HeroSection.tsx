@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 interface TradingSignal {
@@ -42,18 +42,6 @@ export function HeroSection() {
             >
               Access premium signals, real-time analytics, and expert research to confidently navigate global financial markets.
             </motion.p>
-            
-            {/* Subscribe Button - Hidden on mobile, shown on lg+ */}
-            <motion.div 
-              className="hidden lg:flex mt-auto pt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              <button className="px-8 py-3 text-lg font-extrabold text-blue-600 bg-white rounded-full border-2 border-white hero-dotted-outline hover:bg-blue-50 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-                Subscribe <ArrowRight className="w-5 h-5" />
-              </button>
-            </motion.div>
           </motion.div>
 
           {/* Right Side: Live Signals */}
@@ -92,35 +80,8 @@ export function HeroSection() {
                 </div>
               </div>
             </div>
-            
-            {/* Learn More Button - Hidden on mobile, shown on lg+ */}
-            <motion.div 
-              className="hidden lg:flex mt-auto pt-6 justify-end"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              <button className="px-8 py-3 text-lg font-extrabold text-blue-600 bg-white rounded-full border-2 border-white hero-dotted-outline hover:bg-blue-50 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-                Learn More
-              </button>
-            </motion.div>
           </motion.div>
         </div>
-
-        {/* Mobile Buttons Row - Shown only on mobile/tablet */}
-        <motion.div 
-          className="flex lg:hidden justify-center gap-4 mt-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
-          <button className="px-6 py-2.5 text-base font-extrabold text-blue-600 bg-white rounded-full border-2 border-white hero-dotted-outline hover:bg-blue-50 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-            Subscribe <ArrowRight className="w-4 h-4" />
-          </button>
-          <button className="px-6 py-2.5 text-base font-extrabold text-blue-600 bg-white rounded-full border-2 border-white hero-dotted-outline hover:bg-blue-50 transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-            Learn More
-          </button>
-        </motion.div>
       </div>
     </header>
   );
