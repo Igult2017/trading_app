@@ -4,7 +4,6 @@ import { cacheService } from './cacheService';
 import { scraperSettings } from './config';
 import { telegramNotificationService } from '../services/telegramNotification';
 import { signalScannerService } from '../services/signalScanner';
-import { eodhdService } from '../services/eodhd';
 
 export class ScraperScheduler {
   private upcomingEventsJob: ReturnType<typeof cron.schedule> | null = null;
@@ -13,10 +12,10 @@ export class ScraperScheduler {
   private notificationJob: ReturnType<typeof cron.schedule> | null = null;
   private signalScanJob: ReturnType<typeof cron.schedule> | null = null;
   private signalCleanupJob: ReturnType<typeof cron.schedule> | null = null;
-  private eodhdJobs: ReturnType<typeof cron.schedule>[] = [];
+  private scraperJobs: ReturnType<typeof cron.schedule>[] = [];
   private isRunning = false;
 
-  async fetchWithEODHDPriority(): Promise<void> {
+  async fetchEvents(): Promise<void> {
     if (this.isRunning) {
       console.log('[Calendar] Fetch already in progress, skipping...');
       return;
@@ -24,22 +23,7 @@ export class ScraperScheduler {
 
     try {
       this.isRunning = true;
-      const status = eodhdService.getStatus();
-      
-      if (status.available && status.callsRemaining > 0) {
-        console.log(`[Calendar] Using EODHD API (${status.callsRemaining} calls remaining)`);
-        const count = await eodhdService.fetchAndStoreEvents();
-        
-        if (count > 0) {
-          console.log(`[Calendar] EODHD fetched ${count} events successfully`);
-          return;
-        }
-        console.log('[Calendar] EODHD returned no events, falling back to scraper');
-      } else {
-        console.log(`[Calendar] EODHD unavailable (${status.callsRemaining} calls remaining), using scraper`);
-      }
-
-      console.log('[Calendar] Starting web scraper fallback...');
+      console.log('[Calendar] Starting web scraper...');
       const events = await economicCalendarScraper.scrapeWithRetry();
       if (events.length > 0) {
         await cacheService.storeEvents(events);
@@ -55,11 +39,11 @@ export class ScraperScheduler {
   }
 
   async runUpcomingEventsScrape(): Promise<void> {
-    await this.fetchWithEODHDPriority();
+    await this.fetchEvents();
   }
 
   async runFullWeekScrape(): Promise<void> {
-    await this.fetchWithEODHDPriority();
+    await this.fetchEvents();
   }
 
   async runCleanup(): Promise<void> {
@@ -72,74 +56,53 @@ export class ScraperScheduler {
     }
   }
 
-  private setupEODHDSchedule(): void {
-    this.eodhdJobs.forEach(job => job.stop());
-    this.eodhdJobs = [];
+  private setupScraperSchedule(): void {
+    this.scraperJobs.forEach(job => job.stop());
+    this.scraperJobs = [];
 
-    this.eodhdJobs.push(
+    // Pre-London session fetch (10 min before open)
+    this.scraperJobs.push(
       cron.schedule('50 7 * * 1-5', async () => {
-        console.log('[EODHD] Pre-London fetch (10 min before open)');
-        await this.fetchWithEODHDPriority();
+        console.log('[Calendar] Pre-London fetch (10 min before open)');
+        await this.fetchEvents();
       }, { timezone: 'Europe/London' })
     );
 
-    this.eodhdJobs.push(
+    // Pre-NY session fetch (10 min before open)
+    this.scraperJobs.push(
       cron.schedule('20 9 * * 1-5', async () => {
-        console.log('[EODHD] Pre-NY fetch (10 min before open)');
-        await this.fetchWithEODHDPriority();
+        console.log('[Calendar] Pre-NY fetch (10 min before open)');
+        await this.fetchEvents();
       }, { timezone: 'America/New_York' })
     );
 
-    const londonHours = [9, 11, 13, 15, 17];
-    londonHours.forEach((hour, index) => {
-      this.eodhdJobs.push(
-        cron.schedule(`0 ${hour} * * 1-5`, async () => {
-          console.log(`[EODHD] London session fetch #${index + 1}`);
-          await this.fetchWithEODHDPriority();
-        }, { timezone: 'Europe/London' })
-      );
-    });
-
-    const nyHours = [10, 11, 13, 14, 15];
-    nyHours.forEach((hour, index) => {
-      this.eodhdJobs.push(
-        cron.schedule(`30 ${hour} * * 1-5`, async () => {
-          console.log(`[EODHD] NY session fetch #${index + 1}`);
-          await this.fetchWithEODHDPriority();
-        }, { timezone: 'America/New_York' })
-      );
-    });
-
-    const offHours = [6, 19, 22];
-    offHours.forEach((hour, index) => {
-      this.eodhdJobs.push(
-        cron.schedule(`0 ${hour} * * 1-5`, async () => {
-          console.log(`[EODHD] Off-hours fetch #${index + 1}`);
-          await this.fetchWithEODHDPriority();
-        }, { timezone: 'UTC' })
-      );
-    });
-
-    this.eodhdJobs.push(
-      cron.schedule('0 12 * * 0,6', async () => {
-        console.log('[EODHD] Weekend fetch');
-        await this.fetchWithEODHDPriority();
+    // Hourly fetch during trading hours (every 2 hours)
+    this.scraperJobs.push(
+      cron.schedule('0 */2 * * 1-5', async () => {
+        console.log('[Calendar] Scheduled hourly fetch');
+        await this.fetchEvents();
       }, { timezone: 'UTC' })
     );
 
-    console.log('[EODHD] Strategic API calls scheduled (20/day):');
-    console.log('  - 2 calls: 10 min before London/NY sessions');
-    console.log('  - 5 calls: During London session hours');
-    console.log('  - 5 calls: During NY session hours');
-    console.log('  - 3 calls: Off-hours coverage');
-    console.log('  - 1 call: Weekend maintenance');
-    console.log('  - Fallback: Web scraper when API exhausted');
+    // Weekend fetch
+    this.scraperJobs.push(
+      cron.schedule('0 12 * * 0,6', async () => {
+        console.log('[Calendar] Weekend fetch');
+        await this.fetchEvents();
+      }, { timezone: 'UTC' })
+    );
+
+    console.log('[Calendar] Web scraper scheduled:');
+    console.log('  - Pre-London session (7:50 London time)');
+    console.log('  - Pre-NY session (9:20 NY time)');
+    console.log('  - Every 2 hours on weekdays');
+    console.log('  - Weekend maintenance at noon UTC');
   }
 
   start(): void {
-    console.log('Starting economic calendar scheduler with EODHD priority...');
+    console.log('Starting economic calendar scheduler (scraper only)...');
 
-    this.setupEODHDSchedule();
+    this.setupScraperSchedule();
 
     const cleanupIntervalHours = Math.floor(
       scraperSettings.cacheSettings.cleanupInterval / (60 * 60 * 1000)
@@ -171,15 +134,15 @@ export class ScraperScheduler {
     console.log('Scheduled signal scanning: every 1 minute');
     console.log('Scheduled signal cleanup: every 2 hours');
 
-    this.fetchWithEODHDPriority();
+    this.fetchEvents();
     signalScannerService.scanMarkets();
   }
 
   stop(): void {
     console.log('Stopping economic calendar scheduler...');
     
-    this.eodhdJobs.forEach(job => job.stop());
-    this.eodhdJobs = [];
+    this.scraperJobs.forEach(job => job.stop());
+    this.scraperJobs = [];
 
     if (this.upcomingEventsJob) {
       this.upcomingEventsJob.stop();
