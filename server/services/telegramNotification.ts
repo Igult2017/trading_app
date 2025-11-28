@@ -91,6 +91,7 @@ export class TelegramNotificationService {
     // =================================================
     this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
       const user = msg.from;
 
       console.log("\n==== /start command hit ====");
@@ -101,13 +102,13 @@ export class TelegramNotificationService {
         const existingSubscriber = await db
           .select()
           .from(telegramSubscribers)
-          .where(eq(telegramSubscribers.chatId, chatId))
+          .where(eq(telegramSubscribers.chatId, chatIdStr))
           .limit(1);
 
         if (existingSubscriber.length === 0) {
 
           await db.insert(telegramSubscribers).values({
-            chatId,
+            chatId: chatIdStr,
             username: user?.username || null,
             firstName: user?.first_name || null,
             lastName: user?.last_name || null,
@@ -116,7 +117,7 @@ export class TelegramNotificationService {
             createdAt: new Date()
           });
 
-          await this.bot.sendMessage(
+          await this.bot!.sendMessage(
             chatId,
             `✅ Welcome to Infod Trading Alerts!\n\nYou have been subscribed successfully ✅`
           );
@@ -126,12 +127,12 @@ export class TelegramNotificationService {
           await db
             .update(telegramSubscribers)
             .set({ isActive: true })
-            .where(eq(telegramSubscribers.chatId, chatId));
+            .where(eq(telegramSubscribers.chatId, chatIdStr));
 
-          await this.bot.sendMessage(chatId, `✅ Welcome back! Notifications resumed.`);
+          await this.bot!.sendMessage(chatId, `✅ Welcome back! Notifications resumed.`);
 
         } else {
-          await this.bot.sendMessage(chatId, `👋 You are already subscribed.`);
+          await this.bot!.sendMessage(chatId, `👋 You are already subscribed.`);
         }
 
       } catch (error: any) {
@@ -143,7 +144,7 @@ export class TelegramNotificationService {
           JSON.stringify(error)?.substring(0, 350) ||
           'Unknown error';
 
-        await this.bot.sendMessage(
+        await this.bot!.sendMessage(
           chatId,
           `❌ *SUBSCRIBE ERROR*\n\n\`${cleanError}\`\n\nThis is a database / schema problem.`,
           { parse_mode: "Markdown" }
@@ -154,12 +155,13 @@ export class TelegramNotificationService {
     // =================================================
     this.bot.onText(/\/stop/, async (msg) => {
       const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
 
       try {
         await db
           .update(telegramSubscribers)
           .set({ isActive: false })
-          .where(eq(telegramSubscribers.chatId, chatId));
+          .where(eq(telegramSubscribers.chatId, chatIdStr));
 
         await this.bot?.sendMessage(chatId, `⏸️ Notifications paused.`);
       } catch (error) {
@@ -170,12 +172,13 @@ export class TelegramNotificationService {
     // =================================================
     this.bot.onText(/\/resume/, async (msg) => {
       const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
 
       try {
         await db
           .update(telegramSubscribers)
           .set({ isActive: true })
-          .where(eq(telegramSubscribers.chatId, chatId));
+          .where(eq(telegramSubscribers.chatId, chatIdStr));
 
         await this.bot?.sendMessage(chatId, `▶️ Notifications resumed.`);
       } catch (error) {
@@ -186,12 +189,13 @@ export class TelegramNotificationService {
     // =================================================
     this.bot.onText(/\/status/, async (msg) => {
       const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
 
       try {
         const subscriber = await db
           .select()
           .from(telegramSubscribers)
-          .where(eq(telegramSubscribers.chatId, chatId))
+          .where(eq(telegramSubscribers.chatId, chatIdStr))
           .limit(1);
 
         if (subscriber.length === 0) {
