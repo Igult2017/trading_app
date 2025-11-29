@@ -48,26 +48,158 @@ export class TelegramNotificationService {
         return;
       }
 
-      this.bot = new TelegramBot(token, { polling: false });
+      const testBot = new TelegramBot(token, { polling: false });
       
       try {
-        const botInfo = await this.bot.getMe();
+        const botInfo = await testBot.getMe();
         console.log(`[Telegram] Bot verified: @${botInfo.username}`);
-        this.isInitialized = true;
       } catch (verifyError: any) {
         console.error('[Telegram] Failed to verify bot:', verifyError.message);
-        this.bot = null;
         return;
       }
+
+      this.bot = new TelegramBot(token, { 
+        polling: {
+          interval: 3000,
+          autoStart: true,
+          params: { timeout: 10 }
+        }
+      });
+
+      this.bot.on('polling_error', (error: any) => {
+        if (error.code === 'ETELEGRAM' && error.response?.statusCode === 409) {
+          console.log('[Telegram] Polling conflict (another instance running) - will retry...');
+        } else {
+          console.error('[Telegram] Polling error:', error.message || error.code);
+        }
+      });
+
+      this.isInitialized = true;
+      this.setupCommands();
+      console.log('[Telegram] Bot ready with polling enabled');
 
     } catch (error: any) {
       console.error('[Telegram] Init error:', error.message || error);
     }
   }
 
+  private setupCommands(): void {
+    if (!this.bot) return;
+
+    this.bot.onText(/\/start/, async (msg) => {
+      const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
+      const user = msg.from;
+
+      console.log(`[Telegram] /start from ${user?.username || chatId}`);
+
+      try {
+        const existing = await db
+          .select()
+          .from(telegramSubscribers)
+          .where(eq(telegramSubscribers.chatId, chatIdStr))
+          .limit(1);
+
+        if (existing.length === 0) {
+          await db.insert(telegramSubscribers).values({
+            chatId: chatIdStr,
+            username: user?.username || null,
+            firstName: user?.first_name || null,
+            lastName: user?.last_name || null,
+            phoneNumber: null,
+            isActive: true,
+            createdAt: new Date()
+          });
+
+          await this.bot!.sendMessage(chatId, 
+            `Welcome to Trading Alerts!\n\nYou are now subscribed to receive:\n- Trading signal alerts\n- High-impact economic news\n- Session opening notifications\n\nCommands:\n/stop - Pause notifications\n/resume - Resume notifications\n/status - Check subscription status`
+          );
+          console.log(`[Telegram] New subscriber: ${user?.username || chatId}`);
+
+        } else if (!existing[0].isActive) {
+          await db
+            .update(telegramSubscribers)
+            .set({ isActive: true })
+            .where(eq(telegramSubscribers.chatId, chatIdStr));
+
+          await this.bot!.sendMessage(chatId, `Welcome back! Your notifications have been resumed.`);
+          console.log(`[Telegram] Reactivated subscriber: ${user?.username || chatId}`);
+
+        } else {
+          await this.bot!.sendMessage(chatId, `You are already subscribed!\n\nCommands:\n/stop - Pause notifications\n/status - Check status`);
+        }
+
+      } catch (error: any) {
+        console.error('[Telegram] /start error:', error.message);
+        await this.bot!.sendMessage(chatId, `Sorry, there was an error. Please try again later.`);
+      }
+    });
+
+    this.bot.onText(/\/stop/, async (msg) => {
+      const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
+
+      try {
+        await db
+          .update(telegramSubscribers)
+          .set({ isActive: false })
+          .where(eq(telegramSubscribers.chatId, chatIdStr));
+
+        await this.bot?.sendMessage(chatId, `Notifications paused. Send /resume to restart.`);
+        console.log(`[Telegram] Subscriber paused: ${chatId}`);
+      } catch (error: any) {
+        console.error('[Telegram] /stop error:', error.message);
+      }
+    });
+
+    this.bot.onText(/\/resume/, async (msg) => {
+      const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
+
+      try {
+        await db
+          .update(telegramSubscribers)
+          .set({ isActive: true })
+          .where(eq(telegramSubscribers.chatId, chatIdStr));
+
+        await this.bot?.sendMessage(chatId, `Notifications resumed! You will now receive alerts.`);
+        console.log(`[Telegram] Subscriber resumed: ${chatId}`);
+      } catch (error: any) {
+        console.error('[Telegram] /resume error:', error.message);
+      }
+    });
+
+    this.bot.onText(/\/status/, async (msg) => {
+      const chatId = msg.chat.id;
+      const chatIdStr = chatId.toString();
+
+      try {
+        const subscriber = await db
+          .select()
+          .from(telegramSubscribers)
+          .where(eq(telegramSubscribers.chatId, chatIdStr))
+          .limit(1);
+
+        if (subscriber.length === 0) {
+          await this.bot?.sendMessage(chatId, `You are not subscribed. Send /start to subscribe.`);
+        } else {
+          const status = subscriber[0].isActive ? 'Active' : 'Paused';
+          const since = subscriber[0].createdAt
+            ? format(new Date(subscriber[0].createdAt), 'MMM dd, yyyy')
+            : 'Unknown';
+
+          await this.bot?.sendMessage(chatId, 
+            `Subscription Status: ${status}\nSubscribed since: ${since}\n\nCommands:\n${subscriber[0].isActive ? '/stop - Pause' : '/resume - Resume'}`
+          );
+        }
+      } catch (error: any) {
+        console.error('[Telegram] /status error:', error.message);
+      }
+    });
+  }
+
   async sendMessage(chatId: string | number, message: string, options?: any): Promise<boolean> {
     if (!this.bot) {
-      console.log('[Telegram] Bot not initialized, cannot send message');
       return false;
     }
 
@@ -75,7 +207,7 @@ export class TelegramNotificationService {
       await this.bot.sendMessage(chatId, message, options);
       return true;
     } catch (error: any) {
-      console.error(`[Telegram] Failed to send message to ${chatId}:`, error.message);
+      console.error(`[Telegram] Failed to send to ${chatId}:`, error.message);
       return false;
     }
   }
@@ -115,6 +247,10 @@ export class TelegramNotificationService {
         } catch (error) {
           failed++;
         }
+      }
+
+      if (sent > 0) {
+        console.log(`[Telegram] Broadcast sent to ${sent} subscribers`);
       }
 
       return { sent, failed };
@@ -284,6 +420,13 @@ Expect increased volatility and volume.`;
       console.error('[Telegram] Error checking trading sessions:', error.message);
     }
   }
+
+  stopPolling(): void {
+    if (this.bot) {
+      this.bot.stopPolling();
+      console.log('[Telegram] Polling stopped');
+    }
+  }
 }
 
 let telegramNotificationService: TelegramNotificationService | null = null;
@@ -292,7 +435,7 @@ let telegramNotificationService: TelegramNotificationService | null = null;
   try {
     telegramNotificationService = await TelegramNotificationService.create();
     if (telegramNotificationService?.isReady()) {
-      console.log('[Telegram] Notification Service ready (send-only mode)');
+      console.log('[Telegram] Service ready - users can subscribe via /start');
     }
   } catch (error) {
     console.error('[Telegram] Failed to initialize:', error);
