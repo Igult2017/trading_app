@@ -1,12 +1,25 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { db } from '../db';
-import { telegramSubscribers } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { telegramSubscribers, economicEvents } from '@shared/schema';
+import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
+
+interface TradingSession {
+  name: string;
+  openUTC: number;
+  closeUTC: number;
+}
+
+const HIGH_VOLUME_SESSIONS: TradingSession[] = [
+  { name: 'London', openUTC: 8, closeUTC: 16.5 },
+  { name: 'New York', openUTC: 13, closeUTC: 22 }
+];
 
 export class TelegramNotificationService {
   private bot: TelegramBot | null = null;
   private isInitialized = false;
+  private notifiedSessions = new Set<string>();
+  private notifiedEvents = new Set<string>();
 
   static async create(): Promise<TelegramNotificationService> {
     const service = new TelegramNotificationService();
@@ -188,6 +201,87 @@ ${signal.strategy ? `Strategy: ${signal.strategy}` : ''}`;
     } catch (error: any) {
       console.error('[Telegram] Remove subscriber error:', error.message);
       return false;
+    }
+  }
+
+  async checkAndNotifyUpcomingEvents(): Promise<void> {
+    if (!this.bot || !this.isInitialized) return;
+
+    try {
+      const now = new Date();
+      const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000);
+
+      const upcomingEvents = await db
+        .select()
+        .from(economicEvents)
+        .where(
+          and(
+            gte(economicEvents.eventTime, now),
+            lte(economicEvents.eventTime, fifteenMinutesFromNow),
+            eq(economicEvents.impactLevel, 'high')
+          )
+        );
+
+      for (const event of upcomingEvents) {
+        const eventKey = `${event.id}-${event.eventTime}`;
+        if (this.notifiedEvents.has(eventKey)) continue;
+
+        const message = `📊 *HIGH IMPACT EVENT ALERT*
+
+${event.currency} - ${event.title}
+Time: ${format(new Date(event.eventTime), 'HH:mm')} UTC
+Impact: ${event.impactLevel?.toUpperCase()}
+${event.expectedValue ? `Forecast: ${event.expectedValue}` : ''}
+${event.previousValue ? `Previous: ${event.previousValue}` : ''}`;
+
+        const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' });
+        if (result.sent > 0) {
+          this.notifiedEvents.add(eventKey);
+          console.log(`[Telegram] Notified ${result.sent} subscribers about ${event.title}`);
+        }
+      }
+    } catch (error: any) {
+      console.error('[Telegram] Error checking upcoming events:', error.message);
+    }
+  }
+
+  async checkAndNotifyTradingSessions(): Promise<void> {
+    if (!this.bot || !this.isInitialized) return;
+
+    try {
+      const now = new Date();
+      const currentHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+      const today = format(now, 'yyyy-MM-dd');
+
+      for (const session of HIGH_VOLUME_SESSIONS) {
+        const sessionKey = `${session.name}-${today}`;
+        
+        if (this.notifiedSessions.has(sessionKey)) continue;
+
+        const minutesToOpen = (session.openUTC - currentHour) * 60;
+        
+        if (minutesToOpen > 0 && minutesToOpen <= 15) {
+          const message = `🔔 *${session.name} Session Opening Soon*
+
+The ${session.name} trading session opens in ~${Math.round(minutesToOpen)} minutes.
+
+Session Hours: ${session.openUTC}:00 - ${session.closeUTC}:00 UTC
+Expect increased volatility and volume.`;
+
+          const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' });
+          if (result.sent > 0) {
+            this.notifiedSessions.add(sessionKey);
+            console.log(`[Telegram] Notified ${result.sent} subscribers about ${session.name} session`);
+          }
+        }
+      }
+
+      if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
+        this.notifiedSessions.clear();
+        this.notifiedEvents.clear();
+      }
+    } catch (error: any) {
+      console.error('[Telegram] Error checking trading sessions:', error.message);
     }
   }
 }
