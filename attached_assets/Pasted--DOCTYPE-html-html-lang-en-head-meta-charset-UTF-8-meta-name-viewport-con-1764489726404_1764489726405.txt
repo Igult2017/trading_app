@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compact Status Metrics</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind for custom styles and Inter font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // All text uses Inter font
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        // Blue for Primary/Confirmed (Active/Done)
+                        primary: '#4338CA', 
+                        // Amber for Warning/Pending (Waiting/In Progress)
+                        secondary: '#F59E0B', 
+                        // Green for Success/Active
+                        tertiary: '#10B981', 
+                        // Orange for Watchlist/Signals (Removed, but keeping definition in case it's used elsewhere)
+                        signal: '#F97316', 
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom styles for background and centering */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f8f9fa; /* Light subtle background */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Content Area -->
+    <div class="flex flex-col items-center p-4 max-w-4xl w-full">
+
+        <!-- Watchlist Header section removed as requested -->
+        
+        <!-- Container for all four cards. Using flex-wrap for responsiveness on small screens. -->
+        <div class="flex flex-wrap justify-center gap-6">
+
+            <!-- 1. Confirmed Status Metric (Blue/Primary) - Compact -->
+            <div class="p-3 bg-white rounded-lg shadow-xl transition duration-300 hover:shadow-primary/40 transform hover:scale-[1.03] w-36 sm:w-40 text-center">
+                
+                <!-- Confirmed Count -->
+                <div class="text-5xl font-extrabold text-primary leading-none transition duration-500">
+                    0
+                </div>
+                
+                <!-- Label -->
+                <div class="mt-1 text-xs font-medium tracking-widest uppercase text-gray-500">
+                    CONFIRMED
+                </div>
+                
+            </div>
+
+            <!-- 2. Pending Status Metric (Amber/Secondary) - Compact -->
+            <div class="p-3 bg-white rounded-lg shadow-xl transition duration-300 hover:shadow-secondary/40 transform hover:scale-[1.03] w-36 sm:w-40 text-center">
+                
+                <!-- Pending Count -->
+                <div class="text-5xl font-extrabold text-secondary leading-none transition duration-500">
+                    51
+                </div>
+                
+                <!-- Label -->
+                <div class="mt-1 text-xs font-medium tracking-widest uppercase text-gray-500">
+                    PENDING
+                </div>
+                
+            </div>
+            
+            <!-- 3. Active Status Metric (Green/Tertiary) - Compact -->
+            <div class="p-3 bg-white rounded-lg shadow-xl transition duration-300 hover:shadow-tertiary/40 transform hover:scale-[1.03] w-36 sm:w-40 text-center">
+                
+                <!-- Active Count -->
+                <div class="text-5xl font-extrabold text-tertiary leading-none transition duration-500">
+                    3
+                </div>
+                
+                <!-- Label -->
+                <div class="mt-1 text-xs font-medium tracking-widest uppercase text-gray-500">
+                    ACTIVE
+                </div>
+                
+            </div>
+            
+            <!-- 4. Watchlist Status Metric (Orange/Signal) - Compact) has been removed -->
+        
+        </div>
+
+    </div>
+
+</body>
+</html>

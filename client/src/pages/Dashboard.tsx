@@ -1,4 +1,5 @@
 import TradingSession from '@/components/TradingSession';
+import StatusMetrics from '@/components/StatusMetrics';
 import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import SignalCard from '@/components/SignalCard';
@@ -59,6 +60,13 @@ export default function Dashboard() {
 
         {/* Trading Sessions */}
         <TradingSession />
+
+        {/* Status Metrics */}
+        <StatusMetrics 
+          confirmed={activeCurrencySignals.length + activeStockSignals.length}
+          pending={watchlistCurrencySignals.length + watchlistStockSignals.length + pendingWatchlistItems.length}
+          active={activeSignals.length}
+        />
 
         {/* Full-Width Sections - NO SIDEBARS */}
         <div className="space-y-8">
