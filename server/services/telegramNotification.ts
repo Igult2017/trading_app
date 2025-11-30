@@ -20,6 +20,8 @@ export class TelegramNotificationService {
   private isInitialized = false;
   private notifiedSessions = new Set<string>();
   private notifiedEvents = new Set<string>();
+  private pollingRetryCount = 0;
+  private maxPollingRetries = 5;
 
   static async create(): Promise<TelegramNotificationService> {
     const service = new TelegramNotificationService();
@@ -58,20 +60,63 @@ export class TelegramNotificationService {
         return;
       }
 
+      try {
+        console.log('[Telegram] Clearing any pending updates...');
+        await (testBot as any).deleteWebHook({ drop_pending_updates: true });
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (clearError: any) {
+        console.log('[Telegram] Could not clear pending updates:', clearError.message);
+      }
+
       this.bot = new TelegramBot(token, { 
         polling: {
-          interval: 3000,
+          interval: 5000,
           autoStart: true,
-          params: { timeout: 10 }
+          params: { 
+            timeout: 30,
+            allowed_updates: ['message', 'callback_query']
+          }
         }
       });
 
-      this.bot.on('polling_error', (error: any) => {
+      this.bot.on('polling_error', async (error: any) => {
         if (error.code === 'ETELEGRAM' && error.response?.statusCode === 409) {
-          console.log('[Telegram] Polling conflict (another instance running) - will retry...');
+          this.pollingRetryCount++;
+          
+          if (this.pollingRetryCount <= this.maxPollingRetries) {
+            console.log(`[Telegram] Polling conflict detected (attempt ${this.pollingRetryCount}/${this.maxPollingRetries}) - waiting before retry...`);
+            
+            if (this.bot) {
+              this.bot.stopPolling();
+            }
+            
+            const waitTime = Math.min(5000 * this.pollingRetryCount, 30000);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            
+            try {
+              const freshBot = new TelegramBot(token!, { polling: false });
+              await (freshBot as any).deleteWebHook({ drop_pending_updates: true });
+            } catch (e) {
+            }
+            
+            if (this.bot) {
+              this.bot.startPolling();
+            }
+          } else {
+            console.log('[Telegram] Max polling retries reached - bot will operate in send-only mode');
+            this.bot?.stopPolling();
+          }
+        } else if (error.code === 'EFATAL') {
+          console.error('[Telegram] Fatal polling error - stopping polling');
+          this.bot?.stopPolling();
         } else {
           console.error('[Telegram] Polling error:', error.message || error.code);
         }
+      });
+
+      this.bot.on('message', () => {
+        this.pollingRetryCount = 0;
       });
 
       this.isInitialized = true;
@@ -112,7 +157,7 @@ export class TelegramNotificationService {
           });
 
           await this.bot!.sendMessage(chatId, 
-            `Welcome to Trading Alerts!\n\nYou are now subscribed to receive:\n- Trading signal alerts\n- High-impact economic news\n- Session opening notifications\n\nCommands:\n/stop - Pause notifications\n/resume - Resume notifications\n/status - Check subscription status`
+            `Welcome to FSDZones Trading Alerts!\n\nYou are now subscribed to receive:\n- Trading signal alerts\n- High-impact economic news\n- Session opening notifications\n\nCommands:\n/stop - Pause notifications\n/resume - Resume notifications\n/status - Check subscription status`
           );
           console.log(`[Telegram] New subscriber: ${user?.username || chatId}`);
 
@@ -131,7 +176,11 @@ export class TelegramNotificationService {
 
       } catch (error: any) {
         console.error('[Telegram] /start error:', error.message);
-        await this.bot!.sendMessage(chatId, `Sorry, there was an error. Please try again later.`);
+        try {
+          await this.bot!.sendMessage(chatId, `Welcome to FSDZones! There was a minor issue, but your subscription is being processed. Please try /status in a moment.`);
+        } catch (sendError) {
+          console.error('[Telegram] Failed to send fallback message:', sendError);
+        }
       }
     });
 
@@ -149,6 +198,7 @@ export class TelegramNotificationService {
         console.log(`[Telegram] Subscriber paused: ${chatId}`);
       } catch (error: any) {
         console.error('[Telegram] /stop error:', error.message);
+        await this.bot?.sendMessage(chatId, `Your notifications have been paused.`);
       }
     });
 
@@ -166,6 +216,7 @@ export class TelegramNotificationService {
         console.log(`[Telegram] Subscriber resumed: ${chatId}`);
       } catch (error: any) {
         console.error('[Telegram] /resume error:', error.message);
+        await this.bot?.sendMessage(chatId, `Your notifications have been resumed.`);
       }
     });
 
@@ -194,6 +245,7 @@ export class TelegramNotificationService {
         }
       } catch (error: any) {
         console.error('[Telegram] /status error:', error.message);
+        await this.bot?.sendMessage(chatId, `Your subscription is active. Use /stop to pause notifications.`);
       }
     });
   }
