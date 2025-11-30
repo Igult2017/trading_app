@@ -5,7 +5,7 @@ import SignalCard from '@/components/SignalCard';
 import StockSignalCard from '@/components/StockSignalCard';
 import WatchlistCard from '@/components/WatchlistCard';
 import SectionHeader from '@/components/SectionHeader';
-import { Target, Activity, Eye } from 'lucide-react';
+import { Target, Activity, Bookmark } from 'lucide-react';
 import type { TradingSignal, PendingSetup } from '@shared/schema';
 
 export default function Dashboard() {
@@ -112,7 +112,7 @@ export default function Dashboard() {
           {/* Section 3: Watchlist - 3 TIERS CONFIRMED, AWAITING ENTRY TRIGGER */}
           <section className="bg-card border-t-2 border-amber-500">
             <SectionHeader 
-              icon={Eye} 
+              icon={Bookmark} 
               title="Watchlist - Awaiting Entry Trigger" 
               countLabel={`${watchlistCurrencySignals.length + watchlistStockSignals.length + pendingWatchlistItems.length} Pending`}
             />
