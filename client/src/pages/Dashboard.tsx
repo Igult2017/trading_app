@@ -1,5 +1,4 @@
 import TradingSession from '@/components/TradingSession';
-import StatusMetrics from '@/components/StatusMetrics';
 import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import SignalCard from '@/components/SignalCard';
@@ -61,13 +60,6 @@ export default function Dashboard() {
         {/* Trading Sessions */}
         <TradingSession />
 
-        {/* Status Metrics */}
-        <StatusMetrics 
-          confirmed={activeCurrencySignals.length + activeStockSignals.length}
-          pending={watchlistCurrencySignals.length + watchlistStockSignals.length + pendingWatchlistItems.length}
-          active={activeSignals.length}
-        />
-
         {/* Full-Width Sections - NO SIDEBARS */}
         <div className="space-y-8">
           
@@ -77,6 +69,7 @@ export default function Dashboard() {
               icon={Target} 
               title="Active Signals - Currency, Metals & Crypto" 
               countLabel={`${activeCurrencySignals.length} Confirmed`}
+              variant="confirmed"
             />
             <p className="px-6 py-1.5 text-[10px] text-muted-foreground/50 border-b border-border/30 italic">
               1D Context + Major Zone (4H/2H/1H) + Zone ID (30M/15M) + Entry Trigger (5M/3M/1M) all confirmed
@@ -100,6 +93,7 @@ export default function Dashboard() {
               icon={Activity} 
               title="Active Signals - Stocks & Indices" 
               countLabel={`${activeStockSignals.length} Confirmed`}
+              variant="confirmed"
             />
             <p className="px-6 py-1.5 text-[10px] text-muted-foreground/50 border-b border-border/30 italic">
               1D Context + Major Zone (4H/2H/1H) + Zone ID (30M/15M) + Entry Trigger (5M/3M/1M) all confirmed
@@ -123,6 +117,7 @@ export default function Dashboard() {
               icon={Bookmark} 
               title="Watchlist - Awaiting Entry Trigger" 
               countLabel={`${watchlistCurrencySignals.length + watchlistStockSignals.length + pendingWatchlistItems.length} Pending`}
+              variant="pending"
             />
             <p className="px-6 py-1.5 text-[10px] text-muted-foreground/50 border-b border-border/30 italic">
               1D Context + Major Zone (4H/2H/1H) + Zone ID (30M/15M) confirmed. Watching 5M/3M/1M for entry trigger.
