@@ -5,7 +5,7 @@ import SignalCard from '@/components/SignalCard';
 import StockSignalCard from '@/components/StockSignalCard';
 import WatchlistCard from '@/components/WatchlistCard';
 import SectionHeader from '@/components/SectionHeader';
-import { Target, Activity, Bookmark } from 'lucide-react';
+import { Zap, Activity, Bookmark } from 'lucide-react';
 import type { TradingSignal, PendingSetup } from '@shared/schema';
 
 export default function Dashboard() {
@@ -66,7 +66,7 @@ export default function Dashboard() {
           {/* Section 1: Active Currency, Metals & Crypto Signals - ALL 4 TIERS CONFIRMED */}
           <section className="bg-card border-t-2 border-bull-green">
             <SectionHeader 
-              icon={Target} 
+              icon={Zap} 
               title="Active Signals - Currency, Metals & Crypto" 
               countLabel={`${activeCurrencySignals.length} Confirmed`}
               variant="confirmed"
@@ -90,7 +90,7 @@ export default function Dashboard() {
           {/* Section 2: Active Stock & Index Signals - ALL 4 TIERS CONFIRMED */}
           <section className="bg-card border-t-2 border-bull-green">
             <SectionHeader 
-              icon={Activity} 
+              icon={Zap} 
               title="Active Signals - Stocks & Indices" 
               countLabel={`${activeStockSignals.length} Confirmed`}
               variant="confirmed"

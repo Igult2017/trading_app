@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Target, Clock, Eye, BarChart3, Timer, ListTodo, TrendingDown, TrendingUp } from 'lucide-react';
+import { Zap, Clock, Eye, BarChart3, Timer, ListTodo, TrendingDown, TrendingUp } from 'lucide-react';
 
 interface TradingSignal {
   id: string;
@@ -118,7 +118,7 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
       <div data-testid="card-trading-signals" className="bg-white dark:bg-background">
         <div className="pb-4 mb-4 border-b border-border/50">
           <div className="flex items-center gap-2 text-lg font-semibold">
-            <Target className="w-5 h-5" />
+            <Zap className="w-5 h-5" />
             {displayTitle}
             <Badge variant="secondary" className="ml-auto mr-2">Loading...</Badge>
           </div>
@@ -132,7 +132,7 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
     <div data-testid="card-trading-signals" className="bg-white dark:bg-background">
       <div className="pb-4 mb-4 border-b border-border/50">
         <div className="flex items-center gap-2 text-lg font-semibold">
-          <Target className="w-5 h-5" />
+          <Zap className="w-5 h-5" />
           {displayTitle}
           <div className="flex items-center gap-2 ml-auto mr-2">
             <Badge variant="secondary">
