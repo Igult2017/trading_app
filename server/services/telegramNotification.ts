@@ -61,10 +61,21 @@ export class TelegramNotificationService {
       }
 
       try {
-        console.log('[Telegram] Clearing any pending updates...');
+        console.log('[Telegram] Clearing any pending updates and releasing previous connections...');
+        
         await (testBot as any).deleteWebHook({ drop_pending_updates: true });
         
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          const updates = await testBot.getUpdates({ offset: -1, limit: 1, timeout: 0 });
+          if (updates && updates.length > 0) {
+            const lastUpdateId = updates[updates.length - 1].update_id;
+            await testBot.getUpdates({ offset: lastUpdateId + 1, limit: 1, timeout: 0 });
+          }
+        } catch (updateError: any) {
+          console.log('[Telegram] Could not clear update queue:', updateError.message);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 3000));
       } catch (clearError: any) {
         console.log('[Telegram] Could not clear pending updates:', clearError.message);
       }
@@ -72,13 +83,17 @@ export class TelegramNotificationService {
       this.bot = new TelegramBot(token, { 
         polling: {
           interval: 5000,
-          autoStart: true,
+          autoStart: false,
           params: { 
             timeout: 30,
             allowed_updates: ['message', 'callback_query']
           }
         }
       });
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      this.bot.startPolling();
 
       this.bot.on('polling_error', async (error: any) => {
         if (error.code === 'ETELEGRAM' && error.response?.statusCode === 409) {
