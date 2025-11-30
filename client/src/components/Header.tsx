@@ -32,7 +32,7 @@ export default function Header() {
 
   return (
     <header className="bg-card shadow-md sticky top-0 z-50">
-      {/* ROW 1: Logo, Bias, Telegram, Subscribe, Sign In / Free Sign Up */}
+      {/* ROW 1: Logo, Bias, Telegram, Subscribe, Sign In / Sign Up */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo: FSDZones.com */}
@@ -89,7 +89,7 @@ export default function Header() {
                 className="text-[#EF4444] hover:text-red-600 transition duration-150"
                 data-testid="link-signup"
               >
-                Free Sign Up
+                Sign Up
               </Link>
             </div>
           </div>
@@ -176,14 +176,14 @@ export default function Header() {
             >
               Subscribe
             </Link>
-            {/* Primary CTA: Free Sign Up */}
+            {/* Primary CTA: Sign Up */}
             <Link 
               href="/signup"
               className="block w-full text-center px-4 py-3 text-base font-bold text-white bg-[#EF4444] rounded-xl hover:bg-red-600 transition duration-150 shadow-lg ring-2 ring-red-300"
               onClick={() => setMobileMenuOpen(false)}
               data-testid="mobile-link-signup"
             >
-              Free Sign Up
+              Sign Up
             </Link>
           </div>
         </div>
