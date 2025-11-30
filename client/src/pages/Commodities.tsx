@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import SignalCard from '@/components/SignalCard';
 import WatchlistCard from '@/components/WatchlistCard';
 import SectionHeader from '@/components/SectionHeader';
-import { Target, Bookmark } from 'lucide-react';
+import { Zap, Bookmark } from 'lucide-react';
 
 export default function Commodities() {
   const { data: allSignals = [], isLoading: signalsLoading } = useQuery<any[]>({
@@ -24,7 +24,7 @@ export default function Commodities() {
         <div className="lg:col-span-8 flex flex-col gap-8">
           <section className="bg-card border-t-2 border-gray-900 dark:border-foreground">
             <SectionHeader 
-              icon={Target} 
+              icon={Zap} 
               title="Commodity Signals (Gold, Oil, Metals)" 
               countLabel={`${commoditySignals.length} Active`}
               variant="active"
