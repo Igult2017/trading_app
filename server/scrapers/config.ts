@@ -22,11 +22,49 @@ export interface ScraperConfig {
 }
 
 export const scraperConfigs: Record<string, ScraperConfig> = {
+  myFxBook: {
+    name: 'MyFXBook',
+    url: 'https://www.myfxbook.com/forex-economic-calendar',
+    enabled: true,
+    priority: 1,
+    selectors: {
+      eventRow: 'tr.economicCalendarRow',
+      eventName: 'td.calendarToggleCell:nth-child(5)',
+      country: 'td.calendarToggleCell:nth-child(4)',
+      date: 'td.calendarToggleCell:nth-child(1)',
+      time: 'td.calendarToggleCell:nth-child(1)',
+      impact: 'td.calendarToggleCell:nth-child(6)',
+      actual: 'td.calendarToggleCell:nth-child(9)',
+      forecast: 'td.calendarToggleCell:nth-child(8)',
+      previous: 'td.calendarToggleCell:nth-child(7)',
+      currency: 'td.calendarToggleCell:nth-child(4)',
+    },
+    dataMapping: {
+      impactLevels: {
+        'None': 'None',
+        'Low': 'Low',
+        'Medium': 'Medium',
+        'High': 'High',
+      },
+      countryCodes: {
+        'USD': 'USD',
+        'EUR': 'EUR',
+        'GBP': 'GBP',
+        'JPY': 'JPY',
+        'CAD': 'CAD',
+        'AUD': 'AUD',
+        'NZD': 'NZD',
+        'CHF': 'CHF',
+        'CNY': 'CNY',
+      },
+    },
+  },
+
   investingCom: {
     name: 'Investing.com',
     url: 'https://www.investing.com/economic-calendar/',
-    enabled: true,
-    priority: 1,
+    enabled: false,
+    priority: 2,
     selectors: {
       eventRow: 'tr.js-event-item',
       eventName: 'td.event a',
@@ -62,8 +100,8 @@ export const scraperConfigs: Record<string, ScraperConfig> = {
   forexFactory: {
     name: 'ForexFactory',
     url: 'https://www.forexfactory.com/calendar',
-    enabled: true,
-    priority: 2,
+    enabled: false,
+    priority: 3,
     selectors: {
       eventRow: 'tr.calendar__row',
       eventName: 'td.calendar__event span.calendar__event-title',
@@ -98,8 +136,8 @@ export const scraperConfigs: Record<string, ScraperConfig> = {
   fxStreet: {
     name: 'FXStreet',
     url: 'https://www.fxstreet.com/economic-calendar',
-    enabled: true,
-    priority: 3,
+    enabled: false,
+    priority: 4,
     selectors: {
       eventRow: 'div.fxs_calendar_row',
       eventName: 'div.fxs_event_title',
