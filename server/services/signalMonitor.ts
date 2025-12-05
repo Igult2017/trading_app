@@ -141,6 +141,8 @@ export class SignalMonitorService {
   private async archiveSignalToTrades(signal: TradingSignal, outcome: SignalOutcome): Promise<void> {
     try {
       const entryPrice = parseFloat(signal.entryPrice?.toString() || '0');
+      const stopLoss = parseFloat(signal.stopLoss?.toString() || '0');
+      const takeProfit = parseFloat(signal.takeProfit?.toString() || '0');
       const exitPrice = outcome.exitPrice || outcome.currentPrice;
       const pnlPercent = outcome.pnlPercent || 0;
       
@@ -150,6 +152,8 @@ export class SignalMonitorService {
         : (entryPrice - exitPrice) * 1;
 
       const duration = this.calculateDuration(signal.createdAt || new Date());
+      
+      const riskReward = this.calculateRiskReward(entryPrice, stopLoss, takeProfit, isBuy);
 
       const trade: InsertTrade = {
         userId: null,
@@ -158,14 +162,23 @@ export class SignalMonitorService {
         strategy: signal.strategy,
         entryPrice: entryPrice.toString(),
         exitPrice: exitPrice.toString(),
+        stopLoss: stopLoss > 0 ? stopLoss.toString() : null,
+        takeProfit: takeProfit > 0 ? takeProfit.toString() : null,
         quantity: "1",
         pnl: pnl.toFixed(2),
         pnlPercent: pnlPercent.toFixed(2),
+        riskReward: riskReward || null,
         outcome: outcome.outcome === 'hit_sl' ? 'loss' : 'win',
         timeframe: signal.primaryTimeframe,
         entryReason: signal.technicalReasons?.join(', ') || signal.marketContext || 'SMC Signal',
+        lesson: outcome.outcome === 'hit_sl' 
+          ? 'Stop loss hit - review entry timing and zone quality' 
+          : 'Take profit hit - successful trade execution',
+        signalId: signal.id || null,
+        entryDate: signal.createdAt || null,
         exitDate: new Date(),
         duration,
+        assetClass: signal.assetClass || null,
       };
 
       await storage.createTrade(trade);
@@ -175,10 +188,22 @@ export class SignalMonitorService {
         invalidatedAt: new Date(),
       });
 
-      console.log(`[SignalMonitor] Archived ${signal.symbol} signal: ${outcome.outcome}`);
+      console.log(`[SignalMonitor] Archived ${signal.symbol} signal to journal: ${outcome.outcome}`);
     } catch (error) {
       console.error('[SignalMonitor] Error archiving signal:', error);
     }
+  }
+
+  private calculateRiskReward(entry: number, sl: number, tp: number, isBuy: boolean): string {
+    if (!sl || !tp || sl === 0 || tp === 0) return 'N/A';
+    
+    const risk = Math.abs(entry - sl);
+    const reward = Math.abs(tp - entry);
+    
+    if (risk === 0) return 'N/A';
+    
+    const rr = reward / risk;
+    return `1:${rr.toFixed(1)}`;
   }
 
   private async expireSignal(signal: TradingSignal): Promise<void> {

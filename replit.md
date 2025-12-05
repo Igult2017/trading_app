@@ -48,6 +48,14 @@ Preferred communication style: Simple, everyday language.
 - **Lifecycle**: Signals move through stages (Forming, Monitoring, Ready, Active, Expired, Archived). Active signals have a 4-hour expiry.
 - **Watchlist & Monitoring**: Tracks pending signals and monitors active signals for SL/TP hits, automatically archiving outcomes.
 
+## Trading Journal
+- **Purpose**: Records only confirmed/executed trades when signals hit stop-loss or take-profit levels.
+- **Persistent Storage**: Uses PostgreSQL database for unlimited trade history (no more 60-trade limit from in-memory storage).
+- **Journal Fields**: Symbol, type, strategy, entry/exit prices, stop-loss, take-profit, P&L, risk-reward ratio, duration, entry reason, lessons learned, asset class.
+- **Filtering**: Time-based filters (Today, Week, Month, All Time) and outcome filters (Wins/Losses).
+- **Statistics**: Total P&L, win rate, average win/loss, profit factor, wins/losses count.
+- **Export**: CSV export functionality for further analysis.
+
 # External Dependencies
 
 ## UI and Component Libraries
