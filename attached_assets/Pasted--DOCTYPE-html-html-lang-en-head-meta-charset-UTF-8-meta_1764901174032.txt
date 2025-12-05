@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade History Record</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Poppins font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script type="module">
+        // --- Firebase has been removed. Using only native JavaScript and localStorage. ---
+
+        // Helper function to get DOM elements
+        const getElement = (id) => document.getElementById(id);
+
+        // --- Mock Data Definitions (using standard JS timestamps for persistence) ---
+        const MOCK_TRADES = [
+            {
+                instrument: 'EUR/USD',
+                strategy: 'Breakout Strategy', // New field added
+                bias: 'Bullish divergence on the 4H chart coinciding with retest of previous support zone.',
+                rr: '1:3.5',
+                datetime: '2025-11-28T10:00', // Time string for display
+                outcome: 'Win',
+                lesson: 'Confirmed that patience is key when waiting for pattern completion. Execution was flawless.',
+                createdAt: Date.now() - 86400000 * 3 // JS timestamp for sorting
+            },
+            {
+                instrument: 'TSLA',
+                strategy: 'Mean Reversion', // New field added
+                bias: 'Bearish continuation after breaking below the 200-day moving average and forming a triple top.',
+                rr: '1:1.2',
+                datetime: '2025-11-29T14:30',
+                outcome: 'Loss',
+                lesson: 'Did not respect the high volume spike at entry. Next time, wait for volume confirmation before shorting.',
+                createdAt: Date.now() - 86400000 * 2 // JS timestamp for sorting
+            },
+            {
+                instrument: 'GOLD',
+                strategy: 'Trend Following', // New field added
+                bias: 'Symmetrical triangle pattern breakout to the upside on the 1H chart, anticipating target retest.',
+                rr: '1:2.0',
+                datetime: '2025-12-03T09:00',
+                outcome: 'Break-Even',
+                lesson: 'Trade got stopped out at break-even due to unexpected news event. Managed risk well, but entry timing could have been better.',
+                createdAt: Date.now() - 86400000 // JS timestamp for sorting
+            }
+        ];
+
+        // Column titles array for data-label attribute (Must match the <th> order)
+        const COLUMN_LABELS = [
+            'Instrument', 
+            'Strategy Used', 
+            'Bias (Reason)', 
+            'R:R', 
+            'Time & Date', 
+            'Outcome', 
+            'Lesson'
+        ];
+
+        // Function to check if local storage is empty and add mock data
+        const loadInitialData = () => {
+            let tradesJson = localStorage.getItem('trade_history');
+            let trades = tradesJson ? JSON.parse(tradesJson) : [];
+
+            if (trades.length === 0) {
+                console.log("No trades found in localStorage. Adding mock data...");
+                // Add mock data with correct createdAt timestamps
+                const initialTrades = MOCK_TRADES.map(trade => ({
+                    ...trade,
+                    createdAt: trade.createdAt 
+                }));
+                localStorage.setItem('trade_history', JSON.stringify(initialTrades));
+                trades = initialTrades;
+            }
+            return trades;
+        };
+
+        // Main initialization function
+        const initializeApp = () => {
+            // 1. Load data from local storage (or mock data if empty)
+            const trades = loadInitialData();
+            
+            // 2. Render the trades
+            renderTrades(trades);
+        };
+
+        // Load trades function (reads from localStorage)
+        const loadTrades = () => {
+            const tradesJson = localStorage.getItem('trade_history');
+            const trades = tradesJson ? JSON.parse(tradesJson) : [];
+
+            // Sort by creation time (newest first)
+            trades.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            
+            renderTrades(trades);
+        };
+        
+        // Function to convert timestamp/string to readable date
+        const formatDateTime = (timestampOrString) => {
+            try {
+                if (typeof timestampOrString === 'number') {
+                    // Treat as JS timestamp
+                    return new Date(timestampOrString).toLocaleString();
+                }
+                if (typeof timestampOrString === 'string') {
+                    // Treat as ISO date string from mock data
+                    return new Date(timestampOrString).toLocaleString();
+                }
+            } catch (e) {
+                console.error("Error formatting date:", e);
+            }
+            return 'N/A';
+        };
+
+        // Render trades into the table
+        const renderTrades = (trades) => {
+            const listContainer = getElement('trade-list');
+            const noTradesMessage = getElement('no-trades-message');
+            const tableBody = getElement('trades-table-body');
+            const loadingSpinner = getElement('loading-spinner');
+            const statsDisplay = getElement('stats-display');
+
+            loadingSpinner.classList.add('hidden'); // Hide loading spinner once data is received
+            
+            let totalWins = 0;
+            let totalLosses = 0;
+
+            // Calculate Wins/Losses
+            trades.forEach(trade => {
+                if (trade.outcome === 'Win') {
+                    totalWins++;
+                } else if (trade.outcome === 'Loss') {
+                    totalLosses++;
+                }
+            });
+            
+            // Update the stats display in the header
+            if (statsDisplay) {
+                // Using different weights for stronger visual separation
+                statsDisplay.innerHTML = `<span class="font-bold text-gray-700">TOTAL:</span> <span class="font-extrabold text-green-600">${totalWins}</span> Wins | <span class="font-extrabold text-red-600">${totalLosses}</span> Losses`;
+            }
+
+            if (trades.length === 0) {
+                listContainer.classList.add('hidden');
+                noTradesMessage.classList.remove('hidden');
+                return;
+            }
+
+            listContainer.classList.remove('hidden');
+            noTradesMessage.classList.add('hidden');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            trades.forEach(trade => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition duration-150 border-b border-gray-100 md:border-b-0'; 
+
+                // --- Outcome Badge Logic ---
+                let outcomeBadge;
+                let badgeClass = 'inline-block px-3 py-0.5 rounded-full text-xs font-semibold tracking-wider';
+                
+                if (trade.outcome === 'Win') {
+                    badgeClass += ' bg-green-100 text-green-700';
+                } else if (trade.outcome === 'Loss') {
+                    badgeClass += ' bg-red-100 text-red-700';
+                } else {
+                    badgeClass += ' bg-blue-100 text-blue-700';
+                }
+
+                outcomeBadge = `<span class="${badgeClass}">${trade.outcome || 'N/A'}</span>`;
+                // --- End Outcome Badge Logic ---
+
+
+                row.innerHTML = `
+                    <td class="p-4 border-b border-gray-100 whitespace-nowrap text-sm font-semibold text-gray-900" data-label="${COLUMN_LABELS[0]}">${trade.instrument || 'N/A'}</td>
+                    <td class="p-4 border-b border-gray-100 whitespace-nowrap text-sm text-gray-700" data-label="${COLUMN_LABELS[1]}">${trade.strategy || 'N/A'}</td>
+                    <td class="p-4 border-b border-gray-100 text-sm text-gray-700 max-w-xs overflow-hidden md:whitespace-normal" data-label="${COLUMN_LABELS[2]}">${trade.bias || 'N/A'}</td>
+                    <td class="p-4 border-b border-gray-100 whitespace-nowrap text-sm text-gray-700 font-medium" data-label="${COLUMN_LABELS[3]}">${trade.rr || 'N/A'}</td>
+                    <td class="p-4 border-b border-gray-100 whitespace-nowrap text-xs text-gray-500" data-label="${COLUMN_LABELS[4]}">${formatDateTime(trade.datetime || trade.createdAt)}</td>
+                    <td class="p-4 border-b border-gray-100 whitespace-nowrap text-sm" data-label="${COLUMN_LABELS[5]}">${outcomeBadge}</td>
+                    <td class="p-4 border-b border-gray-100 text-sm text-gray-500 max-w-xs overflow-hidden md:whitespace-normal" data-label="${COLUMN_LABELS[6]}">${trade.lesson || 'No Lesson Recorded'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        };
+        
+        // Wait for the window to load before starting initialization
+        window.addEventListener('load', () => {
+            initializeApp();
+        });
+
+    </script>
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f7f7f9; /* Slight off-white background */
+        }
+        
+        /* Desktop styles for trade list container */
+        .trade-list-scroll {
+            max-height: 80vh; 
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 0; /* REMOVED BORDER-RADIUS */
+            overflow: hidden; 
+            background-color: white;
+        }
+        
+        /* Table styles for desktop (md and larger) */
+        .trade-list-scroll table {
+            table-layout: auto; /* Let columns size naturally on wide screens */
+            width: 100%;
+        }
+
+        /* Styling for the table header (thead) */
+        .trade-list-scroll thead {
+            background-color: #ffffff; 
+        }
+
+        .trade-list-scroll th {
+            font-weight: 600;
+        }
+        
+        .trade-list-scroll table {
+             border-collapse: collapse;
+        }
+        
+        /* ------------------------------------------- */
+        /* Mobile Responsive Card View (max-width: 767px) */
+        /* ------------------------------------------- */
+        @media screen and (max-width: 767px) {
+            .trade-list-scroll {
+                border: none;
+                border-radius: 0;
+                overflow-x: hidden;
+            }
+            
+            /* Hide the original table header on small screens */
+            .trade-list-scroll thead {
+                display: none;
+            }
+
+            /* Transform table elements into blocks for stacking */
+            .trade-list-scroll table, 
+            .trade-list-scroll tbody, 
+            .trade-list-scroll tr {
+                display: block;
+                width: 100%;
+            }
+
+            /* Style the individual trade row as a card */
+            .trade-list-scroll tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 0; /* REMOVED BORDER-RADIUS */
+                background-color: white;
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                padding: 0;
+            }
+
+            /* Style the table cells (td) */
+            .trade-list-scroll td {
+                display: block;
+                text-align: right;
+                padding: 0.75rem 1rem !important;
+                border-bottom: 1px dashed #f3f4f6 !important;
+                position: relative;
+            }
+            
+            /* The label (th content) that appears on mobile */
+            .trade-list-scroll td:before {
+                content: attr(data-label);
+                float: left;
+                font-weight: 600;
+                color: #4b5563; /* gray-700 */
+            }
+            
+            /* Remove the dashed border from the last cell */
+            .trade-list-scroll tr td:last-child {
+                border-bottom: none !important;
+            }
+
+            /* Special styling for Bias and Lesson to use full width and left align text for readability */
+            .trade-list-scroll td:nth-child(3), 
+            .trade-list-scroll td:nth-child(7) {
+                text-align: left !important;
+            }
+            .trade-list-scroll td:nth-child(3):before,
+            .trade-list-scroll td:nth-child(7):before {
+                display: block;
+                float: none;
+                margin-bottom: 0.25rem;
+                text-align: left;
+            }
+            
+            /* Center the Outcome badge on mobile */
+            .trade-list-scroll td:nth-child(6) {
+                text-align: center;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .trade-list-scroll td:nth-child(6):before {
+                float: none;
+                margin-bottom: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <!-- Header Section -->
+        <header class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4">
+            <h1 class="text-3xl font-bold text-gray-800 flex items-center mb-2 sm:mb-0">
+                <svg class="w-8 h-8 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Trade History Record
+            </h1>
+            <!-- Stats Display with slightly enhanced style -->
+            <div id="stats-display" class="p-2 px-4 bg-gray-100 rounded-lg text-lg font-semibold text-gray-700">Loading Stats...</div>
+        </header>
+
+        <!-- No Trades Yet Message - Changed to a flat banner style -->
+        <div id="no-trades-message" class="flex flex-col items-center justify-center p-16 bg-gray-50 border border-gray-300 rounded-xl hidden">
+            <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <p class="text-xl font-semibold text-gray-700">No trades recorded yet</p>
+            <p class="text-gray-500">System is waiting for trades to be recorded. They will appear here automatically.</p>
+        </div>
+
+        <!-- Trade List Table - Added border/shadow/radius to the container -->
+        <div id="trade-list" class="hidden">
+            <div class="trade-list-scroll">
+                <table class="min-w-full">
+                    <!-- Table header is hidden on mobile by CSS -->
+                    <thead class="sticky top-0 z-10 border-b border-gray-200">
+                        <tr>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Instrument</th>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Strategy Used</th>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Bias (Reason)</th>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">R:R</th>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Time & Date</th>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Outcome</th>
+                            <th class="p-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Lesson</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-table-body">
+                        <!-- Trade entries will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="loading-spinner" class="p-4 text-center text-gray-500 border-t border-gray-200">Loading trades...</div>
+        </div>
+
+    </div>
+</body>
+</html>

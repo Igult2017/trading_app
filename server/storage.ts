@@ -1,5 +1,7 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, trades, users, tradingSignals, pendingSetups } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -23,6 +25,7 @@ export interface IStorage {
   createTradingSignal(signal: InsertTradingSignal): Promise<TradingSignal>;
   updateTradingSignal(id: string, signal: Partial<InsertTradingSignal>): Promise<TradingSignal | undefined>;
   deleteTradingSignal(id: string): Promise<boolean>;
+  cleanupExpiredSignals(): Promise<number>;
   
   getPendingSetups(filters?: { symbol?: string; readyForSignal?: boolean; invalidated?: boolean }): Promise<PendingSetup[]>;
   getPendingSetupById(id: string): Promise<PendingSetup | undefined>;
@@ -31,74 +34,86 @@ export interface IStorage {
   deletePendingSetup(id: string): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private trades: Map<string, Trade>;
+export class DbStorage implements IStorage {
   private economicEvents: Map<string, EconomicEvent>;
-  private tradingSignals: Map<string, TradingSignal>;
-  private pendingSetups: Map<string, PendingSetup>;
+  private tradingSignalsCache: Map<string, TradingSignal>;
+  private pendingSetupsCache: Map<string, PendingSetup>;
 
   constructor() {
-    this.users = new Map();
-    this.trades = new Map();
     this.economicEvents = new Map();
-    this.tradingSignals = new Map();
-    this.pendingSetups = new Map();
+    this.tradingSignalsCache = new Map();
+    this.pendingSetupsCache = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
   }
 
   async getTrades(userId?: string): Promise<Trade[]> {
-    const allTrades = Array.from(this.trades.values());
-    if (userId) {
-      return allTrades.filter(trade => trade.userId === userId);
+    try {
+      let result;
+      if (userId) {
+        result = await db.select().from(trades).where(eq(trades.userId, userId)).orderBy(desc(trades.createdAt));
+      } else {
+        result = await db.select().from(trades).orderBy(desc(trades.createdAt));
+      }
+      return result;
+    } catch (error) {
+      console.error('[Storage] Error fetching trades:', error);
+      return [];
     }
-    return allTrades;
   }
 
   async getTradeById(id: string): Promise<Trade | undefined> {
-    return this.trades.get(id);
+    try {
+      const result = await db.select().from(trades).where(eq(trades.id, id)).limit(1);
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error fetching trade by id:', error);
+      return undefined;
+    }
   }
 
   async createTrade(insertTrade: InsertTrade): Promise<Trade> {
-    const id = randomUUID();
-    const trade: Trade = {
-      ...insertTrade,
-      id,
-      userId: insertTrade.userId ?? null,
-      createdAt: new Date(),
-    };
-    this.trades.set(id, trade);
-    return trade;
+    try {
+      const result = await db.insert(trades).values(insertTrade).returning();
+      console.log(`[Storage] Trade created: ${result[0].symbol} - ${result[0].outcome}`);
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error creating trade:', error);
+      throw error;
+    }
   }
 
   async updateTrade(id: string, updateData: Partial<InsertTrade>): Promise<Trade | undefined> {
-    const trade = this.trades.get(id);
-    if (!trade) {
+    try {
+      const result = await db.update(trades).set(updateData).where(eq(trades.id, id)).returning();
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error updating trade:', error);
       return undefined;
     }
-    const updatedTrade = { ...trade, ...updateData };
-    this.trades.set(id, updatedTrade);
-    return updatedTrade;
   }
 
   async deleteTrade(id: string): Promise<boolean> {
-    return this.trades.delete(id);
+    try {
+      const result = await db.delete(trades).where(eq(trades.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[Storage] Error deleting trade:', error);
+      return false;
+    }
   }
 
   async getEconomicEvents(filters?: { region?: string; impactLevel?: string; currency?: string }): Promise<EconomicEvent[]> {
@@ -172,7 +187,7 @@ export class MemStorage implements IStorage {
   }
 
   async getTradingSignals(filters?: { status?: string; assetClass?: string; symbol?: string }): Promise<TradingSignal[]> {
-    let signals = Array.from(this.tradingSignals.values());
+    let signals = Array.from(this.tradingSignalsCache.values());
     
     if (filters) {
       if (filters.status) {
@@ -192,7 +207,7 @@ export class MemStorage implements IStorage {
   }
 
   async getTradingSignalById(id: string): Promise<TradingSignal | undefined> {
-    return this.tradingSignals.get(id);
+    return this.tradingSignalsCache.get(id);
   }
 
   async createTradingSignal(insertSignal: InsertTradingSignal): Promise<TradingSignal> {
@@ -235,26 +250,48 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.tradingSignals.set(id, signal);
+    this.tradingSignalsCache.set(id, signal);
     return signal;
   }
 
   async updateTradingSignal(id: string, updateData: Partial<InsertTradingSignal>): Promise<TradingSignal | undefined> {
-    const signal = this.tradingSignals.get(id);
+    const signal = this.tradingSignalsCache.get(id);
     if (!signal) {
       return undefined;
     }
     const updatedSignal = { ...signal, ...updateData, updatedAt: new Date() };
-    this.tradingSignals.set(id, updatedSignal);
+    this.tradingSignalsCache.set(id, updatedSignal);
     return updatedSignal;
   }
 
   async deleteTradingSignal(id: string): Promise<boolean> {
-    return this.tradingSignals.delete(id);
+    return this.tradingSignalsCache.delete(id);
+  }
+
+  async cleanupExpiredSignals(): Promise<number> {
+    const now = new Date();
+    let cleanedCount = 0;
+    const entries = Array.from(this.tradingSignalsCache.entries());
+    
+    for (const [id, signal] of entries) {
+      if (signal.status === 'expired' || signal.status === 'stopped_out' || signal.status === 'target_hit') {
+        this.tradingSignalsCache.delete(id);
+        cleanedCount++;
+      } else if (signal.expiresAt && new Date(signal.expiresAt) < now && signal.status === 'active') {
+        this.tradingSignalsCache.delete(id);
+        cleanedCount++;
+      }
+    }
+    
+    if (cleanedCount > 0) {
+      console.log(`[Storage] Cleaned up ${cleanedCount} expired/completed signals`);
+    }
+    
+    return cleanedCount;
   }
 
   async getPendingSetups(filters?: { symbol?: string; readyForSignal?: boolean; invalidated?: boolean }): Promise<PendingSetup[]> {
-    let setups = Array.from(this.pendingSetups.values());
+    let setups = Array.from(this.pendingSetupsCache.values());
     
     if (filters) {
       if (filters.symbol) {
@@ -274,7 +311,7 @@ export class MemStorage implements IStorage {
   }
 
   async getPendingSetupById(id: string): Promise<PendingSetup | undefined> {
-    return this.pendingSetups.get(id);
+    return this.pendingSetupsCache.get(id);
   }
 
   async createPendingSetup(insertSetup: InsertPendingSetup): Promise<PendingSetup> {
@@ -305,23 +342,23 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.pendingSetups.set(id, setup);
+    this.pendingSetupsCache.set(id, setup);
     return setup;
   }
 
   async updatePendingSetup(id: string, updateData: Partial<InsertPendingSetup>): Promise<PendingSetup | undefined> {
-    const setup = this.pendingSetups.get(id);
+    const setup = this.pendingSetupsCache.get(id);
     if (!setup) {
       return undefined;
     }
     const updatedSetup = { ...setup, ...updateData, updatedAt: new Date(), lastCheckedAt: new Date() };
-    this.pendingSetups.set(id, updatedSetup);
+    this.pendingSetupsCache.set(id, updatedSetup);
     return updatedSetup;
   }
 
   async deletePendingSetup(id: string): Promise<boolean> {
-    return this.pendingSetups.delete(id);
+    return this.pendingSetupsCache.delete(id);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DbStorage();
