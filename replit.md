@@ -88,4 +88,4 @@ Preferred communication style: Simple, everyday language.
 - **Yahoo Finance**: Free price data for stocks, forex, commodities.
 - **CoinGecko**: Free cryptocurrency price data.
 - **Telegram Bot API**: Signal notifications with PNG charts.
-- **Investing.com**: Web scraped economic calendar data.
+- **MyFXBook**: Primary economic calendar data source (web scraped). Located at `server/scrapers/economicCalendarScraper.ts` with scheduled scraping pre-London session (7:50 UTC), pre-NY session (14:20 UTC), and every 2 hours on weekdays.
