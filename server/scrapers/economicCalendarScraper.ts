@@ -150,6 +150,114 @@ export class EconomicCalendarScraper {
     return events;
   }
 
+  private parseMyFxBook(html: string, config: ScraperConfig): ScrapedEvent[] {
+    const $ = cheerio.load(html);
+    const events: ScrapedEvent[] = [];
+    const currentYear = new Date().getFullYear();
+
+    $('tr.economicCalendarRow').each((_, element) => {
+      try {
+        const $row = $(element);
+        const cells = $row.find('td.calendarToggleCell');
+        
+        if (cells.length < 9) return;
+
+        const dateTimeText = $(cells[0]).text().trim();
+        const timeLeftText = $(cells[1]).text().trim();
+        const currency = $(cells[3]).text().trim();
+        const title = $(cells[4]).text().trim().replace(/\s+/g, ' ');
+        const impactText = $(cells[5]).text().trim();
+        const previous = $(cells[6]).text().trim();
+        const consensus = $(cells[7]).text().trim();
+        const actual = $(cells[8]).text().trim();
+
+        if (!title || !currency) return;
+
+        const eventTime = this.parseMyFxBookDateTime(dateTimeText, timeLeftText, currentYear);
+
+        let impactLevel = 'Low';
+        if (impactText === 'High') impactLevel = 'High';
+        else if (impactText === 'Medium') impactLevel = 'Medium';
+        else if (impactText === 'None') impactLevel = 'None';
+
+        events.push({
+          title,
+          country: this.getCurrencyCountry(currency),
+          countryCode: currency,
+          eventTime,
+          impactLevel,
+          expectedValue: consensus || undefined,
+          previousValue: previous || undefined,
+          actualValue: actual || undefined,
+          currency,
+          sourceSite: config.name,
+          sourceUrl: config.url,
+        });
+      } catch (error) {
+        console.error('Error parsing MyFXBook event row:', error);
+      }
+    });
+
+    console.log(`[MyFXBook] Parsed ${events.length} events`);
+    return events;
+  }
+
+  private parseMyFxBookDateTime(dateTimeStr: string, timeLeftStr: string, currentYear: number): Date {
+    try {
+      const parts = dateTimeStr.split(',');
+      
+      let monthDay: string;
+      let timeStr: string;
+
+      if (parts.length >= 2) {
+        monthDay = parts[0].trim();
+        timeStr = parts[1].trim();
+      } else {
+        monthDay = dateTimeStr.trim();
+        const timeMatch = timeLeftStr.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          timeStr = `${timeMatch[1]}:${timeMatch[2]}`;
+        } else {
+          const hoursMatch = timeLeftStr.match(/(\d+)h\s*(\d+)?m?/);
+          if (hoursMatch) {
+            const hoursToAdd = parseInt(hoursMatch[1], 10) || 0;
+            const minutesToAdd = parseInt(hoursMatch[2], 10) || 0;
+            const futureTime = new Date(Date.now() + (hoursToAdd * 60 + minutesToAdd) * 60000);
+            return futureTime;
+          }
+          timeStr = '00:00';
+        }
+      }
+
+      const monthDayParts = monthDay.split(' ').filter(p => p);
+      const monthStr = monthDayParts[0] || 'Jan';
+      const dayStr = monthDayParts[1] || '1';
+      
+      const monthMap: Record<string, number> = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+
+      const month = monthMap[monthStr] ?? 0;
+      const day = parseInt(dayStr, 10) || 1;
+
+      const timeParts = timeStr.split(':');
+      const hours = parseInt(timeParts[0], 10) || 0;
+      const minutes = parseInt(timeParts[1], 10) || 0;
+
+      let eventDate = new Date(Date.UTC(currentYear, month, day, hours, minutes, 0, 0));
+
+      if (eventDate.getTime() < Date.now() - 86400000 * 7) {
+        eventDate = new Date(Date.UTC(currentYear + 1, month, day, hours, minutes, 0, 0));
+      }
+
+      return eventDate;
+    } catch (error) {
+      console.error('Error parsing MyFXBook date:', dateTimeStr, error);
+      return new Date();
+    }
+  }
+
   private parseTimeString(timeStr: string, baseDate: Date): Date {
     const time = new Date(baseDate);
     
@@ -203,6 +311,8 @@ export class EconomicCalendarScraper {
 
   private parseEvents(html: string, config: ScraperConfig): ScrapedEvent[] {
     switch (config.name) {
+      case 'MyFXBook':
+        return this.parseMyFxBook(html, config);
       case 'Investing.com':
         return this.parseInvestingCom(html, config);
       case 'ForexFactory':
