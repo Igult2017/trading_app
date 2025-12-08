@@ -200,7 +200,15 @@ export class SignalScannerService {
       status: 'active' 
     });
 
-    if (existingActiveSignals.length > 0) {
+    const SIGNAL_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+    const now = Date.now();
+    
+    const recentActiveSignals = existingActiveSignals.filter(signal => {
+      const createdAt = signal.createdAt ? new Date(signal.createdAt).getTime() : 0;
+      return (now - createdAt) < SIGNAL_COOLDOWN_MS;
+    });
+
+    if (recentActiveSignals.length > 0) {
       return { signals: [], pendingSetups: [] };
     }
 

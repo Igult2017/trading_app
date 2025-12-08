@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Menu, X } from 'lucide-react';
 import { SiTelegram } from 'react-icons/si';
@@ -15,11 +15,83 @@ const navLinks = [
   { name: 'Premarket', path: '/premarket' },
   { name: 'Stats', path: '/stats' },
   { name: 'Charting', path: '/charting' },
+  { name: 'Research', path: '/research' },
 ];
+
+const SESSIONS = [
+  { name: 'Sydney', start: 22, end: 7, nextDayEnd: true },
+  { name: 'Tokyo', start: 0, end: 9 },
+  { name: 'London', start: 7, end: 16 },
+  { name: 'New York', start: 12, end: 21 }
+];
+
+function getSessionInfo(): { utcTime: string; sessionName: string | null; timeInSession: string } {
+  const now = new Date();
+  const utcHours = now.getUTCHours();
+  const utcMinutes = now.getUTCMinutes();
+  const utcSeconds = now.getUTCSeconds();
+  const utcTimeInMinutes = utcHours * 60 + utcMinutes;
+
+  const formatTime = (unit: number) => String(unit).padStart(2, '0');
+  const utcTime = `${formatTime(utcHours)}:${formatTime(utcMinutes)}:${formatTime(utcSeconds)}`;
+
+  let activeSession: string | null = null;
+  let timeInMinutes = 0;
+
+  for (const session of SESSIONS) {
+    const startTimeInMinutes = session.start * 60;
+    const endTimeInMinutes = session.end * 60;
+
+    let isActive = false;
+
+    if (session.nextDayEnd) {
+      if (utcTimeInMinutes >= startTimeInMinutes || utcTimeInMinutes < endTimeInMinutes) {
+        isActive = true;
+        if (utcTimeInMinutes >= startTimeInMinutes) {
+          timeInMinutes = utcTimeInMinutes - startTimeInMinutes;
+        } else {
+          const minutesInDay = 24 * 60;
+          timeInMinutes = (minutesInDay - startTimeInMinutes) + utcTimeInMinutes;
+        }
+      }
+    } else {
+      if (utcTimeInMinutes >= startTimeInMinutes && utcTimeInMinutes < endTimeInMinutes) {
+        isActive = true;
+        timeInMinutes = utcTimeInMinutes - startTimeInMinutes;
+      }
+    }
+
+    if (isActive) {
+      activeSession = session.name;
+      break;
+    }
+  }
+
+  let timeInSession = '';
+  if (activeSession) {
+    const hoursIn = Math.floor(timeInMinutes / 60);
+    const minutesIn = timeInMinutes % 60;
+    if (hoursIn > 0) {
+      timeInSession = `${hoursIn}h ${minutesIn}m`;
+    } else {
+      timeInSession = `${minutesIn}m`;
+    }
+  }
+
+  return { utcTime, sessionName: activeSession, timeInSession };
+}
 
 export default function Header() {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState(getSessionInfo());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSessionInfo(getSessionInfo());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const isActivePath = (path: string) => {
     if (path === '/') return location === '/';
@@ -31,62 +103,65 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-card shadow-md sticky top-0 z-50">
-      {/* ROW 1: Logo, Bias, Telegram, Subscribe, Sign In / Sign Up */}
+    <header className="bg-white dark:bg-gray-900 shadow-md sticky top-0 z-50" style={{ fontFamily: "'Merriweather', serif" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo: FSDZones.com */}
-          <Link 
-            href="/" 
-            className="flex items-center space-x-2 text-xl font-extrabold tracking-tight"
-            data-testid="link-logo"
-          >
-            <span className="text-foreground">F<span className="text-[#3B82F6]">S</span><span className="text-[#34D399]">D</span>Zones.com</span>
-          </Link>
-
-          {/* Desktop/Medium Screen Links & CTAs */}
-          <div className="hidden sm:flex items-center space-x-6">
+        <div className="flex justify-between items-center py-4 border-b border-gray-100 dark:border-gray-800 lg:border-none">
+          <div className="flex-shrink-0">
             <Link 
               href="/" 
-              className="text-muted-foreground hover:text-[#3B82F6] text-sm font-medium transition duration-150 py-1 px-2 rounded-md"
-              data-testid="link-bias"
+              className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight"
+              data-testid="link-logo"
             >
-              Bias
+              F<span className="text-emerald-500">S</span>D<span className="text-emerald-500">ZONES</span>.com
             </Link>
-            
+          </div>
+
+          <div className="hidden md:flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 gap-3 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-lg shadow-inner">
+            <span className="text-xs font-normal text-gray-400 dark:text-gray-500">
+              UTC: <span className="font-semibold text-gray-800 dark:text-gray-200" data-testid="text-utc-time">{sessionInfo.utcTime}</span>
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span data-testid="text-session-status">
+              {sessionInfo.sessionName ? (
+                <>
+                  Session: <span className="font-bold text-emerald-600">{sessionInfo.sessionName}</span> (<span className="font-bold text-emerald-600">{sessionInfo.timeInSession}</span> In)
+                </>
+              ) : (
+                <>Session: <span className="font-bold text-gray-500">Quiet</span></>
+              )}
+            </span>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-6">
             <a 
               href="https://t.me/BuySellZonesBot" 
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-1 px-3 py-2 text-sm font-semibold text-[#229ED9] hover:text-blue-700 transition duration-150 rounded-lg"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 transition duration-150 flex items-center gap-1 p-2 rounded-full bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
               data-testid="link-telegram"
             >
               <SiTelegram className="w-4 h-4" />
               <span>Join Telegram</span>
             </a>
-            
-            {/* Subscribe link */}
             <Link 
               href="/join" 
-              className="text-sm font-semibold text-[#3B82F6] hover:underline transition duration-150"
+              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition duration-150"
               data-testid="link-subscribe"
             >
               Subscribe
             </Link>
-            
-            {/* Auth links */}
-            <div className="text-sm font-semibold text-foreground space-x-1">
+            <div className="flex items-center gap-2">
               <Link 
                 href="/login" 
-                className="hover:text-[#3B82F6] transition duration-150"
+                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition duration-150"
                 data-testid="link-signin"
               >
                 Sign In
-              </Link> 
-              <span className="text-muted-foreground">/</span> 
+              </Link>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
               <Link 
-                href="/signup" 
-                className="text-[#EF4444] hover:text-red-600 transition duration-150"
+                href="/signup"
+                className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-emerald-700 transition duration-200"
                 data-testid="link-signup"
               >
                 Sign Up
@@ -94,9 +169,8 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
           <button 
-            className="sm:hidden p-2 rounded-md text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-[#34D399]" 
+            className="lg:hidden text-gray-500 hover:text-emerald-600 focus:outline-none p-2 rounded-md transition duration-150" 
             type="button" 
             onClick={toggleMobileMenu}
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
@@ -109,82 +183,113 @@ export default function Header() {
             )}
           </button>
         </div>
-      </div>
 
-      {/* ROW 2: Primary Navigation Links - Visible and wrapped on small screens */}
-      <div className="block bg-card border-t border-border shadow-sm">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
-          {navLinks.map((link) => (
-            <Link
-              key={link.path}
-              href={link.path}
-              className={`py-1 transition duration-150 ${
-                isActivePath(link.path)
-                  ? 'text-[#3B82F6] font-semibold border-b-2 border-[#3B82F6]'
-                  : 'text-muted-foreground hover:text-[#3B82F6]'
-              }`}
-              data-testid={`link-nav-${link.name.toLowerCase().replace(/\s+/g, '-').replace('/', '-')}`}
-            >
-              {link.name}
-            </Link>
-          ))}
+        <nav className="hidden lg:block py-3">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                href={link.path}
+                className={`text-sm font-medium transition duration-150 relative ${
+                  isActivePath(link.path)
+                    ? 'text-emerald-600 font-semibold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-emerald-600'
+                }`}
+                data-testid={`link-nav-${link.name.toLowerCase().replace(/\s+/g, '-').replace('/', '-')}`}
+              >
+                {link.name}
+                {isActivePath(link.path) && (
+                  <span className="absolute left-0 -bottom-2 w-full h-0.5 bg-emerald-600 rounded-full" />
+                )}
+              </Link>
+            ))}
+          </div>
         </nav>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      <div className="md:hidden bg-gray-50 dark:bg-gray-800 px-4 py-2 flex items-center justify-center gap-3 text-sm border-t border-gray-100 dark:border-gray-700">
+        <span className="text-xs text-gray-400">
+          UTC: <span className="font-semibold text-gray-800 dark:text-gray-200">{sessionInfo.utcTime}</span>
+        </span>
+        <span className="text-gray-300">|</span>
+        <span>
+          {sessionInfo.sessionName ? (
+            <>
+              <span className="font-bold text-emerald-600">{sessionInfo.sessionName}</span> (<span className="text-emerald-600">{sessionInfo.timeInSession}</span>)
+            </>
+          ) : (
+            <span className="text-gray-500">Quiet</span>
+          )}
+        </span>
+      </div>
+
       {mobileMenuOpen && (
         <div 
-          className="sm:hidden bg-card border-t border-border pb-4 shadow-xl fixed inset-x-0 top-16 overflow-y-auto z-40"
-          style={{ height: 'calc(100vh - 4rem)' }}
+          className="lg:hidden fixed inset-y-0 right-0 w-64 bg-white dark:bg-gray-900 z-40 shadow-xl overflow-y-auto transform transition-transform duration-300"
+          style={{ fontFamily: "'Merriweather', serif" }}
           data-testid="mobile-drawer"
         >
-          <div className="pt-2 pb-3 space-y-1 px-4">
-            <Link 
-              href="/" 
-              className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-muted hover:text-[#3B82F6] border-l-4 border-transparent hover:border-[#3B82F6]"
-              onClick={() => setMobileMenuOpen(false)}
-              data-testid="mobile-link-signals"
-            >
-              Signals
-            </Link>
-          </div>
-          <div className="pt-4 pb-3 border-t border-border px-4 space-y-3">
-            {/* Mobile CTAs */}
-            <a 
-              href="https://t.me/BuySellZonesBot" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center space-x-1 w-full px-4 py-3 text-base font-semibold text-[#229ED9] border border-[#229ED9] rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950 transition duration-150 shadow-md"
-              data-testid="mobile-link-telegram"
-            >
-              <SiTelegram className="w-5 h-5" />
-              <span>Join Telegram</span>
-            </a>
-            <Link 
-              href="/login"
-              className="block w-full text-center px-4 py-3 text-base font-semibold text-[#3B82F6] border border-[#3B82F6] rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950 transition duration-150 shadow-sm"
-              onClick={() => setMobileMenuOpen(false)}
-              data-testid="mobile-link-signin"
-            >
-              Sign In
-            </Link>
-            <Link 
-              href="/join"
-              className="block w-full text-center px-4 py-3 text-base font-semibold text-[#3B82F6] border border-[#3B82F6] rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950 transition duration-150 shadow-sm"
-              onClick={() => setMobileMenuOpen(false)}
-              data-testid="mobile-link-subscribe"
-            >
-              Subscribe
-            </Link>
-            {/* Primary CTA: Sign Up */}
-            <Link 
-              href="/signup"
-              className="block w-full text-center px-4 py-3 text-base font-bold text-white bg-[#EF4444] rounded-xl hover:bg-red-600 transition duration-150 shadow-lg ring-2 ring-red-300"
-              onClick={() => setMobileMenuOpen(false)}
-              data-testid="mobile-link-signup"
-            >
-              Sign Up
-            </Link>
+          <div className="p-5">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Navigation</h3>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-gray-500 hover:text-emerald-600 focus:outline-none p-2 rounded-md"
+                aria-label="Close menu"
+                data-testid="button-close-menu"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <nav className="space-y-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  href={link.path}
+                  className={`block text-base font-medium pl-3 transition duration-150 ${
+                    isActivePath(link.path)
+                      ? 'text-emerald-600 font-semibold border-l-4 border-emerald-600'
+                      : 'text-gray-700 dark:text-gray-300 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  data-testid={`mobile-link-nav-${link.name.toLowerCase().replace(/\s+/g, '-').replace('/', '-')}`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
+
+            <hr className="my-6 border-gray-200 dark:border-gray-700" />
+
+            <div className="space-y-4">
+              <a 
+                href="https://t.me/BuySellZonesBot" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-blue-600 text-blue-600 text-sm font-semibold rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition duration-150"
+                data-testid="mobile-link-telegram"
+              >
+                <SiTelegram className="w-5 h-5" />
+                <span>Join Telegram</span>
+              </a>
+              <Link 
+                href="/signup"
+                className="w-full flex items-center justify-center px-4 py-3 bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-lg hover:bg-emerald-700 transition duration-150"
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="mobile-link-signup"
+              >
+                Sign Up
+              </Link>
+              <Link 
+                href="/login"
+                className="w-full block text-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="mobile-link-signin"
+              >
+                Already have an account? <span className="text-emerald-600 font-semibold">Sign In</span>
+              </Link>
+            </div>
           </div>
         </div>
       )}

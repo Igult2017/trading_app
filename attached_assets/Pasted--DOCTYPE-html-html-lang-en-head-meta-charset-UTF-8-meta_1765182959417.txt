@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redesigned Header</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Font Awesome for the Telegram icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Custom styles for smooth transition and mobile menu */
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&display=swap');
+        body {
+            /* Using Merriweather (a classic serif) to match the reference style */
+            font-family: 'Merriweather', serif;
+            background-color: #f7fafc; /* Light gray background for contrast */
+        }
+        .nav-link:hover {
+            color: #059669; /* Emerald-600 */
+        }
+        .nav-menu-panel {
+            transition: transform 0.3s ease-out;
+            transform: translateX(100%); /* Start off-screen */
+        }
+        .nav-menu-panel.open {
+            transform: translateX(0); /* Slide in */
+        }
+        /* Style for the active link indicator */
+        .active-link {
+            position: relative;
+        }
+        .active-link::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -8px;
+            width: 100%;
+            height: 3px;
+            /* Emerald-600 hex color for the active underline */
+            background-color: #059669; 
+            border-radius: 9999px;
+        }
+
+        /* Responsive max-width container */
+        .header-container {
+            max-width: 1280px;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="header-container mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Top Bar: Logo, CTAs, and Mobile Menu Button -->
+            <div class="flex justify-between items-center py-4 border-b border-gray-100 lg:border-none">
+
+                <!-- Logo (Corrected to FSDzones.com and accent color changed to emerald) -->
+                <div class="flex-shrink-0">
+                    <a href="#" class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                        F<span class="text-emerald-500">S</span>D<span class="text-emerald-500">ZONES</span>.com
+                    </a>
+                </div>
+
+                <!-- TRADING SESSION CLOCK (Now visible on all screen sizes) -->
+                <div class="flex items-center text-sm font-medium text-gray-600 space-x-3 bg-gray-50 px-4 py-2 rounded-lg shadow-inner">
+                    <span class="text-xs font-normal text-gray-400">
+                        UTC: <span id="utc-time" class="font-semibold text-gray-800">--:--:--</span>
+                    </span>
+                    <span class="text-gray-300">|</span>
+                    <span id="session-status">Loading session...</span>
+                </div>
+
+                <!-- Desktop CTAs and Navigation (Telegram button is now blue, others remain emerald) -->
+                <div class="hidden lg:flex items-center space-x-6">
+                    <!-- Right Actions - TELEGRAM BUTTON IS NOW BLUE -->
+                    <a href="#" class="text-sm font-medium text-blue-600 hover:text-blue-700 transition duration-150 flex items-center space-x-1 p-2 rounded-full bg-blue-50 hover:bg-blue-100">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span>Join Telegram</span>
+                    </a>
+                    <a href="#" class="text-sm font-medium text-gray-600 hover:text-gray-800 transition duration-150">
+                        Subscribe
+                    </a>
+                    <div class="flex items-center space-x-2">
+                        <a href="#" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition duration-150">
+                            Sign In
+                        </a>
+                        <span class="text-gray-300">|</span>
+                        <a href="#" class="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-emerald-700 transition duration-200">
+                            Sign Up
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <button id="menu-toggle" class="lg:hidden text-gray-500 hover:text-emerald-600 focus:outline-none p-2 rounded-md transition duration-150" aria-label="Toggle menu">
+                    <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Desktop Secondary Navigation (Accent colors updated to emerald) -->
+            <nav class="hidden lg:block py-3">
+                <div class="flex space-x-8">
+                    <a href="#" class="nav-link text-sm font-semibold text-emerald-600 active-link">Home / Bias</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Economic Calendar</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Major Pairs</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">US Stocks</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Commodities</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Cryptocurrency</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">History</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Blog</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Premarket</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Stats</a>
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Charting</a>
+                    <!-- New link added here -->
+                    <a href="#" class="nav-link text-sm font-medium text-gray-600 hover:text-emerald-600">Research</a>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Mobile Menu Panel (Hidden by default, accent colors updated to emerald) -->
+        <div id="mobile-menu-panel" class="nav-menu-panel fixed inset-y-0 right-0 w-64 bg-white z-40 shadow-xl overflow-y-auto lg:hidden">
+            <div class="p-5">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">Navigation</h3>
+                    <!-- Close button (re-using toggle icon) -->
+                    <button id="menu-close-btn" class="text-gray-500 hover:text-emerald-600 focus:outline-none p-2 rounded-md" aria-label="Close menu">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Main Nav Links -->
+                <nav class="space-y-4">
+                    <!-- Active Link Styles -->
+                    <a href="#" class="block text-base font-semibold text-emerald-600 border-l-4 border-emerald-600 pl-3">Home / Bias</a>
+                    <!-- General Links -->
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Economic Calendar</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Major Pairs</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">US Stocks</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Commodities</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Cryptocurrency</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">History</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Blog</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Premarket</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Stats</a>
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Charting</a>
+                    <!-- New link added here -->
+                    <a href="#" class="block text-base font-medium text-gray-700 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600 pl-3 transition duration-150">Research</a>
+                </nav>
+
+                <hr class="my-6 border-gray-200">
+
+                <!-- Mobile CTAs -->
+                <div class="space-y-4">
+                    <!-- TELEGRAM BUTTON IS NOW BLUE -->
+                    <a href="#" class="w-full flex items-center justify-center space-x-2 px-4 py-3 border border-blue-600 text-blue-600 text-sm font-semibold rounded-lg hover:bg-blue-50 transition duration-150">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span>Join Telegram</span>
+                    </a>
+                    <a href="#" class="w-full flex items-center justify-center px-4 py-3 bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-lg hover:bg-emerald-700 transition duration-150">
+                        Sign Up
+                    </a>
+                    <a href="#" class="w-full block text-center text-sm font-medium text-gray-500 hover:text-gray-700">
+                        Already have an account? <span class="text-emerald-600 font-semibold">Sign In</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="header-container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <h1 class="text-2xl font-bold text-gray-800">Website Content Placeholder</h1>
+        <p class="mt-2 text-gray-600">This content is below the new, responsive header.</p>
+        <div class="mt-8 h-[1200px] bg-gray-100 rounded-xl p-6 flex items-center justify-center">
+            <p class="text-gray-500">Scroll down to test the sticky header behavior.</p>
+        </div>
+    </main>
+
+    <script>
+        const menuToggle = document.getElementById('menu-toggle');
+        const menuCloseBtn = document.getElementById('menu-close-btn');
+        const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+        const menuIconOpen = document.getElementById('menu-icon-open');
+        const menuIconClose = document.getElementById('menu-icon-close');
+
+        function toggleMobileMenu() {
+            const isOpen = mobileMenuPanel.classList.toggle('open');
+            // Toggle the menu button icon
+            menuIconOpen.classList.toggle('hidden', isOpen);
+            menuIconClose.classList.toggle('hidden', !isOpen);
+            // Accessibility: Prevent body scrolling when menu is open
+            document.body.classList.toggle('overflow-hidden', isOpen);
+        }
+
+        // Event listeners
+        menuToggle.addEventListener('click', toggleMobileMenu);
+        menuCloseBtn.addEventListener('click', toggleMobileMenu);
+
+        // Close menu on screen resize (if it transitions to desktop view)
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) { // 1024px is the 'lg' breakpoint in Tailwind
+                if (mobileMenuPanel.classList.contains('open')) {
+                    toggleMobileMenu();
+                }
+            }
+        });
+
+        // --- TRADING SESSION CLOCK LOGIC ---
+
+        // Trading sessions defined in 24-hour UTC time
+        const SESSIONS = [
+            // Note: Times are rounded to the nearest hour for standard session definitions
+            { name: 'Sydney', start: 22, end: 7, nextDayEnd: true }, // 22:00 to 07:00 UTC
+            { name: 'Tokyo', start: 0, end: 9 }, // 00:00 to 09:00 UTC
+            { name: 'London', start: 7, end: 16 }, // 07:00 to 16:00 UTC
+            { name: 'New York', start: 12, end: 21 } // 12:00 to 21:00 UTC
+        ];
+
+        function updateSessionClock() {
+            const utcTimeElement = document.getElementById('utc-time');
+            const sessionStatusElement = document.getElementById('session-status');
+            if (!utcTimeElement || !sessionStatusElement) return;
+
+            const now = new Date();
+            const utcHours = now.getUTCHours();
+            const utcMinutes = now.getUTCMinutes();
+            const utcSeconds = now.getUTCSeconds();
+            const utcTimeInMinutes = utcHours * 60 + utcMinutes;
+
+            let activeSession = null;
+            let timeInMinutes = 0;
+
+            // 1. Update UTC Clock
+            const formatTime = (unit) => String(unit).padStart(2, '0');
+            utcTimeElement.textContent = `${formatTime(utcHours)}:${formatTime(utcMinutes)}:${formatTime(utcSeconds)}`;
+
+            // 2. Determine Active Session
+            for (const session of SESSIONS) {
+                let startTimeInMinutes = session.start * 60;
+                let endTimeInMinutes = session.end * 60;
+
+                let isActive = false;
+
+                if (session.nextDayEnd) {
+                    // Session spans midnight (e.g., Sydney)
+                    if (utcTimeInMinutes >= startTimeInMinutes || utcTimeInMinutes < endTimeInMinutes) {
+                        isActive = true;
+                        if (utcTimeInMinutes >= startTimeInMinutes) {
+                            timeInMinutes = utcTimeInMinutes - startTimeInMinutes;
+                        } else {
+                            // Calculates time from yesterday's start until now
+                            const minutesInDay = 24 * 60;
+                            timeInMinutes = (minutesInDay - startTimeInMinutes) + utcTimeInMinutes;
+                        }
+                    }
+                } else {
+                    // Session within the same day
+                    if (utcTimeInMinutes >= startTimeInMinutes && utcTimeInMinutes < endTimeInMinutes) {
+                        isActive = true;
+                        timeInMinutes = utcTimeInMinutes - startTimeInMinutes;
+                    }
+                }
+
+                if (isActive) {
+                    activeSession = session.name;
+                    break;
+                }
+            }
+
+            // 3. Update Session Status Display
+            if (activeSession) {
+                const hoursIn = Math.floor(timeInMinutes / 60);
+                const minutesIn = timeInMinutes % 60;
+                
+                let timeString = '';
+                if (hoursIn > 0) {
+                    timeString += `${hoursIn}h `;
+                }
+                timeString += `${minutesIn}m`; // Always show minutes
+
+                sessionStatusElement.innerHTML = `Session: <span class="font-bold text-emerald-600">${activeSession}</span> (<span class="font-bold text-emerald-600">${timeString}</span> In)`;
+            } else {
+                // Quiet Period - calculate time until next major session (Sydney starts at 22:00 UTC)
+                const nextStartTimeInMinutes = SESSIONS.find(s => s.name === 'Sydney').start * 60;
+                
+                // Calculate time until 22:00 UTC
+                let timeUntilNext = nextStartTimeInMinutes - utcTimeInMinutes;
+                if (timeUntilNext < 0) {
+                    // If timeUntilNext is negative, the session is already tomorrow. Wrap around 24 hours.
+                    timeUntilNext += (24 * 60);
+                }
+
+                const hoursUntil = Math.floor(timeUntilNext / 60);
+                const minutesUntil = timeUntilNext % 60;
+                
+                let timeString = '';
+                if (hoursUntil > 0) {
+                    timeString += `${hoursUntil}h `;
+                }
+                timeString += `${minutesUntil}m`;
+
+                sessionStatusElement.innerHTML = `Session: <span class="font-bold text-gray-500">Quiet</span> (Next in ${timeString})`;
+            }
+        }
+
+        // Run immediately and set interval to update every second
+        updateSessionClock();
+        setInterval(updateSessionClock, 1000); 
+    </script>
+</body>
+</html>

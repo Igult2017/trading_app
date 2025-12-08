@@ -13,6 +13,7 @@ export class ScraperScheduler {
   private signalScanJob: ReturnType<typeof cron.schedule> | null = null;
   private signalCleanupJob: ReturnType<typeof cron.schedule> | null = null;
   private scraperJobs: ReturnType<typeof cron.schedule>[] = [];
+  private sessionAwareScanJobs: ReturnType<typeof cron.schedule>[] = [];
   private isRunning = false;
 
   async fetchEvents(): Promise<void> {
@@ -54,6 +55,29 @@ export class ScraperScheduler {
     } catch (error) {
       console.error('Error during cleanup:', error);
     }
+  }
+
+  private setupSessionAwareScanJobs(): void {
+    this.sessionAwareScanJobs.forEach(job => job.stop());
+    this.sessionAwareScanJobs = [];
+
+    this.sessionAwareScanJobs.push(
+      cron.schedule('0,15,30,45 7,8 * * 1-5', async () => {
+        console.log('[SignalScanner] London session open - intensive scan (every 15 min)');
+        await signalScannerService.scanMarkets();
+      }, { timezone: 'UTC' })
+    );
+
+    this.sessionAwareScanJobs.push(
+      cron.schedule('0,15,30,45 12,13,14 * * 1-5', async () => {
+        console.log('[SignalScanner] NY session open - intensive scan (every 15 min)');
+        await signalScannerService.scanMarkets();
+      }, { timezone: 'UTC' })
+    );
+
+    console.log('[SignalScanner] Session-aware scanning configured:');
+    console.log('  - London open (7:00-9:00 UTC): every 15 minutes');
+    console.log('  - NY open (12:00-15:00 UTC): every 15 minutes');
   }
 
   private setupScraperSchedule(): void {
@@ -124,6 +148,8 @@ export class ScraperScheduler {
       await signalScannerService.scanMarkets();
     });
 
+    this.setupSessionAwareScanJobs();
+
     this.signalCleanupJob = cron.schedule('0 */2 * * *', async () => {
       console.log('Running signal cleanup...');
       await signalScannerService.cleanupExpiredSignals();
@@ -143,6 +169,9 @@ export class ScraperScheduler {
     
     this.scraperJobs.forEach(job => job.stop());
     this.scraperJobs = [];
+
+    this.sessionAwareScanJobs.forEach(job => job.stop());
+    this.sessionAwareScanJobs = [];
 
     if (this.upcomingEventsJob) {
       this.upcomingEventsJob.stop();

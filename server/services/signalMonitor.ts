@@ -43,10 +43,15 @@ export class SignalMonitorService {
 
   async checkAllSignals(): Promise<SignalOutcome[]> {
     try {
-      const activeSignals = await storage.getTradingSignals();
+      const allSignals = await storage.getTradingSignals();
       const outcomes: SignalOutcome[] = [];
 
-      for (const signal of activeSignals) {
+      for (const signal of allSignals) {
+        if (signal.status === 'watchlist') {
+          await this.checkWatchlistSignal(signal);
+          continue;
+        }
+        
         if (signal.status !== 'active') continue;
 
         const outcome = await this.checkSignal(signal);
@@ -63,6 +68,58 @@ export class SignalMonitorService {
     } catch (error) {
       console.error('[SignalMonitor] Error checking signals:', error);
       return [];
+    }
+  }
+
+  private async checkWatchlistSignal(signal: TradingSignal): Promise<void> {
+    try {
+      const entryPrice = parseFloat(signal.entryPrice?.toString() || '0');
+      const stopLoss = parseFloat(signal.stopLoss?.toString() || '0');
+      
+      if (entryPrice === 0 || stopLoss === 0) return;
+
+      const assetClass = this.mapAssetClass(signal.assetClass);
+      const priceResult = await getCachedPrice(signal.symbol, assetClass);
+      
+      if (!priceResult || priceResult.error || !priceResult.price) return;
+
+      const currentPrice = priceResult.price;
+      const isBuy = signal.type.toLowerCase() === 'buy';
+
+      const riskDistance = Math.abs(entryPrice - stopLoss);
+      const invalidationThreshold = riskDistance * 1.5;
+
+      let isInvalidated = false;
+
+      if (isBuy) {
+        if (currentPrice <= entryPrice - invalidationThreshold) {
+          isInvalidated = true;
+          console.log(`[SignalMonitor] Watchlist signal ${signal.symbol} invalidated: price dropped too far below entry zone`);
+        }
+      } else {
+        if (currentPrice >= entryPrice + invalidationThreshold) {
+          isInvalidated = true;
+          console.log(`[SignalMonitor] Watchlist signal ${signal.symbol} invalidated: price rose too far above entry zone`);
+        }
+      }
+
+      if (isInvalidated) {
+        await storage.updateTradingSignal(signal.id, {
+          status: 'invalidated',
+          invalidatedAt: new Date(),
+        });
+        console.log(`[SignalMonitor] Removed invalidated watchlist signal: ${signal.symbol}`);
+      }
+
+      if (signal.expiresAt && new Date() > new Date(signal.expiresAt)) {
+        await storage.updateTradingSignal(signal.id, {
+          status: 'expired',
+          invalidatedAt: new Date(),
+        });
+        console.log(`[SignalMonitor] Expired watchlist signal: ${signal.symbol}`);
+      }
+    } catch (error) {
+      console.error(`[SignalMonitor] Error checking watchlist signal ${signal.symbol}:`, error);
     }
   }
 
