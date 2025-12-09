@@ -7,7 +7,7 @@ import {
   BarChart2
 } from 'lucide-react';
 import type { TradingSignal } from '@shared/schema';
-import { LivePriceWithEntry } from './LivePriceDisplay';
+import { LivePriceWithEntry, LiveNetGain } from './LivePriceDisplay';
 
 const formatTimeAgo = (timestamp: Date | string): string => {
   const now = new Date();
@@ -61,21 +61,6 @@ export default function SignalCard({ signal, isWatchlist = false }: SignalCardPr
 
   const entryPrice = signal.entryPrice?.toString() || '—';
   const hasCompleteData = entryPrice !== '—' && entryPrice !== 'N/A';
-
-  // P&L Calculation
-  let pnlPercentage = 0;
-  let isProfitable = false;
-  let pnlText = "--.--";
-
-  if (signal.entryPrice && Number(signal.entryPrice) > 0) {
-    // P&L will be calculated in real-time by LivePriceWithEntry component
-    pnlText = "--.--"; // Placeholder - actual P&L shown in component
-  }
-
-  // Determine styles for Net Gain based on profitability
-  const pnlBgClass = isProfitable ? 'bg-green-50/50 dark:bg-green-950/30' : 'bg-muted/50';
-  const pnlTextClass = isProfitable ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground';
-  const pnlBorderClass = isProfitable ? 'border-l-4 border-green-500' : 'border-l-4 border-muted-foreground/40';
 
   return (
     <div 
@@ -176,11 +161,14 @@ export default function SignalCard({ signal, isWatchlist = false }: SignalCardPr
           </div>
 
           {/* Net Gain */}
-          <div className={`p-4 rounded-lg col-span-2 md:col-span-1 ${pnlBgClass} ${pnlBorderClass} shadow-sm`}>
+          <div className="p-4 rounded-lg col-span-2 md:col-span-1 bg-muted/50 border-l-4 border-muted-foreground/40 shadow-sm">
             <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Net Gain</p>
-            <p className={`text-lg font-bold ${pnlTextClass}`}>
-              {pnlText}
-            </p>
+            <LiveNetGain
+              symbol={signal.symbol}
+              assetClass={assetClass}
+              entryPrice={signal.entryPrice}
+              signalType={signal.type}
+            />
           </div>
         </div>
       )}

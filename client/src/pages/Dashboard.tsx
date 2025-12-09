@@ -2,8 +2,6 @@ import TradingSession from '@/components/TradingSession';
 import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import SignalCard from '@/components/SignalCard';
-import StockSignalCard from '@/components/StockSignalCard';
-import WatchlistCard from '@/components/WatchlistCard';
 import SectionHeader from '@/components/SectionHeader';
 import { Zap, Activity, Bookmark } from 'lucide-react';
 import type { TradingSignal, PendingSetup } from '@shared/schema';
@@ -105,7 +103,7 @@ export default function Dashboard() {
                 <div className="p-8 text-center text-muted-foreground/70 text-sm">No confirmed stock signals - waiting for entry trigger on 5M/3M/1M</div>
               ) : (
                 activeStockSignals.slice(0, 10).map(signal => (
-                  <StockSignalCard key={signal.id} signal={signal} />
+                  <SignalCard key={signal.id} signal={signal} />
                 ))
               )}
             </div>
@@ -133,10 +131,10 @@ export default function Dashboard() {
                     <SignalCard key={signal.id} signal={signal} isWatchlist={true} />
                   ))}
                   {watchlistStockSignals.slice(0, 5).map(signal => (
-                    <StockSignalCard key={signal.id} signal={signal} isWatchlist={true} />
+                    <SignalCard key={signal.id} signal={signal} isWatchlist={true} />
                   ))}
                   {pendingWatchlistItems.slice(0, 5).map(item => (
-                    <WatchlistCard key={`pending-${item.symbol}-${item.id}`} item={item} />
+                    <SignalCard key={`pending-${item.symbol}-${item.id}`} signal={item as any} isWatchlist={true} />
                   ))}
                 </>
               )}

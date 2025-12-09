@@ -168,3 +168,60 @@ export function LivePriceWithEntry({
     </div>
   );
 }
+
+interface LiveNetGainProps {
+  symbol: string;
+  assetClass: 'stock' | 'forex' | 'commodity' | 'crypto';
+  entryPrice?: number | string | null;
+  signalType?: 'buy' | 'sell' | string;
+  className?: string;
+}
+
+export function LiveNetGain({ 
+  symbol, 
+  assetClass, 
+  entryPrice,
+  signalType,
+  className = '' 
+}: LiveNetGainProps) {
+  const { data: priceData, isLoading, isError } = usePrice(symbol, assetClass);
+  
+  const entry = typeof entryPrice === 'string' ? parseFloat(entryPrice) : entryPrice;
+  const isBuy = signalType?.toLowerCase() === 'buy';
+  
+  if (isLoading) {
+    return (
+      <div className={`flex items-center gap-2 ${className}`}>
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        <span className="text-lg font-bold text-muted-foreground">--.--%</span>
+      </div>
+    );
+  }
+  
+  if (isError || !priceData || priceData.error || !entry || isNaN(entry) || entry <= 0) {
+    return (
+      <span className="text-lg font-bold text-muted-foreground" data-testid="net-gain-unavailable">
+        --.--%
+      </span>
+    );
+  }
+  
+  const currentPrice = priceData.price ?? 0;
+  
+  // For BUY: profit when current > entry (positive %)
+  // For SELL: profit when current < entry (show positive % for profit)
+  const rawPnlPercent = ((currentPrice - entry) / entry) * 100;
+  // Invert the percentage for SELL signals so profit shows as positive
+  const pnlPercent = isBuy ? rawPnlPercent : -rawPnlPercent;
+  const inProfit = pnlPercent > 0;
+  
+  const pnlColor = inProfit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+  const sign = pnlPercent >= 0 ? '+' : '';
+  const pnlText = `${sign}${pnlPercent.toFixed(2)}%`;
+  
+  return (
+    <span className={`text-lg font-bold tabular-nums ${pnlColor} ${className}`} data-testid="live-net-gain">
+      {pnlText}
+    </span>
+  );
+}
