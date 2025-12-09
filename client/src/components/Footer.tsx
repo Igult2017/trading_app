@@ -3,7 +3,7 @@ import { Facebook, Instagram, Send } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-100 text-gray-700 border-t border-gray-300 mt-12">
+    <footer className="bg-gray-100 text-gray-700 border-t border-gray-300 mt-12" style={{ fontFamily: "'Merriweather', serif" }}>
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-16">
 
         {/* Grid Layout for Links */}
@@ -66,11 +66,11 @@ export default function Footer() {
           {/* Column 6: Branding & Social */}
           <div className="col-span-2 sm:col-span-4 lg:col-span-1 border-t sm:border-t-0 pt-6 sm:pt-0 border-gray-300 lg:border-none">
             <div className="flex flex-wrap items-center mb-3">
-              <span className="text-base font-extrabold text-bull-green">Find</span>
-              <span className="text-base font-extrabold text-gray-900">Buy</span>
-              <span className="text-base font-extrabold text-gray-900">and</span>
-              <span className="text-base font-extrabold text-bear-red">Sell</span>
-              <span className="text-base font-extrabold text-gray-900">Zones.com</span>
+              <span className="text-base font-extrabold text-gray-900">F</span>
+              <span className="text-base font-extrabold text-emerald-500">S</span>
+              <span className="text-base font-extrabold text-gray-900">D</span>
+              <span className="text-base font-extrabold text-emerald-500">ZONES</span>
+              <span className="text-base font-extrabold text-gray-900">.com</span>
             </div>
             <p className="text-xs text-gray-500 mb-6">Less Charting. No worries. Only precision.</p>
             
@@ -109,11 +109,11 @@ export default function Footer() {
         {/* Copyright */}
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            &copy; 2025 <span className="font-extrabold text-bull-green">Find</span>
-            <span className="font-extrabold text-gray-900">Buy</span>
-            <span className="font-extrabold text-gray-900">and</span>
-            <span className="font-extrabold text-bear-red">Sell</span>
-            <span className="font-extrabold text-gray-900">Zones.com</span>. All rights reserved.
+            &copy; 2025 <span className="font-extrabold text-gray-900">F</span>
+            <span className="font-extrabold text-emerald-500">S</span>
+            <span className="font-extrabold text-gray-900">D</span>
+            <span className="font-extrabold text-emerald-500">ZONES</span>
+            <span className="font-extrabold text-gray-900">.com</span>. All rights reserved.
           </p>
         </div>
 
