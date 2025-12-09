@@ -19,7 +19,7 @@ export default function TradingSession() {
   const activeSessions = sessions.filter(s => s.isActive);
 
   return (
-    <Card data-testid="card-trading-session" className="border-blue-500/50 rounded-none" style={{ fontFamily: "'Merriweather', serif" }}>
+    <Card data-testid="card-trading-session" className="border-blue-500/50 rounded-none" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <div className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

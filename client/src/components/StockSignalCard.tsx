@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { 
   Clock,
-  ChevronUp,
-  ChevronDown,
   Target,
   TrendingUp,
   TrendingDown,
@@ -75,8 +73,12 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
       style={{ borderLeftWidth: '6px', borderLeftColor: borderColor }}
       data-testid={`card-stock-${signal.id}`}
     >
-      {/* Header Row: Badge + Symbol + Entry Price */}
-      <div className="flex items-center justify-between gap-2 p-4 pb-3">
+      {/* Header Row: Badge + Symbol + Entry Price - Click to expand details */}
+      <div 
+        className="flex items-center justify-between gap-2 p-4 pb-3 cursor-pointer hover:opacity-80 transition duration-200"
+        onClick={() => setIsExpanded(!isExpanded)}
+        data-testid={`clickable-header-${signal.id}`}
+      >
         <div className="flex items-center gap-3">
           <Badge 
             variant={isBuy ? 'default' : 'destructive'} 
@@ -85,8 +87,8 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
           >
             {signal.type}
           </Badge>
-          <div className="flex items-center gap-2">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight" data-testid={`text-symbol-${signal.id}`}>
+          <div className="flex items-center gap-2 group">
+            <h3 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight group-hover:underline" data-testid={`text-symbol-${signal.id}`}>
               {signal.symbol}
             </h3>
             <TrendIcon className={`w-5 h-5 ${trendColor}`} />
@@ -140,8 +142,8 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
       {/* Divider */}
       <div className="border-t border-border mx-4" />
 
-      {/* Footer: Timeframe + Time + Details Button */}
-      <div className="px-4 py-3 space-y-3">
+      {/* Footer: Timeframe + Time */}
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="font-bold uppercase">{signal.primaryTimeframe || '4H'}</span>
           {signal.createdAt && (
@@ -151,24 +153,6 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
             </span>
           )}
         </div>
-        
-        <button 
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-bold text-white bg-blue-600 transition-colors hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 uppercase tracking-wide"
-          data-testid={`button-details-${signal.id}`}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              Hide Details
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              Show Details
-            </>
-          )}
-        </button>
       </div>
 
       {/* Expanded Details Section */}

@@ -45,13 +45,13 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Search Bar */}
-        <div className="border border-blue-500/50 bg-card dark:bg-background rounded-none shadow-md" style={{ fontFamily: "'Merriweather', serif" }}>
+        <div className="border border-blue-500/50 bg-card dark:bg-background rounded-none shadow-md" style={{ fontFamily: "'Montserrat', sans-serif" }}>
           <div className="relative flex items-center py-4 px-6">
-            <Search className="h-6 w-6 text-muted-foreground mr-4" />
+            <Search className="h-5 w-5 text-muted-foreground mr-4" />
             <input
               type="text"
               placeholder="Search markets, pairs, or signals..."
-              className="flex-grow bg-transparent text-lg text-foreground placeholder-muted-foreground focus:outline-none"
+              className="flex-grow bg-transparent text-sm text-foreground placeholder-muted-foreground focus:outline-none"
               data-testid="input-search"
             />
           </div>
