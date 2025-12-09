@@ -45,7 +45,7 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Search Bar */}
-        <div className="border border-blue-500/50 bg-card dark:bg-background rounded-xl shadow-md">
+        <div className="border border-blue-500/50 bg-card dark:bg-background rounded-none shadow-md" style={{ fontFamily: "'Merriweather', serif" }}>
           <div className="relative flex items-center py-4 px-6">
             <Search className="h-6 w-6 text-muted-foreground mr-4" />
             <input

@@ -109,7 +109,7 @@ export default function Header() {
           <div className="flex-shrink-0">
             <Link 
               href="/" 
-              className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight"
+              className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight"
               data-testid="link-logo"
             >
               F<span className="text-emerald-500">S</span>D<span className="text-emerald-500">ZONES</span>.com
