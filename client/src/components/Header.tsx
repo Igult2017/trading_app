@@ -103,7 +103,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-900 shadow-md sticky top-0 z-50" style={{ fontFamily: "'Merriweather', serif" }}>
+    <header className="bg-white dark:bg-gray-900 shadow-md sticky top-0 z-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4 border-b border-gray-100 dark:border-gray-800 lg:border-none">
           <div className="flex-shrink-0">
@@ -226,7 +226,7 @@ export default function Header() {
       {mobileMenuOpen && (
         <div 
           className="lg:hidden fixed inset-y-0 right-0 w-64 bg-white dark:bg-gray-900 z-40 shadow-xl overflow-y-auto transform transition-transform duration-300"
-          style={{ fontFamily: "'Merriweather', serif" }}
+          style={{ fontFamily: "'Inter', sans-serif" }}
           data-testid="mobile-drawer"
         >
           <div className="p-5">
