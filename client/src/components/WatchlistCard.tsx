@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { 
-  ArrowUpRight, 
-  ArrowDownRight, 
   Clock,
   ChevronUp,
+  ChevronDown,
   Target,
   TrendingUp,
   Shield,
@@ -20,28 +19,19 @@ const formatTimeAgo = (timestamp: Date | string) => {
   const diffMins = Math.floor(diffMs / (1000 * 60));
   
   if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffMins < 60) return `${diffMins}m ago`;
   
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
   
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return `${diffDays}d ago`;
 };
 
 interface WatchlistCardProps {
   item: PendingSetup;
   showProbability?: boolean;
 }
-
-const DetailsIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="2" y="4" width="4" height="4"/>
-    <rect x="8" y="4" width="14" height="4"/>
-    <rect x="2" y="14" width="4" height="4"/>
-    <rect x="8" y="14" width="14" height="4"/>
-  </svg>
-);
 
 const getAssetClassForSymbol = (symbol: string, assetClass?: string): 'stock' | 'forex' | 'commodity' | 'crypto' => {
   if (assetClass === 'crypto' || assetClass === 'cryptocurrency') return 'crypto';
@@ -63,130 +53,114 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
   
   const priority = item.setupStage === 'ready' ? 'HIGH' : 'MEDIUM';
   const isHighPriority = priority === 'HIGH';
-  const priorityBadgeClass = isHighPriority 
-    ? 'bg-destructive text-destructive-foreground border-destructive' 
-    : 'bg-amber-600 text-white dark:bg-amber-700 dark:text-white border-amber-600 dark:border-amber-700';
 
   return (
     <div 
-      className="bg-card border-b border-r border-l border-border p-0 group transition-colors"
+      className="bg-card border border-border relative transition-all"
+      style={{ borderLeftWidth: '6px', borderLeftColor: 'hsl(45 93% 47%)' }}
       data-testid={`card-watchlist-${item.id}`}
     >
-      <div className="grid grid-cols-12 items-center text-foreground">
-        {/* Pair and Type (Col 1-4) */}
-        <div className="col-span-4 py-4 px-6 flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold tracking-tight" data-testid={`text-symbol-${item.id}`}>
-              {item.symbol}
-            </h3>
-            <span className="text-xs text-muted-foreground font-medium">
-              ({item.primaryTimeframe || '—'})
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground italic line-clamp-1">
-            {(item.setupNotes && item.setupNotes.length > 0) ? item.setupNotes[0] : (item.marketContext || 'Monitoring for setup')}
+      {/* Header Row: Symbol + Timeframe + Priority */}
+      <div className="flex items-center justify-between gap-2 p-4 pb-3">
+        <div className="flex items-center gap-3">
+          <h3 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight" data-testid={`text-symbol-${item.id}`}>
+            {item.symbol}
+          </h3>
+          <span className="text-xs text-muted-foreground font-medium">
+            {item.primaryTimeframe || '—'}
+          </span>
+        </div>
+        {showProbability && (
+          <Badge 
+            className={`px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+              isHighPriority 
+                ? 'bg-destructive text-destructive-foreground' 
+                : 'bg-amber-600 text-white dark:bg-amber-700'
+            }`}
+          >
+            {priority}
+          </Badge>
+        )}
+      </div>
+
+      {/* Setup Note */}
+      {(item.setupNotes && item.setupNotes.length > 0) || item.marketContext ? (
+        <div className="px-4 pb-3">
+          <p className="text-sm text-muted-foreground italic line-clamp-2">
+            {(item.setupNotes && item.setupNotes.length > 0) ? item.setupNotes[0] : item.marketContext}
           </p>
         </div>
+      ) : null}
 
-        {/* Live Price (Col 5-7) */}
-        <div className="col-span-3 py-4 px-6 border-l border-border">
-          <LivePriceDisplay 
-            symbol={item.symbol} 
-            assetClass={assetClass}
-            size="md"
-            showChange={true}
-          />
+      {/* Divider */}
+      <div className="border-t border-border mx-4" />
+
+      {/* Current Price Section */}
+      <div className="px-4 py-3">
+        <LivePriceDisplay 
+          symbol={item.symbol} 
+          assetClass={assetClass}
+          size="md"
+          showChange={true}
+        />
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-border mx-4" />
+
+      {/* Footer: Time + Details Button */}
+      <div className="px-4 py-3 space-y-3">
+        <div className="flex items-center justify-end text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
+          </span>
         </div>
-
-        {showProbability ? (
-          <>
-            {/* Priority Level (Col 8-10) - Only shown when showProbability is true */}
-            <div className="col-span-3 py-4 px-6 border-l border-border flex flex-col justify-center">
-              <Badge className={`w-fit px-3 py-1 text-xs font-bold uppercase tracking-widest border ${priorityBadgeClass}`}>
-                {priority}
-              </Badge>
-            </div>
-
-            {/* Time and Details Button (Col 11-12) */}
-            <div className="col-span-2 py-4 px-3 border-l border-border flex flex-col items-end gap-2">
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="w-3 h-3" /> 
-                {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
-              </div>
-              {/* Enhanced Details Button */}
-              <button 
-                className="flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 shadow-lg transition-all duration-300 ease-in-out transform hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl active:bg-blue-800 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 lowercase"
-                data-testid={`button-details-${item.id}`}
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-1" />
-                    hide
-                  </>
-                ) : (
-                  <>
-                    <DetailsIcon className="w-4 h-4 mr-1" />
-                    details
-                  </>
-                )}
-              </button>
-            </div>
-          </>
-        ) : (
-          /* Time and Details Button (Col 8-12) - Full width when no probability shown */
-          <div className="col-span-5 py-4 px-3 border-l border-border flex flex-col items-end gap-2">
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" /> 
-              {item.createdAt ? formatTimeAgo(item.createdAt) : 'Monitoring'}
-            </div>
-            {/* Enhanced Details Button */}
-            <button 
-              className="flex items-center justify-center px-3 py-1.5 text-xs font-bold text-white bg-blue-600 shadow-lg transition-all duration-300 ease-in-out transform hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl active:bg-blue-800 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 lowercase"
-              data-testid={`button-details-${item.id}`}
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? (
-                <>
-                  <ChevronUp className="w-4 h-4 mr-1" />
-                  hide
-                </>
-              ) : (
-                <>
-                  <DetailsIcon className="w-4 h-4 mr-1" />
-                  details
-                </>
-              )}
-            </button>
-          </div>
-        )}
+        
+        <button 
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-bold text-white bg-blue-600 transition-colors hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 uppercase tracking-wide"
+          data-testid={`button-details-${item.id}`}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4" />
+              Hide Details
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4" />
+              Show Details
+            </>
+          )}
+        </button>
       </div>
 
       {/* Expanded Details Section */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-3 border-t border-border animate-in fade-in duration-200">
-          <div className="space-y-3">
+        <div className="px-4 pb-4 pt-2 border-t border-border animate-in fade-in duration-200">
+          <div className="space-y-4">
             {/* Market Context */}
             {item.marketContext && (
               <div className="space-y-1">
-                <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Market Context
                 </h4>
-                <p className="text-xs leading-relaxed">{item.marketContext}</p>
+                <p className="text-sm">{item.marketContext}</p>
               </div>
             )}
 
             {/* Setup Notes */}
             {item.setupNotes && item.setupNotes.length > 0 && (
               <div className="space-y-1">
-                <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Target className="w-3 h-3" /> Setup Notes
                 </h4>
-                <ul className="text-xs space-y-0.5">
+                <ul className="text-sm space-y-1">
                   {item.setupNotes.map((note: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-1">
-                      <span className="text-primary">•</span>
-                      <span className="break-words">{note}</span>
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-blue-500">•</span>
+                      <span>{note}</span>
                     </li>
                   ))}
                 </ul>
@@ -196,14 +170,14 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
             {/* Confirmations Pending */}
             {item.confirmationsPending && item.confirmationsPending.length > 0 && (
               <div className="space-y-1">
-                <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Shield className="w-3 h-3" /> Confirmations Pending
                 </h4>
-                <ul className="text-xs space-y-0.5">
+                <ul className="text-sm space-y-1">
                   {item.confirmationsPending.map((conf: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-1">
+                    <li key={idx} className="flex items-start gap-2">
                       <span className="text-amber-500">•</span>
-                      <span className="break-words">{conf}</span>
+                      <span>{conf}</span>
                     </li>
                   ))}
                 </ul>
@@ -212,10 +186,10 @@ export default function WatchlistCard({ item, showProbability = false }: Watchli
 
             {/* Setup Stats */}
             <div className="space-y-1">
-              <h4 className="text-[10px] font-semibold uppercase text-muted-foreground flex items-center gap-1">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                 <BarChart2 className="w-3 h-3" /> Setup Stats
               </h4>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Stage:</span>
                   <span className="ml-1 font-semibold capitalize">{item.setupStage}</span>

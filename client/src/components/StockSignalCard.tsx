@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import { 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  DollarSign,
-  Info,
-  TrendingUp,
-  TrendingDown,
   Clock,
   ChevronUp,
+  ChevronDown,
   Target,
-  BarChart2,
-  Shield
+  TrendingUp,
+  TrendingDown,
+  Shield,
+  BarChart2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { TradingSignal } from '@shared/schema';
@@ -23,37 +20,19 @@ const formatTimeAgo = (timestamp: Date | string) => {
   const diffMins = Math.floor(diffMs / (1000 * 60));
   
   if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffMins < 60) return `${diffMins}m ago`;
   
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
   
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return `${diffDays}d ago`;
 };
 
 interface StockSignalCardProps {
   signal: TradingSignal;
   isWatchlist?: boolean;
 }
-
-const StatBlock = ({ label, value, colorClass = "text-foreground", icon: Icon }: any) => (
-  <div className="flex flex-col min-w-0">
-    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 flex items-center gap-1">
-      {Icon && <Icon className="w-3 h-3" />} {label}
-    </span>
-    <span className={`text-sm font-extrabold ${colorClass} break-all tabular-nums`}>{value}</span>
-  </div>
-);
-
-const DetailsIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="2" y="4" width="4" height="4"/>
-    <rect x="8" y="4" width="14" height="4"/>
-    <rect x="2" y="14" width="4" height="4"/>
-    <rect x="8" y="14" width="14" height="4"/>
-  </svg>
-);
 
 const getAssetClassForSymbol = (symbol: string, assetClass?: string): 'stock' | 'forex' | 'commodity' | 'crypto' => {
   if (assetClass === 'crypto' || assetClass === 'cryptocurrency') return 'crypto';
@@ -73,8 +52,8 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
   
   const isBuy = signal.type?.toLowerCase() === 'buy';
   const assetClass = getAssetClassForSymbol(signal.symbol, signal.assetClass);
-  const trendColor = isBuy ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400';
   const TrendIcon = isBuy ? TrendingUp : TrendingDown;
+  const trendColor = isBuy ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400';
   const winRateColor = (signal.overallConfidence ?? 0) >= 90 
     ? 'text-emerald-600 dark:text-emerald-400' 
     : (signal.overallConfidence ?? 0) >= 80 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground';
@@ -82,121 +61,123 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
   const entryPrice = signal.entryPrice?.toString() || '—';
   const stopLoss = signal.stopLoss?.toString() || '—';
   const takeProfit = signal.takeProfit?.toString() || '—';
+  const riskRewardRatio = signal.riskRewardRatio?.toString() || '—';
   
   const hasCompleteData = entryPrice !== '—' && entryPrice !== 'N/A';
+  
+  const borderColor = isWatchlist 
+    ? 'hsl(45 93% 47%)' 
+    : (isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))');
 
   return (
     <div 
-      className={`bg-card border-l-4 border-r border-b border-border p-0 relative group transition-all ${isWatchlist ? 'opacity-80 bg-amber-500/5' : ''}`}
-      style={{ borderLeftColor: isWatchlist ? 'hsl(45 93% 47%)' : (isBuy ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-5))') }}
+      className={`bg-card border border-border relative transition-all ${isWatchlist ? 'opacity-90' : ''}`}
+      style={{ borderLeftWidth: '6px', borderLeftColor: borderColor }}
       data-testid={`card-stock-${signal.id}`}
     >
-      <div className="p-6 grid grid-cols-1 md:grid-cols-12 items-center gap-4 md:gap-8">
-        
-        {/* Ticker, Name, Type (Col 1-3) */}
-        <div className="md:col-span-3 flex flex-col gap-2">
+      {/* Header Row: Badge + Symbol + Entry Price */}
+      <div className="flex items-center justify-between gap-2 p-4 pb-3">
+        <div className="flex items-center gap-3">
           <Badge 
             variant={isBuy ? 'default' : 'destructive'} 
-            className="w-fit px-3 py-1 text-xs font-bold uppercase tracking-widest"
+            className="px-3 py-1 text-xs font-bold uppercase tracking-wider"
             data-testid={`badge-type-${signal.id}`}
           >
             {signal.type}
           </Badge>
           <div className="flex items-center gap-2">
-            <h3 className="text-2xl font-extrabold text-foreground tracking-tight" data-testid={`text-symbol-${signal.id}`}>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight" data-testid={`text-symbol-${signal.id}`}>
               {signal.symbol}
             </h3>
             <TrendIcon className={`w-5 h-5 ${trendColor}`} />
           </div>
         </div>
-
-        {/* Stats Grid (Col 4-9) */}
-        <div className="md:col-span-6 flex flex-wrap gap-4 border-l border-r border-border px-4 md:px-8 py-2">
-          {hasCompleteData ? (
-            <>
-              <div className="flex-1 min-w-[90px]">
-                <LivePriceWithEntry 
-                  symbol={signal.symbol}
-                  assetClass={assetClass}
-                  entryPrice={signal.entryPrice}
-                  signalType={signal.type}
-                />
-              </div>
-              <div className="flex-1 min-w-[80px]">
-                <StatBlock 
-                  label="Entry" 
-                  value={entryPrice} 
-                  icon={DollarSign} 
-                />
-              </div>
-              <div className="flex-1 min-w-[80px]">
-                <StatBlock 
-                  label="Stop" 
-                  value={stopLoss} 
-                  colorClass="text-destructive" 
-                  icon={ArrowDownRight} 
-                />
-              </div>
-              <div className="flex-1 min-w-[80px]">
-                <StatBlock 
-                  label="Target" 
-                  value={takeProfit} 
-                  colorClass="text-emerald-600 dark:text-emerald-400" 
-                  icon={ArrowUpRight} 
-                />
-              </div>
-            </>
-          ) : (
-            <div className="w-full text-sm font-semibold text-amber-600 dark:text-amber-400 flex items-center">
-              <Info className="w-4 h-4 mr-2" /> Waiting for activation price.
-            </div>
-          )}
-        </div>
-
-        {/* Timeframe, Time Ago and Details Button (Col 10-12) */}
-        <div className="md:col-span-3 flex flex-col items-start md:items-end gap-2 pt-2">
-          <div className="text-sm font-bold text-muted-foreground uppercase">
-            {signal.primaryTimeframe || '4H'}
+        {hasCompleteData && (
+          <div className="text-right">
+            <span className="text-[10px] uppercase text-muted-foreground block">Entry</span>
+            <span className="text-sm font-bold tabular-nums">{entryPrice}</span>
           </div>
-          
+        )}
+      </div>
+
+      {/* Current Price Section */}
+      {hasCompleteData ? (
+        <div className="px-4 pb-3">
+          <LivePriceWithEntry 
+            symbol={signal.symbol}
+            assetClass={assetClass}
+            entryPrice={signal.entryPrice}
+            signalType={signal.type}
+          />
+        </div>
+      ) : (
+        <div className="px-4 pb-3 text-sm font-medium text-amber-600 dark:text-amber-400">
+          Waiting for activation price.
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="border-t border-border mx-4" />
+
+      {/* Trade Levels: Stop | Target | R:R */}
+      {hasCompleteData && (
+        <div className="grid grid-cols-3 gap-2 px-4 py-3 text-center">
+          <div>
+            <span className="text-[10px] uppercase text-muted-foreground block mb-1">Stop</span>
+            <span className="text-sm font-semibold text-destructive tabular-nums">{stopLoss}</span>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase text-muted-foreground block mb-1">Target</span>
+            <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{takeProfit}</span>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase text-muted-foreground block mb-1">R:R</span>
+            <span className="text-base font-extrabold tabular-nums">{riskRewardRatio}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="border-t border-border mx-4" />
+
+      {/* Footer: Timeframe + Time + Details Button */}
+      <div className="px-4 py-3 space-y-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span className="font-bold uppercase">{signal.primaryTimeframe || '4H'}</span>
           {signal.createdAt && (
-            <div 
-              className="text-xs text-muted-foreground flex items-center gap-1"
-              data-testid={`time-ago-${signal.id}`}
-            >
+            <span className="flex items-center gap-1" data-testid={`time-ago-${signal.id}`}>
               <Clock className="w-3 h-3" />
               {formatTimeAgo(signal.createdAt)}
-            </div>
+            </span>
           )}
-          
-          {/* Enhanced Details Button */}
-          <button 
-            className="flex items-center justify-center px-4 py-2 text-sm font-bold text-white bg-blue-600 shadow-lg transition-all duration-300 ease-in-out transform hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl active:bg-blue-800 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 lowercase"
-            data-testid={`button-details-${signal.id}`}
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="w-5 h-5 mr-2" />
-                hide details
-              </>
-            ) : (
-              <>
-                <DetailsIcon className="w-5 h-5 mr-2" />
-                show details
-              </>
-            )}
-          </button>
         </div>
+        
+        <button 
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-bold text-white bg-blue-600 transition-colors hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 uppercase tracking-wide"
+          data-testid={`button-details-${signal.id}`}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4" />
+              Hide Details
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4" />
+              Show Details
+            </>
+          )}
+        </button>
       </div>
 
       {/* Expanded Details Section */}
       {isExpanded && (
-        <div className="px-6 pb-6 pt-2 border-t border-border animate-in fade-in duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="px-4 pb-4 pt-2 border-t border-border animate-in fade-in duration-200">
+          <div className="space-y-4">
             {/* Market Context */}
             {signal.marketContext && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Market Context
                 </h4>
@@ -206,14 +187,14 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
 
             {/* Technical Reasons */}
             {signal.technicalReasons && signal.technicalReasons.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Target className="w-3 h-3" /> Technical Reasons
                 </h4>
                 <ul className="text-sm space-y-1">
                   {signal.technicalReasons.map((reason: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-primary">•</span>
+                      <span className="text-blue-500">•</span>
                       <span>{reason}</span>
                     </li>
                   ))}
@@ -223,14 +204,14 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
 
             {/* SMC Factors */}
             {signal.smcFactors && signal.smcFactors.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Shield className="w-3 h-3" /> SMC Factors
                 </h4>
                 <ul className="text-sm space-y-1">
                   {signal.smcFactors.map((factor: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-primary">•</span>
+                      <span className="text-blue-500">•</span>
                       <span>{factor}</span>
                     </li>
                   ))}
@@ -239,33 +220,33 @@ export default function StockSignalCard({ signal, isWatchlist = false }: StockSi
             )}
 
             {/* Additional Stats */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                 <BarChart2 className="w-3 h-3" /> Signal Stats
               </h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 {signal.overallConfidence && (
                   <div>
                     <span className="text-muted-foreground">Confidence:</span>
-                    <span className={`ml-2 font-semibold ${winRateColor}`}>{signal.overallConfidence}%</span>
+                    <span className={`ml-1 font-semibold ${winRateColor}`}>{signal.overallConfidence}%</span>
                   </div>
                 )}
                 {signal.trendStrength && (
                   <div>
                     <span className="text-muted-foreground">Trend:</span>
-                    <span className="ml-2 font-semibold">{signal.trendStrength}</span>
+                    <span className="ml-1 font-semibold">{signal.trendStrength}</span>
                   </div>
                 )}
                 {signal.trendDirection && (
                   <div>
                     <span className="text-muted-foreground">Direction:</span>
-                    <span className="ml-2 font-semibold">{signal.trendDirection}</span>
+                    <span className="ml-1 font-semibold">{signal.trendDirection}</span>
                   </div>
                 )}
                 {signal.riskRewardRatio && (
                   <div>
                     <span className="text-muted-foreground">R:R:</span>
-                    <span className="ml-2 font-semibold">{signal.riskRewardRatio}</span>
+                    <span className="ml-1 font-semibold">{signal.riskRewardRatio}</span>
                   </div>
                 )}
               </div>
