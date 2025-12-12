@@ -4,8 +4,10 @@ Smart Money Concepts (SMC) Strategy implementation.
 """
 
 import time
-from typing import List, Optional, Tuple
-from dataclasses import dataclass
+from collections import deque
+from datetime import datetime, timezone
+from enum import Enum
+from typing import List, Optional, Tuple, Deque
 
 from .base import BaseStrategy, StrategyConfig, InstrumentData
 from ..types import (
@@ -28,6 +30,317 @@ from ..types import (
 from ..logging_config import get_logger
 
 logger = get_logger("smc_strategy")
+
+
+class TradingSession(Enum):
+    """Major trading sessions."""
+    SYDNEY = "sydney"
+    TOKYO = "tokyo"
+    LONDON = "london"
+    NEW_YORK = "new_york"
+    OVERNIGHT = "overnight"
+
+
+@dataclass
+class SessionInfo:
+    """Trading session information."""
+    name: TradingSession
+    start_hour_utc: int  # 0-23
+    end_hour_utc: int    # 0-23
+    quality_modifier: float  # Multiplier for signal confidence
+    preferred_pairs: List[str]  # Asset prefixes that trade well in this session
+
+
+TRADING_SESSIONS: List[SessionInfo] = [
+    SessionInfo(
+        name=TradingSession.SYDNEY,
+        start_hour_utc=21,  # 9 PM UTC (start of Sydney session, wraps to next day)
+        end_hour_utc=6,     # 6 AM UTC
+        quality_modifier=0.8,
+        preferred_pairs=["AUD", "NZD", "JPY"]
+    ),
+    SessionInfo(
+        name=TradingSession.TOKYO,
+        start_hour_utc=0,   # Midnight UTC
+        end_hour_utc=9,     # 9 AM UTC
+        quality_modifier=0.85,
+        preferred_pairs=["JPY", "AUD", "NZD", "CNH", "SGD"]
+    ),
+    SessionInfo(
+        name=TradingSession.LONDON,
+        start_hour_utc=7,   # 7 AM UTC
+        end_hour_utc=16,    # 4 PM UTC
+        quality_modifier=1.0,
+        preferred_pairs=["EUR", "GBP", "CHF", "USD"]
+    ),
+    SessionInfo(
+        name=TradingSession.NEW_YORK,
+        start_hour_utc=12,  # 12 PM UTC (noon)
+        end_hour_utc=21,    # 9 PM UTC
+        quality_modifier=1.0,
+        preferred_pairs=["USD", "CAD", "MXN"]
+    ),
+]
+
+
+def get_current_utc_hour() -> int:
+    """Get current UTC hour (0-23)."""
+    return datetime.now(timezone.utc).hour
+
+
+def is_hour_in_session(hour: int, start: int, end: int) -> bool:
+    """Check if hour falls within session range (handles overnight wrap)."""
+    if start <= end:
+        return start <= hour < end
+    else:
+        # Session wraps past midnight (e.g., Sydney: 21-6)
+        return hour >= start or hour < end
+
+
+def get_active_sessions(utc_hour: Optional[int] = None) -> List[SessionInfo]:
+    """
+    Get all currently active trading sessions.
+    
+    Args:
+        utc_hour: Optional UTC hour to check. Uses current time if None.
+    
+    Returns list of active SessionInfo objects.
+    """
+    hour = utc_hour if utc_hour is not None else get_current_utc_hour()
+    
+    active = []
+    for session in TRADING_SESSIONS:
+        if is_hour_in_session(hour, session.start_hour_utc, session.end_hour_utc):
+            active.append(session)
+    
+    return active if active else [SessionInfo(
+        name=TradingSession.OVERNIGHT,
+        start_hour_utc=0,
+        end_hour_utc=0,
+        quality_modifier=0.6,
+        preferred_pairs=[]
+    )]
+
+
+def get_session_overlap() -> Optional[Tuple[TradingSession, TradingSession]]:
+    """
+    Check if we're in a session overlap period.
+    
+    Session overlaps typically have higher liquidity and better moves.
+    Returns tuple of overlapping sessions if in overlap, else None.
+    """
+    active = get_active_sessions()
+    
+    if len(active) >= 2:
+        return (active[0].name, active[1].name)
+    
+    return None
+
+
+def get_session_quality_modifier(
+    symbol: str, 
+    utc_hour: Optional[int] = None
+) -> Tuple[float, str]:
+    """
+    Get session-based quality modifier for a symbol.
+    
+    Returns (modifier, reason) tuple.
+    Modifier ranges from 0.6 (poor) to 1.2 (excellent - overlap with preferred pair).
+    """
+    active_sessions = get_active_sessions(utc_hour)
+    
+    if not active_sessions:
+        return (0.6, "No active session - overnight")
+    
+    best_modifier = 0.0
+    reason = ""
+    
+    for session in active_sessions:
+        base_modifier = session.quality_modifier
+        
+        # Check if symbol matches preferred pairs
+        is_preferred = any(
+            pref in symbol.upper() 
+            for pref in session.preferred_pairs
+        )
+        
+        if is_preferred:
+            modifier = base_modifier * 1.1  # 10% boost for preferred pairs
+            curr_reason = f"{session.name.value} session (preferred pair)"
+        else:
+            modifier = base_modifier * 0.95  # 5% reduction for non-preferred
+            curr_reason = f"{session.name.value} session"
+        
+        if modifier > best_modifier:
+            best_modifier = modifier
+            reason = curr_reason
+    
+    # Overlap bonus
+    overlap = get_session_overlap()
+    if overlap:
+        best_modifier *= 1.05  # 5% bonus for overlap
+        reason = f"{overlap[0].value}/{overlap[1].value} overlap"
+    
+    return (min(best_modifier, 1.2), reason)
+
+
+def is_good_trading_time(
+    symbol: str,
+    min_quality: float = 0.7,
+    utc_hour: Optional[int] = None
+) -> Tuple[bool, str]:
+    """
+    Check if current time is good for trading this symbol.
+    
+    Args:
+        symbol: Trading symbol (e.g., "EURUSD", "BTCUSD")
+        min_quality: Minimum quality modifier required
+        utc_hour: Optional UTC hour (uses current if None)
+    
+    Returns (is_good, reason) tuple.
+    """
+    modifier, reason = get_session_quality_modifier(symbol, utc_hour)
+    is_good = modifier >= min_quality
+    
+    if is_good:
+        return (True, f"Good time: {reason} ({modifier:.0%} quality)")
+    else:
+        return (False, f"Poor time: {reason} ({modifier:.0%} quality, need {min_quality:.0%})")
+
+
+@dataclass
+class SessionContext:
+    """Session context for signal generation."""
+    active_sessions: List[SessionInfo]
+    is_overlap: bool
+    overlap_sessions: Optional[Tuple[TradingSession, TradingSession]]
+    quality_modifier: float
+    is_good_time: bool
+    reason: str
+
+
+def get_session_context(symbol: str, utc_hour: Optional[int] = None) -> SessionContext:
+    """
+    Get complete session context for signal generation.
+    
+    Args:
+        symbol: Trading symbol
+        utc_hour: Optional UTC hour (uses current if None)
+    
+    Returns SessionContext with all session information.
+    """
+    active = get_active_sessions(utc_hour)
+    overlap = get_session_overlap()
+    modifier, mod_reason = get_session_quality_modifier(symbol, utc_hour)
+    is_good, good_reason = is_good_trading_time(symbol, 0.7, utc_hour)
+    
+    return SessionContext(
+        active_sessions=active,
+        is_overlap=overlap is not None,
+        overlap_sessions=overlap,
+        quality_modifier=modifier,
+        is_good_time=is_good,
+        reason=good_reason
+    )
+
+
+class SlidingWindowCalculator:
+    """
+    Memory-efficient sliding window calculator using deque.
+    
+    Useful for real-time streaming data analysis.
+    """
+    
+    def __init__(self, max_size: int = 100):
+        self.max_size = max_size
+        self._values: Deque[float] = deque(maxlen=max_size)
+        self._sum: float = 0.0
+    
+    def add(self, value: float) -> None:
+        """Add a value to the window."""
+        if len(self._values) == self.max_size:
+            # Remove oldest value from sum
+            self._sum -= self._values[0]
+        self._values.append(value)
+        self._sum += value
+    
+    def mean(self) -> float:
+        """Get current mean of window."""
+        if not self._values:
+            return 0.0
+        return self._sum / len(self._values)
+    
+    def get_values(self) -> List[float]:
+        """Get all values as list."""
+        return list(self._values)
+    
+    def __len__(self) -> int:
+        return len(self._values)
+    
+    def clear(self) -> None:
+        """Clear all values."""
+        self._values.clear()
+        self._sum = 0.0
+
+
+class SwingPointWindow:
+    """
+    Sliding window for swing points with deque for memory efficiency.
+    """
+    
+    def __init__(self, max_size: int = 50):
+        self.max_size = max_size
+        self._points: Deque[SwingPoint] = deque(maxlen=max_size)
+    
+    def add(self, point: SwingPoint) -> None:
+        """Add a swing point."""
+        self._points.append(point)
+    
+    def get_recent(self, count: int = 10) -> List[SwingPoint]:
+        """Get most recent N points."""
+        points = list(self._points)
+        return points[-count:] if len(points) >= count else points
+    
+    def get_all(self) -> List[SwingPoint]:
+        """Get all points."""
+        return list(self._points)
+    
+    def __len__(self) -> int:
+        return len(self._points)
+    
+    def clear(self) -> None:
+        """Clear all points."""
+        self._points.clear()
+
+
+class CandleWindow:
+    """
+    Sliding window for candles with deque for memory efficiency.
+    """
+    
+    def __init__(self, max_size: int = 200):
+        self.max_size = max_size
+        self._candles: Deque[Candle] = deque(maxlen=max_size)
+    
+    def add(self, candle: Candle) -> None:
+        """Add a candle."""
+        self._candles.append(candle)
+    
+    def get_recent(self, count: int = 50) -> List[Candle]:
+        """Get most recent N candles."""
+        candles = list(self._candles)
+        return candles[-count:] if len(candles) >= count else candles
+    
+    def get_all(self) -> List[Candle]:
+        """Get all candles."""
+        return list(self._candles)
+    
+    def __len__(self) -> int:
+        return len(self._candles)
+    
+    def clear(self) -> None:
+        """Clear all candles."""
+        self._candles.clear()
 
 
 SMC_CONFIG = StrategyConfig(
@@ -60,6 +373,10 @@ class SMCClarityConfig:
     volume_lookback: int = 20
     strong_volume_threshold: float = 2.0
     moderate_volume_threshold: float = 1.3
+    # Session/time context awareness
+    use_session_filter: bool = True
+    min_session_quality: float = 0.7
+    apply_session_confidence_modifier: bool = True
 
 
 DEFAULT_SMC_CONFIG = SMCClarityConfig()
