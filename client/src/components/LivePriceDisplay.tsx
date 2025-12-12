@@ -123,10 +123,7 @@ export function LivePriceWithEntry({
   if (isError || !priceData || priceData.error) {
     return (
       <div className={`flex flex-col ${className}`}>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-          Current Price
-        </span>
-        <span className="text-sm font-extrabold text-muted-foreground">---</span>
+        <span className="text-lg font-extrabold text-muted-foreground">---</span>
       </div>
     );
   }
@@ -153,12 +150,11 @@ export function LivePriceWithEntry({
   
   return (
     <div className={`flex flex-col ${className}`}>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 flex items-center gap-1">
-        Current Price
-        <span className={`${marketChangeColor}`}>({changeText})</span>
-      </span>
-      <span className="text-sm font-extrabold tabular-nums" data-testid="live-current-price">
+      <span className="text-lg font-extrabold tabular-nums" data-testid="live-current-price">
         {priceText}
+      </span>
+      <span className={`text-xs ${marketChangeColor} mt-0.5`}>
+        {changeText}
       </span>
       {pnlText && (
         <span className={`text-xs ${pnlColor} mt-0.5`} data-testid="live-pnl-from-entry">
@@ -201,7 +197,7 @@ export function LiveNetGain({
   if (isError || !priceData || priceData.error || !entry || isNaN(entry) || entry <= 0) {
     return (
       <span className="text-lg font-bold text-muted-foreground" data-testid="net-gain-unavailable">
-        --.--%
+        00%
       </span>
     );
   }

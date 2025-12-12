@@ -29,11 +29,11 @@ const formatTimeAgo = (timestamp: Date | string): string => {
   return `${diffDays}d ago`;
 };
 
-const formatPrice = (price: number | string | null | undefined): string => {
+const formatPrice = (price: number | string | null | undefined, decimals: number = 5): string => {
   if (price === null || price === undefined) return '—';
   const num = typeof price === 'string' ? parseFloat(price) : price;
   if (isNaN(num)) return '—';
-  return num.toFixed(4);
+  return num.toFixed(decimals);
 };
 
 interface SignalCardProps {
