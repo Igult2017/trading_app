@@ -17,6 +17,7 @@ from ..types import (
     Zone,
     ZoneType,
     SwingPoint,
+    SwingType,
     MarketContext,
     SignalDirection,
     EntryType,
@@ -41,12 +42,12 @@ SMC_CONFIG = StrategyConfig(
 
 @dataclass
 class ClarityResult:
-    """Result of clarity analysis for a timeframe."""
+    """Result of clarity analysis for a timeframe (matches TypeScript version)."""
     score: float
     is_clear: bool
-    clean_bodies: int
-    wick_ratio: float
-    trend_visible: bool
+    trend_consistency: float  # 0-1 score for trend consistency
+    zone_clarity: float  # 0-1 score for zone quality
+    structure_clarity: float  # 0-1 score for swing alternation
     reasoning: List[str]
 
 
@@ -77,72 +78,200 @@ class EntryResult:
     reasoning: List[str]
 
 
-def analyze_clarity(candles: List[Candle], min_candles: int = 20) -> ClarityResult:
+def classify_swing_points(swing_points: List[SwingPoint]) -> List[SwingPoint]:
+    """
+    Classify swing points as HH/HL/LH/LL based on previous swings.
+    Matches TypeScript implementation by seeding initial values with -Infinity/Infinity.
+    This ensures the first high/low always gets classified.
+    """
+    if len(swing_points) == 0:
+        return swing_points
+    
+    classified = []
+    last_higher_high = float('-inf')
+    last_lower_low = float('inf')
+    last_higher_low = float('-inf')
+    last_lower_high = float('inf')
+    
+    for sp in swing_points:
+        swing_type: Optional[SwingType] = None
+        
+        if sp.is_high:
+            if sp.price > last_higher_high:
+                swing_type = SwingType.HH
+                last_higher_high = sp.price
+                last_lower_high = sp.price
+            elif sp.price < last_lower_high:
+                swing_type = SwingType.LH
+                last_lower_high = sp.price
+            else:
+                swing_type = SwingType.LH
+        else:
+            if sp.price < last_lower_low:
+                swing_type = SwingType.LL
+                last_lower_low = sp.price
+                last_higher_low = sp.price
+            elif sp.price > last_higher_low:
+                swing_type = SwingType.HL
+                last_higher_low = sp.price
+            else:
+                swing_type = SwingType.HL
+        
+        new_sp = SwingPoint(
+            price=sp.price,
+            index=sp.index,
+            is_high=sp.is_high,
+            timestamp=sp.timestamp,
+            swing_type=swing_type
+        )
+        classified.append(new_sp)
+    
+    return classified
+
+
+def calculate_trend_consistency(swing_points: List[SwingPoint], trend: TrendDirection) -> float:
+    """
+    Calculate how consistent swings are with the trend direction.
+    Returns 0-1 score. Matches TypeScript calculateTrendConsistency().
+    """
+    if len(swing_points) < 4:
+        return 0.0
+    
+    recent_swings = swing_points[-8:]
+    
+    if trend == TrendDirection.BULLISH:
+        bullish_swings = sum(
+            1 for s in recent_swings 
+            if s.swing_type in (SwingType.HH, SwingType.HL)
+        )
+        return bullish_swings / len(recent_swings)
+    
+    if trend == TrendDirection.BEARISH:
+        bearish_swings = sum(
+            1 for s in recent_swings 
+            if s.swing_type in (SwingType.LL, SwingType.LH)
+        )
+        return bearish_swings / len(recent_swings)
+    
+    hh_hl = sum(1 for s in recent_swings if s.swing_type in (SwingType.HH, SwingType.HL))
+    ll_lh = sum(1 for s in recent_swings if s.swing_type in (SwingType.LL, SwingType.LH))
+    balance = abs(hh_hl - ll_lh) / len(recent_swings)
+    
+    return 1 - balance
+
+
+def calculate_zone_clarity(zones: List[Zone], max_zones: int = 10) -> float:
+    """
+    Calculate zone clarity score based on quality and balance.
+    Returns 0-1 score. Matches TypeScript calculateZoneClarity().
+    """
+    if len(zones) == 0:
+        return 0.0
+    
+    if len(zones) > max_zones:
+        return 0.3
+    
+    strong_zones = sum(1 for z in zones if z.strength == "strong")
+    moderate_zones = sum(1 for z in zones if z.strength == "moderate")
+    
+    quality_score = (strong_zones * 1.0 + moderate_zones * 0.6) / len(zones)
+    
+    supply_zones = sum(1 for z in zones if z.type == ZoneType.SUPPLY)
+    demand_zones = sum(1 for z in zones if z.type == ZoneType.DEMAND)
+    balance_score = 1.0 if supply_zones > 0 and demand_zones > 0 else 0.5
+    
+    return min(1.0, quality_score * 0.7 + balance_score * 0.3)
+
+
+def calculate_structure_clarity(swing_points: List[SwingPoint], min_swings: int = 4) -> float:
+    """
+    Calculate structure clarity based on alternating highs and lows.
+    Returns 0-1 score. Matches TypeScript calculateStructureClarity().
+    Uses only swing_type (HH/LH = high, HL/LL = low) without fallback.
+    """
+    if len(swing_points) < min_swings:
+        return 0.0
+    
+    recent_swings = swing_points[-10:]
+    
+    alternating_count = 0
+    for i in range(1, len(recent_swings)):
+        prev = recent_swings[i - 1]
+        curr = recent_swings[i]
+        
+        prev_is_high = prev.swing_type in (SwingType.HH, SwingType.LH)
+        curr_is_high = curr.swing_type in (SwingType.HH, SwingType.LH)
+        
+        if prev_is_high != curr_is_high:
+            alternating_count += 1
+    
+    return alternating_count / (len(recent_swings) - 1) if len(recent_swings) > 1 else 0.0
+
+
+def analyze_clarity(
+    candles: List[Candle], 
+    timeframe: str = "15M",
+    min_candles: int = 20,
+    min_swings: int = 4,
+    min_zones: int = 2,
+    min_clarity_score: int = 60
+) -> ClarityResult:
     """
     Analyze price action clarity on a timeframe.
+    Enhanced version matching TypeScript implementation.
     
     Returns clarity score (0-100) based on:
-    - Clean candle bodies vs wicks
-    - Clear trend structure
-    - Volatility consistency
+    - Trend consistency (35%): How well swings match trend
+    - Zone clarity (35%): Quality and balance of zones
+    - Structure clarity (30%): Alternating highs/lows
     """
+    reasons: List[str] = []
+    
     if len(candles) < min_candles:
         return ClarityResult(
             score=0,
             is_clear=False,
-            clean_bodies=0,
-            wick_ratio=1.0,
-            trend_visible=False,
-            reasoning=["Insufficient candles for clarity analysis"]
+            trend_consistency=0,
+            zone_clarity=0,
+            structure_clarity=0,
+            reasoning=["Insufficient candle data"]
         )
     
-    recent = candles[-min_candles:]
+    swing_points = detect_swing_points(candles, lookback=3)
+    classified_swings = classify_swing_points(swing_points)
+    trend = determine_trend(candles, classified_swings)
     
-    clean_bodies = 0
-    total_wick_ratio = 0.0
+    trend_consistency = calculate_trend_consistency(classified_swings, trend)
+    reasons.append(f"Trend consistency: {trend_consistency * 100:.0f}%")
     
-    for candle in recent:
-        if candle.total_range > 0:
-            body_ratio = candle.body_ratio
-            if body_ratio >= 0.5:
-                clean_bodies += 1
-            total_wick_ratio += (1 - body_ratio)
+    zones = detect_zones(candles, "neutral", candles[-1].close)
+    unmitigated = [z for z in zones.all_zones if not z.mitigated]
     
-    avg_wick_ratio = total_wick_ratio / len(recent)
-    clean_body_pct = (clean_bodies / len(recent)) * 100
+    zone_clarity = calculate_zone_clarity(unmitigated)
+    reasons.append(f"Zone clarity: {zone_clarity * 100:.0f}% ({len(unmitigated)} unmitigated zones)")
     
-    highs = [c.high for c in recent]
-    lows = [c.low for c in recent]
+    structure_clarity = calculate_structure_clarity(classified_swings)
+    reasons.append(f"Structure clarity: {structure_clarity * 100:.0f}%")
     
-    hh_count = sum(1 for i in range(1, len(highs)) if highs[i] > highs[i-1])
-    ll_count = sum(1 for i in range(1, len(lows)) if lows[i] < lows[i-1])
-    
-    trend_visible = (hh_count >= len(recent) * 0.6) or (ll_count >= len(recent) * 0.6)
-    
-    clarity_score = (
-        clean_body_pct * 0.4 +
-        (1 - avg_wick_ratio) * 100 * 0.3 +
-        (100 if trend_visible else 40) * 0.3
+    score = round(
+        (trend_consistency * 35) +
+        (zone_clarity * 35) +
+        (structure_clarity * 30)
     )
     
-    reasoning = []
-    if clean_body_pct >= 60:
-        reasoning.append(f"Clean bodies: {clean_body_pct:.0f}%")
-    else:
-        reasoning.append(f"Choppy price action: {clean_body_pct:.0f}% clean bodies")
-    
-    if trend_visible:
-        reasoning.append("Clear trend structure visible")
-    else:
-        reasoning.append("No clear trend structure")
+    is_clear = (
+        score >= min_clarity_score and
+        len(classified_swings) >= min_swings and
+        len(unmitigated) >= min_zones
+    )
     
     return ClarityResult(
-        score=clarity_score,
-        is_clear=clarity_score >= 60,
-        clean_bodies=clean_bodies,
-        wick_ratio=avg_wick_ratio,
-        trend_visible=trend_visible,
-        reasoning=reasoning
+        score=score,
+        is_clear=is_clear,
+        trend_consistency=trend_consistency,
+        zone_clarity=zone_clarity,
+        structure_clarity=structure_clarity,
+        reasoning=reasons
     )
 
 
@@ -182,25 +311,25 @@ def detect_swing_points(candles: List[Candle], lookback: int = 5) -> List[SwingP
 
 
 def determine_trend(candles: List[Candle], swing_points: List[SwingPoint]) -> TrendDirection:
-    """Determine trend direction from swing points."""
+    """
+    Determine trend direction from classified swing points.
+    Matches TypeScript detectTrendFromSwings() using swing type counts.
+    """
     if len(swing_points) < 4:
         return TrendDirection.SIDEWAYS
     
-    recent_swings = sorted(swing_points, key=lambda s: s.index)[-6:]
+    recent = swing_points[-6:]
     
-    highs = [s for s in recent_swings if s.is_high]
-    lows = [s for s in recent_swings if not s.is_high]
+    hh_count = sum(1 for s in recent if s.swing_type == SwingType.HH)
+    hl_count = sum(1 for s in recent if s.swing_type == SwingType.HL)
+    lh_count = sum(1 for s in recent if s.swing_type == SwingType.LH)
+    ll_count = sum(1 for s in recent if s.swing_type == SwingType.LL)
     
-    if len(highs) >= 2 and len(lows) >= 2:
-        higher_highs = all(highs[i].price > highs[i-1].price for i in range(1, len(highs)))
-        higher_lows = all(lows[i].price > lows[i-1].price for i in range(1, len(lows)))
-        lower_highs = all(highs[i].price < highs[i-1].price for i in range(1, len(highs)))
-        lower_lows = all(lows[i].price < lows[i-1].price for i in range(1, len(lows)))
-        
-        if higher_highs and higher_lows:
-            return TrendDirection.BULLISH
-        elif lower_highs and lower_lows:
-            return TrendDirection.BEARISH
+    if hh_count >= 1 and hl_count >= 1 and (hh_count + hl_count) > (lh_count + ll_count):
+        return TrendDirection.BULLISH
+    
+    if ll_count >= 1 and lh_count >= 1 and (ll_count + lh_count) > (hh_count + hl_count):
+        return TrendDirection.BEARISH
     
     return TrendDirection.SIDEWAYS
 

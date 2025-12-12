@@ -40,6 +40,14 @@ class EntryType(str, Enum):
     FVG = "fvg"
 
 
+class SwingType(str, Enum):
+    """Swing point classification for market structure."""
+    HH = "HH"  # Higher High
+    HL = "HL"  # Higher Low
+    LH = "LH"  # Lower High
+    LL = "LL"  # Lower Low
+
+
 Timeframe = Literal["1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
 
 
@@ -109,11 +117,12 @@ class Zone:
 
 @dataclass
 class SwingPoint:
-    """Swing high or low point."""
+    """Swing high or low point with classification."""
     price: float
     index: int
     is_high: bool
     timestamp: int = 0
+    swing_type: Optional['SwingType'] = None  # HH, HL, LH, LL
 
 
 @dataclass 
