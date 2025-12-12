@@ -316,23 +316,21 @@ def calculate_structure_clarity(swing_points: List[SwingPoint], min_swings: int 
 def analyze_clarity(
     candles: List[Candle], 
     timeframe: str = "15M",
-    min_candles: int = 20,
-    min_swings: int = 4,
-    min_zones: int = 2,
-    min_clarity_score: int = 60
+    config: Optional[SMCClarityConfig] = None
 ) -> ClarityResult:
     """
     Analyze price action clarity on a timeframe.
-    Enhanced version matching TypeScript implementation.
+    Enhanced version with configurable parameters and weighted scoring.
     
     Returns clarity score (0-100) based on:
-    - Trend consistency (35%): How well swings match trend
+    - Trend consistency (35%): How well swings match trend (with recency/size weighting)
     - Zone clarity (35%): Quality and balance of zones
     - Structure clarity (30%): Alternating highs/lows
     """
+    cfg = config or DEFAULT_SMC_CONFIG
     reasons: List[str] = []
     
-    if len(candles) < min_candles:
+    if len(candles) < cfg.min_candles:
         return ClarityResult(
             score=0,
             is_clear=False,
@@ -342,32 +340,41 @@ def analyze_clarity(
             reasoning=["Insufficient candle data"]
         )
     
-    swing_points = detect_swing_points(candles, lookback=3)
+    swing_points = detect_swing_points(candles, lookback=cfg.swing_lookback)
     classified_swings = classify_swing_points(swing_points)
     trend = determine_trend(candles, classified_swings)
     
-    trend_consistency = calculate_trend_consistency(classified_swings, trend)
+    trend_consistency = calculate_weighted_trend_consistency(
+        classified_swings, 
+        trend,
+        use_recency=cfg.use_recency_weighting,
+        use_size_weight=cfg.use_swing_size_weighting
+    )
     reasons.append(f"Trend consistency: {trend_consistency * 100:.0f}%")
     
-    zones = detect_zones(candles, "neutral", candles[-1].close)
+    swing_quality = calculate_swing_quality_score(classified_swings)
+    reasons.append(f"Swing quality: {swing_quality * 100:.0f}%")
+    
+    zones = detect_zones(candles, "neutral", candles[-1].close, filter_overlaps=cfg.filter_overlapping_zones)
     unmitigated = [z for z in zones.all_zones if not z.mitigated]
     
-    zone_clarity = calculate_zone_clarity(unmitigated)
+    zone_clarity = calculate_zone_clarity(unmitigated, max_zones=cfg.max_zones_for_clarity)
     reasons.append(f"Zone clarity: {zone_clarity * 100:.0f}% ({len(unmitigated)} unmitigated zones)")
     
-    structure_clarity = calculate_structure_clarity(classified_swings)
+    structure_clarity = calculate_structure_clarity(classified_swings, min_swings=cfg.min_swing_points_required)
     reasons.append(f"Structure clarity: {structure_clarity * 100:.0f}%")
     
     score = round(
-        (trend_consistency * 35) +
-        (zone_clarity * 35) +
-        (structure_clarity * 30)
+        (trend_consistency * 30) +
+        (zone_clarity * 30) +
+        (structure_clarity * 25) +
+        (swing_quality * 15)
     )
     
     is_clear = (
-        score >= min_clarity_score and
-        len(classified_swings) >= min_swings and
-        len(unmitigated) >= min_zones
+        score >= cfg.min_clarity_score and
+        len(classified_swings) >= cfg.min_swing_points_required and
+        len(unmitigated) >= cfg.min_zones_required
     )
     
     return ClarityResult(
@@ -790,8 +797,9 @@ def detect_entry(
 class SMCStrategy(BaseStrategy):
     """Smart Money Concepts trading strategy."""
     
-    def __init__(self):
+    def __init__(self, config: Optional[SMCClarityConfig] = None):
         super().__init__(SMC_CONFIG)
+        self.smc_config = config or DEFAULT_SMC_CONFIG
     
     async def analyze(self, instrument: InstrumentData) -> StrategyResult:
         """Analyze instrument using SMC methodology."""
@@ -823,14 +831,14 @@ class SMCStrategy(BaseStrategy):
                 )
             
             context_candles = data.d1 if data.d1 else data.h4
-            swing_points = detect_swing_points(context_candles, lookback=3)
+            swing_points = detect_swing_points(context_candles, lookback=self.smc_config.swing_lookback)
             h4_trend = determine_trend(context_candles, swing_points)
             
             control = "buyers" if h4_trend == TrendDirection.BULLISH else "sellers" if h4_trend == TrendDirection.BEARISH else "neutral"
             self.log_analysis(f"1D Context: {control}, Trend: {h4_trend.value}")
             
             major_zone_candles = self._get_major_zone_candles(data, tf_selection.major_zone_tf)
-            major_zones_result = detect_zones(major_zone_candles, control, current_price)
+            major_zones_result = detect_zones(major_zone_candles, control, current_price, filter_overlaps=self.smc_config.filter_overlapping_zones)
             self.log_analysis(f"{tf_selection.major_zone_tf} Major Zones: {len(major_zones_result.tradable_zones)} zones found")
             
             if not major_zones_result.tradable_zones:
@@ -909,10 +917,10 @@ class SMCStrategy(BaseStrategy):
     
     def _select_timeframes(self, data: MultiTimeframeData) -> TimeframeSelection:
         """Select best timeframes based on clarity analysis."""
-        d1_clarity = analyze_clarity(data.d1) if data.d1 else ClarityResult(0, False, 0, 1.0, False, [])
-        h4_clarity = analyze_clarity(data.h4) if data.h4 else ClarityResult(0, False, 0, 1.0, False, [])
-        m15_clarity = analyze_clarity(data.m15) if data.m15 else ClarityResult(0, False, 0, 1.0, False, [])
-        m5_clarity = analyze_clarity(data.m5) if data.m5 else ClarityResult(0, False, 0, 1.0, False, [])
+        d1_clarity = analyze_clarity(data.d1, "1D", self.smc_config) if data.d1 else ClarityResult(0, False, 0, 1.0, False, [])
+        h4_clarity = analyze_clarity(data.h4, "4H", self.smc_config) if data.h4 else ClarityResult(0, False, 0, 1.0, False, [])
+        m15_clarity = analyze_clarity(data.m15, "15M", self.smc_config) if data.m15 else ClarityResult(0, False, 0, 1.0, False, [])
+        m5_clarity = analyze_clarity(data.m5, "5M", self.smc_config) if data.m5 else ClarityResult(0, False, 0, 1.0, False, [])
         
         major_zone_tf: Timeframe = "4H" if h4_clarity.score >= 50 else "2H"
         zone_id_tf: Timeframe = "15M" if m15_clarity.score >= 50 else "30M"
