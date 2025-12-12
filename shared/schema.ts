@@ -251,3 +251,26 @@ export const insertPendingSetupSchema = createInsertSchema(pendingSetups).omit({
 
 export type InsertPendingSetup = z.infer<typeof insertPendingSetupSchema>;
 export type PendingSetup = typeof pendingSetups.$inferSelect;
+
+export const interestRates = pgTable("interest_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  country: text("country").notNull(),
+  currency: text("currency").notNull().unique(),
+  centralBank: text("central_bank").notNull(),
+  centralBankCode: text("central_bank_code").notNull(),
+  currentRate: decimal("current_rate", { precision: 6, scale: 3 }).notNull(),
+  previousRate: decimal("previous_rate", { precision: 6, scale: 3 }),
+  changeInBps: integer("change_in_bps").default(0),
+  lastMeeting: text("last_meeting"),
+  nextMeeting: text("next_meeting"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInterestRateSchema = createInsertSchema(interestRates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInterestRate = z.infer<typeof insertInterestRateSchema>;
+export type InterestRate = typeof interestRates.$inferSelect;

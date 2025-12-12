@@ -5,6 +5,7 @@ import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
+import { interestRateScraper } from "./scrapers/interestRateScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
 import { notificationService } from "./services/notificationService";
@@ -255,6 +256,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete event" });
+    }
+  });
+
+  app.get("/api/interest-rates", async (req, res) => {
+    try {
+      let rates = await storage.getInterestRates();
+      if (rates.length === 0) {
+        const scrapedRates = await interestRateScraper.scrape();
+        const liveRates = scrapedRates.filter(r => r.isLiveData);
+        if (liveRates.length === 0) {
+          return res.status(503).json({ error: "Interest rates temporarily unavailable - no live data" });
+        }
+        res.json(liveRates);
+        return;
+      }
+      res.json(rates);
+    } catch (error) {
+      console.error('Error fetching interest rates:', error);
+      res.status(500).json({ error: "Failed to fetch interest rates" });
+    }
+  });
+
+  app.get("/api/interest-rates/:currency", async (req, res) => {
+    try {
+      let rate = await storage.getInterestRateByCurrency(req.params.currency);
+      if (!rate) {
+        const scrapedRate = await interestRateScraper.getInterestRateForCurrency(req.params.currency);
+        if (!scrapedRate || !scrapedRate.isLiveData) {
+          return res.status(404).json({ error: "Interest rate not found for currency" });
+        }
+        res.json(scrapedRate);
+        return;
+      }
+      res.json(rate);
+    } catch (error) {
+      console.error('Error fetching interest rate:', error);
+      res.status(500).json({ error: "Failed to fetch interest rate" });
+    }
+  });
+
+  app.get("/api/interest-rates/differential/:pair", async (req, res) => {
+    try {
+      const pair = req.params.pair.toUpperCase();
+      const [base, quote] = pair.includes('/') ? pair.split('/') : [pair.substring(0, 3), pair.substring(3, 6)];
+      
+      if (!base || !quote) {
+        return res.status(400).json({ error: "Invalid currency pair format" });
+      }
+      
+      const differential = await interestRateScraper.getInterestRateDifferential(base, quote);
+      if (!differential) {
+        return res.status(404).json({ error: "Could not calculate differential for this pair" });
+      }
+      
+      res.json({
+        pair: `${base}/${quote}`,
+        ...differential,
+        carryTradeDirection: differential.differential > 0 ? `Long ${base}/${quote}` : `Short ${base}/${quote}`,
+      });
+    } catch (error) {
+      console.error('Error calculating interest rate differential:', error);
+      res.status(500).json({ error: "Failed to calculate differential" });
     }
   });
 

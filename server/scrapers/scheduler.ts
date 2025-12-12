@@ -1,9 +1,11 @@
 import * as cron from 'node-cron';
 import { economicCalendarScraper } from './economicCalendarScraper';
+import { interestRateScraper } from './interestRateScraper';
 import { cacheService } from './cacheService';
 import { scraperSettings } from './config';
 import { telegramNotificationService } from '../services/telegramNotification';
 import { signalScannerService } from '../services/signalScanner';
+import { storage } from '../storage';
 
 export class ScraperScheduler {
   private upcomingEventsJob: ReturnType<typeof cron.schedule> | null = null;
@@ -12,6 +14,7 @@ export class ScraperScheduler {
   private notificationJob: ReturnType<typeof cron.schedule> | null = null;
   private signalScanJob: ReturnType<typeof cron.schedule> | null = null;
   private signalCleanupJob: ReturnType<typeof cron.schedule> | null = null;
+  private interestRateJob: ReturnType<typeof cron.schedule> | null = null;
   private scraperJobs: ReturnType<typeof cron.schedule>[] = [];
   private sessionAwareScanJobs: ReturnType<typeof cron.schedule>[] = [];
   private isRunning = false;
@@ -54,6 +57,42 @@ export class ScraperScheduler {
       console.log('Cleanup completed');
     } catch (error) {
       console.error('Error during cleanup:', error);
+    }
+  }
+
+  async fetchInterestRates(): Promise<void> {
+    try {
+      console.log('[InterestRates] Fetching latest rates...');
+      const rates = await interestRateScraper.scrape();
+      console.log(`[InterestRates] Fetched ${rates.length} rates`);
+      
+      const liveRates = rates.filter(r => r.isLiveData);
+      if (liveRates.length === 0) {
+        console.log('[InterestRates] No live data scraped, skipping database persistence');
+        return;
+      }
+      
+      for (const rate of liveRates) {
+        try {
+          await storage.upsertInterestRate({
+            country: rate.country,
+            currency: rate.currency,
+            centralBank: rate.centralBank,
+            centralBankCode: rate.centralBankCode,
+            currentRate: rate.currentRate.toString(),
+            previousRate: rate.previousRate.toString(),
+            changeInBps: rate.changeInBps,
+            lastMeeting: rate.lastMeeting,
+            nextMeeting: rate.nextMeeting,
+            lastUpdated: rate.lastUpdated,
+          });
+        } catch (err) {
+          console.error(`[InterestRates] Failed to persist ${rate.currency}:`, err);
+        }
+      }
+      console.log(`[InterestRates] Persisted ${liveRates.length} live rates to database`);
+    } catch (error) {
+      console.error('[InterestRates] Error during fetch:', error);
     }
   }
 
@@ -155,12 +194,19 @@ export class ScraperScheduler {
       await signalScannerService.cleanupExpiredSignals();
     });
 
+    this.interestRateJob = cron.schedule('0 */6 * * *', async () => {
+      console.log('[InterestRates] Scheduled update...');
+      await this.fetchInterestRates();
+    });
+
     console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
     console.log('Scheduled Telegram notifications: every 5 minutes');
     console.log('Scheduled signal scanning: every 1 minute');
     console.log('Scheduled signal cleanup: every 2 hours');
+    console.log('Scheduled interest rate updates: every 6 hours');
 
     this.fetchEvents();
+    this.fetchInterestRates();
     signalScannerService.scanMarkets();
   }
 
@@ -201,6 +247,11 @@ export class ScraperScheduler {
     if (this.signalCleanupJob) {
       this.signalCleanupJob.stop();
       this.signalCleanupJob = null;
+    }
+
+    if (this.interestRateJob) {
+      this.interestRateJob.stop();
+      this.interestRateJob = null;
     }
     
     console.log('Scheduler stopped');

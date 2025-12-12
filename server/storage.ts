@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, trades, users, tradingSignals, pendingSetups } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, trades, users, tradingSignals, pendingSetups, interestRates } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -32,6 +32,10 @@ export interface IStorage {
   createPendingSetup(setup: InsertPendingSetup): Promise<PendingSetup>;
   updatePendingSetup(id: string, setup: Partial<InsertPendingSetup>): Promise<PendingSetup | undefined>;
   deletePendingSetup(id: string): Promise<boolean>;
+  
+  getInterestRates(): Promise<InterestRate[]>;
+  getInterestRateByCurrency(currency: string): Promise<InterestRate | undefined>;
+  upsertInterestRate(rate: InsertInterestRate): Promise<InterestRate>;
 }
 
 export class DbStorage implements IStorage {
@@ -358,6 +362,45 @@ export class DbStorage implements IStorage {
 
   async deletePendingSetup(id: string): Promise<boolean> {
     return this.pendingSetupsCache.delete(id);
+  }
+
+  async getInterestRates(): Promise<InterestRate[]> {
+    try {
+      const result = await db.select().from(interestRates);
+      return result;
+    } catch (error) {
+      console.error('[Storage] Error fetching interest rates:', error);
+      return [];
+    }
+  }
+
+  async getInterestRateByCurrency(currency: string): Promise<InterestRate | undefined> {
+    try {
+      const result = await db.select().from(interestRates).where(eq(interestRates.currency, currency.toUpperCase())).limit(1);
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error fetching interest rate:', error);
+      return undefined;
+    }
+  }
+
+  async upsertInterestRate(rate: InsertInterestRate): Promise<InterestRate> {
+    try {
+      const existing = await this.getInterestRateByCurrency(rate.currency);
+      if (existing) {
+        const result = await db.update(interestRates)
+          .set({ ...rate, lastUpdated: new Date() })
+          .where(eq(interestRates.currency, rate.currency))
+          .returning();
+        return result[0];
+      } else {
+        const result = await db.insert(interestRates).values(rate).returning();
+        return result[0];
+      }
+    } catch (error) {
+      console.error('[Storage] Error upserting interest rate:', error);
+      throw error;
+    }
   }
 }
 
