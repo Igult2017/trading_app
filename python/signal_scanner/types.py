@@ -102,6 +102,7 @@ class Zone:
     origin_candle_index: int = 0
     touches: int = 0
     mitigated: bool = False
+    created_at: int = 0  # Timestamp for freshness decay
     
     @property
     def mid_price(self) -> float:
@@ -113,6 +114,26 @@ class Zone:
     
     def price_in_zone(self, price: float) -> bool:
         return self.bottom_price <= price <= self.top_price
+    
+    def overlaps_with(self, other: 'Zone') -> bool:
+        """Check if this zone overlaps with another zone."""
+        return not (self.top_price < other.bottom_price or self.bottom_price > other.top_price)
+    
+    def get_age_hours(self, current_timestamp: int) -> float:
+        """Get zone age in hours for freshness decay."""
+        if self.created_at == 0:
+            return 0.0
+        return (current_timestamp - self.created_at) / (1000 * 60 * 60)
+    
+    def freshness_score(self, current_timestamp: int, max_age_hours: float = 168.0) -> float:
+        """
+        Calculate zone freshness score (0-1).
+        Newer zones score higher. Default max age is 168 hours (7 days).
+        """
+        age = self.get_age_hours(current_timestamp)
+        if age >= max_age_hours:
+            return 0.0
+        return 1.0 - (age / max_age_hours)
 
 
 @dataclass
@@ -123,6 +144,7 @@ class SwingPoint:
     is_high: bool
     timestamp: int = 0
     swing_type: Optional['SwingType'] = None  # HH, HL, LH, LL
+    swing_size: float = 0.0  # Price distance from previous swing (quality scoring)
 
 
 @dataclass 

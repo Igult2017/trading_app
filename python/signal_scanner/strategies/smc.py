@@ -41,6 +41,27 @@ SMC_CONFIG = StrategyConfig(
 
 
 @dataclass
+class SMCClarityConfig:
+    """Configurable parameters for SMC clarity analysis."""
+    min_clarity_score: int = 60
+    min_zones_required: int = 1
+    max_zones_for_clarity: int = 5
+    min_swing_points_required: int = 4
+    min_trend_consistency: float = 0.6
+    min_candles: int = 20
+    swing_lookback: int = 5
+    zone_max_age_hours: float = 168.0
+    use_recency_weighting: bool = True
+    use_swing_size_weighting: bool = True
+    filter_overlapping_zones: bool = True
+    min_rr_ratio: float = 1.5
+    min_entry_confidence: int = 60
+
+
+DEFAULT_SMC_CONFIG = SMCClarityConfig()
+
+
+@dataclass
 class ClarityResult:
     """Result of clarity analysis for a timeframe (matches TypeScript version)."""
     score: float
@@ -81,6 +102,7 @@ class EntryResult:
 def classify_swing_points(swing_points: List[SwingPoint]) -> List[SwingPoint]:
     """
     Classify swing points as HH/HL/LH/LL based on previous swings.
+    Also calculates swing_size for quality scoring.
     Matches TypeScript implementation by seeding initial values with -Infinity/Infinity.
     This ensures the first high/low always gets classified.
     """
@@ -92,11 +114,18 @@ def classify_swing_points(swing_points: List[SwingPoint]) -> List[SwingPoint]:
     last_lower_low = float('inf')
     last_higher_low = float('-inf')
     last_lower_high = float('inf')
+    prev_high_price: Optional[float] = None
+    prev_low_price: Optional[float] = None
     
     for sp in swing_points:
         swing_type: Optional[SwingType] = None
+        swing_size: float = 0.0
         
         if sp.is_high:
+            if prev_high_price is not None:
+                swing_size = abs(sp.price - prev_high_price)
+            prev_high_price = sp.price
+            
             if sp.price > last_higher_high:
                 swing_type = SwingType.HH
                 last_higher_high = sp.price
@@ -107,6 +136,10 @@ def classify_swing_points(swing_points: List[SwingPoint]) -> List[SwingPoint]:
             else:
                 swing_type = SwingType.LH
         else:
+            if prev_low_price is not None:
+                swing_size = abs(sp.price - prev_low_price)
+            prev_low_price = sp.price
+            
             if sp.price < last_lower_low:
                 swing_type = SwingType.LL
                 last_lower_low = sp.price
@@ -122,7 +155,8 @@ def classify_swing_points(swing_points: List[SwingPoint]) -> List[SwingPoint]:
             index=sp.index,
             is_high=sp.is_high,
             timestamp=sp.timestamp,
-            swing_type=swing_type
+            swing_type=swing_type,
+            swing_size=swing_size
         )
         classified.append(new_sp)
     
@@ -158,6 +192,77 @@ def calculate_trend_consistency(swing_points: List[SwingPoint], trend: TrendDire
     balance = abs(hh_hl - ll_lh) / len(recent_swings)
     
     return 1 - balance
+
+
+def calculate_weighted_trend_consistency(
+    swing_points: List[SwingPoint], 
+    trend: TrendDirection,
+    use_recency: bool = True,
+    use_size_weight: bool = True
+) -> float:
+    """
+    Calculate weighted trend consistency with recency and size weighting.
+    
+    Args:
+        swing_points: Classified swing points
+        trend: Expected trend direction
+        use_recency: Apply recency weighting (newer swings matter more)
+        use_size_weight: Apply swing size weighting (larger swings matter more)
+    
+    Returns 0-1 score where higher = more consistent with trend.
+    """
+    if len(swing_points) < 4:
+        return 0.0
+    
+    recent_swings = swing_points[-8:]
+    n = len(recent_swings)
+    
+    total_weight = 0.0
+    weighted_score = 0.0
+    
+    max_swing_size = max((s.swing_size for s in recent_swings), default=1.0) or 1.0
+    
+    for i, swing in enumerate(recent_swings):
+        recency_weight = (i + 1) / n if use_recency else 1.0
+        size_weight = (swing.swing_size / max_swing_size) if use_size_weight and swing.swing_size > 0 else 1.0
+        combined_weight = recency_weight * (0.5 + 0.5 * size_weight)
+        
+        is_trend_aligned = False
+        if trend == TrendDirection.BULLISH:
+            is_trend_aligned = swing.swing_type in (SwingType.HH, SwingType.HL)
+        elif trend == TrendDirection.BEARISH:
+            is_trend_aligned = swing.swing_type in (SwingType.LL, SwingType.LH)
+        else:
+            is_trend_aligned = True
+        
+        weighted_score += combined_weight if is_trend_aligned else 0.0
+        total_weight += combined_weight
+    
+    return weighted_score / total_weight if total_weight > 0 else 0.0
+
+
+def calculate_swing_quality_score(swing_points: List[SwingPoint]) -> float:
+    """
+    Calculate overall swing quality score based on swing sizes.
+    
+    Higher score = more significant swing structures (larger moves).
+    Returns 0-1 score.
+    """
+    if len(swing_points) < 2:
+        return 0.0
+    
+    recent_swings = swing_points[-10:]
+    swing_sizes = [s.swing_size for s in recent_swings if s.swing_size > 0]
+    
+    if not swing_sizes:
+        return 0.5
+    
+    avg_size = sum(swing_sizes) / len(swing_sizes)
+    max_size = max(swing_sizes)
+    
+    consistency = 1.0 - (max(swing_sizes) - min(swing_sizes)) / max_size if max_size > 0 else 0.5
+    
+    return min(1.0, 0.5 + 0.5 * consistency)
 
 
 def calculate_zone_clarity(zones: List[Zone], max_zones: int = 10) -> float:
@@ -334,10 +439,30 @@ def determine_trend(candles: List[Candle], swing_points: List[SwingPoint]) -> Tr
     return TrendDirection.SIDEWAYS
 
 
+def filter_overlapping_zones(zones: List[Zone]) -> List[Zone]:
+    """
+    Filter overlapping zones, keeping only the strongest one in each overlap group.
+    """
+    if len(zones) <= 1:
+        return zones
+    
+    strength_order = {"strong": 3, "moderate": 2, "weak": 1}
+    sorted_zones = sorted(zones, key=lambda z: (strength_order.get(z.strength, 0), -z.origin_candle_index), reverse=True)
+    
+    filtered = []
+    for zone in sorted_zones:
+        has_overlap = any(zone.overlaps_with(existing) for existing in filtered)
+        if not has_overlap:
+            filtered.append(zone)
+    
+    return filtered
+
+
 def detect_zones(
     candles: List[Candle],
     control: str,
-    current_price: float
+    current_price: float,
+    filter_overlaps: bool = True
 ) -> ZoneResult:
     """
     Detect supply and demand zones.
@@ -345,12 +470,19 @@ def detect_zones(
     Looks for:
     - Strong impulse candles followed by consolidation
     - Unmitigated zones (not yet tested by price)
+    
+    Args:
+        candles: Price candles
+        control: Market control ("buyers", "sellers", "neutral")
+        current_price: Current price for distance calculation
+        filter_overlaps: Remove overlapping zones, keeping strongest
     """
     if len(candles) < 10:
         return ZoneResult([], [], [], [], ["Insufficient candles"])
     
     zones: List[Zone] = []
     reasoning = []
+    current_timestamp = candles[-1].timestamp if candles else 0
     
     for i in range(2, len(candles) - 1):
         candle = candles[i]
@@ -370,13 +502,12 @@ def detect_zones(
                 bottom_price=min(prev_candle.low, candles[i-2].low if i >= 2 else prev_candle.low),
                 type=ZoneType.DEMAND,
                 strength="strong" if candle.body_ratio > 0.7 else "moderate",
-                origin_candle_index=i - 1
+                origin_candle_index=i - 1,
+                created_at=prev_candle.timestamp
             )
             
-            is_mitigated = False
             for j in range(i + 1, len(candles)):
                 if candles[j].low < zone.bottom_price:
-                    is_mitigated = True
                     zone.mitigated = True
                     break
             
@@ -388,17 +519,19 @@ def detect_zones(
                 bottom_price=prev_candle.low,
                 type=ZoneType.SUPPLY,
                 strength="strong" if candle.body_ratio > 0.7 else "moderate",
-                origin_candle_index=i - 1
+                origin_candle_index=i - 1,
+                created_at=prev_candle.timestamp
             )
             
-            is_mitigated = False
             for j in range(i + 1, len(candles)):
                 if candles[j].high > zone.top_price:
-                    is_mitigated = True
                     zone.mitigated = True
                     break
             
             zones.append(zone)
+    
+    if filter_overlaps:
+        zones = filter_overlapping_zones(zones)
     
     unmitigated_supply = [z for z in zones if z.type == ZoneType.SUPPLY and not z.mitigated]
     unmitigated_demand = [z for z in zones if z.type == ZoneType.DEMAND and not z.mitigated]
@@ -406,6 +539,10 @@ def detect_zones(
     tradable_zones = []
     for zone in zones:
         if zone.mitigated:
+            continue
+        
+        freshness = zone.freshness_score(current_timestamp) if current_timestamp > 0 else 1.0
+        if freshness < 0.1:
             continue
         
         if zone.type == ZoneType.DEMAND and control in ("buyers", "neutral"):
@@ -840,6 +977,7 @@ class SMCStrategy(BaseStrategy):
     ) -> StrategySignal:
         """Build a complete trading signal."""
         setup = entry_result.setup
+        assert setup is not None, "Entry setup must exist when building signal"
         
         market_context = MarketContext(
             h4_trend_direction=h4_trend,
