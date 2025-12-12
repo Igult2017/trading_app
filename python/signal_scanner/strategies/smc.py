@@ -56,6 +56,10 @@ class SMCClarityConfig:
     filter_overlapping_zones: bool = True
     min_rr_ratio: float = 1.5
     min_entry_confidence: int = 60
+    use_volume_confirmation: bool = True
+    volume_lookback: int = 20
+    strong_volume_threshold: float = 2.0
+    moderate_volume_threshold: float = 1.3
 
 
 DEFAULT_SMC_CONFIG = SMCClarityConfig()
@@ -265,6 +269,84 @@ def calculate_swing_quality_score(swing_points: List[SwingPoint]) -> float:
     return min(1.0, 0.5 + 0.5 * consistency)
 
 
+def calculate_relative_volume(candles: List[Candle], lookback: int = 20) -> List[float]:
+    """
+    Calculate relative volume for each candle compared to average.
+    
+    Returns list of relative volume ratios (1.0 = average, 2.0 = 2x average).
+    """
+    if len(candles) < lookback:
+        return [1.0] * len(candles)
+    
+    result = []
+    for i in range(len(candles)):
+        start = max(0, i - lookback)
+        window = candles[start:i] if i > 0 else candles[:1]
+        
+        if not window:
+            result.append(1.0)
+            continue
+        
+        avg_volume = sum(c.volume for c in window) / len(window)
+        if avg_volume > 0:
+            result.append(candles[i].volume / avg_volume)
+        else:
+            result.append(1.0)
+    
+    return result
+
+
+def calculate_volume_confirmation(candle: Candle, avg_volume: float, threshold: float = 1.3) -> bool:
+    """
+    Check if candle has above-average volume for confirmation.
+    
+    Args:
+        candle: The candle to check
+        avg_volume: Average volume for comparison
+        threshold: Multiplier threshold (1.3 = 30% above average)
+    
+    Returns True if volume confirms price action.
+    """
+    if avg_volume <= 0 or candle.volume <= 0:
+        return True  # No volume data, don't penalize
+    return candle.volume >= avg_volume * threshold
+
+
+def get_volume_strength_modifier(
+    impulse_candle: Candle,
+    candles: List[Candle],
+    candle_index: int,
+    lookback: int = 20
+) -> str:
+    """
+    Get zone strength modifier based on volume confirmation.
+    
+    Returns "strong", "moderate", or "weak" based on volume analysis.
+    """
+    if impulse_candle.volume <= 0:
+        return "moderate"  # No volume data
+    
+    start = max(0, candle_index - lookback)
+    window = candles[start:candle_index] if candle_index > 0 else []
+    
+    if not window:
+        return "moderate"
+    
+    avg_volume = sum(c.volume for c in window) / len(window)
+    
+    if avg_volume <= 0:
+        return "moderate"
+    
+    relative_vol = impulse_candle.volume / avg_volume
+    
+    if relative_vol >= 2.0:
+        return "strong"
+    elif relative_vol >= 1.3:
+        return "moderate"
+    else:
+        return "weak"
+
+
 def calculate_zone_clarity(zones: List[Zone], max_zones: int = 10) -> float:
     """
     Calculate zone clarity score based on quality and balance.
@@ -355,7 +437,12 @@ def analyze_clarity(
     swing_quality = calculate_swing_quality_score(classified_swings)
     reasons.append(f"Swing quality: {swing_quality * 100:.0f}%")
     
-    zones = detect_zones(candles, "neutral", candles[-1].close, filter_overlaps=cfg.filter_overlapping_zones)
+    zones = detect_zones(
+        candles, "neutral", candles[-1].close, 
+        filter_overlaps=cfg.filter_overlapping_zones,
+        use_volume=cfg.use_volume_confirmation,
+        volume_lookback=cfg.volume_lookback
+    )
     unmitigated = [z for z in zones.all_zones if not z.mitigated]
     
     zone_clarity = calculate_zone_clarity(unmitigated, max_zones=cfg.max_zones_for_clarity)
@@ -469,7 +556,9 @@ def detect_zones(
     candles: List[Candle],
     control: str,
     current_price: float,
-    filter_overlaps: bool = True
+    filter_overlaps: bool = True,
+    use_volume: bool = True,
+    volume_lookback: int = 20
 ) -> ZoneResult:
     """
     Detect supply and demand zones.
@@ -477,12 +566,15 @@ def detect_zones(
     Looks for:
     - Strong impulse candles followed by consolidation
     - Unmitigated zones (not yet tested by price)
+    - Volume confirmation for zone strength (optional)
     
     Args:
         candles: Price candles
         control: Market control ("buyers", "sellers", "neutral")
         current_price: Current price for distance calculation
         filter_overlaps: Remove overlapping zones, keeping strongest
+        use_volume: Use volume for zone strength validation
+        volume_lookback: Lookback period for volume averaging
     """
     if len(candles) < 10:
         return ZoneResult([], [], [], [], ["Insufficient candles"])
@@ -503,12 +595,27 @@ def detect_zones(
         if not is_impulse:
             continue
         
+        price_strength = "strong" if candle.body_ratio > 0.7 else "moderate"
+        
+        if use_volume and candle.volume > 0:
+            volume_strength = get_volume_strength_modifier(candle, candles, i, volume_lookback)
+            strength_map = {"strong": 2, "moderate": 1, "weak": 0}
+            combined = (strength_map[price_strength] + strength_map[volume_strength]) / 2
+            if combined >= 1.5:
+                final_strength = "strong"
+            elif combined >= 0.5:
+                final_strength = "moderate"
+            else:
+                final_strength = "weak"
+        else:
+            final_strength = price_strength
+        
         if candle.is_bullish:
             zone = Zone(
                 top_price=prev_candle.high,
                 bottom_price=min(prev_candle.low, candles[i-2].low if i >= 2 else prev_candle.low),
                 type=ZoneType.DEMAND,
-                strength="strong" if candle.body_ratio > 0.7 else "moderate",
+                strength=final_strength,
                 origin_candle_index=i - 1,
                 created_at=prev_candle.timestamp
             )
@@ -525,7 +632,7 @@ def detect_zones(
                 top_price=max(prev_candle.high, candles[i-2].high if i >= 2 else prev_candle.high),
                 bottom_price=prev_candle.low,
                 type=ZoneType.SUPPLY,
-                strength="strong" if candle.body_ratio > 0.7 else "moderate",
+                strength=final_strength,
                 origin_candle_index=i - 1,
                 created_at=prev_candle.timestamp
             )
@@ -838,7 +945,14 @@ class SMCStrategy(BaseStrategy):
             self.log_analysis(f"1D Context: {control}, Trend: {h4_trend.value}")
             
             major_zone_candles = self._get_major_zone_candles(data, tf_selection.major_zone_tf)
-            major_zones_result = detect_zones(major_zone_candles, control, current_price, filter_overlaps=self.smc_config.filter_overlapping_zones)
+            major_zones_result = detect_zones(
+                major_zone_candles, 
+                control, 
+                current_price, 
+                filter_overlaps=self.smc_config.filter_overlapping_zones,
+                use_volume=self.smc_config.use_volume_confirmation,
+                volume_lookback=self.smc_config.volume_lookback
+            )
             self.log_analysis(f"{tf_selection.major_zone_tf} Major Zones: {len(major_zones_result.tradable_zones)} zones found")
             
             if not major_zones_result.tradable_zones:
