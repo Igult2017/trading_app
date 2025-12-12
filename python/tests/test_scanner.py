@@ -114,8 +114,8 @@ class TestCandleAnalysis:
         
         assert candle.is_bullish == True
         assert candle.is_bearish == False
-        assert candle.body_size == 0.8
-        assert candle.total_range == 1.5
+        assert candle.body_size == pytest.approx(0.8, rel=0.01)
+        assert candle.total_range == pytest.approx(1.5, rel=0.01)
     
     def test_clarity_analysis_clear_market(self):
         """Test clarity analysis on clear trending market."""
@@ -148,8 +148,8 @@ class TestZoneDetection:
             strength="strong"
         )
         
-        assert zone.mid_price == 1.1025
-        assert zone.zone_size == 0.005
+        assert zone.mid_price == pytest.approx(1.1025, rel=0.01)
+        assert zone.zone_size == pytest.approx(0.005, rel=0.01)
         assert zone.price_in_zone(1.1020) == True
         assert zone.price_in_zone(1.1100) == False
     

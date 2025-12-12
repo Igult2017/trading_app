@@ -125,6 +125,8 @@ CRYPTO: List[Instrument] = [
     Instrument("BTC/USD", "crypto", 43200),
     Instrument("ETH/USD", "crypto", 2280),
     Instrument("BNB/USD", "crypto", 315.50),
+    Instrument("XRP/USD", "crypto", 0.62),
+    Instrument("SOL/USD", "crypto", 98.50),
 ]
 
 TRADEABLE_INSTRUMENTS: List[Instrument] = (
