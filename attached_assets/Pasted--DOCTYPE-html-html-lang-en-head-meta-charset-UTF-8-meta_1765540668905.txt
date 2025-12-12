@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Market Analysis Summary</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind to use Montserrat font and custom colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#4f46e5', // Indigo-600
+                        'secondary': '#10b981', // Emerald-500 (Bullish/Positive)
+                        'negative': '#ef4444', // Red-500 (Bearish/Negative)
+                        'neutral': '#f59e0b', // Amber-500 (Watchlist/Neutral)
+                        'surface': '#f3f4f6', // Gray-100 for background
+                        'card': '#ffffff', // White for cards
+                        'text-dark': '#1f2937', // Gray-800 for main text
+                        'text-light': '#6b7280', // Gray-500 for secondary text
+                    },
+                    fontFamily: {
+                        // Switching from Poppins to Montserrat
+                        sans: ['Montserrat', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Load Montserrat font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+    </style>
+</head>
+<body class="bg-surface min-h-screen p-4 sm:p-8 font-sans antialiased text-text-dark">
+
+    <!-- Main Container - Adjusted max-w to 7xl -->
+    <div class="max-w-7xl mx-auto space-y-10">
+
+        <!-- Signal Stats Section - Prominently displayed at the top. -->
+        <div class="bg-card p-6 sm:p-8 border border-gray-200">
+            <h2 class="text-2xl font-bold mb-6 flex items-center text-primary">
+                <!-- Icon: Bar Chart 2 (Lucide) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mr-3"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
+                AI Generated Signal Bias Metrics:
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- Stat 1: Confidence. -->
+                <div class="p-4 bg-indigo-50 border border-indigo-200 text-center">
+                    <p class="text-sm font-medium text-text-light uppercase tracking-wider">Confidence Level</p>
+                    <p class="text-5xl font-extrabold text-indigo-700 mt-2 mb-3">50%</p>
+                    <!-- Progress Bar (50%). -->
+                    <div class="w-full bg-indigo-200 rounded-full h-2">
+                        <div class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width: 50%"></div>
+                    </div>
+                </div>
+
+                <!-- Stat 2: Direction. -->
+                <div class="p-4 bg-neutral-50 border border-neutral-200 text-center">
+                    <p class="text-sm font-medium text-text-light uppercase tracking-wider">Primary Direction</p>
+                    <!-- Using text-neutral for sideways/neutral status -->
+                    <p class="text-4xl font-extrabold text-neutral-700 mt-3 capitalize">Sideways</p>
+                    <div class="text-xs text-neutral-500 mt-2">(Consolidation Phase)</div>
+                </div>
+
+                <!-- Stat 3: Order Block / Zone. -->
+                <div class="p-4 bg-negative-50 border border-negative-200 text-center">
+                    <p class="text-sm font-medium text-text-light uppercase tracking-wider">Current Zone</p>
+                    <!-- Using text-negative for Supply/Resistance status -->
+                    <p class="text-4xl font-extrabold text-negative-700 mt-3 capitalize">Supply</p>
+                    <div class="text-xs text-negative-500 mt-2">(Potential Reversal)</div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- Analysis Grid for Context & Reasons (Responsive 3-Column Layout) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- 1. Market Context Card. -->
+            <div class="bg-card p-6 border border-gray-100">
+                <div class="flex items-center text-primary mb-5 border-b pb-3 border-indigo-50">
+                    <!-- Icon for Market Context (Lucide: Globe) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mr-3"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    <h2 class="text-xl font-bold">MARKET CONTEXT (MTF)</h2>
+                </div>
+                
+                <div class="space-y-4">
+                    
+                    <!-- Current Status: Status: watchlist. -->
+                    <div class="flex justify-between items-center text-base py-2 px-3 bg-gray-50 border border-gray-200">
+                        <span class="font-semibold text-text-dark">Overall Status:</span>
+                        <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full bg-neutral-100 text-neutral-700">
+                            Watchlist
+                        </span>
+                    </div>
+
+                    <p class="text-sm font-semibold text-text-light uppercase pt-2 tracking-wider">Timeframe Analysis:</p>
+                    
+                    <ul class="space-y-3 text-sm text-text-dark">
+                        <!-- Daily: s/z mitigated /Bullish market -->
+                        <li class="flex justify-between items-center">
+                            <span class="font-medium w-32 flex items-center"><span class="text-secondary text-base mr-2">&#x2713;</span> Daily:</span>
+                            <span class="inline-flex items-center px-3 py-0.5 text-xs font-medium rounded-full bg-secondary-100 text-secondary-700">
+                                S/Z Mitigated / Bullish
+                            </span>
+                        </li>
+                        <!-- 4 Hours: unmitigated d/z -->
+                        <li class="flex justify-between items-center">
+                            <span class="font-medium w-32 flex items-center"><span class="text-secondary text-base mr-2">&#x2713;</span> 4 Hours:</span>
+                            <span class="inline-flex items-center px-3 py-0.5 text-xs font-medium rounded-full bg-neutral-100 text-neutral-700">
+                                Unmitigated D/Z
+                            </span>
+                        </li>
+                        <!-- 30 Min: BOS -->
+                        <li class="flex justify-between items-center">
+                            <span class="font-medium w-32 flex items-center"><span class="text-secondary text-base mr-2">&#x2713;</span> 30 Min:</span>
+                            <span class="inline-flex items-center px-3 py-0.5 text-xs font-medium rounded-full bg-secondary-100 text-secondary-700">
+                                BOS
+                            </span>
+                        </li>
+                        <!-- 15 Min: Pullback -->
+                        <li class="flex justify-between items-center">
+                            <span class="font-medium w-32 flex items-center"><span class="text-secondary text-base mr-2">&#x2713;</span> 15 Min:</span>
+                            <span class="inline-flex items-center px-3 py-0.5 text-xs font-medium rounded-full bg-negative-100 text-negative-700">
+                                Pullback
+                            </span>
+                        </li>
+                        <!-- Entry TFs: unconfirmed at 5m/3/1m -->
+                        <li class="flex justify-between items-center">
+                            <span class="font-medium w-32">Entry TFs:</span>
+                            <span class="inline-flex items-center px-3 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-700">
+                                Unconfirmed (5M/3M/1M)
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 2. Technical Reasons Card. -->
+            <div class="bg-card p-6 border border-gray-100">
+                <div class="flex items-center text-secondary mb-5 border-b pb-3 border-secondary-50">
+                    <!-- Icon for Technical Reasons (Lucide: Zap) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mr-3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <h2 class="text-xl font-bold">TECHNICAL INDICATORS</h2>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Title for the indicators -->
+                    <p class="text-sm font-semibold text-text-light uppercase pt-2 tracking-wider">Key Confirmation Signals:</p>
+                    
+                    <ul class="space-y-3 text-sm text-text-dark">
+                        <!-- Trend: ADX above 25 -->
+                        <li class="flex justify-between items-center border-b pb-2 border-dashed border-gray-100">
+                            <span class="font-medium w-24">Trend (ADX):</span>
+                            <span class="font-semibold text-secondary">Strong ( > 25)</span>
+                        </li>
+                        <!-- Momentum: Rising RSI -->
+                        <li class="flex justify-between items-center border-b pb-2 border-dashed border-gray-100">
+                            <span class="font-medium w-24">Momentum (RSI):</span>
+                            <span class="font-semibold text-secondary">Rising</span>
+                        </li>
+                        <!-- Volume: OBV confirmed -->
+                        <li class="flex justify-between items-center border-b pb-2 border-dashed border-gray-100">
+                            <span class="font-medium w-24">Volume (OBV):</span>
+                            <span class="font-semibold text-secondary">Confirmed Divergence</span>
+                        </li>
+                        <!-- Added a placeholder for structure -->
+                        <li class="flex justify-between items-center">
+                            <span class="font-medium w-24">Moving Average:</span>
+                            <span class="font-semibold text-gray-500">Cross Pending</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 3. SMC Factors Card. -->
+            <div class="bg-card p-6 border border-gray-100">
+                <div class="flex items-center text-purple-600 mb-5 border-b pb-3 border-purple-50">
+                    <!-- Icon for SMC Factors (Lucide: Shield Check) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mr-3"><path d="M20 13c0 5-4 9-8 9s-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <h2 class="text-xl font-bold">SMC FRAMEWORK</h2>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Title for the indicators -->
+                    <p class="text-sm font-semibold text-text-light uppercase pt-2 tracking-wider">Structural Conditions:</p>
+                    
+                    <ul class="space-y-3 text-sm text-text-dark list-none pl-0">
+                        <li class="flex items-start">
+                            <span class="text-purple-600 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                            Price approaching unmitigated **4H demand zone** (High Probability POI).
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-purple-600 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                            Secondary unmitigated demand zone conformed in **30M TF** (Refinement).
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-purple-600 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                            Break of Structure (BOS) / Price Action (PA) observed in **15M TF**.
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-purple-600 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                            Waiting confirmation (e.g., Change of Character - CHoCH) in **1M/3M/5M entry TFs**.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Disclaimer/Footer Section -->
+    <footer class="max-w-7xl mx-auto mt-10 p-4">
+        <!-- White background, no shadow, no border radius -->
+        <div class="bg-card p-4">
+            <p class="text-center text-sm font-semibold text-negative">
+                DISCLAIMER: This trading signal is not financial advice, and FSDZONES does not take liability for any losses.
+            </p>
+        </div>
+    </footer>
+
+</body>
+</html>

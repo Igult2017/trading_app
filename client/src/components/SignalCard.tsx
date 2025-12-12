@@ -4,7 +4,11 @@ import {
   Target,
   TrendingUp,
   Shield,
-  BarChart2
+  BarChart2,
+  Globe,
+  Zap,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import type { TradingSignal } from '@shared/schema';
 import { LivePriceWithEntry, LiveNetGain } from './LivePriceDisplay';
@@ -182,81 +186,232 @@ export default function SignalCard({ signal, isWatchlist = false }: SignalCardPr
 
       {/* Expanded Details Section - shown when clicking on the instrument */}
       {isExpanded && (
-        <div className="pt-4 border-t border-border animate-in fade-in duration-200">
-          <div className="space-y-4">
-            {/* Market Context */}
-            {signal.marketContext && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> Market Context
-                </h4>
-                <p className="text-sm">{signal.marketContext}</p>
+        <div className="pt-6 border-t border-border animate-in fade-in duration-200 space-y-6">
+          
+          {/* Signal Stats Section - AI Generated Signal Bias Metrics */}
+          <div className="bg-card p-4 sm:p-6 border border-border rounded-md">
+            <h2 className="text-lg font-bold mb-4 flex items-center text-indigo-600 dark:text-indigo-400">
+              <BarChart2 className="w-5 h-5 mr-2" />
+              AI Generated Signal Bias Metrics
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Stat 1: Confidence */}
+              <div className="p-4 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-center rounded-md">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Confidence Level</p>
+                <p className="text-4xl font-extrabold text-indigo-700 dark:text-indigo-400 mt-2 mb-2">
+                  {signal.overallConfidence ?? 50}%
+                </p>
+                <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-2">
+                  <div 
+                    className="bg-indigo-500 h-2 rounded-full transition-all duration-500" 
+                    style={{ width: `${signal.overallConfidence ?? 50}%` }}
+                  />
+                </div>
               </div>
-            )}
 
-            {/* Technical Reasons */}
-            {signal.technicalReasons && signal.technicalReasons.length > 0 && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                  <Target className="w-3 h-3" /> Technical Reasons
-                </h4>
-                <ul className="text-sm space-y-1">
-                  {signal.technicalReasons.map((reason: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-blue-500">•</span>
-                      <span>{reason}</span>
-                    </li>
-                  ))}
+              {/* Stat 2: Direction */}
+              <div className={`p-4 text-center rounded-md border ${
+                signal.trendDirection?.toLowerCase() === 'bullish' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' 
+                  : signal.trendDirection?.toLowerCase() === 'bearish'
+                  ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
+                  : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+              }`}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Primary Direction</p>
+                <p className={`text-3xl font-extrabold mt-2 capitalize ${
+                  signal.trendDirection?.toLowerCase() === 'bullish' 
+                    ? 'text-emerald-700 dark:text-emerald-400' 
+                    : signal.trendDirection?.toLowerCase() === 'bearish'
+                    ? 'text-red-700 dark:text-red-400'
+                    : 'text-amber-700 dark:text-amber-400'
+                }`}>
+                  {signal.trendDirection || 'Sideways'}
+                </p>
+                <div className={`text-xs mt-1 ${
+                  signal.trendDirection?.toLowerCase() === 'bullish' 
+                    ? 'text-emerald-500' 
+                    : signal.trendDirection?.toLowerCase() === 'bearish'
+                    ? 'text-red-500'
+                    : 'text-amber-500'
+                }`}>
+                  ({signal.trendDirection?.toLowerCase() === 'bullish' ? 'Uptrend' : signal.trendDirection?.toLowerCase() === 'bearish' ? 'Downtrend' : 'Consolidation Phase'})
+                </div>
+              </div>
+
+              {/* Stat 3: Order Block / Zone */}
+              <div className={`p-4 text-center rounded-md border ${
+                signal.orderBlockType?.toLowerCase() === 'demand' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' 
+                  : signal.orderBlockType?.toLowerCase() === 'supply'
+                  ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
+                  : 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700'
+              }`}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Zone</p>
+                <p className={`text-3xl font-extrabold mt-2 capitalize ${
+                  signal.orderBlockType?.toLowerCase() === 'demand' 
+                    ? 'text-emerald-700 dark:text-emerald-400' 
+                    : signal.orderBlockType?.toLowerCase() === 'supply'
+                    ? 'text-red-700 dark:text-red-400'
+                    : 'text-gray-700 dark:text-gray-400'
+                }`}>
+                  {signal.orderBlockType || 'Neutral'}
+                </p>
+                <div className={`text-xs mt-1 ${
+                  signal.orderBlockType?.toLowerCase() === 'demand' 
+                    ? 'text-emerald-500' 
+                    : signal.orderBlockType?.toLowerCase() === 'supply'
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                }`}>
+                  ({signal.orderBlockType?.toLowerCase() === 'demand' ? 'Potential Bounce' : signal.orderBlockType?.toLowerCase() === 'supply' ? 'Potential Reversal' : 'No Zone'})
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Analysis Grid for Context & Reasons (Responsive 3-Column Layout) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+            {/* 1. Market Context Card */}
+            <div className="bg-card p-4 border border-border rounded-md">
+              <div className="flex items-center text-indigo-600 dark:text-indigo-400 mb-4 border-b pb-2 border-indigo-100 dark:border-indigo-900">
+                <Globe className="w-5 h-5 mr-2" />
+                <h2 className="text-base font-bold">MARKET CONTEXT (MTF)</h2>
+              </div>
+              
+              <div className="space-y-3">
+                {/* Overall Status */}
+                <div className="flex justify-between items-center gap-2 text-sm py-2 px-3 bg-muted/50 border border-border rounded">
+                  <span className="font-semibold text-foreground">Overall Status:</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${
+                    isWatchlist 
+                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' 
+                      : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                  }`}>
+                    {isWatchlist ? 'Watchlist' : 'Confirmed'}
+                  </span>
+                </div>
+
+                {signal.marketContext && (
+                  <p className="text-sm text-muted-foreground">{signal.marketContext}</p>
+                )}
+
+                <p className="text-xs font-semibold text-muted-foreground uppercase pt-1 tracking-wider">Timeframe Analysis:</p>
+                
+                {signal.technicalReasons && signal.technicalReasons.length > 0 && (
+                  <ul className="space-y-2 text-sm">
+                    {signal.technicalReasons.slice(0, 5).map((reason: string, idx: number) => (
+                      <li key={idx} className="flex justify-between items-center gap-2">
+                        <span className="font-medium flex items-center text-foreground">
+                          <Check className="text-emerald-500 w-4 h-4 mr-1" />
+                          {reason.split(':')[0] || `TF ${idx + 1}`}:
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground truncate max-w-[140px]">
+                          {reason.includes(':') ? reason.split(':').slice(1).join(':').trim() : reason}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Technical Indicators Card */}
+            <div className="bg-card p-4 border border-border rounded-md">
+              <div className="flex items-center text-emerald-600 dark:text-emerald-400 mb-4 border-b pb-2 border-emerald-100 dark:border-emerald-900">
+                <Zap className="w-5 h-5 mr-2" />
+                <h2 className="text-base font-bold">TECHNICAL INDICATORS</h2>
+              </div>
+              
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase pt-1 tracking-wider">Key Confirmation Signals:</p>
+                
+                <ul className="space-y-2 text-sm">
+                  {/* Trend Strength */}
+                  <li className="flex justify-between items-center border-b pb-2 border-dashed border-border">
+                    <span className="font-medium text-foreground">Trend (ADX):</span>
+                    <span className={`font-semibold ${
+                      signal.trendStrength?.toLowerCase() === 'strong' 
+                        ? 'text-emerald-600 dark:text-emerald-400' 
+                        : signal.trendStrength?.toLowerCase() === 'weak'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground'
+                    }`}>
+                      {signal.trendStrength || 'Moderate'}
+                    </span>
+                  </li>
+                  {/* Momentum */}
+                  <li className="flex justify-between items-center border-b pb-2 border-dashed border-border">
+                    <span className="font-medium text-foreground">Momentum (RSI):</span>
+                    <span className={`font-semibold ${
+                      signal.trendDirection?.toLowerCase() === 'bullish' 
+                        ? 'text-emerald-600 dark:text-emerald-400' 
+                        : signal.trendDirection?.toLowerCase() === 'bearish'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}>
+                      {signal.trendDirection?.toLowerCase() === 'bullish' ? 'Rising' : signal.trendDirection?.toLowerCase() === 'bearish' ? 'Falling' : 'Neutral'}
+                    </span>
+                  </li>
+                  {/* Volume */}
+                  <li className="flex justify-between items-center border-b pb-2 border-dashed border-border">
+                    <span className="font-medium text-foreground">Volume (OBV):</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {(signal.overallConfidence ?? 0) >= 70 ? 'Confirmed' : 'Pending'}
+                    </span>
+                  </li>
+                  {/* Structure */}
+                  <li className="flex justify-between items-center">
+                    <span className="font-medium text-foreground">Structure:</span>
+                    <span className="font-semibold text-muted-foreground">
+                      {signal.type?.toLowerCase() === 'buy' ? 'Higher Highs' : signal.type?.toLowerCase() === 'sell' ? 'Lower Lows' : 'Range'}
+                    </span>
+                  </li>
                 </ul>
               </div>
-            )}
+            </div>
 
-            {/* SMC Factors */}
-            {signal.smcFactors && signal.smcFactors.length > 0 && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                  <Shield className="w-3 h-3" /> SMC Factors
-                </h4>
-                <ul className="text-sm space-y-1">
-                  {signal.smcFactors.map((factor: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-blue-500">•</span>
-                      <span>{factor}</span>
-                    </li>
-                  ))}
-                </ul>
+            {/* 3. SMC Framework Card */}
+            <div className="bg-card p-4 border border-border rounded-md">
+              <div className="flex items-center text-purple-600 dark:text-purple-400 mb-4 border-b pb-2 border-purple-100 dark:border-purple-900">
+                <ShieldCheck className="w-5 h-5 mr-2" />
+                <h2 className="text-base font-bold">SMC FRAMEWORK</h2>
               </div>
-            )}
-
-            {/* Additional Stats */}
-            <div className="space-y-1">
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                <BarChart2 className="w-3 h-3" /> Signal Stats
-              </h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {signal.overallConfidence && (
-                  <div>
-                    <span className="text-muted-foreground">Confidence:</span>
-                    <span className={`ml-1 font-semibold ${winRateColor}`}>{signal.overallConfidence}%</span>
-                  </div>
-                )}
-                {signal.trendStrength && (
-                  <div>
-                    <span className="text-muted-foreground">Trend:</span>
-                    <span className="ml-1 font-semibold">{signal.trendStrength}</span>
-                  </div>
-                )}
-                {signal.trendDirection && (
-                  <div>
-                    <span className="text-muted-foreground">Direction:</span>
-                    <span className="ml-1 font-semibold">{signal.trendDirection}</span>
-                  </div>
-                )}
-                {signal.orderBlockType && (
-                  <div>
-                    <span className="text-muted-foreground">Order Block:</span>
-                    <span className="ml-1 font-semibold">{signal.orderBlockType}</span>
-                  </div>
+              
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase pt-1 tracking-wider">Structural Conditions:</p>
+                
+                {signal.smcFactors && signal.smcFactors.length > 0 ? (
+                  <ul className="space-y-2 text-sm">
+                    {signal.smcFactors.map((factor: string, idx: number) => (
+                      <li key={idx} className="flex items-start">
+                        <span className="text-purple-600 dark:text-purple-400 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                        <span className="text-foreground">{factor}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-start">
+                      <span className="text-purple-600 dark:text-purple-400 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                      <span className="text-foreground">
+                        Price approaching {signal.orderBlockType?.toLowerCase() === 'demand' ? 'demand' : 'supply'} zone
+                      </span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-purple-600 dark:text-purple-400 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                      <span className="text-foreground">
+                        {signal.type?.toLowerCase() === 'buy' ? 'Bullish' : 'Bearish'} structure on {signal.primaryTimeframe || '4H'} timeframe
+                      </span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-purple-600 dark:text-purple-400 mr-2 flex-shrink-0 pt-0.5">&#x2022;</span>
+                      <span className="text-foreground">
+                        {isWatchlist ? 'Awaiting entry confirmation' : 'Entry confirmed'}
+                      </span>
+                    </li>
+                  </ul>
                 )}
               </div>
             </div>
