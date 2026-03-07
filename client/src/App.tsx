@@ -23,7 +23,7 @@ function InnerPages() {
   return (
     <div className="flex flex-col min-h-screen w-full">
       <Header />
-      <main className="flex-1 bg-background">
+      <main className="flex-1 bg-background flex flex-col">
         <Switch>
           <Route path="/journal" component={Journal} />
           <Route path="/dashboard" component={Dashboard} />
