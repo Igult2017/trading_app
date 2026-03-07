@@ -96,7 +96,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           </div>
         </div>
 
-        <div className={`${subNavBg} border-b ${sectionBorder} hidden lg:block overflow-x-auto no-scrollbar`}>
+        <div className={`${subNavBg} border-b ${sectionBorder} hidden lg:block overflow-x-auto no-scrollbar transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 py-0 border-b-0 overflow-hidden' : 'max-h-20 opacity-100'}`}>
           <div className={`max-w-7xl mx-auto px-6 py-3 flex items-center justify-center space-x-10 text-[9px] font-bold uppercase tracking-[0.2em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             <a href="#major-pairs" className="hover:text-blue-500 transition-colors flex items-center gap-2 pb-0.5" data-testid="link-subnav-major-pairs">
               Major Pairs
