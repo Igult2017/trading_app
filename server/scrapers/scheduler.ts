@@ -182,17 +182,18 @@ export class ScraperScheduler {
       await telegramNotificationService.checkAndNotifyTradingSessions();
     });
 
-    this.signalScanJob = cron.schedule('*/1 * * * *', async () => {
-      console.log('Running automated signal market scan...');
-      await signalScannerService.scanMarkets();
-    });
+    // Signal scanning disabled for deployment safety
+    // this.signalScanJob = cron.schedule('*/1 * * * *', async () => {
+    //   console.log('Running automated signal market scan...');
+    //   await signalScannerService.scanMarkets();
+    // });
 
-    this.setupSessionAwareScanJobs();
+    // this.setupSessionAwareScanJobs();
 
-    this.signalCleanupJob = cron.schedule('0 */2 * * *', async () => {
-      console.log('Running signal cleanup...');
-      await signalScannerService.cleanupExpiredSignals();
-    });
+    // this.signalCleanupJob = cron.schedule('0 */2 * * *', async () => {
+    //   console.log('Running signal cleanup...');
+    //   await signalScannerService.cleanupExpiredSignals();
+    // });
 
     this.interestRateJob = cron.schedule('0 */6 * * *', async () => {
       console.log('[InterestRates] Scheduled update...');
@@ -201,13 +202,11 @@ export class ScraperScheduler {
 
     console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
     console.log('Scheduled Telegram notifications: every 5 minutes');
-    console.log('Scheduled signal scanning: every 1 minute');
-    console.log('Scheduled signal cleanup: every 2 hours');
+    console.log('Signal scanning: DISABLED');
     console.log('Scheduled interest rate updates: every 6 hours');
 
     this.fetchEvents();
     this.fetchInterestRates();
-    signalScannerService.scanMarkets();
   }
 
   stop(): void {

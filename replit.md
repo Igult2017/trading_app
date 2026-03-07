@@ -39,8 +39,8 @@ Preferred communication style: Simple, everyday language.
 ## Real-time Capabilities
 - **Market Data**: Live price feeds for various asset classes via Python/tessa integration (Yahoo Finance, CoinGecko).
 - **Session Monitoring**: Real-time tracking of major trading sessions (London, New York, Tokyo, Sydney).
-- **Signal Generation**: Live scanning and notification system for trading opportunities, utilizing a modular strategy engine.
-- **In-App Notifications**: PostgreSQL-backed system for trading sessions, economic events, and signals, with real-time updates.
+- **Signal Generation**: DISABLED for deployment safety. All signal scanning cron jobs, signal monitor (SL/TP checks), Gemini validation/scan routes, chart generation routes, and signal CRUD API routes return empty arrays or 503 "disabled" responses. The scheduler (`server/scrapers/scheduler.ts`) no longer starts `signalScanJob`, `signalCleanupJob`, or session-aware scan jobs. The signal monitor (`signalMonitor.start()`) is commented out in `server/routes.ts`. Signal service imports remain but are inert. To re-enable: uncomment the relevant cron jobs in scheduler.ts, uncomment `signalMonitor.start(30000)` in routes.ts, and restore the original route handler implementations.
+- **In-App Notifications**: PostgreSQL-backed system for trading sessions and economic events, with real-time updates.
 - **Telegram Notifications**: Critical alerts for trading sessions and high/medium impact economic events via `node-telegram-bot-api`.
 
 ## Trading Analysis Framework

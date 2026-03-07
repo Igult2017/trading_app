@@ -593,211 +593,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/trading-signals", async (req, res) => {
-    try {
-      const filters = {
-        status: req.query.status as string | undefined,
-        assetClass: req.query.assetClass as string | undefined,
-        symbol: req.query.symbol as string | undefined,
-      };
-      const signals = await storage.getTradingSignals(filters);
-      res.json(signals);
-    } catch (error) {
-      console.error("Error fetching trading signals:", error);
-      res.status(500).json({ error: "Failed to fetch trading signals" });
-    }
+  app.get("/api/trading-signals", async (_req, res) => {
+    res.json([]);
   });
 
-  app.get("/api/trading-signals/:id", async (req, res) => {
-    try {
-      const signal = await storage.getTradingSignalById(req.params.id);
-      if (!signal) {
-        return res.status(404).json({ error: "Signal not found" });
-      }
-      res.json(signal);
-    } catch (error) {
-      console.error("Error fetching signal:", error);
-      res.status(500).json({ error: "Failed to fetch signal" });
-    }
+  app.get("/api/trading-signals/:id", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  app.post("/api/trading-signals/generate", async (req, res) => {
-    try {
-      const { symbol, assetClass, trend } = req.body;
-      
-      if (!symbol || !assetClass) {
-        return res.status(400).json({ error: "Symbol and assetClass are required" });
-      }
-
-      let interestRateData = undefined;
-      let inflationData = undefined;
-
-      if (assetClass === 'forex') {
-        const pair = parseCurrencyPair(symbol);
-        if (pair) {
-          const baseIR = getInterestRateData(pair.base);
-          const quoteIR = getInterestRateData(pair.quote);
-          const baseInf = getInflationData(pair.base);
-          const quoteInf = getInflationData(pair.quote);
-
-          if (baseIR && quoteIR) {
-            interestRateData = { base: baseIR, quote: quoteIR };
-          }
-          if (baseInf && quoteInf) {
-            inflationData = { base: baseInf, quote: quoteInf };
-          }
-        }
-      }
-
-      const currentPrice = req.body.currentPrice || 1.0850;
-      const trendBias = trend || 'bullish';
-
-      const dailyData = generateMockTimeframeData(currentPrice, trendBias, 30);
-      const h4Data = generateMockTimeframeData(currentPrice, trendBias, 25);
-      const h1Data = generateMockTimeframeData(currentPrice, trendBias, 20);
-      const m15Data = generateMockTimeframeData(currentPrice, trendBias, 15);
-
-      const signal = signalDetectionService.generateTradingSignal({
-        symbol,
-        assetClass,
-        interestRateData,
-        inflationData,
-        dailyData,
-        h4Data,
-        h1Data,
-        m15Data,
-      });
-
-      if (!signal) {
-        return res.status(400).json({ error: "Could not generate signal - confidence too low" });
-      }
-
-      const createdSignal = await storage.createTradingSignal(signal);
-
-      await notificationService.createNotification({
-        type: 'trading_signal',
-        title: `${signal.type === 'buy' ? '🟢' : '🔴'} ${symbol} - ${signal.type.toUpperCase()}`,
-        message: `Confidence: ${signal.overallConfidence}% | Entry: ${signal.entryPrice} | R:R: 1:${signal.riskRewardRatio}`,
-        metadata: JSON.stringify(createdSignal),
-      });
-
-      res.json(createdSignal);
-    } catch (error) {
-      console.error("Error generating signal:", error);
-      res.status(500).json({ error: "Failed to generate signal" });
-    }
+  app.post("/api/trading-signals/generate", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  app.post("/api/trading-signals", async (req, res) => {
-    try {
-      const validatedData = insertTradingSignalSchema.parse(req.body);
-      const signal = await storage.createTradingSignal(validatedData);
-      res.status(201).json(signal);
-    } catch (error) {
-      console.error("Error creating signal:", error);
-      res.status(400).json({ error: "Invalid signal data" });
-    }
+  app.post("/api/trading-signals", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  app.patch("/api/trading-signals/:id", async (req, res) => {
-    try {
-      const signal = await storage.updateTradingSignal(req.params.id, req.body);
-      if (!signal) {
-        return res.status(404).json({ error: "Signal not found" });
-      }
-      res.json(signal);
-    } catch (error) {
-      console.error("Error updating signal:", error);
-      res.status(500).json({ error: "Failed to update signal" });
-    }
+  app.patch("/api/trading-signals/:id", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  app.delete("/api/trading-signals/:id", async (req, res) => {
-    try {
-      const success = await storage.deleteTradingSignal(req.params.id);
-      if (!success) {
-        return res.status(404).json({ error: "Signal not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting signal:", error);
-      res.status(500).json({ error: "Failed to delete signal" });
-    }
+  app.delete("/api/trading-signals/:id", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
   // ============================================
   // WATCHLIST & SIGNAL MONITORING ROUTES
   // ============================================
 
-  app.get("/api/signals/watchlist", async (req, res) => {
-    try {
-      const watchlistSignals = await signalMonitor.getWatchlistSignals();
-      res.json(watchlistSignals);
-    } catch (error) {
-      console.error("Error fetching watchlist:", error);
-      res.status(500).json({ error: "Failed to fetch watchlist" });
-    }
+  app.get("/api/signals/watchlist", async (_req, res) => {
+    res.json([]);
   });
 
-  app.get("/api/signals/active", async (req, res) => {
-    try {
-      const activeSignals = await signalMonitor.getActiveSignals();
-      res.json(activeSignals);
-    } catch (error) {
-      console.error("Error fetching active signals:", error);
-      res.status(500).json({ error: "Failed to fetch active signals" });
-    }
+  app.get("/api/signals/active", async (_req, res) => {
+    res.json([]);
   });
 
-  app.post("/api/signals/:id/promote", async (req, res) => {
-    try {
-      const signal = await signalMonitor.promoteToActive(req.params.id);
-      if (!signal) {
-        return res.status(404).json({ error: "Signal not found" });
-      }
-      res.json(signal);
-    } catch (error) {
-      console.error("Error promoting signal:", error);
-      res.status(500).json({ error: "Failed to promote signal" });
-    }
+  app.post("/api/signals/:id/promote", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  app.post("/api/signals/:id/watchlist", async (req, res) => {
-    try {
-      const signal = await signalMonitor.moveToWatchlist(req.params.id);
-      if (!signal) {
-        return res.status(404).json({ error: "Signal not found" });
-      }
-      res.json(signal);
-    } catch (error) {
-      console.error("Error moving signal to watchlist:", error);
-      res.status(500).json({ error: "Failed to move signal to watchlist" });
-    }
+  app.post("/api/signals/:id/watchlist", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  app.post("/api/signals/check-outcomes", async (req, res) => {
-    try {
-      const outcomes = await signalMonitor.checkAllSignals();
-      res.json({ 
-        checked: outcomes.length,
-        outcomes: outcomes.filter(o => o.outcome !== 'active'),
-        message: "Signal outcomes checked"
-      });
-    } catch (error) {
-      console.error("Error checking signal outcomes:", error);
-      res.status(500).json({ error: "Failed to check signal outcomes" });
-    }
+  app.post("/api/signals/check-outcomes", async (_req, res) => {
+    res.json({ checked: 0, outcomes: [], message: "Signal generation is disabled" });
   });
 
-  app.get("/api/signals/monitor/status", async (req, res) => {
-    try {
-      res.json({ 
-        status: "running",
-        message: "Signal monitor is active"
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get monitor status" });
-    }
+  app.get("/api/signals/monitor/status", async (_req, res) => {
+    res.json({ status: "disabled", message: "Signal generation is disabled" });
   });
 
   app.get("/api/pending-setups", async (req, res) => {
@@ -914,156 +759,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Validate a signal from our SMC strategy using Gemini as assistant
-  app.post("/api/gemini/validate", async (req, res) => {
-    try {
-      const { signal, priceData, chartImagePath } = req.body;
-
-      if (!signal || !priceData || !Array.isArray(priceData)) {
-        return res.status(400).json({ error: "Signal and priceData array are required" });
-      }
-
-      if (!isGeminiConfigured()) {
-        return res.status(503).json({ error: "Gemini API not configured" });
-      }
-
-      const result = await validateSignalWithGemini(signal, priceData, chartImagePath);
-      res.json(result);
-    } catch (error) {
-      console.error("Gemini validation error:", error);
-      res.status(500).json({ error: "Failed to validate signal with Gemini" });
-    }
+  app.post("/api/gemini/validate", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  // Quick market scan to pre-screen instruments
-  app.post("/api/gemini/scan", async (req, res) => {
-    try {
-      const { symbol, priceData } = req.body;
-
-      if (!symbol || !priceData || !Array.isArray(priceData)) {
-        return res.status(400).json({ error: "Symbol and priceData array are required" });
-      }
-
-      if (!isGeminiConfigured()) {
-        return res.status(503).json({ error: "Gemini API not configured" });
-      }
-
-      const result = await quickMarketScan(symbol, priceData);
-      res.json(result);
-    } catch (error) {
-      console.error("Market scan error:", error);
-      res.status(500).json({ error: "Failed to scan market" });
-    }
+  app.post("/api/gemini/scan", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  // Legacy analyze endpoint (backward compatibility)
-  app.post("/api/gemini/analyze", async (req, res) => {
-    try {
-      const { symbol, priceData, chartImagePath } = req.body;
-
-      if (!symbol || !priceData || !Array.isArray(priceData)) {
-        return res.status(400).json({ error: "Symbol and priceData array are required" });
-      }
-
-      if (!isGeminiConfigured()) {
-        return res.status(503).json({ error: "Gemini API not configured" });
-      }
-
-      const result = await analyzeWithGemini(symbol, priceData, chartImagePath);
-      res.json(result);
-    } catch (error) {
-      console.error("Gemini analysis error:", error);
-      res.status(500).json({ error: "Failed to analyze with Gemini" });
-    }
+  app.post("/api/gemini/analyze", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  // Legacy quick-scan endpoint (backward compatibility)
-  app.post("/api/gemini/quick-scan", async (req, res) => {
-    try {
-      const { symbol, priceData } = req.body;
-
-      if (!symbol || !priceData || !Array.isArray(priceData)) {
-        return res.status(400).json({ error: "Symbol and priceData array are required" });
-      }
-
-      if (!isGeminiConfigured()) {
-        return res.status(503).json({ error: "Gemini API not configured" });
-      }
-
-      const result = await quickAnalyzeWithGemini(symbol, priceData);
-      
-      if (!result) {
-        return res.status(500).json({ error: "Quick scan failed" });
-      }
-
-      res.json(result);
-    } catch (error) {
-      console.error("Quick scan error:", error);
-      res.status(500).json({ error: "Failed to perform quick scan" });
-    }
+  app.post("/api/gemini/quick-scan", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  // ============================================
-  // CHART GENERATION ROUTES
-  // ============================================
-
-  // Check chart generator status
-  app.get("/api/charts/status", async (req, res) => {
-    try {
-      const available = await isChartGeneratorAvailable();
-      res.json({ available });
-    } catch (error) {
-      res.json({ available: false, error: "Failed to check chart generator status" });
-    }
+  app.get("/api/charts/status", async (_req, res) => {
+    res.json({ available: false });
   });
 
-  // Generate signal chart
-  app.post("/api/charts/generate", async (req, res) => {
-    try {
-      const { symbol, timeframe, candles, signal, supplyZones, demandZones } = req.body;
-
-      if (!symbol || !timeframe || !candles || !Array.isArray(candles)) {
-        return res.status(400).json({ error: "Symbol, timeframe, and candles array are required" });
-      }
-
-      if (!signal || !signal.direction || !signal.entryPrice) {
-        return res.status(400).json({ error: "Signal with direction and entryPrice is required" });
-      }
-
-      const result = await generateTradingSignalChart(
-        symbol,
-        timeframe,
-        candles,
-        signal,
-        supplyZones || [],
-        demandZones || []
-      );
-
-      if (!result.success) {
-        return res.status(500).json({ error: result.error || "Chart generation failed" });
-      }
-
-      res.json({ success: true, path: result.path });
-    } catch (error) {
-      console.error("Chart generation error:", error);
-      res.status(500).json({ error: "Failed to generate chart" });
-    }
+  app.post("/api/charts/generate", async (_req, res) => {
+    res.status(503).json({ error: "Signal generation is disabled" });
   });
 
-  // Cleanup old charts
-  app.post("/api/charts/cleanup", async (req, res) => {
-    try {
-      const maxAgeMs = req.body.maxAgeMs || 3600000; // Default 1 hour
-      cleanupOldCharts(maxAgeMs);
-      res.json({ success: true, message: "Old charts cleaned up" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to cleanup charts" });
-    }
+  app.post("/api/charts/cleanup", async (_req, res) => {
+    res.json({ success: true, message: "No charts to clean up" });
   });
 
-  // Start the signal monitor (checks SL/TP hits every 30 seconds)
-  signalMonitor.start(30000);
-  console.log('[Server] Signal monitor started - checking SL/TP every 30 seconds');
+  // Signal monitor disabled for deployment safety
+  // signalMonitor.start(30000);
+  console.log('[Server] Signal monitor: DISABLED');
 
   const httpServer = createServer(app);
 
