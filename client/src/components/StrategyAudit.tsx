@@ -180,8 +180,8 @@ const StrategyAudit = () => {
         {activeLevel === 1 && (
           <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-                <Search className="text-blue-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 1 — STRATEGY AUDIT
+              <h2 className="text-sm sm:text-lg font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+                <Search className="text-blue-500 shrink-0 w-4 h-4 sm:w-5 sm:h-5" /> LEVEL 1 — STRATEGY AUDIT
               </h2>
               <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 border border-slate-700 w-fit" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.1em' }}>
                 Audit Cycle: Q4 2023 - PRESENT
@@ -203,7 +203,7 @@ const StrategyAudit = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400" />}>
                     <div className="flex items-center gap-4 mb-2">
-                      <div className="text-3xl font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.05em' }}>YES</div>
+                      <div className="text-xl font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.05em' }}>YES</div>
                       <div className="h-2 flex-1 bg-slate-800 rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500" style={{ width: '88%' }}></div>
                       </div>
@@ -265,11 +265,11 @@ const StrategyAudit = () => {
               <Section title="Psychology Impact" icon={<Brain className="w-4 h-4 text-pink-400" />}>
                 <div className="flex gap-4 h-full items-center">
                   <div className="flex-1 text-center p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                    <div className="text-2xl font-bold text-pink-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>7.8</div>
+                    <div className="text-lg font-bold text-pink-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>7.8</div>
                     <div className="text-[10px] uppercase text-slate-500 mt-1 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.15em' }}>Stress Score</div>
                   </div>
                   <div className="flex-1 text-center p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                    <div className="text-2xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>92%</div>
+                    <div className="text-lg font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>92%</div>
                     <div className="text-[10px] uppercase text-slate-500 mt-1 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.15em' }}>Rule Adherence</div>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ const StrategyAudit = () => {
                       </defs>
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="text-4xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.probabilisticEdge.baseRate}%</div>
+                      <div className="text-2xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.probabilisticEdge.baseRate}%</div>
                       <div className="text-[9px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.15em' }}>Base Rate</div>
                     </div>
                   </div>
@@ -316,15 +316,15 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-2 border-b border-slate-800/50">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Max Loss Streak</span>
-                    <span className="text-2xl font-bold text-red-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.riskMetrics.maxLossStreak}</span>
+                    <span className="text-lg font-bold text-red-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.riskMetrics.maxLossStreak}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-slate-800/50">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>5-Loss Probability</span>
-                    <span className="text-xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.riskMetrics.fiveLossProbability}%</span>
+                    <span className="text-base font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.riskMetrics.fiveLossProbability}%</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Time in Drawdown</span>
-                    <span className="text-xl font-bold text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.riskMetrics.timeInDrawdown}%</span>
+                    <span className="text-base font-bold text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.riskMetrics.timeInDrawdown}%</span>
                   </div>
                 </div>
               </Section>
@@ -375,8 +375,8 @@ const StrategyAudit = () => {
 
         {activeLevel === 2 && (
           <div className="space-y-4 sm:space-y-6">
-            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-              <Database className="text-emerald-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 2 — EVIDENCE & PROOF
+            <h2 className="text-sm sm:text-lg font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+              <Database className="text-emerald-500 shrink-0 w-4 h-4 sm:w-5 sm:h-5" /> LEVEL 2 — EVIDENCE & PROOF
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -384,15 +384,15 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-baseline">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Win Rate</span>
-                    <span className="text-3xl font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.variance.winRate}%</span>
+                    <span className="text-xl font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.variance.winRate}%</span>
                   </div>
                   <div className="flex justify-between items-baseline">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Sample Size</span>
-                    <span className="text-2xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.variance.sampleSize}</span>
+                    <span className="text-lg font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.variance.sampleSize}</span>
                   </div>
                   <div className="flex justify-between items-baseline">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Win/Loss Ratio</span>
-                    <span className="text-2xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.variance.winLossRatio}</span>
+                    <span className="text-lg font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.variance.winLossRatio}</span>
                   </div>
                   <div className="pt-3 border-t border-slate-800/50 flex items-center justify-between">
                     <span className="text-xs text-slate-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.12em' }}>Positive Skew</span>
@@ -415,18 +415,18 @@ const StrategyAudit = () => {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="text-3xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.drawdown.maxPeakToValley}%</div>
+                      <div className="text-xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.drawdown.maxPeakToValley}%</div>
                       <div className="text-[8px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.12em' }}>Max DD</div>
                     </div>
                   </div>
                   <div className="w-full grid grid-cols-2 gap-4 text-center">
                     <div>
                       <div className="text-sm text-slate-500" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Recovery</div>
-                      <div className="text-xl font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.drawdown.recovery} days</div>
+                      <div className="text-base font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.drawdown.recovery} days</div>
                     </div>
                     <div>
                       <div className="text-sm text-slate-500" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Stagnation</div>
-                      <div className="text-xl font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.drawdown.stagnation}%</div>
+                      <div className="text-base font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.drawdown.stagnation}%</div>
                     </div>
                   </div>
                 </div>
@@ -436,16 +436,16 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="text-center py-2">
                     <div className="text-sm text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.12em' }}>Simulation (N=10K)</div>
-                    <div className="text-3xl sm:text-5xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.simulationConfidence}%</div>
+                    <div className="text-2xl sm:text-3xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.simulationConfidence}%</div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800/50">
                     <div className="text-center">
                       <div className="text-xs text-slate-500" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Variance Skew</div>
-                      <div className="text-xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.varianceSkew}</div>
+                      <div className="text-base font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.varianceSkew}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-slate-500" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Max Cluster</div>
-                      <div className="text-xl font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.maxCluster}</div>
+                      <div className="text-base font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.maxCluster}</div>
                     </div>
                   </div>
                 </div>
@@ -485,23 +485,23 @@ const StrategyAudit = () => {
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 rounded-xl">
                     <div>
                       <div className="text-xs text-slate-500 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>A-Trades <span className="text-slate-600">({tradeData.tradeQuality.aTrades.count})</span></div>
-                      <div className="text-2xl font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.tradeQuality.aTrades.profit}% Profit</div>
+                      <div className="text-lg font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.tradeQuality.aTrades.profit}% Profit</div>
                     </div>
-                    <div className="text-4xl font-bold text-emerald-500/20" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>A</div>
+                    <div className="text-2xl font-bold text-emerald-500/20" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>A</div>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-xl">
                     <div>
                       <div className="text-xs text-slate-500 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>B-Trades <span className="text-slate-600">({tradeData.tradeQuality.bTrades.count})</span></div>
-                      <div className="text-2xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.tradeQuality.bTrades.profit}% Profit</div>
+                      <div className="text-lg font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.tradeQuality.bTrades.profit}% Profit</div>
                     </div>
-                    <div className="text-4xl font-bold text-blue-500/20" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>B</div>
+                    <div className="text-2xl font-bold text-blue-500/20" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>B</div>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-500/10 to-slate-500/5 border border-slate-500/20 rounded-xl">
                     <div>
                       <div className="text-xs text-slate-500 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>C-Trades <span className="text-slate-600">({tradeData.tradeQuality.cTrades.count})</span></div>
-                      <div className="text-2xl font-bold text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.tradeQuality.cTrades.profit}% Profit</div>
+                      <div className="text-lg font-bold text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.tradeQuality.cTrades.profit}% Profit</div>
                     </div>
-                    <div className="text-4xl font-bold text-slate-500/20" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>C</div>
+                    <div className="text-2xl font-bold text-slate-500/20" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>C</div>
                   </div>
                 </div>
               </Section>
@@ -512,14 +512,14 @@ const StrategyAudit = () => {
                     <div className="text-xs text-blue-400 uppercase font-bold mb-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>Liquidity-Gap: {tradeData.conditionalEdge.liquidityGap.rMultiple}R</div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Samples</span>
-                      <span className="text-xl font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.conditionalEdge.liquidityGap.samples}</span>
+                      <span className="text-base font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.conditionalEdge.liquidityGap.samples}</span>
                     </div>
                   </div>
                   <div className="p-4 bg-slate-800/20 border border-slate-700/30 rounded-xl">
                     <div className="text-xs text-slate-400 uppercase font-bold mb-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>Non-Qualified: {tradeData.conditionalEdge.nonQualified.rMultiple}R</div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Samples</span>
-                      <span className="text-xl font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.conditionalEdge.nonQualified.samples}</span>
+                      <span className="text-base font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.conditionalEdge.nonQualified.samples}</span>
                     </div>
                   </div>
                   <div className="pt-4 border-t border-slate-800/50">
@@ -575,8 +575,8 @@ const StrategyAudit = () => {
 
         {activeLevel === 3 && (
           <div className="space-y-4 sm:space-y-6">
-            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-              <Activity className="text-purple-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 3 — DIAGNOSTICS
+            <h2 className="text-sm sm:text-lg font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+              <Activity className="text-purple-500 shrink-0 w-4 h-4 sm:w-5 sm:h-5" /> LEVEL 3 — DIAGNOSTICS
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -639,11 +639,11 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="text-center p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
                     <div className="text-sm text-slate-500 mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Avg Cluster Length</div>
-                    <div className="text-3xl font-bold text-red-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.lossCluster.avgLength}</div>
+                    <div className="text-xl font-bold text-red-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.lossCluster.avgLength}</div>
                   </div>
                   <div className="text-center p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
                     <div className="text-sm text-slate-500 mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Worst DD Cluster</div>
-                    <div className="text-3xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.lossCluster.worstDD}%</div>
+                    <div className="text-xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.lossCluster.worstDD}%</div>
                   </div>
                 </div>
               </Section>
@@ -652,11 +652,11 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                     <div className="text-xs text-slate-500" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Slippage (Wins)</div>
-                    <div className="text-xl font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.executionAsymmetry.slippageWins} ticks</div>
+                    <div className="text-base font-bold text-emerald-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.executionAsymmetry.slippageWins} ticks</div>
                   </div>
                   <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
                     <div className="text-xs text-slate-500" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Slippage (Losses)</div>
-                    <div className="text-xl font-bold text-red-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.executionAsymmetry.slippageLosses} ticks</div>
+                    <div className="text-base font-bold text-red-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.executionAsymmetry.slippageLosses} ticks</div>
                   </div>
                 </div>
               </Section>
@@ -665,11 +665,11 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="text-center p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
                     <div className="text-sm text-slate-500 mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Avg Transition DD</div>
-                    <div className="text-3xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.regimeTransition.avgTransitionDD}%</div>
+                    <div className="text-xl font-bold text-orange-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.regimeTransition.avgTransitionDD}%</div>
                   </div>
                   <div className="text-center p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
                     <div className="text-sm text-slate-500 mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Recovery Trades</div>
-                    <div className="text-3xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.regimeTransition.recoveryTrades}</div>
+                    <div className="text-xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.regimeTransition.recoveryTrades}</div>
                   </div>
                 </div>
               </Section>
@@ -680,18 +680,18 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-3 border-b border-slate-800/50">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Peak Equity at Risk</span>
-                    <span className="text-2xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.capitalHeat.peakEquityAtRisk}%</span>
+                    <span className="text-lg font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.capitalHeat.peakEquityAtRisk}%</span>
                   </div>
                   <div className="flex justify-between items-center py-3">
                     <span className="text-sm text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Time at Peak</span>
-                    <span className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.capitalHeat.timeAtPeak}%</span>
+                    <span className="text-lg font-bold text-slate-300" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.capitalHeat.timeAtPeak}%</span>
                   </div>
                 </div>
               </Section>
 
               <Section title="Automation Risk" icon={<Cpu className="w-4 h-4 text-yellow-400" />}>
                 <div className="flex flex-col items-center justify-center py-8">
-                  <div className="text-4xl sm:text-6xl font-bold text-yellow-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.automationRisk}%</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-yellow-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.automationRisk}%</div>
                   <div className="text-sm text-slate-500 mt-3 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.15em' }}>Execution Failure</div>
                   <div className="mt-6 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                     <span className="text-xs text-yellow-400 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>LOW RISK</span>
@@ -704,8 +704,8 @@ const StrategyAudit = () => {
 
         {activeLevel === 4 && (
           <div className="space-y-4 sm:space-y-6">
-            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-              <PlusCircle className="text-blue-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 4 — ACTION & ITERATION
+            <h2 className="text-sm sm:text-lg font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+              <PlusCircle className="text-blue-500 shrink-0 w-4 h-4 sm:w-5 sm:h-5" /> LEVEL 4 — ACTION & ITERATION
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -736,11 +736,11 @@ const StrategyAudit = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-6 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
                   <div className="text-xs text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>Last 50 Trades</div>
-                  <div className="text-3xl sm:text-5xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last50}R</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last50}R</div>
                 </div>
                 <div className="p-4 sm:p-6 bg-purple-500/5 border border-purple-500/20 rounded-xl text-center">
                   <div className="text-xs text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>Last 200 Trades</div>
-                  <div className="text-3xl sm:text-5xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last200}R</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last200}R</div>
                 </div>
               </div>
               <div className="mt-6 pt-6 border-t border-slate-800/50">
@@ -761,14 +761,14 @@ const StrategyAudit = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] sm:text-xs text-emerald-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.2em' }}>Final Audit Verdict</span>
                     </div>
-                    <div className="text-xl sm:text-3xl font-bold text-emerald-400 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.08em' }}>System Authorized</div>
+                    <div className="text-lg sm:text-xl font-bold text-emerald-400 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.08em' }}>System Authorized</div>
                     <div className="text-xs sm:text-sm text-slate-400 mt-1" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Structural check passed. Max DD 8.4% within tolerance.</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg">
                     <div className="text-[10px] text-slate-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.15em' }}>Next Phase</div>
-                    <div className="text-lg font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.05em' }}>Walk-Forward 30D</div>
+                    <div className="text-base font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.05em' }}>Walk-Forward 30D</div>
                   </div>
                   <div className="text-[9px] text-slate-600 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.2em' }}>Audit: Alpha-4.6</div>
                 </div>
@@ -872,7 +872,7 @@ const StatCard = ({ label, value, trend, color }: { label: string; value: string
   <div className="bg-slate-900/60 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col gap-1 hover:bg-slate-900/80 transition-all" data-testid={`stat-${label.toLowerCase().replace(/\s+/g, '-')}`}>
     <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.2em' }}>{label}</span>
     <div className="flex items-baseline justify-between gap-2">
-      <span className={`text-xl sm:text-2xl font-bold ${color}`} style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{value}</span>
+      <span className={`text-base sm:text-lg font-bold ${color}`} style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{value}</span>
       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800/50 ${trend.startsWith('+') ? 'text-emerald-400' : 'text-slate-400'}`} style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600 }}>
         {trend}
       </span>
