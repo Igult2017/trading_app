@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import { Activity } from 'lucide-react';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
+import JournalForm from '@/components/JournalForm';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -342,6 +343,8 @@ export default function Journal() {
 
           {activeNav === 'metrics' ? (
             <MetricsPanel />
+          ) : activeNav === 'journal' ? (
+            <JournalForm />
           ) : (<>
           <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', flexDirection:'column', gap:12 }}>
 
