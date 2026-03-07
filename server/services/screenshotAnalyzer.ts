@@ -25,18 +25,24 @@ export async function analyzeScreenshot(base64Image: string): Promise<AnalysisRe
     child.stderr.on("data", (data) => { stderr += data.toString(); });
 
     child.on("close", (code) => {
-      if (code !== 0) {
+      if (stdout.trim()) {
+        try {
+          const result = JSON.parse(stdout.trim());
+          if (!result.success) {
+            console.error("[ScreenshotAnalyzer] Analysis error:", result.error);
+          }
+          resolve(result);
+          return;
+        } catch (e) {
+          console.error("[ScreenshotAnalyzer] Parse error:", stdout);
+        }
+      }
+      if (code !== 0 || stderr.trim()) {
         console.error("[ScreenshotAnalyzer] Python error:", stderr);
         resolve({ success: false, error: stderr || "Analysis failed" });
         return;
       }
-      try {
-        const result = JSON.parse(stdout);
-        resolve(result);
-      } catch (e) {
-        console.error("[ScreenshotAnalyzer] Parse error:", stdout);
-        resolve({ success: false, error: "Failed to parse analysis result" });
-      }
+      resolve({ success: false, error: "No output from analysis" });
     });
 
     child.on("error", (err) => {

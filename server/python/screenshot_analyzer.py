@@ -3,15 +3,9 @@ import json
 import base64
 import re
 from datetime import datetime
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import google.generativeai as genai
-
-app = Flask(__name__)
-CORS(app)
+from google import genai
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
-genai.configure(api_key=GOOGLE_API_KEY)
 
 EXTRACTION_PROMPT = """You are a trading chart screenshot analyzer. Extract ALL visible trading data from this chart screenshot.
 
@@ -58,7 +52,6 @@ RULES:
 
 
 def parse_gemini_response(text):
-    """Extract JSON from Gemini response, handling markdown fences."""
     text = text.strip()
     json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
     if json_match:
@@ -73,7 +66,6 @@ def parse_gemini_response(text):
 
 
 def derive_session(entry_time_str):
-    """Derive trading session from entry time."""
     if not entry_time_str:
         return {"sessionName": None, "sessionPhase": None}
     try:
@@ -106,7 +98,6 @@ def derive_session(entry_time_str):
 
 
 def compute_duration(entry_str, exit_str):
-    """Calculate trade duration from entry/exit times."""
     if not entry_str or not exit_str:
         return None
     try:
@@ -134,7 +125,6 @@ def compute_duration(entry_str, exit_str):
 
 
 def normalize_lot_size(raw):
-    """Convert lot size string to number."""
     if raw is None:
         return None
     if isinstance(raw, (int, float)):
@@ -145,7 +135,6 @@ def normalize_lot_size(raw):
 
 
 def map_to_journal_fields(extracted):
-    """Map Gemini output to journal entry fields."""
     session_info = derive_session(extracted.get("entryTime"))
     duration = compute_duration(
         extracted.get("entryTime"), extracted.get("exitTime")
@@ -182,24 +171,28 @@ def map_to_journal_fields(extracted):
 
 
 def analyze_image(image_data):
-    """Core analysis function used by both CLI and server modes."""
+    if not GOOGLE_API_KEY:
+        raise ValueError("GOOGLE_API_KEY not set")
+
     if "," in image_data:
         image_data = image_data.split(",", 1)[1]
 
     image_bytes = base64.b64decode(image_data)
 
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    response = model.generate_content([
-        EXTRACTION_PROMPT,
-        {"mime_type": "image/png", "data": image_bytes}
-    ])
+    client = genai.Client(api_key=GOOGLE_API_KEY)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[
+            EXTRACTION_PROMPT,
+            genai.types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+        ],
+    )
 
     extracted = parse_gemini_response(response.text)
     return map_to_journal_fields(extracted)
 
 
 def run_cli():
-    """CLI mode: read base64 from stdin, output JSON to stdout."""
     import sys
     image_data = sys.stdin.read().strip()
     if not image_data:
@@ -213,32 +206,9 @@ def run_cli():
         print(json.dumps({"success": True, "fields": fields}))
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
-        sys.exit(1)
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok", "gemini_configured": bool(GOOGLE_API_KEY)})
-
-
-@app.route("/analyze", methods=["POST"])
-def analyze_screenshot():
-    data = request.get_json()
-    if not data or "image" not in data:
-        return jsonify({"error": "No image provided"}), 400
-    if not GOOGLE_API_KEY:
-        return jsonify({"error": "GOOGLE_API_KEY not configured"}), 500
-    try:
-        fields = analyze_image(data["image"])
-        return jsonify({"success": True, "fields": fields})
-    except Exception as e:
-        return jsonify({"error": str(e), "success": False}), 500
 
 
 if __name__ == "__main__":
     import sys
     if "--analyze" in sys.argv:
         run_cli()
-    else:
-        port = int(os.environ.get("SCREENSHOT_ANALYZER_PORT", 5001))
-        app.run(host="0.0.0.0", port=port, debug=False)

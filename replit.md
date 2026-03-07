@@ -50,6 +50,7 @@ Preferred communication style: Simple, everyday language.
 
 ## AI Integration (Google Gemini)
 - **Role**: Gemini acts as an ASSISTANT for signal validation, confidence adjustment, risk assessment, and quick market scans for the refined SMC strategy.
+- **Screenshot Analysis**: Python service (`server/python/screenshot_analyzer.py`) uses `google.genai` (google-genai package) to analyze trading chart screenshots via Gemini 2.0 Flash. Runs as CLI child process spawned by Node.js (`server/services/screenshotAnalyzer.ts`), reads base64 image from stdin, outputs JSON to stdout. Extracts instrument, direction, prices, SL/TP, lot size, R:R, session, outcome, P/L, MAE/MFE, and more.
 - **Critical Validation Rules**: Enforces no counter-trend trading unless CHoCH is confirmed, avoids unclear markets, and ensures trend alignment for signals.
 
 ## PNG Chart Generation
