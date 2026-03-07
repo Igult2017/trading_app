@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Activity } from 'lucide-react';
 import NewHeader from '@/components/NewHeader';
 import NewFooter from '@/components/NewFooter';
+import MetricsPanel from '@/components/MetricsPanel';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -338,6 +339,15 @@ export default function Journal() {
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0 }}>
+
+          {activeNav === 'metrics' ? (
+            <>
+              <MetricsPanel />
+              <div style={{ marginTop: 32 }}>
+                <NewFooter isDark={isDark} />
+              </div>
+            </>
+          ) : (<>
           <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', flexDirection:'column', gap:12 }}>
 
             <div style={{ display:'grid', gridTemplateColumns:`repeat(${isMobile?2:windowWidth<900?3:6},1fr)`, gap:8 }}>
@@ -440,6 +450,7 @@ export default function Journal() {
           <div style={{ marginTop: 32 }}>
             <NewFooter isDark={isDark} />
           </div>
+          </>)}
         </main>
       </div>
 
