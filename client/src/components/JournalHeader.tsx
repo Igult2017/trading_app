@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
 import {
-  BellRing,
+  Mail,
   Sun,
   Moon,
   Menu,
@@ -44,8 +44,8 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
               <a href="#" className={`flex items-center gap-1.5 transition-colors group ${isDark ? 'hover:text-white' : 'hover:text-black'}`} data-testid="link-telegram">
                 <TelegramIcon size={10} color="#229ED9" /> <span className="group-hover:text-[#229ED9]">Join Telegram</span>
               </a>
-              <a href="#" className="flex items-center gap-1.5 hover:text-blue-500 transition-colors" data-testid="link-subscribe">
-                <BellRing size={10} /> Subscribe
+              <a href="#" className={`flex items-center gap-1.5 transition-colors group ${isDark ? 'hover:text-white' : 'hover:text-black'}`} data-testid="link-subscribe">
+                <Mail size={10} /> <span>Subscribe</span>
               </a>
             </div>
             <div className="flex items-center gap-4">
