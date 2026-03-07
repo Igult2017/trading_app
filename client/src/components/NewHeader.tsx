@@ -53,8 +53,8 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               <a href="#" className={`flex items-center gap-2 transition-colors group ${isDark ? 'hover:text-white' : 'hover:text-black'}`} data-testid="link-telegram">
                 <TelegramIcon size={12} color="#229ED9" /> <span className="group-hover:text-[#229ED9]">Join Telegram</span>
               </a>
-              <a href="#" className="flex items-center gap-2 hover:text-blue-500 transition-colors" data-testid="link-subscribe">
-                <BellRing size={12} /> Subscribe
+              <a href="#" className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/50 transition-all duration-200" data-testid="link-subscribe">
+                <BellRing size={10} className="animate-pulse" /> <span>Subscribe</span>
               </a>
             </div>
             <div className="flex items-center gap-6">
