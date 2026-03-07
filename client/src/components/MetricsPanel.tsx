@@ -123,10 +123,10 @@ export default function MetricsPanel() {
         .scroll-section::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
       `}</style>
 
-      <div className="max-w-[1600px] mx-auto space-y-8">
+      <div className="max-w-[1600px] mx-auto space-y-4">
 
         <section>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
             {[
               { id: 'net-profit',      label: 'Total P&L',       value: '$2,100', color: '#10b981', iconBg: 'rgba(16,185,129,0.12)',  iconPath: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
               { id: 'win-rate',        label: 'Win Rate',         value: '67%',    color: '#60a5fa', iconBg: 'rgba(96,165,250,0.12)',   iconPath: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3' },
@@ -137,20 +137,20 @@ export default function MetricsPanel() {
               { id: 'rules-adherence', label: 'Rules Adherence',  value: '94%',    color: '#f87171', iconBg: 'rgba(248,113,113,0.12)', iconPath: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
             ].map(k => (
               <div key={k.id} onClick={() => handleCardClick(k.id)}
-                style={{ background: '#0f152d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}
-                className={`p-5 shadow-2xl cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 ${activeCard === k.id ? 'card-active' : ''}`}
+                style={{ background: '#0f152d', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}
+                className={`p-2.5 shadow-lg cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 ${activeCard === k.id ? 'card-active' : ''}`}
                 data-testid={`metric-kpi-${k.id}`}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
-                  <div style={{ background: k.iconBg, borderRadius: '12px', padding: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={k.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '6px' }}>
+                  <div style={{ background: k.iconBg, borderRadius: '8px', padding: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={k.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d={k.iconPath} />
                     </svg>
                   </div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', color: '#475569', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Montserrat, sans-serif' }}>{k.label}</span>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', color: '#475569', fontWeight: 700, fontFamily: 'Montserrat, sans-serif' }}> : </span>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.05em', fontWeight: 900, color: k.color, fontFamily: 'Montserrat, sans-serif' }}>{k.value}</span>
+                  <span style={{ fontSize: '8px', letterSpacing: '0.1em', color: '#475569', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Montserrat, sans-serif' }}>{k.label}</span>
+                  <span style={{ fontSize: '8px', letterSpacing: '0.1em', color: '#475569', fontWeight: 700, fontFamily: 'Montserrat, sans-serif' }}> : </span>
+                  <span style={{ fontSize: '8px', letterSpacing: '0.05em', fontWeight: 900, color: k.color, fontFamily: 'Montserrat, sans-serif' }}>{k.value}</span>
                 </div>
               </div>
             ))}
