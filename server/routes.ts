@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshot } from "./services/screenshotAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
+import { computeCalendar } from "./services/calendarCalculator";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -223,6 +224,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[Routes] Metrics computation error:", error);
       res.status(500).json({ success: false, error: "Metrics computation failed" });
+    }
+  });
+
+  app.get("/api/calendar/compute", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries = await storage.getJournalEntries(userId, sessionId);
+      const result = await computeCalendar(entries);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] Calendar computation error:", error);
+      res.status(500).json({ success: false, error: "Calendar computation failed" });
     }
   });
 

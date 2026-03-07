@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 const FONT = "'Montserrat', sans-serif";
 const GREEN  = "#00E5A0";
@@ -11,74 +13,15 @@ const MONTH_NAMES = ["January","February","March","April","May","June","July","A
 const DAYS_FULL  = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 const DAYS_SHORT = ["S","M","T","W","T","F","S"];
 
-const analyticsData: Record<string, Record<number, { pnl: number; trades: number; winRate: number }>> = {
-  "2024-2": {
-    1:  { pnl: 120.40,  trades: 8,  winRate: 75 },
-    4:  { pnl: 120.40,  trades: 6,  winRate: 67 },
-    7:  { pnl: 120.40,  trades: 9,  winRate: 78 },
-    8:  { pnl: -45.00,  trades: 5,  winRate: 40 },
-    10: { pnl: 120.40,  trades: 7,  winRate: 71 },
-    13: { pnl: 120.40,  trades: 11, winRate: 82 },
-    15: { pnl: -45.00,  trades: 4,  winRate: 25 },
-    16: { pnl: 120.40,  trades: 8,  winRate: 63 },
-    19: { pnl: 120.40,  trades: 6,  winRate: 67 },
-    22: { pnl: 120.40,  trades: 9,  winRate: 78 },
-    25: { pnl: 120.40,  trades: 7,  winRate: 71 },
-    28: { pnl: 120.40,  trades: 10, winRate: 80 },
-  },
-  "2024-3": {
-    1:  { pnl: 245.80,  trades: 12, winRate: 83 },
-    4:  { pnl: -88.50,  trades: 6,  winRate: 33 },
-    5:  { pnl: 310.20,  trades: 15, winRate: 87 },
-    6:  { pnl: -120.00, trades: 8,  winRate: 38 },
-    7:  { pnl: 175.60,  trades: 10, winRate: 70 },
-    11: { pnl: 95.40,   trades: 7,  winRate: 71 },
-    12: { pnl: -55.20,  trades: 5,  winRate: 40 },
-    13: { pnl: 220.80,  trades: 11, winRate: 82 },
-    14: { pnl: 185.30,  trades: 9,  winRate: 78 },
-    15: { pnl: 140.00,  trades: 8,  winRate: 75 },
-    18: { pnl: -75.60,  trades: 6,  winRate: 33 },
-    19: { pnl: 290.40,  trades: 13, winRate: 85 },
-    20: { pnl: 160.20,  trades: 9,  winRate: 78 },
-    21: { pnl: -45.80,  trades: 5,  winRate: 40 },
-    22: { pnl: 210.50,  trades: 11, winRate: 73 },
-    25: { pnl: 325.60,  trades: 14, winRate: 86 },
-    26: { pnl: -95.40,  trades: 7,  winRate: 29 },
-    27: { pnl: 180.30,  trades: 10, winRate: 70 },
-    28: { pnl: 265.80,  trades: 12, winRate: 83 },
-    29: { pnl: 145.20,  trades: 8,  winRate: 75 },
-  },
-  "2024-4": {
-    1:  { pnl: 198.40,  trades: 10, winRate: 80 },
-    2:  { pnl: -110.20, trades: 7,  winRate: 29 },
-    3:  { pnl: 275.60,  trades: 13, winRate: 85 },
-    4:  { pnl: 155.80,  trades: 9,  winRate: 78 },
-    5:  { pnl: -65.40,  trades: 5,  winRate: 40 },
-    8:  { pnl: 320.90,  trades: 15, winRate: 87 },
-    9:  { pnl: 190.30,  trades: 10, winRate: 80 },
-    10: { pnl: -85.60,  trades: 6,  winRate: 33 },
-    11: { pnl: 240.70,  trades: 12, winRate: 83 },
-    12: { pnl: 175.40,  trades: 9,  winRate: 78 },
-    15: { pnl: 295.80,  trades: 14, winRate: 86 },
-    16: { pnl: -55.20,  trades: 5,  winRate: 40 },
-    17: { pnl: 215.60,  trades: 11, winRate: 73 },
-    18: { pnl: 160.30,  trades: 8,  winRate: 75 },
-    22: { pnl: 340.50,  trades: 16, winRate: 88 },
-    23: { pnl: -100.80, trades: 7,  winRate: 29 },
-    24: { pnl: 255.40,  trades: 12, winRate: 83 },
-    25: { pnl: 185.60,  trades: 10, winRate: 80 },
-    26: { pnl: 130.20,  trades: 8,  winRate: 75 },
-    29: { pnl: 275.80,  trades: 13, winRate: 85 },
-    30: { pnl: 210.40,  trades: 11, winRate: 82 },
-  },
-};
+type DayData = { pnl: number; trades: number; winRate: number };
+type MonthData = Record<string, DayData>;
 
 function fmt(pnl: number) {
   const sign = pnl >= 0 ? "+" : "-";
   return `${sign}$${Math.abs(pnl).toFixed(2)}`;
 }
 
-function getStats(data: Record<number, { pnl: number; trades: number; winRate: number }>) {
+function getStats(data: MonthData) {
   const days = Object.values(data);
   if (!days.length) return { net: 0, winRate: 0, trades: 0, ratio: "—", profitDays: 0, lossDays: 0, pct: "0.00" };
   const net      = days.reduce((s, d) => s + d.pnl, 0);
@@ -119,12 +62,12 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
   );
 }
 
-function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | null; data: Record<number, { pnl: number; trades: number; winRate: number }>; maxPnl: number; cellHeight: number; isMobile: boolean }) {
+function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | null; data: MonthData; maxPnl: number; cellHeight: number; isMobile: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   if (!day) return <div style={{ background: "#080B11", minHeight: cellHeight }} />;
 
-  const d        = data[day];
+  const d        = data[String(day)];
   const isProfit = d && d.pnl >= 0;
   const barWidth = d ? `${Math.round((Math.abs(d.pnl) / maxPnl) * 100)}%` : "0%";
 
@@ -201,14 +144,25 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
   );
 }
 
-export default function TradingCalendar() {
-  const [date, setDate] = useState({ year: 2024, month: 2 });
+export default function TradingCalendar({ sessionId }: { sessionId?: string | null }) {
+  const now = new Date();
+  const [date, setDate] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const width     = useWindowWidth();
   const isMobile  = width < 480;
   const isTablet  = width >= 480 && width < 768;
 
+  const { data: calendarResult, isLoading, isError } = useQuery<{
+    success: boolean;
+    calendarData: Record<string, MonthData>;
+    availableMonths: string[];
+  }>({
+    queryKey: [`/api/calendar/compute?sessionId=${sessionId}`],
+    enabled: !!sessionId,
+  });
+
+  const allCalendarData = calendarResult?.calendarData || {};
   const key      = `${date.year}-${date.month}`;
-  const data     = analyticsData[key] || {};
+  const data: MonthData = allCalendarData[key] || {};
   const stats    = getStats(data);
   const maxPnl   = Math.max(...Object.values(data).map(d => Math.abs(d.pnl)), 1);
   const netColor = stats.net >= 0 ? GREEN : RED;
@@ -234,9 +188,39 @@ export default function TradingCalendar() {
   const dayLabels  = isMobile ? DAYS_SHORT : DAYS_FULL;
   const compact    = isMobile || isTablet;
 
+  if (!sessionId) {
+    return (
+      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em", marginBottom: 12 }}>
+            TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
+          </div>
+          <p style={{ fontSize: 11, color: "#3A4558", fontWeight: 800 }} data-testid="text-no-session-calendar">Select or create a session to view your trading calendar.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 size={24} style={{ color: GREEN, animation: "spin 1s linear infinite" }} />
+        <span style={{ marginLeft: 12, fontSize: 11, color: "#3A4558", fontWeight: 800 }}>Loading calendar data...</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontSize: 11, color: RED, fontWeight: 800 }} data-testid="text-calendar-error">Failed to load calendar data. Please try again.</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap'); @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       <div style={{
         display: "flex", alignItems: isMobile ? "flex-start" : "flex-end",

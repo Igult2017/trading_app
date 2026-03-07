@@ -512,7 +512,7 @@ export default function Journal() {
           ) : activeNav === 'vault' ? (
             <TradeVault sessionId={activeSessionId} />
           ) : activeNav === 'calendar' ? (
-            <TradingCalendar />
+            <TradingCalendar sessionId={activeSessionId} />
           ) : activeNav === 'sessions' ? (
             <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} />
           ) : activeNav === 'create' ? (
