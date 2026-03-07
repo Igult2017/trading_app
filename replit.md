@@ -12,9 +12,11 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: React 18 with TypeScript, using Vite for building.
 - **UI/UX**: Custom magazine-style dark theme using Tailwind CSS with glass-card components, Montserrat/Playfair Display/JetBrains Mono fonts, and blue accent color scheme. Also uses Radix UI with shadcn/ui components on inner pages.
 - **Homepage**: Self-contained component at `client/src/pages/HomePage.tsx` with its own navigation (3-tier: utility bar, main nav, sub-nav), search bar, content cards (Journal, Calendar, Major Pairs, US Stocks, Crypto, Strategies, Blog), and footer. Has built-in dark/light theme toggle.
-- **Inner Pages**: Use shared `Header.tsx` and `Footer.tsx` components with the old layout.
+- **Journal Dashboard**: Self-contained page at `client/src/pages/Journal.tsx` with its own internal header, collapsible sidebar (FSD AI, Dashboard, Journal, Metrics, etc.), KPI stat cards, equity curve chart, performance mix panel, trade log table, and activity calendar. Renders as standalone route at `/journal`.
+- **Inner Pages**: Legacy pages still use shared `Header.tsx` and `Footer.tsx` components with the old layout (to be migrated to new header/footer).
+- **New Header/Footer Standard**: The homepage's built-in header (3-tier nav) and footer are the new design standard for all pages going forward. The old `Header.tsx`/`Footer.tsx` components in `components/` are legacy and should NOT be used for new pages.
 - **State Management**: TanStack React Query for data fetching and caching.
-- **Routing**: Wouter for client-side navigation. Root "/" renders HomePage directly (no shared header/footer), all other routes use the shared layout wrapper.
+- **Routing**: Wouter for client-side navigation. Root "/" and "/journal" render as standalone pages (no shared old header/footer), other routes use the legacy shared layout wrapper.
 
 ## Backend
 - **Runtime**: Node.js with Express.js, written in TypeScript.

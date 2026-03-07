@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Activity } from 'lucide-react';
 
 const SI = {
@@ -243,15 +243,6 @@ export default function Journal() {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const [availableHeight, setAvailableHeight] = useState('100vh');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const updateHeight = useCallback(() => {
-    if (containerRef.current) {
-      const top = containerRef.current.getBoundingClientRect().top;
-      setAvailableHeight(`calc(100vh - ${top}px)`);
-    }
-  }, []);
 
   useEffect(() => {
     const check = () => {
@@ -259,16 +250,11 @@ export default function Journal() {
       setIsMobile(mob);
       setWindowWidth(window.innerWidth);
       if (mob) setSidebarOpen(false);
-      updateHeight();
     };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
-  }, [updateHeight]);
-
-  useEffect(() => {
-    updateHeight();
-  }, [updateHeight]);
+  }, []);
 
   const heatmapDays = useMemo(() => Array.from({length:31},(_,i)=>{
     const day=i+1, status=[24,26,27,28].includes(day)?'profit':[25,29].includes(day)?'loss':'none';
@@ -276,7 +262,7 @@ export default function Journal() {
   }), []);
 
   return (
-    <div ref={containerRef} style={{ fontFamily:'"Montserrat",sans-serif', height: availableHeight, overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
+    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap');
         .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
