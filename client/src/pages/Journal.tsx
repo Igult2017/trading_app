@@ -7,6 +7,7 @@ import JournalForm from '@/components/JournalForm';
 import StrategyAudit from '@/components/StrategyAudit';
 import TradeVault from '@/components/TradeVault';
 import TradingCalendar from '@/components/TradingCalendar';
+import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -254,6 +255,18 @@ export default function Journal() {
   const isDark = theme === 'dark';
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
+  const [sessions, setSessions] = useState<{id:number;sessionName:string;startingBalance:number;currentBalance:number;createdAt:string;trades:any[]}[]>([]);
+
+  const handleCreateSession = (data: { sessionName: string; startingBalance: number }) => {
+    const newSession = { id: Date.now(), ...data, createdAt: new Date().toISOString(), currentBalance: data.startingBalance, trades: [] };
+    setSessions(prev => [...prev, newSession]);
+    setActiveNav('sessions');
+  };
+
+  const handleDeleteSession = (sessionId: number) => {
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+  };
+
   useEffect(() => {
     const check = () => {
       const mob = window.innerWidth < 768;
@@ -347,6 +360,10 @@ export default function Journal() {
             <TradeVault />
           ) : activeNav === 'calendar' ? (
             <TradingCalendar />
+          ) : activeNav === 'sessions' ? (
+            <SessionsList sessions={sessions} onDeleteSession={handleDeleteSession} />
+          ) : activeNav === 'create' ? (
+            <CreateSessionForm onSubmit={handleCreateSession} />
           ) : (<>
           <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', flexDirection:'column', gap:12 }}>
 
