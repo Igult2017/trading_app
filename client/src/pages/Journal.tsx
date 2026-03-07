@@ -436,6 +436,10 @@ export default function Journal() {
             </div>
 
           </div>
+
+          <div style={{ marginTop: 32 }}>
+            <NewFooter isDark={isDark} />
+          </div>
         </main>
       </div>
 
