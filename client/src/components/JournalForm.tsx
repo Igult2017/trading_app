@@ -5,8 +5,9 @@ import {
   Brain, Crosshair, Microscope, Shield, Battery, Briefcase,
   Focus, Layers, LayoutGrid, Award, Flame, Eye, Lightbulb,
   Clock, Gauge, Boxes, Layers3, TrendingUp, BrainCircuit,
-  DoorOpen, AlertTriangle, RefreshCcw, Trash2, Save,
+  DoorOpen, AlertTriangle, RefreshCcw, Trash2, Save, Loader2,
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 /* ─── EXACT SAMPLE-1 DESIGN TOKENS ──────────────────────────────────── */
 const PAGE_BG   = "bg-[#05070a]";
@@ -212,8 +213,130 @@ export default function JournalForm() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<Record<string, any>>(INIT);
   const [saved, setSaved] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  const analyzeScreenshot = async (base64Image: string) => {
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
+      const data = await res.json();
+      if (data.success && data.fields) {
+        const f = data.fields;
+        setForm(prev => {
+          const updated = { ...prev };
+          if (f.instrument) updated.instrument = f.instrument;
+          if (f.direction) updated.direction = f.direction;
+          if (f.orderType) updated.orderType = f.orderType;
+          if (f.entryPrice) updated.entryPrice = String(f.entryPrice);
+          if (f.stopLoss) updated.stopLoss = String(f.stopLoss);
+          if (f.takeProfit) updated.takeProfit = String(f.takeProfit);
+          if (f.stopLossDistancePips) updated.stopLossDistancePips = String(f.stopLossDistancePips);
+          if (f.takeProfitDistancePips) updated.takeProfitDistancePips = String(f.takeProfitDistancePips);
+          if (f.lotSize) updated.lotSize = String(f.lotSize);
+          if (f.riskReward) updated.riskReward = String(f.riskReward);
+          if (f.entryTime) updated.entryTime = f.entryTime;
+          if (f.exitTime) updated.exitTime = f.exitTime;
+          if (f.dayOfWeek) updated.dayOfWeek = f.dayOfWeek;
+          if (f.tradeDuration) updated.tradeDuration = f.tradeDuration;
+          if (f.outcome) updated.outcome = f.outcome;
+          if (f.profitLoss) updated.profitLoss = String(f.profitLoss);
+          if (f.pipsGainedLost) updated.pipsGainedLost = String(f.pipsGainedLost);
+          if (f.mae) updated.mae = String(f.mae);
+          if (f.mfe) updated.mfe = String(f.mfe);
+          if (f.primaryExitReason) updated.primaryExitReason = f.primaryExitReason;
+          if (f.sessionName) updated.sessionName = f.sessionName;
+          if (f.sessionPhase) updated.sessionPhase = f.sessionPhase;
+          if (f.entryTF) updated.entryTF = f.entryTF;
+          if (f.spreadAtEntry) updated.spreadAtEntry = String(f.spreadAtEntry);
+          return updated;
+        });
+      } else {
+        setAnalyzeError(data.error || "Analysis failed");
+      }
+    } catch (err: any) {
+      setAnalyzeError(err.message || "Failed to analyze screenshot");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleScreenshotUpload = (field: string, value: any) => {
+    set(field, value);
+    if (value && typeof value === "string" && (field === "screenshot" || field === "exitScreenshot")) {
+      analyzeScreenshot(value);
+    }
+  };
+
+  const saveJournalEntry = async () => {
+    setSaving(true);
+    try {
+      const payload: Record<string, any> = {
+        instrument: form.instrument || null,
+        pairCategory: form.pairCategory || null,
+        direction: form.direction || null,
+        orderType: form.orderType || null,
+        entryPrice: form.entryPrice || null,
+        stopLoss: form.stopLoss || null,
+        takeProfit: form.takeProfit || null,
+        stopLossDistance: form.stopLossDistancePips || null,
+        takeProfitDistance: form.takeProfitDistancePips || null,
+        lotSize: form.lotSize || null,
+        riskReward: form.riskReward || null,
+        riskPercent: form.riskPercent || null,
+        spreadAtEntry: form.spreadAtEntry || null,
+        entryTime: form.entryTime || null,
+        exitTime: form.exitTime || null,
+        dayOfWeek: form.dayOfWeek || null,
+        tradeDuration: form.tradeDuration || null,
+        entryTF: form.entryTF || null,
+        analysisTF: form.analysisTF || null,
+        contextTF: form.contextTF || null,
+        outcome: form.outcome || null,
+        profitLoss: form.profitLoss || null,
+        pipsGainedLost: form.pipsGainedLost || null,
+        accountBalance: form.accountBalance || null,
+        commission: form.commission || null,
+        mae: form.mae || null,
+        mfe: form.mfe || null,
+        plannedRR: form.plannedRR || null,
+        achievedRR: form.achievedRR || null,
+        monetaryRisk: form.monetaryRisk || null,
+        potentialReward: form.potentialReward || null,
+        primaryExitReason: form.primaryExitReason || null,
+        sessionName: form.sessionName || null,
+        sessionPhase: form.sessionPhase || null,
+        entryTimeUTC: form.entryTimeUTC || null,
+        timingContext: form.timingContext || null,
+        manualFields: {
+          thesis: form.thesis, trigger: form.trigger, invalidationLogic: form.invalidationLogic,
+          expectedBehavior: form.expectedBehavior, setupTag: form.setupTag, tradeGrade: form.tradeGrade,
+          marketRegime: form.marketRegime, trendDirection: form.trendDirection,
+          volatilityState: form.volatilityState, liquidity: form.liquidity,
+          newsEnvironment: form.newsEnvironment, htfBias: form.htfBias,
+          emotionalState: form.emotionalState, focusStressLevel: form.focusStressLevel,
+          postTradeEmotion: form.postTradeEmotion, rulesFollowed: form.rulesFollowed,
+          confidenceLevel: form.confidenceLevel, worthRepeating: form.worthRepeating,
+          whatWorked: form.whatWorked, whatFailed: form.whatFailed,
+          adjustments: form.adjustments, notes: form.notes,
+          energyLevel: form.energyLevel, focusLevel: form.focusLevel,
+          marketAlignment: form.marketAlignment, setupClarity: form.setupClarity,
+          entryPrecision: form.entryPrecision, confluence: form.confluence,
+          timingQuality: form.timingQuality, confidenceAtEntry: form.confidenceAtEntry,
+        },
+      };
+      await apiRequest("POST", "/api/journal/entries", payload);
+      setSaved(true);
+    } catch (err: any) {
+      setAnalyzeError(err.message || "Failed to save entry");
+    } finally {
+      setSaving(false);
+    }
+  };
   const f   = (field: string, rows?: number, placeholder?: string, type?: string) =>
     <Field field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type} />;
   const lf  = (label: string, field: string, rows?: number, placeholder?: string, type?: string) =>
@@ -367,15 +490,27 @@ export default function JournalForm() {
 
                 <section className="space-y-4">
                   <SectionHeader icon={Camera} title="Trade Setup Screenshot" />
-                  <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={set}
+                  <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload}
                     label="Upload trade setup screenshot" sublabel="PNG · JPG · up to 10MB" />
+                  {analyzing && (
+                    <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20 mt-2" data-testid="status-analyzing">
+                      <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                      <span className="text-[11px] font-bold tracking-wider text-blue-400 uppercase">AI analyzing screenshot...</span>
+                    </div>
+                  )}
+                  {analyzeError && (
+                    <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 mt-2" data-testid="status-analyze-error">
+                      <AlertCircle className="w-4 h-4 text-rose-400" />
+                      <span className="text-[11px] font-bold tracking-wider text-rose-400">{analyzeError}</span>
+                    </div>
+                  )}
                 </section>
 
                 <section className="space-y-4">
                   <SectionHeader icon={Camera} title="Exit Chart Screenshot" />
                   <InfoBox color="green" icon={Activity} title="Post-Trade Evidence"
                     text="Capture how price behaved after your exit — essential for honest review and learning." />
-                  <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={set}
+                  <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload}
                     label="Upload exit / post-trade chart" sublabel="Compare entry vs exit for deep review" />
                 </section>
 
@@ -613,7 +748,7 @@ export default function JournalForm() {
                 </section>
 
                 <NavButtons step={step} onPrev={() => setStep(s => s - 1)}
-                  onNext={() => setSaved(true)} />
+                  onNext={() => saveJournalEntry()} />
               </div>
             )}
 

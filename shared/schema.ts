@@ -274,3 +274,61 @@ export const insertInterestRateSchema = createInsertSchema(interestRates).omit({
 
 export type InsertInterestRate = z.infer<typeof insertInterestRateSchema>;
 export type InterestRate = typeof interestRates.$inferSelect;
+
+export const journalEntries = pgTable("journal_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+
+  instrument: text("instrument"),
+  pairCategory: text("pair_category"),
+  direction: text("direction"),
+  orderType: text("order_type"),
+  entryPrice: decimal("entry_price", { precision: 12, scale: 5 }),
+  stopLoss: decimal("stop_loss", { precision: 12, scale: 5 }),
+  takeProfit: decimal("take_profit", { precision: 12, scale: 5 }),
+  stopLossDistance: decimal("stop_loss_distance", { precision: 10, scale: 2 }),
+  takeProfitDistance: decimal("take_profit_distance", { precision: 10, scale: 2 }),
+  lotSize: decimal("lot_size", { precision: 10, scale: 5 }),
+  riskReward: decimal("risk_reward", { precision: 6, scale: 2 }),
+  riskPercent: decimal("risk_percent", { precision: 5, scale: 2 }),
+  spreadAtEntry: decimal("spread_at_entry", { precision: 6, scale: 2 }),
+
+  entryTime: text("entry_time"),
+  exitTime: text("exit_time"),
+  dayOfWeek: text("day_of_week"),
+  tradeDuration: text("trade_duration"),
+  entryTF: text("entry_tf"),
+  analysisTF: text("analysis_tf"),
+  contextTF: text("context_tf"),
+
+  outcome: text("outcome"),
+  profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }),
+  pipsGainedLost: decimal("pips_gained_lost", { precision: 10, scale: 2 }),
+  accountBalance: decimal("account_balance", { precision: 12, scale: 2 }),
+  commission: decimal("commission", { precision: 8, scale: 2 }),
+  mae: decimal("mae", { precision: 10, scale: 2 }),
+  mfe: decimal("mfe", { precision: 10, scale: 2 }),
+  plannedRR: text("planned_rr"),
+  achievedRR: text("achieved_rr"),
+  monetaryRisk: decimal("monetary_risk", { precision: 10, scale: 2 }),
+  potentialReward: decimal("potential_reward", { precision: 10, scale: 2 }),
+  primaryExitReason: text("primary_exit_reason"),
+
+  sessionName: text("session_name"),
+  sessionPhase: text("session_phase"),
+  entryTimeUTC: text("entry_time_utc"),
+  timingContext: text("timing_context"),
+
+  aiExtracted: jsonb("ai_extracted"),
+  manualFields: jsonb("manual_fields"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+export type JournalEntry = typeof journalEntries.$inferSelect;

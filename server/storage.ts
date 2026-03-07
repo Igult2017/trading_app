@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, trades, users, tradingSignals, pendingSetups, interestRates } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -36,6 +36,12 @@ export interface IStorage {
   getInterestRates(): Promise<InterestRate[]>;
   getInterestRateByCurrency(currency: string): Promise<InterestRate | undefined>;
   upsertInterestRate(rate: InsertInterestRate): Promise<InterestRate>;
+
+  getJournalEntries(userId?: string): Promise<JournalEntry[]>;
+  getJournalEntryById(id: string): Promise<JournalEntry | undefined>;
+  createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
+  updateJournalEntry(id: string, entry: Partial<InsertJournalEntry>): Promise<JournalEntry | undefined>;
+  deleteJournalEntry(id: string): Promise<boolean>;
 }
 
 export class DbStorage implements IStorage {
@@ -400,6 +406,58 @@ export class DbStorage implements IStorage {
     } catch (error) {
       console.error('[Storage] Error upserting interest rate:', error);
       throw error;
+    }
+  }
+
+  async getJournalEntries(userId?: string): Promise<JournalEntry[]> {
+    try {
+      if (userId) {
+        return await db.select().from(journalEntries).where(eq(journalEntries.userId, userId)).orderBy(desc(journalEntries.createdAt));
+      }
+      return await db.select().from(journalEntries).orderBy(desc(journalEntries.createdAt));
+    } catch (error) {
+      console.error('[Storage] Error fetching journal entries:', error);
+      return [];
+    }
+  }
+
+  async getJournalEntryById(id: string): Promise<JournalEntry | undefined> {
+    try {
+      const result = await db.select().from(journalEntries).where(eq(journalEntries.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error fetching journal entry:', error);
+      return undefined;
+    }
+  }
+
+  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    try {
+      const result = await db.insert(journalEntries).values(entry).returning();
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error creating journal entry:', error);
+      throw error;
+    }
+  }
+
+  async updateJournalEntry(id: string, entry: Partial<InsertJournalEntry>): Promise<JournalEntry | undefined> {
+    try {
+      const result = await db.update(journalEntries).set(entry).where(eq(journalEntries.id, id)).returning();
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error updating journal entry:', error);
+      return undefined;
+    }
+  }
+
+  async deleteJournalEntry(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(journalEntries).where(eq(journalEntries.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[Storage] Error deleting journal entry:', error);
+      return false;
     }
   }
 }

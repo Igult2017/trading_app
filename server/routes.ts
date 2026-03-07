@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema } from "@shared/schema";
+import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema } from "@shared/schema";
+import { analyzeScreenshot } from "./services/screenshotAnalyzer";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -70,6 +71,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete trade" });
+    }
+  });
+
+  // --- Journal Entry Routes ---
+  app.post("/api/journal/analyze-screenshot", async (req, res) => {
+    try {
+      const { image } = req.body;
+      if (!image) {
+        return res.status(400).json({ error: "No image provided" });
+      }
+      const result = await analyzeScreenshot(image);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] Screenshot analysis error:", error);
+      res.status(500).json({ error: "Screenshot analysis service unavailable" });
+    }
+  });
+
+  app.get("/api/journal/entries", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const entries = await storage.getJournalEntries(userId);
+      res.json(entries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.get("/api/journal/entries/:id", async (req, res) => {
+    try {
+      const entry = await storage.getJournalEntryById(req.params.id);
+      if (!entry) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
+      res.json(entry);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch journal entry" });
+    }
+  });
+
+  app.post("/api/journal/entries", async (req, res) => {
+    try {
+      const validatedData = insertJournalEntrySchema.parse(req.body);
+      const entry = await storage.createJournalEntry(validatedData);
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("[Routes] Create journal entry error:", error);
+      res.status(400).json({ error: "Invalid journal entry data" });
+    }
+  });
+
+  app.put("/api/journal/entries/:id", async (req, res) => {
+    try {
+      const entry = await storage.updateJournalEntry(req.params.id, req.body);
+      if (!entry) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
+      res.json(entry);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update journal entry" });
+    }
+  });
+
+  app.delete("/api/journal/entries/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteJournalEntry(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete journal entry" });
     }
   });
 

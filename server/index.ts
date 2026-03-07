@@ -4,7 +4,7 @@ import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
