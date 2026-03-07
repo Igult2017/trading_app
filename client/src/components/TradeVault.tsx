@@ -147,6 +147,27 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
   );
 }
 
+function downloadCSV(trades: Trade[]) {
+  const headers = ["Date", "Time", "Asset", "Strategy", "Session", "Outcome", "P/L"];
+  const rows = trades.map(t => [
+    t.date,
+    t.time,
+    t.asset,
+    t.strategy,
+    t.session,
+    t.outcome,
+    t.pl.toString(),
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `trade_vault_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function TradeVault({ sessionId }: { sessionId?: string | null }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
 
@@ -272,6 +293,19 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
           <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
           <div style={styles.vaultSub}>Performance ledger · {trades.length} entries</div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' as const }}>
+        {trades.length > 0 && (
+          <button
+            onClick={() => downloadCSV(trades)}
+            style={styles.downloadBtn}
+            data-testid="button-download-csv"
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(91,140,248,0.2)'; e.currentTarget.style.borderColor = 'rgba(91,140,248,0.5)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(91,140,248,0.08)'; e.currentTarget.style.borderColor = 'rgba(91,140,248,0.2)'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            EXPORT CSV
+          </button>
+        )}
         <div style={styles.statsRow}>
           <div style={styles.statCard}>
             <div style={styles.statLabel}>NET P/L</div>
@@ -289,6 +323,7 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
             <div style={styles.statLabel}>TRADES</div>
             <div style={{ ...styles.statValue, color: "#c0cce0" }} data-testid="text-trade-count">{trades.length}</div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -603,6 +638,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     cursor: "pointer",
     fontFamily: "'JetBrains Mono', monospace",
+  },
+  downloadBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    background: "rgba(91,140,248,0.08)",
+    border: "1px solid rgba(91,140,248,0.2)",
+    color: "#5b8cf8",
+    padding: "9px 18px",
+    borderRadius: 10,
+    fontSize: 10,
+    cursor: "pointer",
+    fontFamily: "'Montserrat', sans-serif",
+    fontWeight: 700,
+    letterSpacing: "0.1em",
+    transition: "all 0.2s ease",
   },
   saveBtn: {
     background: "rgba(91,140,248,0.15)",
