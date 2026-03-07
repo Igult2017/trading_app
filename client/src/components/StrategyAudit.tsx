@@ -142,7 +142,6 @@ const StrategyAudit = () => {
                   <span className="sm:hidden"> Audit</span>
                 </span>
               </span>
-              <span className="hidden sm:block text-[9px] text-slate-500 font-bold uppercase" style={{ letterSpacing: '0.3em' }}>Institutional Grade</span>
             </div>
           </div>
 
