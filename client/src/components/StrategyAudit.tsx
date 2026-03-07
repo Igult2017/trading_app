@@ -187,8 +187,8 @@ const StrategyAudit = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 pb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6 sm:mb-8">
           <StatCard label="Audit Win Rate" value="64.2%" trend="+2.1%" color="text-emerald-400" />
           <StatCard label="Edge Persistence" value="2.14" trend="+0.12" color="text-blue-400" />
           <StatCard label="Risk Entropy" value="Low" trend="-0.2" color="text-slate-400" />
@@ -196,10 +196,10 @@ const StrategyAudit = () => {
         </div>
 
         {activeLevel === 1 && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <h2 className="text-2xl font-bold flex items-center gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-                <Search className="text-blue-500 shrink-0" /> LEVEL 1 — STRATEGY AUDIT
+              <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+                <Search className="text-blue-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 1 — STRATEGY AUDIT
               </h2>
               <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 border border-slate-700 w-fit" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.1em' }}>
                 Audit Cycle: Q4 2023 - PRESENT
@@ -392,9 +392,9 @@ const StrategyAudit = () => {
         )}
 
         {activeLevel === 2 && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold flex items-center gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-              <Database className="text-emerald-500 shrink-0" /> LEVEL 2 — EVIDENCE & PROOF
+          <div className="space-y-4 sm:space-y-6">
+            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+              <Database className="text-emerald-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 2 — EVIDENCE & PROOF
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -454,7 +454,7 @@ const StrategyAudit = () => {
                 <div className="space-y-4">
                   <div className="text-center py-2">
                     <div className="text-sm text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.12em' }}>Simulation (N=10K)</div>
-                    <div className="text-5xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.simulationConfidence}%</div>
+                    <div className="text-3xl sm:text-5xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.equityVariance.simulationConfidence}%</div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800/50">
                     <div className="text-center">
@@ -549,9 +549,9 @@ const StrategyAudit = () => {
 
             <Section title="Winning vs Losing Profiles (AI Classification)">
               <div className="heatmap-outer">
-                <div style={{ display: 'flex', gap: '2rem', minWidth: 'max-content' }}>
+                <div className="flex flex-col lg:flex-row gap-6" style={{ minWidth: 'max-content' }}>
 
-                  <div style={{ width: 480, flexShrink: 0 }}>
+                  <div className="min-w-[320px] lg:w-[480px]" style={{ flexShrink: 0 }}>
                     <div className="text-xs font-bold text-emerald-400 uppercase bg-emerald-400/5 px-3 py-2 rounded-lg border border-emerald-500/10 mb-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.12em' }}>
                       Alpha Profile (Success Factors)
                     </div>
@@ -560,7 +560,7 @@ const StrategyAudit = () => {
                     </div>
                   </div>
 
-                  <div style={{ width: 480, flexShrink: 0 }}>
+                  <div className="min-w-[320px] lg:w-[480px]" style={{ flexShrink: 0 }}>
                     <div className="text-xs font-bold text-red-400 uppercase bg-red-400/5 px-3 py-2 rounded-lg border border-red-500/10 mb-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.12em' }}>
                       Failure Profile (Decay Factors)
                     </div>
@@ -592,9 +592,9 @@ const StrategyAudit = () => {
         )}
 
         {activeLevel === 3 && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold flex items-center gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-              <Activity className="text-purple-500 shrink-0" /> LEVEL 3 — DIAGNOSTICS
+          <div className="space-y-4 sm:space-y-6">
+            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+              <Activity className="text-purple-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 3 — DIAGNOSTICS
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -652,7 +652,7 @@ const StrategyAudit = () => {
               </div>
             </Section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <Section title="Loss Cluster Severity" icon={<AlertTriangle className="w-4 h-4 text-red-400" />}>
                 <div className="space-y-4">
                   <div className="text-center p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
@@ -709,7 +709,7 @@ const StrategyAudit = () => {
 
               <Section title="Automation Risk" icon={<Cpu className="w-4 h-4 text-yellow-400" />}>
                 <div className="flex flex-col items-center justify-center py-8">
-                  <div className="text-6xl font-bold text-yellow-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.automationRisk}%</div>
+                  <div className="text-4xl sm:text-6xl font-bold text-yellow-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.automationRisk}%</div>
                   <div className="text-sm text-slate-500 mt-3 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.15em' }}>Execution Failure</div>
                   <div className="mt-6 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                     <span className="text-xs text-yellow-400 font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>LOW RISK</span>
@@ -721,9 +721,9 @@ const StrategyAudit = () => {
         )}
 
         {activeLevel === 4 && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold flex items-center gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-              <PlusCircle className="text-blue-500 shrink-0" /> LEVEL 4 — ACTION & ITERATION
+          <div className="space-y-4 sm:space-y-6">
+            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+              <PlusCircle className="text-blue-500 shrink-0 w-4 h-4 sm:w-6 sm:h-6" /> LEVEL 4 — ACTION & ITERATION
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -754,11 +754,11 @@ const StrategyAudit = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-6 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
                   <div className="text-xs text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>Last 50 Trades</div>
-                  <div className="text-5xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last50}R</div>
+                  <div className="text-3xl sm:text-5xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last50}R</div>
                 </div>
-                <div className="p-6 bg-purple-500/5 border border-purple-500/20 rounded-xl text-center">
+                <div className="p-4 sm:p-6 bg-purple-500/5 border border-purple-500/20 rounded-xl text-center">
                   <div className="text-xs text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>Last 200 Trades</div>
-                  <div className="text-5xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last200}R</div>
+                  <div className="text-3xl sm:text-5xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last200}R</div>
                 </div>
               </div>
               <div className="mt-6 pt-6 border-t border-slate-800/50">
@@ -769,18 +769,18 @@ const StrategyAudit = () => {
               </div>
             </Section>
 
-            <div className="mt-8 p-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-2 border-emerald-500/30 rounded-2xl">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <ShieldCheck className="w-6 h-6 text-emerald-400" />
+            <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-2 border-emerald-500/30 rounded-2xl">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-emerald-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.2em' }}>Final Audit Verdict</span>
+                      <span className="text-[10px] sm:text-xs text-emerald-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.2em' }}>Final Audit Verdict</span>
                     </div>
-                    <div className="text-3xl font-bold text-emerald-400 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.08em' }}>System Authorized</div>
-                    <div className="text-sm text-slate-400 mt-1" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Structural check passed. Max DD 8.4% within tolerance.</div>
+                    <div className="text-xl sm:text-3xl font-bold text-emerald-400 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.08em' }}>System Authorized</div>
+                    <div className="text-xs sm:text-sm text-slate-400 mt-1" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Structural check passed. Max DD 8.4% within tolerance.</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -877,8 +877,8 @@ const StrategyAudit = () => {
 };
 
 const Section = ({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) => (
-  <section className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-5 md:p-6 hover:border-slate-700/80 transition-all duration-300">
-    <div className="flex items-center gap-3 mb-5">
+  <section className="bg-slate-900/40 border border-slate-800/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 md:p-6 hover:border-slate-700/80 transition-all duration-300">
+    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
       {icon && <div className="p-2 bg-slate-800/50 border border-slate-700/50 rounded-lg">{icon}</div>}
       <h3 className="text-sm font-bold uppercase text-slate-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>{title}</h3>
     </div>
