@@ -262,7 +262,7 @@ export default function Journal() {
   }), []);
 
   return (
-    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
+    <div style={{ fontFamily:'"Montserrat",sans-serif', flex:1, height:'100%', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap');
         .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
