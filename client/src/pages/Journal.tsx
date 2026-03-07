@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Activity } from 'lucide-react';
+import NewHeader from '@/components/NewHeader';
+import NewFooter from '@/components/NewFooter';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -243,6 +245,9 @@ export default function Journal() {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [theme, setTheme] = useState('dark');
+  const isDark = theme === 'dark';
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   useEffect(() => {
     const check = () => {
@@ -262,14 +267,20 @@ export default function Journal() {
   }), []);
 
   return (
-    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
+    <div style={{ fontFamily:'"Montserrat",sans-serif', minHeight:'100dvh', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@600;700&display=swap');
         .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
         .journal-root svg text{font-family:'Montserrat',sans-serif!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
+        .primary-btn { background: #2563eb; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
+        .primary-btn:hover { background: #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
       `}</style>
+
+      <NewHeader isDark={isDark} toggleTheme={toggleTheme} />
+
+      <div style={{ height: '120px', flexShrink: 0 }} />
 
       <header style={{ height:54, flexShrink:0, background:'#07090f', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', gap:8, zIndex:30 }} data-testid="journal-header">
         <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, overflow:'hidden' }}>
@@ -427,6 +438,8 @@ export default function Journal() {
           </div>
         </main>
       </div>
+
+      <NewFooter isDark={isDark} />
     </div>
   );
 }
