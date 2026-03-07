@@ -215,7 +215,7 @@ export default function HomePage() {
 
             <div className="hidden lg:flex items-center space-x-8 text-[10px] font-black uppercase tracking-[0.15em]">
               <a href="#" className="text-blue-500" data-testid="link-nav-home">Home</a>
-              <a href="#journal" className="hover:text-blue-500 transition-colors" data-testid="link-nav-journal">Free Journal</a>
+              <a href="/journal" className="hover:text-blue-500 transition-colors" data-testid="link-nav-journal">Free Journal</a>
               <a href="#tsc" className="hover:text-blue-500 transition-colors" data-testid="link-nav-tsc">TSC</a>
               <a href="#calendar" className="hover:text-blue-500 transition-colors" data-testid="link-nav-calendar">Economic Calendar</a>
               <a href="#blog" className="hover:text-blue-500 transition-colors" data-testid="link-nav-blog">Blog</a>
@@ -262,7 +262,7 @@ export default function HomePage() {
             </div>
             <nav className="space-y-6 text-[11px] font-black uppercase tracking-[0.15em]">
               <a href="#" className="block text-blue-500" onClick={() => setIsMenuOpen(false)}>Home</a>
-              <a href="#journal" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Free Journal</a>
+              <a href="/journal" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Free Journal</a>
               <a href="#tsc" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>TSC</a>
               <a href="#calendar" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Economic Calendar</a>
               <a href="#blog" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Blog</a>
@@ -502,7 +502,7 @@ export default function HomePage() {
             <div>
               <h4 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-8 ${isDark ? 'text-white' : 'text-black'}`}>Resources</h4>
               <ul className={`space-y-4 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                <li><a href="#journal" className="hover:text-blue-500 transition-colors">Free Trading Journal</a></li>
+                <li><a href="/journal" className="hover:text-blue-500 transition-colors">Free Trading Journal</a></li>
                 <li><a href="#tsc" className="hover:text-blue-500 transition-colors">Session Clock (TSC)</a></li>
                 <li><a href="#calendar" className="hover:text-blue-500 transition-colors">Economic Calendar</a></li>
                 <li><a href="#blog" className="hover:text-blue-500 transition-colors">Strategy Blog</a></li>

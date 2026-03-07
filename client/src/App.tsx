@@ -16,6 +16,7 @@ import Commodities from "@/pages/Commodities";
 import Cryptocurrency from "@/pages/Cryptocurrency";
 import Join from "@/pages/Join";
 import Blog from "@/pages/Blog";
+import Journal from "@/pages/Journal";
 import NotFound from "@/pages/not-found";
 
 function InnerPages() {
@@ -50,6 +51,7 @@ export default function App() {
       <TooltipProvider>
         <Switch>
           <Route path="/" component={HomePage} />
+          <Route path="/journal" component={Journal} />
           <Route>{() => <InnerPages />}</Route>
         </Switch>
         <Toaster />
