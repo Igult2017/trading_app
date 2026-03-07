@@ -10,9 +10,11 @@ Preferred communication style: Simple, everyday language.
 
 ## Frontend
 - **Framework**: React 18 with TypeScript, using Vite for building.
-- **UI/UX**: Radix UI with shadcn/ui components, styled with Tailwind CSS, featuring a dark-mode palette inspired by financial trading colors (blue, green, red, amber) and Inter font for readability. Card-based layouts with an 18rem sidebar and mobile-first responsive design.
+- **UI/UX**: Custom magazine-style dark theme using Tailwind CSS with glass-card components, Montserrat/Playfair Display/JetBrains Mono fonts, and blue accent color scheme. Also uses Radix UI with shadcn/ui components on inner pages.
+- **Homepage**: Self-contained component at `client/src/pages/HomePage.tsx` with its own navigation (3-tier: utility bar, main nav, sub-nav), search bar, content cards (Journal, Calendar, Major Pairs, US Stocks, Crypto, Strategies, Blog), and footer. Has built-in dark/light theme toggle.
+- **Inner Pages**: Use shared `Header.tsx` and `Footer.tsx` components with the old layout.
 - **State Management**: TanStack React Query for data fetching and caching.
-- **Routing**: Wouter for client-side navigation.
+- **Routing**: Wouter for client-side navigation. Root "/" renders HomePage directly (no shared header/footer), all other routes use the shared layout wrapper.
 
 ## Backend
 - **Runtime**: Node.js with Express.js, written in TypeScript.

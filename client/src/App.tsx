@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import HomePage from "@/pages/HomePage";
 import Dashboard from "@/pages/Dashboard";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
@@ -17,24 +18,29 @@ import Join from "@/pages/Join";
 import Blog from "@/pages/Blog";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function InnerPages() {
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/history" component={TradeHistoryPage} />
-      <Route path="/analytics" component={Analytics} />
-      <Route path="/calendar" component={EconomicCalendar} />
-      <Route path="/stocks" component={Stocks} />
-      <Route path="/major-pairs" component={MajorPairs} />
-      <Route path="/commodities" component={Commodities} />
-      <Route path="/crypto" component={Cryptocurrency} />
-      <Route path="/join" component={Join} />
-      <Route path="/blog" component={Blog} />
-      <Route path="/markets" component={Stocks} />
-      <Route path="/signals" component={Stocks} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="flex flex-col min-h-screen w-full">
+      <Header />
+      <main className="flex-1 bg-background">
+        <Switch>
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/history" component={TradeHistoryPage} />
+          <Route path="/analytics" component={Analytics} />
+          <Route path="/calendar" component={EconomicCalendar} />
+          <Route path="/stocks" component={Stocks} />
+          <Route path="/major-pairs" component={MajorPairs} />
+          <Route path="/commodities" component={Commodities} />
+          <Route path="/crypto" component={Cryptocurrency} />
+          <Route path="/join" component={Join} />
+          <Route path="/blog" component={Blog} />
+          <Route path="/markets" component={Stocks} />
+          <Route path="/signals" component={Stocks} />
+          <Route component={NotFound} />
+        </Switch>
+      </main>
+      <Footer />
+    </div>
   );
 }
 
@@ -42,13 +48,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="flex flex-col min-h-screen w-full">
-          <Header />
-          <main className="flex-1 bg-background">
-            <Router />
-          </main>
-          <Footer />
-        </div>
+        <Switch>
+          <Route path="/" component={HomePage} />
+          <Route>{() => <InnerPages />}</Route>
+        </Switch>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
