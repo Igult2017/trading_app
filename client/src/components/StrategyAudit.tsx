@@ -184,16 +184,6 @@ const StrategyAudit = () => {
               ))}
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-800">
-              <div className="hidden lg:flex flex-col items-end">
-                <span className="text-[10px] text-slate-500 font-bold uppercase" style={{ letterSpacing: '0.2em' }}>Status</span>
-                <span className="text-[10px] text-emerald-400 font-bold uppercase flex items-center gap-1" style={{ letterSpacing: '0.15em' }}>
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                  Active
-                </span>
-              </div>
-              <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 cursor-pointer hover:text-white" />
-            </div>
           </div>
         </div>
       </nav>
