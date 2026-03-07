@@ -53,7 +53,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'drawdown', label: 'Drawdown', icon: SI.Drawdown },
     { id: 'vault', label: 'Trade Vault', icon: SI.Vault },
     { id: 'leaderboard', label: 'Leaderboard', icon: SI.Leaderboard },
-    { id: 'sync', label: 'Sync Trade Copier', icon: SI.Sync, badge: 'NEW' },
+    { id: 'sync', label: 'Sync Trade', icon: SI.Sync },
     { id: 'fsdai', label: 'FSD AI', icon: SI.FsdAi },
   ]},
   { section: 'Live Trading', items: [
