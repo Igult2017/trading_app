@@ -281,7 +281,21 @@ export default function Journal() {
 
       <NewHeader isDark={isDark} toggleTheme={toggleTheme} />
 
-      <div style={{ height: '120px', flexShrink: 0 }} />
+      <div style={{ height: '136px', flexShrink: 0 }} />
+
+      <div style={{ flexShrink: 0, padding: '16px 24px', background: '#010409' }} data-testid="journal-search-bar">
+        <div style={{ position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: '0 auto 0 24px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <input
+            type="text"
+            placeholder="search..."
+            className="w-full bg-white/[0.03] text-white focus:bg-white/[0.05] border border-white/10 py-6 pl-16 pr-6 text-xs font-black uppercase tracking-[0.2em] focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-slate-500"
+            data-testid="input-journal-search"
+          />
+        </div>
+      </div>
 
       <header style={{ height:54, flexShrink:0, background:'#07090f', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', gap:8, zIndex:30 }} data-testid="journal-header">
         <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, overflow:'hidden' }}>
