@@ -548,6 +548,42 @@ export default function MetricsPanel() {
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
+            <div onClick={() => handleCardClick('drawdown')} className={cardBase('drawdown', 'rose')} data-testid="card-drawdown">
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-rose-500/10 rounded-xl"><TrendingDown className="w-4 h-4 text-rose-400" /></div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-rose-400/80">Drawdown</span>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { label: 'Max DD', value: '$300', sub: '0.30%', color: 'text-rose-400' },
+                    { label: 'Current DD', value: '0.30%', sub: '-$300', color: 'text-amber-400' },
+                    { label: 'Cumulative', value: '$102,100', sub: 'balance', color: 'text-emerald-400' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex justify-between items-center py-3 px-4 bg-slate-950/50 rounded-xl border border-white/5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+                      <div className="text-right">
+                        <div className={`text-sm font-black ${item.color}`}>{item.value}</div>
+                        <div className="text-[9px] text-slate-600 mt-0.5">{item.sub}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-2">
+                    <div className="flex justify-between text-[9px] text-slate-600 mb-1.5 uppercase tracking-wider">
+                      <span>DD Used</span><span>30%</span>
+                    </div>
+                    <div className="w-full bg-slate-800/60 rounded-full h-px">
+                      <div className="bg-rose-500 h-full rounded-full" style={{ width: '30%' }} />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-1 px-1">
+                    <span className="text-[9px] text-slate-600 uppercase tracking-wider">Feb 2026</span>
+                    <span className="text-[10px] font-bold text-amber-400">0.30% (-$300)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div onClick={() => handleCardClick('winloss')} className={cardBase('winloss')}>
               <div className="p-5">
                 <div className="flex items-center gap-3 mb-6">
