@@ -16,8 +16,11 @@ Preferred communication style: Simple, everyday language.
 - **Metrics Panel**: Full trading analytics dashboard at `client/src/components/MetricsPanel.tsx` with KPI cards, market regime analysis, execution precision, clarity/confluence, psychology/discipline, direction bias, setup tags, trade grades, exit analysis, session/instrument/risk breakdowns, win/loss streaks, recovery stats, equity curve, risk of ruin, strategy performance table, and setup frequency table.
 - **Inner Pages**: Legacy pages still use shared `Header.tsx` and `Footer.tsx` components with the old layout (to be migrated to new header/footer).
 - **New Header/Footer Standard**: The homepage's built-in header (3-tier nav) and footer are the new design standard for all pages going forward. The old `Header.tsx`/`Footer.tsx` components in `components/` are legacy and should NOT be used for new pages.
+  - `NewHeader.tsx`: Full 3-tier header (utility bar, main nav with logo, sub-nav). Used on the HomePage and any standard pages.
+  - `JournalHeader.tsx`: Compact 2-row header specifically for the Journal dashboard. Row 1 is the utility bar (Telegram, Subscribe, theme toggle, auth). Row 2 merges the logo + all nav links (Home, Free Journal, TSC, Economic Calendar, Blog, Major Pairs, US Stocks, Commodities, Cryptocurrency, Verified Strategies) into a single row with smaller font sizes (8px). This eliminates the sub-nav row to maximize vertical space for the journal dashboard content.
+  - `NewFooter.tsx`: Standard footer used on the HomePage. The Journal dashboard does NOT use a footer to maximize content space.
 - **State Management**: TanStack React Query for data fetching and caching.
-- **Routing**: Wouter for client-side navigation. Root "/" and "/journal" render as standalone pages (no shared old header/footer), other routes use the legacy shared layout wrapper.
+- **Routing**: Wouter for client-side navigation with `Link` component for instant page transitions (no full reloads). Root "/" and "/journal" render as standalone pages (no shared old header/footer), other routes use the legacy shared layout wrapper.
 
 ## Backend
 - **Runtime**: Node.js with Express.js, written in TypeScript.
