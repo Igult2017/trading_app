@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -37,11 +37,17 @@ export interface IStorage {
   getInterestRateByCurrency(currency: string): Promise<InterestRate | undefined>;
   upsertInterestRate(rate: InsertInterestRate): Promise<InterestRate>;
 
-  getJournalEntries(userId?: string): Promise<JournalEntry[]>;
+  getJournalEntries(userId?: string, sessionId?: string): Promise<JournalEntry[]>;
   getJournalEntryById(id: string): Promise<JournalEntry | undefined>;
   createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
   updateJournalEntry(id: string, entry: Partial<InsertJournalEntry>): Promise<JournalEntry | undefined>;
   deleteJournalEntry(id: string): Promise<boolean>;
+
+  getSessions(userId?: string): Promise<TradingSession[]>;
+  getSessionById(id: string): Promise<TradingSession | undefined>;
+  createSession(session: InsertTradingSession): Promise<TradingSession>;
+  updateSession(id: string, session: Partial<InsertTradingSession>): Promise<TradingSession | undefined>;
+  deleteSession(id: string): Promise<boolean>;
 }
 
 export class DbStorage implements IStorage {
@@ -409,10 +415,13 @@ export class DbStorage implements IStorage {
     }
   }
 
-  async getJournalEntries(userId?: string): Promise<JournalEntry[]> {
+  async getJournalEntries(userId?: string, sessionId?: string): Promise<JournalEntry[]> {
     try {
-      if (userId) {
-        return await db.select().from(journalEntries).where(eq(journalEntries.userId, userId)).orderBy(desc(journalEntries.createdAt));
+      const conditions = [];
+      if (userId) conditions.push(eq(journalEntries.userId, userId));
+      if (sessionId) conditions.push(eq(journalEntries.sessionId, sessionId));
+      if (conditions.length > 0) {
+        return await db.select().from(journalEntries).where(and(...conditions)).orderBy(desc(journalEntries.createdAt));
       }
       return await db.select().from(journalEntries).orderBy(desc(journalEntries.createdAt));
     } catch (error) {
@@ -457,6 +466,59 @@ export class DbStorage implements IStorage {
       return result.length > 0;
     } catch (error) {
       console.error('[Storage] Error deleting journal entry:', error);
+      return false;
+    }
+  }
+
+  async getSessions(userId?: string): Promise<TradingSession[]> {
+    try {
+      if (userId) {
+        return await db.select().from(tradingSessions).where(eq(tradingSessions.userId, userId)).orderBy(desc(tradingSessions.createdAt));
+      }
+      return await db.select().from(tradingSessions).orderBy(desc(tradingSessions.createdAt));
+    } catch (error) {
+      console.error('[Storage] Error fetching sessions:', error);
+      return [];
+    }
+  }
+
+  async getSessionById(id: string): Promise<TradingSession | undefined> {
+    try {
+      const result = await db.select().from(tradingSessions).where(eq(tradingSessions.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error fetching session:', error);
+      return undefined;
+    }
+  }
+
+  async createSession(session: InsertTradingSession): Promise<TradingSession> {
+    try {
+      const result = await db.insert(tradingSessions).values(session).returning();
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error creating session:', error);
+      throw error;
+    }
+  }
+
+  async updateSession(id: string, session: Partial<InsertTradingSession>): Promise<TradingSession | undefined> {
+    try {
+      const result = await db.update(tradingSessions).set(session).where(eq(tradingSessions.id, id)).returning();
+      return result[0];
+    } catch (error) {
+      console.error('[Storage] Error updating session:', error);
+      return undefined;
+    }
+  }
+
+  async deleteSession(id: string): Promise<boolean> {
+    try {
+      await db.delete(journalEntries).where(eq(journalEntries.sessionId, id));
+      const result = await db.delete(tradingSessions).where(eq(tradingSessions.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[Storage] Error deleting session:', error);
       return false;
     }
   }

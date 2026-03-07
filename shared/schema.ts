@@ -275,9 +275,27 @@ export const insertInterestRateSchema = createInsertSchema(interestRates).omit({
 export type InsertInterestRate = z.infer<typeof insertInterestRateSchema>;
 export type InterestRate = typeof interestRates.$inferSelect;
 
+export const tradingSessions = pgTable("trading_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  sessionName: text("session_name").notNull(),
+  startingBalance: decimal("starting_balance", { precision: 12, scale: 2 }).notNull(),
+  status: text("status").default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTradingSessionSchema = createInsertSchema(tradingSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTradingSession = z.infer<typeof insertTradingSessionSchema>;
+export type TradingSession = typeof tradingSessions.$inferSelect;
+
 export const journalEntries = pgTable("journal_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id").references(() => tradingSessions.id),
 
   instrument: text("instrument"),
   pairCategory: text("pair_category"),

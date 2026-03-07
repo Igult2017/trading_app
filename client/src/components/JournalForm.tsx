@@ -7,7 +7,7 @@ import {
   Clock, Gauge, Boxes, Layers3, TrendingUp, BrainCircuit,
   DoorOpen, AlertTriangle, RefreshCcw, Trash2, Save, Loader2,
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 /* ─── EXACT SAMPLE-1 DESIGN TOKENS ──────────────────────────────────── */
 const PAGE_BG   = "bg-[#05070a]";
@@ -209,7 +209,7 @@ const NavButtons = ({ step, onPrev, onNext }: { step: number; onPrev: () => void
 );
 
 /* ─── MAIN COMPONENT ─────────────────────────────────────────────────── */
-export default function JournalForm() {
+export default function JournalForm({ sessionId }: { sessionId?: string | null }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<Record<string, any>>(INIT);
   const [saved, setSaved] = useState(false);
@@ -273,6 +273,10 @@ export default function JournalForm() {
   };
 
   const saveJournalEntry = async () => {
+    if (!sessionId) {
+      setAnalyzeError("Please select or create a session before saving a trade.");
+      return;
+    }
     setSaving(true);
     try {
       const payload: Record<string, any> = {
@@ -311,6 +315,7 @@ export default function JournalForm() {
         sessionName: form.sessionName || null,
         sessionPhase: form.sessionPhase || null,
         entryTimeUTC: form.entryTimeUTC || null,
+        sessionId: sessionId || null,
         timingContext: form.timingContext || null,
         manualFields: {
           thesis: form.thesis, trigger: form.trigger, invalidationLogic: form.invalidationLogic,
@@ -330,6 +335,8 @@ export default function JournalForm() {
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");

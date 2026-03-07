@@ -202,20 +202,57 @@ def compute_rules_adherence(trades):
     return round(compliant / len(trades) * 100, 1)
 
 
-def compute_equity_curve(trades):
+def compute_equity_curve(trades, starting_balance=None):
     sorted_trades = sorted(trades, key=lambda t: t.get("entryTime") or t.get("createdAt") or "")
     curve = []
     cumulative = 0.0
+    balance = starting_balance if starting_balance else 0.0
+
     for i, t in enumerate(sorted_trades):
-        cumulative += safe_float(t.get("profitLoss"))
+        risk_pct = safe_float(t.get("riskPercent"))
+        outcome = (t.get("outcome") or "").lower()
+        pl = safe_float(t.get("profitLoss"))
+
+        if starting_balance and risk_pct > 0:
+            risk_amount = balance * (risk_pct / 100.0)
+            achieved_rr = safe_float(t.get("achievedRR") or t.get("riskReward"))
+            if outcome == "win" and achieved_rr > 0:
+                change = risk_amount * achieved_rr
+            elif outcome == "loss":
+                change = -risk_amount
+            else:
+                change = pl
+            balance += change
+            cumulative += change
+        else:
+            cumulative += pl
+            balance = (starting_balance + cumulative) if starting_balance else cumulative
+
         curve.append({
             "tradeNumber": i + 1,
             "cumulativePL": round(cumulative, 2),
+            "balance": round(balance, 2),
             "date": t.get("entryTime") or t.get("createdAt") or "",
             "instrument": t.get("instrument") or "",
             "outcome": t.get("outcome") or "",
         })
     return curve
+
+
+def compute_equity_growth(trades, starting_balance):
+    if not starting_balance or starting_balance <= 0:
+        return None
+    curve = compute_equity_curve(trades, starting_balance)
+    current_balance = curve[-1]["balance"] if curve else starting_balance
+    total_pl = current_balance - starting_balance
+    total_return_pct = (total_pl / starting_balance) * 100 if starting_balance > 0 else 0
+    return {
+        "startingBalance": round(starting_balance, 2),
+        "currentBalance": round(current_balance, 2),
+        "totalPL": round(total_pl, 2),
+        "totalReturnPct": round(total_return_pct, 2),
+        "balanceHistory": [{"trade": p["tradeNumber"], "balance": p["balance"], "date": p["date"]} for p in curve],
+    }
 
 
 def compute_strategy_performance(trades):
@@ -368,7 +405,7 @@ def compute_timeframe_breakdown(trades):
     return result
 
 
-def compute_all_metrics(trades):
+def compute_all_metrics(trades, starting_balance=None):
     core = compute_core_metrics(trades)
     streaks = compute_streaks(trades)
     sessions = compute_session_breakdown(trades)
@@ -376,7 +413,7 @@ def compute_all_metrics(trades):
     direction = compute_direction_bias(trades)
     exit_analysis = compute_exit_analysis(trades)
     risk = compute_risk_metrics(trades)
-    equity_curve = compute_equity_curve(trades)
+    equity_curve = compute_equity_curve(trades, starting_balance)
     strategy_perf = compute_strategy_performance(trades)
     setup_freq = compute_setup_frequency(trades)
     grades = compute_trade_grades(trades)
@@ -384,7 +421,7 @@ def compute_all_metrics(trades):
     day_breakdown = compute_day_of_week_breakdown(trades)
     tf_breakdown = compute_timeframe_breakdown(trades)
 
-    return {
+    result = {
         "core": core,
         "streaks": streaks,
         "sessionBreakdown": sessions,
@@ -401,6 +438,13 @@ def compute_all_metrics(trades):
         "timeframeBreakdown": tf_breakdown,
     }
 
+    if starting_balance:
+        equity_growth = compute_equity_growth(trades, starting_balance)
+        if equity_growth:
+            result["equityGrowth"] = equity_growth
+
+    return result
+
 
 if __name__ == "__main__":
     try:
@@ -408,10 +452,17 @@ if __name__ == "__main__":
         if not raw:
             print(json.dumps({"success": True, "metrics": compute_all_metrics([])}))
             sys.exit(0)
-        trades = json.loads(raw)
-        if not isinstance(trades, list):
+        data = json.loads(raw)
+        if isinstance(data, list):
+            trades = data
+            starting_balance = None
+        elif isinstance(data, dict):
+            trades = data.get("trades", [])
+            starting_balance = safe_float(data.get("startingBalance"), None)
+        else:
             trades = []
-        metrics = compute_all_metrics(trades)
+            starting_balance = None
+        metrics = compute_all_metrics(trades, starting_balance)
         print(json.dumps({"success": True, "metrics": metrics}))
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))

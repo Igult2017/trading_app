@@ -1,28 +1,40 @@
 import { useState } from 'react';
-import { Globe } from 'lucide-react';
+import { Globe, Trash2 } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 interface SessionData {
-  id: number;
+  id: string;
   sessionName: string;
-  startingBalance: number;
-  currentBalance: number;
-  createdAt: string;
-  trades: any[];
+  startingBalance: string;
+  status: string | null;
+  createdAt: string | null;
 }
 
 interface CreateSessionFormProps {
-  onSubmit: (data: { sessionName: string; startingBalance: number }) => void;
+  onCreated: (sessionId: string) => void;
 }
 
-export const CreateSessionForm = ({ onSubmit }: CreateSessionFormProps) => {
+export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   const [sessionName, setSessionName] = useState('');
   const [startingBalance, setStartingBalance] = useState('');
 
+  const createMutation = useMutation({
+    mutationFn: async (data: { sessionName: string; startingBalance: number }) => {
+      const res = await apiRequest("POST", "/api/sessions", data);
+      return res.json();
+    },
+    onSuccess: (session: SessionData) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      setSessionName('');
+      setStartingBalance('');
+      onCreated(session.id);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ sessionName, startingBalance: parseFloat(startingBalance) });
-    setSessionName('');
-    setStartingBalance('');
+    createMutation.mutate({ sessionName, startingBalance: parseFloat(startingBalance) || 0 });
   };
 
   return (
@@ -45,7 +57,9 @@ export const CreateSessionForm = ({ onSubmit }: CreateSessionFormProps) => {
             </div>
           </div>
           <div className="flex gap-4 pt-4">
-            <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest px-6 py-4 rounded-md transition-all shadow-xl shadow-indigo-600/20 border border-indigo-500/50" data-testid="button-create-session">Create Session</button>
+            <button type="submit" disabled={createMutation.isPending} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest px-6 py-4 rounded-md transition-all shadow-xl shadow-indigo-600/20 border border-indigo-500/50 disabled:opacity-50" data-testid="button-create-session">
+              {createMutation.isPending ? 'Creating...' : 'Create Session'}
+            </button>
           </div>
         </form>
       </div>
@@ -54,11 +68,39 @@ export const CreateSessionForm = ({ onSubmit }: CreateSessionFormProps) => {
 };
 
 interface SessionsListProps {
-  sessions: SessionData[];
-  onDeleteSession: (id: number) => void;
+  onSelectSession: (sessionId: string) => void;
+  activeSessionId: string | null;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
-export const SessionsList = ({ sessions, onDeleteSession }: SessionsListProps) => {
+export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession }: SessionsListProps) => {
+  const { data: sessions = [], isLoading } = useQuery<SessionData[]>({
+    queryKey: ['/api/sessions'],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/sessions/${id}`);
+      return id;
+    },
+    onSuccess: (deletedId: string) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', deletedId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', deletedId] });
+      if (onDeleteSession) onDeleteSession(deletedId);
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-slate-900 border border-slate-800 rounded-md p-16 text-center">
+          <p className="text-sm text-slate-400">Loading sessions...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (sessions.length === 0) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -77,38 +119,36 @@ export const SessionsList = ({ sessions, onDeleteSession }: SessionsListProps) =
     <div className="max-w-6xl mx-auto">
       <div className="mb-8">
         <h2 className="text-sm font-semibold" data-testid="text-sessions-title">Trading Sessions</h2>
-        <p className="text-sm text-slate-400">Manage and track all your trading sessions</p>
+        <p className="text-sm text-slate-400">Select a session to view its data across Dashboard, Metrics, and Trade Vault</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sessions.map((session) => {
-          const profitLoss = session.currentBalance - session.startingBalance;
-          const profitLossPercent = ((profitLoss / session.startingBalance) * 100).toFixed(2);
-          const isProfit = profitLoss >= 0;
+          const isActive = activeSessionId === session.id;
           return (
-            <div key={session.id} className="bg-slate-900 border border-slate-800 rounded-md p-6 hover:border-slate-700 transition-all" data-testid={`card-session-${session.id}`}>
+            <div key={session.id}
+              onClick={() => onSelectSession(session.id)}
+              className={`bg-slate-900 border rounded-md p-6 cursor-pointer transition-all ${isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-800 hover:border-slate-700'}`}
+              data-testid={`card-session-${session.id}`}>
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-black text-white mb-1 tracking-tight" data-testid={`text-session-name-${session.id}`}>{session.sessionName}</h3>
-                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{new Date(session.createdAt).toLocaleDateString()}</p>
+                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : ''}</p>
                 </div>
+                {isActive && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded">Active</span>}
               </div>
               <div className="space-y-4">
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 font-black">Starting Balance</p>
-                  <p className="text-xl font-bold text-white font-mono">${session.startingBalance.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-white font-mono">${parseFloat(session.startingBalance).toLocaleString()}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 font-black">Current Balance</p>
-                  <p className="text-xl font-bold text-white font-mono">${session.currentBalance.toLocaleString()}</p>
-                </div>
-                <div className="pt-4 border-t border-slate-800">
-                  <div className="flex justify-between items-center">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-black">P&L</p>
-                    <div className="text-right">
-                      <p className={`text-sm font-black font-mono ${isProfit ? 'text-emerald-400' : 'text-red-400'}`} data-testid={`text-session-pnl-${session.id}`}>{isProfit ? '+' : ''}{profitLossPercent}%</p>
-                      <p className={`text-xs font-mono ${isProfit ? 'text-emerald-400/60' : 'text-red-400/60'}`}>{isProfit ? '+' : ''}${profitLoss.toLocaleString()}</p>
-                    </div>
-                  </div>
+                <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded ${session.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700/30 text-slate-400'}`}>
+                    {session.status || 'active'}
+                  </span>
+                  <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
+                    className="text-slate-600 hover:text-red-400 transition-colors p-1" data-testid={`button-delete-session-${session.id}`}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             </div>

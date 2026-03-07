@@ -147,11 +147,14 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
   );
 }
 
-export default function TradeVault() {
+export default function TradeVault({ sessionId }: { sessionId?: string | null }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
 
+  const queryUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '/api/journal/entries';
   const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
-    queryKey: ["/api/journal/entries"],
+    queryKey: ["/api/journal/entries", sessionId],
+    queryFn: () => fetch(queryUrl).then(r => r.json()),
+    enabled: !!sessionId,
   });
 
   const trades: Trade[] = journalEntries.map(journalEntryToTrade);
@@ -190,6 +193,22 @@ export default function TradeVault() {
   const handleSave = (updated: Trade) => {
     updateMutation.mutate(updated);
   };
+
+  if (!sessionId) {
+    return (
+      <div className="trade-vault-root" style={styles.page}>
+        <div style={styles.header}>
+          <div>
+            <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
+            <div style={styles.vaultSub}>No session selected</div>
+          </div>
+        </div>
+        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
+          <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-no-session">Select or create a session to view trades.</div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

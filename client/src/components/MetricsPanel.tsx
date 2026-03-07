@@ -17,13 +17,16 @@ function formatPct(v: number): string {
   return `${Math.round(v)}%`;
 }
 
-export default function MetricsPanel() {
+export default function MetricsPanel({ sessionId }: { sessionId?: string | null }) {
   const [selectedStrategy, setSelectedStrategy] = useState('ALL STRATEGIES');
   const [activeCard, setActiveCard] = useState<string | null>(null);
   const [equityView, setEquityView] = useState('WEEKLY');
 
+  const queryUrl = sessionId ? `/api/metrics/compute?sessionId=${sessionId}` : '/api/metrics/compute';
   const { data: metricsData, isLoading, isError } = useQuery<{ success: boolean; metrics: any }>({
-    queryKey: ['/api/metrics/compute'],
+    queryKey: ['/api/metrics/compute', sessionId],
+    queryFn: () => fetch(queryUrl).then(r => r.json()),
+    enabled: !!sessionId,
   });
 
   const m = metricsData?.metrics;
@@ -137,6 +140,18 @@ export default function MetricsPanel() {
       <span className={`text-xs font-black tracking-tighter ${highlight || 'text-white'}`}>{value}</span>
     </div>
   );
+
+  if (!sessionId) {
+    return (
+      <div className="text-slate-200 flex items-center justify-center py-20" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+        <div className="text-center">
+          <BarChart3 className="w-10 h-10 text-slate-600 mx-auto mb-4" />
+          <p className="text-sm text-slate-400 font-medium mb-1" data-testid="text-metrics-no-session">No session selected</p>
+          <p className="text-xs text-slate-600">Select or create a session to view metrics.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

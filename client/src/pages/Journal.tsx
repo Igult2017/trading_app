@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'wouter';
-import { Activity } from 'lucide-react';
+import { Activity, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
 import JournalForm from '@/components/JournalForm';
@@ -148,16 +149,7 @@ const KPI_ICONS = {
   AvgTrade: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
 };
 
-const STATS = [
-  { id: 'pnl', label: 'TOTAL P&L', value: '+$1,142', Icon: KPI_ICONS.PnL, color: '#34d399', bg: 'rgba(16,185,129,0.1)' },
-  { id: 'winrate', label: 'WIN RATE', value: '60%', Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
-  { id: 'rexpect', label: 'R EXPECTANCY', value: '1.42R', Icon: KPI_ICONS.Expectancy, color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' },
-  { id: 'tradecount', label: 'TRADES', value: '12', Icon: KPI_ICONS.Trades, color: '#94a3b8', bg: 'rgba(100,116,139,0.1)' },
-  { id: 'pfactor', label: 'PROFIT FACTOR', value: '2.45', Icon: KPI_ICONS.ProfitFactor, color: '#c084fc', bg: 'rgba(168,85,247,0.1)' },
-  { id: 'avgtrade', label: 'AVG TRADE', value: '$228.40', Icon: KPI_ICONS.AvgTrade, color: '#fb7185', bg: 'rgba(244,63,94,0.1)' },
-];
-
-const StatCard = ({ stat }: { stat: typeof STATS[0] }) => (
+const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
   <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.05)', padding: 12, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
     <div style={{ background: stat.bg, padding: 6, borderRadius: 6, color: stat.color, display: 'flex' }}><stat.Icon /></div>
     <div style={{ textAlign: 'center' }}>
@@ -166,25 +158,6 @@ const StatCard = ({ stat }: { stat: typeof STATS[0] }) => (
     </div>
   </div>
 );
-
-const LINE_DATA: Record<string, { label: string; pnl: number }[]> = {
-  DAILY: [
-    { label: '09:00', pnl: 20 }, { label: '09:30', pnl: 80 }, { label: '10:00', pnl: 140 },
-    { label: '10:30', pnl: 110 }, { label: '11:00', pnl: 190 }, { label: '11:30', pnl: 170 },
-    { label: '12:00', pnl: 230 }, { label: '12:30', pnl: 280 }, { label: '13:00', pnl: 310 },
-    { label: '13:30', pnl: 340 }, { label: '14:00', pnl: 390 }, { label: '14:30', pnl: 430 },
-    { label: '15:00', pnl: 470 }, { label: '15:30', pnl: 510 }, { label: '16:00', pnl: 560 },
-    { label: '16:30', pnl: 590 }, { label: '17:00', pnl: 540 },
-  ],
-  WEEKLY: [
-    { label: 'Mon', pnl: 200 }, { label: 'Tue', pnl: 350 }, { label: 'Wed', pnl: 280 },
-    { label: 'Thu', pnl: 500 }, { label: 'Fri', pnl: 620 }, { label: 'Sat', pnl: 580 }, { label: 'Sun', pnl: 700 },
-  ],
-  MONTHLY: [
-    { label: 'Wk1', pnl: 300 }, { label: 'Wk2', pnl: 550 }, { label: 'Wk3', pnl: 480 },
-    { label: 'Wk4', pnl: 820 }, { label: 'Wk5', pnl: 1100 },
-  ],
-};
 
 function catmullRomPath(pts: { x: number; y: number }[]) {
   if (pts.length < 2) return '';
@@ -233,19 +206,194 @@ const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => 
   );
 };
 
-const TRADES = [
-  { id:1, ticker:'EUR/USD', date:'2023-10-24 09:15', type:'LONG', pnl:320, status:'profit' },
-  { id:2, ticker:'GBP/JPY', date:'2023-10-24 11:30', type:'SHORT', pnl:185, status:'profit' },
-  { id:3, ticker:'XAU/USD', date:'2023-10-25 14:00', type:'SHORT', pnl:210, status:'loss' },
-  { id:4, ticker:'USD/CHF', date:'2023-10-26 14:20', type:'LONG', pnl:424, status:'profit' },
-  { id:5, ticker:'BTC/USD', date:'2023-10-27 16:10', type:'SHORT', pnl:120, status:'profit' },
-  { id:6, ticker:'AUD/USD', date:'2023-10-27 18:45', type:'LONG', pnl:150, status:'loss' },
-  { id:7, ticker:'USD/JPY', date:'2023-10-28 08:30', type:'SHORT', pnl:540, status:'profit' },
-  { id:8, ticker:'ETH/USD', date:'2023-10-28 10:00', type:'LONG', pnl:215, status:'profit' },
-];
+function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string; isMobile: boolean; windowWidth: number }) {
+  const metricsUrl = `/api/metrics/compute?sessionId=${sessionId}`;
+  const entriesUrl = `/api/journal/entries?sessionId=${sessionId}`;
+
+  const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
+    queryKey: ['/api/metrics/compute', sessionId],
+    queryFn: () => fetch(metricsUrl).then(r => r.json()),
+  });
+
+  const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
+    queryKey: ['/api/journal/entries', sessionId],
+    queryFn: () => fetch(entriesUrl).then(r => r.json()),
+  });
+
+  const m = metricsData?.metrics;
+  const core = m?.core || {};
+  const equityCurve = m?.equityCurve || [];
+  const equityGrowth = m?.equityGrowth;
+  const instrumentBreakdown = m?.instrumentBreakdown || {};
+
+  const totalPL = equityGrowth ? equityGrowth.totalPL : core.totalPL || 0;
+  const plSign = totalPL >= 0 ? '+' : '';
+
+  const stats = [
+    { id: 'pnl', label: 'TOTAL P&L', value: `${plSign}$${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, Icon: KPI_ICONS.PnL, color: totalPL >= 0 ? '#34d399' : '#fb7185', bg: totalPL >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
+    { id: 'winrate', label: 'WIN RATE', value: `${core.winRate || 0}%`, Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
+    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy || 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' },
+    { id: 'tradecount', label: 'TRADES', value: `${core.totalTrades || 0}`, Icon: KPI_ICONS.Trades, color: '#94a3b8', bg: 'rgba(100,116,139,0.1)' },
+    { id: 'pfactor', label: 'PROFIT FACTOR', value: `${core.profitFactor || 0}`, Icon: KPI_ICONS.ProfitFactor, color: '#c084fc', bg: 'rgba(168,85,247,0.1)' },
+    { id: 'avgtrade', label: 'AVG TRADE', value: `$${core.totalTrades ? (totalPL / core.totalTrades).toFixed(2) : '0.00'}`, Icon: KPI_ICONS.AvgTrade, color: '#fb7185', bg: 'rgba(244,63,94,0.1)' },
+  ];
+
+  const chartData = equityCurve.length > 0
+    ? equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))
+    : [{ label: 'Start', pnl: 0 }];
+
+  const recentTrades = [...entries].slice(0, 8).map((e: any) => ({
+    id: e.id,
+    ticker: e.instrument || 'N/A',
+    date: e.entryTime || (e.createdAt ? new Date(e.createdAt).toLocaleString() : ''),
+    type: (e.direction || 'LONG').toUpperCase(),
+    pnl: parseFloat(e.profitLoss || '0'),
+    status: (e.outcome || '').toLowerCase() === 'win' ? 'profit' : 'loss',
+  }));
+
+  const winCount = core.wins || 0;
+  const lossCount = core.losses || 0;
+  const totalCount = core.totalTrades || 0;
+  const profitRatio = totalCount > 0 ? Math.round((winCount / totalCount) * 100) : 0;
+  const lossRatio = totalCount > 0 ? 100 - profitRatio : 0;
+
+  const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 4);
+  const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
+
+  const tradeDays = useMemo(() => {
+    const dayMap: Record<number, string> = {};
+    entries.forEach((e: any) => {
+      const date = e.entryTime || e.createdAt;
+      if (!date) return;
+      const d = new Date(date);
+      const day = d.getDate();
+      const outcome = (e.outcome || '').toLowerCase();
+      if (outcome === 'win') dayMap[day] = 'profit';
+      else if (outcome === 'loss' && dayMap[day] !== 'profit') dayMap[day] = 'loss';
+    });
+    return Array.from({ length: 31 }, (_, i) => ({
+      day: i + 1,
+      status: dayMap[i + 1] || 'none',
+    }));
+  }, [entries]);
+
+  if (metricsLoading || entriesLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 80 }}>
+        <Loader2 size={24} style={{ color: '#38bdf8', animation: 'spin 1s linear infinite' }} />
+        <span style={{ marginLeft: 12, fontSize: 12, color: 'rgba(148,163,184,0.7)' }}>Loading dashboard...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : windowWidth < 900 ? 3 : 6},1fr)`, gap: 8 }}>
+        {stats.map(s => <StatCard key={s.id} stat={s} />)}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 12 }}>
+        <div style={{ background: '#080d18', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 16, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(56,189,248,0.1)', borderRadius: 8, color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}><Activity size={16} strokeWidth={3} /></div>
+              <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
+            </div>
+            {equityGrowth && (
+              <span style={{ fontSize: 10, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
+                {equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%
+              </span>
+            )}
+          </div>
+          <div style={{ height: 220, width: '100%' }}>
+            {chartData.length > 1 ? <NeonLineChart data={chartData} /> : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No equity data yet</div>
+            )}
+          </div>
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'rgba(56,189,248,0.04)', filter: 'blur(70px)', pointerEvents: 'none' }} />
+        </div>
+
+        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-performance-mix">
+          <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
+          {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
+            <div key={m.label} style={{ marginBottom: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 9, color: 'rgba(100,116,139,0.7)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>{m.label}</span>
+                <span style={{ fontSize: 9, color: m.color }}>{m.val}</span>
+              </div>
+              <div style={{ height: 2, background: '#161b22', borderRadius: 4 }}><div style={{ height: '100%', width: m.val, background: m.color, borderRadius: 4 }} /></div>
+            </div>
+          ))}
+          <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <p style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
+            {instEntries.map(([name, data]: any) => (
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 10, color: '#fff', width: 54, fontStyle: 'italic', flexShrink: 0 }}>{name}</span>
+                <div style={{ flex: 1, height: 2, background: '#161b22', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: '#38bdf8', borderRadius: 4 }} /></div>
+                <span style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', width: 16, textAlign: 'right', flexShrink: 0 }}>{data.trades}</span>
+              </div>
+            ))}
+            {instEntries.length === 0 && <p style={{ fontSize: 10, color: 'rgba(100,116,139,0.4)' }}>No instrument data yet</p>}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 12 }}>
+        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
+            <Activity size={14} strokeWidth={3} style={{ color: '#38bdf8', opacity: .3 }} />
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            {recentTrades.length > 0 ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 260 }}>
+                <thead style={{ background: 'rgba(22,27,34,0.5)' }}>
+                  <tr>{['INSTRUMENT', 'ACTION', 'NET P&L'].map((h, i) => (
+                    <th key={h} style={{ padding: '8px 14px', fontSize: 8, color: 'rgba(100,116,139,0.6)', textTransform: 'uppercase', letterSpacing: '0.2em', textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {recentTrades.map(t => (
+                    <tr key={t.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} data-testid={`trade-row-${t.id}`}>
+                      <td style={{ padding: '8px 14px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>{t.ticker}</div>
+                        <div style={{ fontSize: 8, color: 'rgba(100,116,139,0.6)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{t.date}</div>
+                      </td>
+                      <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
+                      </td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 11, fontWeight: 900, color: t.status === 'profit' ? '#34d399' : '#fb7185' }}>
+                        {t.status === 'profit' ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: 40, textAlign: 'center', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No trades in this session yet</div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-activity-calendar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}><Activity size={14} strokeWidth={3} /></div>
+            <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
+          </div>
+          <p style={{ textAlign: 'center', fontSize: 10, color: '#fff', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12 }}>TRADE DAYS</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} style={{ fontSize: 8, color: 'rgba(55,65,81,0.8)', textAlign: 'center', paddingBottom: 4 }}>{d}</div>)}
+            {tradeDays.map(d => (
+              <div key={d.day} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 9, fontWeight: 900, border: '1px solid transparent', background: d.status === 'profit' ? 'rgba(16,185,129,0.2)' : d.status === 'loss' ? 'rgba(244,63,94,0.2)' : 'rgba(22,27,34,0.8)', color: d.status === 'profit' ? '#34d399' : d.status === 'loss' ? '#fb7185' : 'rgba(55,65,81,0.8)', borderColor: d.status === 'profit' ? 'rgba(16,185,129,0.2)' : d.status === 'loss' ? 'rgba(244,63,94,0.2)' : 'transparent', opacity: d.status === 'none' ? 0.5 : 1 }}>{d.day}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Journal() {
-  const [view, setView] = useState('DAILY');
   const [activeNav, setActiveNav] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -255,16 +403,22 @@ export default function Journal() {
   const isDark = theme === 'dark';
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-  const [sessions, setSessions] = useState<{id:number;sessionName:string;startingBalance:number;currentBalance:number;createdAt:string;trades:any[]}[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  const handleCreateSession = (data: { sessionName: string; startingBalance: number }) => {
-    const newSession = { id: Date.now(), ...data, createdAt: new Date().toISOString(), currentBalance: data.startingBalance, trades: [] };
-    setSessions(prev => [...prev, newSession]);
-    setActiveNav('sessions');
+  const handleSessionCreated = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setActiveNav('dashboard');
   };
 
-  const handleDeleteSession = (sessionId: number) => {
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setActiveNav('dashboard');
+  };
+
+  const handleDeleteSession = (deletedId: string) => {
+    if (activeSessionId === deletedId) {
+      setActiveSessionId(null);
+    }
   };
 
   useEffect(() => {
@@ -279,11 +433,6 @@ export default function Journal() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  const heatmapDays = useMemo(() => Array.from({length:31},(_,i)=>{
-    const day=i+1, status=[24,26,27,28].includes(day)?'profit':[25,29].includes(day)?'loss':'none';
-    return {day,status};
-  }), []);
-
   return (
     <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
       <style>{`
@@ -294,6 +443,7 @@ export default function Journal() {
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
         .primary-btn { background: #2563eb; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
         .primary-btn:hover { background: #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       <JournalHeader isDark={isDark} toggleTheme={toggleTheme} />
@@ -323,6 +473,9 @@ export default function Journal() {
         </div>
 
         <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
+          {activeSessionId && (
+            <span style={{ fontSize: 9, color: 'rgba(99,102,241,0.8)', background: 'rgba(99,102,241,0.1)', padding: '3px 8px', borderRadius: 4, marginRight: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }} data-testid="text-active-session-indicator">Session Active</span>
+          )}
           {!isMobile && <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', marginRight:4 }} />}
           {[
             { svg:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, hide:isMobile },
@@ -351,120 +504,46 @@ export default function Journal() {
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
-            <MetricsPanel />
+            <MetricsPanel sessionId={activeSessionId} />
           ) : activeNav === 'journal' ? (
-            <JournalForm />
+            <JournalForm sessionId={activeSessionId} />
           ) : activeNav === 'strategy' ? (
             <StrategyAudit />
           ) : activeNav === 'vault' ? (
-            <TradeVault />
+            <TradeVault sessionId={activeSessionId} />
           ) : activeNav === 'calendar' ? (
             <TradingCalendar />
           ) : activeNav === 'sessions' ? (
-            <SessionsList sessions={sessions} onDeleteSession={handleDeleteSession} />
+            <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} />
           ) : activeNav === 'create' ? (
-            <CreateSessionForm onSubmit={handleCreateSession} />
-          ) : (<>
-          <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', flexDirection:'column', gap:12 }}>
-
-            <div style={{ display:'grid', gridTemplateColumns:`repeat(${isMobile?2:windowWidth<900?3:6},1fr)`, gap:8 }}>
-              {STATS.map(s=><StatCard key={s.id} stat={s}/>)}
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns: windowWidth>=900 ? '7fr 5fr' : '1fr', gap:12 }}>
-              <div style={{ background:'#080d18', border:'1px solid rgba(255,255,255,0.1)', padding:16, borderRadius:16, display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }} data-testid="chart-equity-curve">
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:8 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <div style={{ width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(56,189,248,0.1)', borderRadius:8, color:'#38bdf8', border:'1px solid rgba(56,189,248,0.2)' }}><Activity size={16} strokeWidth={3}/></div>
-                    <h2 style={{ fontSize:11, fontWeight:900, color:'#38bdf8', textTransform:'uppercase', letterSpacing:'0.2em', margin:0 }}>EQUITY CURVE</h2>
+            <CreateSessionForm onCreated={handleSessionCreated} />
+          ) : (
+            activeSessionId ? (
+              <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 400 }}>
+                <div style={{ textAlign: 'center', maxWidth: 400 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                    <SI.Sessions />
                   </div>
-                  <div style={{ display:'flex', background:'#161b22', padding:4, borderRadius:6, border:'1px solid rgba(255,255,255,0.05)' }}>
-                    {['DAILY','WEEKLY','MONTHLY'].map(v=>(
-                      <button key={v} onClick={()=>setView(v)} data-testid={`button-view-${v.toLowerCase()}`} style={{ padding:'5px 10px', fontSize:8, fontWeight:900, borderRadius:4, border:'none', cursor:'pointer', letterSpacing:'0.15em', transition:'all .15s', background:view===v?'#38bdf8':'transparent', color:view===v?'#fff':'rgba(100,116,139,0.7)', boxShadow:view===v?'0 0 12px rgba(56,189,248,0.4)':'none' }}>{v}</button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ height:220, width:'100%' }}>
-                  <NeonLineChart data={LINE_DATA[view]}/>
-                </div>
-                <div style={{ position:'absolute', bottom:0, right:0, width:180, height:180, background:'rgba(56,189,248,0.04)', filter:'blur(70px)', pointerEvents:'none' }}/>
-              </div>
-
-              <div style={{ background:'#0d1117', border:'1px solid rgba(255,255,255,0.1)', padding:20, borderRadius:16 }} data-testid="panel-performance-mix">
-                <h2 style={{ fontSize:11, fontWeight:900, color:'#38bdf8', marginBottom:18, textTransform:'uppercase', letterSpacing:'0.2em' }}>PERFORMANCE MIX</h2>
-                {[{label:'PROFIT RATIO',val:'65%',color:'#10b981'},{label:'LOSS RATIO',val:'35%',color:'#f43f5e'}].map(m=>(
-                  <div key={m.label} style={{ marginBottom:18 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-                      <span style={{ fontSize:9, color:'rgba(100,116,139,0.7)', letterSpacing:'0.15em', textTransform:'uppercase' }}>{m.label}</span>
-                      <span style={{ fontSize:9, color:m.color }}>{m.val}</span>
-                    </div>
-                    <div style={{ height:2, background:'#161b22', borderRadius:4 }}><div style={{ height:'100%', width:m.val, background:m.color, borderRadius:4 }}/></div>
-                  </div>
-                ))}
-                <div style={{ marginTop:20, paddingTop:18, borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-                  <p style={{ fontSize:9, color:'rgba(100,116,139,0.5)', letterSpacing:'0.2em', textTransform:'uppercase', marginBottom:12 }}>PAIR VOLUME / FREQUENCY</p>
-                  {[['EUR/USD','85%',18],['GBP/JPY','60%',12],['BTC/USD','50%',10],['XAU/USD','40%',8]].map(([t,w,c])=>(
-                    <div key={t} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                      <span style={{ fontSize:10, color:'#fff', width:54, fontStyle:'italic', flexShrink:0 }}>{t}</span>
-                      <div style={{ flex:1, height:2, background:'#161b22', borderRadius:4, overflow:'hidden' }}><div style={{ height:'100%', width:w as string, background:'#38bdf8', borderRadius:4 }}/></div>
-                      <span style={{ fontSize:9, color:'rgba(100,116,139,0.5)', width:16, textAlign:'right', flexShrink:0 }}>{c}</span>
-                    </div>
-                  ))}
+                  <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 8 }} data-testid="text-no-session-prompt">Create or Select a Session</h2>
+                  <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', marginBottom: 24, lineHeight: 1.6 }}>
+                    You need an active trading session to view your dashboard, enter trades, and track performance.
+                  </p>
+                  <button onClick={() => setActiveNav('create')} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#6366f1'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
+                    data-testid="button-create-first-session">
+                    Create Session
+                  </button>
+                  <button onClick={() => setActiveNav('sessions')} style={{ background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', marginLeft: 12, transition: 'all 0.15s' }}
+                    data-testid="button-view-sessions">
+                    View Sessions
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns: windowWidth>=900 ? '7fr 5fr' : '1fr', gap:12 }}>
-              <div style={{ background:'#0d1117', border:'1px solid rgba(255,255,255,0.1)', borderRadius:16, overflow:'hidden', display:'flex', flexDirection:'column' }} data-testid="panel-trade-log">
-                <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:11, fontWeight:900, color:'#38bdf8', textTransform:'uppercase', letterSpacing:'0.2em', fontStyle:'italic' }}>RECENT TRADE LOG</span>
-                  <Activity size={14} strokeWidth={3} style={{ color:'#38bdf8', opacity:.3 }}/>
-                </div>
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', minWidth:260 }}>
-                    <thead style={{ background:'rgba(22,27,34,0.5)' }}>
-                      <tr>{['INSTRUMENT','ACTION','NET P&L'].map((h,i)=>(
-                        <th key={h} style={{ padding:'8px 14px', fontSize:8, color:'rgba(100,116,139,0.6)', textTransform:'uppercase', letterSpacing:'0.2em', textAlign:i===1?'center':i===2?'right':'left', whiteSpace:'nowrap' }}>{h}</th>
-                      ))}</tr>
-                    </thead>
-                    <tbody>
-                      {TRADES.map(t=>(
-                        <tr key={t.id} style={{ borderTop:'1px solid rgba(255,255,255,0.04)' }} data-testid={`trade-row-${t.id}`}>
-                          <td style={{ padding:'8px 14px' }}>
-                            <div style={{ fontSize:11, fontWeight:900, color:'#fff' }}>{t.ticker}</div>
-                            <div style={{ fontSize:8, color:'rgba(100,116,139,0.6)', letterSpacing:'0.1em', textTransform:'uppercase', marginTop:2 }}>{t.date}</div>
-                          </td>
-                          <td style={{ padding:'8px 14px', textAlign:'center' }}>
-                            <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:4, fontSize:8, fontWeight:900, letterSpacing:'0.2em', background:t.type==='LONG'?'rgba(16,185,129,0.1)':'rgba(244,63,94,0.1)', color:t.type==='LONG'?'#34d399':'#fb7185', border:`1px solid ${t.type==='LONG'?'rgba(16,185,129,0.15)':'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
-                          </td>
-                          <td style={{ padding:'8px 14px', textAlign:'right', fontSize:11, fontWeight:900, color:t.status==='profit'?'#34d399':'#fb7185' }}>
-                            {t.status==='profit'?'+':'-'}${Math.abs(t.pnl).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div style={{ background:'#0d1117', border:'1px solid rgba(255,255,255,0.1)', padding:20, borderRadius:16 }} data-testid="panel-activity-calendar">
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-                  <div style={{ width:28, height:28, background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.1)', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', color:'#38bdf8' }}><Activity size={14} strokeWidth={3}/></div>
-                  <h2 style={{ fontSize:11, fontWeight:900, color:'#38bdf8', textTransform:'uppercase', letterSpacing:'0.2em', margin:0 }}>ACTIVITY</h2>
-                </div>
-                <p style={{ textAlign:'center', fontSize:10, color:'#fff', letterSpacing:'0.3em', textTransform:'uppercase', marginBottom:12 }}>OCTOBER 2023</p>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4 }}>
-                  {['S','M','T','W','T','F','S'].map((d,i)=><div key={i} style={{ fontSize:8, color:'rgba(55,65,81,0.8)', textAlign:'center', paddingBottom:4 }}>{d}</div>)}
-                  {heatmapDays.map(d=>(
-                    <div key={d.day} style={{ aspectRatio:'1', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:4, fontSize:9, fontWeight:900, border:'1px solid transparent', background:d.status==='profit'?'rgba(16,185,129,0.2)':d.status==='loss'?'rgba(244,63,94,0.2)':'rgba(22,27,34,0.8)', color:d.status==='profit'?'#34d399':d.status==='loss'?'#fb7185':'rgba(55,65,81,0.8)', borderColor:d.status==='profit'?'rgba(16,185,129,0.2)':d.status==='loss'?'rgba(244,63,94,0.2)':'transparent', opacity:d.status==='none'?0.5:1 }}>{d.day}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          </>)}
+            )
+          )}
         </main>
       </div>
 

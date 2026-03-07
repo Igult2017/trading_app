@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema } from "@shared/schema";
+import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshot } from "./services/screenshotAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { getEconomicCalendar } from "./services/fmp";
@@ -75,6 +75,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Session Routes ---
+  app.get("/api/sessions", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const sessions = await storage.getSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  app.get("/api/sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.getSessionById(req.params.id);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
+
+  app.post("/api/sessions", async (req, res) => {
+    try {
+      const validatedData = insertTradingSessionSchema.parse(req.body);
+      const session = await storage.createSession(validatedData);
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("[Routes] Create session error:", error);
+      res.status(400).json({ error: "Invalid session data" });
+    }
+  });
+
+  app.put("/api/sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.updateSession(req.params.id, req.body);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update session" });
+    }
+  });
+
+  app.delete("/api/sessions/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteSession(req.params.id);
+      if (!success) return res.status(404).json({ error: "Session not found" });
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete session" });
+    }
+  });
+
   // --- Journal Entry Routes ---
   app.post("/api/journal/analyze-screenshot", async (req, res) => {
     try {
@@ -97,7 +149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/journal/entries", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
-      const entries = await storage.getJournalEntries(userId);
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries = await storage.getJournalEntries(userId, sessionId);
       res.json(entries);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch journal entries" });
@@ -154,8 +207,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/metrics/compute", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
-      const entries = await storage.getJournalEntries(userId);
-      const result = await computeMetrics(entries);
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries = await storage.getJournalEntries(userId, sessionId);
+      let startingBalance: number | undefined;
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (session) startingBalance = parseFloat(session.startingBalance);
+      }
+      const result = await computeMetrics(entries, startingBalance);
       if (result.success) {
         res.json(result);
       } else {

@@ -7,7 +7,7 @@ interface MetricsResult {
   error?: string;
 }
 
-export async function computeMetrics(trades: any[]): Promise<MetricsResult> {
+export async function computeMetrics(trades: any[], startingBalance?: number): Promise<MetricsResult> {
   return new Promise((resolve) => {
     const scriptPath = path.join(process.cwd(), "server", "python", "metrics_calculator.py");
 
@@ -18,7 +18,10 @@ export async function computeMetrics(trades: any[]): Promise<MetricsResult> {
     let stdout = "";
     let stderr = "";
 
-    const input = JSON.stringify(trades);
+    const payload = startingBalance
+      ? { trades, startingBalance }
+      : trades;
+    const input = JSON.stringify(payload);
     child.stdin.write(input);
     child.stdin.end();
 
