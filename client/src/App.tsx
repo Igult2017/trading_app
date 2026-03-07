@@ -25,6 +25,7 @@ function InnerPages() {
       <Header />
       <main className="flex-1 bg-background">
         <Switch>
+          <Route path="/journal" component={Journal} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/history" component={TradeHistoryPage} />
           <Route path="/analytics" component={Analytics} />
@@ -51,7 +52,6 @@ export default function App() {
       <TooltipProvider>
         <Switch>
           <Route path="/" component={HomePage} />
-          <Route path="/journal" component={Journal} />
           <Route>{() => <InnerPages />}</Route>
         </Switch>
         <Toaster />
