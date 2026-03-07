@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Link } from 'wouter';
 import { Activity } from 'lucide-react';
 import NewHeader from '@/components/NewHeader';
 import NewFooter from '@/components/NewFooter';
@@ -299,12 +300,12 @@ export default function Journal() {
 
       <header style={{ height:54, flexShrink:0, background:'#07090f', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', gap:8, zIndex:30 }} data-testid="journal-header">
         <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, overflow:'hidden' }}>
-          <a href="/" style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, textDecoration:'none' }} data-testid="link-journal-home">
+          <Link href="/" style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, textDecoration:'none' }} data-testid="link-journal-home">
             <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#6d28d9,#7c3aed)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polygon points="12,2 22,20 2,20" fill="white" opacity="0.9"/></svg>
             </div>
             <span style={{ fontSize:12, fontWeight:900, color:'#fff', letterSpacing:'0.18em', textTransform:'uppercase', whiteSpace:'nowrap' }}>FSDZONES</span>
-          </a>
+          </Link>
           <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', flexShrink:0 }} />
           <button onClick={() => isMobile ? setMobileOpen(o=>!o) : setSidebarOpen(o=>!o)}
             style={{ background:'none', border:'none', color:'rgba(148,163,184,0.6)', cursor:'pointer', padding:6, display:'flex', borderRadius:8, flexShrink:0 }}

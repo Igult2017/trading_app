@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'wouter';
 import {
   BellRing,
   Sun,
@@ -77,13 +78,13 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
 
         <div className={`border-b ${borderColor}`}>
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <a href="/" className={`text-xl md:text-2xl font-black tracking-tighter flex items-center ${isDark ? 'text-white' : 'text-black'}`} data-testid="link-logo" style={{ textDecoration: 'none' }}>
+            <Link href="/" className={`text-xl md:text-2xl font-black tracking-tighter flex items-center ${isDark ? 'text-white' : 'text-black'}`} data-testid="link-logo" style={{ textDecoration: 'none' }}>
               FSDZONES<span className="text-blue-500">.COM</span>
-            </a>
+            </Link>
 
             <div className="hidden lg:flex items-center space-x-8 text-[10px] font-black uppercase tracking-[0.15em]">
-              <a href="/" className="hover:text-blue-500 transition-colors" data-testid="link-nav-home">Home</a>
-              <a href="/journal" className="hover:text-blue-500 transition-colors" data-testid="link-nav-journal">Free Journal</a>
+              <Link href="/" className="hover:text-blue-500 transition-colors" data-testid="link-nav-home">Home</Link>
+              <Link href="/journal" className="hover:text-blue-500 transition-colors" data-testid="link-nav-journal">Free Journal</Link>
               <a href="#tsc" className="hover:text-blue-500 transition-colors" data-testid="link-nav-tsc">TSC</a>
               <a href="#calendar" className="hover:text-blue-500 transition-colors" data-testid="link-nav-calendar">Economic Calendar</a>
               <a href="#blog" className="hover:text-blue-500 transition-colors" data-testid="link-nav-blog">Blog</a>
@@ -129,8 +130,8 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               </button>
             </div>
             <nav className="space-y-6 text-[11px] font-black uppercase tracking-[0.15em]">
-              <a href="/" className="block text-blue-500" onClick={() => setIsMenuOpen(false)}>Home</a>
-              <a href="/journal" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Free Journal</a>
+              <Link href="/" className="block text-blue-500" onClick={() => setIsMenuOpen(false)}>Home</Link>
+              <Link href="/journal" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Free Journal</Link>
               <a href="#tsc" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>TSC</a>
               <a href="#calendar" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Economic Calendar</a>
               <a href="#blog" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Blog</a>
