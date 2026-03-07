@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema } from "@shared/schema";
 import { analyzeScreenshot } from "./services/screenshotAnalyzer";
+import { computeMetrics } from "./services/metricsCalculator";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -147,6 +148,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete journal entry" });
+    }
+  });
+
+  app.get("/api/metrics/compute", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const entries = await storage.getJournalEntries(userId);
+      const result = await computeMetrics(entries);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] Metrics computation error:", error);
+      res.status(500).json({ success: false, error: "Metrics computation failed" });
     }
   });
 

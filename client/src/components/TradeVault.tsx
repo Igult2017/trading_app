@@ -1,44 +1,14 @@
 import { useState } from "react";
-
-const initialTrades = [
-  {
-    id: 1,
-    date: "2026-02-19",
-    time: "01:15",
-    asset: "EURUSD",
-    strategy: "SMC Breaker",
-    session: "LONDON",
-    outcome: "WIN",
-    pl: 900,
-  },
-  {
-    id: 2,
-    date: "2026-02-19",
-    time: "01:15",
-    asset: "NAS100",
-    strategy: "Silver Bullet",
-    session: "NEW YORK",
-    outcome: "WIN",
-    pl: 1500,
-  },
-  {
-    id: 3,
-    date: "2026-02-19",
-    time: "01:15",
-    asset: "NAS100",
-    strategy: "Silver Bullet",
-    session: "NEW YORK",
-    outcome: "LOSS",
-    pl: -300,
-  },
-];
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { JournalEntry } from "@shared/schema";
 
 const SESSIONS = ["LONDON", "NEW YORK", "ASIAN", "FRANKFURT"];
 const STRATEGIES = ["SMC Breaker", "Silver Bullet", "ICT Killzone", "OB Mitigation"];
 const ASSETS = ["EURUSD", "NAS100", "GBPUSD", "XAUUSD", "US30", "BTCUSD"];
 
 type Trade = {
-  id: number;
+  id: string;
   date: string;
   time: string;
   asset: string;
@@ -48,11 +18,40 @@ type Trade = {
   pl: number;
 };
 
+function journalEntryToTrade(entry: JournalEntry): Trade {
+  const createdAt = entry.createdAt ? new Date(entry.createdAt) : new Date();
+  const date = entry.entryTime
+    ? entry.entryTime.split("T")[0] || createdAt.toISOString().split("T")[0]
+    : createdAt.toISOString().split("T")[0];
+  const timePart = entry.entryTime
+    ? entry.entryTime.includes("T")
+      ? entry.entryTime.split("T")[1]?.substring(0, 5) || "00:00"
+      : entry.entryTime.substring(0, 5) || "00:00"
+    : createdAt.toISOString().split("T")[1]?.substring(0, 5) || "00:00";
+
+  const manual = (entry.manualFields && typeof entry.manualFields === "object") ? entry.manualFields as Record<string, unknown> : {};
+  const ai = (entry.aiExtracted && typeof entry.aiExtracted === "object") ? entry.aiExtracted as Record<string, unknown> : {};
+
+  const strategy = (manual.strategy as string) || (ai.strategy as string) || "";
+  const pl = entry.profitLoss ? parseFloat(entry.profitLoss) : 0;
+
+  return {
+    id: entry.id,
+    date,
+    time: timePart,
+    asset: entry.instrument || "",
+    strategy,
+    session: entry.sessionName || "",
+    outcome: (entry.outcome || "").toUpperCase(),
+    pl: isNaN(pl) ? 0 : pl,
+  };
+}
+
 function formatPL(pl: number) {
   return pl >= 0 ? `+$${pl.toLocaleString()}` : `-$${Math.abs(pl).toLocaleString()}`;
 }
 
-function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void }) {
+function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean }) {
   const [form, setForm] = useState({ ...trade });
 
   const handleChange = (field: string, value: string | number) => setForm((f) => ({ ...f, [field]: value }));
@@ -62,7 +61,7 @@ function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade
       <div style={styles.modal}>
         <div style={styles.modalHeader}>
           <span style={styles.modalTitle}>Edit Trade</span>
-          <button onClick={onClose} style={styles.closeBtn} data-testid="button-close-edit">✕</button>
+          <button onClick={onClose} style={styles.closeBtn} data-testid="button-close-edit">&#x2715;</button>
         </div>
 
         <div style={styles.formGrid}>
@@ -86,6 +85,7 @@ function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade
             <label style={styles.label}>Asset</label>
             <select value={form.asset} onChange={(e) => handleChange("asset", e.target.value)} style={styles.input} data-testid="select-asset">
               {ASSETS.map((a) => <option key={a}>{a}</option>)}
+              {form.asset && !ASSETS.includes(form.asset) && <option key={form.asset}>{form.asset}</option>}
             </select>
           </div>
 
@@ -93,6 +93,7 @@ function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade
             <label style={styles.label}>Strategy</label>
             <select value={form.strategy} onChange={(e) => handleChange("strategy", e.target.value)} style={styles.input} data-testid="select-strategy">
               {STRATEGIES.map((s) => <option key={s}>{s}</option>)}
+              {form.strategy && !STRATEGIES.includes(form.strategy) && <option key={form.strategy}>{form.strategy}</option>}
             </select>
           </div>
 
@@ -100,6 +101,7 @@ function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade
             <label style={styles.label}>Session</label>
             <select value={form.session} onChange={(e) => handleChange("session", e.target.value)} style={styles.input} data-testid="select-session">
               {SESSIONS.map((s) => <option key={s}>{s}</option>)}
+              {form.session && !SESSIONS.includes(form.session) && <option key={form.session}>{form.session}</option>}
             </select>
           </div>
 
@@ -134,9 +136,10 @@ function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade
               onSave({ ...form, pl });
             }}
             style={styles.saveBtn}
+            disabled={isPending}
             data-testid="button-save-edit"
           >
-            Save Changes
+            {isPending ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>
@@ -145,17 +148,64 @@ function EditModal({ trade, onSave, onClose }: { trade: Trade; onSave: (t: Trade
 }
 
 export default function TradeVault() {
-  const [trades, setTrades] = useState<Trade[]>(initialTrades);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+
+  const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
+    queryKey: ["/api/journal/entries"],
+  });
+
+  const trades: Trade[] = journalEntries.map(journalEntryToTrade);
+
+  const updateMutation = useMutation({
+    mutationFn: async (updated: Trade) => {
+      const body: Record<string, unknown> = {
+        instrument: updated.asset,
+        sessionName: updated.session,
+        outcome: updated.outcome.toLowerCase(),
+        profitLoss: String(updated.pl),
+        entryTime: `${updated.date}T${updated.time}`,
+        manualFields: { strategy: updated.strategy },
+      };
+      await apiRequest("PUT", `/api/journal/entries/${updated.id}`, body);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+      setEditingTrade(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/journal/entries/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+    },
+  });
 
   const totalPL = trades.reduce((sum, t) => sum + t.pl, 0);
   const wins = trades.filter((t) => t.outcome === "WIN").length;
   const winRate = trades.length ? Math.round((wins / trades.length) * 100) : 0;
 
   const handleSave = (updated: Trade) => {
-    setTrades((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-    setEditingTrade(null);
+    updateMutation.mutate(updated);
   };
+
+  if (isLoading) {
+    return (
+      <div className="trade-vault-root" style={styles.page}>
+        <div style={styles.header}>
+          <div>
+            <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
+            <div style={styles.vaultSub}>Loading entries...</div>
+          </div>
+        </div>
+        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
+          <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-loading">Loading trade data...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="trade-vault-root" style={styles.page}>
@@ -181,11 +231,26 @@ export default function TradeVault() {
           justify-content: center;
         }
         .edit-btn:hover { color: #5b8cf8; transform: scale(1.15); background: rgba(91,140,248,0.1); }
+
+        .delete-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #3a4560;
+          transition: color 0.2s, transform 0.2s;
+          font-size: 16px;
+          padding: 6px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .delete-btn:hover { color: #ff4d6d; transform: scale(1.15); background: rgba(255,77,109,0.1); }
       `}</style>
 
       <div style={styles.header}>
         <div>
-          <div style={styles.vaultLabel}>⬡ TRADE VAULT</div>
+          <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
           <div style={styles.vaultSub}>Performance ledger · {trades.length} entries</div>
         </div>
         <div style={styles.statsRow}>
@@ -208,71 +273,92 @@ export default function TradeVault() {
         </div>
       </div>
 
-      <div style={styles.tableWrapper}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              {["DATE", "ASSET", "STRATEGY", "SESSION", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
-                <th key={col} style={styles.th}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {trades.map((trade, i) => (
-              <tr
-                key={trade.id}
-                className="row-hover"
-                style={{
-                  ...styles.tr,
-                  borderTop: i === 0 ? "1px solid #1a2035" : "none",
-                }}
-                data-testid={`row-trade-${trade.id}`}
-              >
-                <td style={styles.td}>
-                  <div style={styles.dateText}>{trade.date}</div>
-                  <div style={styles.timeText}>{trade.time}</div>
-                </td>
-                <td style={styles.td}>
-                  <span style={styles.asset}>{trade.asset}</span>
-                </td>
-                <td style={styles.td}>
-                  <span style={styles.strategy}>{trade.strategy}</span>
-                </td>
-                <td style={styles.td}>
-                  <span style={styles.sessionBadge}>{trade.session}</span>
-                </td>
-                <td style={styles.td}>
-                  <span style={{
-                    ...styles.outcomeBadge,
-                    ...(trade.outcome === "WIN" ? styles.win : styles.loss),
-                  }}>
-                    {trade.outcome}
-                  </span>
-                </td>
-                <td style={styles.td}>
-                  <span style={{
-                    ...styles.pl,
-                    color: trade.pl >= 0 ? "#00e5a0" : "#ff4d6d",
-                  }}>
-                    {formatPL(trade.pl)}
-                  </span>
-                </td>
-                <td style={styles.td}>
-                  <button className="edit-btn" onClick={() => setEditingTrade(trade)} title="Edit trade" data-testid={`button-edit-${trade.id}`}>
-                    ✎
-                  </button>
-                </td>
+      {trades.length === 0 ? (
+        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
+          <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
+        </div>
+      ) : (
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                {["DATE", "ASSET", "STRATEGY", "SESSION", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
+                  <th key={col} style={styles.th}>{col}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {trades.map((trade, i) => (
+                <tr
+                  key={trade.id}
+                  className="row-hover"
+                  style={{
+                    ...styles.tr,
+                    borderTop: i === 0 ? "1px solid #1a2035" : "none",
+                  }}
+                  data-testid={`row-trade-${trade.id}`}
+                >
+                  <td style={styles.td}>
+                    <div style={styles.dateText}>{trade.date}</div>
+                    <div style={styles.timeText}>{trade.time}</div>
+                  </td>
+                  <td style={styles.td}>
+                    <span style={styles.asset}>{trade.asset}</span>
+                  </td>
+                  <td style={styles.td}>
+                    <span style={styles.strategy}>{trade.strategy}</span>
+                  </td>
+                  <td style={styles.td}>
+                    <span style={styles.sessionBadge}>{trade.session}</span>
+                  </td>
+                  <td style={styles.td}>
+                    <span style={{
+                      ...styles.outcomeBadge,
+                      ...(trade.outcome === "WIN" ? styles.win : styles.loss),
+                    }}>
+                      {trade.outcome}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    <span style={{
+                      ...styles.pl,
+                      color: trade.pl >= 0 ? "#00e5a0" : "#ff4d6d",
+                    }}>
+                      {formatPL(trade.pl)}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <button className="edit-btn" onClick={() => setEditingTrade(trade)} title="Edit trade" data-testid={`button-edit-${trade.id}`}>
+                        &#x270E;
+                      </button>
+                      <button
+                        className="delete-btn"
+                        onClick={() => {
+                          if (confirm("Delete this trade?")) {
+                            deleteMutation.mutate(trade.id);
+                          }
+                        }}
+                        title="Delete trade"
+                        data-testid={`button-delete-${trade.id}`}
+                      >
+                        &#x2715;
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {editingTrade && (
         <EditModal
           trade={editingTrade}
           onSave={handleSave}
           onClose={() => setEditingTrade(null)}
+          isPending={updateMutation.isPending}
         />
       )}
     </div>
