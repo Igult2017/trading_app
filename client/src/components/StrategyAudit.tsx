@@ -145,14 +145,14 @@ const StrategyAudit = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-            <div className="hidden md:flex bg-slate-800/50 p-1 rounded-lg border border-slate-700">
+          <div className="flex items-center shrink-0">
+            <div className="flex bg-slate-800/50 p-0.5 sm:p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-[calc(100vw-160px)] sm:max-w-none">
               {levels.map((level) => (
                 <button
                   key={level.id}
                   onClick={() => setActiveLevel(level.id)}
                   data-testid={`button-level-${level.id}`}
-                  className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 flex items-center gap-2 ${
+                  className={`px-2 sm:px-4 py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap shrink-0 ${
                     activeLevel === level.id 
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
                     : 'text-slate-400 hover:text-slate-100'
@@ -161,28 +161,10 @@ const StrategyAudit = () => {
                 >
                   {level.icon}
                   <span className="hidden lg:inline">{level.label}</span>
-                  <span className="lg:hidden">L{level.id}</span>
+                  <span className="hidden sm:inline lg:hidden">L{level.id}</span>
                 </button>
               ))}
             </div>
-
-            <div className="md:hidden flex bg-slate-800/50 p-0.5 rounded-lg border border-slate-700">
-              {levels.map((level) => (
-                <button
-                  key={level.id}
-                  onClick={() => setActiveLevel(level.id)}
-                  data-testid={`button-level-mobile-${level.id}`}
-                  className={`px-2 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 flex items-center gap-1 ${
-                    activeLevel === level.id 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-slate-400'
-                  }`}
-                >
-                  <span className="text-[10px]">L{level.id}</span>
-                </button>
-              ))}
-            </div>
-
           </div>
         </div>
       </nav>
