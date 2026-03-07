@@ -125,16 +125,6 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
             </div>
           ))}
         </nav>
-        <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: showLabels ? 'flex-start' : 'center', gap: 10, padding: 8, borderRadius: 10, cursor: 'pointer' }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#38bdf8,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', flexShrink: 0 }}>JD</div>
-            {showLabels && <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 11, fontWeight: 900, color: '#e2e8f0', margin: 0, whiteSpace: 'nowrap' }}>John Doe</p>
-              <p style={{ fontSize: 8, fontWeight: 900, color: 'rgba(100,116,139,0.7)', margin: 0, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Pro Member</p>
-            </div>}
-            {showLabels && <SI.Settings />}
-          </div>
-        </div>
       </aside>
     </>
   );
