@@ -99,7 +99,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sessions", async (req, res) => {
     try {
-      const validatedData = insertTradingSessionSchema.parse(req.body);
+      const body = { ...req.body };
+      if (typeof body.startingBalance === 'number') {
+        body.startingBalance = String(body.startingBalance);
+      }
+      const validatedData = insertTradingSessionSchema.parse(body);
       const session = await storage.createSession(validatedData);
       res.status(201).json(session);
     } catch (error) {
