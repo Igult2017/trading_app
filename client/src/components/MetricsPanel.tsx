@@ -145,7 +145,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
     return (
       <div className="text-slate-200 flex items-center justify-center py-20" style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <div className="text-center">
-          <BarChart3 className="w-10 h-10 text-slate-600 mx-auto mb-4" />
+          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500">
+              <path d="M21 21H4.6c-.56 0-.84 0-1.054-.109a1 1 0 0 1-.437-.437C3 20.24 3 19.96 3 19.4V3" />
+              <path d="M7 14l4-4 4 4 6-6" />
+            </svg>
+          </div>
           <p className="text-sm text-slate-400 font-medium mb-1" data-testid="text-metrics-no-session">No session selected</p>
           <p className="text-xs text-slate-600">Select or create a session to view metrics.</p>
         </div>
@@ -180,7 +185,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
     return (
       <div className="text-slate-200 flex items-center justify-center py-20" style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <div className="text-center">
-          <BarChart3 className="w-10 h-10 text-slate-600 mx-auto mb-4" />
+          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500">
+              <path d="M21 21H4.6c-.56 0-.84 0-1.054-.109a1 1 0 0 1-.437-.437C3 20.24 3 19.96 3 19.4V3" />
+              <path d="M7 14l4-4 4 4 6-6" />
+            </svg>
+          </div>
           <p className="text-sm text-slate-400 font-medium mb-1" data-testid="text-metrics-empty">No trades recorded yet</p>
           <p className="text-xs text-slate-600">Add journal entries to see your performance metrics.</p>
         </div>
