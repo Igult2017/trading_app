@@ -237,9 +237,9 @@ export default function JournalForm() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-900/5 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10">
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 md:px-8 py-2">
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           {STEPS.map((s) => {
             const isActive = s.id === step;
             const isDone   = s.id < step;
