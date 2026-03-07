@@ -165,16 +165,16 @@ export class ScraperScheduler {
   start(): void {
     console.log('Starting economic calendar scheduler (scraper only)...');
 
-    this.setupScraperSchedule();
+    // MyFXBook scraper disabled for deployment safety
+    // this.setupScraperSchedule();
 
-    const cleanupIntervalHours = Math.floor(
-      scraperSettings.cacheSettings.cleanupInterval / (60 * 60 * 1000)
-    );
-    const cleanupCronPattern = `0 */${cleanupIntervalHours} * * *`;
-    
-    this.cleanupJob = cron.schedule(cleanupCronPattern, async () => {
-      await this.runCleanup();
-    });
+    // const cleanupIntervalHours = Math.floor(
+    //   scraperSettings.cacheSettings.cleanupInterval / (60 * 60 * 1000)
+    // );
+    // const cleanupCronPattern = `0 */${cleanupIntervalHours} * * *`;
+    // this.cleanupJob = cron.schedule(cleanupCronPattern, async () => {
+    //   await this.runCleanup();
+    // });
 
     this.notificationJob = cron.schedule('*/5 * * * *', async () => {
       console.log('Checking for events and sessions to notify...');
@@ -195,18 +195,16 @@ export class ScraperScheduler {
     //   await signalScannerService.cleanupExpiredSignals();
     // });
 
-    this.interestRateJob = cron.schedule('0 */6 * * *', async () => {
-      console.log('[InterestRates] Scheduled update...');
-      await this.fetchInterestRates();
-    });
+    // Interest rate scraper disabled (also uses MyFXBook)
+    // this.interestRateJob = cron.schedule('0 */6 * * *', async () => {
+    //   console.log('[InterestRates] Scheduled update...');
+    //   await this.fetchInterestRates();
+    // });
 
-    console.log(`Scheduled cleanup: every ${cleanupIntervalHours} hours`);
+    console.log('MyFXBook scraper: DISABLED');
+    console.log('Interest rate scraper: DISABLED');
     console.log('Scheduled Telegram notifications: every 5 minutes');
     console.log('Signal scanning: DISABLED');
-    console.log('Scheduled interest rate updates: every 6 hours');
-
-    this.fetchEvents();
-    this.fetchInterestRates();
   }
 
   stop(): void {
