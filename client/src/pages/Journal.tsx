@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Activity } from 'lucide-react';
 import JournalHeader from '@/components/JournalHeader';
-import NewFooter from '@/components/NewFooter';
 import MetricsPanel from '@/components/MetricsPanel';
 
 const SI = {
@@ -342,12 +341,7 @@ export default function Journal() {
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
-            <>
-              <MetricsPanel />
-              <div style={{ marginTop: 32 }}>
-                <NewFooter isDark={isDark} />
-              </div>
-            </>
+            <MetricsPanel />
           ) : (<>
           <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', flexDirection:'column', gap:12 }}>
 
@@ -448,9 +442,6 @@ export default function Journal() {
 
           </div>
 
-          <div style={{ marginTop: 32 }}>
-            <NewFooter isDark={isDark} />
-          </div>
           </>)}
         </main>
       </div>
