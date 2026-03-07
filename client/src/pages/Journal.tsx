@@ -483,6 +483,9 @@ export default function Journal() {
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
+  const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
+  const activeSession = sessions.find((s: any) => String(s.id) === String(activeSessionId));
+
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
     setActiveNav('dashboard');
@@ -552,7 +555,13 @@ export default function Journal() {
 
         <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
           {activeSessionId && (
-            <span style={{ fontSize: 9, color: 'rgba(99,102,241,0.8)', background: 'rgba(99,102,241,0.1)', padding: '3px 8px', borderRadius: 4, marginRight: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }} data-testid="text-active-session-indicator">Session Active</span>
+            <span style={{ fontSize: 9, color: 'rgba(99,102,241,0.8)', background: 'rgba(99,102,241,0.1)', padding: '3px 8px', borderRadius: 4, marginRight: 8, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }} data-testid="text-active-session-indicator">
+              {activeSession && <span style={{ fontWeight: 900, color: '#a5b4fc' }}>{activeSession.sessionName}</span>}
+              {activeSession && <span style={{ color: 'rgba(148,163,184,0.4)' }}>|</span>}
+              {activeSession && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>${(parseFloat(activeSession.startingBalance) || 0).toLocaleString()}</span>}
+              {activeSession && <span style={{ color: 'rgba(148,163,184,0.4)' }}>|</span>}
+              Session Active
+            </span>
           )}
           {!isMobile && <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', marginRight:4 }} />}
           {[
