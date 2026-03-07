@@ -111,20 +111,30 @@ const Field = ({ label, field, value, onChange, placeholder = "", rows, type = "
 
 const Sel = ({ label, field, value, onChange, options }: { label?: string; field: string; value: any; onChange: (f: string, v: any) => void; options: string[] }) => {
   const all = options.includes("Other") ? options : [...options, "Other"];
+  const isOther = value !== "" && !options.includes(value);
+  const [customVal, setCustomVal] = useState(isOther && value !== "Other" ? value : "");
   return (
     <div className="mb-0">
       {label && <label className={LABEL_CLS}>{label}</label>}
       <div className="relative">
-        <select value={options.includes(value) ? value : "Other"} onChange={e => onChange(field, e.target.value)}
+        <select value={isOther ? "Other" : value} onChange={e => {
+            if (e.target.value === "Other") {
+              setCustomVal("");
+              onChange(field, "Other");
+            } else {
+              setCustomVal("");
+              onChange(field, e.target.value);
+            }
+          }}
           className={INPUT_CLS + " appearance-none cursor-pointer pr-10 block"}>
           {all.map(o => <option key={o} value={o} className="bg-[#0a0d14]">{o}</option>)}
         </select>
         <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600 pointer-events-none rotate-90" />
       </div>
-      {value === "Other" && (
+      {isOther && (
         <input type="text" placeholder={`Specify ${label?.toLowerCase()}...`}
-          value={value} onChange={e => onChange(field, e.target.value)}
-          className={INPUT_CLS + " block mt-2"} />
+          value={customVal} onChange={e => { setCustomVal(e.target.value); onChange(field, e.target.value || "Other"); }}
+          className={INPUT_CLS + " block mt-2"} autoFocus />
       )}
     </div>
   );
