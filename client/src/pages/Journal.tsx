@@ -44,7 +44,6 @@ interface NavGroup {
 
 const NAV_SECTIONS: NavGroup[] = [
   { section: null, items: [
-    { id: 'fsdai', label: 'FSD AI', icon: SI.FsdAi },
     { id: 'dashboard', label: 'Dashboard', icon: SI.Dashboard },
     { id: 'journal', label: 'Journal', icon: SI.Journal },
     { id: 'metrics', label: 'Metrics', icon: SI.Metrics },
@@ -55,6 +54,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'vault', label: 'Trade Vault', icon: SI.Vault },
     { id: 'leaderboard', label: 'Leaderboard', icon: SI.Leaderboard },
     { id: 'sync', label: 'Sync Trade Copier', icon: SI.Sync, badge: 'NEW' },
+    { id: 'fsdai', label: 'FSD AI', icon: SI.FsdAi },
   ]},
   { section: 'Live Trading', items: [
     { id: 'sessions', label: 'Sessions', icon: SI.Sessions, arrow: true },
