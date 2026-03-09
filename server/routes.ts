@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshot } from "./services/screenshotAnalyzer";
+import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
 import { getEconomicCalendar } from "./services/fmp";
@@ -133,21 +134,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Journal Entry Routes ---
+
+  /**
+   * POST /api/journal/analyze-screenshot
+   *
+   * Accepts a base64-encoded screenshot and returns extracted journal fields.
+   *
+   * Strategy:
+   *   1. If GOOGLE_API_KEY is set → try Gemini AI (best accuracy for complex charts)
+   *   2. If Gemini fails or is not configured → fall back to OCR (Tesseract-based, no API key needed)
+   *
+   * Optional query params:
+   *   ?method=ocr   — force OCR even if Gemini is available
+   *   ?method=ai    — force Gemini only (returns error if not configured)
+   */
   app.post("/api/journal/analyze-screenshot", async (req, res) => {
     try {
       const { image } = req.body;
       if (!image) {
         return res.status(400).json({ error: "No image provided" });
       }
-      const result = await analyzeScreenshot(image);
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(500).json(result);
+
+      const forceMethod = (req.query.method as string | undefined)?.toLowerCase();
+
+      // Try Gemini AI first (unless OCR is explicitly forced)
+      if (forceMethod !== "ocr") {
+        try {
+          const aiResult = await analyzeScreenshot(image);
+          if (aiResult.success) {
+            return res.json({ ...aiResult, method: "ai" });
+          }
+          console.warn("[Routes] Gemini analysis failed, falling back to OCR:", aiResult.error);
+        } catch (aiError) {
+          if (forceMethod === "ai") {
+            return res.status(500).json({ error: "Gemini analysis unavailable", details: String(aiError) });
+          }
+          console.warn("[Routes] Gemini threw an error, falling back to OCR:", aiError);
+        }
       }
+
+      // OCR fallback (or forced via ?method=ocr)
+      const ocrResult = await analyzeScreenshotWithOCR(image);
+
+      if (ocrResult.success) {
+        return res.json(ocrResult);
+      }
+
+      // Both methods failed
+      return res.status(500).json({
+        error: "Screenshot analysis failed with both AI and OCR methods",
+        details: ocrResult.error,
+      });
     } catch (error) {
       console.error("[Routes] Screenshot analysis error:", error);
       res.status(500).json({ error: "Screenshot analysis service unavailable" });
+    }
+  });
+
+  /**
+   * GET /api/journal/analyze-screenshot/status
+   *
+   * Returns which analysis methods are currently available.
+   * Useful for the frontend to show which engine is active.
+   */
+  app.get("/api/journal/analyze-screenshot/status", async (_req, res) => {
+    try {
+      const [geminiConfigured, ocrAvailable] = await Promise.all([
+        Promise.resolve(!!process.env.GOOGLE_API_KEY),
+        isOCRAvailable(),
+      ]);
+
+      res.json({
+        ai: {
+          available: geminiConfigured,
+          provider: "Google Gemini",
+          note: geminiConfigured ? "Active" : "GOOGLE_API_KEY not set",
+        },
+        ocr: {
+          available: ocrAvailable,
+          provider: "Tesseract OCR",
+          note: ocrAvailable
+            ? "Active — best for screenshots with visible text labels"
+            : "Tesseract or Python dependencies not installed",
+        },
+        activeMethod: geminiConfigured ? "ai" : ocrAvailable ? "ocr" : "none",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check analysis status" });
     }
   });
 
@@ -740,7 +813,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GEMINI AI ANALYSIS ROUTES
   // ============================================
 
-  // Test Gemini connection
   app.get("/api/gemini/status", async (req, res) => {
     try {
       const isConfigured = isGeminiConfigured();
