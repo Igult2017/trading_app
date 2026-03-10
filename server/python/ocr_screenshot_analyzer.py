@@ -1,505 +1,464 @@
 #!/usr/bin/env python3
 """
-OCR Screenshot Analyzer - Alternative to Gemini AI for trading chart data extraction.
-Uses Tesseract OCR + OpenCV image preprocessing to extract trading data from screenshots.
-Supports TradingView, MT4/MT5, and other common trading platform screenshots.
+Trading Screenshot OCR Analyzer v3
+Optimized for cTrader / Dxtrade / TradingView dark-theme screenshots.
+
+Strategy:
+  1. Detect text rows by finding horizontal bands with many bright (white) pixels
+  2. Invert each strip + threshold → black text on white → Tesseract reads well
+  3. Parse known field patterns from the collected text lines
+  4. Detect direction (Buy/Sell) from green/red color dominance in right panel
+  5. Entry price from orange arrow region
+
+Accepts: base64-encoded image via stdin
+Outputs: JSON to stdout
 """
 
-import sys
-import json
-import re
-import base64
-import io
-import os
+import sys, json, base64, re, io, traceback
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Tuple
+from collections import Counter
 
 try:
-    import pytesseract
-    from PIL import Image, ImageEnhance, ImageFilter
-    import cv2
     import numpy as np
+    import cv2
+    from PIL import Image
+    import pytesseract
+    import scipy.ndimage as nd
 except ImportError as e:
-    print(json.dumps({"success": False, "error": f"Missing OCR dependency: {e}. Install with: pip install pytesseract pillow opencv-python-headless numpy"}))
+    print(json.dumps({"success": False, "error": f"Missing dependency: {e}"}))
     sys.exit(1)
 
 
-# ─── Image Preprocessing ────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# IMAGE LOADING
+# ─────────────────────────────────────────────
 
-def preprocess_image_for_ocr(img_array: np.ndarray) -> List[np.ndarray]:
+def load_image_from_b64(b64_str):
+    data = base64.b64decode(b64_str)
+    arr  = np.frombuffer(data, np.uint8)
+    img  = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError("Could not decode image")
+    return img
+
+
+# ─────────────────────────────────────────────
+# CORE: STRIP OCR
+# ─────────────────────────────────────────────
+
+def ocr_strip(img, y1, y2, scale=4, psm=6):
+    """Cut a horizontal strip, invert (white text on dark), upscale, OCR."""
+    h, w = img.shape[:2]
+    y1, y2 = max(0, y1), min(h, y2)
+    if y2 <= y1:
+        return ""
+    strip  = img[y1:y2, :]
+    sh, sw = strip.shape[:2]
+    scaled = cv2.resize(strip, (sw * scale, sh * scale), interpolation=cv2.INTER_CUBIC)
+    gray   = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
+    inv    = cv2.bitwise_not(gray)
+    _, thr = cv2.threshold(inv, 90, 255, cv2.THRESH_BINARY)
+    cfg    = f"--psm {psm} --oem 3"
+    return pytesseract.image_to_string(thr, config=cfg).strip()
+
+
+def find_text_row_clusters(img, min_white=15, min_height=3):
     """
-    Generate multiple preprocessed versions of the image for best OCR results.
-    Trading charts are usually dark-background — we handle both light and dark UIs.
+    Find horizontal bands of the image that contain bright (white/light) pixels.
+    Returns list of (y_start, y_end) tuples.
     """
-    versions = []
-
-    gray = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
-
-    # Version 1: Binary threshold — good for light text on dark BG (TradingView dark)
-    _, thresh_dark = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
-    versions.append(thresh_dark)
-
-    # Version 2: Inverted — classic dark-text-on-light for standard OCR
-    inverted = cv2.bitwise_not(gray)
-    _, thresh_inv = cv2.threshold(inverted, 127, 255, cv2.THRESH_BINARY)
-    versions.append(thresh_inv)
-
-    # Version 3: Adaptive threshold — handles non-uniform lighting
-    adaptive = cv2.adaptiveThreshold(
-        gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, 11, 2
-    )
-    versions.append(adaptive)
-
-    # Version 4: 2x upscale + sharpening — better for small chart labels
-    h, w = gray.shape
-    scaled = cv2.resize(gray, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-    kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-    sharpened = cv2.filter2D(scaled, -1, kernel)
-    versions.append(sharpened)
-
-    # Version 5: OTSU auto-threshold
-    _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    versions.append(otsu)
-
-    return versions
+    gray       = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    white_rows = (gray > 175).sum(axis=1)
+    has_text   = white_rows > min_white
+    labeled, n = nd.label(has_text)
+    clusters   = []
+    for i in range(1, n + 1):
+        rows = np.where(labeled == i)[0]
+        ys, ye = int(rows[0]), int(rows[-1])
+        if ye - ys >= min_height:
+            clusters.append((ys, ye))
+    return clusters
 
 
-def extract_text_from_image(img_array: np.ndarray) -> str:
+def collect_all_text(img):
+    """OCR every text-row cluster. Returns list of (y, text) pairs."""
+    clusters = find_text_row_clusters(img)
+    results  = []
+    pad      = 3
+    for ys, ye in clusters:
+        text = ocr_strip(img, ys - pad, ye + pad, scale=4, psm=6)
+        if text and len(text) > 3 and re.search(r'[0-9a-zA-Z/]', text):
+            results.append((ys, text))
+    return results
+
+
+# ─────────────────────────────────────────────
+# DIRECTION DETECTION (color-based)
+# ─────────────────────────────────────────────
+
+def detect_direction(img):
     """
-    Run OCR across multiple preprocessed versions and configs.
-    Returns the longest (most complete) result found.
+    In the RIGHT half of the image (chart panel excluded),
+    count green vs red pixels. Green dominant → Long/Buy, Red → Short/Sell.
     """
-    versions = preprocess_image_for_ocr(img_array)
-    configs = [
-        "--psm 6 --oem 3",   # Uniform block of text
-        "--psm 11 --oem 3",  # Sparse text — find as much as possible
-        "--psm 3 --oem 3",   # Fully automatic segmentation
-    ]
-    best_text = ""
-    for img_version in versions:
-        pil_img = Image.fromarray(img_version)
-        for config in configs:
-            try:
-                text = pytesseract.image_to_string(pil_img, config=config)
-                if len(text.strip()) > len(best_text.strip()):
-                    best_text = text
-            except Exception:
-                continue
-    return best_text
+    h, w  = img.shape[:2]
+    panel = img[:, w // 2:, :]
+    hsv   = cv2.cvtColor(panel, cv2.COLOR_BGR2HSV)
+    green = cv2.inRange(hsv, (45, 80, 80),  (90, 255, 255))
+    red1  = cv2.inRange(hsv, (0,  80, 80),  (10, 255, 255))
+    red2  = cv2.inRange(hsv, (170, 80, 80), (180, 255, 255))
+    red   = cv2.bitwise_or(red1, red2)
+    g     = int(green.sum()) // 255
+    r     = int(red.sum())   // 255
+    if g == 0 and r == 0:
+        return None
+    return "Long" if g > r else "Short"
 
 
-def extract_text_regions(img_array: np.ndarray) -> Dict[str, str]:
+# ─────────────────────────────────────────────
+# ENTRY PRICE (orange arrow)
+# ─────────────────────────────────────────────
+
+def detect_entry_price(img):
     """
-    Extract text from specific named regions of the image.
-    Trading platforms put key data in predictable locations.
+    The platform draws an orange/yellow arrow at entry price level.
+    Find that arrow, grab the text immediately to its right.
     """
-    h, w = img_array.shape[:2]
-    regions = {}
+    h, w = img.shape[:2]
+    hsv  = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    # Tight orange range
+    orange = cv2.inRange(hsv, (10, 160, 160), (25, 255, 255))
+    ys, xs = np.where(orange > 0)
+    if not len(ys):
+        return None
 
-    # Title bar / symbol area (top 8%)
-    regions["top"] = extract_text_from_image(img_array[0:int(h * 0.08), :])
+    # Find the y-row with most orange pixels
+    y_counts = Counter(ys.tolist())
+    best_y   = max(y_counts, key=y_counts.get)
 
-    # Top-right info panel — P&L, account balance (top 15%, right 40%)
-    regions["top_right"] = extract_text_from_image(img_array[0:int(h * 0.15), int(w * 0.6):])
+    # Filter to that y-row +/-5px
+    mask    = (ys >= best_y - 5) & (ys <= best_y + 5)
+    xs_row  = xs[mask]
+    if not len(xs_row):
+        return None
 
-    # Bottom bar — timestamps, session info
-    regions["bottom"] = extract_text_from_image(img_array[int(h * 0.92):, :])
+    x_right = int(xs_row.max())
+    y_mid   = best_y
 
-    # Left sidebar — trade details in some platforms
-    regions["left"] = extract_text_from_image(img_array[int(h * 0.1):int(h * 0.9), 0:int(w * 0.2)])
+    # OCR region to the right of the arrow
+    x1, x2 = x_right + 2, min(w, x_right + 180)
+    y1, y2  = max(0, y_mid - 10), min(h, y_mid + 16)
+    if x2 <= x1 or y2 <= y1:
+        return None
 
-    # Right sidebar — MT4/MT5 trade info
-    regions["right"] = extract_text_from_image(img_array[int(h * 0.1):int(h * 0.9), int(w * 0.8):])
+    strip  = img[y1:y2, x1:x2]
+    sh, sw = strip.shape[:2]
+    if sh < 2 or sw < 2:
+        return None
+    scaled = cv2.resize(strip, (sw * 5, sh * 5), interpolation=cv2.INTER_CUBIC)
+    gray   = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
+    inv    = cv2.bitwise_not(gray)
+    _, thr = cv2.threshold(inv, 80, 255, cv2.THRESH_BINARY)
+    text   = pytesseract.image_to_string(thr, config="--psm 7 --oem 3").strip()
 
-    # Center lower area — often shows trade boxes / overlays
-    regions["center_lower"] = extract_text_from_image(img_array[int(h * 0.5):int(h * 0.85), int(w * 0.2):int(w * 0.8)])
-
-    # Full image fallback
-    regions["full"] = extract_text_from_image(img_array)
-
-    return regions
-
-
-# ─── Pattern Definitions ─────────────────────────────────────────────────────
-
-INSTRUMENT_PATTERNS = [
-    # Major forex pairs
-    r'\b(EUR[/\-_]?USD|GBP[/\-_]?USD|USD[/\-_]?JPY|USD[/\-_]?CHF|AUD[/\-_]?USD|NZD[/\-_]?USD|USD[/\-_]?CAD)\b',
-    r'\b(EUR[/\-_]?GBP|EUR[/\-_]?JPY|GBP[/\-_]?JPY|EUR[/\-_]?CHF|GBP[/\-_]?CHF|AUD[/\-_]?JPY)\b',
-    r'\b(EUR[/\-_]?AUD|EUR[/\-_]?CAD|EUR[/\-_]?NZD|GBP[/\-_]?AUD|GBP[/\-_]?CAD|GBP[/\-_]?NZD)\b',
-    r'\b(AUD[/\-_]?CAD|AUD[/\-_]?CHF|AUD[/\-_]?NZD|NZD[/\-_]?CAD|NZD[/\-_]?CHF|CAD[/\-_]?CHF)\b',
-    # Metals & commodities
-    r'\b(XAU[/\-_]?USD|GOLD|XAUUSD|XAG[/\-_]?USD|SILVER|XAGUSD)\b',
-    r'\b(WTI|BRENT|USOIL|UKOIL|NGAS|OIL)\b',
-    # Crypto
-    r'\b(BTC[/\-_]?USD|BTCUSD|BITCOIN|ETH[/\-_]?USD|ETHUSD|ETHEREUM)\b',
-    r'\b(BNB[/\-_]?USD|SOL[/\-_]?USD|ADA[/\-_]?USD|XRP[/\-_]?USD)\b',
-    # Indices
-    r'\b(US100|NAS100|NASDAQ|USTEC|SPX500|US500|SP500|US30|DOW|DJI|DAX|FTSE)\b',
-]
-
-TIMEFRAME_PATTERNS = [
-    r'\b(1[Mm]in|5[Mm]in|15[Mm]in|30[Mm]in|1[Hh]our|4[Hh]our|[Dd]aily|[Ww]eekly|[Mm]onthly)\b',
-    r'\b([Mm]1|[Mm]5|[Mm]15|[Mm]30|[Hh]1|[Hh]4|[Dd]1|[Ww]1|[Mm][Nn]1)\b',
-    r'\b(1[Mm]|5[Mm]|15[Mm]|30[Mm]|1[Hh]|4[Hh]|1[Dd]|1[Ww])\b',
-    r'(?:timeframe|TF)[:\s]+([A-Za-z0-9]+)',
-    r',\s*([1-9][0-9]?[MHDWmhdw])\s*,',  # TradingView symbol format: "EURUSD, 1H"
-]
-
-PRICE_FIELD_PATTERNS = {
-    "entry": [
-        r'(?:entry|open|opened|price|executed)[:\s@]+([0-9]+\.?[0-9]{2,6})',
-        r'(?:^|[\s,])O[:\s]+([0-9]+\.?[0-9]{2,6})',
-        r'entry\s+(?:at\s+)?([0-9]+\.?[0-9]{2,6})',
-        r'filled\s+(?:at\s+)?([0-9]+\.?[0-9]{2,6})',
-    ],
-    "stopLoss": [
-        r'(?:stop[- ]?loss|S\.?L\.?)[:\s]+([0-9]+\.?[0-9]{2,6})',
-        r'\bSL[:\s=]+([0-9]+\.?[0-9]{2,6})',
-        r'stop\s+([0-9]+\.?[0-9]{2,6})',
-    ],
-    "takeProfit": [
-        r'(?:take[- ]?profit|T\.?P\.?|target)[:\s]+([0-9]+\.?[0-9]{2,6})',
-        r'\bTP[:\s=]+([0-9]+\.?[0-9]{2,6})',
-        r'target\s+([0-9]+\.?[0-9]{2,6})',
-    ],
-    "profitLoss": [
-        r'(?:profit|P&L|P/L|PnL|net)[:\s]+([+-]?[0-9,]+\.?[0-9]*)',
-        r'([+-][0-9,]+\.[0-9]{2})\s*(?:USD|\$)',
-        r'(?:closed|result)[:\s]+([+-]?[0-9,]+\.?[0-9]*)',
-        r'\$\s*([+-]?[0-9,]+\.[0-9]{2})',
-    ],
-    "riskReward": [
-        r'R[:\s/]R[:\s]+([0-9]+\.?[0-9]*)',
-        r'(?:risk[/:]reward)[:\s]+1[:\s]*([0-9]+\.?[0-9]*)',
-        r'\bRR[:\s=]+([0-9]+\.?[0-9]*)',
-        r'1\s*:\s*([0-9]+\.?[0-9]*)\s*(?:RR|R:R)',
-    ],
-    "lotSize": [
-        r'(?:lot|size|volume|qty|quantity)[:\s]+([0-9]+\.?[0-9]*)',
-        r'([0-9]+\.?[0-9]*)\s+(?:lots?|units?|contracts?)',
-    ],
-}
-
-DIRECTION_INDICATORS = [
-    (r'\bBUY\b|\bLONG\b|\bBuy\b|\bLong\b', 'Long'),
-    (r'\bSELL\b|\bSHORT\b|\bSell\b|\bShort\b', 'Short'),
-    (r'Buy\s+(?:Limit|Stop|Market)', 'Long'),
-    (r'Sell\s+(?:Limit|Stop|Market)', 'Short'),
-    (r'[▲↑]', 'Long'),
-    (r'[▼↓]', 'Short'),
-]
-
-OUTCOME_INDICATORS = [
-    (r'\b(?:profit|won|win|TP\s*hit|target\s*(?:hit|reached)|closed\s+in\s+profit)\b', 'Win'),
-    (r'\b(?:loss|lost|SL\s*hit|stop\s*(?:hit|out)|stopped\s*out|closed\s+in\s+loss)\b', 'Loss'),
-    (r'\b(?:breakeven|break.?even|BE)\b', 'Breakeven'),
-]
-
-EXIT_REASON_PATTERNS = [
-    (r'\b(?:TP\s*hit|target\s*hit|take\s*profit\s*hit)\b', 'Target Hit'),
-    (r'\b(?:SL\s*hit|stop\s*hit|stopped\s*out|stop\s*loss\s*hit)\b', 'Stop Hit'),
-    (r'\b(?:manual|manually|closed\s*manually)\b', 'Manual'),
-    (r'\b(?:breakeven|BE\s*hit)\b', 'Breakeven'),
-]
-
-ORDER_TYPE_INDICATORS = [
-    (r'\bMarket\s*(?:Order|Execution|Buy|Sell)?\b', 'Market'),
-    (r'\bBuy\s*Limit\b|\bSell\s*Limit\b|\bLimit\s*Order\b', 'Limit'),
-    (r'\bBuy\s*Stop\b|\bSell\s*Stop\b|\bStop\s*Order\b', 'Stop'),
-]
-
-DATETIME_PATTERNS = [
-    r'(\d{4}[-/]\d{2}[-/]\d{2}[T\s]\d{2}:\d{2}(?::\d{2})?)',
-    r'(\d{2}[-/]\d{2}[-/]\d{4}\s+\d{2}:\d{2}(?::\d{2})?)',
-    r'(\d{1,2}\s+\w{3}\s+\d{4}[,\s]+\d{2}:\d{2})',
-    r'(\w{3}\s+\d{1,2},?\s+\d{4}\s+\d{2}:\d{2})',
-    r'(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2})',
-]
+    # Extract a price-like number
+    m = re.search(r'\b(\d{1,4}[.,]\d{2,6})\b', text)
+    return m.group(1).replace(',', '.') if m else None
 
 
-# ─── Extraction Helpers ───────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# TEXT PARSERS
+# ─────────────────────────────────────────────
 
-def safe_float(s: str) -> Optional[float]:
+def _f(s):
     try:
-        return float(str(s).replace(",", "").replace(" ", ""))
-    except (ValueError, AttributeError):
+        return float(str(s).replace(',', '.').replace("'", ""))
+    except Exception:
         return None
 
 
-def find_number(pattern: str, text: str, flags: int = re.IGNORECASE) -> Optional[float]:
-    m = re.search(pattern, text, flags)
+def parse_instrument_timeframe(lines):
+    """Top bar: 'EUR/USD  5 Minutes  Candles  Bid'"""
+    instrument = None
+    timeframe  = None
+    for line in lines:
+        # Must contain a slash or be a known single-word instrument
+        m = re.search(
+            r'\b((?:EUR|GBP|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|SPX|NAS|DAX|US30|GOLD|OIL|USD)'
+            r'[/\\]'
+            r'(?:EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|SPX|NAS|DAX|USDT))\b',
+            line, re.IGNORECASE
+        )
+        if not m:
+            # Single-word instruments (indices, metals)
+            m = re.search(r'\b(XAUUSD|XAGUSD|BTCUSDT?|ETHUSD|US30|SPX500|NAS100|DAX40)\b',
+                          line, re.IGNORECASE)
+        if m:
+            instrument = m.group(1).upper()
+
+        tm = re.search(
+            r'\b(\d+)\s*(Minute[s]?|Hour[s]?|Day|Week|Month|Min|H|M|W|D)\b',
+            line, re.IGNORECASE
+        )
+        if tm:
+            n, unit = tm.group(1), tm.group(2).lower()
+            if 'min' in unit or unit == 'm':
+                timeframe = f"{n}M"
+            elif 'hour' in unit or unit == 'h':
+                timeframe = f"{n}H"
+            elif 'day' in unit or unit == 'd':
+                timeframe = f"{n}D"
+            elif 'week' in unit or unit == 'w':
+                timeframe = f"{n}W"
+
+    return instrument, timeframe
+
+
+def parse_tp_sl(lines):
+    """
+    Lines like:
+      'TP 45.4 points USD 4.54'
+      'SL -9.9 points USD -0.99'
+    Returns: sl_pts, sl_usd, tp_pts, tp_usd
+    """
+    sl_pts = sl_usd = tp_pts = tp_usd = None
+
+    for line in lines:
+        m = re.search(
+            r'\b(TP|SL)\b.*?([+-]?\d+[\.,]\d+)\s*points?\s*USD\s*([+-]?\d+[\.,]\d+)',
+            line, re.IGNORECASE
+        )
+        if m:
+            tag  = m.group(1).upper()
+            pts  = _f(m.group(2))
+            usd  = _f(m.group(3))
+            if tag == "TP":
+                tp_pts = abs(pts) if pts is not None else None
+                tp_usd = usd
+            else:
+                sl_pts = abs(pts) if pts is not None else None
+                sl_usd = usd
+
+    return sl_pts, sl_usd, tp_pts, tp_usd
+
+
+def parse_trade_info(lines):
+    """
+    Lines like:
+      '1'000 units  Open P/L 7.2 points / USD 0.72'
+      'Drawdown -4.3 points / USD -0.43  Risk/Reward 4.59'
+      'Run-Up 42.4 points / USD 4.24  Risk/Reward 4.05'
+    """
+    result = {}
+    joined = " ".join(lines)
+
+    m = re.search(r"(\d[\d',.\/]*)\s*units", joined, re.IGNORECASE)
     if m:
-        return safe_float(m.group(1))
-    return None
+        raw_units = m.group(1).replace("'","").replace(",","").replace("/","")
+        units = _f(raw_units)
+        if units:
+            cleaned_units = str(units).replace("'","").replace(",","").replace("/","")
+            u = _f(cleaned_units) if cleaned_units.replace('.','').isdigit() else None
+            if u:
+                result["lotSize"] = round(u / 100000, 5)
+                result["units"]   = int(u)
+
+    # Open P/L points
+    m = re.search(r'Open\s*P[/\\]L\s*([+-]?\d+[\.,]\d+)\s*points', joined, re.IGNORECASE)
+    if m:
+        result["openPLPoints"] = _f(m.group(1))
+
+    # Open P/L USD
+    m = re.search(r'Open\s*P[/\\]L.*?USD\s*([+-]?\d+[\.,]\d+)', joined, re.IGNORECASE)
+    if m:
+        result["openPLUSD"] = _f(m.group(1))
+
+    # Drawdown
+    m = re.search(r'Drawdown\s*([+-]?\d+[\.,]\d+)\s*points.*?USD\s*([+-]?\d+[\.,]\d+)',
+                  joined, re.IGNORECASE)
+    if m:
+        result["drawdownPoints"] = _f(m.group(1))
+        result["drawdownUSD"]    = _f(m.group(2))
+
+    # Run-Up (MFE)
+    m = re.search(r'Run[\s-]?Up\s*([+-]?\d+[\.,]\d+)\s*points.*?USD\s*([+-]?\d+[\.,]\d+)',
+                  joined, re.IGNORECASE)
+    if m:
+        result["runUpPoints"] = _f(m.group(1))
+        result["runUpUSD"]    = _f(m.group(2))
+
+    # Risk/Reward
+    m = re.search(r'Risk[/\\]?Reward\s*([0-9]+[\.,][0-9]+)', joined, re.IGNORECASE)
+    if m:
+        result["riskReward"] = _f(m.group(1))
+
+    return result
 
 
-def extract_instrument(regions: Dict[str, str]) -> Optional[str]:
-    search_order = ["top", "top_right", "full", "left", "right"]
-    for key in search_order:
-        text = regions.get(key, "")
-        for pattern in INSTRUMENT_PATTERNS:
-            m = re.search(pattern, text, re.IGNORECASE)
-            if m:
-                raw = m.group(1).upper()
-                # Normalize separator
-                raw = re.sub(r'[-_]', '/', raw)
-                if '/' not in raw and len(raw) == 6:
-                    raw = raw[:3] + '/' + raw[3:]
-                return raw
-    return None
+def parse_datetime_from_lines(lines):
+    """
+    Look for dates like:
+      'Fri 06 Mar'26 22:10'
+      '2021-02-25 15:59:59'  (replay mode status bar)
+    Returns (entry_time_str, day_of_week, session)
+    """
+    joined = " ".join(lines)
+    entry_dt = None
+    day_of_week = None
+
+    # Pattern 1: find ALL matches, pick the first (= leftmost = entry date)
+    # Note: OCR sometimes drops space: "Fri06" instead of "Fri 06"
+    matches = list(re.finditer(
+        r'\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*'
+        r'(\d{1,2})\s+'
+        r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'(\d{2})\s+"
+        r'(\d{2}):(\d{2})',
+        joined, re.IGNORECASE
+    ))
+    if matches:
+        m = matches[0]  # first occurrence = leftmost on x-axis = entry date
+        dow, day, mon, yr, hr, mn = m.groups()
+        months = {
+            'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
+            'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12
+        }
+        month_n = months.get(mon.lower(), 1)
+        full_yr = 2000 + int(yr)
+        try:
+            dt = datetime(full_yr, month_n, int(day), int(hr), int(mn))
+            entry_dt    = dt.isoformat(sep=' ', timespec='minutes')
+            day_of_week = dt.strftime('%A')
+        except Exception:
+            pass
+
+    # Pattern 2: ISO from replay status bar '2021-02-25 15:59:59'
+    if not entry_dt:
+        m2 = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', joined)
+        if m2:
+            try:
+                dt = datetime.strptime(m2.group(1), '%Y-%m-%d %H:%M:%S')
+                entry_dt    = dt.isoformat(sep=' ', timespec='minutes')
+                day_of_week = dt.strftime('%A')
+            except Exception:
+                pass
+
+    # Session from time
+    session = None
+    if entry_dt:
+        try:
+            t = datetime.fromisoformat(entry_dt)
+            h = t.hour
+            if 0  <= h < 3:   session = "Tokyo"
+            elif 3 <= h < 8:  session = "Tokyo/London Overlap"
+            elif 8 <= h < 12: session = "London"
+            elif 12<= h < 17: session = "New York"
+            elif 17<= h < 21: session = "New York Close"
+            else:              session = "Tokyo"
+        except Exception:
+            pass
+
+    return entry_dt, day_of_week, session
 
 
-def extract_timeframe(all_text: str) -> Optional[str]:
-    TF_NORMALIZE = {
-        "M1": "1M", "M5": "5M", "M15": "15M", "M30": "30M",
-        "H1": "1H", "H4": "4H", "D1": "1D", "W1": "1W",
-        "1MIN": "1M", "5MIN": "5M", "15MIN": "15M", "30MIN": "30M",
-        "1HOUR": "1H", "4HOUR": "4H", "DAILY": "1D", "WEEKLY": "1W",
-        "MN1": "1MO",
-    }
-    for pattern in TIMEFRAME_PATTERNS:
-        m = re.search(pattern, all_text, re.IGNORECASE)
-        if m:
-            tf = m.group(1).upper()
-            return TF_NORMALIZE.get(tf, tf)
-    return None
-
-
-def extract_direction(all_text: str) -> Optional[str]:
-    for pattern, direction in DIRECTION_INDICATORS:
-        if re.search(pattern, all_text):
-            return direction
-    return None
-
-
-def extract_prices(all_text: str) -> Dict[str, Optional[float]]:
-    prices = {}
-    for field, patterns in PRICE_FIELD_PATTERNS.items():
-        for pattern in patterns:
-            val = find_number(pattern, all_text, re.IGNORECASE)
-            if val is not None:
-                prices[field] = val
-                break
-        if field not in prices:
-            prices[field] = None
-    return prices
-
-
-def extract_datetime_str(all_text: str) -> Optional[str]:
-    FORMATS = [
-        "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
-        "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M",
-        "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
-        "%Y.%m.%d %H:%M",
-        "%b %d, %Y %H:%M", "%b %d %Y %H:%M",
-        "%d %b %Y %H:%M",
-    ]
-    for pattern in DATETIME_PATTERNS:
-        m = re.search(pattern, all_text)
-        if m:
-            raw = m.group(1).strip()
-            for fmt in FORMATS:
-                try:
-                    dt = datetime.strptime(raw[:len(fmt)], fmt[:len(raw)])
-                    return dt.isoformat()
-                except ValueError:
-                    continue
-            return raw
-    return None
-
-
-def extract_outcome(all_text: str, profit_loss: Optional[float]) -> Optional[str]:
-    for pattern, outcome in OUTCOME_INDICATORS:
-        if re.search(pattern, all_text, re.IGNORECASE):
-            return outcome
-    if profit_loss is not None:
-        if profit_loss > 0.001:
+def parse_outcome_from_lines(lines):
+    """Infer outcome from P/L sign."""
+    joined = " ".join(lines)
+    m = re.search(r'Open\s*P[/\\]L.*?USD\s*([+-]?\d+[\.,]\d+)', joined, re.IGNORECASE)
+    if m:
+        val = _f(m.group(1))
+        if val is None:
+            return None
+        if val > 0.01:
             return "Win"
-        elif profit_loss < -0.001:
+        elif val < -0.01:
             return "Loss"
         else:
             return "Breakeven"
     return None
 
 
-def extract_exit_reason(all_text: str) -> Optional[str]:
-    for pattern, reason in EXIT_REASON_PATTERNS:
-        if re.search(pattern, all_text, re.IGNORECASE):
-            return reason
-    return None
+# ─────────────────────────────────────────────
+# MAIN EXTRACTOR
+# ─────────────────────────────────────────────
 
+def extract_fields(img):
+    # 1. Collect all readable text rows
+    text_rows  = collect_all_text(img)
+    all_lines  = [t for _, t in text_rows]
 
-def extract_order_type(all_text: str) -> Optional[str]:
-    for pattern, otype in ORDER_TYPE_INDICATORS:
-        if re.search(pattern, all_text, re.IGNORECASE):
-            return otype
-    return None
+    # 2. Parse each component
+    instrument, timeframe = parse_instrument_timeframe(all_lines)
+    sl_pts, sl_usd, tp_pts, tp_usd = parse_tp_sl(all_lines)
+    trade_info  = parse_trade_info(all_lines)
+    entry_dt, dow, session = parse_datetime_from_lines(all_lines)
+    direction   = detect_direction(img)
+    entry_price = detect_entry_price(img)
+    outcome     = parse_outcome_from_lines(all_lines)
 
-
-def extract_spread(all_text: str) -> Optional[str]:
-    m = re.search(r'(?:spread|sprd)[:\s]+([0-9]+\.?[0-9]*)', all_text, re.IGNORECASE)
-    return m.group(1) if m else None
-
-
-def extract_pip_values(all_text: str, entry: Optional[float], sl: Optional[float], tp: Optional[float]) -> Dict[str, Optional[float]]:
-    sl_dist = find_number(r'(?:SL|stop)[:\s\-]+([0-9]+\.?[0-9]*)\s*(?:pips?|pts?|points?)', all_text, re.IGNORECASE)
-    tp_dist = find_number(r'(?:TP|target)[:\s\-]+([0-9]+\.?[0-9]*)\s*(?:pips?|pts?|points?)', all_text, re.IGNORECASE)
-
-    if sl_dist is None and entry is not None and sl is not None:
-        sl_dist = round(abs(entry - sl) * 10000, 1)
-    if tp_dist is None and entry is not None and tp is not None:
-        tp_dist = round(abs(tp - entry) * 10000, 1)
-
-    return {"stopLossDistance": sl_dist, "takeProfitDistance": tp_dist}
-
-
-def calculate_rr(entry: Optional[float], sl: Optional[float], tp: Optional[float]) -> Optional[float]:
-    if entry and sl and tp:
-        risk = abs(entry - sl)
-        reward = abs(tp - entry)
-        if risk > 0:
-            return round(reward / risk, 2)
-    return None
-
-
-def derive_session(entry_time: Optional[str]) -> Dict[str, Optional[str]]:
-    if not entry_time:
-        return {"sessionName": None, "sessionPhase": None}
-    for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]:
-        try:
-            dt = datetime.strptime(entry_time[:19], fmt)
-            h = dt.hour
-            if 0 <= h < 7:
-                return {"sessionName": "Tokyo", "sessionPhase": "Active"}
-            elif 7 <= h < 8:
-                return {"sessionName": "London", "sessionPhase": "Pre-Open"}
-            elif 8 <= h < 12:
-                return {"sessionName": "London", "sessionPhase": "Active"}
-            elif 12 <= h < 13:
-                return {"sessionName": "London-NY Overlap", "sessionPhase": "Open"}
-            elif 13 <= h < 17:
-                return {"sessionName": "New York", "sessionPhase": "Active"}
-            elif 17 <= h < 21:
-                return {"sessionName": "New York", "sessionPhase": "Close"}
-            else:
-                return {"sessionName": "Sydney", "sessionPhase": "Active"}
-        except ValueError:
-            continue
-    return {"sessionName": None, "sessionPhase": None}
-
-
-def get_day_of_week(entry_time: Optional[str]) -> Optional[str]:
-    if not entry_time:
-        return None
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]:
-        try:
-            dt = datetime.strptime(entry_time[:10], fmt[:10])
-            return days[dt.weekday()]
-        except ValueError:
-            continue
-    return None
-
-
-def confidence_score(instrument: Optional[str], prices: Dict, direction: Optional[str], timeframe: Optional[str]) -> str:
-    score = 0
-    if instrument:
-        score += 30
-    if direction:
-        score += 20
-    if prices.get("entry"):
-        score += 20
-    if prices.get("stopLoss"):
-        score += 10
-    if prices.get("takeProfit"):
-        score += 10
-    if timeframe:
-        score += 10
-    if score >= 70:
-        return "high"
-    if score >= 40:
-        return "medium"
-    return "low"
-
-
-# ─── Main Entry ───────────────────────────────────────────────────────────────
-
-def analyze_trading_screenshot(image_data: str) -> Dict[str, Any]:
-    """
-    Analyze a base64-encoded trading screenshot using OCR.
-    Returns fields compatible with the journal entry schema.
-    """
-    if "," in image_data:
-        image_data = image_data.split(",", 1)[1]
-
-    try:
-        image_bytes = base64.b64decode(image_data)
-        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    except Exception as e:
-        return {"success": False, "error": f"Failed to decode image: {e}"}
-
-    img_array = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    regions = extract_text_regions(img_array)
-    all_text = "\n".join(regions.values())
-
-    prices = extract_prices(all_text)
-    entry_time = extract_datetime_str(all_text)
-    direction = extract_direction(all_text)
-    instrument = extract_instrument(regions)
-    timeframe = extract_timeframe(all_text)
-    outcome = extract_outcome(all_text, prices.get("profitLoss"))
-    session_info = derive_session(entry_time)
-    pip_distances = extract_pip_values(all_text, prices.get("entry"), prices.get("stopLoss"), prices.get("takeProfit"))
-
-    rr = prices.get("riskReward") or calculate_rr(prices.get("entry"), prices.get("stopLoss"), prices.get("takeProfit"))
-
+    # 3. Assemble result
     fields = {
-        "instrument": instrument,
-        "direction": direction,
-        "orderType": extract_order_type(all_text),
-        "entryPrice": prices.get("entry"),
-        "stopLoss": prices.get("stopLoss"),
-        "takeProfit": prices.get("takeProfit"),
-        "stopLossDistancePips": pip_distances.get("stopLossDistance"),
-        "takeProfitDistancePips": pip_distances.get("takeProfitDistance"),
-        "lotSize": prices.get("lotSize"),
-        "riskReward": rr,
-        "entryTime": entry_time,
-        "exitTime": None,
-        "dayOfWeek": get_day_of_week(entry_time),
-        "tradeDuration": None,
-        "outcome": outcome,
-        "profitLoss": prices.get("profitLoss"),
-        "pipsGainedLost": None,
-        "mae": None,
-        "mfe": None,
-        "primaryExitReason": extract_exit_reason(all_text),
-        "sessionName": session_info.get("sessionName"),
-        "sessionPhase": session_info.get("sessionPhase"),
-        "entryTF": timeframe,
-        "spreadAtEntry": extract_spread(all_text),
-        "aiExtractedRaw": {
-            "method": "ocr",
-            "ocrConfidence": confidence_score(instrument, prices, direction, timeframe),
-            "rawTextSample": all_text[:300],
-            "note": "Extracted via Tesseract OCR. Review and correct any inaccurate fields.",
-        },
+        "instrument":       instrument,
+        "timeframe":        timeframe,
+        "direction":        direction,
+        "orderType":        None,
+        "entryPrice":       entry_price,
+        "stopLossPoints":   sl_pts,
+        "stopLossUSD":      sl_usd,
+        "takeProfitPoints": tp_pts,
+        "takeProfitUSD":    tp_usd,
+        "lotSize":          trade_info.get("lotSize"),
+        "units":            trade_info.get("units"),
+        "riskReward":       trade_info.get("riskReward"),
+        "openPLPoints":     trade_info.get("openPLPoints"),
+        "openPLUSD":        trade_info.get("openPLUSD"),
+        "drawdownPoints":   trade_info.get("drawdownPoints"),
+        "drawdownUSD":      trade_info.get("drawdownUSD"),
+        "runUpPoints":      trade_info.get("runUpPoints"),
+        "runUpUSD":         trade_info.get("runUpUSD"),
+        "entryTime":        entry_dt,
+        "dayOfWeek":        dow,
+        "sessionName":      session,
+        "outcome":          outcome,
+        "rawLines":         all_lines,
     }
 
-    return {"success": True, "fields": fields}
+    # Confidence score
+    key_fields = [instrument, timeframe, direction, sl_pts, tp_pts,
+                  trade_info.get("riskReward"), entry_dt]
+    filled = sum(1 for f in key_fields if f is not None)
+    if filled >= 6:   confidence = "high"
+    elif filled >= 3: confidence = "medium"
+    else:             confidence = "low"
 
+    return {"fields": fields, "confidence": confidence}
+
+
+# ─────────────────────────────────────────────
+# ENTRY POINT
+# ─────────────────────────────────────────────
 
 def main():
-    image_data = sys.stdin.read().strip()
-    if not image_data:
-        print(json.dumps({"success": False, "error": "No image data provided via stdin"}))
-        sys.exit(1)
+    b64 = sys.stdin.read().strip()
+    try:
+        img    = load_image_from_b64(b64)
+        result = extract_fields(img)
+        output = {
+            "success": True,
+            "fields": result["fields"],
+            "aiExtractedRaw": {
+                "method":        "ocr_v3",
+                "ocrConfidence": result["confidence"],
+                "note": "Extracted via Tesseract OCR v3 (white-row detection). Review and correct any inaccurate fields."
+            }
+        }
+    except Exception as e:
+        output = {
+            "success": False,
+            "error":   str(e),
+            "traceback": traceback.format_exc()
+        }
 
-    result = analyze_trading_screenshot(image_data)
-    print(json.dumps(result))
+    print(json.dumps(output, indent=2, default=str))
 
 
 if __name__ == "__main__":
