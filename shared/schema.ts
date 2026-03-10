@@ -284,10 +284,23 @@ export const tradingSessions = pgTable("trading_sessions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertTradingSessionSchema = createInsertSchema(tradingSessions).omit({
-  id: true,
-  createdAt: true,
-});
+// ✅ FIX: Override drizzle-zod's auto-generated decimal validator for startingBalance.
+// drizzle-zod generates inconsistent Zod types for decimal columns across versions —
+// it may expect a branded string, reject plain "10000", or reject "0".
+// We explicitly accept number | string, coerce to a valid 2dp decimal string,
+// and validate the result so the DB always receives e.g. "10000.00".
+export const insertTradingSessionSchema = createInsertSchema(tradingSessions)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    startingBalance: z
+      .union([z.string(), z.number()])
+      .transform((val) => {
+        const num = typeof val === 'number' ? val : parseFloat(val);
+        if (isNaN(num) || num < 0) throw new Error('Invalid starting balance');
+        return num.toFixed(2);
+      }),
+    sessionName: z.string().min(1, 'Session name is required').trim(),
+  });
 
 export type InsertTradingSession = z.infer<typeof insertTradingSessionSchema>;
 export type TradingSession = typeof tradingSessions.$inferSelect;
