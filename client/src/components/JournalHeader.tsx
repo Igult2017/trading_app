@@ -58,7 +58,12 @@ const navItems = [
   { label: "BLOG", icon: "≡" },
 ];
 
-export default function JournalHeader() {
+interface JournalHeaderProps {
+  isDark: boolean;
+  toggleTheme: () => void;
+}
+
+export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProps) {
   const [active, setActive] = useState("HOME");
   const [dropdown, setDropdown] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,10 +87,9 @@ export default function JournalHeader() {
   const fmtDate = (d) => d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
 
   return (
-    <div style={{ fontFamily: "'Montserrat', sans-serif", background: "#080c10", minHeight: "100vh" }}>
+    <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
           --bg: #080c10;
           --surface: #0c1219;
@@ -97,7 +101,7 @@ export default function JournalHeader() {
           --text: #c8d8e8;
           --muted: #4a6580;
         }
-        .nav-link {
+        .journal-nav-link {
           color: var(--muted);
           text-decoration: none;
           font-size: 10px;
@@ -115,12 +119,12 @@ export default function JournalHeader() {
           align-items: center;
           gap: 6px;
         }
-        .nav-link:hover { color: var(--text); border-color: var(--border-lit); background: var(--surface); }
-        .nav-link.active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
-        .icon-btn { background: var(--surface); border: 1px solid var(--border-lit); border-radius: 4px; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-        .icon-btn:hover { color: var(--text); border-color: var(--accent); }
-        @media (max-width: 1024px) { .desktop-only { display: none !important; } .mobile-toggle { display: flex !important; } }
-        @media (min-width: 1025px) { .desktop-only { display: flex !important; } .mobile-toggle { display: none !important; } }
+        .journal-nav-link:hover { color: var(--text); border-color: var(--border-lit); background: var(--surface); }
+        .journal-nav-link.active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
+        .journal-icon-btn { background: var(--surface); border: 1px solid var(--border-lit); border-radius: 4px; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .journal-icon-btn:hover { color: var(--text); border-color: var(--accent); }
+        @media (max-width: 1024px) { .journal-desktop-only { display: none !important; } .journal-mobile-toggle { display: flex !important; } }
+        @media (min-width: 1025px) { .journal-desktop-only { display: flex !important; } .journal-mobile-toggle { display: none !important; } }
         @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       `}</style>
@@ -130,7 +134,7 @@ export default function JournalHeader() {
       <header style={{
         background: "var(--bg)",
         borderBottom: "1px solid var(--border-lit)",
-        height: 60,
+        height: 44,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -143,23 +147,23 @@ export default function JournalHeader() {
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0 }}
           onClick={() => setActive("HOME")}>
-          <span style={{ fontSize: "20px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
+          <span style={{ fontSize: "16px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             FSDZONES
           </span>
-          <span style={{ fontSize: "20px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
+          <span style={{ fontSize: "16px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             .COM
           </span>
         </div>
 
         {/* Right Nav */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <nav className="desktop-only" style={{ alignItems: "center", gap: 2 }}>
+          <nav className="journal-desktop-only" style={{ display: "flex", alignItems: "center", gap: 2 }}>
             {navItems.map((item) => {
               if (item.label === "ASSETS") {
                 return (
                   <div key={item.label} style={{ position: "relative" }} ref={dropRef}>
                     <button
-                      className={`nav-link${active === "ASSETS" ? " active" : ""}`}
+                      className={`journal-nav-link${active === "ASSETS" ? " active" : ""}`}
                       onClick={() => setDropdown(!dropdown)}
                       onMouseEnter={() => setDropdown(true)}
                     >
@@ -193,7 +197,7 @@ export default function JournalHeader() {
               return (
                 <button
                   key={item.label}
-                  className={`nav-link${active === item.label ? " active" : ""}`}
+                  className={`journal-nav-link${active === item.label ? " active" : ""}`}
                   onClick={() => setActive(item.label)}
                 >
                   <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
@@ -203,7 +207,7 @@ export default function JournalHeader() {
             })}
           </nav>
 
-          <div className="desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
+          <div className="journal-desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
 
           {/* Clock */}
           <div style={{
@@ -213,12 +217,12 @@ export default function JournalHeader() {
             border: "1px solid var(--border-lit)",
             borderRadius: 4,
           }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{fmt(time)}</span>
-            <span style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.08em" }}>{fmtDate(time)} · UTC</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{fmt(time)}</span>
+            <span style={{ fontSize: 7, color: "var(--muted)", letterSpacing: "0.08em" }}>{fmtDate(time)} · UTC</span>
           </div>
 
           <button
-            className="mobile-toggle icon-btn"
+            className="journal-mobile-toggle journal-icon-btn"
             style={{ width: 34, height: 34, display: "none", flexDirection: "column", gap: 4, padding: 0 }}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
@@ -226,14 +230,26 @@ export default function JournalHeader() {
               <div key={i} style={{ width: 16, height: 1.5, background: "currentColor", borderRadius: 2 }} />
             ))}
           </button>
+
+          <button
+            className="journal-icon-btn"
+            style={{ width: 34, height: 34, display: "flex", gap: 4, padding: 0 }}
+            onClick={toggleTheme}
+          >
+            {isDark ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            )}
+          </button>
         </div>
       </header>
 
       {/* Mobile menu */}
       {mobileOpen && (
         <div style={{
-          position: "fixed", top: 92, left: 0, right: 0, bottom: 0,
-          background: "var(--bg)", zIndex: 99, padding: 20,
+          position: "fixed", top: 76, left: 0, right: 0, bottom: 0,
+          background: "#080c10", zIndex: 99, padding: 20,
           overflowY: "auto", animation: "fadeIn 0.2s ease",
           borderTop: "1px solid var(--border-lit)"
         }}>
@@ -252,6 +268,6 @@ export default function JournalHeader() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
