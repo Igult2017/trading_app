@@ -100,16 +100,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sessions", async (req, res) => {
     try {
-      const body = { ...req.body };
-      if (typeof body.startingBalance === 'number') {
-        body.startingBalance = String(body.startingBalance);
-      }
-      const validatedData = insertTradingSessionSchema.parse(body);
+      // ✅ FIX: No manual string conversion needed here anymore.
+      // insertTradingSessionSchema now handles both number and string
+      // via its .transform() and produces a guaranteed "10000.00" format.
+      // We pass req.body directly and let the schema do all the work.
+      const validatedData = insertTradingSessionSchema.parse(req.body);
       const session = await storage.createSession(validatedData);
       res.status(201).json(session);
     } catch (error) {
       console.error("[Routes] Create session error:", error);
-      res.status(400).json({ error: "Invalid session data" });
+      // ✅ FIX: Return actual error details so failures are visible in production logs
+      // and the frontend can surface a meaningful message instead of a silent failure.
+      res.status(400).json({
+        error: "Invalid session data",
+        details: error instanceof Error ? error.message : String(error),
+      });
     }
   });
 
@@ -750,7 +755,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Real-time price data endpoints using Python/tessa
   app.get("/api/prices/status", async (req, res) => {
     try {
       const isOnline = await pingPriceService();
