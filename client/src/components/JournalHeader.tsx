@@ -1,133 +1,257 @@
-import { useState } from 'react';
-import { Link } from 'wouter';
-import {
-  Mail,
-  Sun,
-  Moon,
-  Menu,
-  X,
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
 
-const TelegramIcon = ({ size = 18, color = "currentColor" }: { size?: number; color?: string }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="m22 2-7 20-4-9-9-4Z" />
-    <path d="M22 2 11 13" />
-  </svg>
-);
+const TICKER_DATA = [
+  { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
+  { symbol: "BTC/USD", price: "67,204", change: "-1.34%", up: false },
+  { symbol: "GOLD", price: "2,318.4", change: "+0.45%", up: true },
+  { symbol: "SPX500", price: "5,236.1", change: "+0.28%", up: true },
+  { symbol: "GBP/USD", price: "1.2691", change: "-0.08%", up: false },
+  { symbol: "ETH/USD", price: "3,512.7", change: "+2.11%", up: true },
+  { symbol: "OIL/WTI", price: "78.34", change: "-0.67%", up: false },
+  { symbol: "USD/JPY", price: "156.72", change: "+0.19%", up: true },
+];
 
-interface JournalHeaderProps {
-  isDark: boolean;
-  toggleTheme: () => void;
+function TickerTape() {
+  const items = [...TICKER_DATA, ...TICKER_DATA];
+  return (
+    <div style={{
+      background: "#080c10",
+      borderBottom: "1px solid #0f1923",
+      height: 32,
+      overflow: "hidden",
+      display: "flex",
+      alignItems: "center",
+      position: "relative"
+    }}>
+      <style>{`
+        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
+        .ticker-wrap:hover { animation-play-state: paused; }
+      `}</style>
+      <div className="ticker-wrap" style={{ gap: 0 }}>
+        {items.map((t, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "0 28px", borderRight: "1px solid #0f1923",
+            whiteSpace: "nowrap"
+          }}>
+            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", fontFamily: "'Montserrat', sans-serif" }}>{t.symbol}</span>
+            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600, fontFamily: "'Montserrat', sans-serif" }}>{t.price}</span>
+            <span style={{
+              fontSize: 9, fontWeight: 700, fontFamily: "'Montserrat', sans-serif",
+              color: t.up ? "#22d3a5" : "#f4617f",
+              background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)",
+              padding: "1px 5px", borderRadius: 3
+            }}>{t.change}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+const navItems = [
+  { label: "HOME", icon: "⌂" },
+  { label: "FREE JOURNAL", icon: "◈" },
+  { label: "TSC", icon: "◉" },
+  { label: "ECONOMIC CALENDAR", icon: "▦" },
+  { label: "BLOG", icon: "≡" },
+];
 
-  const sectionBorder = isDark ? 'border-white/5' : 'border-black/5';
-  const borderColor = isDark ? 'border-white/10' : 'border-black/10';
+export default function JournalHeader() {
+  const [active, setActive] = useState("HOME");
+  const [dropdown, setDropdown] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [time, setTime] = useState(new Date());
+  const dropRef = useRef(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const fmt = (d) => d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const fmtDate = (d) => d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
 
   return (
-    <>
-      <nav className={`fixed w-full z-50 ${isDark ? 'bg-[#0d1117]' : 'bg-white'}`} data-testid="journal-nav-header">
-        <div className={`border-b ${sectionBorder} ${isDark ? 'bg-[#0d1117]/40' : 'bg-white/40'} backdrop-blur-md`}>
-          <div className="max-w-[1800px] mx-auto px-4 py-1.5 flex justify-between items-center text-[8px] font-bold uppercase tracking-widest">
-            <div className="flex items-center gap-4">
-              <a href="#" className={`flex items-center gap-1.5 transition-colors group ${isDark ? 'hover:text-white' : 'hover:text-black'}`} data-testid="link-telegram">
-                <TelegramIcon size={10} color="#229ED9" /> <span className="group-hover:text-[#229ED9]">Join Telegram</span>
-              </a>
-              <a href="#" className={`flex items-center gap-1.5 transition-colors group ${isDark ? 'hover:text-white' : 'hover:text-black'}`} data-testid="link-subscribe">
-                <Mail size={10} /> <span>Subscribe</span>
-              </a>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleTheme}
-                className={`flex items-center gap-1.5 p-0.5 px-1.5 border transition-all ${isDark ? 'border-white/10 hover:bg-white/5 text-slate-400' : 'border-black/10 hover:bg-black/5 text-slate-600'}`}
-                data-testid="button-theme-toggle"
-              >
-                {isDark ? <Sun size={8} /> : <Moon size={8} />}
-                <span className="text-[7px]">{isDark ? 'LIGHT' : 'DARK'}</span>
-              </button>
-              <span className={isDark ? 'text-white/20' : 'text-black/20'}>|</span>
-              <div className="flex gap-3">
-                <a href="#" className="hover:text-blue-500 transition-colors" data-testid="link-signin">Sign In</a>
-                <a href="#" className="text-blue-500 hover:text-blue-400 transition-colors" data-testid="link-signup">Sign Up</a>
-              </div>
-            </div>
-          </div>
+    <div style={{ fontFamily: "'Montserrat', sans-serif", background: "#080c10", minHeight: "100vh" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+          --bg: #080c10;
+          --surface: #0c1219;
+          --border: #0f1923;
+          --border-lit: #172233;
+          --accent: #3b9eff;
+          --green: #22d3a5;
+          --red: #f4617f;
+          --text: #c8d8e8;
+          --muted: #4a6580;
+        }
+        .nav-link {
+          color: var(--muted);
+          text-decoration: none;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          padding: 6px 12px;
+          border-radius: 4px;
+          transition: all 0.15s;
+          white-space: nowrap;
+          border: 1px solid transparent;
+          font-family: 'Montserrat', sans-serif;
+          cursor: pointer;
+          background: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .nav-link:hover { color: var(--text); border-color: var(--border-lit); background: var(--surface); }
+        .nav-link.active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
+        .icon-btn { background: var(--surface); border: 1px solid var(--border-lit); border-radius: 4px; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+        @media (max-width: 1024px) { .desktop-only { display: none !important; } .mobile-toggle { display: flex !important; } }
+        @media (min-width: 1025px) { .desktop-only { display: flex !important; } .mobile-toggle { display: none !important; } }
+        @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+      `}</style>
+
+      <TickerTape />
+
+      <header style={{
+        background: "var(--bg)",
+        borderBottom: "1px solid var(--border-lit)",
+        height: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 24px",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+      }}>
+
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0 }}
+          onClick={() => setActive("HOME")}>
+          <span style={{ fontSize: "20px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
+            FSDZONES
+          </span>
+          <span style={{ fontSize: "20px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
+            .COM
+          </span>
         </div>
 
-        <div className={`border-b ${borderColor}`}>
-          <div className="max-w-[1800px] mx-auto px-4 py-2 flex items-center justify-between gap-4">
-            <Link href="/" className={`text-base font-black tracking-tighter flex items-center shrink-0 ${isDark ? 'text-white' : 'text-black'}`} data-testid="link-logo" style={{ textDecoration: 'none' }}>
-              FSDZONES<span className="text-blue-500">.COM</span>
-            </Link>
+        {/* Right Nav */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <nav className="desktop-only" style={{ alignItems: "center", gap: 2 }}>
+            {navItems.map((item) => {
+              if (item.label === "ASSETS") {
+                return (
+                  <div key={item.label} style={{ position: "relative" }} ref={dropRef}>
+                    <button
+                      className={`nav-link${active === "ASSETS" ? " active" : ""}`}
+                      onClick={() => setDropdown(!dropdown)}
+                      onMouseEnter={() => setDropdown(true)}
+                    >
+                      <span style={{ opacity: 0.5, fontSize: 10 }}>{item.icon}</span>
+                      {item.label}
+                      <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor"
+                        style={{ transform: dropdown ? "rotate(180deg)" : "none", transition: "0.2s", opacity: 0.5 }}>
+                        <path d="M2 3.5l3 3 3-3z"/>
+                      </svg>
+                    </button>
+                    {dropdown && (
+                      <div onMouseLeave={() => setDropdown(false)} style={{
+                        position: "absolute", top: "calc(100% + 8px)", right: 0,
+                        background: "var(--surface)",
+                        border: "1px solid var(--border-lit)",
+                        borderRadius: 6,
+                        minWidth: 220,
+                        boxShadow: "0 16px 40px rgba(0,0,0,0.6)",
+                        zIndex: 200,
+                        overflow: "hidden",
+                        animation: "slideDown 0.15s ease"
+                      }}>
+                        <div style={{ padding: "12px 16px", textAlign: 'center' }}>
+                          <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em" }}>NO ASSETS SELECTED</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={item.label}
+                  className={`nav-link${active === item.label ? " active" : ""}`}
+                  onClick={() => setActive(item.label)}
+                >
+                  <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
 
-            <div className={`hidden lg:flex items-center gap-5 text-[8px] font-black uppercase tracking-[0.12em] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              <Link href="/" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-nav-home">Home</Link>
-              <Link href="/journal" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-nav-journal">Free Journal</Link>
-              <a href="#tsc" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-nav-tsc">TSC</a>
-              <a href="#calendar" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-nav-calendar">Economic Calendar</a>
-              <a href="#blog" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-nav-blog">Blog</a>
-              <span className={`${isDark ? 'text-white/10' : 'text-black/10'}`}>|</span>
-              <a href="#major-pairs" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-subnav-major-pairs">Major Pairs</a>
-              <a href="#us-stocks" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-subnav-us-stocks">US Stocks</a>
-              <a href="#commodities" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-subnav-commodities">Commodities</a>
-              <a href="#cryptocurrency" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-subnav-cryptocurrency">Cryptocurrency</a>
-              <a href="#verified-strategies" className="hover:text-blue-500 transition-colors whitespace-nowrap" data-testid="link-subnav-strategies">Verified Strategies</a>
-            </div>
+          <div className="desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
 
-            <button className={`lg:hidden ${isDark ? 'text-white' : 'text-black'}`} onClick={() => setIsMenuOpen(!isMenuOpen)} data-testid="button-mobile-menu">
-              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+          {/* Clock */}
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "flex-end",
+            padding: "4px 12px",
+            background: "var(--surface)",
+            border: "1px solid var(--border-lit)",
+            borderRadius: 4,
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{fmt(time)}</span>
+            <span style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.08em" }}>{fmtDate(time)} · UTC</span>
           </div>
+
+          <button
+            className="mobile-toggle icon-btn"
+            style={{ width: 34, height: 34, display: "none", flexDirection: "column", gap: 4, padding: 0 }}
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            {[0,1,2].map(i => (
+              <div key={i} style={{ width: 16, height: 1.5, background: "currentColor", borderRadius: 2 }} />
+            ))}
+          </button>
         </div>
-      </nav>
+      </header>
 
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" data-testid="mobile-menu-overlay">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setIsMenuOpen(false)} />
-          <div className={`absolute top-0 right-0 h-full w-72 ${isDark ? 'bg-[#0d1117]' : 'bg-white'} shadow-2xl p-8 overflow-y-auto`} data-testid="mobile-menu-drawer">
-            <div className="flex justify-between items-center mb-8">
-              <div className={`text-lg font-black tracking-tighter ${isDark ? 'text-white' : 'text-black'}`}>
-                FSDZONES<span className="text-blue-500">.COM</span>
-              </div>
-              <button onClick={() => setIsMenuOpen(false)} className={isDark ? 'text-white' : 'text-black'} data-testid="button-close-mobile-menu">
-                <X size={24} />
-              </button>
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div style={{
+          position: "fixed", top: 92, left: 0, right: 0, bottom: 0,
+          background: "var(--bg)", zIndex: 99, padding: 20,
+          overflowY: "auto", animation: "fadeIn 0.2s ease",
+          borderTop: "1px solid var(--border-lit)"
+        }}>
+          {navItems.map(item => (
+            <div key={item.label} onClick={() => { setActive(item.label); setMobileOpen(false); }}
+              style={{
+                padding: "16px 0", borderBottom: "1px solid var(--border)",
+                fontSize: 14, fontWeight: 700, cursor: "pointer",
+                color: active === item.label ? "var(--accent)" : "var(--text)",
+                display: "flex", alignItems: "center", gap: 10
+              }}
+            >
+              <span style={{ opacity: 0.4 }}>{item.icon}</span>
+              {item.label}
             </div>
-            <nav className="space-y-6 text-[11px] font-black uppercase tracking-[0.15em]">
-              <Link href="/" className="block text-blue-500" onClick={() => setIsMenuOpen(false)}>Home</Link>
-              <Link href="/journal" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Free Journal</Link>
-              <a href="#tsc" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>TSC</a>
-              <a href="#calendar" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Economic Calendar</a>
-              <a href="#blog" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Blog</a>
-            </nav>
-            <hr className={`my-8 ${isDark ? 'border-white/10' : 'border-black/10'}`} />
-            <div className="space-y-4 text-[11px] font-black uppercase tracking-[0.15em]">
-              <a href="#major-pairs" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Major Pairs</a>
-              <a href="#us-stocks" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>US Stocks</a>
-              <a href="#commodities" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Commodities</a>
-              <a href="#cryptocurrency" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Cryptocurrency</a>
-              <a href="#verified-strategies" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Verified Strategies</a>
-            </div>
-            <hr className={`my-8 ${isDark ? 'border-white/10' : 'border-black/10'}`} />
-            <div className="space-y-4">
-              <a href="#" className="block w-full py-3 primary-btn text-white text-center" data-testid="mobile-link-signup">Sign Up</a>
-              <a href="#" className={`block text-center text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`} data-testid="mobile-link-signin">Sign In</a>
-            </div>
-          </div>
+          ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
