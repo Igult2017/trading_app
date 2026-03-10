@@ -18,23 +18,53 @@ interface CreateSessionFormProps {
 export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   const [sessionName, setSessionName] = useState('');
   const [startingBalance, setStartingBalance] = useState('');
+  const [formError, setFormError] = useState('');
 
   const createMutation = useMutation({
     mutationFn: async (data: { sessionName: string; startingBalance: number }) => {
       const res = await apiRequest("POST", "/api/sessions", data);
+      // ✅ FIX: Check for non-2xx responses and surface the server error message
+      // instead of silently failing. Previously res.json() was called blindly
+      // even on 400 responses, causing the onSuccess to never fire with no
+      // visible error shown to the user.
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.details || err.error || 'Failed to create session');
+      }
       return res.json();
     },
     onSuccess: (session: SessionData) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
       setSessionName('');
       setStartingBalance('');
+      setFormError('');
       onCreated(session.id);
+    },
+    onError: (error: Error) => {
+      // ✅ FIX: Surface the error in the UI so the user knows what went wrong
+      setFormError(error.message || 'Failed to create session. Please try again.');
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({ sessionName, startingBalance: parseFloat(startingBalance) || 0 });
+    setFormError('');
+
+    // ✅ FIX: Validate before sending — previously `|| 0` silently submitted
+    // 0 as the balance when the field was empty or non-numeric, which then
+    // failed Zod validation on the server with no visible feedback.
+    const balance = parseFloat(startingBalance);
+    if (!startingBalance.trim() || isNaN(balance) || balance < 0) {
+      setFormError('Please enter a valid starting balance (must be 0 or greater).');
+      return;
+    }
+
+    if (!sessionName.trim()) {
+      setFormError('Please enter a session name.');
+      return;
+    }
+
+    createMutation.mutate({ sessionName: sessionName.trim(), startingBalance: balance });
   };
 
   return (
@@ -47,17 +77,48 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
         <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-create-session">
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Session Name</label>
-            <input type="text" value={sessionName} onChange={(e) => setSessionName(e.target.value)} placeholder="e.g., Morning Scalping Session" className="w-full bg-slate-800/50 border border-slate-700 rounded-md px-5 py-3.5 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all" required data-testid="input-session-name" />
+            <input
+              type="text"
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              placeholder="e.g., Morning Scalping Session"
+              className="w-full bg-slate-800/50 border border-slate-700 rounded-md px-5 py-3.5 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+              required
+              data-testid="input-session-name"
+            />
           </div>
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Starting Balance</label>
             <div className="relative">
               <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-              <input type="number" value={startingBalance} onChange={(e) => setStartingBalance(e.target.value)} placeholder="10000" className="w-full bg-slate-800/50 border border-slate-700 rounded-md pl-10 pr-5 py-3.5 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono" min="0" step="0.01" required data-testid="input-starting-balance" />
+              <input
+                type="number"
+                value={startingBalance}
+                onChange={(e) => setStartingBalance(e.target.value)}
+                placeholder="10000"
+                className="w-full bg-slate-800/50 border border-slate-700 rounded-md pl-10 pr-5 py-3.5 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
+                min="0"
+                step="0.01"
+                required
+                data-testid="input-starting-balance"
+              />
             </div>
           </div>
+
+          {/* ✅ FIX: Show form-level errors from both client validation and server response */}
+          {formError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3">
+              <p className="text-xs font-semibold text-red-400" data-testid="text-form-error">{formError}</p>
+            </div>
+          )}
+
           <div className="flex gap-4 pt-4">
-            <button type="submit" disabled={createMutation.isPending} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest px-6 py-4 rounded-md transition-all shadow-xl shadow-indigo-600/20 border border-indigo-500/50 disabled:opacity-50" data-testid="button-create-session">
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest px-6 py-4 rounded-md transition-all shadow-xl shadow-indigo-600/20 border border-indigo-500/50 disabled:opacity-50"
+              data-testid="button-create-session"
+            >
               {createMutation.isPending ? 'Creating...' : 'Create Session'}
             </button>
           </div>
@@ -125,10 +186,12 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
         {sessions.map((session) => {
           const isActive = activeSessionId === session.id;
           return (
-            <div key={session.id}
+            <div
+              key={session.id}
               onClick={() => onSelectSession(session.id)}
               className={`bg-slate-900 border rounded-md p-6 cursor-pointer transition-all ${isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-800 hover:border-slate-700'}`}
-              data-testid={`card-session-${session.id}`}>
+              data-testid={`card-session-${session.id}`}
+            >
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-black text-white mb-1 tracking-tight" data-testid={`text-session-name-${session.id}`}>{session.sessionName}</h3>
@@ -145,8 +208,11 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
                   <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded ${session.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700/30 text-slate-400'}`}>
                     {session.status || 'active'}
                   </span>
-                  <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
-                    className="text-slate-600 hover:text-red-400 transition-colors p-1" data-testid={`button-delete-session-${session.id}`}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
+                    className="text-slate-600 hover:text-red-400 transition-colors p-1"
+                    data-testid={`button-delete-session-${session.id}`}
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
