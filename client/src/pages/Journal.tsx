@@ -576,7 +576,7 @@ export default function Journal() {
           <button style={{ width:34, height:34, borderRadius:8, background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', marginLeft:8, transition:'all 0.2s' }} data-testid="button-logout" title="Logout"
             onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.25)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.5)'; }}
             onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.15)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.3)'; }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color:'#ef4444'}}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/></svg>
           </button>
         </div>
       </header>
