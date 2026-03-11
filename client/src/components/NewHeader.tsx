@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import {
   Mail,
   Sun,
@@ -30,6 +30,7 @@ interface NewHeaderProps {
 }
 
 export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
+  const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -118,38 +119,56 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
       </nav>
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" data-testid="mobile-menu-overlay">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setIsMenuOpen(false)} />
-          <div className={`absolute top-0 right-0 h-full w-72 ${isDark ? 'bg-[#0d1117]' : 'bg-white'} shadow-2xl p-8 overflow-y-auto`} data-testid="mobile-menu-drawer">
-            <div className="flex justify-between items-center mb-8">
-              <div className={`text-lg font-black tracking-tighter ${isDark ? 'text-white' : 'text-black'}`}>
-                FSDZONES<span className="text-blue-500">.COM</span>
-              </div>
-              <button onClick={() => setIsMenuOpen(false)} className={isDark ? 'text-white' : 'text-black'} data-testid="button-close-mobile-menu">
-                <X size={24} />
-              </button>
-            </div>
-            <nav className="space-y-6 text-[11px] font-black uppercase tracking-[0.15em]">
-              <Link href="/" className="block text-blue-500" onClick={() => setIsMenuOpen(false)}>Home</Link>
-              <Link href="/journal" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Free Journal</Link>
-              <a href="#tsc" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>TSC</a>
-              <a href="#calendar" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Economic Calendar</a>
-              <a href="#blog" className={`block ${isDark ? 'text-slate-300 hover:text-blue-500' : 'text-slate-700 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Blog</a>
-            </nav>
-            <hr className={`my-8 ${isDark ? 'border-white/10' : 'border-black/10'}`} />
-            <div className="space-y-4 text-[11px] font-black uppercase tracking-[0.15em]">
-              <a href="#major-pairs" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Major Pairs</a>
-              <a href="#us-stocks" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>US Stocks</a>
-              <a href="#commodities" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Commodities</a>
-              <a href="#cryptocurrency" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Cryptocurrency</a>
-              <a href="#verified-strategies" className={`block ${isDark ? 'text-slate-400 hover:text-blue-500' : 'text-slate-500 hover:text-blue-500'} transition-colors`} onClick={() => setIsMenuOpen(false)}>Verified Strategies</a>
-            </div>
-            <hr className={`my-8 ${isDark ? 'border-white/10' : 'border-black/10'}`} />
-            <div className="space-y-4">
-              <a href="#" className="block w-full py-3 primary-btn text-white text-center" data-testid="mobile-link-signup">Sign Up</a>
-              <a href="#" className={`block text-center text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`} data-testid="mobile-link-signin">Sign In</a>
-            </div>
+        <div className="fixed inset-0 z-40 lg:hidden bg-[#0a0a0a] flex flex-col" data-testid="mobile-menu-overlay">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <Link
+              href="/"
+              className="text-xl font-black tracking-tighter text-white"
+              style={{ textDecoration: 'none' }}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              FSDZONES<span className="text-blue-500">.COM</span>
+            </Link>
+            <button
+              onClick={() => setIsMenuOpen(false)}
+              className="text-white p-1"
+              data-testid="button-close-mobile-menu"
+            >
+              <Menu size={24} />
+            </button>
           </div>
+
+          <nav className="flex-1 overflow-y-auto" data-testid="mobile-menu-drawer">
+            {[
+              { label: 'Home', href: '/', isLink: true, active: location === '/' },
+              { label: 'Currency Pairs', href: '#major-pairs', isLink: false, active: false },
+              { label: 'US Stocks', href: '#us-stocks', isLink: false, active: false },
+              { label: 'Commodities', href: '#commodities', isLink: false, active: false },
+              { label: 'Crypto', href: '#cryptocurrency', isLink: false, active: false },
+              { label: 'TSC', href: '#tsc', isLink: false, active: false },
+              { label: 'Economic Calendar', href: '#calendar', isLink: false, active: false },
+            ].map((item) => (
+              item.isLink ? (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`block px-5 py-5 text-[13px] font-black uppercase tracking-[0.12em] border-b border-white/10 transition-colors ${item.active ? 'text-blue-500' : 'text-white hover:text-blue-400'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="block px-5 py-5 text-[13px] font-black uppercase tracking-[0.12em] border-b border-white/10 text-white hover:text-blue-400 transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </a>
+              )
+            ))}
+          </nav>
         </div>
       )}
     </>
