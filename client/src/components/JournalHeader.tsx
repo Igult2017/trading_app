@@ -53,7 +53,6 @@ function TickerTape() {
 
 const navItems = [
   { label: "HOME", icon: "⌂" },
-  { label: "FREE JOURNAL", icon: "◈" },
   { label: "TSC", icon: "◉" },
   { label: "ECONOMIC CALENDAR", icon: "▦" },
   { label: "BLOG", icon: "≡" },
@@ -74,9 +73,7 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
 
   const handleNavigation = (label: string) => {
     if (label === "HOME") {
-      setLocation("/");
-    } else if (label === "FREE JOURNAL") {
-      window.open("/journal", "_blank");
+      window.open("/", "_blank");
     } else if (label === "TSC") {
       window.open("https://fsdzones.com", "_blank");
     } else if (label === "ECONOMIC CALENDAR") {
