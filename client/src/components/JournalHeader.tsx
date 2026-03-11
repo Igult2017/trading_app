@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -52,10 +52,10 @@ function TickerTape() {
 }
 
 const navItems = [
-  { label: "HOME", icon: "⌂" },
-  { label: "TSC", icon: "◉" },
-  { label: "ECONOMIC CALENDAR", icon: "▦" },
-  { label: "BLOG", icon: "≡" },
+  { label: "HOME", icon: "⌂", path: "/" },
+  { label: "TSC", icon: "◉", href: "https://fsdzones.com" },
+  { label: "ECONOMIC CALENDAR", icon: "▦", href: "https://fsdzones.com/calendar" },
+  { label: "BLOG", icon: "≡", href: "https://fsdzones.com/blog" },
 ];
 
 interface JournalHeaderProps {
@@ -64,25 +64,11 @@ interface JournalHeaderProps {
 }
 
 export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProps) {
-  const [location, setLocation] = useLocation();
-  const [active, setActive] = useState("FREE JOURNAL");
+  const [active, setActive] = useState("HOME");
   const [dropdown, setDropdown] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [time, setTime] = useState(new Date());
   const dropRef = useRef(null);
-
-  const handleNavigation = (label: string) => {
-    if (label === "HOME") {
-      window.open("/", "_blank");
-    } else if (label === "TSC") {
-      window.open("https://fsdzones.com", "_blank");
-    } else if (label === "ECONOMIC CALENDAR") {
-      window.open("https://fsdzones.com/calendar", "_blank");
-    } else if (label === "BLOG") {
-      window.open("https://fsdzones.com/blog", "_blank");
-    }
-    setActive(label);
-  };
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -159,65 +145,50 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
       }}>
 
         {/* Logo */}
-        <div style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0 }}
-          onClick={() => handleNavigation("HOME")}>
+        <Link href="/" style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0, textDecoration: "none" }}>
           <span style={{ fontSize: "16px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             FSDZONES
           </span>
           <span style={{ fontSize: "16px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             .COM
           </span>
-        </div>
+        </Link>
 
         {/* Right Nav */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <nav className="journal-desktop-only" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {navItems.map((item) => {
-              if (item.label === "ASSETS") {
+            {navItems.map((item: any) => {
+              if (item.path) {
+                // Internal route - use Link
                 return (
-                  <div key={item.label} style={{ position: "relative" }} ref={dropRef}>
-                    <button
-                      className={`journal-nav-link${active === "ASSETS" ? " active" : ""}`}
-                      onClick={() => setDropdown(!dropdown)}
-                      onMouseEnter={() => setDropdown(true)}
-                    >
-                      <span style={{ opacity: 0.5, fontSize: 10 }}>{item.icon}</span>
-                      {item.label}
-                      <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor"
-                        style={{ transform: dropdown ? "rotate(180deg)" : "none", transition: "0.2s", opacity: 0.5 }}>
-                        <path d="M2 3.5l3 3 3-3z"/>
-                      </svg>
-                    </button>
-                    {dropdown && (
-                      <div onMouseLeave={() => setDropdown(false)} style={{
-                        position: "absolute", top: "calc(100% + 8px)", right: 0,
-                        background: "var(--surface)",
-                        border: "1px solid var(--border-lit)",
-                        borderRadius: 6,
-                        minWidth: 220,
-                        boxShadow: "0 16px 40px rgba(0,0,0,0.6)",
-                        zIndex: 200,
-                        overflow: "hidden",
-                        animation: "slideDown 0.15s ease"
-                      }}>
-                        <div style={{ padding: "12px 16px", textAlign: 'center' }}>
-                          <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.12em" }}>NO ASSETS SELECTED</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <Link
+                    key={item.label}
+                    href={item.path}
+                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
+                    onClick={() => setActive(item.label)}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                    {item.label}
+                  </Link>
+                );
+              } else {
+                // External link
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
+                    onClick={() => setActive(item.label)}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                    {item.label}
+                  </a>
                 );
               }
-              return (
-                <button
-                  key={item.label}
-                  className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                  onClick={() => handleNavigation(item.label)}
-                >
-                  <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                  {item.label}
-                </button>
-              );
             })}
           </nav>
 
@@ -267,18 +238,42 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
           overflowY: "auto", animation: "fadeIn 0.2s ease",
           borderTop: "1px solid var(--border-lit)"
         }}>
-          {navItems.map(item => (
-            <div key={item.label} onClick={() => { handleNavigation(item.label); setMobileOpen(false); }}
-              style={{
-                padding: "16px 0", borderBottom: "1px solid var(--border)",
-                fontSize: 14, fontWeight: 700, cursor: "pointer",
-                color: active === item.label ? "var(--accent)" : "var(--text)",
-                display: "flex", alignItems: "center", gap: 10
-              }}
-            >
-              <span style={{ opacity: 0.4 }}>{item.icon}</span>
-              {item.label}
-            </div>
+          {navItems.map((item: any) => (
+            item.path ? (
+              <Link
+                key={item.label}
+                href={item.path}
+                onClick={() => { setActive(item.label); setMobileOpen(false); }}
+                style={{
+                  padding: "16px 0", borderBottom: "1px solid var(--border)",
+                  fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  color: active === item.label ? "var(--accent)" : "var(--text)",
+                  display: "flex", alignItems: "center", gap: 10,
+                  textDecoration: "none"
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>{item.icon}</span>
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                key={item.label}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => { setActive(item.label); setMobileOpen(false); }}
+                style={{
+                  padding: "16px 0", borderBottom: "1px solid var(--border)",
+                  fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  color: active === item.label ? "var(--accent)" : "var(--text)",
+                  display: "flex", alignItems: "center", gap: 10,
+                  textDecoration: "none"
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>{item.icon}</span>
+                {item.label}
+              </a>
+            )
           ))}
         </div>
       )}
