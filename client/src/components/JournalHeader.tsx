@@ -52,10 +52,10 @@ function TickerTape() {
 }
 
 const navItems = [
-  { label: "HOME", icon: "⌂", href: "/" },
-  { label: "TSC", icon: "◉", href: "https://fsdzones.com" },
-  { label: "ECONOMIC CALENDAR", icon: "▦", href: "https://fsdzones.com/calendar" },
-  { label: "BLOG", icon: "≡", href: "https://fsdzones.com/blog" },
+  { label: "HOME", icon: "⌂", href: "/", isExternal: false },
+  { label: "TSC", icon: "◉", href: "https://fsdzones.com", isExternal: true },
+  { label: "ECONOMIC CALENDAR", icon: "▦", href: "https://fsdzones.com/calendar", isExternal: true },
+  { label: "BLOG", icon: "≡", href: "https://fsdzones.com/blog", isExternal: true },
 ];
 
 interface JournalHeaderProps {
@@ -145,7 +145,7 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
       }}>
 
         {/* Logo */}
-        <a href="/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0, textDecoration: "none" }}>
+        <a href="/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0, textDecoration: "none" }} onClick={(e) => e.preventDefault()}>
           <span style={{ fontSize: "16px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             FSDZONES
           </span>
@@ -157,20 +157,55 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
         {/* Right Nav */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <nav className="journal-desktop-only" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {navItems.map((item: any) => (
-              <a
-                key={item.label}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                onClick={() => setActive(item.label)}
-                style={{ textDecoration: "none" }}
-              >
-                <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                {item.label}
-              </a>
-            ))}
+            {navItems.map((item: any) => {
+              if (item.label === "HOME") {
+                // HOME opens in new tab
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
+                    onClick={() => setActive(item.label)}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                    {item.label}
+                  </a>
+                );
+              } else if (item.isExternal) {
+                // External links
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
+                    onClick={() => setActive(item.label)}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                    {item.label}
+                  </a>
+                );
+              } else {
+                // Internal routes with wouter Link
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
+                    onClick={() => setActive(item.label)}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                    {item.label}
+                  </Link>
+                );
+              }
+            })}
           </nav>
 
           <div className="journal-desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
@@ -219,25 +254,70 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
           overflowY: "auto", animation: "fadeIn 0.2s ease",
           borderTop: "1px solid var(--border-lit)"
         }}>
-          {navItems.map((item: any) => (
-            <a
-              key={item.label}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => { setActive(item.label); setMobileOpen(false); }}
-              style={{
-                padding: "16px 0", borderBottom: "1px solid var(--border)",
-                fontSize: 14, fontWeight: 700, cursor: "pointer",
-                color: active === item.label ? "var(--accent)" : "var(--text)",
-                display: "flex", alignItems: "center", gap: 10,
-                textDecoration: "none"
-              }}
-            >
-              <span style={{ opacity: 0.4 }}>{item.icon}</span>
-              {item.label}
-            </a>
-          ))}
+          {navItems.map((item: any) => {
+            if (item.label === "HOME") {
+              // HOME opens in new tab
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => { setActive(item.label); setMobileOpen(false); }}
+                  style={{
+                    padding: "16px 0", borderBottom: "1px solid var(--border)",
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
+                    color: active === item.label ? "var(--accent)" : "var(--text)",
+                    display: "flex", alignItems: "center", gap: 10,
+                    textDecoration: "none"
+                  }}
+                >
+                  <span style={{ opacity: 0.4 }}>{item.icon}</span>
+                  {item.label}
+                </a>
+              );
+            } else if (item.isExternal) {
+              // External links
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => { setActive(item.label); setMobileOpen(false); }}
+                  style={{
+                    padding: "16px 0", borderBottom: "1px solid var(--border)",
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
+                    color: active === item.label ? "var(--accent)" : "var(--text)",
+                    display: "flex", alignItems: "center", gap: 10,
+                    textDecoration: "none"
+                  }}
+                >
+                  <span style={{ opacity: 0.4 }}>{item.icon}</span>
+                  {item.label}
+                </a>
+              );
+            } else {
+              // Internal routes with wouter Link
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => { setActive(item.label); setMobileOpen(false); }}
+                  style={{
+                    padding: "16px 0", borderBottom: "1px solid var(--border)",
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
+                    color: active === item.label ? "var(--accent)" : "var(--text)",
+                    display: "flex", alignItems: "center", gap: 10,
+                    textDecoration: "none"
+                  }}
+                >
+                  <span style={{ opacity: 0.4 }}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            }
+          })}
         </div>
       )}
     </>
