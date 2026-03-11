@@ -46,25 +46,19 @@ interface NavGroup {
 
 const NAV_SECTIONS: NavGroup[] = [
   { section: null, items: [
-    { id: 'dashboard', label: 'Dashboard', icon: SI.Dashboard },
-    { id: 'journal', label: 'Journal', icon: SI.Journal },
-    { id: 'metrics', label: 'Metrics', icon: SI.Metrics },
-    { id: 'tfmetrics', label: 'TF Metrics', icon: SI.TfMetrics },
-    { id: 'calendar', label: 'Calendar', icon: SI.Calendar },
-    { id: 'strategy', label: 'Strategy Audit', icon: SI.Strategy },
-    { id: 'drawdown', label: 'Drawdown', icon: SI.Drawdown },
-    { id: 'vault', label: 'Trade Vault', icon: SI.Vault },
+    { id: 'dashboard', label: 'Dashboard', icon: SI.Dashboard, arrow: true },
+    { id: 'journal', label: 'Journal', icon: SI.Journal, arrow: true },
+    { id: 'accounts', label: 'Accounts', icon: SI.Accounts },
     { id: 'leaderboard', label: 'Leaderboard', icon: SI.Leaderboard },
-    { id: 'sync', label: 'Sync Trade', icon: SI.Sync },
-    { id: 'fsdai', label: 'FSD AI', icon: SI.FsdAi },
+    { id: 'sync', label: 'Trade Sync', icon: SI.Sync },
+    { id: 'metrics', label: 'Calculators', icon: SI.Metrics, arrow: true },
+    { id: 'tfmetrics', label: 'Charts', icon: SI.TfMetrics, badge: 'Beta' },
+    { id: 'fsdai', label: 'Crypto', icon: SI.FsdAi, badge: 'Beta' },
+    { id: 'strategy', label: 'Backtest', icon: SI.Strategy, badge: 'Pro' },
   ]},
   { section: 'Live Trading', items: [
     { id: 'sessions', label: 'Sessions', icon: SI.Sessions, arrow: true },
     { id: 'create', label: 'Create Session', icon: SI.CreateSession },
-  ]},
-  { section: 'Account', items: [
-    { id: 'addaccount', label: 'Add Account', icon: SI.AddAccount },
-    { id: 'accounts', label: 'Accounts', icon: SI.Accounts },
   ]},
   { section: null, items: [
     { id: 'settings', label: 'Settings', icon: SI.Settings },
@@ -74,18 +68,24 @@ const NAV_SECTIONS: NavGroup[] = [
 const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => (
   <button onClick={onClick} data-testid={`nav-${item.id}`} style={{
     width: '100%', display: 'flex', alignItems: 'center',
-    justifyContent: showLabels ? 'flex-start' : 'center',
-    gap: 10, padding: '9px 8px', borderRadius: 10, marginBottom: 2,
-    background: isActive ? 'rgba(56,189,248,0.08)' : 'transparent',
-    border: isActive ? '1px solid rgba(56,189,248,0.18)' : '1px solid transparent',
-    cursor: 'pointer', transition: 'all 0.15s', fontFamily: "'Montserrat',sans-serif",
+    justifyContent: showLabels ? 'space-between' : 'center',
+    padding: showLabels ? '14px 12px' : '12px', borderRadius: 8, marginBottom: 6,
+    background: isActive ? 'rgba(56,189,248,0.1)' : 'transparent',
+    border: isActive ? '1px solid rgba(56,189,248,0.25)' : '1px solid transparent',
+    cursor: 'pointer', transition: 'all 0.2s', fontFamily: "'Montserrat',sans-serif",
   }}
-    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
-    <span style={{ color: isActive ? '#38bdf8' : 'rgba(100,116,139,0.8)', flexShrink: 0, display: 'flex' }}><item.icon /></span>
-    {showLabels && <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', flex: 1, color: isActive ? '#e2e8f0' : 'rgba(148,163,184,0.75)', whiteSpace: 'nowrap' }}>{item.label}</span>}
-    {showLabels && item.badge && <span style={{ fontSize: 7, fontWeight: 900, letterSpacing: '0.12em', padding: '2px 6px', borderRadius: 4, background: '#22d3ee', color: '#020617', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{item.badge}</span>}
-    {showLabels && item.arrow && <span style={{ color: 'rgba(100,116,139,0.5)', display: 'flex' }}><SI.ChevronRight /></span>}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+      <span style={{ color: isActive ? '#38bdf8' : 'rgba(100,116,139,0.8)', flexShrink: 0, display: 'flex' }}><item.icon /></span>
+      {showLabels && <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.03em', color: isActive ? '#e2e8f0' : 'rgba(148,163,184,0.8)', whiteSpace: 'nowrap' }}>{item.label}</span>}
+    </div>
+    {showLabels && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {item.badge && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
+        {item.arrow && <span style={{ color: 'rgba(100,116,139,0.6)', display: 'flex', marginLeft: 4 }}><SI.ChevronRight /></span>}
+      </div>
+    )}
   </button>
 );
 
@@ -113,11 +113,11 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(148,163,184,0.6)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
           </div>
         )}
-        <nav style={{ flex: 1, padding: '10px 8px 4px', overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '12px 10px 4px', overflowY: 'auto' }}>
           {NAV_SECTIONS.map((group, gi) => (
-            <div key={gi} style={{ marginBottom: group.section ? 4 : 0 }}>
-              {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 4px' }} />}
-              {showLabels && group.section && <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(100,116,139,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '12px 10px 6px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
+            <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
+              {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
+              {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
               {group.items.map(item => (
                 <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels}
                   onClick={() => { setActiveNav(item.id); if (isMobile) onClose(); }} />
