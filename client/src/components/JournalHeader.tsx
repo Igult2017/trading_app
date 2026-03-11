@@ -52,7 +52,7 @@ function TickerTape() {
 }
 
 const navItems = [
-  { label: "HOME", icon: "⌂", path: "/" },
+  { label: "HOME", icon: "⌂", href: "/" },
   { label: "TSC", icon: "◉", href: "https://fsdzones.com" },
   { label: "ECONOMIC CALENDAR", icon: "▦", href: "https://fsdzones.com/calendar" },
   { label: "BLOG", icon: "≡", href: "https://fsdzones.com/blog" },
@@ -145,51 +145,32 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
       }}>
 
         {/* Logo */}
-        <Link href="/" style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0, textDecoration: "none" }}>
+        <a href="/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0, textDecoration: "none" }}>
           <span style={{ fontSize: "16px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             FSDZONES
           </span>
           <span style={{ fontSize: "16px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             .COM
           </span>
-        </Link>
+        </a>
 
         {/* Right Nav */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <nav className="journal-desktop-only" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {navItems.map((item: any) => {
-              if (item.path) {
-                // Internal route - use Link
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.path}
-                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                    onClick={() => setActive(item.label)}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                    {item.label}
-                  </Link>
-                );
-              } else {
-                // External link
-                return (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                    onClick={() => setActive(item.label)}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                    {item.label}
-                  </a>
-                );
-              }
-            })}
+            {navItems.map((item: any) => (
+              <a
+                key={item.label}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`journal-nav-link${active === item.label ? " active" : ""}`}
+                onClick={() => setActive(item.label)}
+                style={{ textDecoration: "none" }}
+              >
+                <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                {item.label}
+              </a>
+            ))}
           </nav>
 
           <div className="journal-desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
@@ -239,41 +220,23 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
           borderTop: "1px solid var(--border-lit)"
         }}>
           {navItems.map((item: any) => (
-            item.path ? (
-              <Link
-                key={item.label}
-                href={item.path}
-                onClick={() => { setActive(item.label); setMobileOpen(false); }}
-                style={{
-                  padding: "16px 0", borderBottom: "1px solid var(--border)",
-                  fontSize: 14, fontWeight: 700, cursor: "pointer",
-                  color: active === item.label ? "var(--accent)" : "var(--text)",
-                  display: "flex", alignItems: "center", gap: 10,
-                  textDecoration: "none"
-                }}
-              >
-                <span style={{ opacity: 0.4 }}>{item.icon}</span>
-                {item.label}
-              </Link>
-            ) : (
-              <a
-                key={item.label}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => { setActive(item.label); setMobileOpen(false); }}
-                style={{
-                  padding: "16px 0", borderBottom: "1px solid var(--border)",
-                  fontSize: 14, fontWeight: 700, cursor: "pointer",
-                  color: active === item.label ? "var(--accent)" : "var(--text)",
-                  display: "flex", alignItems: "center", gap: 10,
-                  textDecoration: "none"
-                }}
-              >
-                <span style={{ opacity: 0.4 }}>{item.icon}</span>
-                {item.label}
-              </a>
-            )
+            <a
+              key={item.label}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => { setActive(item.label); setMobileOpen(false); }}
+              style={{
+                padding: "16px 0", borderBottom: "1px solid var(--border)",
+                fontSize: 14, fontWeight: 700, cursor: "pointer",
+                color: active === item.label ? "var(--accent)" : "var(--text)",
+                display: "flex", alignItems: "center", gap: 10,
+                textDecoration: "none"
+              }}
+            >
+              <span style={{ opacity: 0.4 }}>{item.icon}</span>
+              {item.label}
+            </a>
           ))}
         </div>
       )}
