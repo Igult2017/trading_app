@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
+import { initializeDatabase } from "./db-init";
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -38,6 +39,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+    await initializeDatabase();
+  } catch (dbInitError) {
+    log('[Database] Warning: Database initialization had issues, proceeding anyway');
+    log(String(dbInitError));
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
