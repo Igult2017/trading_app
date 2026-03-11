@@ -61,7 +61,7 @@ export default function HomePage() {
   return (
     <div className={`min-h-screen ${bgColor} ${textColor} font-sans selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-300`} style={{ fontFamily: "'Montserrat', 'Helvetica Neue', Arial, sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@600;700&display=swap');
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .font-serif { font-family: 'Playfair Display', serif; }
