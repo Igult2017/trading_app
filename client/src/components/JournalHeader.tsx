@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -64,11 +65,27 @@ interface JournalHeaderProps {
 }
 
 export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProps) {
-  const [active, setActive] = useState("HOME");
+  const [location, setLocation] = useLocation();
+  const [active, setActive] = useState("FREE JOURNAL");
   const [dropdown, setDropdown] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [time, setTime] = useState(new Date());
   const dropRef = useRef(null);
+
+  const handleNavigation = (label: string) => {
+    if (label === "HOME") {
+      setLocation("/");
+    } else if (label === "FREE JOURNAL") {
+      window.open("/journal", "_blank");
+    } else if (label === "TSC") {
+      window.open("https://fsdzones.com", "_blank");
+    } else if (label === "ECONOMIC CALENDAR") {
+      window.open("https://fsdzones.com/calendar", "_blank");
+    } else if (label === "BLOG") {
+      window.open("https://fsdzones.com/blog", "_blank");
+    }
+    setActive(label);
+  };
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -146,7 +163,7 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
 
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0 }}
-          onClick={() => setActive("HOME")}>
+          onClick={() => handleNavigation("HOME")}>
           <span style={{ fontSize: "16px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
             FSDZONES
           </span>
@@ -198,7 +215,7 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
                 <button
                   key={item.label}
                   className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                  onClick={() => setActive(item.label)}
+                  onClick={() => handleNavigation(item.label)}
                 >
                   <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
                   {item.label}
@@ -254,7 +271,7 @@ export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProp
           borderTop: "1px solid var(--border-lit)"
         }}>
           {navItems.map(item => (
-            <div key={item.label} onClick={() => { setActive(item.label); setMobileOpen(false); }}
+            <div key={item.label} onClick={() => { handleNavigation(item.label); setMobileOpen(false); }}
               style={{
                 padding: "16px 0", borderBottom: "1px solid var(--border)",
                 fontSize: 14, fontWeight: 700, cursor: "pointer",
