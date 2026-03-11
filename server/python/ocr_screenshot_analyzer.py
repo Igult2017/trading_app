@@ -34,6 +34,11 @@ except ImportError as e:
 # ─────────────────────────────────────────────
 
 def load_image_from_b64(b64_str):
+    if "," in b64_str:
+        b64_str = b64_str.split(",", 1)[1]
+    b64_str = b64_str.strip()
+    padding = (4 - len(b64_str) % 4) % 4
+    b64_str += "=" * padding
     data = base64.b64decode(b64_str)
     arr  = np.frombuffer(data, np.uint8)
     img  = cv2.imdecode(arr, cv2.IMREAD_COLOR)
