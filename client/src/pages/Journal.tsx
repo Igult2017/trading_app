@@ -519,7 +519,7 @@ export default function Journal() {
 
       <JournalHeader isDark={isDark} toggleTheme={toggleTheme} />
 
-      <div style={{ height: '76px', flexShrink: 0 }} />
+      <div style={{ height: '8px', flexShrink: 0 }} />
 
       <header style={{ height:54, flexShrink:0, background:'#07090f', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', gap:8, zIndex:30 }} data-testid="journal-header">
         <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, overflow:'hidden' }}>
