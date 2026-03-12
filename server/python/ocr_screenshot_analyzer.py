@@ -623,6 +623,78 @@ def calc_sl_tp(entry_price_str, direction, sl_pts, tp_pts, rr, instrument):
 # DATETIME EXTRACTION
 # ─────────────────────────────────────────────
 
+def _get_session_and_phase(h_utc):
+    """
+    Returns (primary_session, session_phase) for a given UTC hour.
+
+    Forex session hours (UTC, approximate year-round):
+      Sydney:   21:00 – 06:00
+      Tokyo:    00:00 – 09:00
+      London:   08:00 – 17:00
+      New York: 13:00 – 22:00
+
+    Overlaps (highest liquidity):
+      Tokyo/London:    08:00 – 09:00
+      London/New York: 13:00 – 17:00  (16 UTC = London close)
+
+    Phase: Open (first 2h of session), Mid, Close (last 2h), Overlap
+    Dead Zone: 22:00 – 00:00 UTC (Sydney only, very low liquidity)
+    """
+    h = h_utc
+
+    _sessions = [
+        ("Sydney",   21, 6),    # crosses midnight
+        ("Tokyo",     0, 9),
+        ("London",    8, 17),
+        ("New York", 13, 22),
+    ]
+
+    def active(name, start, end):
+        if start < end:
+            return start <= h < end
+        else:  # crosses midnight
+            return h >= start or h < end
+
+    london_open   = active("London",   8, 17)
+    newyork_open  = active("New York", 13, 22)
+    tokyo_open    = active("Tokyo",    0,  9)
+    sydney_open   = active("Sydney",  21,  6)
+
+    # Priority: overlaps first, then individual sessions
+    if london_open and newyork_open:
+        return "London/New York", "Overlap"
+    if tokyo_open and london_open:
+        return "Tokyo/London", "Overlap"
+
+    if london_open:
+        # London: 08:00–17:00 → Open 08-10, Mid 10-15, Close 15-17
+        if h < 10:   return "London", "Open"
+        if h >= 15:  return "London", "Close"
+        return "London", "Mid"
+
+    if newyork_open:
+        # New York: 13:00–22:00 → Open 13-15, Mid 15-20, Close 20-22
+        if h < 15:   return "New York", "Open"
+        if h >= 20:  return "New York", "Close"
+        return "New York", "Mid"
+
+    if tokyo_open:
+        # Tokyo: 00:00–09:00 → Open 00-02, Mid 02-07, Close 07-09
+        h_into = h  # h is 0–8
+        if h_into < 2:  return "Tokyo", "Open"
+        if h_into >= 7: return "Tokyo", "Close"
+        return "Tokyo", "Mid"
+
+    if sydney_open:
+        # Sydney: 21:00–06:00 → Open 21-23, Mid 23-04, Close 04-06
+        h_into = (h - 21) % 24   # 0=21UTC, 1=22UTC, etc.
+        if h_into < 2:  return "Sydney", "Open"
+        if h_into >= 7: return "Sydney", "Close"
+        return "Sydney", "Mid"
+
+    return "Dead Zone", "—"
+
+
 def parse_datetimes(lines):
     """
     Returns (entry_dt, exit_dt, day_of_week, session_name).
@@ -698,22 +770,18 @@ def parse_datetimes(lines):
         except Exception:
             pass
 
-    # ── Session (UTC) ────────────────────────────────────────────────────
+    # ── Session + Phase (UTC) ────────────────────────────────────────────
     session = None
+    session_phase = None
     ref_str = entry_dt or exit_dt
     if ref_str and (' ' in ref_str or 'T' in ref_str):
         try:
             t = datetime.fromisoformat(ref_str)
-            h = t.hour
-            session = ("Tokyo"    if (h >= 0  and h < 3)  else
-                       "Tokyo"    if (h >= 21 and h <= 23) else
-                       "Tokyo"    if (h >= 3  and h < 8)  else
-                       "London"   if (h >= 8  and h < 12) else
-                       "New York")
+            session, session_phase = _get_session_and_phase(t.hour)
         except Exception:
             pass
 
-    return entry_dt, exit_dt, day_of_week, session
+    return entry_dt, exit_dt, day_of_week, session, session_phase
 
 
 def collect_replay_exit_time(img):
@@ -823,7 +891,7 @@ def extract_fields(img):
     instrument, timeframe = parse_instrument_timeframe(all_lines, tokens)
     sl_pts, sl_usd, tp_pts, tp_usd = parse_tp_sl(all_lines, instrument)
     trade_info  = parse_trade_info(all_lines)
-    entry_dt, exit_dt, dow, session = parse_datetimes(all_lines)
+    entry_dt, exit_dt, dow, session, session_phase = parse_datetimes(all_lines)
     direction   = detect_direction(img)
     entry_price = detect_entry_price(img, tokens)
     outcome     = parse_outcome(all_lines)
@@ -878,6 +946,7 @@ def extract_fields(img):
         "exitTime":           exit_dt,
         "dayOfWeek":          dow,
         "sessionName":        session,
+        "sessionPhase":       session_phase,
         # Debug
         "rawLines":           all_lines,
     }
