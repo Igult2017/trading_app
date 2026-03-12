@@ -254,7 +254,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/journal/entries", async (req, res) => {
     try {
-      const validatedData = insertJournalEntrySchema.parse(req.body);
+      const decimalFields = [
+        'entryPrice', 'stopLoss', 'takeProfit', 'stopLossDistance', 'takeProfitDistance',
+        'lotSize', 'riskReward', 'riskPercent', 'spreadAtEntry', 'profitLoss',
+        'pipsGainedLost', 'accountBalance', 'commission', 'mae', 'mfe',
+        'monetaryRisk', 'potentialReward'
+      ];
+      const sanitized = { ...req.body };
+      for (const field of decimalFields) {
+        if (sanitized[field] !== undefined && sanitized[field] !== null && sanitized[field] !== '') {
+          const raw = String(sanitized[field]);
+          const match = raw.match(/-?\d+(\.\d+)?/);
+          sanitized[field] = match ? match[0] : null;
+        }
+      }
+      const validatedData = insertJournalEntrySchema.parse(sanitized);
       const entry = await storage.createJournalEntry(validatedData);
       res.status(201).json(entry);
     } catch (error) {
