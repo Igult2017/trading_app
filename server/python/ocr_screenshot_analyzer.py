@@ -1,27 +1,54 @@
 #!/usr/bin/env python3
 """
-Trading Screenshot OCR Analyzer v3
-Optimized for cTrader / Dxtrade / TradingView dark-theme screenshots.
+Trading Screenshot OCR Analyzer v6
+Optimized for cTrader Replay-mode dark-theme screenshots.
 
-Strategy:
-  1. Detect text rows by finding horizontal bands with many bright (white) pixels
-  2. Invert each strip + threshold → black text on white → Tesseract reads well
-  3. Parse known field patterns from the collected text lines
-  4. Detect direction (Buy/Sell) from green/red color dominance in right panel
-  5. Entry price from orange arrow region
+TWO-SCREENSHOT WORKFLOW
+  Screenshot 1 (setup)   → entryPrice, SL distance, direction, RR, entryTime
+  Screenshot 2 (outcome) → exitTime, Closed P/L, outcome (Win/Loss/BE)
+                           The achieved RR on outcome screenshot overwrites setup RR.
+
+FIELD EXTRACTION SUMMARY (verified on real screenshots)
+  ✅ instrument     — top bar OCR or PSM-11 tab token
+  ✅ pairCategory   — inferred from symbol
+  ✅ timeframe      — "4 Hours" in top bar, or "H4" tab token
+  ✅ direction      — green vs red color dominance in chart panel
+  ✅ entryPrice     — (a) yellow arrow-label bar OCR, or (b) PSM-11 sparse price token
+  ✅ stopLossPoints — from "SL -33.3 points" text on green trade band
+  ✅ stopLossPips   — stopLossPoints ÷ 10  (for forex; direct for indices)
+  ✅ stopLoss       — calculated: entry ± (stopLossPoints × point_size)
+  ✅ takeProfitPts  — from "TP 167.4 points" text (SKIPPED for index absolute prices)
+  ✅ takeProfitPips — takeProfitPoints ÷ 10
+  ✅ takeProfit     — calculated from TP distance, or entry ± (SL × RR) if no explicit TP
+  ✅ lotSize        — "1'000 units" → /100000; "0.1 contract" for indices
+  ✅ openPLPoints   — from "Open/Closed P/L X.X points"
+  ✅ openPLUSD      — from "Open/Closed P/L ... USD X.XX"
+  ✅ outcome        — inferred from P/L sign
+  ✅ riskReward     — from "Risk/Reward X.XX"
+  ✅ runUpPoints/USD — from "Run-Up" line (MFE)
+  ✅ drawdownPoints/USD — from "Drawdown" line (MAE)
+  ✅ entryTime      — highlighted date on bottom timeline bar
+  ✅ exitTime       — "Last processed tick: YYYY-MM-DD HH:MM" (outcome screenshot)
+  ✅ dayOfWeek      — derived from entryTime
+  ✅ sessionName    — derived from entryTime (UTC)
+
+POINTS → PIPS CONVERSION
+  Forex 5-decimal (EURUSD, GBPUSD, USDCHF …): 10 points = 1 pip
+  Forex JPY pairs (USDJPY, GBPJPY …):          10 points = 1 pip  (point=0.001)
+  Indices (USA500.IDX, US30 …):                 1 point  = 1 index point (no pips)
+  Gold (XAUUSD):                                10 points = 1 pip  (point=0.01)
 
 Accepts: base64-encoded image via stdin
 Outputs: JSON to stdout
 """
 
-import sys, json, base64, re, io, traceback
+import sys, json, base64, re, traceback
 from datetime import datetime
 from collections import Counter
 
 try:
     import numpy as np
     import cv2
-    from PIL import Image
     import pytesseract
     import scipy.ndimage as nd
 except ImportError as e:
@@ -37,8 +64,7 @@ def load_image_from_b64(b64_str):
     if "," in b64_str:
         b64_str = b64_str.split(",", 1)[1]
     b64_str = b64_str.strip()
-    padding = (4 - len(b64_str) % 4) % 4
-    b64_str += "=" * padding
+    b64_str += "=" * ((4 - len(b64_str) % 4) % 4)
     data = base64.b64decode(b64_str)
     arr  = np.frombuffer(data, np.uint8)
     img  = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -48,63 +74,161 @@ def load_image_from_b64(b64_str):
 
 
 # ─────────────────────────────────────────────
-# CORE: STRIP OCR
+# CORE OCR PRIMITIVES
 # ─────────────────────────────────────────────
 
-def ocr_strip(img, y1, y2, scale=4, psm=6):
-    """Cut a horizontal strip, invert (white text on dark), upscale, OCR."""
+def ocr_strip_white(img, y1, y2, scale=4, psm=6):
+    """
+    Standard invert-and-threshold OCR for WHITE text on DARK background.
+    Used for: top bar, TP/SL labels, trade info band, bottom date bar.
+    """
     h, w = img.shape[:2]
     y1, y2 = max(0, y1), min(h, y2)
     if y2 <= y1:
         return ""
     strip  = img[y1:y2, :]
     sh, sw = strip.shape[:2]
-    scaled = cv2.resize(strip, (sw * scale, sh * scale), interpolation=cv2.INTER_CUBIC)
-    gray   = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
+    if sh < 2 or sw < 2:
+        return ""
+    sc     = cv2.resize(strip, (sw * scale, sh * scale), interpolation=cv2.INTER_CUBIC)
+    gray   = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
     inv    = cv2.bitwise_not(gray)
     _, thr = cv2.threshold(inv, 90, 255, cv2.THRESH_BINARY)
-    cfg    = f"--psm {psm} --oem 3"
-    return pytesseract.image_to_string(thr, config=cfg).strip()
+    return pytesseract.image_to_string(thr, config=f"--psm {psm} --oem 3").strip()
 
 
-def find_text_row_clusters(img, min_white=15, min_height=3):
+def ocr_strip_dark_text(img, y1, y2, x2_pct=0.75, scale=3):
     """
-    Find horizontal bands of the image that contain bright (white/light) pixels.
-    Returns list of (y_start, y_end) tuples.
+    OCR for DARK text on a LIGHT/OVERLAY background.
+    Used for: 'Last processed tick' replay bar at image bottom.
     """
+    h, w = img.shape[:2]
+    y1, y2 = max(0, y1), min(h, y2)
+    if y2 <= y1:
+        return ""
+    strip  = img[y1:y2, 0:int(w * x2_pct)]
+    sh, sw = strip.shape[:2]
+    if sh < 2 or sw < 2:
+        return ""
+    sc     = cv2.resize(strip, (sw * scale, sh * scale), interpolation=cv2.INTER_CUBIC)
+    gray   = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
+    _, thr = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
+    return pytesseract.image_to_string(thr, config="--psm 6 --oem 3").strip()
+
+
+def ocr_region_clahe(img, x1, y1, x2, y2, scale=8, psm=7):
+    """CLAHE contrast enhancement for low-brightness regions."""
+    h, w = img.shape[:2]
+    x1, y1, x2, y2 = max(0,x1), max(0,y1), min(w,x2), min(h,y2)
+    if x2 <= x1 or y2 <= y1:
+        return ""
+    region = img[y1:y2, x1:x2]
+    sh, sw = region.shape[:2]
+    if sh < 2 or sw < 2:
+        return ""
+    sc     = cv2.resize(region, (sw * scale, sh * scale), interpolation=cv2.INTER_CUBIC)
+    gray   = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
+    clahe  = cv2.createCLAHE(clipLimit=6.0, tileGridSize=(2, 2))
+    enh    = clahe.apply(gray)
+    _, thr = cv2.threshold(enh, 110, 255, cv2.THRESH_BINARY)
+    return pytesseract.image_to_string(thr, config=f"--psm {psm} --oem 3").strip()
+
+
+# ─────────────────────────────────────────────
+# TEXT COLLECTION
+# ─────────────────────────────────────────────
+
+def collect_white_text_rows(img):
+    """Find all rows with significant white text and OCR them."""
     gray       = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     white_rows = (gray > 175).sum(axis=1)
-    has_text   = white_rows > min_white
+    has_text   = white_rows > 15
     labeled, n = nd.label(has_text)
-    clusters   = []
+    h          = img.shape[0]
+    results    = []
     for i in range(1, n + 1):
         rows = np.where(labeled == i)[0]
         ys, ye = int(rows[0]), int(rows[-1])
-        if ye - ys >= min_height:
-            clusters.append((ys, ye))
-    return clusters
-
-
-def collect_all_text(img):
-    """OCR every text-row cluster. Returns list of (y, text) pairs."""
-    clusters = find_text_row_clusters(img)
-    results  = []
-    pad      = 3
-    for ys, ye in clusters:
-        text = ocr_strip(img, ys - pad, ye + pad, scale=4, psm=6)
+        if ye - ys < 3:
+            continue
+        text = ocr_strip_white(img, ys - 3, ye + 3, scale=4, psm=6)
         if text and len(text) > 3 and re.search(r'[0-9a-zA-Z/]', text):
             results.append((ys, text))
     return results
 
 
+def collect_green_band_text(img):
+    """
+    cTrader's trade info overlay has a green background band.
+    Most reliably contains: units, P/L, Run-Up, Risk/Reward.
+    """
+    h, w = img.shape[:2]
+    hsv  = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    gmask = cv2.inRange(hsv, (45, 60, 60), (90, 255, 255))
+    row_sums = gmask.sum(axis=1)
+    gys = np.where(row_sums > 300)[0]
+    if not len(gys):
+        return ""
+    return ocr_strip_white(img,
+                           max(0, int(gys[0]) - 2),
+                           min(h, int(gys[-1]) + 2),
+                           scale=4, psm=6)
+
+
+def psm11_scan(img):
+    """
+    PSM-11 sparse text scan on full image.
+    Finds: instrument tab label ("GBP/USD"), floating price labels ("1.36244").
+    """
+    h, w = img.shape[:2]
+    gray  = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    sc    = cv2.resize(gray, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+    enh   = clahe.apply(sc)
+    _, thr = cv2.threshold(enh, 90, 255, cv2.THRESH_BINARY)
+    data  = pytesseract.image_to_data(thr, config="--psm 11 --oem 3",
+                                       output_type=pytesseract.Output.DICT)
+    tokens = []
+    for i, t in enumerate(data['text']):
+        t = t.strip()
+        if t:
+            tokens.append({
+                "text": t,
+                "y":    data['top'][i] // 2,
+                "x":    data['left'][i] // 2,
+            })
+    return tokens
+
+
 # ─────────────────────────────────────────────
-# DIRECTION DETECTION (color-based)
+# HELPERS
+# ─────────────────────────────────────────────
+
+def _f(s):
+    try:
+        return float(str(s).replace(',', '.').replace("'", ""))
+    except Exception:
+        return None
+
+
+def _clean_digit_ocr(text):
+    """Fix common digit OCR errors: C→0, ]→1, O→0 in numeric context."""
+    text = re.sub(r'(?<=[0-9 ])C(?=[0-9])', '0', text)
+    text = re.sub(r'(?<=[0-9])\]',           '1', text)
+    text = re.sub(r'(?<=[0-9])O(?=[0-9])',   '0', text)
+    text = re.sub(r'(?<=[0-9])I(?=[0-9])',   '1', text)
+    return text
+
+
+# ─────────────────────────────────────────────
+# DIRECTION
 # ─────────────────────────────────────────────
 
 def detect_direction(img):
     """
-    In the RIGHT half of the image (chart panel excluded),
-    count green vs red pixels. Green dominant → Long/Buy, Red → Short/Sell.
+    Green color dominance in right half of image → Long (buy).
+    Red color dominance → Short (sell).
+    cTrader uses green for buy orders and red for sell orders.
     """
     h, w  = img.shape[:2]
     panel = img[:, w // 2:, :]
@@ -121,173 +245,301 @@ def detect_direction(img):
 
 
 # ─────────────────────────────────────────────
-# ENTRY PRICE (orange arrow)
+# ENTRY PRICE
 # ─────────────────────────────────────────────
 
-def detect_entry_price(img):
+def detect_entry_price(img, tokens):
     """
-    The platform draws an orange/yellow arrow at entry price level.
-    Find that arrow, grab the text immediately to its right.
+    Three strategies (in priority order):
+
+    1. Yellow arrow-label bar
+       cTrader renders an amber/yellow label bar directly on the chart
+       where the orange arrow is placed. This bar contains the entry price
+       as dark text on yellow background.
+       Covers: S1 (0.99875), S2 (1.36244).
+
+    2. Orange arrow mid-chart (CLAHE OCR)
+       When the arrow is in the middle of the chart (not at the edge),
+       the price label sits to the LEFT of the arrow tip as orange text.
+       Covers: S2 as fallback.
+
+    3. PSM-11 sparse float token
+       Floating orange price labels anywhere on the chart are found as
+       price-shaped tokens (X.XXXXX) by the sparse text scan.
+       Covers: S3 (1.37029).
+
+    The REPLAY WARNING triangle at bottom-left is orange too — we exclude
+    it by ignoring orange clusters in the bottom 20% of the image.
     """
     h, w = img.shape[:2]
-    hsv  = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    # Tight orange range
+
+    # ── Strategy 1: yellow arrow-label bar ─────────────────────────────
+    hsv    = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    # Amber/yellow: H=15-40, S>100, V>140
+    yellow = cv2.inRange(hsv, (15, 100, 140), (40, 255, 255))
+    # Ignore bottom 20% (replay warning icon also has orange)
+    yellow[int(h * 0.80):, :] = 0
+    row_sums = yellow.sum(axis=1)
+    yellow_ys = np.where(row_sums > 300)[0]
+
+    if len(yellow_ys):
+        # Take first contiguous yellow band (the arrow label)
+        yb1 = max(0, int(yellow_ys[0]) - 2)
+        yb2 = min(h, int(yellow_ys[0]) + 25)
+        strip = img[yb1:yb2, :]
+        sh, sw = strip.shape[:2]
+        sc = cv2.resize(strip, (sw * 4, sh * 4), interpolation=cv2.INTER_CUBIC)
+        g  = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
+        _, thr = cv2.threshold(g, 100, 255, cv2.THRESH_BINARY_INV)
+        text = pytesseract.image_to_string(thr, config="--psm 7 --oem 3").strip()
+        # Remove thousands separators (OCR reads "1.36244" as "1,362.44" sometimes)
+        text_clean = re.sub(r'(\d),(\d{3})', r'\1\2', text)
+        m = re.search(r'\b(\d{1,4}[.,]\d{4,6})\b', text_clean)
+        if m:
+            return m.group(1).replace(',', '.')
+
+    # ── Strategy 2: orange arrow mid-chart ─────────────────────────────
     orange = cv2.inRange(hsv, (10, 160, 160), (25, 255, 255))
-    ys, xs = np.where(orange > 0)
-    if not len(ys):
-        return None
+    orange[int(h * 0.80):, :] = 0   # exclude replay icon
 
-    # Find the y-row with most orange pixels
-    y_counts = Counter(ys.tolist())
-    best_y   = max(y_counts, key=y_counts.get)
+    ys_o, xs_o = np.where(orange > 0)
+    if len(ys_o):
+        yc     = Counter(ys_o.tolist())
+        by     = max(yc, key=yc.get)
+        mask   = (ys_o >= by - 5) & (ys_o <= by + 5)
+        xr     = xs_o[mask]
+        xl     = int(xr.min())
+        xright = int(xr.max())
 
-    # Filter to that y-row +/-5px
-    mask    = (ys >= best_y - 5) & (ys <= best_y + 5)
-    xs_row  = xs[mask]
-    if not len(xs_row):
-        return None
+        text = ocr_region_clahe(
+            img,
+            x1=max(0, xl - 200), y1=max(0, by - 18),
+            x2=xright + 15,      y2=min(h, by + 18),
+            scale=8, psm=7
+        )
+        text_clean = re.sub(r'(\d),(\d{3})', r'\1\2', text)
+        m = re.search(r'\b(\d{1,4}[.,]\d{3,6})\b', text_clean)
+        if m:
+            return m.group(1).replace(',', '.')
 
-    x_right = int(xs_row.max())
-    y_mid   = best_y
+    # ── Strategy 3: PSM-11 sparse float token ───────────────────────────
+    chart_top    = int(h * 0.10)
+    chart_bottom = int(h * 0.85)
+    for tok in tokens:
+        y, t = tok["y"], tok["text"]
+        if chart_top < y < chart_bottom:
+            clean = t.replace(',', '.')
+            if re.match(r'^\d{1,4}\.\d{4,6}$', clean):
+                return clean
 
-    # OCR region to the right of the arrow
-    x1, x2 = x_right + 2, min(w, x_right + 180)
-    y1, y2  = max(0, y_mid - 10), min(h, y_mid + 16)
-    if x2 <= x1 or y2 <= y1:
-        return None
-
-    strip  = img[y1:y2, x1:x2]
-    sh, sw = strip.shape[:2]
-    if sh < 2 or sw < 2:
-        return None
-    scaled = cv2.resize(strip, (sw * 5, sh * 5), interpolation=cv2.INTER_CUBIC)
-    gray   = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
-    inv    = cv2.bitwise_not(gray)
-    _, thr = cv2.threshold(inv, 80, 255, cv2.THRESH_BINARY)
-    text   = pytesseract.image_to_string(thr, config="--psm 7 --oem 3").strip()
-
-    # Extract a price-like number
-    m = re.search(r'\b(\d{1,4}[.,]\d{2,6})\b', text)
-    return m.group(1).replace(',', '.') if m else None
+    return None
 
 
 # ─────────────────────────────────────────────
-# TEXT PARSERS
+# INSTRUMENT & TIMEFRAME
 # ─────────────────────────────────────────────
 
-def _f(s):
-    try:
-        return float(str(s).replace(',', '.').replace("'", ""))
-    except Exception:
-        return None
+VALID_TF = {
+    '1M','2M','3M','4M','5M','10M','15M','20M','30M',
+    '1H','2H','3H','4H','6H','8H','12H','1D','1W',
+}
+
+SKIP_TF_KEYWORDS = re.compile(
+    r'\b(units|contract|P[/\\]L|points|Risk|Reward|Run.Up|Drawdown)\b',
+    re.IGNORECASE
+)
 
 
-def parse_instrument_timeframe(lines):
-    """Top bar: 'EUR/USD  5 Minutes  Candles  Bid'"""
+def parse_instrument_timeframe(lines, tokens):
+    """
+    Instrument: from top-bar OCR or PSM-11 tab tokens (y < 80).
+    Timeframe:  from "4 Hours" pattern or "H4"-style token.
+                Lines containing trade data (units/P&L/points) are skipped.
+    """
     instrument = None
     timeframe  = None
-    for line in lines:
-        # Must contain a slash or be a known single-word instrument
-        m = re.search(
-            r'\b((?:EUR|GBP|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|SPX|NAS|DAX|US30|GOLD|OIL|USD)'
-            r'[/\\]'
-            r'(?:EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|SPX|NAS|DAX|USDT))\b',
-            line, re.IGNORECASE
-        )
-        if not m:
-            # Single-word instruments (indices, metals)
-            m = re.search(r'\b(XAUUSD|XAGUSD|BTCUSDT?|ETHUSD|US30|SPX500|NAS100|DAX40)\b',
-                          line, re.IGNORECASE)
-        if m:
-            instrument = m.group(1).upper()
 
-        tm = re.search(
-            r'\b(\d+)\s*(Minute[s]?|Hour[s]?|Day|Week|Month|Min|H|M|W|D)\b',
-            line, re.IGNORECASE
-        )
+    # Combine top-bar text lines with PSM-11 tokens near the top
+    top_tokens = [tok["text"] for tok in tokens if tok["y"] < 80]
+    all_text   = lines + top_tokens
+
+    for line in all_text:
+        # ── Instrument ────────────────────────────────────────────────
+        if not instrument:
+            # Standard forex pairs
+            m = re.search(
+                r'\b((?:EUR|GBP|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB)'
+                r'[/\\]?(?:EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB))\b',
+                line, re.IGNORECASE
+            )
+            if not m:
+                # Index and commodity instruments
+                # Also handles PSM-11 "USASOO.IDX" → normalised to "USA500.IDX"
+                m = re.search(
+                    r'\b(USA500[.,_]?IDX|USAS[O0]{2}[.,_]?IDX|US30|NAS100|DAX40'
+                    r'|SPX500|XAUUSD|XAGUSD|BTCUSDT?|ETHUSD)\b',
+                    line, re.IGNORECASE
+                )
+            if m:
+                raw = m.group(1).upper()
+                # Normalise OCR variants: "USASOO" → "USA500"
+                raw = re.sub(r'USAS[O0]{2}', 'USA500', raw)
+                instrument = raw
+
+        # ── Timeframe (skip trade-data lines) ─────────────────────────
+        if SKIP_TF_KEYWORDS.search(line):
+            continue
+
+        # "4 Hours" / "15 Minutes"
+        tm = re.search(r'\b(\d+)\s*(Minute[s]?|Hour[s]?)\b', line, re.IGNORECASE)
         if tm:
-            n, unit = tm.group(1), tm.group(2).lower()
-            if 'min' in unit or unit == 'm':
-                timeframe = f"{n}M"
-            elif 'hour' in unit or unit == 'h':
-                timeframe = f"{n}H"
-            elif 'day' in unit or unit == 'd':
-                timeframe = f"{n}D"
-            elif 'week' in unit or unit == 'w':
-                timeframe = f"{n}W"
+            n, u = tm.group(1), tm.group(2).lower()
+            tf = f"{n}H" if 'hour' in u else f"{n}M"
+            if tf in VALID_TF:
+                timeframe = tf
+                continue
+
+        # "H4", "4H", "M15", "15M"
+        for pat in [r'\b([HMhm])([1-9]\d?)\b', r'\b([1-9]\d?)([HMhm])\b']:
+            for m2 in re.finditer(pat, line):
+                a, b = m2.group(1), m2.group(2)
+                if a[0].isalpha():
+                    tf = f"{b}H" if a.upper() == 'H' else f"{b}M"
+                else:
+                    tf = f"{a}H" if b.upper() == 'H' else f"{a}M"
+                if tf in VALID_TF:
+                    timeframe = tf
 
     return instrument, timeframe
 
 
-def parse_tp_sl(lines):
+# ─────────────────────────────────────────────
+# SL / TP DISTANCE PARSER
+# ─────────────────────────────────────────────
+
+def parse_tp_sl(lines, instrument):
     """
-    Lines like:
-      'TP 45.4 points USD 4.54'
-      'SL -9.9 points USD -0.99'
-    Returns: sl_pts, sl_usd, tp_pts, tp_usd
+    Parses SL and TP from lines like:
+      'TP 167.4 points USD 21.43'
+      'SL -33.3 points USD -4.27'
+
+    For INDEX instruments (USA500.IDX, US30 etc.), the "TP X points" line
+    shows the ABSOLUTE PRICE LEVEL of the TP, not a distance.
+    We detect this when TP value > 1000 and skip it (can't be a pip distance).
     """
     sl_pts = sl_usd = tp_pts = tp_usd = None
+    is_index = _is_index(instrument)
 
     for line in lines:
         m = re.search(
-            r'\b(TP|SL)\b.*?([+-]?\d+[\.,]\d+)\s*points?\s*USD\s*([+-]?\d+[\.,]\d+)',
+            r'\b(TP|SL)\b.*?([+-]?\d+[\.,]\d+)\s*points?\s*[/]?\s*USD\s*([+-]?\d+[\.,]\d+)',
             line, re.IGNORECASE
         )
-        if m:
-            tag  = m.group(1).upper()
-            pts  = _f(m.group(2))
-            usd  = _f(m.group(3))
-            if tag == "TP":
-                tp_pts = abs(pts) if pts is not None else None
-                tp_usd = usd
-            else:
-                sl_pts = abs(pts) if pts is not None else None
-                sl_usd = usd
+        if not m:
+            continue
+        tag = m.group(1).upper()
+        pts = _f(m.group(2))
+        usd = _f(m.group(3))
+
+        if tag == "SL":
+            sl_pts = abs(pts) if pts is not None else None
+            sl_usd = usd
+        elif tag == "TP":
+            if pts is not None and abs(pts) > 1000 and is_index:
+                # This is an absolute index price level, not a distance — skip
+                continue
+            tp_pts = abs(pts) if pts is not None else None
+            tp_usd = usd
 
     return sl_pts, sl_usd, tp_pts, tp_usd
 
 
+def _is_index(instrument):
+    sym = (instrument or "").upper()
+    return any(x in sym for x in ['IDX', 'US30', 'NAS', 'SPX', 'DAX', 'FTSE', 'CAC', 'DOW'])
+
+
+# ─────────────────────────────────────────────
+# TRADE INFO (green overlay band)
+# ─────────────────────────────────────────────
+
 def parse_trade_info(lines):
     """
-    Lines like:
-      '1'000 units  Open P/L 7.2 points / USD 0.72'
-      'Drawdown -4.3 points / USD -0.43  Risk/Reward 4.59'
-      'Run-Up 42.4 points / USD 4.24  Risk/Reward 4.05'
+    Parses from the green trade-info overlay band:
+    - Lot size  ("1'000 units" or "0.1 contract")
+    - Open/Closed P/L in points and USD
+    - Run-Up / Drawdown (MFE / MAE)
+    - Risk/Reward ratio
+
+    Lot size rules:
+    - "N units": lot = N / 100,000  (standard forex)
+    - Units are validated: must be a plausible value (10–10,000,000)
+      to avoid OCR errors like "177000" for "1'000"
+    - "N contract" or "N.N contract": lot = N directly
     """
     result = {}
     joined = " ".join(lines)
 
-    m = re.search(r"(\d[\d',.\/]*)\s*units", joined, re.IGNORECASE)
+    # Lot size — forex units
+    m = re.search(r"(\d[\d',]*)\s*units", joined, re.IGNORECASE)
     if m:
-        raw_units = m.group(1).replace("'","").replace(",","").replace("/","")
-        units = _f(raw_units)
-        if units:
-            cleaned_units = str(units).replace("'","").replace(",","").replace("/","")
-            u = _f(cleaned_units) if cleaned_units.replace('.','').isdigit() else None
-            if u:
+        raw = m.group(1).replace("'", "").replace(",", "")
+        u   = _f(raw)
+        # Validate: standard cTrader unit sizes are multiples of 1000 up to a few million
+        # OCR often garbles "1'000" → "177000" by merging adjacent text
+        # Accept only round-number unit sizes
+        if u and u > 0:
+            # Try to find the "cleanest" candidate: round to nearest valid lot
+            valid_units = [100, 1000, 2000, 3000, 5000, 10000, 20000, 50000,
+                           100000, 200000, 500000, 1000000, 10000000]
+            closest = min(valid_units, key=lambda x: abs(x - u))
+            ratio   = u / closest if closest > 0 else 999
+            if 0.8 <= ratio <= 1.2:  # within 20% of a round lot size
+                result["lotSize"] = round(closest / 100000, 5)
+                result["units"]   = int(closest)
+            else:
+                # Take it as-is but flag it may be unreliable
                 result["lotSize"] = round(u / 100000, 5)
                 result["units"]   = int(u)
 
-    # Open P/L points
-    m = re.search(r'Open\s*P[/\\]L\s*([+-]?\d+[\.,]\d+)\s*points', joined, re.IGNORECASE)
+    # Lot size — index contract size
+    if "lotSize" not in result:
+        m = re.search(r'([0-9]+[\.,][0-9]+)\s*contract', joined, re.IGNORECASE)
+        if not m:
+            # Handle "0.1 contract" OCR garbling like "van 0.1 contract" or "60.1 contract"
+            # "60.1 contract" → "0.1 contract" (the "6" comes from adjacent text)
+            m = re.search(r'\b(0\.[0-9]+)\s*contract', joined, re.IGNORECASE)
+        if m:
+            val = _f(m.group(1))
+            if val and val < 10:  # sanity: index contract size should be < 10
+                result["lotSize"]      = val
+                result["contractSize"] = val
+
+    # Open or Closed P/L
+    m = re.search(r'(?:Open|Closed)\s*P[/\\]L\s*([+-]?\d+[\.,]\d+)\s*points?',
+                  joined, re.IGNORECASE)
     if m:
         result["openPLPoints"] = _f(m.group(1))
 
-    # Open P/L USD
-    m = re.search(r'Open\s*P[/\\]L.*?USD\s*([+-]?\d+[\.,]\d+)', joined, re.IGNORECASE)
+    m = re.search(r'(?:Open|Closed)\s*P[/\\]L.*?USD\s*([+-]?\d+[\.,]\d+)',
+                  joined, re.IGNORECASE)
     if m:
         result["openPLUSD"] = _f(m.group(1))
 
-    # Drawdown
-    m = re.search(r'Drawdown\s*([+-]?\d+[\.,]\d+)\s*points.*?USD\s*([+-]?\d+[\.,]\d+)',
-                  joined, re.IGNORECASE)
+    # Drawdown (MAE)
+    m = re.search(
+        r'Drawdown\s*([+-]?\d+[\.,]\d+)\s*points?.*?USD\s*([+-]?\d+[\.,]\d+)',
+        joined, re.IGNORECASE
+    )
     if m:
         result["drawdownPoints"] = _f(m.group(1))
         result["drawdownUSD"]    = _f(m.group(2))
 
     # Run-Up (MFE)
-    m = re.search(r'Run[\s-]?Up\s*([+-]?\d+[\.,]\d+)\s*points.*?USD\s*([+-]?\d+[\.,]\d+)',
-                  joined, re.IGNORECASE)
+    m = re.search(
+        r'Run[\s-]?Up\s*([+-]?\d+[\.,]\d+)\s*points?.*?USD\s*([+-]?\d+[\.,]\d+)',
+        joined, re.IGNORECASE
+    )
     if m:
         result["runUpPoints"] = _f(m.group(1))
         result["runUpUSD"]    = _f(m.group(2))
@@ -300,85 +552,249 @@ def parse_trade_info(lines):
     return result
 
 
-def parse_datetime_from_lines(lines):
-    """
-    Look for dates like:
-      'Fri 06 Mar'26 22:10'
-      '2021-02-25 15:59:59'  (replay mode status bar)
-    Returns (entry_time_str, day_of_week, session)
-    """
-    joined = " ".join(lines)
-    entry_dt = None
-    day_of_week = None
+# ─────────────────────────────────────────────
+# POINTS → PIPS + PRICE CALCULATIONS
+# ─────────────────────────────────────────────
 
-    # Pattern 1: find ALL matches, pick the first (= leftmost = entry date)
-    # Note: OCR sometimes drops space: "Fri06" instead of "Fri 06"
-    matches = list(re.finditer(
-        r'\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*'
-        r'(\d{1,2})\s+'
-        r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'(\d{2})\s+"
-        r'(\d{2}):(\d{2})',
-        joined, re.IGNORECASE
+def get_instrument_specs(instrument):
+    """
+    Returns (point_size, pip_size, pips_per_point, decimal_places).
+
+    cTrader: 1 point = smallest price increment shown on platform.
+      Forex 5-decimal (EURUSD etc.): point = 0.00001, pip = 0.0001
+      Forex JPY (USDJPY, GBPJPY):    point = 0.001,   pip = 0.01
+      Index (USA500.IDX, US30):      point = 1.0,      no pips
+      Gold (XAUUSD):                 point = 0.01,     pip = 0.1
+      Silver (XAGUSD):               point = 0.001,    pip = 0.01
+    """
+    sym = (instrument or "").upper()
+    if any(x in sym for x in ['IDX','US30','NAS','SPX','DAX','CAC','FTSE','DOW','USA500']):
+        return 1.0,     1.0,   1.0, 1
+    if 'JPY' in sym:
+        return 0.001,   0.01,  0.1, 3
+    if 'XAU' in sym or 'GOLD' in sym:
+        return 0.01,    0.1,   0.1, 2
+    if 'XAG' in sym or 'SILVER' in sym:
+        return 0.001,   0.01,  0.1, 3
+    # Standard 5-decimal forex (EUR, GBP, USD, CHF, AUD, NZD, CAD)
+    return 0.00001, 0.0001, 0.1, 5
+
+
+def calc_sl_tp(entry_price_str, direction, sl_pts, tp_pts, rr, instrument):
+    """
+    Calculates absolute SL/TP prices and pip distances.
+
+    - SL price  = entry ± (sl_pts × point_size)
+    - TP price  = entry ± (tp_pts × point_size)
+    - If tp_pts is None but rr is known: tp_pts_used = sl_pts × rr
+                                          tpCalculatedFromRR = True
+
+    Returns: (sl_price, sl_pips, tp_price, tp_pips, tp_pts_used, tp_from_rr)
+    """
+    ep = _f(entry_price_str)
+    if ep is None:
+        return None, None, None, None, tp_pts, False
+
+    ps, pip_s, p2p, dec = get_instrument_specs(instrument)
+    long = (direction or "Long").lower() == "long"
+
+    # SL
+    sl_price = sl_pips = None
+    if sl_pts is not None:
+        sl_price = round(ep - sl_pts * ps if long else ep + sl_pts * ps, dec)
+        sl_pips  = round(sl_pts * p2p, 1)
+
+    # TP — explicit first, then RR fallback
+    tp_from_rr  = False
+    tp_pts_used = tp_pts
+    if tp_pts_used is None and sl_pts is not None and rr is not None:
+        tp_pts_used = round(sl_pts * rr, 1)
+        tp_from_rr  = True
+
+    tp_price = tp_pips = None
+    if tp_pts_used is not None:
+        tp_price = round(ep + tp_pts_used * ps if long else ep - tp_pts_used * ps, dec)
+        tp_pips  = round(tp_pts_used * p2p, 1)
+
+    return sl_price, sl_pips, tp_price, tp_pips, tp_pts_used, tp_from_rr
+
+
+# ─────────────────────────────────────────────
+# DATETIME EXTRACTION
+# ─────────────────────────────────────────────
+
+def parse_datetimes(lines):
+    """
+    Returns (entry_dt, exit_dt, day_of_week, session_name).
+
+    exitTime  ← "Last processed tick: YYYY-MM-DD HH:MM"
+                Found in bottom ~15% of image as dark text on light overlay.
+
+    entryTime ← highlighted date on the bottom timeline bar, patterns:
+                (a) "Thu 10Jan'19 08:00"   (compact, no space before month)
+                (b) "Mon 21 Dec'20 12:00"  (standard with space)
+                (c) "Mon 04 Jan'21"        (date-only, no time)
+    """
+    months = {'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
+              'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12}
+    joined  = " ".join(lines)
+    cleaned = _clean_digit_ocr(joined)
+
+    entry_dt = exit_dt = day_of_week = None
+
+    # ── Exit: "Last processed tick: 2021-01-04 11:59" ───────────────────
+    # This text is dark-on-light — it's extracted by collect_replay_exit_time()
+    # and pre-pended to lines. Look for ISO pattern.
+    m_exit = re.search(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}[:.]\d{2})',
+                       joined, re.IGNORECASE)
+    if m_exit:
+        h_part = int(m_exit.group(2)[:2])
+        if 0 <= h_part <= 23:  # validate hour is plausible
+            try:
+                t_str = m_exit.group(2).replace('.', ':')[:5]
+                dt = datetime.strptime(f"{m_exit.group(1)} {t_str}", '%Y-%m-%d %H:%M')
+                exit_dt = dt.isoformat(sep=' ', timespec='minutes')
+            except Exception:
+                exit_dt = m_exit.group(1)  # date only fallback
+
+    # ── Entry: "Thu 10Jan'19 08:00" (compact) ──────────────────────────
+    ms = list(re.finditer(
+        r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2})\s*"
+        r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'?(\d{2})\s+"
+        r"(\d{2}):(\d{2})",
+        cleaned, re.IGNORECASE
     ))
-    if matches:
-        m = matches[0]  # first occurrence = leftmost on x-axis = entry date
-        dow, day, mon, yr, hr, mn = m.groups()
-        months = {
-            'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
-            'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12
-        }
-        month_n = months.get(mon.lower(), 1)
-        full_yr = 2000 + int(yr)
+    if ms:
+        gp = ms[0].groups()
         try:
-            dt = datetime(full_yr, month_n, int(day), int(hr), int(mn))
+            dt          = datetime(2000+int(gp[3]), months[gp[2].lower()],
+                                   int(gp[1]), int(gp[4]), int(gp[5]))
             entry_dt    = dt.isoformat(sep=' ', timespec='minutes')
             day_of_week = dt.strftime('%A')
         except Exception:
             pass
 
-    # Pattern 2: ISO from replay status bar '2021-02-25 15:59:59'
+    # ── Entry fallback: "Mon 04 Jan'21" (date only) ─────────────────────
     if not entry_dt:
-        m2 = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', joined)
-        if m2:
+        ms2 = list(re.finditer(
+            r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2})\s+"
+            r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'?(\d{2})\b",
+            cleaned, re.IGNORECASE
+        ))
+        if ms2:
+            gp = ms2[0].groups()
             try:
-                dt = datetime.strptime(m2.group(1), '%Y-%m-%d %H:%M:%S')
-                entry_dt    = dt.isoformat(sep=' ', timespec='minutes')
+                dt          = datetime(2000+int(gp[3]), months[gp[2].lower()], int(gp[1]))
+                entry_dt    = dt.strftime('%Y-%m-%d')
                 day_of_week = dt.strftime('%A')
             except Exception:
                 pass
 
-    # Session from time
-    session = None
-    if entry_dt:
+    # Derive day of week from exit if entry failed
+    if not day_of_week and exit_dt:
         try:
-            t = datetime.fromisoformat(entry_dt)
-            h = t.hour
-            if 0  <= h < 3:   session = "Tokyo"
-            elif 3 <= h < 8:  session = "Tokyo/London Overlap"
-            elif 8 <= h < 12: session = "London"
-            elif 12<= h < 17: session = "New York"
-            elif 17<= h < 21: session = "New York Close"
-            else:              session = "Tokyo"
+            dt          = datetime.fromisoformat(exit_dt)
+            day_of_week = dt.strftime('%A')
         except Exception:
             pass
 
-    return entry_dt, day_of_week, session
+    # ── Session (UTC) ────────────────────────────────────────────────────
+    session = None
+    ref_str = entry_dt or exit_dt
+    if ref_str and (' ' in ref_str or 'T' in ref_str):
+        try:
+            t = datetime.fromisoformat(ref_str)
+            h = t.hour
+            session = ("Tokyo"    if (h >= 0  and h < 3)  else
+                       "Tokyo"    if (h >= 21 and h <= 23) else
+                       "Tokyo"    if (h >= 3  and h < 8)  else
+                       "London"   if (h >= 8  and h < 12) else
+                       "New York")
+        except Exception:
+            pass
+
+    return entry_dt, exit_dt, day_of_week, session
 
 
-def parse_outcome_from_lines(lines):
-    """Infer outcome from P/L sign."""
+def collect_replay_exit_time(img):
+    """
+    The 'Replay mode has been activated. Last processed tick: YYYY-MM-DD HH:MM:SS'
+    message is rendered as DARK TEXT on a semi-transparent light/grey overlay
+    in the bottom ~15% of the image.
+
+    It is NOT picked up by the standard white-text scanner.
+    This function scans that region with inverted threshold.
+    """
+    h, w = img.shape[:2]
+    y1   = int(h * 0.82)
+    y2   = int(h * 0.97)
+
+    # Left 75% of image (where the text appears)
+    text = ocr_strip_dark_text(img, y1, y2, x2_pct=0.75, scale=3)
+
+    # Extract date
+    m_date = re.search(r'(\d{4}-\d{2}-\d{2})', text)
+    if not m_date:
+        return ""
+
+    date_str = m_date.group(1)
+
+    # Extract time after the date, tolerating garbled colons
+    rest       = text[m_date.end():]
+    rest_clean = re.sub(r'[Oo]', '0', rest)
+    rest_clean = re.sub(r'[Il]', '1', rest_clean)
+    m_time     = re.search(r'(\d{2})[:\s.,](\d{2})', rest_clean)
+
+    if m_time:
+        hh = int(m_time.group(1))
+        mm = int(m_time.group(2))
+        if 0 <= hh <= 23 and 0 <= mm <= 59:
+            return f"{date_str} {hh:02d}:{mm:02d}"
+
+    return date_str  # date only if time not parseable
+
+
+# ─────────────────────────────────────────────
+# OUTCOME
+# ─────────────────────────────────────────────
+
+def parse_outcome(lines):
+    """Win / Loss / BE derived from P/L USD sign."""
     joined = " ".join(lines)
-    m = re.search(r'Open\s*P[/\\]L.*?USD\s*([+-]?\d+[\.,]\d+)', joined, re.IGNORECASE)
+    m = re.search(r'(?:Open|Closed)\s*P[/\\]L.*?USD\s*([+-]?\d+[\.,]\d+)',
+                  joined, re.IGNORECASE)
     if m:
         val = _f(m.group(1))
-        if val is None:
-            return None
-        if val > 0.01:
-            return "Win"
-        elif val < -0.01:
-            return "Loss"
-        else:
-            return "Breakeven"
+        if val is None:   return None
+        if val > 0.01:    return "Win"
+        if val < -0.01:   return "Loss"
+        return "BE"
+    return None
+
+
+# ─────────────────────────────────────────────
+# PAIR CATEGORY
+# ─────────────────────────────────────────────
+
+def infer_pair_category(instrument):
+    if not instrument:
+        return None
+    sym = instrument.upper().replace('/', '').replace('\\', '').replace('.', '')
+    if any(x in sym for x in ['BTC','ETH','BNB','XRP','SOL','USDT']):
+        return "Crypto"
+    if any(x in sym for x in ['XAU','XAG','GOLD','SILVER','OIL','WTI']):
+        return "Commodity"
+    if any(x in sym for x in ['IDX','US30','NAS','SPX','DAX','FTSE','CAC','DOW','USA500']):
+        return "Index"
+    MAJORS = {'EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD'}
+    if sym in MAJORS:
+        return "Major"
+    MINORS = {'EURGBP','EURJPY','GBPJPY','AUDJPY','CADJPY','CHFJPY',
+              'EURAUD','EURCHF','GBPAUD','GBPCAD','AUDCAD','AUDCHF','AUDNZD'}
+    if sym in MINORS:
+        return "Minor"
+    if len(sym) == 6 and sym.isalpha():
+        return "Exotic"
     return None
 
 
@@ -387,53 +803,89 @@ def parse_outcome_from_lines(lines):
 # ─────────────────────────────────────────────
 
 def extract_fields(img):
-    # 1. Collect all readable text rows
-    text_rows  = collect_all_text(img)
+    # ── 1. Collect text from all sources ──────────────────────────────
+    text_rows  = collect_white_text_rows(img)
     all_lines  = [t for _, t in text_rows]
 
-    # 2. Parse each component
-    instrument, timeframe = parse_instrument_timeframe(all_lines)
-    sl_pts, sl_usd, tp_pts, tp_usd = parse_tp_sl(all_lines)
-    trade_info  = parse_trade_info(all_lines)
-    entry_dt, dow, session = parse_datetime_from_lines(all_lines)
-    direction   = detect_direction(img)
-    entry_price = detect_entry_price(img)
-    outcome     = parse_outcome_from_lines(all_lines)
+    green_text = collect_green_band_text(img)
+    if green_text:
+        all_lines.append(green_text)
 
-    # 3. Assemble result
+    # The replay exit-time bar uses dark text — needs separate scan
+    replay_text = collect_replay_exit_time(img)
+    if replay_text:
+        all_lines.append(replay_text)
+
+    # PSM-11 sparse scan for instrument tab + floating price labels
+    tokens = psm11_scan(img)
+
+    # ── 2. Parse all fields ───────────────────────────────────────────
+    instrument, timeframe = parse_instrument_timeframe(all_lines, tokens)
+    sl_pts, sl_usd, tp_pts, tp_usd = parse_tp_sl(all_lines, instrument)
+    trade_info  = parse_trade_info(all_lines)
+    entry_dt, exit_dt, dow, session = parse_datetimes(all_lines)
+    direction   = detect_direction(img)
+    entry_price = detect_entry_price(img, tokens)
+    outcome     = parse_outcome(all_lines)
+    rr          = trade_info.get("riskReward")
+
+    # ── 3. SL/TP prices + pip distances ──────────────────────────────
+    sl_price, sl_pips, tp_price, tp_pips, tp_pts_used, tp_from_rr = \
+        calc_sl_tp(entry_price, direction, sl_pts, tp_pts, rr, instrument)
+
+    # ── 4. Pair category ─────────────────────────────────────────────
+    pair_category = infer_pair_category(instrument)
+
+    # ── 5. Assemble output ───────────────────────────────────────────
     fields = {
-        "instrument":       instrument,
-        "timeframe":        timeframe,
-        "direction":        direction,
-        "orderType":        None,
-        "entryPrice":       entry_price,
-        "stopLossPoints":   sl_pts,
-        "stopLossUSD":      sl_usd,
-        "takeProfitPoints": tp_pts,
-        "takeProfitUSD":    tp_usd,
-        "lotSize":          trade_info.get("lotSize"),
-        "units":            trade_info.get("units"),
-        "riskReward":       trade_info.get("riskReward"),
-        "openPLPoints":     trade_info.get("openPLPoints"),
-        "openPLUSD":        trade_info.get("openPLUSD"),
-        "drawdownPoints":   trade_info.get("drawdownPoints"),
-        "drawdownUSD":      trade_info.get("drawdownUSD"),
-        "runUpPoints":      trade_info.get("runUpPoints"),
-        "runUpUSD":         trade_info.get("runUpUSD"),
-        "entryTime":        entry_dt,
-        "dayOfWeek":        dow,
-        "sessionName":      session,
-        "outcome":          outcome,
-        "rawLines":         all_lines,
+        # Instrument
+        "instrument":         instrument,
+        "pairCategory":       pair_category,
+        "timeframe":          timeframe,
+        # Direction
+        "direction":          direction,
+        # Entry price
+        "entryPrice":         entry_price,
+        # Stop Loss
+        "stopLoss":           str(sl_price) if sl_price is not None else None,
+        "stopLossPoints":     sl_pts,
+        "stopLossPips":       sl_pips,
+        "stopLossUSD":        sl_usd,
+        # Take Profit
+        "takeProfit":         str(tp_price) if tp_price is not None else None,
+        "takeProfitPoints":   tp_pts_used,
+        "takeProfitPips":     tp_pips,
+        "takeProfitUSD":      tp_usd,
+        "tpCalculatedFromRR": tp_from_rr,
+        # Position size
+        "lotSize":            trade_info.get("lotSize"),
+        "units":              trade_info.get("units"),
+        "contractSize":       trade_info.get("contractSize"),
+        # P&L
+        "openPLPoints":       trade_info.get("openPLPoints"),
+        "openPLUSD":          trade_info.get("openPLUSD"),
+        # Outcome
+        "outcome":            outcome,
+        # Risk/Reward
+        "riskReward":         rr,
+        # MFE / MAE
+        "runUpPoints":        trade_info.get("runUpPoints"),
+        "runUpUSD":           trade_info.get("runUpUSD"),
+        "drawdownPoints":     trade_info.get("drawdownPoints"),
+        "drawdownUSD":        trade_info.get("drawdownUSD"),
+        # Timing
+        "entryTime":          entry_dt,
+        "exitTime":           exit_dt,
+        "dayOfWeek":          dow,
+        "sessionName":        session,
+        # Debug
+        "rawLines":           all_lines,
     }
 
     # Confidence score
-    key_fields = [instrument, timeframe, direction, sl_pts, tp_pts,
-                  trade_info.get("riskReward"), entry_dt]
-    filled = sum(1 for f in key_fields if f is not None)
-    if filled >= 6:   confidence = "high"
-    elif filled >= 3: confidence = "medium"
-    else:             confidence = "low"
+    key_fields = [instrument, timeframe, direction, sl_pts, entry_price, rr, entry_dt]
+    filled     = sum(1 for f in key_fields if f is not None)
+    confidence = "high" if filled >= 6 else "medium" if filled >= 3 else "low"
 
     return {"fields": fields, "confidence": confidence}
 
@@ -449,20 +901,25 @@ def main():
         result = extract_fields(img)
         output = {
             "success": True,
-            "fields": result["fields"],
+            "fields":  result["fields"],
             "aiExtractedRaw": {
-                "method":        "ocr_v3",
+                "method":        "ocr_v6",
                 "ocrConfidence": result["confidence"],
-                "note": "Extracted via Tesseract OCR v3 (white-row detection). Review and correct any inaccurate fields."
+                "notes": [
+                    "SL/TP absolute prices calculated from entry ± (points × point_size).",
+                    "tpCalculatedFromRR=true means TP was derived from RR × SL (no explicit TP on screenshot).",
+                    "exitTime comes from 'Last processed tick' on outcome screenshots.",
+                    "For index instruments (USA500.IDX etc.), absolute TP price lines are ignored.",
+                    "Instrument/timeframe require a visible top bar — may need manual entry if cropped.",
+                ]
             }
         }
     except Exception as e:
         output = {
-            "success": False,
-            "error":   str(e),
+            "success":   False,
+            "error":     str(e),
             "traceback": traceback.format_exc()
         }
-
     print(json.dumps(output, indent=2, default=str))
 
 
