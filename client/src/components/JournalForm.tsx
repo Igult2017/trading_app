@@ -240,63 +240,134 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         setForm(prev => {
           const updated = { ...prev };
 
-          // ── Instrument & direction ──────────────────────────────────
-          if (f.instrument)    updated.instrument  = f.instrument;
-          if (f.direction)     updated.direction   = f.direction;
-          if (f.orderType)     updated.orderType   = f.orderType;
+          // ─────────────────────────────────────────────────────────────
+          // INSTRUMENT & PAIR CATEGORY
+          // ─────────────────────────────────────────────────────────────
+          if (f.instrument) {
+            updated.instrument = f.instrument;
 
-          // ── Timeframe: OCR returns "5M", "1H", "15M" etc. ──────────
-          // f.timeframe is the OCR-parsed field; f.entryTF is the legacy field name
-          if (f.timeframe)     updated.entryTF     = f.timeframe;
-          if (f.entryTF)       updated.entryTF     = f.entryTF;
+            // Infer pairCategory from instrument name since OCR doesn't extract it
+            const sym = f.instrument.toUpperCase();
+            if (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) {
+              updated.pairCategory = "Crypto";
+            } else if (/XAU|XAG|GOLD|SILVER|OIL|WTI|BRENT/.test(sym)) {
+              updated.pairCategory = "Commodity";
+            } else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|SP500|DOW/.test(sym)) {
+              updated.pairCategory = "Index";
+            } else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) {
+              updated.pairCategory = "Major";
+            } else if (/EURGBP|EURJPY|GBPJPY|AUDJPY|CADJPY|CHFJPY|EURAUD|EURCHF|GBPAUD|GBPCAD/.test(sym)) {
+              updated.pairCategory = "Minor";
+            } else if (sym.length >= 6) {
+              // Any other 6-char forex pair not in major/minor list → Exotic
+              updated.pairCategory = "Exotic";
+            }
+          }
 
-          // ── Price levels ────────────────────────────────────────────
-          if (f.entryPrice)    updated.entryPrice  = String(f.entryPrice);
-          if (f.stopLoss)      updated.stopLoss    = String(f.stopLoss);
-          if (f.takeProfit)    updated.takeProfit  = String(f.takeProfit);
+          // ─────────────────────────────────────────────────────────────
+          // DIRECTION & ORDER TYPE
+          // ─────────────────────────────────────────────────────────────
+          if (f.direction)  updated.direction  = f.direction;
+          // orderType from OCR is always null — only set if explicitly provided
+          if (f.orderType)  updated.orderType  = f.orderType;
 
-          // OCR outputs distance as stopLossPoints / takeProfitPoints (in pips/points)
-          // These map to the form fields stopLossDistancePips / takeProfitDistancePips
-          if (f.stopLossPoints     != null) updated.stopLossDistancePips   = String(f.stopLossPoints);
-          if (f.stopLossDistancePips)       updated.stopLossDistancePips   = String(f.stopLossDistancePips);
-          if (f.takeProfitPoints   != null) updated.takeProfitDistancePips = String(f.takeProfitPoints);
-          if (f.takeProfitDistancePips)     updated.takeProfitDistancePips = String(f.takeProfitDistancePips);
+          // ─────────────────────────────────────────────────────────────
+          // TIMEFRAME  (OCR field is "timeframe", form field is "entryTF")
+          // ─────────────────────────────────────────────────────────────
+          if (f.timeframe)  updated.entryTF = f.timeframe;
+          if (f.entryTF)    updated.entryTF = f.entryTF;
 
-          // ── Size, risk & spread ─────────────────────────────────────
-          if (f.lotSize)        updated.lotSize       = String(f.lotSize);
-          if (f.riskReward)     updated.riskReward    = String(f.riskReward);
-          if (f.riskPercent)    updated.riskPercent   = String(f.riskPercent);
-          if (f.spreadAtEntry)  updated.spreadAtEntry = String(f.spreadAtEntry);
+          // ─────────────────────────────────────────────────────────────
+          // PRICE LEVELS
+          // OCR gives entryPrice directly (from orange arrow detection).
+          // OCR gives SL/TP only as distances (points), NOT absolute prices.
+          // We calculate absolute SL/TP from entryPrice ± distance when possible.
+          // ─────────────────────────────────────────────────────────────
+          const entryPx = f.entryPrice ? parseFloat(String(f.entryPrice)) : null;
+          if (f.entryPrice && entryPx !== null && !isNaN(entryPx)) {
+            updated.entryPrice = String(f.entryPrice);
+          }
 
-          // ── P&L / outcome ───────────────────────────────────────────
-          if (f.outcome)                updated.outcome        = f.outcome;
-          // profitLoss: prefer explicit field, fall back to OCR's openPLUSD
-          if (f.profitLoss    != null)  updated.profitLoss     = String(f.profitLoss);
-          if (f.openPLUSD     != null)  updated.profitLoss     = String(f.openPLUSD);
-          // pipsGainedLost: prefer explicit field, fall back to OCR's openPLPoints
-          if (f.pipsGainedLost!= null)  updated.pipsGainedLost = String(f.pipsGainedLost);
-          if (f.openPLPoints  != null)  updated.pipsGainedLost = String(f.openPLPoints);
+          // SL distance
+          const slPts = f.stopLossPoints  != null ? parseFloat(String(f.stopLossPoints))  :
+                        f.stopLossDistancePips != null ? parseFloat(String(f.stopLossDistancePips)) : null;
+          if (slPts !== null && !isNaN(slPts)) {
+            updated.stopLossDistancePips = String(slPts);
 
-          // MAE / MFE — OCR exposes these as drawdown / run-up with both points and USD
-          if (f.mae != null)             updated.mae = String(f.mae);
-          if (f.mfe != null)             updated.mfe = String(f.mfe);
-          if (f.drawdownPoints != null)  updated.mae = `${f.drawdownPoints} pips${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
-          if (f.runUpPoints    != null)  updated.mfe = `${f.runUpPoints} pips${f.runUpUSD    != null ? ` ($${f.runUpUSD})`    : ""}`;
+            // Calculate absolute SL price from entry ± distance
+            // Determine pip value: JPY pairs use 0.01, everything else uses 0.0001
+            if (entryPx !== null && !isNaN(entryPx)) {
+              const sym = (f.instrument || "").toUpperCase();
+              const pipSize = sym.includes("JPY") ? 0.01 : 0.0001;
+              const slDistance = slPts * pipSize;
+              const dir = (f.direction || "Long").toLowerCase();
+              const slPrice = dir === "short"
+                ? entryPx + slDistance
+                : entryPx - slDistance;
+              updated.stopLoss = slPrice.toFixed(sym.includes("JPY") ? 3 : 5);
+            }
+          }
 
-          // ── Timing ──────────────────────────────────────────────────
-          // OCR's entryTime is the datetime extracted directly from the chart
-          // → populate screenshotTimestamp (HH:MM time input) AND entryTime (datetime-local input)
+          // TP distance
+          const tpPts = f.takeProfitPoints  != null ? parseFloat(String(f.takeProfitPoints))  :
+                        f.takeProfitDistancePips != null ? parseFloat(String(f.takeProfitDistancePips)) : null;
+          if (tpPts !== null && !isNaN(tpPts)) {
+            updated.takeProfitDistancePips = String(tpPts);
+
+            // Calculate absolute TP price from entry ± distance
+            if (entryPx !== null && !isNaN(entryPx)) {
+              const sym = (f.instrument || "").toUpperCase();
+              const pipSize = sym.includes("JPY") ? 0.01 : 0.0001;
+              const tpDistance = tpPts * pipSize;
+              const dir = (f.direction || "Long").toLowerCase();
+              const tpPrice = dir === "short"
+                ? entryPx - tpDistance
+                : entryPx + tpDistance;
+              updated.takeProfit = tpPrice.toFixed(sym.includes("JPY") ? 3 : 5);
+            }
+          }
+
+          // Direct SL/TP if OCR ever provides absolute prices
+          if (f.stopLoss)   updated.stopLoss   = String(f.stopLoss);
+          if (f.takeProfit) updated.takeProfit  = String(f.takeProfit);
+
+          // ─────────────────────────────────────────────────────────────
+          // LOT SIZE, RISK & SPREAD
+          // ─────────────────────────────────────────────────────────────
+          if (f.lotSize)       updated.lotSize       = String(f.lotSize);
+          if (f.riskReward)    updated.riskReward    = String(f.riskReward);
+          if (f.riskPercent)   updated.riskPercent   = String(f.riskPercent);
+          if (f.spreadAtEntry) updated.spreadAtEntry = String(f.spreadAtEntry);
+
+          // ─────────────────────────────────────────────────────────────
+          // OUTCOME & P&L
+          // ─────────────────────────────────────────────────────────────
+          if (f.outcome)               updated.outcome        = f.outcome;
+          if (f.profitLoss    != null) updated.profitLoss     = String(f.profitLoss);
+          if (f.openPLUSD     != null) updated.profitLoss     = String(f.openPLUSD);
+          if (f.pipsGainedLost!= null) updated.pipsGainedLost = String(f.pipsGainedLost);
+          if (f.openPLPoints  != null) updated.pipsGainedLost = String(f.openPLPoints);
+
+          // MAE / MFE from OCR drawdown / run-up
+          if (f.mae != null)            updated.mae = String(f.mae);
+          if (f.mfe != null)            updated.mfe = String(f.mfe);
+          if (f.drawdownPoints != null) updated.mae = `${f.drawdownPoints} pips${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+          if (f.runUpPoints    != null) updated.mfe = `${f.runUpPoints} pips${f.runUpUSD    != null ? ` ($${f.runUpUSD})`    : ""}`;
+
+          // ─────────────────────────────────────────────────────────────
+          // TIMING
+          // OCR returns entryTime as "YYYY-MM-DD HH:MM" extracted from the chart.
+          // → screenshotTimestamp = "HH:MM"  (the <input type="time"> field)
+          // → entryTime           = "YYYY-MM-DDTHH:MM"  (the <input type="datetime-local"> field)
+          // tradeDuration and exitTime are NOT extracted by OCR — left for manual entry.
+          // ─────────────────────────────────────────────────────────────
           if (f.entryTime) {
             try {
-              // OCR returns "YYYY-MM-DD HH:MM" — convert space to T for Date parsing
               const dt = new Date(f.entryTime.replace(" ", "T"));
               if (!isNaN(dt.getTime())) {
-                // screenshotTimestamp is a <input type="time"> — needs "HH:MM"
-                updated.screenshotTimestamp = dt.toTimeString().slice(0, 5);
-                // entryTime is a <input type="datetime-local"> — needs "YYYY-MM-DDTHH:MM"
-                updated.entryTime = f.entryTime.replace(" ", "T").slice(0, 16);
+                updated.screenshotTimestamp = dt.toTimeString().slice(0, 5);          // "HH:MM"
+                updated.entryTime           = f.entryTime.replace(" ", "T").slice(0, 16); // "YYYY-MM-DDTHH:MM"
               } else {
-                // Fallback: just store the raw string in screenshotTimestamp
                 updated.screenshotTimestamp = f.entryTime;
               }
             } catch {
@@ -304,15 +375,15 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             }
           }
 
-          if (f.exitTime)       updated.exitTime      = f.exitTime;
-          if (f.dayOfWeek)      updated.dayOfWeek     = f.dayOfWeek;
-          if (f.tradeDuration)  updated.tradeDuration = f.tradeDuration;
+          if (f.exitTime)      updated.exitTime      = f.exitTime;
+          if (f.dayOfWeek)     updated.dayOfWeek     = f.dayOfWeek;
+          if (f.tradeDuration) updated.tradeDuration = f.tradeDuration;
 
-          // ── Session ─────────────────────────────────────────────────
-          if (f.sessionName)    updated.sessionName   = f.sessionName;
-          if (f.sessionPhase)   updated.sessionPhase  = f.sessionPhase;
-
-          // ── Exit reason ─────────────────────────────────────────────
+          // ─────────────────────────────────────────────────────────────
+          // SESSION & EXIT
+          // ─────────────────────────────────────────────────────────────
+          if (f.sessionName)       updated.sessionName       = f.sessionName;
+          if (f.sessionPhase)      updated.sessionPhase      = f.sessionPhase;
           if (f.primaryExitReason) updated.primaryExitReason = f.primaryExitReason;
 
           return updated;
