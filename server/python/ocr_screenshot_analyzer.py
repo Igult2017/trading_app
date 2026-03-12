@@ -43,7 +43,7 @@ Outputs: JSON to stdout
 """
 
 import sys, json, base64, re, traceback
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from collections import Counter
 
 try:
@@ -623,74 +623,117 @@ def calc_sl_tp(entry_price_str, direction, sl_pts, tp_pts, rr, instrument):
 # DATETIME EXTRACTION
 # ─────────────────────────────────────────────
 
-def _get_session_and_phase(h_utc):
+def _get_london_ny_opens(dt):
     """
-    Returns (primary_session, session_phase) for a given UTC hour.
+    Returns (london_open_utc, ny_open_utc) accounting for DST on the given date.
 
-    Forex session hours (UTC, approximate year-round):
-      Sydney:   21:00 – 06:00
-      Tokyo:    00:00 – 09:00
-      London:   08:00 – 17:00
-      New York: 13:00 – 22:00
+    UK BST (UTC+1):  last Sunday of March → last Sunday of October
+      BST:  London opens 07:00 UTC  (08:00 local − 1h)
+      GMT:  London opens 08:00 UTC  (08:00 local)
 
-    Overlaps (highest liquidity):
-      Tokyo/London:    08:00 – 09:00
-      London/New York: 13:00 – 17:00  (16 UTC = London close)
+    US EDT (UTC-4):  2nd Sunday of March → 1st Sunday of November
+      EDT:  New York opens 13:00 UTC  (09:00 local + 4h)
+      EST:  New York opens 14:00 UTC  (09:00 local + 5h)
 
-    Phase: Open (first 2h of session), Mid, Close (last 2h), Overlap
-    Dead Zone: 22:00 – 00:00 UTC (Sydney only, very low liquidity)
+    Tokyo has no DST — always opens 00:00 UTC (09:00 JST = UTC+9).
+    Sydney DST is the inverse of the northern hemisphere but its effect on
+    UTC session hours is small (~1h) and Sydney is rarely a primary session
+    for major pairs — we keep Sydney as 22:00 UTC open year-round.
+    """
+    import calendar as _cal
+
+    year = dt.year
+
+    def _last_sunday(y, m):
+        last = _cal.monthrange(y, m)[1]
+        d = date(y, m, last)
+        return d - timedelta(days=(d.weekday() + 1) % 7)
+
+    def _nth_sunday(y, m, n):
+        first = date(y, m, 1)
+        offset = (6 - first.weekday()) % 7
+        return date(y, m, 1 + offset + (n - 1) * 7)
+
+    d = dt.date() if hasattr(dt, 'date') else dt
+
+    # UK BST: last Sunday of March → last Sunday of October
+    bst_start = _last_sunday(year, 3)
+    bst_end   = _last_sunday(year, 10)
+    uk_bst    = bst_start <= d < bst_end
+
+    # US EDT: 2nd Sunday of March → 1st Sunday of November
+    edt_start = _nth_sunday(year, 3,  2)
+    edt_end   = _nth_sunday(year, 11, 1)
+    us_edt    = edt_start <= d < edt_end
+
+    london_open_utc = 7 if uk_bst  else 8   # London always opens at 08:00 local time
+    ny_open_utc     = 13 if us_edt else 14   # NY always opens at 09:00 local time
+
+    return london_open_utc, ny_open_utc, uk_bst, us_edt
+
+
+def _get_session_and_phase(h_utc, dt=None):
+    """
+    Returns (primary_session, session_phase) for a UTC hour, with DST awareness.
+
+    Session hours (UTC) vary by season:
+      Tokyo:    always 00:00–09:00 (Japan has no DST)
+      London:   07:00–16:00 (BST, Apr–Oct)  /  08:00–17:00 (GMT, Nov–Mar)
+      New York: 13:00–21:00 (EDT, Mar–Nov)  /  14:00–22:00 (EST, Nov–Mar)
+      Sydney:   ~22:00–06:00 (approx, minor DST variation ignored)
+
+    Overlaps:
+      Tokyo/London:    lon_open to 09:00 UTC  (1–2h)
+      London/New York: ny_open to lon_close   (3–4h, highest liquidity)
+
+    Phases:
+      Open:    first 2h of session
+      Mid:     middle
+      Close:   last 2h of session
+      Overlap: during a session overlap window
+      Dead Zone: 22:00–00:00 UTC (very low liquidity)
     """
     h = h_utc
 
-    _sessions = [
-        ("Sydney",   21, 6),    # crosses midnight
-        ("Tokyo",     0, 9),
-        ("London",    8, 17),
-        ("New York", 13, 22),
-    ]
+    # Default to winter values if no date provided
+    if dt is not None:
+        lon_open, ny_open, _, _ = _get_london_ny_opens(dt)
+    else:
+        lon_open, ny_open = 8, 14   # conservative winter default
 
-    def active(name, start, end):
-        if start < end:
-            return start <= h < end
-        else:  # crosses midnight
-            return h >= start or h < end
+    lon_close = lon_open + 9    # London session is 9 hours
+    ny_close  = ny_open  + 8    # New York session is 8 hours
 
-    london_open   = active("London",   8, 17)
-    newyork_open  = active("New York", 13, 22)
-    tokyo_open    = active("Tokyo",    0,  9)
-    sydney_open   = active("Sydney",  21,  6)
+    tokyo_on   = 0  <= h < 9
+    london_on  = lon_open <= h < lon_close
+    newyork_on = ny_open  <= h < ny_close
+    sydney_on  = h >= 22 or h < 6
 
-    # Priority: overlaps first, then individual sessions
-    if london_open and newyork_open:
+    # Priority: overlaps first
+    if london_on and newyork_on:
         return "London/New York", "Overlap"
-    if tokyo_open and london_open:
+    if tokyo_on and london_on:
         return "Tokyo/London", "Overlap"
 
-    if london_open:
-        # London: 08:00–17:00 → Open 08-10, Mid 10-15, Close 15-17
-        if h < 10:   return "London", "Open"
-        if h >= 15:  return "London", "Close"
+    if london_on:
+        into = h - lon_open
+        if into < 2:                    return "London", "Open"
+        if into >= lon_close - lon_open - 2: return "London", "Close"
         return "London", "Mid"
 
-    if newyork_open:
-        # New York: 13:00–22:00 → Open 13-15, Mid 15-20, Close 20-22
-        if h < 15:   return "New York", "Open"
-        if h >= 20:  return "New York", "Close"
+    if newyork_on:
+        into = h - ny_open
+        if into < 2:                    return "New York", "Open"
+        if into >= ny_close - ny_open - 2:   return "New York", "Close"
         return "New York", "Mid"
 
-    if tokyo_open:
-        # Tokyo: 00:00–09:00 → Open 00-02, Mid 02-07, Close 07-09
-        h_into = h  # h is 0–8
-        if h_into < 2:  return "Tokyo", "Open"
-        if h_into >= 7: return "Tokyo", "Close"
+    if tokyo_on:
+        if h < 2:  return "Tokyo", "Open"
+        if h >= 7: return "Tokyo", "Close"
         return "Tokyo", "Mid"
 
-    if sydney_open:
-        # Sydney: 21:00–06:00 → Open 21-23, Mid 23-04, Close 04-06
-        h_into = (h - 21) % 24   # 0=21UTC, 1=22UTC, etc.
-        if h_into < 2:  return "Sydney", "Open"
-        if h_into >= 7: return "Sydney", "Close"
-        return "Sydney", "Mid"
+    if sydney_on:
+        return "Sydney", "—"
 
     return "Dead Zone", "—"
 
@@ -770,14 +813,14 @@ def parse_datetimes(lines):
         except Exception:
             pass
 
-    # ── Session + Phase (UTC) ────────────────────────────────────────────
+    # ── Session + Phase (UTC, DST-aware) ────────────────────────────────
     session = None
     session_phase = None
     ref_str = entry_dt or exit_dt
     if ref_str and (' ' in ref_str or 'T' in ref_str):
         try:
             t = datetime.fromisoformat(ref_str)
-            session, session_phase = _get_session_and_phase(t.hour)
+            session, session_phase = _get_session_and_phase(t.hour, dt=t)
         except Exception:
             pass
 
