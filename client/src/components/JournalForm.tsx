@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-/* ─── EXACT SAMPLE-1 DESIGN TOKENS ──────────────────────────────────── */
+/* ─── DESIGN TOKENS ──────────────────────────────────────────────────── */
 const PAGE_BG   = "bg-[#05070a]";
 const CARD_BG   = "bg-[#0a0d14]";
 const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed";
@@ -25,39 +25,67 @@ const STEPS = [
 
 /* ─── INITIAL STATE ──────────────────────────────────────────────────── */
 const INIT: Record<string, any> = {
-  screenshot:null, screenshotTimestamp:"", instrument:"", direction:"Long",
-  lotSize:"", entryPrice:"", stopLoss:"", stopLossDistancePips:"",
-  takeProfit:"", takeProfitDistancePips:"", entryTime:"", exitTime:"",
-  tradeDuration:"", dayOfWeek:"Monday", outcome:"Win", profitLoss:"",
-  accountBalance:"", orderType:"Market", riskPercent:"", entryTF:"5M",
-  analysisTF:"1HR", contextTF:"1D", marketRegime:"Trending",
-  trendDirection:"Bullish", volatilityState:"Normal", liquidity:"High",
-  newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
-  sessionName:"London", timingContext:"Impulse", candlePattern:"",
-  indicatorState:"", marketAlignment:3, setupClarity:3, entryPrecision:3,
-  confluence:3, timingQuality:3, primarySignals:"", secondarySignals:"",
-  keyLevelRespect:"Yes", keyLevelType:"Support", momentumValidity:"Strong",
-  targetLogicClarity:"High", plannedEntry:"", plannedSL:"", plannedTP:"",
-  actualEntry:"", actualSL:"", actualTP:"", pipsGainedLost:"", mae:"",
-  mfe:"", monetaryRisk:"", potentialReward:"", plannedRR:"", achievedRR:"",
-  riskHeat:"Low", entryMethod:"Market", exitStrategy:"", breakEvenApplied:false,
-  trailingStopApplied:false, managementType:"Rule-based", confidenceLevel:3,
-  emotionalState:"Calm", focusStressLevel:"Low", rulesFollowed:100,
-  worthRepeating:true, whatWorked:"", whatFailed:"", adjustments:"", notes:"",
-  thesis:"", trigger:"", invalidationLogic:"", setupTag:"Breakout",
-  expectedBehavior:"", tradeGrade:"A - Textbook", liquidityTargets:"",
-  impulseCheckFOMO:false, impulseCheckRevenge:false, impulseCheckBored:false,
-  impulseCheckEmotional:false, primaryExitReason:"Target Hit", htfBias:"Bull",
-  htfKeyLevelPresent:"Yes", trendAlignment:"Yes", analysisTFContext:"",
-  higherTFContext:"", entryTFContext:"", otherConfluences:"",
-  multitimeframeAlignment:"Yes", openTradesCount:"", totalRiskOpen:"",
-  correlatedExposure:"No", energyLevel:3, focusLevel:3,
-  externalDistraction:"No", confidenceAtEntry:3, setupFullyValid:"Yes",
-  anyRuleBroken:"No", ruleBroken:"", strategyVersionId:"", spreadAtEntry:"",
-  atrAtEntry:"", exitScreenshot:null, pairCategory:"Major",
-  consecutiveTradeCount:"", commission:"", postTradeEmotion:"Neutral",
-  recencyBiasFlag:false, riskReward:"",
+  screenshot: null, screenshotTimestamp: "", instrument: "", direction: "Long",
+  lotSize: "", entryPrice: "", stopLoss: "", stopLossDistancePips: "",
+  takeProfit: "", takeProfitDistancePips: "", entryTime: "", exitTime: "",
+  tradeDuration: "", dayOfWeek: "Monday", outcome: "Win", profitLoss: "",
+  accountBalance: "", orderType: "Market", riskPercent: "", entryTF: "5M",
+  analysisTF: "1HR", contextTF: "1D", marketRegime: "Trending",
+  trendDirection: "Bullish", volatilityState: "Normal", liquidity: "High",
+  newsEnvironment: "Clear", entryTimeUTC: "", sessionPhase: "Open",
+  sessionName: "London", timingContext: "Impulse", candlePattern: "",
+  indicatorState: "", marketAlignment: 3, setupClarity: 3, entryPrecision: 3,
+  confluence: 3, timingQuality: 3, primarySignals: "", secondarySignals: "",
+  keyLevelRespect: "Yes", keyLevelType: "Support", momentumValidity: "Strong",
+  targetLogicClarity: "High", plannedEntry: "", plannedSL: "", plannedTP: "",
+  actualEntry: "", actualSL: "", actualTP: "", pipsGainedLost: "", mae: "",
+  mfe: "", monetaryRisk: "", potentialReward: "", plannedRR: "", achievedRR: "",
+  riskHeat: "Low", entryMethod: "Market", exitStrategy: "", breakEvenApplied: false,
+  trailingStopApplied: false, managementType: "Rule-based", confidenceLevel: 3,
+  emotionalState: "Calm", focusStressLevel: "Low", rulesFollowed: 100,
+  worthRepeating: true, whatWorked: "", whatFailed: "", adjustments: "", notes: "",
+  thesis: "", trigger: "", invalidationLogic: "", setupTag: "Breakout",
+  expectedBehavior: "", tradeGrade: "A - Textbook", liquidityTargets: "",
+  impulseCheckFOMO: false, impulseCheckRevenge: false, impulseCheckBored: false,
+  impulseCheckEmotional: false, primaryExitReason: "Target Hit", htfBias: "Bull",
+  htfKeyLevelPresent: "Yes", trendAlignment: "Yes", analysisTFContext: "",
+  higherTFContext: "", entryTFContext: "", otherConfluences: "",
+  multitimeframeAlignment: "Yes", openTradesCount: "", totalRiskOpen: "",
+  correlatedExposure: "No", energyLevel: 3, focusLevel: 3,
+  externalDistraction: "No", confidenceAtEntry: 3, setupFullyValid: "Yes",
+  anyRuleBroken: "No", ruleBroken: "", strategyVersionId: "", spreadAtEntry: "",
+  atrAtEntry: "", exitScreenshot: null, pairCategory: "Major",
+  consecutiveTradeCount: "", commission: "", postTradeEmotion: "Neutral",
+  recencyBiasFlag: false, riskReward: "",
 };
+
+/* ─── HELPERS ────────────────────────────────────────────────────────── */
+
+/**
+ * Maps OCR timeframe tokens (VALID_TF set) to the form dropdown values.
+ * OCR emits "4H","1H","30M" — dropdowns expect "4HR","1HR","30MIN".
+ */
+function normaliseTF(tf: string | null | undefined): string | null {
+  if (!tf) return null;
+  const map: Record<string, string> = {
+    "1M": "1M",  "3M": "3M",  "5M": "5M",  "15M": "15M",
+    "20M": "15M", // nearest option
+    "30M": "30MIN",
+    "1H": "1HR", "2H": "2HR", "4H": "4HR",
+    "6H": "4HR", "8H": "4HR", "12H": "4HR", // nearest options
+    "1D": "1D",  "1W": "1W",
+  };
+  return map[tf.toUpperCase()] ?? tf;
+}
+
+/**
+ * OCR can return "London/New York" or "Tokyo/London" for overlap sessions.
+ * The form dropdown only has the discrete session names + "Overlap".
+ */
+function normaliseSession(s: string | null | undefined): string | null {
+  if (!s) return null;
+  return s.includes("/") ? "Overlap" : s;
+}
 
 /* ─── SHARED ATOMS ───────────────────────────────────────────────────── */
 
@@ -92,7 +120,10 @@ const SectionHeader = ({ icon: Icon, title }: { icon: any; title: string }) => (
   </div>
 );
 
-const Field = ({ label, field, value, onChange, placeholder = "", rows, type = "text" }: { label?: string; field: string; value: any; onChange: (f: string, v: any) => void; placeholder?: string; rows?: number; type?: string }) => (
+const Field = ({ label, field, value, onChange, placeholder = "", rows, type = "text" }: {
+  label?: string; field: string; value: any; onChange: (f: string, v: any) => void;
+  placeholder?: string; rows?: number; type?: string;
+}) => (
   <div className="mb-0">
     {label && <label className={LABEL_CLS}>{label}</label>}
     <div className="relative group">
@@ -109,7 +140,10 @@ const Field = ({ label, field, value, onChange, placeholder = "", rows, type = "
   </div>
 );
 
-const Sel = ({ label, field, value, onChange, options }: { label?: string; field: string; value: any; onChange: (f: string, v: any) => void; options: string[] }) => {
+const Sel = ({ label, field, value, onChange, options }: {
+  label?: string; field: string; value: any;
+  onChange: (f: string, v: any) => void; options: string[];
+}) => {
   const all = options.includes("Other") ? options : [...options, "Other"];
   const isOther = value !== "" && !options.includes(value);
   const [customVal, setCustomVal] = useState(isOther && value !== "Other" ? value : "");
@@ -118,13 +152,8 @@ const Sel = ({ label, field, value, onChange, options }: { label?: string; field
       {label && <label className={LABEL_CLS}>{label}</label>}
       <div className="relative">
         <select value={isOther ? "Other" : value} onChange={e => {
-            if (e.target.value === "Other") {
-              setCustomVal("");
-              onChange(field, "Other");
-            } else {
-              setCustomVal("");
-              onChange(field, e.target.value);
-            }
+            if (e.target.value === "Other") { setCustomVal(""); onChange(field, "Other"); }
+            else { setCustomVal(""); onChange(field, e.target.value); }
           }}
           className={INPUT_CLS + " appearance-none cursor-pointer pr-10 block"}>
           {all.map(o => <option key={o} value={o} className="bg-[#0a0d14]">{o}</option>)}
@@ -144,7 +173,7 @@ const Score = ({ label, field, value, onChange }: { label: string; field: string
   <div className="flex items-center justify-between gap-3 flex-wrap py-1">
     <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">{label}</label>
     <div className="flex gap-1.5">
-      {[1,2,3,4,5].map(n => (
+      {[1, 2, 3, 4, 5].map(n => (
         <button key={n} onClick={() => onChange(field, n)}
           className={`w-8 h-8 rounded-lg text-[11px] font-black font-mono border transition-all duration-200 focus:outline-none
             ${value === n
@@ -166,7 +195,10 @@ const Check = ({ label, field, value, onChange }: { label: string; field: string
   </label>
 );
 
-const Upload = ({ field, inputId, value, onChange, label, sublabel }: { field: string; inputId: string; value: any; onChange: (f: string, v: any) => void; label: string; sublabel: string }) => (
+const Upload = ({ field, inputId, value, onChange, label, sublabel }: {
+  field: string; inputId: string; value: any;
+  onChange: (f: string, v: any) => void; label: string; sublabel: string;
+}) => (
   <div className={`relative rounded-2xl border transition-all duration-300 overflow-hidden
     ${value ? "border-blue-500/30 bg-slate-950/20" : "border-dashed border-slate-800/80 hover:border-blue-500/30 bg-slate-950/20"}`}>
     <input type="file" className="hidden" id={inputId} accept="image/*" onChange={e => {
@@ -206,7 +238,7 @@ const NavButtons = ({ step, onPrev, onNext }: { step: number; onPrev: () => void
       PREV
     </button>
     <div className="hidden sm:flex gap-1.5">
-      {[1,2,3,4].map(n => (
+      {[1, 2, 3, 4].map(n => (
         <div key={n} className={`h-1.5 rounded-full transition-all duration-500 ${step === n ? "bg-blue-500 w-5" : "bg-slate-800 w-1.5"}`} />
       ))}
     </div>
@@ -229,165 +261,140 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
+  /* ─── OCR RESULT → FORM STATE ──────────────────────────────────────
+   *
+   * This function's ONLY job is to map OCR output keys → form state keys.
+   * It does NO calculations of its own. All prices, distances and derived
+   * values were already computed correctly by ocr_screenshot_analyzer.py
+   * (calc_sl_tp, infer_pair_category, _get_session_and_phase, etc.).
+   *
+   * Rules:
+   *  - Trust every value OCR provides. Write it straight to state.
+   *  - Normalise format mismatches (TF strings, session overlap labels).
+   *  - Only fall back to inline logic when OCR returns null for that field.
+   *  - Never recalculate what OCR already calculated.
+   */
   const analyzeScreenshot = async (base64Image: string) => {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
       const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
       const data = await res.json();
+
       if (data.success && data.fields) {
         const f = data.fields;
+
         setForm(prev => {
-          const updated = { ...prev };
+          const u = { ...prev };
 
-          // ─────────────────────────────────────────────────────────────
-          // INSTRUMENT & PAIR CATEGORY
-          // ─────────────────────────────────────────────────────────────
-          if (f.instrument) {
-            updated.instrument = f.instrument;
+          // ── INSTRUMENT ────────────────────────────────────────────────
+          if (f.instrument) u.instrument = f.instrument;
 
-            // Infer pairCategory from instrument name since OCR doesn't extract it
-            const sym = f.instrument.toUpperCase();
-            if (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) {
-              updated.pairCategory = "Crypto";
-            } else if (/XAU|XAG|GOLD|SILVER|OIL|WTI|BRENT/.test(sym)) {
-              updated.pairCategory = "Commodity";
-            } else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|SP500|DOW/.test(sym)) {
-              updated.pairCategory = "Index";
-            } else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) {
-              updated.pairCategory = "Major";
-            } else if (/EURGBP|EURJPY|GBPJPY|AUDJPY|CADJPY|CHFJPY|EURAUD|EURCHF|GBPAUD|GBPCAD/.test(sym)) {
-              updated.pairCategory = "Minor";
-            } else if (sym.length >= 6) {
-              // Any other 6-char forex pair not in major/minor list → Exotic
-              updated.pairCategory = "Exotic";
-            }
+          // ── PAIR CATEGORY
+          // Trust OCR's infer_pair_category() first.
+          // Only run inline regex when OCR returned null (e.g. unknown symbol).
+          if (f.pairCategory) {
+            u.pairCategory = f.pairCategory;
+          } else if (f.instrument) {
+            const sym = (f.instrument as string).toUpperCase();
+            if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym))                u.pairCategory = "Crypto";
+            else if (/XAU|XAG|GOLD|SILVER|OIL|WTI|BRENT/.test(sym))                u.pairCategory = "Commodity";
+            else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|SP500|DOW|IDX/.test(sym))      u.pairCategory = "Index";
+            else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
+            else if (/EURGBP|EURJPY|GBPJPY|AUDJPY|CADJPY|CHFJPY|EURAUD|EURCHF|GBPAUD|GBPCAD/.test(sym)) u.pairCategory = "Minor";
+            else if (sym.length >= 6)                                                 u.pairCategory = "Exotic";
           }
 
-          // ─────────────────────────────────────────────────────────────
-          // DIRECTION & ORDER TYPE
-          // ─────────────────────────────────────────────────────────────
-          if (f.direction)  updated.direction  = f.direction;
-          // orderType from OCR is always null — only set if explicitly provided
-          if (f.orderType)  updated.orderType  = f.orderType;
+          // ── DIRECTION & ORDER TYPE ─────────────────────────────────────
+          if (f.direction) u.direction = f.direction;
+          if (f.orderType) u.orderType = f.orderType;
 
-          // ─────────────────────────────────────────────────────────────
-          // TIMEFRAME  (OCR field is "timeframe", form field is "entryTF")
-          // ─────────────────────────────────────────────────────────────
-          if (f.timeframe)  updated.entryTF = f.timeframe;
-          if (f.entryTF)    updated.entryTF = f.entryTF;
+          // ── TIMEFRAME
+          // OCR VALID_TF set uses "4H","1H","30M".
+          // Form dropdowns use "4HR","1HR","30MIN".
+          // normaliseTF() bridges the gap.
+          const rawTF = f.timeframe ?? f.entryTF;
+          const normTF = normaliseTF(rawTF);
+          if (normTF) u.entryTF = normTF;
 
-          // ─────────────────────────────────────────────────────────────
-          // PRICE LEVELS
-          // OCR gives entryPrice directly (from orange arrow detection).
-          // OCR gives SL/TP only as distances (points), NOT absolute prices.
-          // We calculate absolute SL/TP from entryPrice ± distance when possible.
-          // ─────────────────────────────────────────────────────────────
-          const entryPx = f.entryPrice ? parseFloat(String(f.entryPrice)) : null;
-          if (f.entryPrice && entryPx !== null && !isNaN(entryPx)) {
-            updated.entryPrice = String(f.entryPrice);
+          // ── PRICE LEVELS
+          // OCR's calc_sl_tp() already computed absolute SL/TP using the
+          // instrument-specific point_size (0.00001 for forex, 0.001 for JPY,
+          // 0.01 for gold, 1.0 for indices). Trust these values directly.
+          // Do NOT recalculate — that caused a 10× error on standard forex.
+          if (f.entryPrice != null) u.entryPrice = String(f.entryPrice);
+          if (f.stopLoss   != null) u.stopLoss   = String(f.stopLoss);
+          if (f.takeProfit != null) u.takeProfit = String(f.takeProfit);
+
+          // Distance / points fields — written for display reference only
+          const slPts = f.stopLossPoints ?? f.stopLossDistancePips ?? f.stopLossPips;
+          if (slPts != null) u.stopLossDistancePips = String(slPts);
+
+          const tpPts = f.takeProfitPoints ?? f.takeProfitDistancePips ?? f.takeProfitPips;
+          if (tpPts != null) u.takeProfitDistancePips = String(tpPts);
+
+          // ── POSITION SIZE, RISK, SPREAD ────────────────────────────────
+          if (f.lotSize       != null) u.lotSize       = String(f.lotSize);
+          if (f.riskReward    != null) u.riskReward    = String(f.riskReward);
+          if (f.riskPercent   != null) u.riskPercent   = String(f.riskPercent);
+          if (f.spreadAtEntry != null) u.spreadAtEntry = String(f.spreadAtEntry);
+
+          // ── OUTCOME & P&L ──────────────────────────────────────────────
+          if (f.outcome        != null) u.outcome        = f.outcome;
+          // profitLoss: prefer openPLUSD (USD amount from green band) over generic profitLoss
+          if (f.openPLUSD      != null) u.profitLoss     = String(f.openPLUSD);
+          else if (f.profitLoss != null) u.profitLoss    = String(f.profitLoss);
+          // pipsGainedLost: prefer openPLPoints (from green band) over generic
+          if (f.openPLPoints   != null) u.pipsGainedLost = String(f.openPLPoints);
+          else if (f.pipsGainedLost != null) u.pipsGainedLost = String(f.pipsGainedLost);
+
+          // MAE (max adverse excursion) — from drawdown line on green band
+          if (f.drawdownPoints != null) {
+            u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+          } else if (f.mae != null) {
+            u.mae = String(f.mae);
           }
 
-          // SL distance
-          const slPts = f.stopLossPoints  != null ? parseFloat(String(f.stopLossPoints))  :
-                        f.stopLossDistancePips != null ? parseFloat(String(f.stopLossDistancePips)) : null;
-          if (slPts !== null && !isNaN(slPts)) {
-            updated.stopLossDistancePips = String(slPts);
-
-            // Calculate absolute SL price from entry ± distance
-            // Determine pip value: JPY pairs use 0.01, everything else uses 0.0001
-            if (entryPx !== null && !isNaN(entryPx)) {
-              const sym = (f.instrument || "").toUpperCase();
-              const pipSize = sym.includes("JPY") ? 0.01 : 0.0001;
-              const slDistance = slPts * pipSize;
-              const dir = (f.direction || "Long").toLowerCase();
-              const slPrice = dir === "short"
-                ? entryPx + slDistance
-                : entryPx - slDistance;
-              updated.stopLoss = slPrice.toFixed(sym.includes("JPY") ? 3 : 5);
-            }
+          // MFE (max favorable excursion) — from run-up line on green band
+          if (f.runUpPoints != null) {
+            u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
+          } else if (f.mfe != null) {
+            u.mfe = String(f.mfe);
           }
 
-          // TP distance
-          const tpPts = f.takeProfitPoints  != null ? parseFloat(String(f.takeProfitPoints))  :
-                        f.takeProfitDistancePips != null ? parseFloat(String(f.takeProfitDistancePips)) : null;
-          if (tpPts !== null && !isNaN(tpPts)) {
-            updated.takeProfitDistancePips = String(tpPts);
-
-            // Calculate absolute TP price from entry ± distance
-            if (entryPx !== null && !isNaN(entryPx)) {
-              const sym = (f.instrument || "").toUpperCase();
-              const pipSize = sym.includes("JPY") ? 0.01 : 0.0001;
-              const tpDistance = tpPts * pipSize;
-              const dir = (f.direction || "Long").toLowerCase();
-              const tpPrice = dir === "short"
-                ? entryPx - tpDistance
-                : entryPx + tpDistance;
-              updated.takeProfit = tpPrice.toFixed(sym.includes("JPY") ? 3 : 5);
-            }
-          }
-
-          // Direct SL/TP if OCR ever provides absolute prices
-          if (f.stopLoss)   updated.stopLoss   = String(f.stopLoss);
-          if (f.takeProfit) updated.takeProfit  = String(f.takeProfit);
-
-          // ─────────────────────────────────────────────────────────────
-          // LOT SIZE, RISK & SPREAD
-          // ─────────────────────────────────────────────────────────────
-          if (f.lotSize)       updated.lotSize       = String(f.lotSize);
-          if (f.riskReward)    updated.riskReward    = String(f.riskReward);
-          if (f.riskPercent)   updated.riskPercent   = String(f.riskPercent);
-          if (f.spreadAtEntry) updated.spreadAtEntry = String(f.spreadAtEntry);
-
-          // ─────────────────────────────────────────────────────────────
-          // OUTCOME & P&L
-          // ─────────────────────────────────────────────────────────────
-          if (f.outcome)               updated.outcome        = f.outcome;
-          if (f.profitLoss    != null) updated.profitLoss     = String(f.profitLoss);
-          if (f.openPLUSD     != null) updated.profitLoss     = String(f.openPLUSD);
-          if (f.pipsGainedLost!= null) updated.pipsGainedLost = String(f.pipsGainedLost);
-          if (f.openPLPoints  != null) updated.pipsGainedLost = String(f.openPLPoints);
-
-          // MAE / MFE from OCR drawdown / run-up
-          if (f.mae != null)            updated.mae = String(f.mae);
-          if (f.mfe != null)            updated.mfe = String(f.mfe);
-          if (f.drawdownPoints != null) updated.mae = `${f.drawdownPoints} pips${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
-          if (f.runUpPoints    != null) updated.mfe = `${f.runUpPoints} pips${f.runUpUSD    != null ? ` ($${f.runUpUSD})`    : ""}`;
-
-          // ─────────────────────────────────────────────────────────────
-          // TIMING
-          // OCR returns entryTime as "YYYY-MM-DD HH:MM" extracted from the chart.
-          // → screenshotTimestamp = "HH:MM"  (the <input type="time"> field)
-          // → entryTime           = "YYYY-MM-DDTHH:MM"  (the <input type="datetime-local"> field)
-          // tradeDuration and exitTime are NOT extracted by OCR — left for manual entry.
-          // ─────────────────────────────────────────────────────────────
+          // ── TIMING ─────────────────────────────────────────────────────
+          // entryTime from OCR: "YYYY-MM-DD HH:MM" (from chart timeline bar)
+          // → screenshotTimestamp: "HH:MM"         (time-only input field)
+          // → entryTime:          "YYYY-MM-DDTHH:MM" (datetime-local input)
           if (f.entryTime) {
             try {
               const dt = new Date(f.entryTime.replace(" ", "T"));
               if (!isNaN(dt.getTime())) {
-                updated.screenshotTimestamp = dt.toTimeString().slice(0, 5);          // "HH:MM"
-                updated.entryTime           = f.entryTime.replace(" ", "T").slice(0, 16); // "YYYY-MM-DDTHH:MM"
+                u.screenshotTimestamp = dt.toTimeString().slice(0, 5);
+                u.entryTime           = f.entryTime.replace(" ", "T").slice(0, 16);
               } else {
-                updated.screenshotTimestamp = f.entryTime;
+                u.screenshotTimestamp = f.entryTime;
               }
             } catch {
-              updated.screenshotTimestamp = f.entryTime;
+              u.screenshotTimestamp = f.entryTime;
             }
           }
 
-          if (f.exitTime)      updated.exitTime      = f.exitTime;
-          if (f.dayOfWeek)     updated.dayOfWeek     = f.dayOfWeek;
-          if (f.tradeDuration) updated.tradeDuration = f.tradeDuration;
+          // exitTime from OCR: "YYYY-MM-DD HH:MM" (from "Last processed tick" replay bar)
+          if (f.exitTime)      u.exitTime      = f.exitTime;
+          if (f.dayOfWeek)     u.dayOfWeek     = f.dayOfWeek;
+          if (f.tradeDuration) u.tradeDuration = f.tradeDuration;
 
-          // ─────────────────────────────────────────────────────────────
-          // SESSION & EXIT
-          // ─────────────────────────────────────────────────────────────
-          if (f.sessionName)       updated.sessionName       = f.sessionName;
-          if (f.sessionPhase)      updated.sessionPhase      = f.sessionPhase;
-          if (f.primaryExitReason) updated.primaryExitReason = f.primaryExitReason;
+          // ── SESSION ────────────────────────────────────────────────────
+          // OCR's _get_session_and_phase() can return "London/New York" for
+          // overlaps. normaliseSession() maps that → "Overlap" to match dropdown.
+          if (f.sessionName)       u.sessionName       = normaliseSession(f.sessionName);
+          if (f.sessionPhase)      u.sessionPhase      = f.sessionPhase;
+          if (f.primaryExitReason) u.primaryExitReason = f.primaryExitReason;
 
-          return updated;
+          return u;
         });
+
       } else {
         setAnalyzeError(data.error || "Analysis failed");
       }
@@ -413,58 +420,74 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
     setSaving(true);
     try {
       const payload: Record<string, any> = {
-        instrument: form.instrument || null,
-        pairCategory: form.pairCategory || null,
-        direction: form.direction || null,
-        orderType: form.orderType || null,
-        entryPrice: form.entryPrice || null,
-        stopLoss: form.stopLoss || null,
-        takeProfit: form.takeProfit || null,
-        stopLossDistance: form.stopLossDistancePips || null,
-        takeProfitDistance: form.takeProfitDistancePips || null,
-        lotSize: form.lotSize || null,
-        riskReward: form.riskReward || null,
-        riskPercent: form.riskPercent || null,
-        spreadAtEntry: form.spreadAtEntry || null,
-        entryTime: form.entryTime || null,
-        exitTime: form.exitTime || null,
-        dayOfWeek: form.dayOfWeek || null,
-        tradeDuration: form.tradeDuration || null,
-        entryTF: form.entryTF || null,
-        analysisTF: form.analysisTF || null,
-        contextTF: form.contextTF || null,
-        outcome: form.outcome || null,
-        profitLoss: form.profitLoss || null,
-        pipsGainedLost: form.pipsGainedLost || null,
-        accountBalance: form.accountBalance || null,
-        commission: form.commission || null,
-        mae: form.mae || null,
-        mfe: form.mfe || null,
-        plannedRR: form.plannedRR || null,
-        achievedRR: form.achievedRR || null,
-        monetaryRisk: form.monetaryRisk || null,
-        potentialReward: form.potentialReward || null,
-        primaryExitReason: form.primaryExitReason || null,
-        sessionName: form.sessionName || null,
-        sessionPhase: form.sessionPhase || null,
-        entryTimeUTC: form.entryTimeUTC || null,
-        sessionId: sessionId || null,
-        timingContext: form.timingContext || null,
+        instrument:           form.instrument           || null,
+        pairCategory:         form.pairCategory         || null,
+        direction:            form.direction             || null,
+        orderType:            form.orderType             || null,
+        entryPrice:           form.entryPrice            || null,
+        stopLoss:             form.stopLoss              || null,
+        takeProfit:           form.takeProfit            || null,
+        stopLossDistance:     form.stopLossDistancePips  || null,
+        takeProfitDistance:   form.takeProfitDistancePips|| null,
+        lotSize:              form.lotSize               || null,
+        riskReward:           form.riskReward            || null,
+        riskPercent:          form.riskPercent           || null,
+        spreadAtEntry:        form.spreadAtEntry         || null,
+        entryTime:            form.entryTime             || null,
+        exitTime:             form.exitTime              || null,
+        dayOfWeek:            form.dayOfWeek             || null,
+        tradeDuration:        form.tradeDuration         || null,
+        entryTF:              form.entryTF               || null,
+        analysisTF:           form.analysisTF            || null,
+        contextTF:            form.contextTF             || null,
+        outcome:              form.outcome               || null,
+        profitLoss:           form.profitLoss            || null,
+        pipsGainedLost:       form.pipsGainedLost        || null,
+        accountBalance:       form.accountBalance        || null,
+        commission:           form.commission            || null,
+        mae:                  form.mae                   || null,
+        mfe:                  form.mfe                   || null,
+        plannedRR:            form.plannedRR             || null,
+        achievedRR:           form.achievedRR            || null,
+        monetaryRisk:         form.monetaryRisk          || null,
+        potentialReward:      form.potentialReward       || null,
+        primaryExitReason:    form.primaryExitReason     || null,
+        sessionName:          form.sessionName           || null,
+        sessionPhase:         form.sessionPhase          || null,
+        entryTimeUTC:         form.entryTimeUTC          || null,
+        sessionId:            sessionId                  || null,
+        timingContext:        form.timingContext          || null,
         manualFields: {
-          thesis: form.thesis, trigger: form.trigger, invalidationLogic: form.invalidationLogic,
-          expectedBehavior: form.expectedBehavior, setupTag: form.setupTag, tradeGrade: form.tradeGrade,
-          marketRegime: form.marketRegime, trendDirection: form.trendDirection,
-          volatilityState: form.volatilityState, liquidity: form.liquidity,
-          newsEnvironment: form.newsEnvironment, htfBias: form.htfBias,
-          emotionalState: form.emotionalState, focusStressLevel: form.focusStressLevel,
-          postTradeEmotion: form.postTradeEmotion, rulesFollowed: form.rulesFollowed,
-          confidenceLevel: form.confidenceLevel, worthRepeating: form.worthRepeating,
-          whatWorked: form.whatWorked, whatFailed: form.whatFailed,
-          adjustments: form.adjustments, notes: form.notes,
-          energyLevel: form.energyLevel, focusLevel: form.focusLevel,
-          marketAlignment: form.marketAlignment, setupClarity: form.setupClarity,
-          entryPrecision: form.entryPrecision, confluence: form.confluence,
-          timingQuality: form.timingQuality, confidenceAtEntry: form.confidenceAtEntry,
+          thesis:                form.thesis,
+          trigger:               form.trigger,
+          invalidationLogic:     form.invalidationLogic,
+          expectedBehavior:      form.expectedBehavior,
+          setupTag:              form.setupTag,
+          tradeGrade:            form.tradeGrade,
+          marketRegime:          form.marketRegime,
+          trendDirection:        form.trendDirection,
+          volatilityState:       form.volatilityState,
+          liquidity:             form.liquidity,
+          newsEnvironment:       form.newsEnvironment,
+          htfBias:               form.htfBias,
+          emotionalState:        form.emotionalState,
+          focusStressLevel:      form.focusStressLevel,
+          postTradeEmotion:      form.postTradeEmotion,
+          rulesFollowed:         form.rulesFollowed,
+          confidenceLevel:       form.confidenceLevel,
+          worthRepeating:        form.worthRepeating,
+          whatWorked:            form.whatWorked,
+          whatFailed:            form.whatFailed,
+          adjustments:           form.adjustments,
+          notes:                 form.notes,
+          energyLevel:           form.energyLevel,
+          focusLevel:            form.focusLevel,
+          marketAlignment:       form.marketAlignment,
+          setupClarity:          form.setupClarity,
+          entryPrecision:        form.entryPrecision,
+          confluence:            form.confluence,
+          timingQuality:         form.timingQuality,
+          confidenceAtEntry:     form.confidenceAtEntry,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
@@ -503,6 +526,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
       <div className="relative z-10 w-full max-w-4xl mx-auto px-4 md:px-8 py-2">
 
+        {/* Step tabs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           {STEPS.map((s) => {
             const isActive = s.id === step;
@@ -534,6 +558,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           <div className="absolute -inset-0.5 bg-gradient-to-b from-slate-700/20 to-transparent rounded-[2rem] blur opacity-20" />
           <div className={`relative ${CARD_BG} border border-slate-800/80 rounded-[2rem] p-5 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl`}>
 
+            {/* ═══════════════════════════════════════════════════════════
+                STEP 1 — DECISION
+                Manual only. OCR provides nothing for this step.
+                ═══════════════════════════════════════════════════════ */}
             {step === 1 && (
               <div className="space-y-10">
 
@@ -544,8 +572,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <SectionHeader icon={Lightbulb} title="Core Thesis" />
                   {lf("Trade Thesis", "thesis", 4, "Example: Price broke key resistance at 1.0850 with strong volume, expecting continuation to 1.0920 liquidity zone...")}
                   <div className={g2}>
-                    <InfoBox color="blue"  icon={Target}     title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one." />
-                    <InfoBox color="green" icon={Zap}         title="Edge"      text="Defines your systematic advantage. Separates disciplined entries from random impulse trades." />
+                    <InfoBox color="blue"  icon={Target} title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one." />
+                    <InfoBox color="green" icon={Zap}    title="Edge"      text="Defines your systematic advantage. Separates disciplined entries from random impulse trades." />
                   </div>
                 </section>
 
@@ -556,11 +584,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
                 <section className="space-y-4">
                   <SectionHeader icon={Shield} title="Defensive Overlay" />
-                  {lf("Invalidation Logic", "invalidationLogic", 3, "Example: If price closes below 1.0830 on 15M, thesis invalid. Also invalid if no follow-through within 2 hours...")}
-                  {lf("Expected Behavior", "expectedBehavior", 3, "Example: Expect immediate bullish momentum, hold above 1.0850, reach 1.0880 within 30 min...")}
+                  {lf("Invalidation Logic", "invalidationLogic", 3, "Example: If price closes below 1.0830 on 15M, thesis invalid...")}
+                  {lf("Expected Behavior",  "expectedBehavior",  3, "Example: Expect immediate bullish momentum, reach 1.0880 within 30 min...")}
                   <div className={g2}>
-                    <InfoBox color="rose"   icon={AlertCircle} title="Exit Plan"        text="Rule-based exits. Pre-define failure before emotion kicks in." />
-                    <InfoBox color="violet" icon={Eye}          title="Early Detection"  text="Know within minutes if your trade is working or dying." />
+                    <InfoBox color="rose"   icon={AlertCircle} title="Exit Plan"       text="Rule-based exits. Pre-define failure before emotion kicks in." />
+                    <InfoBox color="violet" icon={Eye}         title="Early Detection" text="Know within minutes if your trade is working or dying." />
                   </div>
                 </section>
 
@@ -571,16 +599,16 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       {sc("Energy Level",        "energyLevel")}
                       {sc("Focus Level",         "focusLevel")}
                       {sc("Confidence at Entry", "confidenceAtEntry")}
-                      {ls("External Distraction", "externalDistraction", ["No","Yes"])}
+                      {ls("External Distraction", "externalDistraction", ["No", "Yes"])}
                     </div>
                     <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
-                      {lf("Open Trades Count",   "openTradesCount",   undefined, "0",   "number")}
-                      {lf("Total Risk Open (%)", "totalRiskOpen",     undefined, "2.5", "number")}
-                      {ls("Correlated Exposure", "correlatedExposure", ["No","Yes"])}
+                      {lf("Open Trades Count",   "openTradesCount", undefined, "0",   "number")}
+                      {lf("Total Risk Open (%)", "totalRiskOpen",   undefined, "2.5", "number")}
+                      {ls("Correlated Exposure", "correlatedExposure", ["No", "Yes"])}
                     </div>
                   </div>
                   <div className={g2}>
-                    <InfoBox color="green" icon={Focus}    title="State Matters"       text="Low energy/focus correlates with poor execution. Track this every single trade." />
+                    <InfoBox color="green" icon={Focus}     title="State Matters"       text="Low energy/focus correlates with poor execution. Track this every single trade." />
                     <InfoBox color="blue"  icon={Briefcase} title="Portfolio Awareness" text="Over-leverage and correlated exposure are silent account killers." />
                   </div>
                 </section>
@@ -589,8 +617,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <SectionHeader icon={Layers} title="Classification & Quality" />
                   <div className={g2}>
                     <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
-                      {lf("Strategy Version ID", "strategyVersionId", undefined, "e.g., v2.1, SMC-A, Breakout-R3")}
-                      {ls("Setup Tag",   "setupTag",   ["Breakout","Reversal","Continuation","Range Bound","Trend Following","Mean Reversion","Momentum","Pullback"])}
+                      {lf("Strategy Version ID", "strategyVersionId", undefined, "e.g., v2.1, SMC-A")}
+                      {ls("Setup Tag", "setupTag", ["Breakout","Reversal","Continuation","Range Bound","Trend Following","Mean Reversion","Momentum","Pullback"])}
                     </div>
                     <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
                       {ls("Trade Grade", "tradeGrade", ["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"])}
@@ -603,10 +631,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <SectionHeader icon={ShieldCheck} title="Rule Governance" />
                   <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
                     <div className={g2}>
-                      {ls("Setup Fully Valid",  "setupFullyValid", ["Yes","No"])}
-                      {ls("Any Rule Broken?",   "anyRuleBroken",   ["No","Yes"])}
+                      {ls("Setup Fully Valid", "setupFullyValid", ["Yes", "No"])}
+                      {ls("Any Rule Broken?",  "anyRuleBroken",   ["No",  "Yes"])}
                     </div>
-                    {form.anyRuleBroken === "Yes" && lf("Rule Broken (ID / Name)", "ruleBroken", undefined, "e.g., Risk > 2%, Entered during news, No confluence")}
+                    {form.anyRuleBroken === "Yes" && lf("Rule Broken (ID / Name)", "ruleBroken", undefined, "e.g., Risk > 2%, Entered during news")}
                     <InfoBox color="rose" icon={AlertCircle} title="Discipline Audit" text="Makes rule-breaking visible. Identify patterns in poor execution over time." />
                   </div>
                 </section>
@@ -626,6 +654,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
             )}
 
+            {/* ═══════════════════════════════════════════════════════════
+                STEP 2 — EXECUTION
+                OCR populates: instrument, pairCategory, direction, entryTF,
+                entryPrice, stopLoss, takeProfit, stopLossDistancePips,
+                takeProfitDistancePips, lotSize, riskReward, spreadAtEntry,
+                outcome, entryTime, exitTime, dayOfWeek, screenshotTimestamp.
+                Remaining fields are manual.
+                ═══════════════════════════════════════════════════════ */}
             {step === 2 && (
               <div className="space-y-10">
 
@@ -658,21 +694,21 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <section className="space-y-4">
                   <SectionHeader icon={Crosshair} title="Position Details" />
                   <div className={g4}>
-                    {lf("Screenshot Time",    "screenshotTimestamp",   undefined, "",       "time")}
-                    {lf("Instrument",          "instrument",            undefined, "BTCUSD")}
-                    {ls("Pair Category",       "pairCategory",          ["Major","Minor","Exotic","Index","Crypto","Commodity"])}
-                    {ls("Direction",           "direction",             ["Long","Short"])}
-                    {lf("Lot Size",            "lotSize",               undefined, "0.01")}
-                    {lf("Trade # Today",       "consecutiveTradeCount", undefined, "1",      "number")}
-                    {lf("Entry Price",         "entryPrice",            undefined, "0.00",   "number")}
-                    {lf("Stop Loss",           "stopLoss",              undefined, "0.00",   "number")}
-                    {lf("SL Distance (Pips)",  "stopLossDistancePips",  undefined, "0",      "number")}
-                    {lf("Take Profit",         "takeProfit",            undefined, "0.00",   "number")}
-                    {lf("TP Distance (Pips)",  "takeProfitDistancePips",undefined, "0",      "number")}
-                    {lf("Risk %",              "riskPercent",           undefined, "1.0",    "number")}
-                    {ls("Order Type",          "orderType",             ["Market","Limit","Stop","Stop-Limit"])}
-                    {ls("Outcome",             "outcome",               ["Win","Loss","BE"])}
-                    {lf("Spread at Entry",     "spreadAtEntry",         undefined, "e.g. 1.2","number")}
+                    {lf("Screenshot Time",     "screenshotTimestamp",    undefined, "",        "time")}
+                    {lf("Instrument",           "instrument",             undefined, "EURUSD")}
+                    {ls("Pair Category",        "pairCategory",           ["Major","Minor","Exotic","Index","Crypto","Commodity"])}
+                    {ls("Direction",            "direction",              ["Long","Short"])}
+                    {lf("Lot Size",             "lotSize",                undefined, "0.01")}
+                    {lf("Trade # Today",        "consecutiveTradeCount",  undefined, "1",       "number")}
+                    {lf("Entry Price",          "entryPrice",             undefined, "0.00",    "number")}
+                    {lf("Stop Loss",            "stopLoss",               undefined, "0.00",    "number")}
+                    {lf("SL Distance (Points)", "stopLossDistancePips",   undefined, "0",       "number")}
+                    {lf("Take Profit",          "takeProfit",             undefined, "0.00",    "number")}
+                    {lf("TP Distance (Points)", "takeProfitDistancePips", undefined, "0",       "number")}
+                    {lf("Risk %",               "riskPercent",            undefined, "1.0",     "number")}
+                    {ls("Order Type",           "orderType",              ["Market","Limit","Stop","Stop-Limit"])}
+                    {ls("Outcome",              "outcome",                ["Win","Loss","BE"])}
+                    {lf("Spread at Entry",      "spreadAtEntry",          undefined, "e.g. 1.2","number")}
                   </div>
                 </section>
 
@@ -689,7 +725,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <section className="space-y-4">
                   <SectionHeader icon={LayoutGrid} title="Timeframe Analysis" />
                   <div className={g3}>
-                    {ls("Entry TF",    "entryTF",    ["1M","3M","5M","15M"])}
+                    {ls("Entry TF",    "entryTF",    ["1M","3M","5M","15M","30MIN","1HR","2HR","4HR"])}
                     {ls("Analysis TF", "analysisTF", ["15M","30MIN","1HR","2HR","4HR"])}
                     {ls("Context TF",  "contextTF",  ["1W","1D","4HR"])}
                   </div>
@@ -711,6 +747,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
             )}
 
+            {/* ═══════════════════════════════════════════════════════════
+                STEP 3 — CONTEXT
+                OCR populates: sessionName, sessionPhase.
+                Everything else is manual.
+                ═══════════════════════════════════════════════════════ */}
             {step === 3 && (
               <div className="space-y-10">
 
@@ -722,7 +763,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     {ls("Volatility",       "volatilityState", ["Low","Normal","High"])}
                     {ls("Liquidity",        "liquidity",       ["Low","Normal","High"])}
                     {ls("News Environment", "newsEnvironment", ["Clear","Minor","Major"])}
-                    {ls("Session Phase",    "sessionPhase",    ["Open","Mid","Close"])}
+                    {ls("Session Phase",    "sessionPhase",    ["Open","Mid","Close","Overlap"])}
                     {lf("ATR at Entry",     "atrAtEntry",      undefined, "e.g. 0.0045", "number")}
                   </div>
                 </section>
@@ -731,10 +772,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <SectionHeader icon={Layers3} title="Timeframe Context" />
                   <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
                     <div className={g2}>
-                      {ls("HTF Bias",              "htfBias",                ["Bull","Bear","Range"])}
-                      {ls("HTF Key Level Present", "htfKeyLevelPresent",     ["Yes","No"])}
-                      {ls("Trend Alignment",        "trendAlignment",         ["Yes","No"])}
-                      {ls("MTF Alignment",          "multitimeframeAlignment",["Yes","No"])}
+                      {ls("HTF Bias",              "htfBias",                 ["Bull","Bear","Range"])}
+                      {ls("HTF Key Level Present", "htfKeyLevelPresent",      ["Yes","No"])}
+                      {ls("Trend Alignment",        "trendAlignment",          ["Yes","No"])}
+                      {ls("MTF Alignment",          "multitimeframeAlignment", ["Yes","No"])}
                     </div>
                     {lf("Higher TF Context",   "higherTFContext",   2, "What's happening on the higher timeframe?")}
                     {lf("Analysis TF Context", "analysisTFContext", 2, "What's happening on analysis timeframe?")}
@@ -755,9 +796,9 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <section className="space-y-4">
                   <SectionHeader icon={Clock} title="Session Timing" />
                   <div className={g3}>
-                    {lf("Entry Time (UTC)", "entryTimeUTC",  undefined, "", "time")}
-                    {ls("Session",          "sessionName",   ["London","New York","Tokyo","Sydney","Overlap"])}
-                    {ls("Timing Context",   "timingContext", ["Impulse","Correction","Consolidation"])}
+                    {lf("Entry Time (UTC)", "entryTimeUTC", undefined, "", "time")}
+                    {ls("Session", "sessionName", ["London","New York","Tokyo","Sydney","Overlap"])}
+                    {ls("Timing Context", "timingContext", ["Impulse","Correction","Consolidation"])}
                   </div>
                 </section>
 
@@ -778,8 +819,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <div className="space-y-4">
                         {lf("Candle Pattern",    "candlePattern",    undefined, "e.g., Engulfing, Doji")}
                         {lf("Indicator State",   "indicatorState",   undefined, "e.g., RSI 70, MACD cross")}
-                        {lf("Primary Signals",   "primarySignals",   2,         "Main technical confirmations")}
-                        {lf("Secondary Signals", "secondarySignals", 2,         "Supporting technical factors")}
+                        {lf("Primary Signals",   "primarySignals",   2, "Main technical confirmations")}
+                        {lf("Secondary Signals", "secondarySignals", 2, "Supporting technical factors")}
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -798,6 +839,12 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
             )}
 
+            {/* ═══════════════════════════════════════════════════════════
+                STEP 4 — REVIEW
+                OCR populates: outcome, profitLoss, pipsGainedLost,
+                mae, mfe, primaryExitReason.
+                Everything else is manual.
+                ═══════════════════════════════════════════════════════ */}
             {step === 4 && (
               <div className="space-y-10">
 
@@ -833,26 +880,25 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <section className="space-y-4">
                   <SectionHeader icon={Activity} title="Trade Metrics" />
                   <div className={g3}>
-                    {lf("MAE (Max Adverse)",    "mae",            undefined, "-15 pips")}
-                    {lf("MFE (Max Favorable)",  "mfe",            undefined, "+45 pips")}
-                    {lf("Monetary Risk ($)",    "monetaryRisk",   undefined, "0.00",  "number")}
-                    {lf("Potential Reward ($)", "potentialReward",undefined, "0.00",  "number")}
-                    {lf("Planned R:R",          "plannedRR",      undefined, "1:2")}
-                    {lf("Achieved R:R",         "achievedRR",     undefined, "1:1.5")}
+                    {lf("MAE (Max Adverse)",    "mae",             undefined, "-15 pts")}
+                    {lf("MFE (Max Favorable)",  "mfe",             undefined, "+45 pts")}
+                    {lf("Monetary Risk ($)",    "monetaryRisk",    undefined, "0.00",  "number")}
+                    {lf("Potential Reward ($)", "potentialReward", undefined, "0.00",  "number")}
+                    {lf("Planned R:R",          "plannedRR",       undefined, "1:2")}
+                    {lf("Achieved R:R",         "achievedRR",      undefined, "1:1.5")}
                   </div>
                 </section>
 
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
                   <div className="lg:col-span-2 space-y-8">
                     <div className="space-y-4">
                       <SectionHeader icon={BrainCircuit} title="Psychological State" />
                       <div className={g3}>
-                        {ls("Emotional State",    "emotionalState",    ["Calm","Anxious","FOMO","Confident","Fearful","Neutral"])}
-                        {ls("Focus / Stress",     "focusStressLevel",  ["Low","Medium","High"])}
-                        {lf("Rules Followed %",   "rulesFollowed",     undefined, "100", "number")}
-                        {lf("Confidence (1–5)",   "confidenceLevel",   undefined, "3",   "number")}
-                        {ls("Post-Trade Emotion", "postTradeEmotion",  ["Neutral","Relieved","Euphoric","Frustrated","Regretful","Calm","Anxious"])}
+                        {ls("Emotional State",    "emotionalState",   ["Calm","Anxious","FOMO","Confident","Fearful","Neutral"])}
+                        {ls("Focus / Stress",     "focusStressLevel", ["Low","Medium","High"])}
+                        {lf("Rules Followed %",   "rulesFollowed",    undefined, "100", "number")}
+                        {lf("Confidence (1–5)",   "confidenceLevel",  undefined, "3",   "number")}
+                        {ls("Post-Trade Emotion", "postTradeEmotion", ["Neutral","Relieved","Euphoric","Frustrated","Regretful","Calm","Anxious"])}
                         {ck("Influenced by last trade result (recency bias)", "recencyBiasFlag")}
                       </div>
                     </div>
@@ -888,8 +934,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   </div>
                 </section>
 
-                <NavButtons step={step} onPrev={() => setStep(s => s - 1)}
-                  onNext={() => saveJournalEntry()} />
+                <NavButtons step={step} onPrev={() => setStep(s => s - 1)} onNext={() => saveJournalEntry()} />
               </div>
             )}
 
@@ -897,6 +942,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         </div>
       </div>
 
+      {/* ── Save success overlay ── */}
       {saved && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#05070a]/90 backdrop-blur-sm">
           <div className={`${CARD_BG} border border-slate-800/80 rounded-[2rem] p-8 sm:p-10 max-w-sm w-full text-center shadow-2xl`}>
