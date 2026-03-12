@@ -56,7 +56,7 @@ const INIT: Record<string, any> = {
   anyRuleBroken:"No", ruleBroken:"", strategyVersionId:"", spreadAtEntry:"",
   atrAtEntry:"", exitScreenshot:null, pairCategory:"Major",
   consecutiveTradeCount:"", commission:"", postTradeEmotion:"Neutral",
-  recencyBiasFlag:false,
+  recencyBiasFlag:false, riskReward:"",
 };
 
 /* ─── SHARED ATOMS ───────────────────────────────────────────────────── */
@@ -239,30 +239,82 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         const f = data.fields;
         setForm(prev => {
           const updated = { ...prev };
-          if (f.instrument) updated.instrument = f.instrument;
-          if (f.direction) updated.direction = f.direction;
-          if (f.orderType) updated.orderType = f.orderType;
-          if (f.entryPrice) updated.entryPrice = String(f.entryPrice);
-          if (f.stopLoss) updated.stopLoss = String(f.stopLoss);
-          if (f.takeProfit) updated.takeProfit = String(f.takeProfit);
-          if (f.stopLossDistancePips) updated.stopLossDistancePips = String(f.stopLossDistancePips);
-          if (f.takeProfitDistancePips) updated.takeProfitDistancePips = String(f.takeProfitDistancePips);
-          if (f.lotSize) updated.lotSize = String(f.lotSize);
-          if (f.riskReward) updated.riskReward = String(f.riskReward);
-          if (f.entryTime) updated.entryTime = f.entryTime;
-          if (f.exitTime) updated.exitTime = f.exitTime;
-          if (f.dayOfWeek) updated.dayOfWeek = f.dayOfWeek;
-          if (f.tradeDuration) updated.tradeDuration = f.tradeDuration;
-          if (f.outcome) updated.outcome = f.outcome;
-          if (f.profitLoss) updated.profitLoss = String(f.profitLoss);
-          if (f.pipsGainedLost) updated.pipsGainedLost = String(f.pipsGainedLost);
-          if (f.mae) updated.mae = String(f.mae);
-          if (f.mfe) updated.mfe = String(f.mfe);
+
+          // ── Instrument & direction ──────────────────────────────────
+          if (f.instrument)    updated.instrument  = f.instrument;
+          if (f.direction)     updated.direction   = f.direction;
+          if (f.orderType)     updated.orderType   = f.orderType;
+
+          // ── Timeframe: OCR returns "5M", "1H", "15M" etc. ──────────
+          // f.timeframe is the OCR-parsed field; f.entryTF is the legacy field name
+          if (f.timeframe)     updated.entryTF     = f.timeframe;
+          if (f.entryTF)       updated.entryTF     = f.entryTF;
+
+          // ── Price levels ────────────────────────────────────────────
+          if (f.entryPrice)    updated.entryPrice  = String(f.entryPrice);
+          if (f.stopLoss)      updated.stopLoss    = String(f.stopLoss);
+          if (f.takeProfit)    updated.takeProfit  = String(f.takeProfit);
+
+          // OCR outputs distance as stopLossPoints / takeProfitPoints (in pips/points)
+          // These map to the form fields stopLossDistancePips / takeProfitDistancePips
+          if (f.stopLossPoints     != null) updated.stopLossDistancePips   = String(f.stopLossPoints);
+          if (f.stopLossDistancePips)       updated.stopLossDistancePips   = String(f.stopLossDistancePips);
+          if (f.takeProfitPoints   != null) updated.takeProfitDistancePips = String(f.takeProfitPoints);
+          if (f.takeProfitDistancePips)     updated.takeProfitDistancePips = String(f.takeProfitDistancePips);
+
+          // ── Size, risk & spread ─────────────────────────────────────
+          if (f.lotSize)        updated.lotSize       = String(f.lotSize);
+          if (f.riskReward)     updated.riskReward    = String(f.riskReward);
+          if (f.riskPercent)    updated.riskPercent   = String(f.riskPercent);
+          if (f.spreadAtEntry)  updated.spreadAtEntry = String(f.spreadAtEntry);
+
+          // ── P&L / outcome ───────────────────────────────────────────
+          if (f.outcome)                updated.outcome        = f.outcome;
+          // profitLoss: prefer explicit field, fall back to OCR's openPLUSD
+          if (f.profitLoss    != null)  updated.profitLoss     = String(f.profitLoss);
+          if (f.openPLUSD     != null)  updated.profitLoss     = String(f.openPLUSD);
+          // pipsGainedLost: prefer explicit field, fall back to OCR's openPLPoints
+          if (f.pipsGainedLost!= null)  updated.pipsGainedLost = String(f.pipsGainedLost);
+          if (f.openPLPoints  != null)  updated.pipsGainedLost = String(f.openPLPoints);
+
+          // MAE / MFE — OCR exposes these as drawdown / run-up with both points and USD
+          if (f.mae != null)             updated.mae = String(f.mae);
+          if (f.mfe != null)             updated.mfe = String(f.mfe);
+          if (f.drawdownPoints != null)  updated.mae = `${f.drawdownPoints} pips${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+          if (f.runUpPoints    != null)  updated.mfe = `${f.runUpPoints} pips${f.runUpUSD    != null ? ` ($${f.runUpUSD})`    : ""}`;
+
+          // ── Timing ──────────────────────────────────────────────────
+          // OCR's entryTime is the datetime extracted directly from the chart
+          // → populate screenshotTimestamp (HH:MM time input) AND entryTime (datetime-local input)
+          if (f.entryTime) {
+            try {
+              // OCR returns "YYYY-MM-DD HH:MM" — convert space to T for Date parsing
+              const dt = new Date(f.entryTime.replace(" ", "T"));
+              if (!isNaN(dt.getTime())) {
+                // screenshotTimestamp is a <input type="time"> — needs "HH:MM"
+                updated.screenshotTimestamp = dt.toTimeString().slice(0, 5);
+                // entryTime is a <input type="datetime-local"> — needs "YYYY-MM-DDTHH:MM"
+                updated.entryTime = f.entryTime.replace(" ", "T").slice(0, 16);
+              } else {
+                // Fallback: just store the raw string in screenshotTimestamp
+                updated.screenshotTimestamp = f.entryTime;
+              }
+            } catch {
+              updated.screenshotTimestamp = f.entryTime;
+            }
+          }
+
+          if (f.exitTime)       updated.exitTime      = f.exitTime;
+          if (f.dayOfWeek)      updated.dayOfWeek     = f.dayOfWeek;
+          if (f.tradeDuration)  updated.tradeDuration = f.tradeDuration;
+
+          // ── Session ─────────────────────────────────────────────────
+          if (f.sessionName)    updated.sessionName   = f.sessionName;
+          if (f.sessionPhase)   updated.sessionPhase  = f.sessionPhase;
+
+          // ── Exit reason ─────────────────────────────────────────────
           if (f.primaryExitReason) updated.primaryExitReason = f.primaryExitReason;
-          if (f.sessionName) updated.sessionName = f.sessionName;
-          if (f.sessionPhase) updated.sessionPhase = f.sessionPhase;
-          if (f.entryTF) updated.entryTF = f.entryTF;
-          if (f.spreadAtEntry) updated.spreadAtEntry = String(f.spreadAtEntry);
+
           return updated;
         });
       } else {
@@ -354,6 +406,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       setSaving(false);
     }
   };
+
   const f   = (field: string, rows?: number, placeholder?: string, type?: string) =>
     <Field field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type} />;
   const lf  = (label: string, field: string, rows?: number, placeholder?: string, type?: string) =>
