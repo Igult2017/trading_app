@@ -145,11 +145,6 @@ export default function HomePage() {
 
       <NewHeader isDark={isDark} toggleTheme={toggleTheme} />
 
-      <header className="relative pt-28 md:pt-36 pb-0 px-6">
-        <div className="max-w-7xl mx-auto">
-        </div>
-      </header>
-
       <section className="px-6 py-4 md:py-6">
         <div className="max-w-7xl mx-auto">
           <div className="relative group">
