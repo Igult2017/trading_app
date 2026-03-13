@@ -5,6 +5,7 @@ import {
   Sun,
   Moon,
   Menu,
+  X,
 } from 'lucide-react';
 
 const TelegramIcon = ({ size = 18, color = "currentColor" }: { size?: number; color?: string }) => (
@@ -91,7 +92,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             </div>
 
             <button className={`lg:hidden ${isDark ? 'text-white' : 'text-black'}`} onClick={() => setIsMenuOpen(!isMenuOpen)} data-testid="button-mobile-menu">
-              <Menu size={24} />
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
@@ -116,11 +117,29 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           </div>
         </div>
 
-        {isMenuOpen && (
+      </nav>
+
+      {isMenuOpen && (
+        <>
           <div
-            className={`absolute top-full left-0 right-0 lg:hidden border-b ${isDark ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-black/10'} shadow-2xl`}
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => setIsMenuOpen(false)}
+            data-testid="mobile-menu-backdrop"
+          />
+          <div
+            className={`fixed top-0 left-0 right-0 z-50 lg:hidden border-b shadow-2xl ${isDark ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-black/10'}`}
             data-testid="mobile-menu-overlay"
           >
+            <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-white/10' : 'border-black/10'}`}>
+              <span className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-black'}`}>Menu</span>
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className={`p-1 transition-colors ${isDark ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black'}`}
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
             {[
               { label: 'Home', href: '/', isLink: true, active: location === '/' },
               { label: 'Currency Pairs', href: '#major-pairs', isLink: false, active: false },
@@ -151,8 +170,8 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               )
             ))}
           </div>
-        )}
-      </nav>
+        </>
+      )}
     </>
   );
 }
