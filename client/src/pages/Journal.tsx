@@ -83,7 +83,7 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
     onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-      <span style={{ color: isActive ? '#38bdf8' : 'rgba(100,116,139,0.8)', flexShrink: 0, display: 'flex' }}><item.icon /></span>
+      <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex' }}><item.icon /></span>
       {showLabels && <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.03em', color: isActive ? '#e2e8f0' : 'rgba(148,163,184,0.8)', whiteSpace: 'nowrap' }}>{item.label}</span>}
     </div>
     {showLabels && (
