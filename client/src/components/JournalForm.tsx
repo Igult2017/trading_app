@@ -67,12 +67,31 @@ const STEPS = [
   { id:4, label:"REVIEW",    sub:"PERFORMANCE",      icon:"CheckCircle2" },
 ];
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+function normaliseTF(tf: string | null | undefined): string | null {
+  if (!tf) return null;
+  const map: Record<string, string> = {
+    "1M":"1M","3M":"3M","5M":"5M","15M":"15M",
+    "20M":"15M",
+    "30M":"30MIN",
+    "1H":"1HR","2H":"2HR","4H":"4HR",
+    "6H":"4HR","8H":"4HR","12H":"4HR",
+    "1D":"1D","1W":"1W",
+  };
+  return map[tf.toUpperCase()] ?? tf;
+}
+
+function normaliseSession(s: string | null | undefined): string | null {
+  if (!s) return null;
+  return s.includes("/") ? "Overlap" : s;
+}
+
 const INIT: Record<string, any> = {
   screenshot:null, screenshotTimestamp:"", instrument:"", direction:"Long",
   lotSize:"", entryPrice:"", stopLoss:"", stopLossDistancePips:"",
   takeProfit:"", takeProfitDistancePips:"", entryTime:"", exitTime:"",
   tradeDuration:"", dayOfWeek:"Monday", outcome:"Win", profitLoss:"",
-  accountBalance:"", orderType:"Market", riskPercent:"", entryTF:"5M",
+  accountBalance:"", orderType:"Market", riskPercent:"", riskReward:"", entryTF:"5M",
   analysisTF:"1HR", contextTF:"1D", marketRegime:"Trending",
   trendDirection:"Bullish", volatilityState:"Normal", liquidity:"High",
   newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
@@ -354,8 +373,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [trades,setTrades]           = useState<any[]>([]);
   const [sidebarOpen,setSidebarOpen] = useState(false);
   const [analyzing,setAnalyzing]     = useState(false);
+  const [analyzeError,setAnalyzeError] = useState<string|null>(null);
   const [saving,setSaving]           = useState(false);
-  const [saveError,setSaveError]     = useState<string|null>(null);
 
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
   const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) => <Field label={label} field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type}/>;
@@ -367,9 +386,12 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const g3="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
   const g4="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
 
-  // ── OCR screenshot analysis ───────────────────────────────────────────────
+  // ── OCR: maps OCR output → form state ──────────────────────────────────────
+  // Trust every value OCR provides. Write straight to state.
+  // Never recalculate what OCR already calculated.
   const analyzeScreenshot = async (base64Image: string) => {
     setAnalyzing(true);
+    setAnalyzeError(null);
     try {
       const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
       const data = await res.json();
@@ -377,46 +399,106 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         const f = data.fields;
         setForm(prev => {
           const u = { ...prev };
-          if (f.instrument)    u.instrument    = f.instrument;
-          if (f.pairCategory)  u.pairCategory  = f.pairCategory;
-          if (f.direction)     u.direction     = f.direction;
-          if (f.orderType)     u.orderType     = f.orderType;
+
+          // Instrument
+          if (f.instrument) u.instrument = f.instrument;
+
+          // Pair category — trust OCR first, inline fallback if null
+          if (f.pairCategory) {
+            u.pairCategory = f.pairCategory;
+          } else if (f.instrument) {
+            const sym = (f.instrument as string).toUpperCase();
+            if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym))                u.pairCategory = "Crypto";
+            else if (/XAU|XAG|GOLD|SILVER|OIL|WTI|BRENT/.test(sym))                u.pairCategory = "Commodity";
+            else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|SP500|DOW|IDX/.test(sym))      u.pairCategory = "Index";
+            else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
+            else if (/EURGBP|EURJPY|GBPJPY|AUDJPY|CADJPY|CHFJPY|EURAUD|EURCHF|GBPAUD|GBPCAD/.test(sym)) u.pairCategory = "Minor";
+            else if (sym.length >= 6)                                                u.pairCategory = "Exotic";
+          }
+
+          // Direction & order type
+          if (f.direction) u.direction = f.direction;
+          if (f.orderType) u.orderType = f.orderType;
+
+          // Timeframe — OCR emits "4H","1H","30M"; dropdowns expect "4HR","1HR","30MIN"
+          const rawTF = f.timeframe ?? f.entryTF;
+          const normTF = normaliseTF(rawTF);
+          if (normTF) u.entryTF = normTF;
+
+          // Price levels — calc_sl_tp() already computed these correctly; trust them
           if (f.entryPrice != null) u.entryPrice = String(f.entryPrice);
           if (f.stopLoss   != null) u.stopLoss   = String(f.stopLoss);
           if (f.takeProfit != null) u.takeProfit = String(f.takeProfit);
+
+          // Distance fields
           const slPts = f.stopLossPoints ?? f.stopLossDistancePips ?? f.stopLossPips;
           if (slPts != null) u.stopLossDistancePips = String(slPts);
           const tpPts = f.takeProfitPoints ?? f.takeProfitDistancePips ?? f.takeProfitPips;
           if (tpPts != null) u.takeProfitDistancePips = String(tpPts);
-          if (f.lotSize    != null) u.lotSize    = String(f.lotSize);
-          if (f.riskPercent!= null) u.riskPercent= String(f.riskPercent);
-          if (f.outcome    != null) u.outcome    = f.outcome;
-          if (f.openPLUSD  != null) u.profitLoss = String(f.openPLUSD);
-          else if (f.profitLoss != null) u.profitLoss = String(f.profitLoss);
-          if (f.openPLPoints != null) u.pipsGainedLost = String(f.openPLPoints);
+
+          // Position size, risk, spread
+          if (f.lotSize       != null) u.lotSize       = String(f.lotSize);
+          if (f.riskReward    != null) u.riskReward    = String(f.riskReward);
+          if (f.riskPercent   != null) u.riskPercent   = String(f.riskPercent);
+          if (f.spreadAtEntry != null) u.spreadAtEntry = String(f.spreadAtEntry);
+
+          // Outcome & P&L
+          if (f.outcome        != null) u.outcome        = f.outcome;
+          if (f.openPLUSD      != null) u.profitLoss     = String(f.openPLUSD);
+          else if (f.profitLoss != null) u.profitLoss    = String(f.profitLoss);
+          if (f.openPLPoints   != null) u.pipsGainedLost = String(f.openPLPoints);
           else if (f.pipsGainedLost != null) u.pipsGainedLost = String(f.pipsGainedLost);
+
+          // MAE from drawdown line on green band
+          if (f.drawdownPoints != null) {
+            u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+          } else if (f.mae != null) {
+            u.mae = String(f.mae);
+          }
+
+          // MFE from run-up line on green band
+          if (f.runUpPoints != null) {
+            u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
+          } else if (f.mfe != null) {
+            u.mfe = String(f.mfe);
+          }
+
+          // Timing — entryTime from OCR: "YYYY-MM-DD HH:MM"
           if (f.entryTime) {
             try {
               const dt = new Date(f.entryTime.replace(" ","T"));
               if (!isNaN(dt.getTime())) {
                 u.screenshotTimestamp = dt.toTimeString().slice(0,5);
-                u.entryTime = f.entryTime.replace(" ","T").slice(0,16);
+                u.entryTime           = f.entryTime.replace(" ","T").slice(0,16);
+              } else {
+                u.screenshotTimestamp = f.entryTime;
               }
-            } catch {}
+            } catch {
+              u.screenshotTimestamp = f.entryTime;
+            }
           }
           if (f.exitTime)      u.exitTime      = f.exitTime;
           if (f.dayOfWeek)     u.dayOfWeek     = f.dayOfWeek;
           if (f.tradeDuration) u.tradeDuration = f.tradeDuration;
-          if (f.sessionName)   u.sessionName   = f.sessionName.includes("/") ? "Overlap" : f.sessionName;
-          if (f.sessionPhase)  u.sessionPhase  = f.sessionPhase;
+
+          // Session — normalise overlap labels ("London/New York" → "Overlap")
+          if (f.sessionName)       u.sessionName       = normaliseSession(f.sessionName);
+          if (f.sessionPhase)      u.sessionPhase      = f.sessionPhase;
+          if (f.primaryExitReason) u.primaryExitReason = f.primaryExitReason;
+
           return u;
         });
+      } else {
+        setAnalyzeError(data.error || "Analysis failed");
       }
-    } catch {}
-    finally { setAnalyzing(false); }
+    } catch (err: any) {
+      setAnalyzeError(err.message || "Failed to analyze screenshot");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
-  const handleUpload = (field: string, value: any) => {
+  const handleScreenshotUpload = (field: string, value: any) => {
     set(field, value);
     if (value && typeof value === "string" && (field === "screenshot" || field === "exitScreenshot")) {
       analyzeScreenshot(value);
@@ -424,51 +506,91 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   };
 
   // ── API save ─────────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!sessionId) { setSaveError("Please select or create a session before saving."); return; }
-    setSaving(true); setSaveError(null);
+  const saveJournalEntry = async () => {
+    if (!sessionId) {
+      setAnalyzeError("Please select or create a session before saving a trade.");
+      return;
+    }
+    setSaving(true);
     try {
-      await apiRequest("POST", "/api/journal/entries", {
-        instrument: form.instrument||null, pairCategory: form.pairCategory||null,
-        direction: form.direction||null, orderType: form.orderType||null,
-        entryPrice: form.entryPrice||null, stopLoss: form.stopLoss||null,
-        takeProfit: form.takeProfit||null, stopLossDistance: form.stopLossDistancePips||null,
-        takeProfitDistance: form.takeProfitDistancePips||null, lotSize: form.lotSize||null,
-        riskPercent: form.riskPercent||null, spreadAtEntry: form.spreadAtEntry||null,
-        entryTime: form.entryTime||null, exitTime: form.exitTime||null,
-        dayOfWeek: form.dayOfWeek||null, tradeDuration: form.tradeDuration||null,
-        entryTF: form.entryTF||null, analysisTF: form.analysisTF||null,
-        contextTF: form.contextTF||null, outcome: form.outcome||null,
-        profitLoss: form.profitLoss||null, pipsGainedLost: form.pipsGainedLost||null,
-        accountBalance: form.accountBalance||null, commission: form.commission||null,
-        mae: form.mae||null, mfe: form.mfe||null, plannedRR: form.plannedRR||null,
-        achievedRR: form.achievedRR||null, monetaryRisk: form.monetaryRisk||null,
-        potentialReward: form.potentialReward||null, primaryExitReason: form.primaryExitReason||null,
-        sessionName: form.sessionName||null, sessionPhase: form.sessionPhase||null,
-        entryTimeUTC: form.entryTimeUTC||null, sessionId: sessionId||null,
-        timingContext: form.timingContext||null,
+      const payload: Record<string,any> = {
+        instrument:           form.instrument           || null,
+        pairCategory:         form.pairCategory         || null,
+        direction:            form.direction             || null,
+        orderType:            form.orderType             || null,
+        entryPrice:           form.entryPrice            || null,
+        stopLoss:             form.stopLoss              || null,
+        takeProfit:           form.takeProfit            || null,
+        stopLossDistance:     form.stopLossDistancePips  || null,
+        takeProfitDistance:   form.takeProfitDistancePips|| null,
+        lotSize:              form.lotSize               || null,
+        riskReward:           form.riskReward            || null,
+        riskPercent:          form.riskPercent           || null,
+        spreadAtEntry:        form.spreadAtEntry         || null,
+        entryTime:            form.entryTime             || null,
+        exitTime:             form.exitTime              || null,
+        dayOfWeek:            form.dayOfWeek             || null,
+        tradeDuration:        form.tradeDuration         || null,
+        entryTF:              form.entryTF               || null,
+        analysisTF:           form.analysisTF            || null,
+        contextTF:            form.contextTF             || null,
+        outcome:              form.outcome               || null,
+        profitLoss:           form.profitLoss            || null,
+        pipsGainedLost:       form.pipsGainedLost        || null,
+        accountBalance:       form.accountBalance        || null,
+        commission:           form.commission            || null,
+        mae:                  form.mae                   || null,
+        mfe:                  form.mfe                   || null,
+        plannedRR:            form.plannedRR             || null,
+        achievedRR:           form.achievedRR            || null,
+        monetaryRisk:         form.monetaryRisk          || null,
+        potentialReward:      form.potentialReward       || null,
+        primaryExitReason:    form.primaryExitReason     || null,
+        sessionName:          form.sessionName           || null,
+        sessionPhase:         form.sessionPhase          || null,
+        entryTimeUTC:         form.entryTimeUTC          || null,
+        sessionId:            sessionId                  || null,
+        timingContext:        form.timingContext          || null,
         manualFields: {
-          thesis: form.thesis, trigger: form.trigger, invalidationLogic: form.invalidationLogic,
-          expectedBehavior: form.expectedBehavior, setupTag: form.setupTag, tradeGrade: form.tradeGrade,
-          marketRegime: form.marketRegime, trendDirection: form.trendDirection,
-          volatilityState: form.volatilityState, liquidity: form.liquidity,
-          newsEnvironment: form.newsEnvironment, htfBias: form.htfBias,
-          emotionalState: form.emotionalState, focusStressLevel: form.focusStressLevel,
-          postTradeEmotion: form.postTradeEmotion, rulesFollowed: form.rulesFollowed,
-          confidenceLevel: form.confidenceLevel, worthRepeating: form.worthRepeating,
-          whatWorked: form.whatWorked, whatFailed: form.whatFailed, adjustments: form.adjustments,
-          notes: form.notes, energyLevel: form.energyLevel, focusLevel: form.focusLevel,
-          marketAlignment: form.marketAlignment, setupClarity: form.setupClarity,
-          entryPrecision: form.entryPrecision, confluence: form.confluence,
-          timingQuality: form.timingQuality, confidenceAtEntry: form.confidenceAtEntry,
+          thesis:              form.thesis,
+          trigger:             form.trigger,
+          invalidationLogic:   form.invalidationLogic,
+          expectedBehavior:    form.expectedBehavior,
+          setupTag:            form.setupTag,
+          tradeGrade:          form.tradeGrade,
+          marketRegime:        form.marketRegime,
+          trendDirection:      form.trendDirection,
+          volatilityState:     form.volatilityState,
+          liquidity:           form.liquidity,
+          newsEnvironment:     form.newsEnvironment,
+          htfBias:             form.htfBias,
+          emotionalState:      form.emotionalState,
+          focusStressLevel:    form.focusStressLevel,
+          postTradeEmotion:    form.postTradeEmotion,
+          rulesFollowed:       form.rulesFollowed,
+          confidenceLevel:     form.confidenceLevel,
+          worthRepeating:      form.worthRepeating,
+          whatWorked:          form.whatWorked,
+          whatFailed:          form.whatFailed,
+          adjustments:         form.adjustments,
+          notes:               form.notes,
+          energyLevel:         form.energyLevel,
+          focusLevel:          form.focusLevel,
+          marketAlignment:     form.marketAlignment,
+          setupClarity:        form.setupClarity,
+          entryPrecision:      form.entryPrecision,
+          confluence:          form.confluence,
+          timingQuality:       form.timingQuality,
+          confidenceAtEntry:   form.confidenceAtEntry,
         },
-      });
+      };
+      await apiRequest("POST", "/api/journal/entries", payload);
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
       setTrades(p=>[...p,{...form}]);
       setSaved(true);
     } catch (err: any) {
-      setSaveError(err.message || "Failed to save entry");
+      setAnalyzeError(err.message || "Failed to save entry");
     } finally {
       setSaving(false);
     }
@@ -499,18 +621,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0}}>
           <div style={{maxWidth:"860px",margin:"0 0 0 auto",padding:"12px 20px"}}>
 
-            {saveError&&(
+            {analyzeError&&(
               <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
                 <Icon name="AlertCircle" size={16}/>
-                <span style={{fontSize:"12px",fontWeight:600,flex:1}}>{saveError}</span>
-                <button onClick={()=>setSaveError(null)}><Icon name="X" size={14}/></button>
-              </div>
-            )}
-
-            {analyzing&&(
-              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(59,130,246,0.3)",background:"rgba(59,130,246,0.05)",color:"#60a5fa"}}>
-                <Icon name="Activity" size={16}/>
-                <span style={{fontSize:"12px",fontWeight:600}}>Analyzing screenshot with AI…</span>
+                <span style={{fontSize:"12px",fontWeight:600,flex:1}}>{analyzeError}</span>
+                <button onClick={()=>setAnalyzeError(null)}><Icon name="X" size={14}/></button>
               </div>
             )}
 
@@ -624,12 +739,18 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <div className="space-y-10">
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Trade Setup Screenshot"/>
-                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · up to 10MB"/>
+                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · up to 10MB"/>
+                      {analyzing&&(
+                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(59,130,246,0.3)",background:"rgba(59,130,246,0.05)",color:"#60a5fa"}}>
+                          <Icon name="Activity" size={14}/>
+                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>AI analyzing screenshot…</span>
+                        </div>
+                      )}
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Exit Chart Screenshot"/>
                       <InfoBox color="green" icon="Activity" title="Post-Trade Evidence" text="Capture how price behaved after your exit."/>
-                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleUpload} label="Upload exit chart" sublabel="Compare entry vs exit"/>
+                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Compare entry vs exit"/>
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="Crosshair" title="Position Details"/>
@@ -833,7 +954,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         </div>
                       </div>
                     </section>
-                    <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={handleSave}/>
+                    <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={saveJournalEntry}/>
                   </div>
                 )}
 
