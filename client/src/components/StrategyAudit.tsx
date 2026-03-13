@@ -127,7 +127,7 @@ const StrategyAudit = () => {
 
   return (
     <div className="strategy-audit-root min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-      <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+      <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 h-12 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
             <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 rounded flex items-center justify-center shrink-0">
