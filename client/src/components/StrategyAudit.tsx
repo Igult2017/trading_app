@@ -134,7 +134,7 @@ const StrategyAudit = () => {
               <Cpu className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" />
             </div>
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="font-bold text-[11px] sm:text-lg uppercase text-slate-100 whitespace-nowrap" style={{ letterSpacing: '0.15em' }}>
+              <span className="font-bold text-[10px] sm:text-sm uppercase text-slate-100 whitespace-nowrap" style={{ letterSpacing: '0.15em' }}>
                 <span className="hidden sm:inline">AI Strategy</span>
                 <span className="sm:hidden">AI</span>
                 <span className="text-blue-500">
