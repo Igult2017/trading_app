@@ -285,8 +285,8 @@ function SidebarContent({ trades }: any) {
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
         </div>
         <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span style={{fontSize:"24px",fontWeight:900,fontFamily:"monospace",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
-          <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
+          <span style={{fontSize:"16px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
+          <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
 
@@ -974,8 +974,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
               <div>
                 <div style={{display:"flex",alignItems:"flex-end",gap:"6px"}}>
-                  <span style={{fontSize:"28px",fontWeight:900,fontFamily:"monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
-                  <span style={{fontSize:"11px",fontWeight:700,color:"#475569",marginBottom:"3px"}}>{trades.length===1?"TRADE":"TRADES"}</span>
+                  <span style={{fontSize:"18px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
+                  <span style={{fontSize:"11px",fontWeight:700,color:"#475569",marginBottom:"2px"}}>{trades.length===1?"TRADE":"TRADES"}</span>
                 </div>
                 <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
                   <div style={{height:"100%",borderRadius:"2px",background:"linear-gradient(90deg,#3b82f6,#1d4ed8)",width:`${Math.min((trades.length/10)*100,100)}%`,transition:"width 0.4s ease"}}/>
