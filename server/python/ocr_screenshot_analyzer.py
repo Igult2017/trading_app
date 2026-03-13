@@ -29,6 +29,7 @@ FIELD EXTRACTION SUMMARY (verified on real screenshots)
   ✅ drawdownPoints/USD — from "Drawdown" line (MAE)
   ✅ entryTime      — highlighted date on bottom timeline bar
   ✅ exitTime       — "Last processed tick: YYYY-MM-DD HH:MM" (outcome screenshot)
+  ✅ tradeDuration  — calculated from entryTime and exitTime when both are present
   ✅ dayOfWeek      — derived from entryTime
   ✅ sessionName    — derived from entryTime (UTC)
 
@@ -221,6 +222,78 @@ def _clean_digit_ocr(text):
 
 
 # ─────────────────────────────────────────────
+# TRADE DURATION CALCULATOR
+# ─────────────────────────────────────────────
+
+def compute_trade_duration(entry_dt_str, exit_dt_str):
+    """
+    Calculates human-readable trade duration from entry and exit datetime strings.
+
+    Both strings can be in any of these formats:
+      "YYYY-MM-DD HH:MM"
+      "YYYY-MM-DDTHH:MM"
+      "YYYY-MM-DD"         (date only — duration will be in days)
+
+    Returns a string in the most appropriate unit:
+      < 60 minutes  → "Xm"           e.g. "45m"
+      < 24 hours    → "Xh Ym"        e.g. "2h 30m"
+      >= 24 hours   → "Xd Yh"        e.g. "3d 4h"
+    Returns None if either string is missing or unparseable.
+    """
+    if not entry_dt_str or not exit_dt_str:
+        return None
+
+    fmt_candidates = [
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d",
+    ]
+
+    entry_dt = exit_dt = None
+    for fmt in fmt_candidates:
+        try:
+            entry_dt = datetime.strptime(str(entry_dt_str)[:len(fmt)], fmt)
+            break
+        except ValueError:
+            continue
+
+    for fmt in fmt_candidates:
+        try:
+            exit_dt = datetime.strptime(str(exit_dt_str)[:len(fmt)], fmt)
+            break
+        except ValueError:
+            continue
+
+    if entry_dt is None or exit_dt is None:
+        return None
+
+    delta = exit_dt - entry_dt
+    if delta.total_seconds() < 0:
+        # exit before entry — likely a date-only entry_dt with a time-accurate exit_dt
+        # treat as same-day, use absolute value
+        delta = abs(delta)
+
+    total_minutes = int(delta.total_seconds() // 60)
+    total_hours   = int(delta.total_seconds() // 3600)
+    days          = delta.days
+    remaining_hrs = int((delta.total_seconds() % 86400) // 3600)
+    remaining_min = int((delta.total_seconds() % 3600)  // 60)
+
+    if total_minutes < 60:
+        return f"{total_minutes}m"
+    elif total_hours < 24:
+        if remaining_min == 0:
+            return f"{total_hours}h"
+        return f"{total_hours}h {remaining_min}m"
+    else:
+        if remaining_hrs == 0:
+            return f"{days}d"
+        return f"{days}d {remaining_hrs}h"
+
+
+# ─────────────────────────────────────────────
 # DIRECTION
 # ─────────────────────────────────────────────
 
@@ -256,34 +329,25 @@ def detect_entry_price(img, tokens):
        cTrader renders an amber/yellow label bar directly on the chart
        where the orange arrow is placed. This bar contains the entry price
        as dark text on yellow background.
-       Covers: S1 (0.99875), S2 (1.36244).
 
     2. Orange arrow mid-chart (CLAHE OCR)
        When the arrow is in the middle of the chart (not at the edge),
        the price label sits to the LEFT of the arrow tip as orange text.
-       Covers: S2 as fallback.
 
     3. PSM-11 sparse float token
        Floating orange price labels anywhere on the chart are found as
        price-shaped tokens (X.XXXXX) by the sparse text scan.
-       Covers: S3 (1.37029).
-
-    The REPLAY WARNING triangle at bottom-left is orange too — we exclude
-    it by ignoring orange clusters in the bottom 20% of the image.
     """
     h, w = img.shape[:2]
 
     # ── Strategy 1: yellow arrow-label bar ─────────────────────────────
     hsv    = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    # Amber/yellow: H=15-40, S>100, V>140
     yellow = cv2.inRange(hsv, (15, 100, 140), (40, 255, 255))
-    # Ignore bottom 20% (replay warning icon also has orange)
     yellow[int(h * 0.80):, :] = 0
     row_sums = yellow.sum(axis=1)
     yellow_ys = np.where(row_sums > 300)[0]
 
     if len(yellow_ys):
-        # Take first contiguous yellow band (the arrow label)
         yb1 = max(0, int(yellow_ys[0]) - 2)
         yb2 = min(h, int(yellow_ys[0]) + 25)
         strip = img[yb1:yb2, :]
@@ -292,7 +356,6 @@ def detect_entry_price(img, tokens):
         g  = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
         _, thr = cv2.threshold(g, 100, 255, cv2.THRESH_BINARY_INV)
         text = pytesseract.image_to_string(thr, config="--psm 7 --oem 3").strip()
-        # Remove thousands separators (OCR reads "1.36244" as "1,362.44" sometimes)
         text_clean = re.sub(r'(\d),(\d{3})', r'\1\2', text)
         m = re.search(r'\b(\d{1,4}[.,]\d{4,6})\b', text_clean)
         if m:
@@ -300,7 +363,7 @@ def detect_entry_price(img, tokens):
 
     # ── Strategy 2: orange arrow mid-chart ─────────────────────────────
     orange = cv2.inRange(hsv, (10, 160, 160), (25, 255, 255))
-    orange[int(h * 0.80):, :] = 0   # exclude replay icon
+    orange[int(h * 0.80):, :] = 0
 
     ys_o, xs_o = np.where(orange > 0)
     if len(ys_o):
@@ -354,27 +417,21 @@ def parse_instrument_timeframe(lines, tokens):
     """
     Instrument: from top-bar OCR or PSM-11 tab tokens (y < 80).
     Timeframe:  from "4 Hours" pattern or "H4"-style token.
-                Lines containing trade data (units/P&L/points) are skipped.
     """
     instrument = None
     timeframe  = None
 
-    # Combine top-bar text lines with PSM-11 tokens near the top
     top_tokens = [tok["text"] for tok in tokens if tok["y"] < 80]
     all_text   = lines + top_tokens
 
     for line in all_text:
-        # ── Instrument ────────────────────────────────────────────────
         if not instrument:
-            # Standard forex pairs
             m = re.search(
                 r'\b((?:EUR|GBP|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB)'
                 r'[/\\]?(?:EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB))\b',
                 line, re.IGNORECASE
             )
             if not m:
-                # Index and commodity instruments
-                # Also handles PSM-11 "USASOO.IDX" → normalised to "USA500.IDX"
                 m = re.search(
                     r'\b(USA500[.,_]?IDX|USAS[O0]{2}[.,_]?IDX|US30|NAS100|DAX40'
                     r'|SPX500|XAUUSD|XAGUSD|BTCUSDT?|ETHUSD)\b',
@@ -382,15 +439,12 @@ def parse_instrument_timeframe(lines, tokens):
                 )
             if m:
                 raw = m.group(1).upper()
-                # Normalise OCR variants: "USASOO" → "USA500"
                 raw = re.sub(r'USAS[O0]{2}', 'USA500', raw)
                 instrument = raw
 
-        # ── Timeframe (skip trade-data lines) ─────────────────────────
         if SKIP_TF_KEYWORDS.search(line):
             continue
 
-        # "4 Hours" / "15 Minutes"
         tm = re.search(r'\b(\d+)\s*(Minute[s]?|Hour[s]?)\b', line, re.IGNORECASE)
         if tm:
             n, u = tm.group(1), tm.group(2).lower()
@@ -399,7 +453,6 @@ def parse_instrument_timeframe(lines, tokens):
                 timeframe = tf
                 continue
 
-        # "H4", "4H", "M15", "15M"
         for pat in [r'\b([HMhm])([1-9]\d?)\b', r'\b([1-9]\d?)([HMhm])\b']:
             for m2 in re.finditer(pat, line):
                 a, b = m2.group(1), m2.group(2)
@@ -422,10 +475,6 @@ def parse_tp_sl(lines, instrument):
     Parses SL and TP from lines like:
       'TP 167.4 points USD 21.43'
       'SL -33.3 points USD -4.27'
-
-    For INDEX instruments (USA500.IDX, US30 etc.), the "TP X points" line
-    shows the ABSOLUTE PRICE LEVEL of the TP, not a distance.
-    We detect this when TP value > 1000 and skip it (can't be a pip distance).
     """
     sl_pts = sl_usd = tp_pts = tp_usd = None
     is_index = _is_index(instrument)
@@ -446,7 +495,6 @@ def parse_tp_sl(lines, instrument):
             sl_usd = usd
         elif tag == "TP":
             if pts is not None and abs(pts) > 1000 and is_index:
-                # This is an absolute index price level, not a distance — skip
                 continue
             tp_pts = abs(pts) if pts is not None else None
             tp_usd = usd
@@ -466,16 +514,7 @@ def _is_index(instrument):
 def parse_trade_info(lines):
     """
     Parses from the green trade-info overlay band:
-    - Lot size  ("1'000 units" or "0.1 contract")
-    - Open/Closed P/L in points and USD
-    - Run-Up / Drawdown (MFE / MAE)
-    - Risk/Reward ratio
-
-    Lot size rules:
-    - "N units": lot = N / 100,000  (standard forex)
-    - Units are validated: must be a plausible value (10–10,000,000)
-      to avoid OCR errors like "177000" for "1'000"
-    - "N contract" or "N.N contract": lot = N directly
+    - Lot size, Open/Closed P/L, Run-Up / Drawdown, Risk/Reward
     """
     result = {}
     joined = " ".join(lines)
@@ -485,20 +524,15 @@ def parse_trade_info(lines):
     if m:
         raw = m.group(1).replace("'", "").replace(",", "")
         u   = _f(raw)
-        # Validate: standard cTrader unit sizes are multiples of 1000 up to a few million
-        # OCR often garbles "1'000" → "177000" by merging adjacent text
-        # Accept only round-number unit sizes
         if u and u > 0:
-            # Try to find the "cleanest" candidate: round to nearest valid lot
             valid_units = [100, 1000, 2000, 3000, 5000, 10000, 20000, 50000,
                            100000, 200000, 500000, 1000000, 10000000]
             closest = min(valid_units, key=lambda x: abs(x - u))
             ratio   = u / closest if closest > 0 else 999
-            if 0.8 <= ratio <= 1.2:  # within 20% of a round lot size
+            if 0.8 <= ratio <= 1.2:
                 result["lotSize"] = round(closest / 100000, 5)
                 result["units"]   = int(closest)
             else:
-                # Take it as-is but flag it may be unreliable
                 result["lotSize"] = round(u / 100000, 5)
                 result["units"]   = int(u)
 
@@ -506,12 +540,10 @@ def parse_trade_info(lines):
     if "lotSize" not in result:
         m = re.search(r'([0-9]+[\.,][0-9]+)\s*contract', joined, re.IGNORECASE)
         if not m:
-            # Handle "0.1 contract" OCR garbling like "van 0.1 contract" or "60.1 contract"
-            # "60.1 contract" → "0.1 contract" (the "6" comes from adjacent text)
             m = re.search(r'\b(0\.[0-9]+)\s*contract', joined, re.IGNORECASE)
         if m:
             val = _f(m.group(1))
-            if val and val < 10:  # sanity: index contract size should be < 10
+            if val and val < 10:
                 result["lotSize"]      = val
                 result["contractSize"] = val
 
@@ -559,13 +591,6 @@ def parse_trade_info(lines):
 def get_instrument_specs(instrument):
     """
     Returns (point_size, pip_size, pips_per_point, decimal_places).
-
-    cTrader: 1 point = smallest price increment shown on platform.
-      Forex 5-decimal (EURUSD etc.): point = 0.00001, pip = 0.0001
-      Forex JPY (USDJPY, GBPJPY):    point = 0.001,   pip = 0.01
-      Index (USA500.IDX, US30):      point = 1.0,      no pips
-      Gold (XAUUSD):                 point = 0.01,     pip = 0.1
-      Silver (XAGUSD):               point = 0.001,    pip = 0.01
     """
     sym = (instrument or "").upper()
     if any(x in sym for x in ['IDX','US30','NAS','SPX','DAX','CAC','FTSE','DOW','USA500']):
@@ -576,20 +601,12 @@ def get_instrument_specs(instrument):
         return 0.01,    0.1,   0.1, 2
     if 'XAG' in sym or 'SILVER' in sym:
         return 0.001,   0.01,  0.1, 3
-    # Standard 5-decimal forex (EUR, GBP, USD, CHF, AUD, NZD, CAD)
     return 0.00001, 0.0001, 0.1, 5
 
 
 def calc_sl_tp(entry_price_str, direction, sl_pts, tp_pts, rr, instrument):
     """
     Calculates absolute SL/TP prices and pip distances.
-
-    - SL price  = entry ± (sl_pts × point_size)
-    - TP price  = entry ± (tp_pts × point_size)
-    - If tp_pts is None but rr is known: tp_pts_used = sl_pts × rr
-                                          tpCalculatedFromRR = True
-
-    Returns: (sl_price, sl_pips, tp_price, tp_pips, tp_pts_used, tp_from_rr)
     """
     ep = _f(entry_price_str)
     if ep is None:
@@ -598,13 +615,11 @@ def calc_sl_tp(entry_price_str, direction, sl_pts, tp_pts, rr, instrument):
     ps, pip_s, p2p, dec = get_instrument_specs(instrument)
     long = (direction or "Long").lower() == "long"
 
-    # SL
     sl_price = sl_pips = None
     if sl_pts is not None:
         sl_price = round(ep - sl_pts * ps if long else ep + sl_pts * ps, dec)
         sl_pips  = round(sl_pts * p2p, 1)
 
-    # TP — explicit first, then RR fallback
     tp_from_rr  = False
     tp_pts_used = tp_pts
     if tp_pts_used is None and sl_pts is not None and rr is not None:
@@ -626,19 +641,6 @@ def calc_sl_tp(entry_price_str, direction, sl_pts, tp_pts, rr, instrument):
 def _get_london_ny_opens(dt):
     """
     Returns (london_open_utc, ny_open_utc) accounting for DST on the given date.
-
-    UK BST (UTC+1):  last Sunday of March → last Sunday of October
-      BST:  London opens 07:00 UTC  (08:00 local − 1h)
-      GMT:  London opens 08:00 UTC  (08:00 local)
-
-    US EDT (UTC-4):  2nd Sunday of March → 1st Sunday of November
-      EDT:  New York opens 13:00 UTC  (09:00 local + 4h)
-      EST:  New York opens 14:00 UTC  (09:00 local + 5h)
-
-    Tokyo has no DST — always opens 00:00 UTC (09:00 JST = UTC+9).
-    Sydney DST is the inverse of the northern hemisphere but its effect on
-    UTC session hours is small (~1h) and Sydney is rarely a primary session
-    for major pairs — we keep Sydney as 22:00 UTC open year-round.
     """
     import calendar as _cal
 
@@ -656,18 +658,16 @@ def _get_london_ny_opens(dt):
 
     d = dt.date() if hasattr(dt, 'date') else dt
 
-    # UK BST: last Sunday of March → last Sunday of October
     bst_start = _last_sunday(year, 3)
     bst_end   = _last_sunday(year, 10)
     uk_bst    = bst_start <= d < bst_end
 
-    # US EDT: 2nd Sunday of March → 1st Sunday of November
     edt_start = _nth_sunday(year, 3,  2)
     edt_end   = _nth_sunday(year, 11, 1)
     us_edt    = edt_start <= d < edt_end
 
-    london_open_utc = 7 if uk_bst  else 8   # London always opens at 08:00 local time
-    ny_open_utc     = 13 if us_edt else 14   # NY always opens at 09:00 local time
+    london_open_utc = 7 if uk_bst  else 8
+    ny_open_utc     = 13 if us_edt else 14
 
     return london_open_utc, ny_open_utc, uk_bst, us_edt
 
@@ -675,41 +675,22 @@ def _get_london_ny_opens(dt):
 def _get_session_and_phase(h_utc, dt=None):
     """
     Returns (primary_session, session_phase) for a UTC hour, with DST awareness.
-
-    Session hours (UTC) vary by season:
-      Tokyo:    always 00:00–09:00 (Japan has no DST)
-      London:   07:00–16:00 (BST, Apr–Oct)  /  08:00–17:00 (GMT, Nov–Mar)
-      New York: 13:00–21:00 (EDT, Mar–Nov)  /  14:00–22:00 (EST, Nov–Mar)
-      Sydney:   ~22:00–06:00 (approx, minor DST variation ignored)
-
-    Overlaps:
-      Tokyo/London:    lon_open to 09:00 UTC  (1–2h)
-      London/New York: ny_open to lon_close   (3–4h, highest liquidity)
-
-    Phases:
-      Open:    first 2h of session
-      Mid:     middle
-      Close:   last 2h of session
-      Overlap: during a session overlap window
-      Dead Zone: 22:00–00:00 UTC (very low liquidity)
     """
     h = h_utc
 
-    # Default to winter values if no date provided
     if dt is not None:
         lon_open, ny_open, _, _ = _get_london_ny_opens(dt)
     else:
-        lon_open, ny_open = 8, 14   # conservative winter default
+        lon_open, ny_open = 8, 14
 
-    lon_close = lon_open + 9    # London session is 9 hours
-    ny_close  = ny_open  + 8    # New York session is 8 hours
+    lon_close = lon_open + 9
+    ny_close  = ny_open  + 8
 
     tokyo_on   = 0  <= h < 9
     london_on  = lon_open <= h < lon_close
     newyork_on = ny_open  <= h < ny_close
     sydney_on  = h >= 22 or h < 6
 
-    # Priority: overlaps first
     if london_on and newyork_on:
         return "London/New York", "Overlap"
     if tokyo_on and london_on:
@@ -717,14 +698,14 @@ def _get_session_and_phase(h_utc, dt=None):
 
     if london_on:
         into = h - lon_open
-        if into < 2:                    return "London", "Open"
-        if into >= lon_close - lon_open - 2: return "London", "Close"
+        if into < 2:                             return "London", "Open"
+        if into >= lon_close - lon_open - 2:     return "London", "Close"
         return "London", "Mid"
 
     if newyork_on:
         into = h - ny_open
-        if into < 2:                    return "New York", "Open"
-        if into >= ny_close - ny_open - 2:   return "New York", "Close"
+        if into < 2:                             return "New York", "Open"
+        if into >= ny_close - ny_open - 2:       return "New York", "Close"
         return "New York", "Mid"
 
     if tokyo_on:
@@ -740,15 +721,10 @@ def _get_session_and_phase(h_utc, dt=None):
 
 def parse_datetimes(lines):
     """
-    Returns (entry_dt, exit_dt, day_of_week, session_name).
+    Returns (entry_dt, exit_dt, day_of_week, session_name, session_phase).
 
     exitTime  ← "Last processed tick: YYYY-MM-DD HH:MM"
-                Found in bottom ~15% of image as dark text on light overlay.
-
-    entryTime ← highlighted date on the bottom timeline bar, patterns:
-                (a) "Thu 10Jan'19 08:00"   (compact, no space before month)
-                (b) "Mon 21 Dec'20 12:00"  (standard with space)
-                (c) "Mon 04 Jan'21"        (date-only, no time)
+    entryTime ← highlighted date on the bottom timeline bar
     """
     months = {'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
               'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12}
@@ -758,21 +734,19 @@ def parse_datetimes(lines):
     entry_dt = exit_dt = day_of_week = None
 
     # ── Exit: "Last processed tick: 2021-01-04 11:59" ───────────────────
-    # This text is dark-on-light — it's extracted by collect_replay_exit_time()
-    # and pre-pended to lines. Look for ISO pattern.
     m_exit = re.search(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}[:.]\d{2})',
                        joined, re.IGNORECASE)
     if m_exit:
         h_part = int(m_exit.group(2)[:2])
-        if 0 <= h_part <= 23:  # validate hour is plausible
+        if 0 <= h_part <= 23:
             try:
                 t_str = m_exit.group(2).replace('.', ':')[:5]
                 dt = datetime.strptime(f"{m_exit.group(1)} {t_str}", '%Y-%m-%d %H:%M')
                 exit_dt = dt.isoformat(sep=' ', timespec='minutes')
             except Exception:
-                exit_dt = m_exit.group(1)  # date only fallback
+                exit_dt = m_exit.group(1)
 
-    # ── Entry: "Thu 10Jan'19 08:00" (compact) ──────────────────────────
+    # ── Entry: "Thu 10Jan'19 08:00" ─────────────────────────────────────
     ms = list(re.finditer(
         r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2})\s*"
         r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'?(\d{2})\s+"
@@ -805,7 +779,6 @@ def parse_datetimes(lines):
             except Exception:
                 pass
 
-    # Derive day of week from exit if entry failed
     if not day_of_week and exit_dt:
         try:
             dt          = datetime.fromisoformat(exit_dt)
@@ -814,8 +787,7 @@ def parse_datetimes(lines):
             pass
 
     # ── Session + Phase (UTC, DST-aware) ────────────────────────────────
-    session = None
-    session_phase = None
+    session = session_phase = None
     ref_str = entry_dt or exit_dt
     if ref_str and (' ' in ref_str or 'T' in ref_str):
         try:
@@ -829,28 +801,20 @@ def parse_datetimes(lines):
 
 def collect_replay_exit_time(img):
     """
-    The 'Replay mode has been activated. Last processed tick: YYYY-MM-DD HH:MM:SS'
-    message is rendered as DARK TEXT on a semi-transparent light/grey overlay
-    in the bottom ~15% of the image.
-
-    It is NOT picked up by the standard white-text scanner.
-    This function scans that region with inverted threshold.
+    Scans bottom ~15% of image for dark-text replay bar:
+    'Replay mode has been activated. Last processed tick: YYYY-MM-DD HH:MM:SS'
     """
     h, w = img.shape[:2]
     y1   = int(h * 0.82)
     y2   = int(h * 0.97)
 
-    # Left 75% of image (where the text appears)
     text = ocr_strip_dark_text(img, y1, y2, x2_pct=0.75, scale=3)
 
-    # Extract date
     m_date = re.search(r'(\d{4}-\d{2}-\d{2})', text)
     if not m_date:
         return ""
 
     date_str = m_date.group(1)
-
-    # Extract time after the date, tolerating garbled colons
     rest       = text[m_date.end():]
     rest_clean = re.sub(r'[Oo]', '0', rest)
     rest_clean = re.sub(r'[Il]', '1', rest_clean)
@@ -862,7 +826,7 @@ def collect_replay_exit_time(img):
         if 0 <= hh <= 23 and 0 <= mm <= 59:
             return f"{date_str} {hh:02d}:{mm:02d}"
 
-    return date_str  # date only if time not parseable
+    return date_str
 
 
 # ─────────────────────────────────────────────
@@ -922,12 +886,10 @@ def extract_fields(img):
     if green_text:
         all_lines.append(green_text)
 
-    # The replay exit-time bar uses dark text — needs separate scan
     replay_text = collect_replay_exit_time(img)
     if replay_text:
         all_lines.append(replay_text)
 
-    # PSM-11 sparse scan for instrument tab + floating price labels
     tokens = psm11_scan(img)
 
     # ── 2. Parse all fields ───────────────────────────────────────────
@@ -947,7 +909,12 @@ def extract_fields(img):
     # ── 4. Pair category ─────────────────────────────────────────────
     pair_category = infer_pair_category(instrument)
 
-    # ── 5. Assemble output ───────────────────────────────────────────
+    # ── 5. Trade duration ─────────────────────────────────────────────
+    # Calculated here — OCR owns this computation since it extracted
+    # both timestamps. JournalForm only displays the result.
+    trade_duration = compute_trade_duration(entry_dt, exit_dt)
+
+    # ── 6. Assemble output ───────────────────────────────────────────
     fields = {
         # Instrument
         "instrument":         instrument,
@@ -987,6 +954,7 @@ def extract_fields(img):
         # Timing
         "entryTime":          entry_dt,
         "exitTime":           exit_dt,
+        "tradeDuration":      trade_duration,   # ← new field
         "dayOfWeek":          dow,
         "sessionName":        session,
         "sessionPhase":       session_phase,
@@ -1021,6 +989,7 @@ def main():
                     "SL/TP absolute prices calculated from entry ± (points × point_size).",
                     "tpCalculatedFromRR=true means TP was derived from RR × SL (no explicit TP on screenshot).",
                     "exitTime comes from 'Last processed tick' on outcome screenshots.",
+                    "tradeDuration calculated from entryTime and exitTime when both are present.",
                     "For index instruments (USA500.IDX etc.), absolute TP price lines are ignored.",
                     "Instrument/timeframe require a visible top bar — may need manual entry if cropped.",
                 ]

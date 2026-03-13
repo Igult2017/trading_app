@@ -5,7 +5,6 @@ import {
   Sun,
   Moon,
   Menu,
-  X,
 } from 'lucide-react';
 
 const TelegramIcon = ({ size = 18, color = "currentColor" }: { size?: number; color?: string }) => (
@@ -92,7 +91,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             </div>
 
             <button className={`lg:hidden ${isDark ? 'text-white' : 'text-black'}`} onClick={() => setIsMenuOpen(!isMenuOpen)} data-testid="button-mobile-menu">
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              <Menu size={24} />
             </button>
           </div>
         </div>
@@ -116,29 +115,12 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             </a>
           </div>
         </div>
-      </nav>
 
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden bg-[#0a0a0a] flex flex-col" data-testid="mobile-menu-overlay">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-            <Link
-              href="/"
-              className="text-xl font-black tracking-tighter text-white"
-              style={{ textDecoration: 'none' }}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              FSDZONES<span className="text-blue-500">.COM</span>
-            </Link>
-            <button
-              onClick={() => setIsMenuOpen(false)}
-              className="text-white p-1"
-              data-testid="button-close-mobile-menu"
-            >
-              <Menu size={24} />
-            </button>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto" data-testid="mobile-menu-drawer">
+        {isMenuOpen && (
+          <div
+            className={`absolute top-full left-0 right-0 lg:hidden border-b ${isDark ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-black/10'} shadow-2xl`}
+            data-testid="mobile-menu-overlay"
+          >
             {[
               { label: 'Home', href: '/', isLink: true, active: location === '/' },
               { label: 'Currency Pairs', href: '#major-pairs', isLink: false, active: false },
@@ -152,7 +134,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`block px-5 py-5 text-[13px] font-black uppercase tracking-[0.12em] border-b border-white/10 transition-colors ${item.active ? 'text-blue-500' : 'text-white hover:text-blue-400'}`}
+                  className={`block px-5 py-4 text-[13px] font-black uppercase tracking-[0.12em] border-b transition-colors ${isDark ? 'border-white/10' : 'border-black/10'} ${item.active ? 'text-blue-500' : isDark ? 'text-white hover:text-blue-400' : 'text-black hover:text-blue-500'}`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
@@ -161,16 +143,16 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
                 <a
                   key={item.label}
                   href={item.href}
-                  className="block px-5 py-5 text-[13px] font-black uppercase tracking-[0.12em] border-b border-white/10 text-white hover:text-blue-400 transition-colors"
+                  className={`block px-5 py-4 text-[13px] font-black uppercase tracking-[0.12em] border-b transition-colors ${isDark ? 'border-white/10 text-white hover:text-blue-400' : 'border-black/10 text-black hover:text-blue-500'}`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
                 </a>
               )
             ))}
-          </nav>
-        </div>
-      )}
+          </div>
+        )}
+      </nav>
     </>
   );
 }
