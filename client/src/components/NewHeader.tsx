@@ -74,8 +74,10 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
     return () => clearInterval(t);
   }, []);
 
+  // Close on route change
   useEffect(() => { setMobileOpen(false); }, [location]);
 
+  // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -122,38 +124,40 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           align-items: center;
           gap: 6px;
         }
-        .fsd-nav-link:hover       { color: var(--text);   border-color: var(--border-lit); background: var(--surface); }
-        .fsd-nav-link.fsd-active  { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
+        .fsd-nav-link:hover      { color: var(--text);   border-color: var(--border-lit); background: var(--surface); }
+        .fsd-nav-link.fsd-active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
 
         .fsd-btn-sub {
           background: var(--accent);
           color: #fff;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 800;
           letter-spacing: 0.05em;
-          padding: 8px 16px;
+          padding: 14px 16px;
           border-radius: 4px;
           border: none;
           cursor: pointer;
           font-family: 'Montserrat', sans-serif;
           transition: opacity 0.2s;
           white-space: nowrap;
+          flex: 1;
         }
         .fsd-btn-sub:hover { opacity: 0.9; }
 
         .fsd-btn-in {
           background: transparent;
           color: var(--text);
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 700;
           letter-spacing: 0.05em;
-          padding: 7px 14px;
+          padding: 14px 16px;
           border-radius: 4px;
           border: 1px solid var(--border-lit);
           cursor: pointer;
           font-family: 'Montserrat', sans-serif;
           transition: all 0.2s;
           white-space: nowrap;
+          flex: 1;
         }
         .fsd-btn-in:hover { border-color: var(--muted); background: var(--surface); }
 
@@ -171,71 +175,39 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         }
         .fsd-icon-btn:hover { color: var(--text); border-color: var(--accent); }
 
-        /* ── Drawer (right-side panel) ── */
-        @keyframes fsd-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        @keyframes fsd-fade-in  { from { opacity: 0; }                  to { opacity: 1; } }
+        /* Full-screen mobile overlay */
+        @keyframes fsd-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-        .fsd-overlay {
+        .fsd-mobile-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.55);
-          z-index: 998;
-          animation: fsd-fade-in 0.2s ease;
-        }
-
-        .fsd-drawer {
-          position: fixed;
-          top: 0;
-          right: 0;
-          bottom: 0;
-          /* Same width as the screenshots — roughly 55% of typical mobile viewport */
-          width: 260px;
-          background: #0a0e14;
-          border-left: 1px solid var(--border-lit);
-          z-index: 999;
+          background: var(--bg);
+          z-index: 200;
           display: flex;
           flex-direction: column;
           overflow-y: auto;
-          padding: 0;
-          animation: fsd-slide-in 0.25s cubic-bezier(0.4,0,0.2,1);
+          animation: fsd-fade-in 0.15s ease;
         }
 
-        /* Drawer close button row */
-        .fsd-drawer-top {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 16px 18px;
-          border-bottom: 1px solid var(--border-lit);
-        }
-
-        /* Drawer CTA row */
-        .fsd-drawer-ctas {
-          display: flex;
-          gap: 8px;
-          padding: 14px 18px;
-          border-bottom: 1px solid var(--border);
-        }
-
-        /* Drawer nav links */
-        .fsd-drawer-link {
+        /* Mobile nav rows */
+        .fsd-mob-link {
           display: flex;
           align-items: center;
           gap: 14px;
-          padding: 16px 18px;
+          padding: 18px 20px;
           border-bottom: 1px solid var(--border);
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 700;
-          letter-spacing: 0.07em;
+          letter-spacing: 0.06em;
           font-family: 'Montserrat', sans-serif;
           text-decoration: none;
           color: var(--text);
           cursor: pointer;
           transition: color 0.15s;
         }
-        .fsd-drawer-link:hover     { color: var(--accent); }
-        .fsd-drawer-link.fsd-active { color: var(--accent); }
-        .fsd-drawer-link .fsd-icon  { opacity: 0.35; font-size: 15px; line-height: 1; }
+        .fsd-mob-link:hover      { color: var(--accent); }
+        .fsd-mob-link.fsd-active { color: var(--accent); }
+        .fsd-mob-link .fsd-icon  { opacity: 0.35; font-size: 16px; line-height: 1; }
 
         /* Desktop-only / mobile-only */
         @media (max-width: 1024px) { .fsd-desktop { display: none !important; } }
@@ -277,13 +249,13 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               ))}
               <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 12px" }} />
               <Link href="/join" style={{ textDecoration: "none" }}>
-                <button className="fsd-btn-sub">SUBSCRIBE</button>
+                <button className="fsd-btn-sub" style={{ padding: "7px 16px", fontSize: 10 }}>SUBSCRIBE</button>
               </Link>
             </nav>
 
             <div className="fsd-desktop" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
             <Link href="/login" className="fsd-desktop" style={{ textDecoration: "none" }}>
-              <button className="fsd-btn-in">SIGN IN</button>
+              <button className="fsd-btn-in" style={{ padding: "6px 14px", fontSize: 10 }}>SIGN IN</button>
             </Link>
 
             {/* Clock — always visible */}
@@ -319,51 +291,58 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         </header>
       </div>
 
-      {/* ── Mobile drawer — portalled outside sticky wrapper ── */}
+      {/* ── Full-screen mobile menu ── */}
       {mobileOpen && (
-        <>
-          {/* Dim overlay — click to close */}
-          <div className="fsd-overlay" onClick={() => setMobileOpen(false)} />
+        <div className="fsd-mobile-overlay">
 
-          {/* Right-side drawer panel */}
-          <div className="fsd-drawer">
+          {/* Top bar — logo + close button, mirrors main header */}
+          <div style={{
+            height: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 24px",
+            borderBottom: "1px solid var(--border-lit)",
+            flexShrink: 0,
+          }}>
+            <Link href="/" style={{ display: "flex", alignItems: "baseline", textDecoration: "none" }}
+              onClick={() => setMobileOpen(false)}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>FSDZONES</span>
+              <span style={{ fontSize: 20, fontWeight: 900, color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
+            </Link>
 
-            {/* Top row: logo + close */}
-            <div className="fsd-drawer-top">
-              <div>
-                <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em" }}>FSDZONES</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: "#4da8f0", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em" }}>.COM</span>
-              </div>
-              <button
-                className="fsd-icon-btn"
-                style={{ width: 30, height: 30, padding: 0 }}
-                onClick={() => setMobileOpen(false)}
-                aria-label="Close menu"
-                data-testid="button-close-menu"
-              >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <line x1="1" y1="1" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="12" y1="1" x2="1"  y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </button>
-            </div>
+            {/* Close — same style as hamburger */}
+            <button
+              className="fsd-icon-btn"
+              style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              data-testid="button-close-menu"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="13" y1="1" x2="1"  y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
 
-            {/* CTA buttons */}
-            <div className="fsd-drawer-ctas">
-              <Link href="/join" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
-                <button className="fsd-btn-sub" style={{ width: "100%" }}>SUBSCRIBE</button>
-              </Link>
-              <Link href="/login" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
-                <button className="fsd-btn-in" style={{ width: "100%" }}>SIGN IN</button>
-              </Link>
-            </div>
+          {/* CTA buttons — full width side by side */}
+          <div style={{ display: "flex", gap: 0, flexShrink: 0 }}>
+            <Link href="/join" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
+              <button className="fsd-btn-sub" style={{ width: "100%", borderRadius: 0 }}>SUBSCRIBE</button>
+            </Link>
+            <Link href="/login" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
+              <button className="fsd-btn-in" style={{ width: "100%", borderRadius: 0, borderTop: "none", borderBottom: "none" }}>SIGN IN</button>
+            </Link>
+          </div>
 
-            {/* Nav links */}
+          {/* Nav links — full width list */}
+          <nav style={{ flex: 1 }}>
             {navItems.map(item => (
               <Link
                 key={item.label}
                 href={item.href}
-                className={`fsd-drawer-link${isActive(item.href) ? " fsd-active" : ""}`}
+                className={`fsd-mob-link${isActive(item.href) ? " fsd-active" : ""}`}
                 onClick={() => setMobileOpen(false)}
                 data-testid={`mobile-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
               >
@@ -371,8 +350,8 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
                 {item.label}
               </Link>
             ))}
-          </div>
-        </>
+          </nav>
+        </div>
       )}
     </>
   );
