@@ -9,6 +9,7 @@ import StrategyAudit from '@/components/StrategyAudit';
 import TradeVault from '@/components/TradeVault';
 import TradingCalendar from '@/components/TradingCalendar';
 import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
+import DrawdownPanel from '@/components/DrawdownPanel';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -606,6 +607,8 @@ export default function Journal() {
             <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} />
           ) : activeNav === 'create' ? (
             <CreateSessionForm onCreated={handleSessionCreated} />
+          ) : activeNav === 'drawdown' ? (
+            <DrawdownPanel />
           ) : (
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
