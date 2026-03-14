@@ -6,6 +6,9 @@ import { analyzeScreenshot } from "./services/screenshotAnalyzer";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
+import { computeDrawdown } from "./services/drawdownCalculator";
+import { computeTFMetrics } from "./services/tfMetricsCalculator";
+import { computeStrategyAudit } from "./services/strategyAuditCalculator";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -337,6 +340,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[Routes] Calendar computation error:", error);
       res.status(500).json({ success: false, error: "Calendar computation failed" });
+    }
+  });
+
+  // ── Drawdown Analysis ──────────────────────────────────────────────────────
+  // Powers the DrawdownPanel component (client/src/components/DrawdownPanel.tsx).
+  // Currently that component uses hardcoded mock data.
+  // TODO: Update DrawdownPanel to call this endpoint via useQuery and replace
+  // the hardcoded topStats, heatmap, streaks, frequency, and structural data
+  // with the real computed values returned here.
+  app.get("/api/drawdown/compute", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries = await storage.getJournalEntries(userId, sessionId);
+      let startingBalance: number | undefined;
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (session) startingBalance = parseFloat(session.startingBalance);
+      }
+      const result = await computeDrawdown(entries, startingBalance);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] Drawdown computation error:", error);
+      res.status(500).json({ success: false, error: "Drawdown computation failed" });
+    }
+  });
+
+  // ── Timeframe Metrics ──────────────────────────────────────────────────────
+  // Powers the TFMetricsPanel component (client/src/components/TFMetricsPanel.tsx).
+  // Currently that component uses hardcoded mock data with no API calls.
+  // TODO: Update TFMetricsPanel to accept sessionId prop, call this endpoint
+  // via useQuery, and replace hardcoded TF breakdowns with real computed data.
+  app.get("/api/tf-metrics/compute", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries = await storage.getJournalEntries(userId, sessionId);
+      let startingBalance: number | undefined;
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (session) startingBalance = parseFloat(session.startingBalance);
+      }
+      const result = await computeTFMetrics(entries, startingBalance);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] TF metrics computation error:", error);
+      res.status(500).json({ success: false, error: "TF metrics computation failed" });
+    }
+  });
+
+  // ── Strategy Audit ─────────────────────────────────────────────────────────
+  // Powers the StrategyAudit component (client/src/components/StrategyAudit.tsx).
+  // Currently that component uses hardcoded mock data for all 4 audit levels.
+  // TODO: Update StrategyAudit to accept sessionId prop, call this endpoint
+  // via useQuery, and replace the static tradeData useMemo with real computed
+  // level1, level2, level3, level4 data from the response.
+  app.get("/api/strategy-audit/compute", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries = await storage.getJournalEntries(userId, sessionId);
+      let startingBalance: number | undefined;
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (session) startingBalance = parseFloat(session.startingBalance);
+      }
+      const result = await computeStrategyAudit(entries, startingBalance);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] Strategy audit computation error:", error);
+      res.status(500).json({ success: false, error: "Strategy audit computation failed" });
     }
   });
 
