@@ -157,7 +157,7 @@ export default function DrawdownPanel() {
         .jm, .jm *    { font-family:'JetBrains Mono',monospace !important; }
       `}</style>
 
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
+      <div className="max-w-[1400px] mx-auto">
 
         {/* ── HEADER ─────────────────────────────────────────────── */}
         <div className="mb-8 pb-6 border-b dd-divider flex flex-col md:flex-row md:items-end justify-between gap-6">
