@@ -43,7 +43,8 @@ const PYTHON_SCRIPT_PATH = path.join(
   process.cwd(),
   "server",
   "python",
-  "drawdown_calculator.py"
+  "drawdown",
+  "main.py"
 );
 
 const TIMEOUT_MS = 30_000;

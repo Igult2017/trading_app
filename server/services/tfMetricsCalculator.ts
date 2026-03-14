@@ -39,7 +39,8 @@ const PYTHON_SCRIPT_PATH = path.join(
   process.cwd(),
   "server",
   "python",
-  "tf_metrics_calculator.py"
+  "tf_metrics",
+  "main.py"
 );
 
 const TIMEOUT_MS = 30_000;

@@ -40,7 +40,8 @@ const PYTHON_SCRIPT_PATH = path.join(
   process.cwd(),
   "server",
   "python",
-  "strategy_audit_calculator.py"
+  "strategy_audit",
+  "main.py"
 );
 
 const TIMEOUT_MS = 45_000;
