@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'wouter';
-import { Activity, Loader2 } from 'lucide-react';
+import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
@@ -204,6 +204,287 @@ const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => 
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SMART DATE PARSER
+// Handles all formats that may come from OCR or manual entry:
+//   "2024-01-15T09:30:00"   ISO with time
+//   "2024-01-15"            ISO date only
+//   "15/01/2024 09:30"      DD/MM/YYYY with time
+//   "15/01/2024"            DD/MM/YYYY date only
+//   "01/15/2024"            MM/DD/YYYY (US format, defensive)
+// Returns { year, month (1-12), day } or null if unparseable.
+// ─────────────────────────────────────────────────────────────────────────────
+function parseTradeDate(raw: string | null | undefined): { year: number; month: number; day: number } | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  // 1. ISO format: YYYY-MM-DD (with optional time component)
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10);
+    const day = parseInt(isoMatch[3], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return { year, month, day };
+    }
+  }
+
+  // 2. Slash-separated: DD/MM/YYYY or MM/DD/YYYY (with optional time)
+  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slashMatch) {
+    const a = parseInt(slashMatch[1], 10);
+    const b = parseInt(slashMatch[2], 10);
+    const year = parseInt(slashMatch[3], 10);
+    // Disambiguate: if first part > 12 it must be a day (DD/MM/YYYY)
+    if (a > 12) {
+      // DD/MM/YYYY
+      if (b >= 1 && b <= 12 && a >= 1 && a <= 31) return { year, month: b, day: a };
+    } else if (b > 12) {
+      // MM/DD/YYYY
+      if (a >= 1 && a <= 12 && b >= 1 && b <= 31) return { year, month: a, day: b };
+    } else {
+      // Ambiguous — default to DD/MM/YYYY (more common outside US)
+      if (a >= 1 && a <= 31 && b >= 1 && b <= 12) return { year, month: b, day: a };
+    }
+  }
+
+  // 3. Dot-separated: DD.MM.YYYY
+  const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (dotMatch) {
+    const day = parseInt(dotMatch[1], 10);
+    const month = parseInt(dotMatch[2], 10);
+    const year = parseInt(dotMatch[3], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { year, month, day };
+  }
+
+  // 4. Last resort — let JS Date try it
+  try {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    }
+  } catch {}
+
+  return null;
+}
+
+// Get the best date string from a journal entry row
+function getEntryDateStr(entry: any): string | null {
+  return entry.entryTime || entry.entryTimeUTC || entry.openedAt || entry.tradeDate || entry.createdAt || null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVITY CALENDAR — month-navigable, date-format-agnostic
+// ─────────────────────────────────────────────────────────────────────────────
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAY_LABELS = ['S','M','T','W','T','F','S'];
+
+function ActivityCalendar({ entries }: { entries: any[] }) {
+  // Build full trade map: "YYYY-M" → { day: 'profit' | 'loss' | 'mixed' }
+  const { tradeMap, sortedMonths } = useMemo(() => {
+    // map: "YYYY-M" → { [day]: { wins, losses } }
+    const raw: Record<string, Record<number, { wins: number; losses: number; pnl: number }>> = {};
+
+    entries.forEach((e: any) => {
+      const parsed = parseTradeDate(getEntryDateStr(e));
+      if (!parsed) return;
+      const { year, month, day } = parsed;
+      const mk = `${year}-${month}`;
+      if (!raw[mk]) raw[mk] = {};
+      if (!raw[mk][day]) raw[mk][day] = { wins: 0, losses: 0, pnl: 0 };
+
+      const outcome = (e.outcome || '').toLowerCase();
+      const pnl = parseFloat(e.profitLoss || e.pnl || '0') || 0;
+      raw[mk][day].pnl += pnl;
+      if (outcome === 'win') raw[mk][day].wins++;
+      else if (outcome === 'loss') raw[mk][day].losses++;
+    });
+
+    // Convert to status map
+    const tradeMap: Record<string, Record<number, 'profit' | 'loss' | 'mixed'>> = {};
+    for (const mk in raw) {
+      tradeMap[mk] = {};
+      for (const d in raw[mk]) {
+        const { wins, losses } = raw[mk][d];
+        if (wins > 0 && losses === 0) tradeMap[mk][Number(d)] = 'profit';
+        else if (losses > 0 && wins === 0) tradeMap[mk][Number(d)] = 'loss';
+        else if (wins > 0 && losses > 0) tradeMap[mk][Number(d)] = 'mixed';
+        // else breakeven / no outcome — leave unset (neutral)
+      }
+    }
+
+    // Sort months chronologically
+    const sortedMonths = Object.keys(tradeMap).sort((a, b) => {
+      const [ay, am] = a.split('-').map(Number);
+      const [by, bm] = b.split('-').map(Number);
+      return ay !== by ? ay - by : am - bm;
+    });
+
+    return { tradeMap, sortedMonths };
+  }, [entries]);
+
+  // Default to most recent month that has trades
+  const defaultMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : null;
+  const [activeMonthKey, setActiveMonthKey] = useState<string | null>(defaultMonth);
+
+  // Keep activeMonthKey in sync if entries change and current key disappears
+  useEffect(() => {
+    if (!activeMonthKey && defaultMonth) {
+      setActiveMonthKey(defaultMonth);
+    }
+  }, [defaultMonth]);
+
+  const activeIdx = activeMonthKey ? sortedMonths.indexOf(activeMonthKey) : -1;
+  const canPrev = activeIdx > 0;
+  const canNext = activeIdx < sortedMonths.length - 1;
+
+  const prev = () => canPrev && setActiveMonthKey(sortedMonths[activeIdx - 1]);
+  const next = () => canNext && setActiveMonthKey(sortedMonths[activeIdx + 1]);
+
+  // Parse active month
+  const activeYear = activeMonthKey ? parseInt(activeMonthKey.split('-')[0], 10) : new Date().getFullYear();
+  const activeMonth = activeMonthKey ? parseInt(activeMonthKey.split('-')[1], 10) : new Date().getMonth() + 1;
+
+  // Calendar grid
+  const daysInMonth = new Date(activeYear, activeMonth, 0).getDate();
+  const firstDayOfWeek = new Date(activeYear, activeMonth - 1, 1).getDay(); // 0=Sun
+  const dayStatuses = tradeMap[activeMonthKey || ''] || {};
+
+  // Summary counts for the active month
+  const monthSummary = useMemo(() => {
+    const days = dayStatuses;
+    let profit = 0, loss = 0, mixed = 0;
+    for (const d in days) {
+      if (days[Number(d)] === 'profit') profit++;
+      else if (days[Number(d)] === 'loss') loss++;
+      else if (days[Number(d)] === 'mixed') mixed++;
+    }
+    return { profit, loss, mixed, total: profit + loss + mixed };
+  }, [activeMonthKey, tradeMap]);
+
+  const cellColor = (status: 'profit' | 'loss' | 'mixed' | undefined) => {
+    if (status === 'profit') return { bg: 'rgba(16,185,129,0.2)', border: 'rgba(16,185,129,0.3)', color: '#34d399' };
+    if (status === 'loss')   return { bg: 'rgba(244,63,94,0.2)',  border: 'rgba(244,63,94,0.3)',  color: '#fb7185' };
+    if (status === 'mixed')  return { bg: 'rgba(251,191,36,0.15)',border: 'rgba(251,191,36,0.25)',color: '#fbbf24' };
+    return { bg: 'rgba(22,27,34,0.8)', border: 'transparent', color: 'rgba(55,65,81,0.8)' };
+  };
+
+  return (
+    <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-activity-calendar">
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+          <Activity size={14} strokeWidth={3} />
+        </div>
+        <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
+      </div>
+
+      {sortedMonths.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(100,116,139,0.5)', fontSize: 10 }}>
+          No trade data yet
+        </div>
+      ) : (
+        <>
+          {/* Month navigator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <button
+              onClick={prev}
+              disabled={!canPrev}
+              style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+              <ChevronLeft size={14} strokeWidth={3} />
+            </button>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>
+                {MONTH_NAMES[activeMonth - 1]} {activeYear}
+              </p>
+              {/* Month dot indicators */}
+              <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 5 }}>
+                {sortedMonths.map(mk => (
+                  <button
+                    key={mk}
+                    onClick={() => setActiveMonthKey(mk)}
+                    style={{
+                      width: mk === activeMonthKey ? 16 : 5,
+                      height: 5, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                      background: mk === activeMonthKey ? '#38bdf8' : 'rgba(56,189,248,0.25)',
+                      transition: 'all 0.2s',
+                    }}
+                    title={(() => { const [y,m]=mk.split('-'); return `${MONTH_NAMES[parseInt(m)-1]} ${y}`; })()}
+                  />
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={next}
+              disabled={!canNext}
+              style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+              <ChevronRight size={14} strokeWidth={3} />
+            </button>
+          </div>
+
+          {/* Day-of-week headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 3 }}>
+            {DAY_LABELS.map((d, i) => (
+              <div key={i} style={{ fontSize: 8, color: 'rgba(55,65,81,0.8)', textAlign: 'center', paddingBottom: 2, fontWeight: 900 }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar grid — offset first day correctly */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
+            {/* Empty cells before day 1 */}
+            {Array.from({ length: firstDayOfWeek }, (_, i) => (
+              <div key={`empty-${i}`} style={{ aspectRatio: '1' }} />
+            ))}
+            {/* Day cells */}
+            {Array.from({ length: daysInMonth }, (_, i) => {
+              const day = i + 1;
+              const status = dayStatuses[day];
+              const c = cellColor(status);
+              return (
+                <div
+                  key={day}
+                  style={{
+                    aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 4, fontSize: 9, fontWeight: 900,
+                    background: c.bg, color: c.color,
+                    border: `1px solid ${c.border}`,
+                    opacity: status ? 1 : 0.5,
+                    transition: 'all 0.15s',
+                    cursor: status ? 'default' : 'default',
+                  }}>
+                  {day}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Month summary */}
+          {monthSummary.total > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              {[
+                { label: 'PROFIT', count: monthSummary.profit, color: '#34d399' },
+                { label: 'LOSS',   count: monthSummary.loss,   color: '#fb7185' },
+                { label: 'MIXED',  count: monthSummary.mixed,  color: '#fbbf24' },
+              ].map(s => s.count > 0 && (
+                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: 2, background: s.color }} />
+                  <span style={{ fontSize: 8, color: 'rgba(148,163,184,0.6)', letterSpacing: '0.1em' }}>
+                    {s.count} {s.label}
+                  </span>
+                </div>
+              ))}
+              <span style={{ fontSize: 8, color: 'rgba(100,116,139,0.4)', marginLeft: 'auto', letterSpacing: '0.1em' }}>
+                {monthSummary.total} TRADE DAYS
+              </span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string; isMobile: boolean; windowWidth: number }) {
   const metricsUrl = `/api/metrics/compute?sessionId=${sessionId}`;
   const entriesUrl = `/api/journal/entries?sessionId=${sessionId}`;
@@ -245,7 +526,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
     ticker: e.instrument || 'N/A',
     date: e.entryTime || (e.createdAt ? new Date(e.createdAt).toLocaleString() : ''),
     type: (e.direction || 'LONG').toUpperCase(),
-    pnl: parseFloat(e.profitLoss || '0'),
+    pnl: parseFloat(e.profitLoss || e.pnl || '0'),
     status: (e.outcome || '').toLowerCase() === 'win' ? 'profit' : 'loss',
   }));
 
@@ -257,23 +538,6 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
 
   const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 4);
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
-
-  const tradeDays = useMemo(() => {
-    const dayMap: Record<number, string> = {};
-    entries.forEach((e: any) => {
-      const date = e.entryTime || e.createdAt;
-      if (!date) return;
-      const d = new Date(date);
-      const day = d.getDate();
-      const outcome = (e.outcome || '').toLowerCase();
-      if (outcome === 'win') dayMap[day] = 'profit';
-      else if (outcome === 'loss' && dayMap[day] !== 'profit') dayMap[day] = 'loss';
-    });
-    return Array.from({ length: 31 }, (_, i) => ({
-      day: i + 1,
-      status: dayMap[i + 1] || 'none',
-    }));
-  }, [entries]);
 
   if (metricsLoading || entriesLoading) {
     return (
@@ -373,19 +637,8 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
           </div>
         </div>
 
-        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-activity-calendar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}><Activity size={14} strokeWidth={3} /></div>
-            <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
-          </div>
-          <p style={{ textAlign: 'center', fontSize: 10, color: '#fff', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12 }}>TRADE DAYS</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} style={{ fontSize: 8, color: 'rgba(55,65,81,0.8)', textAlign: 'center', paddingBottom: 4 }}>{d}</div>)}
-            {tradeDays.map(d => (
-              <div key={d.day} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 9, fontWeight: 900, border: '1px solid transparent', background: d.status === 'profit' ? 'rgba(16,185,129,0.2)' : d.status === 'loss' ? 'rgba(244,63,94,0.2)' : 'rgba(22,27,34,0.8)', color: d.status === 'profit' ? '#34d399' : d.status === 'loss' ? '#fb7185' : 'rgba(55,65,81,0.8)', borderColor: d.status === 'profit' ? 'rgba(16,185,129,0.2)' : d.status === 'loss' ? 'rgba(244,63,94,0.2)' : 'transparent', opacity: d.status === 'none' ? 0.5 : 1 }}>{d.day}</div>
-            ))}
-          </div>
-        </div>
+        {/* ── Smart Activity Calendar ── */}
+        <ActivityCalendar entries={entries} />
       </div>
     </div>
   );
