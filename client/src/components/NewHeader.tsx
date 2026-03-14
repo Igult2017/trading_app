@@ -74,10 +74,8 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
     return () => clearInterval(t);
   }, []);
 
-  // Close drawer on route change
   useEffect(() => { setMobileOpen(false); }, [location]);
 
-  // Prevent body scroll when drawer open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -95,20 +93,18 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+
         :root {
-          --bg: #080c10;
-          --surface: #0c1219;
-          --border: #0f1923;
+          --bg:         #080c10;
+          --surface:    #0c1219;
+          --border:     #0f1923;
           --border-lit: #172233;
-          --accent: #3b9eff;
-          --green: #22d3a5;
-          --red: #f4617f;
-          --text: #c8d8e8;
-          --muted: #4a6580;
+          --accent:     #3b9eff;
+          --text:       #c8d8e8;
+          --muted:      #4a6580;
         }
 
-        /* Nav links (desktop sub-row — not used here but kept for consistency) */
-        .nav-link {
+        .fsd-nav-link {
           color: var(--muted);
           text-decoration: none;
           font-size: 10px;
@@ -126,40 +122,42 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           align-items: center;
           gap: 6px;
         }
-        .nav-link:hover { color: var(--text); border-color: var(--border-lit); background: var(--surface); }
-        .nav-link.nav-active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
+        .fsd-nav-link:hover       { color: var(--text);   border-color: var(--border-lit); background: var(--surface); }
+        .fsd-nav-link.fsd-active  { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
 
-        .btn-subscribe {
+        .fsd-btn-sub {
           background: var(--accent);
           color: #fff;
           font-size: 10px;
           font-weight: 800;
           letter-spacing: 0.05em;
-          padding: 7px 16px;
+          padding: 8px 16px;
           border-radius: 4px;
           border: none;
           cursor: pointer;
-          transition: opacity 0.2s;
           font-family: 'Montserrat', sans-serif;
+          transition: opacity 0.2s;
+          white-space: nowrap;
         }
-        .btn-subscribe:hover { opacity: 0.9; }
+        .fsd-btn-sub:hover { opacity: 0.9; }
 
-        .btn-signin {
+        .fsd-btn-in {
           background: transparent;
           color: var(--text);
           font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.05em;
-          padding: 6px 14px;
+          padding: 7px 14px;
           border-radius: 4px;
           border: 1px solid var(--border-lit);
           cursor: pointer;
-          transition: all 0.2s;
           font-family: 'Montserrat', sans-serif;
+          transition: all 0.2s;
+          white-space: nowrap;
         }
-        .btn-signin:hover { border-color: var(--muted); background: var(--surface); }
+        .fsd-btn-in:hover { border-color: var(--muted); background: var(--surface); }
 
-        .icon-btn {
+        .fsd-icon-btn {
           background: var(--surface);
           border: 1px solid var(--border-lit);
           border-radius: 4px;
@@ -169,66 +167,83 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           align-items: center;
           justify-content: center;
           transition: all 0.15s;
+          flex-shrink: 0;
         }
-        .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+        .fsd-icon-btn:hover { color: var(--text); border-color: var(--accent); }
 
-        /* Show/hide helpers */
-        @media (max-width: 1024px)  { .fsd-desktop-only { display: none !important; } }
-        @media (min-width: 1025px) { .fsd-mobile-only  { display: none !important; } }
+        /* ── Drawer (right-side panel) ── */
+        @keyframes fsd-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes fsd-fade-in  { from { opacity: 0; }                  to { opacity: 1; } }
 
-        /* Mobile drawer */
-        .fsd-drawer-overlay {
+        .fsd-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(0,0,0,0.55);
           z-index: 998;
-          animation: fsdFadeIn 0.2s ease;
+          animation: fsd-fade-in 0.2s ease;
         }
+
         .fsd-drawer {
           position: fixed;
           top: 0;
           right: 0;
           bottom: 0;
-          width: min(280px, 82vw);
-          background: var(--bg);
+          /* Same width as the screenshots — roughly 55% of typical mobile viewport */
+          width: 260px;
+          background: #0a0e14;
           border-left: 1px solid var(--border-lit);
           z-index: 999;
-          overflow-y: auto;
-          animation: fsdSlideIn 0.25s cubic-bezier(0.4,0,0.2,1);
-          padding: 20px 20px 40px;
           display: flex;
           flex-direction: column;
-          gap: 0;
+          overflow-y: auto;
+          padding: 0;
+          animation: fsd-slide-in 0.25s cubic-bezier(0.4,0,0.2,1);
         }
-        @keyframes fsdFadeIn  { from { opacity: 0; }              to { opacity: 1; } }
-        @keyframes fsdSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
+        /* Drawer close button row */
+        .fsd-drawer-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 18px;
+          border-bottom: 1px solid var(--border-lit);
+        }
+
+        /* Drawer CTA row */
+        .fsd-drawer-ctas {
+          display: flex;
+          gap: 8px;
+          padding: 14px 18px;
+          border-bottom: 1px solid var(--border);
+        }
+
+        /* Drawer nav links */
         .fsd-drawer-link {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 15px 0;
+          gap: 14px;
+          padding: 16px 18px;
           border-bottom: 1px solid var(--border);
           font-size: 13px;
           font-weight: 700;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.07em;
           font-family: 'Montserrat', sans-serif;
           text-decoration: none;
+          color: var(--text);
           cursor: pointer;
           transition: color 0.15s;
-          color: var(--text);
         }
-        .fsd-drawer-link:hover, .fsd-drawer-link.nav-active { color: var(--accent); }
-        .fsd-drawer-link .icon { opacity: 0.35; font-size: 15px; }
+        .fsd-drawer-link:hover     { color: var(--accent); }
+        .fsd-drawer-link.fsd-active { color: var(--accent); }
+        .fsd-drawer-link .fsd-icon  { opacity: 0.35; font-size: 15px; line-height: 1; }
+
+        /* Desktop-only / mobile-only */
+        @media (max-width: 1024px) { .fsd-desktop { display: none !important; } }
+        @media (min-width: 1025px) { .fsd-mobile  { display: none !important; } }
       `}</style>
 
-      {/* Sticky header wrapper — only the bar is sticky, NOT the drawer */}
-      <div style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        fontFamily: "'Montserrat', sans-serif",
-      }}>
+      {/* ── Sticky header bar ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 100, fontFamily: "'Montserrat', sans-serif" }}>
         <TickerTape />
 
         <header style={{
@@ -242,20 +257,19 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         }}>
           {/* Logo */}
           <Link href="/" style={{ display: "flex", alignItems: "baseline", textDecoration: "none", flexShrink: 0 }}>
-            <span style={{ fontSize: "20px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>FSDZONES</span>
-            <span style={{ fontSize: "20px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>FSDZONES</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
           </Link>
 
-          {/* Right side */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
             {/* Desktop nav */}
-            <nav className="fsd-desktop-only" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              {navItems.map((item) => (
+            <nav className="fsd-desktop" style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {navItems.map(item => (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`nav-link${isActive(item.href) ? " nav-active" : ""}`}
+                  className={`fsd-nav-link${isActive(item.href) ? " fsd-active" : ""}`}
                 >
                   <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
                   {item.label}
@@ -263,17 +277,16 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               ))}
               <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 12px" }} />
               <Link href="/join" style={{ textDecoration: "none" }}>
-                <button className="btn-subscribe">SUBSCRIBE</button>
+                <button className="fsd-btn-sub">SUBSCRIBE</button>
               </Link>
             </nav>
 
-            <div className="fsd-desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
-
-            <Link href="/login" className="fsd-desktop-only" style={{ textDecoration: "none" }}>
-              <button className="btn-signin">SIGN IN</button>
+            <div className="fsd-desktop" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
+            <Link href="/login" className="fsd-desktop" style={{ textDecoration: "none" }}>
+              <button className="fsd-btn-in">SIGN IN</button>
             </Link>
 
-            {/* Clock — always visible on all screens */}
+            {/* Clock — always visible */}
             <div style={{
               display: "flex", flexDirection: "column", alignItems: "flex-end",
               padding: "4px 10px",
@@ -282,14 +295,18 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               borderRadius: 4,
               flexShrink: 0,
             }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{fmt(time)}</span>
-              <span style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.08em" }}>{fmtDate(time)} · UTC</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>
+                {fmt(time)}
+              </span>
+              <span style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.08em" }}>
+                {fmtDate(time)} · UTC
+              </span>
             </div>
 
             {/* Hamburger — mobile only */}
             <button
-              className="fsd-mobile-only icon-btn"
-              style={{ width: 34, height: 34, padding: 0, flexDirection: "column", gap: 4, flexShrink: 0 }}
+              className="fsd-mobile fsd-icon-btn"
+              style={{ width: 34, height: 34, flexDirection: "column", gap: 4, padding: 0 }}
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
               data-testid="button-mobile-menu"
@@ -302,45 +319,42 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         </header>
       </div>
 
-      {/* Mobile drawer — rendered outside the sticky wrapper so it doesn't affect layout */}
+      {/* ── Mobile drawer — portalled outside sticky wrapper ── */}
       {mobileOpen && (
         <>
-          {/* Overlay */}
-          <div
-            className="fsd-drawer-overlay"
-            onClick={() => setMobileOpen(false)}
-          />
+          {/* Dim overlay — click to close */}
+          <div className="fsd-overlay" onClick={() => setMobileOpen(false)} />
 
-          {/* Drawer */}
+          {/* Right-side drawer panel */}
           <div className="fsd-drawer">
-            {/* Drawer header row */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+
+            {/* Top row: logo + close */}
+            <div className="fsd-drawer-top">
               <div>
-                <span style={{ fontSize: 17, fontWeight: 900, color: "#fff", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em" }}>FSDZONES</span>
-                <span style={{ fontSize: 17, fontWeight: 900, color: "#4da8f0", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em" }}>.COM</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em" }}>FSDZONES</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "#4da8f0", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em" }}>.COM</span>
               </div>
               <button
-                className="icon-btn"
-                style={{ width: 32, height: 32, padding: 0, flexShrink: 0 }}
+                className="fsd-icon-btn"
+                style={{ width: 30, height: 30, padding: 0 }}
                 onClick={() => setMobileOpen(false)}
                 aria-label="Close menu"
                 data-testid="button-close-menu"
               >
-                {/* X icon */}
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <line x1="1" y1="1" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="12" y1="1" x2="1"  y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
             </div>
 
             {/* CTA buttons */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+            <div className="fsd-drawer-ctas">
               <Link href="/join" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
-                <button className="btn-subscribe" style={{ width: "100%", padding: "11px 0" }}>SUBSCRIBE</button>
+                <button className="fsd-btn-sub" style={{ width: "100%" }}>SUBSCRIBE</button>
               </Link>
               <Link href="/login" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
-                <button className="btn-signin" style={{ width: "100%", padding: "11px 0" }}>SIGN IN</button>
+                <button className="fsd-btn-in" style={{ width: "100%" }}>SIGN IN</button>
               </Link>
             </div>
 
@@ -349,11 +363,11 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               <Link
                 key={item.label}
                 href={item.href}
-                className={`fsd-drawer-link${isActive(item.href) ? " nav-active" : ""}`}
+                className={`fsd-drawer-link${isActive(item.href) ? " fsd-active" : ""}`}
                 onClick={() => setMobileOpen(false)}
                 data-testid={`mobile-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
               >
-                <span className="icon">{item.icon}</span>
+                <span className="fsd-icon">{item.icon}</span>
                 {item.label}
               </Link>
             ))}
