@@ -1,4 +1,4 @@
-port { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 
 const TICKER_DATA = [
@@ -52,7 +52,7 @@ function TickerTape() {
 
 const navItems = [
   { label: "HOME",              icon: "⌂", href: "/" },
-  { label: "JOURNAL",           icon: "▤", href: "/history" },
+  { label: "JOURNAL",           icon: "▤", href: "/journal" },
   { label: "ECONOMIC CALENDAR", icon: "▦", href: "/calendar" },
   { label: "ASSETS",            icon: "◈", href: "/major-pairs" },
   { label: "TSC",               icon: "◉", href: "/stats" },
@@ -74,10 +74,8 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
     return () => clearInterval(t);
   }, []);
 
-  // Close on route change
   useEffect(() => { setMobileOpen(false); }, [location]);
 
-  // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -175,7 +173,6 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         }
         .fsd-icon-btn:hover { color: var(--text); border-color: var(--accent); }
 
-        /* Full-screen mobile overlay */
         @keyframes fsd-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
         .fsd-mobile-overlay {
@@ -189,7 +186,6 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           animation: fsd-fade-in 0.15s ease;
         }
 
-        /* Mobile nav rows */
         .fsd-mob-link {
           display: flex;
           align-items: center;
@@ -209,12 +205,11 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         .fsd-mob-link.fsd-active { color: var(--accent); }
         .fsd-mob-link .fsd-icon  { opacity: 0.35; font-size: 16px; line-height: 1; }
 
-        /* Desktop-only / mobile-only */
         @media (max-width: 1024px) { .fsd-desktop { display: none !important; } }
         @media (min-width: 1025px) { .fsd-mobile  { display: none !important; } }
       `}</style>
 
-      {/* ── Sticky header bar ── */}
+      {/* Sticky header bar */}
       <div style={{ position: "sticky", top: 0, zIndex: 100, fontFamily: "'Montserrat', sans-serif" }}>
         <TickerTape />
 
@@ -227,7 +222,6 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
           justifyContent: "space-between",
           padding: "0 24px",
         }}>
-          {/* Logo */}
           <Link href="/" style={{ display: "flex", alignItems: "baseline", textDecoration: "none", flexShrink: 0 }}>
             <span style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>FSDZONES</span>
             <span style={{ fontSize: 20, fontWeight: 900, color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
@@ -235,7 +229,6 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
-            {/* Desktop nav */}
             <nav className="fsd-desktop" style={{ display: "flex", alignItems: "center", gap: 2 }}>
               {navItems.map(item => (
                 <Link
@@ -291,11 +284,11 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         </header>
       </div>
 
-      {/* ── Full-screen mobile menu ── */}
+      {/* Full-screen mobile menu */}
       {mobileOpen && (
         <div className="fsd-mobile-overlay">
 
-          {/* Top bar — logo + close button, mirrors main header */}
+          {/* Top bar */}
           <div style={{
             height: 60,
             display: "flex",
@@ -311,7 +304,6 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
               <span style={{ fontSize: 20, fontWeight: 900, color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
             </Link>
 
-            {/* Close — same style as hamburger */}
             <button
               className="fsd-icon-btn"
               style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
@@ -326,7 +318,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             </button>
           </div>
 
-          {/* CTA buttons — full width side by side */}
+          {/* CTA buttons */}
           <div style={{ display: "flex", gap: 0, flexShrink: 0 }}>
             <Link href="/join" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
               <button className="fsd-btn-sub" style={{ width: "100%", borderRadius: 0 }}>SUBSCRIBE</button>
@@ -336,7 +328,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             </Link>
           </div>
 
-          {/* Nav links — full width list */}
+          {/* Nav links */}
           <nav style={{ flex: 1 }}>
             {navItems.map(item => (
               <Link
