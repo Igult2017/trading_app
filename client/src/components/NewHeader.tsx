@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+port { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 
 const TICKER_DATA = [
