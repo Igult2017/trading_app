@@ -702,8 +702,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         </div>
 
         {/* FORM */}
-        <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0,marginLeft:"-16px"}}>
-          <div style={{width:"100%",margin:"0",padding:"12px 8px 12px 0"}}>
+        <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0}}>
+          <div style={{width:"calc(100% + 16px)",margin:"0 0 0 -16px",padding:"12px 8px 12px 16px"}}>
 
             {analyzeError&&(
               <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
@@ -721,16 +721,16 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 return (
                   <button key={s.id} onClick={()=>setStep(s.id)}
                     className={`relative flex flex-col p-3 sm:p-4 rounded-2xl border transition-all duration-500 overflow-hidden text-left
-                      ${isActive?"bg-slate-900/40 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.1)]":"bg-slate-900/10 border-slate-800/50 hover:border-slate-700"}`}>
+                      ${isActive?"bg-blue-950/40 border-blue-500/70 shadow-[0_0_24px_rgba(59,130,246,0.25),inset_0_1px_0_rgba(59,130,246,0.15)]":"bg-slate-900/20 border-slate-700/60 hover:border-slate-600 hover:bg-slate-900/30"}`}>
                     <div className="flex items-center justify-between mb-2 sm:mb-3">
-                      <div className={`p-1.5 sm:p-2 rounded-lg ${isActive?"text-blue-400":isDone?"text-blue-500/40":"text-slate-600"}`}>
+                      <div className={`p-1.5 sm:p-2 rounded-lg ${isActive?"bg-blue-500/15 text-blue-400":isDone?"text-blue-500/40":"text-slate-600"}`}>
                         <Icon name={s.icon} size={14}/>
                       </div>
-                      <span className={`text-[9px] sm:text-[10px] font-bold ${isActive?"text-blue-500":"text-slate-700"}`}>0{s.id}</span>
+                      <span className={`text-[9px] sm:text-[10px] font-bold ${isActive?"text-blue-400":"text-slate-600"}`}>0{s.id}</span>
                     </div>
-                    <p className={`text-[10px] sm:text-[11px] font-black tracking-widest uppercase mb-0.5 ${isActive?"text-white":"text-slate-500"}`}>{s.label}</p>
-                    <p className={`hidden sm:block text-[9px] font-medium tracking-wider uppercase opacity-60 ${isActive?"text-blue-300":"text-slate-700"}`}>{s.sub}</p>
-                    {isActive&&<div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"/>}
+                    <p className={`text-[10px] sm:text-[11px] font-black tracking-widest uppercase mb-0.5 ${isActive?"text-white":"text-slate-400"}`}>{s.label}</p>
+                    <p className={`hidden sm:block text-[9px] font-medium tracking-wider uppercase opacity-60 ${isActive?"text-blue-300":"text-slate-600"}`}>{s.sub}</p>
+                    {isActive&&<div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent"/>}
                     {isDone&&<Icon name="CheckCircle2" size={12} className="absolute top-3 right-3 text-blue-500/40"/>}
                   </button>
                 );
