@@ -2,40 +2,7 @@
 metrics_calculator.py
 ═══════════════════════════════════════════════════════════════════════════════
 Trading Journal — Complete Metrics Engine
-Version: 2.0.0
-
-Architecture
-────────────
-  Layer 0  │  Constants & Type Definitions
-  Layer 1  │  Input Validation & Data Normalisation
-  Layer 2  │  Shared Utility Functions (pure, stateless)
-  Layer 3  │  Metric Registry  (METRIC_REGISTRY maps key → compute fn)
-  Layer 4  │  Individual Metric Calculators  (single-responsibility)
-  Layer 5  │  Orchestrator  (calls registry, assembles output)
-  Layer 6  │  Public API   (calculate_metrics / calculate_all_metrics)
-
-Design Principles
-────────────────
-  ✓ Single-responsibility functions
-  ✓ Pure functional design  (no side-effects, all state passed in)
-  ✓ Defensive programming  (every accessor guarded)
-  ✓ Data normalisation layer  (raw dict → TradeRecord dataclass)
-  ✓ Layered architecture
-  ✓ Avoid repeated computation  (SharedContext pre-computes shared vals)
-  ✓ Structured data models  (frozen dataclasses, ImpactResult etc.)
-  ✓ Unit-testable functions
-  ✓ Replace magic numbers with constants
-  ✓ Optimised for large datasets  (numpy arrays, single-pass loops)
-  ✓ Metric registry system
-  ✓ Consistent metric schema
-  ✓ Proper time handling  (timezone-aware, ISO-8601)
-  ✓ Scientific libraries  (numpy, scipy)
-  ✓ Clear documentation
-  ✓ Input validation
-  ✓ Independent metric logic
-  ✓ Shared utility functions
-  ✓ Deterministic calculations  (sorted inputs)
-  ✓ Extensible architecture
+Version: 2.1.0  (fix: stdin object unwrapping + journalEntries field remapping)
 ═══════════════════════════════════════════════════════════════════════════════
 """
 
@@ -83,8 +50,19 @@ RISK_MED_MAX:  float = 2.0
 # camelCase → snake_case field map (from schema / JournalForm)
 FIELD_MAP: Dict[str, str] = {
     "id": "id", "sessionId": "session_id", "instrument": "instrument",
-    "direction": "direction", "outcome": "outcome", "pnl": "pnl",
-    "riskPercent": "risk_percent", "rrRatio": "rr_ratio", "lotSize": "lot_size",
+    "direction": "direction", "outcome": "outcome",
+    # ── FIX: map DB column names used in journalEntries schema ──────────────
+    "pnl": "pnl",
+    "profitLoss": "pnl",           # journalEntries uses profitLoss, not pnl
+    "profit_loss": "pnl",          # snake_case variant
+    "rrRatio": "rr_ratio",
+    "riskReward": "rr_ratio",      # journalEntries uses riskReward
+    "risk_reward": "rr_ratio",
+    "riskPercent": "risk_percent",
+    "risk_percent": "risk_percent",
+    "lotSize": "lot_size",
+    "lot_size": "lot_size",
+    # ── Scores ───────────────────────────────────────────────────────────────
     "entryPrecisionScore": "entry_precision_score",
     "timingQualityScore": "timing_quality_score",
     "marketAlignmentScore": "market_alignment_score",
@@ -92,6 +70,7 @@ FIELD_MAP: Dict[str, str] = {
     "confluenceScore": "confluence_score",
     "signalValidationScore": "signal_validation_score",
     "momentumScore": "momentum_score",
+    # ── Booleans ─────────────────────────────────────────────────────────────
     "mtfAlignment": "mtf_alignment",
     "trendAlignment": "trend_alignment",
     "htfKeyLevelPresent": "htf_key_level_present",
@@ -109,14 +88,26 @@ FIELD_MAP: Dict[str, str] = {
     "strongMomentum": "strong_momentum",
     "momentumWithHTFAlign": "momentum_with_htf_align",
     "counterMomentumEntry": "counter_momentum_entry",
+    # ── Categoricals ─────────────────────────────────────────────────────────
     "tradeGrade": "trade_grade",
     "setupType": "setup_type",
     "exitReason": "exit_reason",
+    "primaryExitReason": "exit_reason",    # journalEntries uses primaryExitReason
+    "primary_exit_reason": "exit_reason",
     "session": "session",
+    "sessionName": "session",              # journalEntries uses sessionName
+    "session_name": "session",
     "sessionPhase": "session_phase",
+    "session_phase": "session_phase",
     "timeframe": "timeframe",
+    "entryTF": "timeframe",                # journalEntries uses entryTF
+    "entry_tf": "timeframe",
     "analysisTimeframe": "analysis_timeframe",
+    "analysisTF": "analysis_timeframe",    # journalEntries uses analysisTF
+    "analysis_tf": "analysis_timeframe",
     "contextTimeframe": "context_timeframe",
+    "contextTF": "context_timeframe",      # journalEntries uses contextTF
+    "context_tf": "context_timeframe",
     "marketRegime": "market_regime",
     "volatilityState": "volatility_state",
     "htfBias": "htf_bias",
@@ -124,6 +115,7 @@ FIELD_MAP: Dict[str, str] = {
     "keyLevelType": "key_level_type",
     "timingContext": "timing_context",
     "orderType": "order_type",
+    "order_type": "order_type",
     "managementType": "management_type",
     "candlePattern": "candle_pattern",
     "newsImpact": "news_impact",
@@ -135,16 +127,40 @@ FIELD_MAP: Dict[str, str] = {
     "rulesFollowed": "rules_followed",
     "strategy": "strategy",
     "riskHeat": "risk_heat",
+    # ── MAE / MFE ────────────────────────────────────────────────────────────
     "mae": "mae", "mfe": "mfe",
-    "plannedRR": "planned_rr", "achievedRR": "achieved_rr",
-    "slDistance": "sl_distance", "tpDistance": "tp_distance",
+    "plannedRR": "planned_rr",
+    "achievedRR": "achieved_rr",
+    "slDistance": "sl_distance",
+    "stopLossDistance": "sl_distance",     # journalEntries uses stopLossDistance
+    "stop_loss_distance": "sl_distance",
+    "tpDistance": "tp_distance",
+    "takeProfitDistance": "tp_distance",   # journalEntries uses takeProfitDistance
+    "take_profit_distance": "tp_distance",
     "spreadAtEntry": "spread_at_entry",
+    "spread_at_entry": "spread_at_entry",
     "entryDeviation": "entry_deviation",
     "slDeviation": "sl_deviation",
     "tpDeviation": "tp_deviation",
-    "openedAt": "opened_at", "closedAt": "closed_at", "tradeDate": "trade_date",
-    "accountBalance": "account_balance", "startingBalance": "starting_balance",
+    # ── Timestamps ───────────────────────────────────────────────────────────
+    "openedAt": "opened_at",
+    "entryTime": "opened_at",              # journalEntries uses entryTime
+    "entry_time": "opened_at",
+    "entryTimeUTC": "opened_at",           # fallback
+    "closedAt": "closed_at",
+    "exitTime": "exit_time",
+    "exit_time": "exit_time",
+    "tradeDate": "trade_date",
+    "createdAt": "created_at",
+    "created_at": "created_at",
+    # ── Balance ──────────────────────────────────────────────────────────────
+    "accountBalance": "account_balance",
+    "account_balance": "account_balance",
+    "startingBalance": "starting_balance",
+    "starting_balance": "starting_balance",
+    # ── Day of week ──────────────────────────────────────────────────────────
     "dayOfWeek": "day_of_week",
+    "day_of_week": "day_of_week",
 }
 
 logger = logging.getLogger(__name__)
@@ -315,7 +331,8 @@ def _coerce_datetime(value: Any) -> Optional[datetime]:
             return None
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z",
                     "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
-                    "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                    "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
+                    "%d/%m/%Y %H:%M", "%d/%m/%Y"):
             try:
                 dt = datetime.strptime(value, fmt)
                 return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
@@ -348,21 +365,65 @@ def _normalise_direction(raw: Any) -> str:
     return "unknown"
 
 
+def _get_field(raw: Dict[str, Any], camel: str) -> Any:
+    """
+    Resolve a field from the raw dict using FIELD_MAP.
+    Tries: camelCase key → mapped snake_case key → direct camelCase lookup.
+    This handles both the original camelCase API shape AND the journalEntries
+    DB column names (entryTF, profitLoss, primaryExitReason, etc.).
+    """
+    # 1. Direct lookup by the camelCase key name as provided
+    if camel in raw:
+        return raw[camel]
+    # 2. Look up via FIELD_MAP to find the snake_case target, then check raw
+    snake = FIELD_MAP.get(camel, camel)
+    if snake in raw:
+        return raw[snake]
+    # 3. Try alternative aliases — scan all FIELD_MAP entries that map to same snake
+    for alias, target in FIELD_MAP.items():
+        if target == snake and alias in raw:
+            return raw[alias]
+    return None
+
+
 def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
     """Convert raw camelCase dict to typed TradeRecord. Returns None if invalid."""
     def g(camel: str) -> Any:
-        snake = FIELD_MAP.get(camel, camel)
-        return raw.get(camel, raw.get(snake))
+        return _get_field(raw, camel)
 
     raw_id  = g("id")
-    raw_pnl = _coerce_float(g("pnl"))
+
+    # ── FIX: accept profitLoss (journalEntries) as well as pnl ──────────────
+    raw_pnl = _coerce_float(g("pnl")) 
+    if raw_pnl is None:
+        raw_pnl = _coerce_float(g("profitLoss"))
+    if raw_pnl is None:
+        raw_pnl = _coerce_float(raw.get("profit_loss"))
 
     if raw_id is None or raw_pnl is None:
         return None
 
-    opened_at  = _coerce_datetime(g("openedAt"))
-    closed_at  = _coerce_datetime(g("closedAt"))
-    trade_date = _coerce_datetime(g("tradeDate")) or opened_at or closed_at
+    # ── Timestamps ──────────────────────────────────────────────────────────
+    # journalEntries uses entryTime / entryTimeUTC; original schema uses openedAt
+    opened_at = (
+        _coerce_datetime(g("openedAt"))
+        or _coerce_datetime(g("entryTime"))
+        or _coerce_datetime(g("entryTimeUTC"))
+        or _coerce_datetime(raw.get("entry_time"))
+        or _coerce_datetime(raw.get("entry_time_utc"))
+    )
+    closed_at = (
+        _coerce_datetime(g("closedAt"))
+        or _coerce_datetime(g("exitTime"))
+        or _coerce_datetime(raw.get("exit_time"))
+    )
+    trade_date = (
+        _coerce_datetime(g("tradeDate"))
+        or opened_at
+        or closed_at
+        or _coerce_datetime(g("createdAt"))
+        or _coerce_datetime(raw.get("created_at"))
+    )
 
     # Duration
     duration = None
@@ -371,7 +432,53 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         duration = delta / 60.0 if delta >= 0 else None
 
     # Day of week from trade_date
-    dow = trade_date.strftime("%A") if trade_date else None
+    dow = g("dayOfWeek") or (trade_date.strftime("%A") if trade_date else None)
+
+    # ── R:R — accept riskReward (journalEntries) or rrRatio ─────────────────
+    rr = _coerce_float(g("rrRatio")) or _coerce_float(g("riskReward")) or _coerce_float(raw.get("risk_reward"))
+
+    # ── SL / TP distances — accept stopLossDistance / takeProfitDistance ────
+    sl_dist = (
+        _coerce_float(g("slDistance"))
+        or _coerce_float(g("stopLossDistance"))
+        or _coerce_float(raw.get("stop_loss_distance"))
+    )
+    tp_dist = (
+        _coerce_float(g("tpDistance"))
+        or _coerce_float(g("takeProfitDistance"))
+        or _coerce_float(raw.get("take_profit_distance"))
+    )
+
+    # ── Exit reason — accept primaryExitReason (journalEntries) ─────────────
+    exit_rsn = (
+        _str(g("exitReason"))
+        or _str(g("primaryExitReason"))
+        or _str(raw.get("primary_exit_reason"))
+    )
+
+    # ── Session — accept sessionName (journalEntries) ────────────────────────
+    session_val = (
+        _str(g("session"))
+        or _str(g("sessionName"))
+        or _str(raw.get("session_name"))
+    )
+
+    # ── Timeframes — accept entryTF / analysisTF / contextTF ────────────────
+    tf_entry = (
+        _str(g("timeframe"))
+        or _str(g("entryTF"))
+        or _str(raw.get("entry_tf"))
+    )
+    tf_analysis = (
+        _str(g("analysisTimeframe"))
+        or _str(g("analysisTF"))
+        or _str(raw.get("analysis_tf"))
+    )
+    tf_context = (
+        _str(g("contextTimeframe"))
+        or _str(g("contextTF"))
+        or _str(raw.get("context_tf"))
+    )
 
     def cat(camel: str) -> Optional[str]:
         v = g(camel)
@@ -379,14 +486,14 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
 
     return TradeRecord(
         id=str(raw_id),
-        session_id=str(g("sessionId") or ""),
+        session_id=str(g("sessionId") or raw.get("session_id") or ""),
         instrument=str(g("instrument") or "").strip().upper(),
         direction=_normalise_direction(g("direction")),
         outcome=_normalise_outcome(g("outcome")),
         pnl=raw_pnl,
-        risk_percent=_coerce_float(g("riskPercent")),
-        rr_ratio=_coerce_float(g("rrRatio")),
-        lot_size=_coerce_float(g("lotSize")),
+        risk_percent=_coerce_float(g("riskPercent")) or _coerce_float(raw.get("risk_percent")),
+        rr_ratio=rr,
+        lot_size=_coerce_float(g("lotSize")) or _coerce_float(raw.get("lot_size")),
         entry_precision_score=_coerce_float(g("entryPrecisionScore")),
         timing_quality_score=_coerce_float(g("timingQualityScore")),
         market_alignment_score=_coerce_float(g("marketAlignmentScore")),
@@ -413,19 +520,19 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         counter_momentum_entry=_coerce_bool(g("counterMomentumEntry")),
         trade_grade=cat("tradeGrade"),
         setup_type=cat("setupType"),
-        exit_reason=cat("exitReason"),
-        session=cat("session"),
-        session_phase=cat("sessionPhase"),
-        timeframe=cat("timeframe"),
-        analysis_timeframe=cat("analysisTimeframe"),
-        context_timeframe=cat("contextTimeframe"),
+        exit_reason=exit_rsn,
+        session=session_val,
+        session_phase=cat("sessionPhase") or _str(raw.get("session_phase")),
+        timeframe=tf_entry,
+        analysis_timeframe=tf_analysis,
+        context_timeframe=tf_context,
         market_regime=cat("marketRegime"),
         volatility_state=cat("volatilityState"),
         htf_bias=cat("htfBias"),
         directional_bias=cat("directionalBias"),
         key_level_type=cat("keyLevelType"),
-        timing_context=cat("timingContext"),
-        order_type=cat("orderType"),
+        timing_context=cat("timingContext") or _str(raw.get("timing_context")),
+        order_type=cat("orderType") or _str(raw.get("order_type")),
         management_type=cat("managementType"),
         candle_pattern=cat("candlePattern"),
         news_impact=cat("newsImpact"),
@@ -441,9 +548,9 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         mfe=_coerce_float(g("mfe")),
         planned_rr=_coerce_float(g("plannedRR")),
         achieved_rr=_coerce_float(g("achievedRR")),
-        sl_distance=_coerce_float(g("slDistance")),
-        tp_distance=_coerce_float(g("tpDistance")),
-        spread_at_entry=_coerce_float(g("spreadAtEntry")),
+        sl_distance=sl_dist,
+        tp_distance=tp_dist,
+        spread_at_entry=_coerce_float(g("spreadAtEntry")) or _coerce_float(raw.get("spread_at_entry")),
         entry_deviation=_coerce_float(g("entryDeviation")),
         sl_deviation=_coerce_float(g("slDeviation")),
         tp_deviation=_coerce_float(g("tpDeviation")),
@@ -452,9 +559,17 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         trade_date=trade_date,
         duration_minutes=duration,
         day_of_week=dow,
-        account_balance=_coerce_float(g("accountBalance")),
-        starting_balance=_coerce_float(g("startingBalance")),
+        account_balance=_coerce_float(g("accountBalance")) or _coerce_float(raw.get("account_balance")),
+        starting_balance=_coerce_float(g("startingBalance")) or _coerce_float(raw.get("starting_balance")),
     )
+
+
+def _str(v: Any) -> Optional[str]:
+    """Return stripped string or None."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
 
 
 def validate_and_normalise(raw_trades: Any) -> List[TradeRecord]:
@@ -471,6 +586,8 @@ def validate_and_normalise(raw_trades: Any) -> List[TradeRecord]:
         rec = normalise_trade(raw)
         if rec is not None:
             records.append(rec)
+        else:
+            logger.debug("Skipping invalid trade at index %d (missing id or pnl)", i)
 
     def sort_key(r: TradeRecord):
         epoch = datetime.min.replace(tzinfo=timezone.utc)
@@ -491,7 +608,6 @@ def is_loss(t: TradeRecord) -> bool:
 
 
 def win_rate_of(trades: List[TradeRecord]) -> Optional[float]:
-    """Return win rate [0-100] or None if fewer than MIN_SAMPLE trades."""
     n = len(trades)
     if n < MIN_SAMPLE:
         return None
@@ -509,7 +625,6 @@ def safe_std(values: List[Optional[float]]) -> Optional[float]:
 
 
 def impact_of_boolean(trades: List[TradeRecord], field_name: str) -> ImpactResult:
-    """Win-rate impact of a boolean field."""
     yes_t = [t for t in trades if getattr(t, field_name, None) is True]
     no_t  = [t for t in trades if getattr(t, field_name, None) is False]
     return ImpactResult(
@@ -519,7 +634,6 @@ def impact_of_boolean(trades: List[TradeRecord], field_name: str) -> ImpactResul
 
 
 def breakdown_by_categorical(trades: List[TradeRecord], field_name: str) -> Dict:
-    """Group by categorical field and compute win rate per group."""
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in trades:
         val = getattr(t, field_name, None)
@@ -536,7 +650,6 @@ def breakdown_by_categorical(trades: List[TradeRecord], field_name: str) -> Dict
 
 
 def breakdown_by_score_bucket(trades: List[TradeRecord], field_name: str) -> List[Dict]:
-    """Bucket trades by 0-5 numeric score into SCORE_BUCKETS."""
     buckets: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in trades:
         val = getattr(t, field_name, None)
@@ -592,11 +705,10 @@ def build_shared_context(trades: List[TradeRecord]) -> SharedContext:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LAYER 4 — METRIC CALCULATORS (one responsibility each)
+# LAYER 4 — METRIC CALCULATORS
 # ─────────────────────────────────────────────────────────────────────────────
 
 def calc_core(ctx: SharedContext) -> Dict:
-    """Core KPIs: P&L, win rate, profit factor, expectancy, avg R:R."""
     if ctx.total == 0:
         return {}
     avg_win  = float(ctx.win_pnl_arr.mean())        if ctx.win_count  else 0.0
@@ -623,7 +735,6 @@ def calc_core(ctx: SharedContext) -> Dict:
 
 
 def calc_streaks(ctx: SharedContext) -> Dict:
-    """Win/loss streaks, peak-to-trough drawdown, recovery sequences (single pass)."""
     if ctx.total == 0:
         return {}
     max_win = max_loss = cur_count = 0
@@ -667,7 +778,6 @@ def calc_streaks(ctx: SharedContext) -> Dict:
 
 
 def calc_equity_curve(ctx: SharedContext) -> Dict:
-    """Build equity curve array and growth summary."""
     if ctx.total == 0:
         return {"equityCurve": [], "equityGrowth": None}
     start_bal = next((t.starting_balance for t in ctx.trades if t.starting_balance), 0.0) or 0.0
@@ -694,7 +804,6 @@ def calc_equity_curve(ctx: SharedContext) -> Dict:
 
 
 def calc_risk_metrics(ctx: SharedContext) -> Dict:
-    """Avg/max risk %, MAE, MFE, MFE capture, rules adherence, deviations."""
     trades = ctx.trades
     risk_v = [t.risk_percent for t in trades if t.risk_percent is not None]
     mae_v  = [t.mae for t in trades if t.mae is not None]
@@ -725,7 +834,6 @@ def calc_risk_metrics(ctx: SharedContext) -> Dict:
 
 
 def calc_direction_bias(ctx: SharedContext) -> Dict:
-    """Win rate and P&L split by long vs short."""
     def _dir(grp):
         return {
             "trades":  len(grp),
@@ -747,7 +855,6 @@ def calc_instrument_breakdown(ctx: SharedContext) -> Dict:
 
 
 def calc_strategy_performance(ctx: SharedContext) -> Dict:
-    """Win rate, P&L, trade count per strategy."""
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
         groups[t.strategy or "Unclassified"].append(t)
@@ -816,13 +923,6 @@ def calc_exit_analysis(ctx: SharedContext) -> Dict:
 
 
 def calc_psychology(ctx: SharedContext) -> Dict:
-    """
-    Full psychology panel:
-    - Win-rate impact of every boolean flag (fomoTrade, revenge, etc.)
-    - Win-rate impact of every categorical psych field
-    - Score bucket breakdowns for all scored fields
-    - Discipline / patience / consistency aggregate indices
-    """
     trades = ctx.trades
 
     bool_fields = {
@@ -866,7 +966,6 @@ def calc_psychology(ctx: SharedContext) -> Dict:
     score_impacts = {camel: breakdown_by_score_bucket(trades, snake)
                      for camel, snake in score_fields.items()}
 
-    # Discipline index: % of trades with NO impulsive flags
     impulsive = ["fomo_trade", "revenge_trade", "boredom_trade", "emotional_trade"]
     n_data = [t for t in trades if any(getattr(t, f) is not None for f in impulsive)]
     discipline = (
@@ -875,10 +974,8 @@ def calc_psychology(ctx: SharedContext) -> Dict:
         if len(n_data) >= MIN_SAMPLE else None
     )
 
-    # Patience index: % trades where setup was fully valid
     patience = percent_true(trades, "setup_fully_valid")
 
-    # Consistency index: inverse of coefficient of variation (capped 0-100)
     consistency = None
     if ctx.total >= MIN_SAMPLE:
         mean_p = float(ctx.pnl_arr.mean())
@@ -913,7 +1010,6 @@ def calc_candle_patterns(ctx: SharedContext) -> Dict:
 
 
 def calc_duration_breakdown(ctx: SharedContext) -> Dict:
-    """Win rate per duration bucket and per timing context category."""
     bucket_groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
         if t.duration_minutes is None:
@@ -943,7 +1039,6 @@ def calc_session_phase(ctx: SharedContext) -> Dict:
 
 
 def calc_instrument_session_matrix(ctx: SharedContext) -> Dict:
-    """Win rate for every (instrument, session) pair."""
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
         if t.instrument and t.session:
@@ -955,7 +1050,6 @@ def calc_instrument_session_matrix(ctx: SharedContext) -> Dict:
 
 
 def calc_strategy_market_matrix(ctx: SharedContext) -> Dict:
-    """Win rate per strategy × market_regime combination."""
     outer: Dict[str, Dict[str, List[TradeRecord]]] = defaultdict(lambda: defaultdict(list))
     for t in ctx.trades:
         outer[t.strategy or "Unclassified"][t.market_regime or "Unknown"].append(t)
@@ -973,7 +1067,6 @@ def calc_order_type_breakdown(ctx: SharedContext) -> Dict:
 
 
 def calc_risk_heat_breakdown(ctx: SharedContext) -> Dict:
-    """Win rate by risk heat — uses field if set, derives from risk_percent otherwise."""
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
         if t.risk_heat:
@@ -989,7 +1082,6 @@ def calc_risk_heat_breakdown(ctx: SharedContext) -> Dict:
 
 
 def calc_news_impact_breakdown(ctx: SharedContext) -> Dict:
-    """Win rate by news impact level + avg R per level."""
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
         if t.news_impact:
@@ -1007,7 +1099,6 @@ def calc_news_impact_breakdown(ctx: SharedContext) -> Dict:
 
 
 def calc_mae_mfe(ctx: SharedContext) -> Dict:
-    """Extended MAE/MFE: averages, MAE > SL count, MFE capture, MAE/MFE ratio."""
     trades = ctx.trades
     mae_v = [t.mae for t in trades if t.mae is not None and t.mae > 0]
     mfe_v = [t.mfe for t in trades if t.mfe is not None and t.mfe > 0]
@@ -1028,7 +1119,6 @@ def calc_mae_mfe(ctx: SharedContext) -> Dict:
 
 
 def calc_rr_analysis(ctx: SharedContext) -> Dict:
-    """Planned vs achieved R:R comparison."""
     planned  = [t.planned_rr  for t in ctx.trades if t.planned_rr  is not None]
     achieved = [t.achieved_rr for t in ctx.trades if t.achieved_rr is not None]
     avg_p = safe_mean(planned)
@@ -1042,7 +1132,6 @@ def calc_rr_analysis(ctx: SharedContext) -> Dict:
 
 
 def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
-    """Per-setup frequency: per day / week / month / year based on actual date range."""
     if ctx.total == 0:
         return {}
     dates = [t.trade_date for t in ctx.trades if t.trade_date is not None]
@@ -1066,7 +1155,6 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
 
 
 def calc_statistics(ctx: SharedContext) -> Dict:
-    """t-test, Sharpe, Sortino, skewness, kurtosis."""
     if ctx.total < MIN_SAMPLE:
         return {}
     pnl = ctx.pnl_arr
@@ -1095,7 +1183,6 @@ def calc_statistics(ctx: SharedContext) -> Dict:
 # ─────────────────────────────────────────────────────────────────────────────
 # LAYER 3 — METRIC REGISTRY
 # ─────────────────────────────────────────────────────────────────────────────
-# To add a new metric: write a calc_* function above, register it here.
 
 METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "core":                     calc_core,
@@ -1125,7 +1212,6 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "rrAnalysis":               calc_rr_analysis,
     "setupFrequencyAnnualised": calc_setup_frequency_annualised,
     "statistics":               calc_statistics,
-    # equity is special — computed once, split into two keys
     "_equity":                  calc_equity_curve,
 }
 
@@ -1135,10 +1221,6 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _run_registry(ctx: SharedContext, keys: Optional[List[str]] = None) -> Dict:
-    """
-    Execute all registered calculators.
-    Equity is computed once and stored under two keys to avoid duplication.
-    """
     equity_cache: Optional[Dict] = None
 
     def _get_equity() -> Dict:
@@ -1166,7 +1248,6 @@ def _run_registry(ctx: SharedContext, keys: Optional[List[str]] = None) -> Dict:
             logger.exception("Error in metric '%s': %s", key, exc)
             output[key] = None
 
-    # Always include equity if not already added
     if "equityCurve" not in output:
         eq = _get_equity()
         output["equityCurve"]  = eq.get("equityCurve")
@@ -1182,18 +1263,16 @@ def _run_registry(ctx: SharedContext, keys: Optional[List[str]] = None) -> Dict:
 def calculate_metrics(
     raw_trades: List[Dict],
     metric_keys: Optional[List[str]] = None,
+    starting_balance: Optional[float] = None,
 ) -> Dict:
     """
     Primary entry point.
 
     Parameters
     ----------
-    raw_trades   : list of raw trade dicts (camelCase keys, from DB / API)
-    metric_keys  : optional list of specific metric names; None = all
-
-    Returns
-    -------
-    { "success": bool, "tradeCount": int, "metrics": { ... } }
+    raw_trades        : list of raw trade dicts (camelCase keys, from DB / API)
+    metric_keys       : optional list of specific metric names; None = all
+    starting_balance  : optional account starting balance forwarded from TypeScript bridge
     """
     try:
         trades = validate_and_normalise(raw_trades)
@@ -1204,38 +1283,66 @@ def calculate_metrics(
     if not trades:
         return {"success": True, "tradeCount": 0, "metrics": {"core": {"totalTrades": 0}}}
 
+    # Inject starting_balance from payload into trades that lack it
+    if starting_balance is not None:
+        from dataclasses import replace as dc_replace
+        trades = [
+            dc_replace(t, starting_balance=starting_balance)
+            if t.starting_balance is None else t
+            for t in trades
+        ]
+
     ctx     = build_shared_context(trades)
     metrics = _run_registry(ctx, keys=metric_keys)
     return {"success": True, "tradeCount": ctx.total, "metrics": metrics}
 
 
-def calculate_all_metrics(raw_trades: List[Dict]) -> Dict:
+def calculate_all_metrics(raw_trades: List[Dict], starting_balance: Optional[float] = None) -> Dict:
     """Convenience wrapper: compute every registered metric."""
-    return calculate_metrics(raw_trades, metric_keys=None)
+    return calculate_metrics(raw_trades, metric_keys=None, starting_balance=starting_balance)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CLI ENTRY POINT
+# CLI ENTRY POINT  ── FIX: unwrap { trades, startingBalance } object from stdin
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _main() -> None:
-    """Read JSON array from stdin, write metrics JSON to stdout."""
+    """
+    Read JSON from stdin. Accepts two shapes:
+      1. A bare JSON array  →  treated as the trades list directly
+      2. An object          →  { "trades": [...], "startingBalance": 10000 }
+                               (shape sent by metricsCalculator.ts)
+    """
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
     try:
         raw = sys.stdin.read()
-        trades = json.loads(raw)
+        payload = json.loads(raw)
     except (json.JSONDecodeError, ValueError) as exc:
         sys.stdout.write(json.dumps({"success": False, "error": str(exc), "metrics": {}}))
         sys.exit(1)
-    sys.stdout.write(json.dumps(calculate_all_metrics(trades), default=str))
+
+    # ── Unwrap object or accept bare array ───────────────────────────────────
+    if isinstance(payload, list):
+        trades = payload
+        starting_balance = None
+    elif isinstance(payload, dict):
+        trades = payload.get("trades", [])
+        sb = payload.get("startingBalance")
+        starting_balance = float(sb) if sb is not None else None
+    else:
+        sys.stdout.write(json.dumps({
+            "success": False,
+            "error":   f"Expected list or object, got {type(payload).__name__}",
+            "metrics": {},
+        }))
+        sys.exit(1)
+
+    result = calculate_all_metrics(trades, starting_balance=starting_balance)
+    sys.stdout.write(json.dumps(result, default=str))
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
-        # ──────────────────────────────────────────────────────────
-        # INLINE UNIT TESTS  (no external framework required)
-        # Run:  python metrics_calculator.py --test
-        # ──────────────────────────────────────────────────────────
         PASS = "\033[92m✓\033[0m"
         FAIL = "\033[91m✗\033[0m"
         failures = 0
@@ -1260,6 +1367,21 @@ if __name__ == "__main__":
             "tradeDate": "2024-01-02T09:00:00Z",
         }
 
+        # journalEntries DB shape
+        JE_BASE = {
+            "id": "je1", "sessionId": "s1", "instrument": "EURUSD",
+            "direction": "long", "outcome": "win",
+            "profitLoss": "200.00",          # ← journalEntries field
+            "riskPercent": "1.0",
+            "riskReward": "2.0",             # ← journalEntries field
+            "entryTF": "M15",                # ← journalEntries field
+            "analysisTF": "H1",              # ← journalEntries field
+            "sessionName": "London",         # ← journalEntries field
+            "primaryExitReason": "Target Hit",  # ← journalEntries field
+            "entryTime": "2024-01-02T09:00:00Z",
+            "exitTime":  "2024-01-02T11:00:00Z",
+        }
+
         def T(**kw):
             t = dict(BASE)
             t.update(kw)
@@ -1281,6 +1403,32 @@ if __name__ == "__main__":
         check("bool coercion False",   _coerce_bool("0") is False)
         check("float NaN → None",      _coerce_float(float("nan")) is None)
         check("non-list input",        validate_and_normalise("bad") == [])
+
+        print("\nLayer 1 — journalEntries field mapping")
+        je_rec = normalise_trade(JE_BASE)
+        check("JE profitLoss → pnl",      je_rec is not None and je_rec.pnl == 200.0, je_rec)
+        check("JE riskReward → rr_ratio", je_rec is not None and je_rec.rr_ratio == 2.0)
+        check("JE entryTF → timeframe",   je_rec is not None and je_rec.timeframe == "M15")
+        check("JE analysisTF → analysis_timeframe", je_rec is not None and je_rec.analysis_timeframe == "H1")
+        check("JE sessionName → session", je_rec is not None and je_rec.session == "London")
+        check("JE primaryExitReason → exit_reason", je_rec is not None and je_rec.exit_reason == "Target Hit")
+
+        print("\nLayer 1 — stdin object unwrapping")
+        import io, contextlib
+        fake_stdin_list = json.dumps([T()])
+        fake_stdin_obj  = json.dumps({"trades": [T()], "startingBalance": 10000})
+
+        # Test bare list
+        result_list = calculate_all_metrics(json.loads(fake_stdin_list))
+        check("bare list accepted", result_list["success"] and result_list["tradeCount"] == 1)
+
+        # Test object shape
+        payload_obj = json.loads(fake_stdin_obj)
+        trades_from_obj = payload_obj.get("trades", [])
+        sb_from_obj = float(payload_obj.get("startingBalance", 0))
+        result_obj = calculate_all_metrics(trades_from_obj, starting_balance=sb_from_obj)
+        check("object trades accepted", result_obj["success"] and result_obj["tradeCount"] == 1)
+        check("startingBalance forwarded", result_obj["metrics"]["equityGrowth"]["startingBalance"] == 10000.0)
 
         print("\nLayer 2 — Utilities")
         pool = validate_and_normalise([
