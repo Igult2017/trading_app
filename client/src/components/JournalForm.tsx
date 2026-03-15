@@ -562,11 +562,19 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           }
 
           // ── Timing ───────────────────────────────────────────────────
-          // exitTime from replay bar (e.g. "2023-12-28 19:59")
+          // exitTime = replay bar timestamp (e.g. "2023-12-28 19:59")
+          // This is the most reliably OCR-extracted date field.
           if (f.exitTime) {
             u.exitTime = f.exitTime; mark("exitTime");
+            // CRITICAL: also write exitTime into entryTime when entryTime is
+            // blank. The calendar uses entryTime as the primary date key.
+            // Without this a 2024 trade logged in 2026 would appear in 2026.
+            if (!u.entryTime || u.entryTime === "") {
+              u.entryTime = f.exitTime; mark("entryTime");
+            }
           }
-          // entryTime not extracted by v8 (timeframe removed) — skip
+          // v8 does not extract entryTime (timeframe removed by design),
+          // so exitTime (replay bar) is the canonical trade date from OCR.
 
           if (f.dayOfWeek)    { u.dayOfWeek    = f.dayOfWeek;    mark("dayOfWeek"); }
           if (f.tradeDuration){ u.tradeDuration= f.tradeDuration; mark("tradeDuration"); }
