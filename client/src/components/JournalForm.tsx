@@ -48,6 +48,7 @@ const ICONS: Record<string, any> = {
   DollarSign:   ["M12 1v22","M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"],
   Focus:        ["M8 3H5a2 2 0 0 0-2 2v3","M21 8V5a2 2 0 0 0-2-2h-3","M3 16v3a2 2 0 0 0 2 2h3","M16 21h3a2 2 0 0 0 2-2v-3"],
   X:            "M18 6L6 18M6 6l12 12",
+  Sparkles:     ["M12 3l1.88 5.76L19.5 9l-4.94 3.8L16.31 18 12 14.9 7.69 18l1.75-5.2L4.5 9l5.62-.24z"],
 };
 
 const Icon = ({ name, size=16, style, className }: any) => {
@@ -58,6 +59,8 @@ const Icon = ({ name, size=16, style, className }: any) => {
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed";
+// OCR-filled inputs get italic styling for distinction
+const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 font-mono leading-relaxed italic";
 const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
 
 const STEPS = [
@@ -119,7 +122,17 @@ const INIT: Record<string, any> = {
   atrAtEntry:"", exitScreenshot:null, pairCategory:"Major",
   consecutiveTradeCount:"", commission:"", postTradeEmotion:"Neutral",
   recencyBiasFlag:false,
+  // v8 OCR extra fields
+  openingPrice:"", closingPrice:"",
+  stopLossUSD:"", takeProfitUSD:"",
+  runUpPoints:"", runUpUSD:"",
+  drawdownPoints:"", drawdownUSD:"",
+  contractSize:"", units:"",
+  ocrConfidence:"", ocrValidation:"",
 };
+
+// Track which fields were populated by OCR (for italic styling)
+type OcrFilledSet = Set<string>;
 
 // ── UI Primitives ─────────────────────────────────────────────────────────
 const InfoBox = ({ color, icon, title, text }: any) => {
@@ -151,22 +164,48 @@ const SectionHeader = ({ icon, title }: any) => (
   </div>
 );
 
-const Field = ({ label, field, value, onChange, placeholder="", rows, type="text" }: any) => (
-  <div>
-    {label && <label className={LABEL_CLS}>{label}</label>}
-    {rows
-      ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={INPUT_CLS}/>
-      : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={INPUT_CLS+" block"}/>
-    }
-  </div>
-);
+/** Field component — italicises input when the field was OCR-filled */
+const Field = ({ label, field, value, onChange, placeholder="", rows, type="text", ocrFilled=false }: any) => {
+  const cls = ocrFilled ? INPUT_OCR_CLS : INPUT_CLS;
+  return (
+    <div>
+      {label && (
+        <label className={LABEL_CLS}>
+          {label}
+          {ocrFilled && (
+            <span title="Auto-filled by OCR" style={{
+              marginLeft:6, fontSize:9, color:"#34d399",
+              letterSpacing:"0.15em", fontStyle:"normal",
+            }}>✦ OCR</span>
+          )}
+        </label>
+      )}
+      {rows
+        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls}/>
+        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"}/>
+      }
+    </div>
+  );
+};
 
-const Sel = ({ label, field, value, onChange, options }: any) => (
+const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) => (
   <div>
-    {label && <label className={LABEL_CLS}>{label}</label>}
+    {label && (
+      <label className={LABEL_CLS}>
+        {label}
+        {ocrFilled && (
+          <span title="Auto-filled by OCR" style={{
+            marginLeft:6, fontSize:9, color:"#34d399",
+            letterSpacing:"0.15em", fontStyle:"normal",
+          }}>✦ OCR</span>
+        )}
+      </label>
+    )}
     <div className="relative">
       <select value={options.includes(value)?value:options[0]} onChange={(e: any)=>onChange(field,e.target.value)}
-        className={INPUT_CLS+" appearance-none cursor-pointer pr-10 block"}>
+        className={(ocrFilled
+          ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 italic"
+          : INPUT_CLS)+" appearance-none cursor-pointer pr-10 block"}>
         {options.map((o: string)=><option key={o} value={o} className="bg-[#0a0d14]">{o}</option>)}
       </select>
       <Icon name="ChevronRight" size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none rotate-90"/>
@@ -247,6 +286,32 @@ const StatRow = ({ label, value, valueColor }: any) => (
   </div>
 );
 
+// ── OCR Summary Badge ──────────────────────────────────────────────────────
+const OcrSummaryBadge = ({ form, ocrFields }: { form: Record<string,any>; ocrFields: OcrFilledSet }) => {
+  if (!ocrFields.size) return null;
+  const conf = form.ocrConfidence;
+  const confColor = conf === "high" ? "#34d399" : conf === "medium" ? "#fbbf24" : "#f87171";
+  return (
+    <div style={{
+      display:"flex", alignItems:"center", gap:10, marginBottom:12,
+      padding:"10px 16px", borderRadius:12,
+      border:"1px solid rgba(52,211,153,0.25)",
+      background:"rgba(52,211,153,0.05)",
+    }}>
+      <Icon name="Sparkles" size={14} style={{color:"#34d399"}}/>
+      <span style={{fontSize:11, fontWeight:700, color:"#34d399", flex:1}}>
+        OCR extracted <strong>{ocrFields.size}</strong> fields automatically
+        {conf && <span style={{marginLeft:8, fontSize:10, color:confColor, fontStyle:"italic"}}>
+          {conf} confidence
+        </span>}
+      </span>
+      <span style={{fontSize:9, color:"#475569", fontStyle:"italic"}}>
+        Italic fields = OCR-filled
+      </span>
+    </div>
+  );
+};
+
 // ── Sidebar ───────────────────────────────────────────────────────────────
 function SidebarContent({ trades }: any) {
   const stats = useMemo(() => {
@@ -289,7 +354,6 @@ function SidebarContent({ trades }: any) {
           <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
-
       <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"10px 14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
           <span style={{fontSize:"10px",color:"#475569"}}>Start Balance</span>
@@ -300,7 +364,6 @@ function SidebarContent({ trades }: any) {
           <span style={{fontSize:"13px",fontWeight:700,fontFamily:"monospace",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
         </div>
       </div>
-
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
@@ -308,16 +371,6 @@ function SidebarContent({ trades }: any) {
         </div>
         <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
       </div>
-
-      <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"2px 0"}}>
-        <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
-        <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
-          <Icon name="BarChart2" size={10} style={{color:"#334155"}}/>
-          <span style={{fontSize:"8px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#334155"}}>Trading Stats</span>
-        </div>
-        <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
-      </div>
-
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
         {[
           {label:"Buys",  val:stats?stats.buys:0,  color:"#60a5fa"},
@@ -330,17 +383,14 @@ function SidebarContent({ trades }: any) {
           </div>
         ))}
       </div>
-
       <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"2px 14px"}}>
         <StatRow label="Best Trade"    value={stats?fmt(stats.bestTrade):"$0.00"}  valueColor="#34d399"/>
         <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
-        <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
           <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
           <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
         </div>
       </div>
-
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
         {[
           {label:"Winrate",       val:stats?stats.winrate+"%":"0%", color:!stats?"#475569":parseFloat(stats?.winrate)>=50?"#34d399":"#f87171"},
@@ -353,12 +403,10 @@ function SidebarContent({ trades }: any) {
           </div>
         ))}
       </div>
-
       {!trades.length&&(
         <div style={{borderRadius:"12px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
           <Icon name="Activity" size={20} style={{color:"#1e293b",margin:"0 auto 6px",display:"block"}}/>
           <p style={{fontSize:"10px",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#1e293b"}}>No trades yet</p>
-          <p style={{fontSize:"10px",color:"#0f172a",marginTop:"3px"}}>Log a trade to see stats</p>
         </div>
       )}
     </div>
@@ -375,10 +423,16 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [analyzing,setAnalyzing]     = useState(false);
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
   const [saving,setSaving]           = useState(false);
+  // Track which fields were populated by OCR for italic distinction
+  const [ocrFields,setOcrFields]     = useState<OcrFilledSet>(new Set());
 
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
-  const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) => <Field label={label} field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type}/>;
-  const ls  = (label: string,field: string,options: string[]) => <Sel label={label} field={field} value={form[field]} onChange={set} options={options}/>;
+
+  // Helper for building field/select with ocr flag
+  const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
+    <Field label={label} field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type} ocrFilled={ocrFields.has(field)}/>;
+  const ls  = (label: string,field: string,options: string[]) =>
+    <Sel label={label} field={field} value={form[field]} onChange={set} options={options} ocrFilled={ocrFields.has(field)}/>;
   const sc  = (label: string,field: string) => <Score label={label} field={field} value={form[field]} onChange={set}/>;
   const ck  = (label: string,field: string) => <Check label={label} field={field} value={form[field]} onChange={set}/>;
 
@@ -386,110 +440,155 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const g3="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
   const g4="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
 
-  // ── OCR: maps OCR output → form state ──────────────────────────────────────
-  // Trust every value OCR provides. Write straight to state.
-  // Never recalculate what OCR already calculated.
+  // ── OCR v8 field mapping ────────────────────────────────────────────────
+  //
+  // v8 OCR returns these fields (from analyzer.py → fields dict):
+  //   instrument, pairCategory, direction
+  //   entryPrice, openingPrice, closingPrice
+  //   stopLoss, stopLossPoints, stopLossPips, stopLossUSD
+  //   takeProfit, takeProfitPoints, takeProfitPips, takeProfitUSD
+  //   plannedSLPoints, plannedTPPoints, plannedRR
+  //   riskReward, achievedRR, takeProfitR, priceExcursionR
+  //   lotSize, units, contractSize
+  //   openPLUSD, openPLPoints
+  //   runUpPoints, runUpUSD, drawdownPoints, drawdownUSD
+  //   outcome, tradeIsOpen
+  //   exitTime, dayOfWeek, sessionName, sessionPhase, tradeDuration
+  //
+  // All fields written by OCR are marked in ocrFilledSet for italic styling.
   const analyzeScreenshot = async (base64Image: string) => {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
       const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
       const data = await res.json();
+
       if (data.success && data.fields) {
         const f = data.fields;
+        const newOcrFields = new Set<string>();
+
+        const mark = (field: string) => newOcrFields.add(field);
+        const maybe = (field: string, val: any) => {
+          if (val != null && val !== "") {
+            mark(field);
+            return String(val);
+          }
+          return undefined;
+        };
+
         setForm(prev => {
           const u = { ...prev };
 
-          // Instrument
-          if (f.instrument) u.instrument = f.instrument;
-
-          // Pair category — trust OCR first, inline fallback if null
-          if (f.pairCategory) {
-            u.pairCategory = f.pairCategory;
-          } else if (f.instrument) {
-            const sym = (f.instrument as string).toUpperCase();
-            if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym))                u.pairCategory = "Crypto";
-            else if (/XAU|XAG|GOLD|SILVER|OIL|WTI|BRENT/.test(sym))                u.pairCategory = "Commodity";
-            else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|SP500|DOW|IDX/.test(sym))      u.pairCategory = "Index";
+          // ── Instrument & category ────────────────────────────────────
+          if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
+          if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
+          else if (f.instrument) {
+            const sym = String(f.instrument).toUpperCase();
+            if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) u.pairCategory = "Crypto";
+            else if (/XAU|XAG|GOLD|SILVER|OIL|WTI/.test(sym))        u.pairCategory = "Commodity";
+            else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|IDX/.test(sym))  u.pairCategory = "Index";
             else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
-            else if (/EURGBP|EURJPY|GBPJPY|AUDJPY|CADJPY|CHFJPY|EURAUD|EURCHF|GBPAUD|GBPCAD/.test(sym)) u.pairCategory = "Minor";
-            else if (sym.length >= 6)                                                u.pairCategory = "Exotic";
+            else u.pairCategory = "Minor";
+            mark("pairCategory");
           }
 
-          // Direction & order type
-          if (f.direction) u.direction = f.direction;
-          if (f.orderType) u.orderType = f.orderType;
+          // ── Direction ───────────────────────────────────────────────
+          if (f.direction) { u.direction = f.direction; mark("direction"); }
 
-          // Timeframe — OCR emits "4H","1H","30M"; dropdowns expect "4HR","1HR","30MIN"
-          const rawTF = f.timeframe ?? f.entryTF;
-          const normTF = normaliseTF(rawTF);
-          if (normTF) u.entryTF = normTF;
+          // ── Prices ──────────────────────────────────────────────────
+          // entryPrice = the orange arrow label on chart
+          const ep = maybe("entryPrice", f.entryPrice);
+          if (ep) { u.entryPrice = ep; u.plannedEntry = ep; u.actualEntry = ep; }
 
-          // Price levels — calc_sl_tp() already computed these correctly; trust them
-          if (f.entryPrice != null) u.entryPrice = String(f.entryPrice);
-          if (f.stopLoss   != null) u.stopLoss   = String(f.stopLoss);
-          if (f.takeProfit != null) u.takeProfit = String(f.takeProfit);
+          // openingPrice = SL-line → right-axis coordinate mapping
+          const op = maybe("openingPrice", f.openingPrice);
+          if (op) u.openingPrice = op;
 
-          // Distance fields
-          const slPts = f.stopLossPoints ?? f.stopLossDistancePips ?? f.stopLossPips;
-          if (slPts != null) u.stopLossDistancePips = String(slPts);
-          const tpPts = f.takeProfitPoints ?? f.takeProfitDistancePips ?? f.takeProfitPips;
-          if (tpPts != null) u.takeProfitDistancePips = String(tpPts);
+          // closingPrice = TP-line → right-axis coordinate mapping
+          const cp = maybe("closingPrice", f.closingPrice);
+          if (cp) u.closingPrice = cp;
 
-          // Position size, risk, spread
-          if (f.lotSize       != null) u.lotSize       = String(f.lotSize);
-          if (f.riskReward    != null) u.riskReward    = String(f.riskReward);
-          if (f.riskPercent   != null) u.riskPercent   = String(f.riskPercent);
-          if (f.spreadAtEntry != null) u.spreadAtEntry = String(f.spreadAtEntry);
+          // SL / TP absolute prices (calculated from entry ± points × pip_size)
+          const sl = maybe("stopLoss", f.stopLoss);
+          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; }
 
-          // Outcome & P&L
-          if (f.outcome        != null) u.outcome        = f.outcome;
-          if (f.openPLUSD      != null) u.profitLoss     = String(f.openPLUSD);
-          else if (f.profitLoss != null) u.profitLoss    = String(f.profitLoss);
-          if (f.openPLPoints   != null) u.pipsGainedLost = String(f.openPLPoints);
-          else if (f.pipsGainedLost != null) u.pipsGainedLost = String(f.pipsGainedLost);
+          const tp = maybe("takeProfit", f.takeProfit);
+          if (tp) { u.takeProfit = tp; u.plannedTP = tp; u.actualTP = tp; }
 
-          // MAE from drawdown line on green band
-          if (f.drawdownPoints != null) {
-            u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
-          } else if (f.mae != null) {
-            u.mae = String(f.mae);
+          // ── SL / TP distances ─────────────────────────────────────────
+          // Use points (not pips) — JForex uses "points" as the unit
+          const slPts = f.stopLossPoints ?? f.plannedSLPoints;
+          if (slPts != null) {
+            u.stopLossDistancePips = String(slPts); mark("stopLossDistancePips");
+          }
+          const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
+          if (tpPts != null) {
+            u.takeProfitDistancePips = String(tpPts); mark("takeProfitDistancePips");
           }
 
-          // MFE from run-up line on green band
+          // SL / TP USD costs (labelled in the info panel)
+          if (f.stopLossUSD  != null) { u.stopLossUSD  = String(f.stopLossUSD);  mark("stopLossUSD"); }
+          if (f.takeProfitUSD!= null) { u.takeProfitUSD= String(f.takeProfitUSD);mark("takeProfitUSD"); }
+
+          // ── Position size ────────────────────────────────────────────
+          if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);       mark("lotSize"); }
+          if (f.units        != null) { u.units        = String(f.units);         mark("units"); }
+          if (f.contractSize != null) { u.contractSize = String(f.contractSize);  mark("contractSize"); }
+
+          // ── Risk/Reward ──────────────────────────────────────────────
+          if (f.riskReward  != null) { u.riskReward  = String(f.riskReward);  mark("riskReward"); }
+          if (f.plannedRR   != null) { u.plannedRR   = String(f.plannedRR);   mark("plannedRR"); }
+          if (f.achievedRR  != null) { u.achievedRR  = String(f.achievedRR);  mark("achievedRR"); }
+
+          // ── Outcome & P&L ─────────────────────────────────────────────
+          if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
+
+          // openPLUSD holds whichever is present (Closed P/L preferred by v8)
+          if (f.openPLUSD != null) {
+            u.profitLoss = String(f.openPLUSD); mark("profitLoss");
+          }
+          if (f.openPLPoints != null) {
+            u.pipsGainedLost = String(f.openPLPoints); mark("pipsGainedLost");
+          }
+
+          // ── MFE / MAE (run-up / drawdown) ─────────────────────────────
           if (f.runUpPoints != null) {
             u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
-          } else if (f.mfe != null) {
-            u.mfe = String(f.mfe);
+            mark("mfe");
+          }
+          if (f.drawdownPoints != null) {
+            u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+            mark("mae");
           }
 
-          // Timing — entryTime from OCR: "YYYY-MM-DD HH:MM"
-          if (f.entryTime) {
-            try {
-              const dt = new Date(f.entryTime.replace(" ","T"));
-              if (!isNaN(dt.getTime())) {
-                u.screenshotTimestamp = dt.toTimeString().slice(0,5);
-                u.entryTime           = f.entryTime.replace(" ","T").slice(0,16);
-              } else {
-                u.screenshotTimestamp = f.entryTime;
-              }
-            } catch {
-              u.screenshotTimestamp = f.entryTime;
-            }
+          // ── Timing ───────────────────────────────────────────────────
+          // exitTime from replay bar (e.g. "2023-12-28 19:59")
+          if (f.exitTime) {
+            u.exitTime = f.exitTime; mark("exitTime");
           }
-          if (f.exitTime)      u.exitTime      = f.exitTime;
-          if (f.dayOfWeek)     u.dayOfWeek     = f.dayOfWeek;
-          if (f.tradeDuration) u.tradeDuration = f.tradeDuration;
+          // entryTime not extracted by v8 (timeframe removed) — skip
 
-          // Session — normalise overlap labels ("London/New York" → "Overlap")
-          if (f.sessionName)       u.sessionName       = normaliseSession(f.sessionName);
-          if (f.sessionPhase)      u.sessionPhase      = f.sessionPhase;
-          if (f.primaryExitReason) u.primaryExitReason = f.primaryExitReason;
+          if (f.dayOfWeek)    { u.dayOfWeek    = f.dayOfWeek;    mark("dayOfWeek"); }
+          if (f.tradeDuration){ u.tradeDuration= f.tradeDuration; mark("tradeDuration"); }
+
+          // ── Session ───────────────────────────────────────────────────
+          if (f.sessionName)  {
+            u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName");
+          }
+          if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
+
+          // ── OCR metadata (for badge display) ─────────────────────────
+          u.ocrConfidence = data.confidence || "";
+          u.ocrValidation = data.validation?.summary || "";
 
           return u;
         });
+
+        // Update which fields were OCR-filled (for italic styling)
+        setOcrFields(newOcrFields);
+
       } else {
-        setAnalyzeError(data.error || "Analysis failed");
+        setAnalyzeError(data.error || "OCR analysis failed");
       }
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to analyze screenshot");
@@ -551,6 +650,23 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         entryTimeUTC:         form.entryTimeUTC          || null,
         sessionId:            sessionId                  || null,
         timingContext:        form.timingContext          || null,
+        // Store full v8 OCR metadata (opening/closing prices, raw fields, validation)
+        aiExtracted: {
+          method:          "ocr_v8_jforex",
+          ocrConfidence:   form.ocrConfidence,
+          ocrValidation:   form.ocrValidation,
+          openingPrice:    form.openingPrice    || null,
+          closingPrice:    form.closingPrice    || null,
+          stopLossUSD:     form.stopLossUSD     || null,
+          takeProfitUSD:   form.takeProfitUSD   || null,
+          runUpPoints:     form.runUpPoints     || null,
+          runUpUSD:        form.runUpUSD        || null,
+          drawdownPoints:  form.drawdownPoints  || null,
+          drawdownUSD:     form.drawdownUSD     || null,
+          contractSize:    form.contractSize    || null,
+          units:           form.units           || null,
+          ocrFilledFields: Array.from(ocrFields),
+        },
         manualFields: {
           thesis:              form.thesis,
           trigger:             form.trigger,
@@ -582,6 +698,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           confluence:          form.confluence,
           timingQuality:       form.timingQuality,
           confidenceAtEntry:   form.confidenceAtEntry,
+          openingPrice:        form.openingPrice,
+          closingPrice:        form.closingPrice,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
@@ -609,6 +727,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         .sidebar-drawer-panel::-webkit-scrollbar{display:none}
         @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @media(max-width:479px){.steps-grid{grid-template-columns:1fr 1fr!important}}
+        /* OCR-filled italic input override */
+        input.ocr-italic, textarea.ocr-italic, select.ocr-italic { font-style: italic !important; color: #34d399 !important; }
       `}</style>
 
       <div style={{display:"flex",height:"100%",overflow:"hidden",background:"#05070a",color:"#cbd5e1",fontFamily:"sans-serif",position:"relative"}}>
@@ -628,6 +748,9 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <button onClick={()=>setAnalyzeError(null)}><Icon name="X" size={14}/></button>
               </div>
             )}
+
+            {/* OCR summary badge */}
+            <OcrSummaryBadge form={form} ocrFields={ocrFields}/>
 
             <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
               {STEPS.map(s=>{
@@ -674,10 +797,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Shield" title="Defensive Overlay"/>
                       {lf("Invalidation Logic","invalidationLogic",3,"Example: If price closes below 1.0830...")}
                       {lf("Expected Behavior","expectedBehavior",3,"Example: Expect immediate bullish momentum...")}
-                      <div className={g2}>
-                        <InfoBox color="rose"   icon="AlertCircle" title="Exit Plan"       text="Rule-based exits. Pre-define failure before emotion kicks in."/>
-                        <InfoBox color="violet" icon="Eye"          title="Early Detection" text="Know within minutes if your trade is working or dying."/>
-                      </div>
                     </section>
                     <section className="space-y-6">
                       <SectionHeader icon="Battery" title="Pre-Entry State Check"/>
@@ -692,10 +811,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                           {ls("Correlated Exposure","correlatedExposure",["No","Yes"])}
                         </div>
                       </div>
-                      <div className={g2}>
-                        <InfoBox color="green" icon="Focus"    title="State Matters"       text="Low energy/focus correlates with poor execution."/>
-                        <InfoBox color="blue"  icon="Briefcase" title="Portfolio Awareness" text="Over-leverage and correlated exposure are silent account killers."/>
-                      </div>
                     </section>
                     <section className="space-y-6">
                       <SectionHeader icon="Layers" title="Classification & Quality"/>
@@ -706,7 +821,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         </div>
                         <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
                           {ls("Trade Grade","tradeGrade",["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"])}
-                          <InfoBox color="amber" icon="Award" title="Selectivity" text="Only take A/B setups."/>
                         </div>
                       </div>
                     </section>
@@ -718,7 +832,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                           {ls("Any Rule Broken?","anyRuleBroken",["No","Yes"])}
                         </div>
                         {form.anyRuleBroken==="Yes"&&lf("Rule Broken","ruleBroken",undefined,"e.g., Risk > 2%")}
-                        <InfoBox color="rose" icon="AlertCircle" title="Discipline Audit" text="Makes rule-breaking visible."/>
                       </div>
                     </section>
                     <section className="space-y-4">
@@ -739,36 +852,66 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <div className="space-y-10">
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Trade Setup Screenshot"/>
-                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · up to 10MB"/>
+                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode"/>
                       {analyzing&&(
-                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(59,130,246,0.3)",background:"rgba(59,130,246,0.05)",color:"#60a5fa"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
                           <Icon name="Activity" size={14}/>
-                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>AI analyzing screenshot…</span>
+                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>
+                            OCR v8 analyzing screenshot… extracting fields
+                          </span>
+                        </div>
+                      )}
+                      {form.ocrConfidence && !analyzing && (
+                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"10px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
+                          <Icon name="CheckCircle2" size={12} style={{color:"#34d399"}}/>
+                          <span style={{fontSize:"10px",color:"#34d399",fontStyle:"italic"}}>
+                            OCR complete · {ocrFields.size} fields extracted · confidence: {form.ocrConfidence}
+                          </span>
+                          {form.ocrValidation && (
+                            <span style={{fontSize:"9px",color:"#64748b",marginLeft:"auto",fontStyle:"italic"}}>
+                              {form.ocrValidation}
+                            </span>
+                          )}
                         </div>
                       )}
                     </section>
+
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Exit Chart Screenshot"/>
-                      <InfoBox color="green" icon="Activity" title="Post-Trade Evidence" text="Capture how price behaved after your exit."/>
-                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Compare entry vs exit"/>
+                      <InfoBox color="green" icon="Activity" title="Post-Trade Evidence" text="Upload the outcome screenshot — OCR will extract Closed P/L, achieved RR, and drawdown."/>
+                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Outcome screenshot · Win/Loss detection"/>
                     </section>
+
                     <section className="space-y-4">
                       <SectionHeader icon="Crosshair" title="Position Details"/>
                       <div className={g4}>
-                        {lf("Instrument","instrument",undefined,"BTCUSD")}
+                        {lf("Instrument","instrument",undefined,"EURUSD")}
                         {ls("Pair Category","pairCategory",["Major","Minor","Exotic","Index","Crypto","Commodity"])}
                         {ls("Direction","direction",["Long","Short"])}
                         {lf("Lot Size","lotSize",undefined,"0.01")}
                         {lf("Entry Price","entryPrice",undefined,"0.00","number")}
                         {lf("Stop Loss","stopLoss",undefined,"0.00","number")}
-                        {lf("SL Distance (Pips)","stopLossDistancePips",undefined,"0","number")}
+                        {lf("SL Distance (Points)","stopLossDistancePips",undefined,"0","number")}
                         {lf("Take Profit","takeProfit",undefined,"0.00","number")}
-                        {lf("TP Distance (Pips)","takeProfitDistancePips",undefined,"0","number")}
+                        {lf("TP Distance (Points)","takeProfitDistancePips",undefined,"0","number")}
                         {lf("Risk %","riskPercent",undefined,"1.0","number")}
                         {ls("Order Type","orderType",["Market","Limit","Stop","Stop-Limit"])}
                         {ls("Outcome","outcome",["Win","Loss","BE"])}
                       </div>
                     </section>
+
+                    {/* OCR-only fields — opening/closing prices from coordinate mapping */}
+                    {(form.openingPrice || form.closingPrice) && (
+                      <section className="space-y-4">
+                        <SectionHeader icon="Target" title="Price Axis (OCR Coordinate Mapping)"/>
+                        <InfoBox color="green" icon="Sparkles" title="Axis Calibration" text="Opening and closing prices are read directly from the chart's right-edge price axis using pixel-to-price linear interpolation (R²=1.0 on JForex charts)."/>
+                        <div className={g2}>
+                          {lf("Opening Price (SL axis)","openingPrice",undefined,"—")}
+                          {lf("Closing Price (TP axis)","closingPrice",undefined,"—")}
+                        </div>
+                      </section>
+                    )}
+
                     <section className="space-y-4">
                       <SectionHeader icon="Clock" title="Timing & Duration"/>
                       <div className={g4}>
@@ -778,6 +921,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {lf("Trade Duration","tradeDuration",undefined,"2h 30m")}
                       </div>
                     </section>
+
                     <section className="space-y-4">
                       <SectionHeader icon="LayoutGrid" title="Timeframe Analysis"/>
                       <div className={g3}>
@@ -786,6 +930,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {ls("Context TF","contextTF",["1W","1D","4HR"])}
                       </div>
                     </section>
+
                     <section className="space-y-4">
                       <SectionHeader icon="Zap" title="Entry & Management"/>
                       <div className={g3}>
@@ -828,13 +973,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {lf("Analysis TF Context","analysisTFContext",2,"Analysis timeframe context...")}
                         {lf("Entry TF Context","entryTFContext",2,"Entry timeframe context...")}
                         {lf("Other Confluences","otherConfluences",2,"Additional confluences...")}
-                        <InfoBox color="blue" icon="Layers3" title="Multi-TF Story" text="Full alignment = highest probability."/>
                       </div>
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="Target" title="Liquidity & Bias"/>
                       {lf("Liquidity Targets","liquidityTargets",3,"Major liquidity pools, stop hunts...")}
-                      <InfoBox color="blue" icon="Target" title="Smart Money Context" text="Identifies institutional positioning."/>
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="Clock" title="Session Timing"/>
@@ -882,12 +1025,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="DoorOpen" title="Exit Causation"/>
                       {ls("Primary Exit Reason","primaryExitReason",["Target Hit","Stop Hit","Time Exit","Structure Change","News","Emotional Exit"])}
-                      <InfoBox color="rose" icon="Target" title="Exit Discipline" text="Tracks whether you hit targets or get stopped out."/>
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="TrendingUp" title="Performance Data"/>
                       <div className={g4}>
-                        {lf("Pips Gained / Lost","pipsGainedLost",undefined,"0","number")}
+                        {lf("Pips / Points Gained-Lost","pipsGainedLost",undefined,"0","number")}
                         {lf("P&L Amount ($)","profitLoss",undefined,"0.00","number")}
                         {lf("Account Balance","accountBalance",undefined,"0.00","number")}
                         {lf("Commission / Fees","commission",undefined,"3.50","number")}
@@ -907,8 +1049,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="Activity" title="Trade Metrics"/>
                       <div className={g3}>
-                        {lf("MAE (Max Adverse)","mae",undefined,"-15 pips")}
-                        {lf("MFE (Max Favorable)","mfe",undefined,"+45 pips")}
+                        {lf("MAE (Max Adverse Excursion)","mae",undefined,"-15 pts")}
+                        {lf("MFE (Max Favorable Excursion)","mfe",undefined,"+45 pts")}
                         {lf("Monetary Risk ($)","monetaryRisk",undefined,"0.00","number")}
                         {lf("Potential Reward ($)","potentialReward",undefined,"0.00","number")}
                         {lf("Planned R:R","plannedRR",undefined,"1:2")}
@@ -1000,19 +1142,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             <div className="sidebar-drawer-backdrop" onClick={()=>setSidebarOpen(false)}/>
             <div className="sidebar-drawer-panel side-scroll">
               <div style={{padding:"16px",borderBottom:"1px solid rgba(51,65,85,0.35)",background:"#07090f",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:2}}>
-                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                  <Icon name="BarChart2" size={16} style={{color:"#3b82f6"}}/>
-                  <span style={{fontSize:"11px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#cbd5e1"}}>Session Stats</span>
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                    <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none"}}/>
-                    <span style={{fontSize:"12px",fontWeight:900,fontFamily:"monospace",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
-                  </div>
-                  <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
-                    <Icon name="X" size={14}/>
-                  </button>
-                </div>
+                <span style={{fontSize:"11px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#cbd5e1"}}>Session Stats</span>
+                <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
+                  <Icon name="X" size={14}/>
+                </button>
               </div>
               <SidebarContent trades={trades}/>
             </div>
@@ -1027,8 +1160,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <Icon name="CheckCircle2" size={36} style={{color:"#34d399",opacity:0.8}}/>
               </div>
               <h3 style={{fontSize:"13px",fontWeight:900,letterSpacing:"0.4em",color:"#cbd5e1",textTransform:"uppercase",marginBottom:"12px"}}>Trade Logged</h3>
-              <p style={{fontSize:"13px",color:"#64748b",fontFamily:"monospace",lineHeight:1.6,marginBottom:"32px"}}>Decision architecture and trade data recorded. Stats updated in sidebar.</p>
-              <button onClick={()=>{setForm(INIT);setStep(1);setSaved(false);}}
+              <p style={{fontSize:"13px",color:"#64748b",fontFamily:"monospace",lineHeight:1.6,marginBottom:"32px"}}>
+                OCR-extracted data and manual annotations recorded.
+              </p>
+              <button onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());}}
                 style={{width:"100%",padding:"12px 32px",borderRadius:"12px",fontSize:"11px",fontWeight:900,letterSpacing:"0.15em",color:"#fff",border:"none",cursor:"pointer",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)"}}>
                 CONTINUE TRADING
               </button>
