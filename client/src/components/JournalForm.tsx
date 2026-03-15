@@ -703,7 +703,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
         {/* FORM */}
         <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0}}>
-          <div style={{width:"100%",margin:"0",padding:"12px 32px"}}>
+          <div style={{width:"100%",margin:"0",padding:"12px 8px"}}>
 
             {analyzeError&&(
               <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
