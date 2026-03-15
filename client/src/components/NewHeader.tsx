@@ -189,12 +189,12 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         .fsd-mob-link {
           display: flex;
           align-items: center;
-          gap: 14px;
-          padding: 18px 20px;
+          gap: 12px;
+          padding: 16px 20px;
           border-bottom: 1px solid var(--border);
-          font-size: 14px;
+          font-size: 11px;
           font-weight: 700;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.12em;
           font-family: 'Montserrat', sans-serif;
           text-decoration: none;
           color: var(--text);
@@ -203,7 +203,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
         }
         .fsd-mob-link:hover      { color: var(--accent); }
         .fsd-mob-link.fsd-active { color: var(--accent); }
-        .fsd-mob-link .fsd-icon  { opacity: 0.35; font-size: 16px; line-height: 1; }
+        .fsd-mob-link .fsd-icon  { opacity: 0.35; font-size: 12px; line-height: 1; }
 
         @media (max-width: 1024px) { .fsd-desktop { display: none !important; } }
         @media (min-width: 1025px) { .fsd-mobile  { display: none !important; } }
