@@ -306,15 +306,14 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
 
             <button
               className="fsd-icon-btn"
-              style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+              style={{ width: 34, height: 34, flexDirection: "column", gap: 4, padding: 0, flexShrink: 0 }}
               onClick={() => setMobileOpen(false)}
               aria-label="Close menu"
               data-testid="button-close-menu"
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="13" y1="1" x2="1"  y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: 16, height: 1.5, background: "currentColor", borderRadius: 2 }} />
+              ))}
             </button>
           </div>
 
