@@ -324,14 +324,14 @@ function SidebarContent({ trades }: any) {
   const pnlPct = stats&&stats.startBal>0?((stats.netPnL/stats.startBal)*100).toFixed(2):"0.00";
 
   return (
-    <div style={{padding:"12px 12px 24px",display:"flex",flexDirection:"column",gap:"8px"}}>
+    <div style={{padding:"12px 16px 24px",display:"flex",flexDirection:"column",gap:"8px",width:"100%",boxSizing:"border-box"}}>
       <div style={{background:"rgba(10,13,20,0.8)",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"12px",padding:"12px 14px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
           <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>NET P&L</span>
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
         </div>
         <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span style={{fontSize:"16px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
+          <span style={{fontSize:"24px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
           <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
@@ -352,6 +352,14 @@ function SidebarContent({ trades }: any) {
         </div>
         <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
       </div>
+      <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"2px 0"}}>
+        <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
+        <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
+          <Icon name="BarChart2" size={10} style={{color:"#334155"}}/>
+          <span style={{fontSize:"8px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#334155"}}>Trading Stats</span>
+        </div>
+        <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
         {[
           {label:"Buys",  val:stats?stats.buys:0,  color:"#60a5fa"},
@@ -367,6 +375,7 @@ function SidebarContent({ trades }: any) {
       <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"2px 14px"}}>
         <StatRow label="Best Trade"    value={stats?fmt(stats.bestTrade):"$0.00"}  valueColor="#34d399"/>
         <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
+        <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
           <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
           <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
@@ -388,6 +397,7 @@ function SidebarContent({ trades }: any) {
         <div style={{borderRadius:"12px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
           <Icon name="Activity" size={20} style={{color:"#1e293b",margin:"0 auto 6px",display:"block"}}/>
           <p style={{fontSize:"10px",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#1e293b"}}>No trades yet</p>
+          <p style={{fontSize:"10px",color:"#0f172a",marginTop:"3px"}}>Log a trade to see stats</p>
         </div>
       )}
     </div>
@@ -674,7 +684,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       <style>{`
         .form-scroll::-webkit-scrollbar,.side-scroll::-webkit-scrollbar{display:none}
         .form-scroll,.side-scroll{-ms-overflow-style:none;scrollbar-width:none}
-        .sidebar-panel{position:relative;z-index:1;width:240px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none}
+        .sidebar-panel{position:relative;z-index:1;width:28vw;min-width:280px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:24px}
+        .sidebar-panel::-webkit-scrollbar{display:none}
         @media(max-width:899px){.sidebar-panel{display:none}.sidebar-fab{display:flex!important}}
         .sidebar-drawer{position:fixed;inset:0;z-index:100;display:flex}
         .sidebar-drawer-backdrop{flex:1;background:rgba(5,7,10,0.7);backdrop-filter:blur(4px)}
@@ -692,7 +703,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
         {/* FORM */}
         <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0}}>
-          <div style={{maxWidth:"860px",margin:"0 0 0 auto",padding:"12px 20px"}}>
+          <div style={{width:"100%",margin:"0",padding:"12px 32px"}}>
 
             {analyzeError&&(
               <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
@@ -1063,7 +1074,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
               <div>
                 <div style={{display:"flex",alignItems:"flex-end",gap:"6px"}}>
-                  <span style={{fontSize:"18px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
+                  <span style={{fontSize:"28px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
                   <span style={{fontSize:"11px",fontWeight:700,color:"#475569",marginBottom:"2px"}}>{trades.length===1?"TRADE":"TRADES"}</span>
                 </div>
                 <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
@@ -1089,10 +1100,19 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             <div className="sidebar-drawer-backdrop" onClick={()=>setSidebarOpen(false)}/>
             <div className="sidebar-drawer-panel side-scroll">
               <div style={{padding:"16px",borderBottom:"1px solid rgba(51,65,85,0.35)",background:"#07090f",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:2}}>
-                <span style={{fontSize:"11px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#cbd5e1"}}>Session Stats</span>
-                <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
-                  <Icon name="X" size={14}/>
-                </button>
+                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                  <Icon name="BarChart2" size={16} style={{color:"#3b82f6"}}/>
+                  <span style={{fontSize:"11px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#cbd5e1"}}>Session Stats</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                    <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none"}}/>
+                    <span style={{fontSize:"12px",fontWeight:900,fontFamily:"monospace",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
+                  </div>
+                  <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
+                    <Icon name="X" size={14}/>
+                  </button>
+                </div>
               </div>
               <SidebarContent trades={trades}/>
             </div>
