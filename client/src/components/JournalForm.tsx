@@ -274,7 +274,7 @@ const NavButtons = ({ step, onPrev, onNext }: any) => (
 const StatRow = ({ label, value, valueColor }: any) => (
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(51,65,85,0.3)"}}>
     <span style={{fontSize:"11px",color:"#64748b"}}>{label}</span>
-    <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:valueColor||"#e2e8f0"}}>{value}</span>
+    <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:valueColor||"#e2e8f0"}}>{value}</span>
   </div>
 );
 
@@ -331,7 +331,7 @@ function SidebarContent({ trades }: any) {
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
         </div>
         <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span style={{fontSize:"24px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
+          <span style={{fontSize:"18px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
           <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
@@ -341,8 +341,8 @@ function SidebarContent({ trades }: any) {
           <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontSize:"13px",fontWeight:700,fontFamily:"monospace",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
-          <span style={{fontSize:"13px",fontWeight:700,fontFamily:"monospace",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
+          <span style={{fontSize:"13px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
+          <span style={{fontSize:"13px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
         </div>
       </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
@@ -350,7 +350,7 @@ function SidebarContent({ trades }: any) {
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
           <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
         </div>
-        <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
+        <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"2px 0"}}>
         <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
@@ -368,7 +368,7 @@ function SidebarContent({ trades }: any) {
         ].map(({label,val,color})=>(
           <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"9px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"3px"}}>{label}</p>
-            <p style={{fontSize:"17px",fontWeight:900,fontFamily:"monospace",color}}>{val}</p>
+            <p style={{fontSize:"17px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color}}>{val}</p>
           </div>
         ))}
       </div>
@@ -378,7 +378,7 @@ function SidebarContent({ trades }: any) {
         <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
           <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
-          <span style={{fontSize:"12px",fontWeight:700,fontFamily:"monospace",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
+          <span style={{fontSize:"12px",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
@@ -389,7 +389,7 @@ function SidebarContent({ trades }: any) {
         ].map(({label,val,color})=>(
           <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"10px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"5px"}}>{label}</p>
-            <p style={{fontSize:"14px",fontWeight:900,fontFamily:"monospace",color}}>{val}</p>
+            <p style={{fontSize:"14px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color}}>{val}</p>
           </div>
         ))}
       </div>
@@ -1074,7 +1074,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
               <div>
                 <div style={{display:"flex",alignItems:"flex-end",gap:"6px"}}>
-                  <span style={{fontSize:"28px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
+                  <span style={{fontSize:"20px",fontWeight:900,fontFamily:"'JetBrains Mono', monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
                   <span style={{fontSize:"11px",fontWeight:700,color:"#475569",marginBottom:"2px"}}>{trades.length===1?"TRADE":"TRADES"}</span>
                 </div>
                 <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
