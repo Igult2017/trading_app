@@ -22,6 +22,8 @@ import { getCachedPrice, getCachedMultiplePrices, pingPriceService } from "./lib
 import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
 import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
 import { signalMonitor } from "./services/signalMonitor";
+// ── FIX: import balance tracker ───────────────────────────────────────────────
+import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTracker";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
@@ -101,19 +103,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── FIX 1: GET /api/sessions/:id/balance ─────────────────────────────────
+  // Returns the current running balance for a session.
+  // Used by useSessionBalance hook in the frontend.
+  app.get("/api/sessions/:id/balance", async (req, res) => {
+    try {
+      const summary = await getCurrentBalance(req.params.id);
+      res.json(summary);
+    } catch (error: any) {
+      console.error("[Routes] Balance fetch error:", error);
+      res.status(404).json({ error: error?.message ?? "Failed to fetch balance" });
+    }
+  });
+
   app.post("/api/sessions", async (req, res) => {
     try {
-      // ✅ FIX: No manual string conversion needed here anymore.
-      // insertTradingSessionSchema now handles both number and string
-      // via its .transform() and produces a guaranteed "10000.00" format.
-      // We pass req.body directly and let the schema do all the work.
       const validatedData = insertTradingSessionSchema.parse(req.body);
       const session = await storage.createSession(validatedData);
       res.status(201).json(session);
     } catch (error) {
       console.error("[Routes] Create session error:", error);
-      // ✅ FIX: Return actual error details so failures are visible in production logs
-      // and the frontend can surface a meaningful message instead of a silent failure.
       res.status(400).json({
         error: "Invalid session data",
         details: error instanceof Error ? error.message : String(error),
@@ -143,19 +152,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- Journal Entry Routes ---
 
-  /**
-   * POST /api/journal/analyze-screenshot
-   *
-   * Accepts a base64-encoded screenshot and returns extracted journal fields.
-   *
-   * Strategy:
-   *   1. If GOOGLE_API_KEY is set → try Gemini AI (best accuracy for complex charts)
-   *   2. If Gemini fails or is not configured → fall back to OCR (Tesseract-based, no API key needed)
-   *
-   * Optional query params:
-   *   ?method=ocr   — force OCR even if Gemini is available
-   *   ?method=ai    — force Gemini only (returns error if not configured)
-   */
   app.post("/api/journal/analyze-screenshot", async (req, res) => {
     try {
       const { image } = req.body;
@@ -165,7 +161,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const forceMethod = (req.query.method as string | undefined)?.toLowerCase();
 
-      // Try Gemini AI first (unless OCR is explicitly forced)
       if (forceMethod !== "ocr") {
         try {
           const aiResult = await analyzeScreenshot(image);
@@ -181,14 +176,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // OCR fallback (or forced via ?method=ocr)
       const ocrResult = await analyzeScreenshotWithOCR(image);
 
       if (ocrResult.success) {
         return res.json(ocrResult);
       }
 
-      // Both methods failed
       return res.status(500).json({
         error: "Screenshot analysis failed with both AI and OCR methods",
         details: ocrResult.error,
@@ -199,12 +192,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  /**
-   * GET /api/journal/analyze-screenshot/status
-   *
-   * Returns which analysis methods are currently available.
-   * Useful for the frontend to show which engine is active.
-   */
   app.get("/api/journal/analyze-screenshot/status", async (_req, res) => {
     try {
       const [geminiConfigured, ocrAvailable] = await Promise.all([
@@ -255,6 +242,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── FIX 2: POST /api/journal/entries — wire enrichTradeWithBalance ────────
+  // Before saving to DB, if profitLoss is missing/zero the server computes it
+  // from riskPercent + outcome so monetary data is always correct in the DB.
   app.post("/api/journal/entries", async (req, res) => {
     try {
       const decimalFields = [
@@ -271,7 +261,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sanitized[field] = match ? match[0] : null;
         }
       }
-      const validatedData = insertJournalEntrySchema.parse(sanitized);
+
+      // ── Enrich with balance if profitLoss/accountBalance are missing ──────
+      // enrichTradeWithBalance is a no-op when profitLoss is already present,
+      // so this is safe to call unconditionally.
+      const sessionId = sanitized.sessionId as string | undefined;
+      const enriched = sessionId
+        ? await enrichTradeWithBalance(sessionId, sanitized)
+        : sanitized;
+
+      // Re-sanitise any newly computed decimal fields from enrichment
+      for (const field of ['profitLoss', 'accountBalance']) {
+        if (enriched[field] !== undefined && enriched[field] !== null && enriched[field] !== '') {
+          const raw = String(enriched[field]);
+          const match = raw.match(/-?\d+(\.\d+)?/);
+          enriched[field] = match ? match[0] : null;
+        }
+      }
+
+      const validatedData = insertJournalEntrySchema.parse(enriched);
       const entry = await storage.createJournalEntry(validatedData);
       res.status(201).json(entry);
     } catch (error) {
@@ -343,12 +351,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Drawdown Analysis ──────────────────────────────────────────────────────
-  // Powers the DrawdownPanel component (client/src/components/DrawdownPanel.tsx).
-  // Currently that component uses hardcoded mock data.
-  // TODO: Update DrawdownPanel to call this endpoint via useQuery and replace
-  // the hardcoded topStats, heatmap, streaks, frequency, and structural data
-  // with the real computed values returned here.
   app.get("/api/drawdown/compute", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
@@ -371,11 +373,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Timeframe Metrics ──────────────────────────────────────────────────────
-  // Powers the TFMetricsPanel component (client/src/components/TFMetricsPanel.tsx).
-  // Currently that component uses hardcoded mock data with no API calls.
-  // TODO: Update TFMetricsPanel to accept sessionId prop, call this endpoint
-  // via useQuery, and replace hardcoded TF breakdowns with real computed data.
   app.get("/api/tf-metrics/compute", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
@@ -398,12 +395,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Strategy Audit ─────────────────────────────────────────────────────────
-  // Powers the StrategyAudit component (client/src/components/StrategyAudit.tsx).
-  // Currently that component uses hardcoded mock data for all 4 audit levels.
-  // TODO: Update StrategyAudit to accept sessionId prop, call this endpoint
-  // via useQuery, and replace the static tradeData useMemo with real computed
-  // level1, level2, level3, level4 data from the response.
   app.get("/api/strategy-audit/compute", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
@@ -474,15 +465,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       let filteredEvents = events;
-      if (filters.region) {
-        filteredEvents = filteredEvents.filter(e => e.region === filters.region);
-      }
-      if (filters.impactLevel) {
-        filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
-      }
-      if (filters.currency) {
-        filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
-      }
+      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region === filters.region);
+      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
+      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
       
       res.json(filteredEvents);
     } catch (error) {
@@ -502,15 +487,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       let filteredEvents = events;
-      if (filters.region) {
-        filteredEvents = filteredEvents.filter(e => e.region === filters.region);
-      }
-      if (filters.impactLevel) {
-        filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
-      }
-      if (filters.currency) {
-        filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
-      }
+      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region === filters.region);
+      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
+      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
       
       res.json(filteredEvents);
     } catch (error) {
@@ -530,18 +509,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       let filteredEvents = events;
-      if (filters.region) {
-        filteredEvents = filteredEvents.filter(e => e.region === filters.region);
-      }
-      if (filters.impactLevel) {
-        filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
-      }
-      if (filters.currency) {
-        filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
-      }
+      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region === filters.region);
+      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
+      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
       
       const eventsWithSentiment = filteredEvents.map(event => updateEventWithSentiment(event));
-      
       res.json(eventsWithSentiment);
     } catch (error) {
       console.error('Error in /api/economic-events:', error);
@@ -552,11 +524,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/economic-events/:id", async (req, res) => {
     try {
       const event = await cacheService.getEventById(req.params.id);
-      if (!event) {
-        return res.status(404).json({ error: "Event not found" });
-      }
-      const eventWithSentiment = updateEventWithSentiment(event);
-      res.json(eventWithSentiment);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+      res.json(updateEventWithSentiment(event));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch event" });
     }
@@ -565,14 +534,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/economic-events/:id/analysis", async (req, res) => {
     try {
       const event = await cacheService.getEventById(req.params.id);
-      if (!event) {
-        return res.status(404).json({ error: "Event not found" });
-      }
-      const analysis = analyzeEventSentiment(event);
-      res.json({
-        event: updateEventWithSentiment(event),
-        analysis
-      });
+      if (!event) return res.status(404).json({ error: "Event not found" });
+      res.json({ event: updateEventWithSentiment(event), analysis: analyzeEventSentiment(event) });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch event analysis" });
     }
@@ -591,9 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/economic-events/:id", async (req, res) => {
     try {
       const event = await storage.updateEconomicEvent(req.params.id, req.body);
-      if (!event) {
-        return res.status(404).json({ error: "Event not found" });
-      }
+      if (!event) return res.status(404).json({ error: "Event not found" });
       res.json(event);
     } catch (error) {
       res.status(500).json({ error: "Failed to update event" });
@@ -603,9 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/economic-events/:id", async (req, res) => {
     try {
       const success = await storage.deleteEconomicEvent(req.params.id);
-      if (!success) {
-        return res.status(404).json({ error: "Event not found" });
-      }
+      if (!success) return res.status(404).json({ error: "Event not found" });
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete event" });
@@ -621,8 +580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (liveRates.length === 0) {
           return res.status(503).json({ error: "Interest rates temporarily unavailable - no live data" });
         }
-        res.json(liveRates);
-        return;
+        return res.json(liveRates);
       }
       res.json(rates);
     } catch (error) {
@@ -639,8 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!scrapedRate || !scrapedRate.isLiveData) {
           return res.status(404).json({ error: "Interest rate not found for currency" });
         }
-        res.json(scrapedRate);
-        return;
+        return res.json(scrapedRate);
       }
       res.json(rate);
     } catch (error) {
@@ -653,16 +610,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const pair = req.params.pair.toUpperCase();
       const [base, quote] = pair.includes('/') ? pair.split('/') : [pair.substring(0, 3), pair.substring(3, 6)];
-      
-      if (!base || !quote) {
-        return res.status(400).json({ error: "Invalid currency pair format" });
-      }
-      
+      if (!base || !quote) return res.status(400).json({ error: "Invalid currency pair format" });
       const differential = await interestRateScraper.getInterestRateDifferential(base, quote);
-      if (!differential) {
-        return res.status(404).json({ error: "Could not calculate differential for this pair" });
-      }
-      
+      if (!differential) return res.status(404).json({ error: "Could not calculate differential for this pair" });
       res.json({
         pair: `${base}/${quote}`,
         ...differential,
@@ -677,22 +627,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/signal", async (req, res) => {
     try {
       const signal = req.body;
-      
       if (!signal.symbol || !signal.type || !signal.entry) {
         return res.status(400).json({ error: "Invalid signal data" });
       }
-
       const typeEmoji = signal.type === 'buy' ? '🟢' : '🔴';
-      const title = `${typeEmoji} ${signal.symbol} - ${signal.type.toUpperCase()}`;
-      const message = `Strategy: ${signal.strategy} | Entry: ${signal.entry} | SL: ${signal.stopLoss} | TP: ${signal.takeProfit} | R/R: 1:${signal.riskReward}`;
-      
       await notificationService.createNotification({
         type: 'trading_signal',
-        title,
-        message,
+        title: `${typeEmoji} ${signal.symbol} - ${signal.type.toUpperCase()}`,
+        message: `Strategy: ${signal.strategy} | Entry: ${signal.entry} | SL: ${signal.stopLoss} | TP: ${signal.takeProfit} | R/R: 1:${signal.riskReward}`,
         metadata: JSON.stringify(signal),
       });
-
       res.json({ success: true, message: "Signal notification created" });
     } catch (error) {
       console.error("Error creating signal notification:", error);
@@ -703,12 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/notifications/status", async (req, res) => {
     try {
       const isReady = telegramNotificationService.isReady();
-      res.json({ 
-        telegramBotActive: isReady,
-        message: isReady 
-          ? "Telegram notifications are active" 
-          : "Telegram bot is not configured"
-      });
+      res.json({ telegramBotActive: isReady, message: isReady ? "Telegram notifications are active" : "Telegram bot is not configured" });
     } catch (error) {
       res.status(500).json({ error: "Failed to get notification status" });
     }
@@ -717,20 +656,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/notifications", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const notifications = await notificationService.getNotifications(limit);
-      res.json(notifications);
+      res.json(await notificationService.getNotifications(limit));
     } catch (error) {
-      console.error("Error fetching notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
 
   app.get("/api/notifications/unread", async (req, res) => {
     try {
-      const notifications = await notificationService.getUnreadNotifications();
-      res.json(notifications);
+      res.json(await notificationService.getUnreadNotifications());
     } catch (error) {
-      console.error("Error fetching unread notifications:", error);
       res.status(500).json({ error: "Failed to fetch unread notifications" });
     }
   });
@@ -738,9 +673,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/notifications/:id/read", async (req, res) => {
     try {
       await notificationService.markAsRead(req.params.id);
-      res.json({ success: true, message: "Notification marked as read" });
+      res.json({ success: true });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
@@ -748,9 +682,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/notifications/read-all", async (req, res) => {
     try {
       await notificationService.markAllAsRead();
-      res.json({ success: true, message: "All notifications marked as read" });
+      res.json({ success: true });
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
       res.status(500).json({ error: "Failed to mark all notifications as read" });
     }
   });
@@ -758,9 +691,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/notifications/:id", async (req, res) => {
     try {
       await notificationService.deleteNotification(req.params.id);
-      res.json({ success: true, message: "Notification deleted" });
+      res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting notification:", error);
       res.status(500).json({ error: "Failed to delete notification" });
     }
   });
@@ -768,64 +700,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/notifications/clear-all", async (req, res) => {
     try {
       await notificationService.clearAllNotifications();
-      res.json({ success: true, message: "All notifications cleared" });
+      res.json({ success: true });
     } catch (error) {
-      console.error("Error clearing all notifications:", error);
       res.status(500).json({ error: "Failed to clear all notifications" });
     }
   });
 
-  app.get("/api/trading-signals", async (_req, res) => {
-    res.json([]);
-  });
+  app.get("/api/trading-signals", async (_req, res) => { res.json([]); });
+  app.get("/api/trading-signals/:id", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/trading-signals/generate", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/trading-signals", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.patch("/api/trading-signals/:id", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.delete("/api/trading-signals/:id", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
 
-  app.get("/api/trading-signals/:id", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.post("/api/trading-signals/generate", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.post("/api/trading-signals", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.patch("/api/trading-signals/:id", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.delete("/api/trading-signals/:id", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  // ============================================
-  // WATCHLIST & SIGNAL MONITORING ROUTES
-  // ============================================
-
-  app.get("/api/signals/watchlist", async (_req, res) => {
-    res.json([]);
-  });
-
-  app.get("/api/signals/active", async (_req, res) => {
-    res.json([]);
-  });
-
-  app.post("/api/signals/:id/promote", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.post("/api/signals/:id/watchlist", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.post("/api/signals/check-outcomes", async (_req, res) => {
-    res.json({ checked: 0, outcomes: [], message: "Signal generation is disabled" });
-  });
-
-  app.get("/api/signals/monitor/status", async (_req, res) => {
-    res.json({ status: "disabled", message: "Signal generation is disabled" });
-  });
+  app.get("/api/signals/watchlist", async (_req, res) => { res.json([]); });
+  app.get("/api/signals/active", async (_req, res) => { res.json([]); });
+  app.post("/api/signals/:id/promote", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/signals/:id/watchlist", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/signals/check-outcomes", async (_req, res) => { res.json({ checked: 0, outcomes: [], message: "Signal generation is disabled" }); });
+  app.get("/api/signals/monitor/status", async (_req, res) => { res.json({ status: "disabled" }); });
 
   app.get("/api/pending-setups", async (req, res) => {
     try {
@@ -834,10 +727,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         readyForSignal: req.query.readyForSignal === 'true' ? true : undefined,
         invalidated: req.query.invalidated === 'true' ? true : false,
       };
-      const setups = await storage.getPendingSetups(filters);
-      res.json(setups);
+      res.json(await storage.getPendingSetups(filters));
     } catch (error) {
-      console.error("Error fetching pending setups:", error);
       res.status(500).json({ error: "Failed to fetch pending setups" });
     }
   });
@@ -845,12 +736,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/pending-setups/:id", async (req, res) => {
     try {
       const setup = await storage.getPendingSetupById(req.params.id);
-      if (!setup) {
-        return res.status(404).json({ error: "Pending setup not found" });
-      }
+      if (!setup) return res.status(404).json({ error: "Pending setup not found" });
       res.json(setup);
     } catch (error) {
-      console.error("Error fetching pending setup:", error);
       res.status(500).json({ error: "Failed to fetch pending setup" });
     }
   });
@@ -858,37 +746,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/prices/status", async (req, res) => {
     try {
       const isOnline = await pingPriceService();
-      res.json({ 
-        status: isOnline ? "online" : "offline",
-        message: isOnline ? "Price service is running" : "Price service is not available"
-      });
+      res.json({ status: isOnline ? "online" : "offline" });
     } catch (error) {
-      res.json({ status: "offline", message: "Price service error" });
+      res.json({ status: "offline" });
     }
   });
 
   app.get("/api/prices/:symbol", async (req, res) => {
     try {
-      const symbol = req.params.symbol;
       const assetClass = (req.query.assetClass as string) || "stock";
-      
       const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
-      if (!validAssetClasses.includes(assetClass)) {
-        return res.status(400).json({ error: "Invalid asset class" });
-      }
-      
-      const priceData = await getCachedPrice(
-        symbol, 
-        assetClass as "stock" | "forex" | "commodity" | "crypto"
-      );
-      
-      if (priceData.error) {
-        return res.status(404).json({ error: priceData.error });
-      }
-      
+      if (!validAssetClasses.includes(assetClass)) return res.status(400).json({ error: "Invalid asset class" });
+      const priceData = await getCachedPrice(req.params.symbol, assetClass as any);
+      if (priceData.error) return res.status(404).json({ error: priceData.error });
       res.json(priceData);
     } catch (error) {
-      console.error("Error fetching price:", error);
       res.status(500).json({ error: "Failed to fetch price" });
     }
   });
@@ -896,82 +768,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/prices/batch", async (req, res) => {
     try {
       const { symbols } = req.body;
-      
-      if (!Array.isArray(symbols) || symbols.length === 0) {
-        return res.status(400).json({ error: "Symbols array is required" });
-      }
-      
-      if (symbols.length > 50) {
-        return res.status(400).json({ error: "Maximum 50 symbols per request" });
-      }
-      
-      const priceData = await getCachedMultiplePrices(symbols);
-      res.json(priceData);
+      if (!Array.isArray(symbols) || symbols.length === 0) return res.status(400).json({ error: "Symbols array is required" });
+      if (symbols.length > 50) return res.status(400).json({ error: "Maximum 50 symbols per request" });
+      res.json(await getCachedMultiplePrices(symbols));
     } catch (error) {
-      console.error("Error fetching batch prices:", error);
       res.status(500).json({ error: "Failed to fetch prices" });
     }
   });
 
-  // ============================================
-  // GEMINI AI ANALYSIS ROUTES
-  // ============================================
-
   app.get("/api/gemini/status", async (req, res) => {
     try {
       const isConfigured = isGeminiConfigured();
-      if (!isConfigured) {
-        return res.json({ 
-          configured: false, 
-          connected: false, 
-          message: "GOOGLE_API_KEY not configured" 
-        });
-      }
-
+      if (!isConfigured) return res.json({ configured: false, connected: false, message: "GOOGLE_API_KEY not configured" });
       const connectionTest = await testGeminiConnection();
-      res.json({
-        configured: true,
-        connected: connectionTest.success,
-        message: connectionTest.message,
-      });
+      res.json({ configured: true, connected: connectionTest.success, message: connectionTest.message });
     } catch (error) {
       res.status(500).json({ error: "Failed to check Gemini status" });
     }
   });
 
-  app.post("/api/gemini/validate", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
+  app.post("/api/gemini/validate", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/gemini/scan",     async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/gemini/analyze",  async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/gemini/quick-scan", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
 
-  app.post("/api/gemini/scan", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
+  app.get("/api/charts/status",     async (_req, res) => { res.json({ available: false }); });
+  app.post("/api/charts/generate",  async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/charts/cleanup",   async (_req, res) => { res.json({ success: true }); });
 
-  app.post("/api/gemini/analyze", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.post("/api/gemini/quick-scan", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.get("/api/charts/status", async (_req, res) => {
-    res.json({ available: false });
-  });
-
-  app.post("/api/charts/generate", async (_req, res) => {
-    res.status(503).json({ error: "Signal generation is disabled" });
-  });
-
-  app.post("/api/charts/cleanup", async (_req, res) => {
-    res.json({ success: true, message: "No charts to clean up" });
-  });
-
-  // Signal monitor disabled for deployment safety
-  // signalMonitor.start(30000);
   console.log('[Server] Signal monitor: DISABLED');
 
   const httpServer = createServer(app);
-
   return httpServer;
 }
