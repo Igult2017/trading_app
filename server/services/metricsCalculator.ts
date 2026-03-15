@@ -5,9 +5,11 @@
  *
  * Responsibilities (and ONLY these):
  *   1. Accept raw trade rows + optional startingBalance from the route handler
- *   2. Serialise the payload to JSON and pipe it to the Python process via stdin
- *   3. Collect stdout, parse it, and return the result verbatim
- *   4. Handle every failure mode (spawn error, timeout, bad JSON, non-zero exit)
+ *   2. Remap journalEntries DB column names to the camelCase keys expected by
+ *      the Python calculator (profitLoss → pnl, entryTF → timeframe, etc.)
+ *   3. Serialise the payload as { trades, startingBalance } and pipe to Python
+ *   4. Collect stdout, parse it, and return the result verbatim
+ *   5. Handle every failure mode (spawn error, timeout, bad JSON, non-zero exit)
  *      and resolve — never reject — with a typed MetricsResult
  *
  * All metric computation lives exclusively in server/python/metrics_calculator.py.
@@ -20,7 +22,6 @@ import * as path from "path";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** Absolute path to the Python calculator, resolved once at module load time. */
 const PYTHON_SCRIPT_PATH = path.join(
   process.cwd(),
   "server",
@@ -28,13 +29,7 @@ const PYTHON_SCRIPT_PATH = path.join(
   "metrics_calculator.py"
 );
 
-/**
- * Maximum ms to wait for Python to return results.
- * 30 s is generous for even very large sessions; raise only if profiling shows need.
- */
 const TIMEOUT_MS = 30_000;
-
-/** Python interpreter — prefer python3, fall back via env if needed. */
 const PYTHON_BIN = process.env.PYTHON_BIN ?? "python3";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -46,32 +41,110 @@ export interface MetricsResult {
   error?: string;
 }
 
-/** Shape of the JSON payload written to Python's stdin. */
 interface PythonPayload {
   trades: any[];
   startingBalance?: number;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Field remapper ────────────────────────────────────────────────────────────
 
 /**
- * Build the stdin payload.
- * Python's _main() accepts either a bare array or { trades, startingBalance }.
- * We always send the object form so Python can forward startingBalance into the
- * equity-curve calculation without guessing.
+ * remapJournalEntry
+ * ─────────────────
+ * The journalEntries table uses column names that differ from the camelCase
+ * API keys the Python engine was originally designed for.  This function adds
+ * the canonical aliases so Python can resolve every field regardless of which
+ * shape arrives.
+ *
+ * We ADD aliases rather than replacing keys so the original column names are
+ * also preserved — Python's _get_field() will find whichever one is present.
+ *
+ * Mappings applied:
+ *   profitLoss        → pnl
+ *   riskReward        → rrRatio
+ *   entryTF           → timeframe
+ *   analysisTF        → analysisTimeframe
+ *   contextTF         → contextTimeframe
+ *   sessionName       → session  (when no "session" key exists)
+ *   primaryExitReason → exitReason
+ *   stopLossDistance  → slDistance
+ *   takeProfitDistance→ tpDistance
+ *   entryTime         → openedAt  (when no "openedAt" key exists)
+ *   exitTime          → closedAt  (when no "closedAt" key exists)
  */
+function remapJournalEntry(raw: Record<string, any>): Record<string, any> {
+  const out = { ...raw };
+
+  // P&L
+  if (out.pnl == null && out.profitLoss != null) {
+    out.pnl = out.profitLoss;
+  }
+
+  // R:R
+  if (out.rrRatio == null && out.riskReward != null) {
+    out.rrRatio = out.riskReward;
+  }
+
+  // Timeframes
+  if (out.timeframe == null && out.entryTF != null) {
+    out.timeframe = out.entryTF;
+  }
+  if (out.analysisTimeframe == null && out.analysisTF != null) {
+    out.analysisTimeframe = out.analysisTF;
+  }
+  if (out.contextTimeframe == null && out.contextTF != null) {
+    out.contextTimeframe = out.contextTF;
+  }
+
+  // Session
+  if (out.session == null && out.sessionName != null) {
+    out.session = out.sessionName;
+  }
+
+  // Exit reason
+  if (out.exitReason == null && out.primaryExitReason != null) {
+    out.exitReason = out.primaryExitReason;
+  }
+
+  // SL / TP distances
+  if (out.slDistance == null && out.stopLossDistance != null) {
+    out.slDistance = out.stopLossDistance;
+  }
+  if (out.tpDistance == null && out.takeProfitDistance != null) {
+    out.tpDistance = out.takeProfitDistance;
+  }
+
+  // Timestamps
+  if (out.openedAt == null) {
+    out.openedAt = out.entryTime ?? out.entryTimeUTC ?? null;
+  }
+  if (out.closedAt == null) {
+    out.closedAt = out.exitTime ?? null;
+  }
+
+  // Trade date fallback: use createdAt if nothing else is available
+  if (out.tradeDate == null) {
+    out.tradeDate = out.openedAt ?? out.createdAt ?? null;
+  }
+
+  return out;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function buildPayload(trades: any[], startingBalance?: number): PythonPayload {
-  const payload: PythonPayload = { trades };
+  // Remap every trade row before sending to Python
+  const remapped = trades.map((t) =>
+    t && typeof t === "object" ? remapJournalEntry(t as Record<string, any>) : t
+  );
+
+  const payload: PythonPayload = { trades: remapped };
   if (startingBalance !== undefined && Number.isFinite(startingBalance)) {
     payload.startingBalance = startingBalance;
   }
   return payload;
 }
 
-/**
- * Try to parse the raw stdout string as JSON.
- * Returns null (and logs) on failure so the caller can decide what to do.
- */
 function tryParseJSON(raw: string): MetricsResult | null {
   try {
     return JSON.parse(raw.trim()) as MetricsResult;
@@ -84,14 +157,11 @@ function tryParseJSON(raw: string): MetricsResult | null {
   }
 }
 
-/**
- * Kill the child process silently — it may already be dead.
- */
 function killSilently(child: ChildProcess): void {
   try {
     child.kill("SIGTERM");
   } catch {
-    // process already gone — fine
+    // already gone
   }
 }
 
@@ -101,10 +171,9 @@ function killSilently(child: ChildProcess): void {
  * computeMetrics
  * ──────────────
  * Spawns the Python metrics engine, feeds it trades via stdin, and returns the
- * parsed result.  Always resolves — never rejects — so callers don't need a
- * try/catch around the await.
+ * parsed result.  Always resolves — never rejects.
  *
- * @param trades           Raw trade rows from the database (camelCase keys)
+ * @param trades           Raw trade rows from the database (journalEntries shape)
  * @param startingBalance  Optional account starting balance for equity-curve growth %
  */
 export async function computeMetrics(
@@ -112,19 +181,16 @@ export async function computeMetrics(
   startingBalance?: number
 ): Promise<MetricsResult> {
   return new Promise((resolve) => {
-    // ── Sanity-check input before touching Python ────────────────────────
     if (!Array.isArray(trades)) {
       console.error("[MetricsCalculator] trades must be an array, got:", typeof trades);
       resolve({ success: false, error: "trades must be an array" });
       return;
     }
 
-    // ── Spawn ────────────────────────────────────────────────────────────
     let child: ChildProcess;
     try {
       child = spawn(PYTHON_BIN, [PYTHON_SCRIPT_PATH], {
         env: { ...process.env },
-        // Pipe all three streams so we can read stdout/stderr and write stdin
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (spawnErr: any) {
@@ -133,10 +199,9 @@ export async function computeMetrics(
       return;
     }
 
-    // ── State ────────────────────────────────────────────────────────────
     let stdout = "";
     let stderr = "";
-    let settled = false; // guard: resolve only once
+    let settled = false;
 
     const settle = (result: MetricsResult): void => {
       if (settled) return;
@@ -145,26 +210,21 @@ export async function computeMetrics(
       resolve(result);
     };
 
-    // ── Timeout guard ────────────────────────────────────────────────────
     const timer = setTimeout(() => {
       console.error(`[MetricsCalculator] Timed out after ${TIMEOUT_MS}ms`);
       killSilently(child);
       settle({ success: false, error: `Metrics computation timed out (${TIMEOUT_MS / 1000}s)` });
     }, TIMEOUT_MS);
 
-    // ── Stream collectors ────────────────────────────────────────────────
     child.stdout!.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
     child.stderr!.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
 
-    // ── Spawn-level error (e.g. python3 not found) ───────────────────────
     child.on("error", (err: Error) => {
       console.error("[MetricsCalculator] Spawn error:", err);
       settle({ success: false, error: err.message });
     });
 
-    // ── Process exit ─────────────────────────────────────────────────────
     child.on("close", (code: number | null) => {
-      // 1. Prefer stdout — even on non-zero exit Python may have written valid JSON
       if (stdout.trim()) {
         const parsed = tryParseJSON(stdout);
         if (parsed) {
@@ -176,7 +236,6 @@ export async function computeMetrics(
         }
       }
 
-      // 2. Non-zero exit or stderr content → failure
       if (code !== 0 || stderr.trim()) {
         const msg = stderr.trim() || `Python exited with code ${code}`;
         console.error("[MetricsCalculator] Python error:", msg);
@@ -184,19 +243,14 @@ export async function computeMetrics(
         return;
       }
 
-      // 3. Zero exit but no usable output
       settle({ success: false, error: "No output from metrics computation" });
     });
 
-    // ── Write payload ────────────────────────────────────────────────────
-    // Do this after attaching listeners so we can't miss the 'close' event
-    // on a process that exits synchronously (unlikely but defensive).
     try {
       const payload = buildPayload(trades, startingBalance);
       child.stdin!.write(JSON.stringify(payload), (writeErr) => {
         if (writeErr) {
           console.error("[MetricsCalculator] stdin write error:", writeErr);
-          // Don't settle here — close event will fire with code 1
         }
         child.stdin!.end();
       });
