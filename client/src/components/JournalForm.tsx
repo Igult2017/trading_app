@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useSessionBalance } from "@/hooks/useSessionBalance";
+import { calcAllTradeValues } from "@/lib/tradeCalculations";
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
 const Ic = ({ d, size=16, style, className, strokeWidth=2 }: any) => (
@@ -59,7 +61,6 @@ const Icon = ({ name, size=16, style, className }: any) => {
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed";
-// OCR-filled inputs get italic styling for distinction
 const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 font-mono leading-relaxed italic";
 const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
 
@@ -122,7 +123,6 @@ const INIT: Record<string, any> = {
   atrAtEntry:"", exitScreenshot:null, pairCategory:"Major",
   consecutiveTradeCount:"", commission:"", postTradeEmotion:"Neutral",
   recencyBiasFlag:false,
-  // v8 OCR extra fields
   openingPrice:"", closingPrice:"",
   stopLossUSD:"", takeProfitUSD:"",
   runUpPoints:"", runUpUSD:"",
@@ -131,7 +131,6 @@ const INIT: Record<string, any> = {
   ocrConfidence:"", ocrValidation:"",
 };
 
-// Track which fields were populated by OCR (for italic styling)
 type OcrFilledSet = Set<string>;
 
 // ── UI Primitives ─────────────────────────────────────────────────────────
@@ -164,7 +163,6 @@ const SectionHeader = ({ icon, title }: any) => (
   </div>
 );
 
-/** Field component — italicises input when the field was OCR-filled */
 const Field = ({ label, field, value, onChange, placeholder="", rows, type="text", ocrFilled=false }: any) => {
   const cls = ocrFilled ? INPUT_OCR_CLS : INPUT_CLS;
   return (
@@ -173,10 +171,7 @@ const Field = ({ label, field, value, onChange, placeholder="", rows, type="text
         <label className={LABEL_CLS}>
           {label}
           {ocrFilled && (
-            <span title="Auto-filled by OCR" style={{
-              marginLeft:6, fontSize:9, color:"#34d399",
-              letterSpacing:"0.15em", fontStyle:"normal",
-            }}>✦ OCR</span>
+            <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
           )}
         </label>
       )}
@@ -194,10 +189,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
       <label className={LABEL_CLS}>
         {label}
         {ocrFilled && (
-          <span title="Auto-filled by OCR" style={{
-            marginLeft:6, fontSize:9, color:"#34d399",
-            letterSpacing:"0.15em", fontStyle:"normal",
-          }}>✦ OCR</span>
+          <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
         )}
       </label>
     )}
@@ -286,33 +278,22 @@ const StatRow = ({ label, value, valueColor }: any) => (
   </div>
 );
 
-// ── OCR Summary Badge ──────────────────────────────────────────────────────
 const OcrSummaryBadge = ({ form, ocrFields }: { form: Record<string,any>; ocrFields: OcrFilledSet }) => {
   if (!ocrFields.size) return null;
   const conf = form.ocrConfidence;
   const confColor = conf === "high" ? "#34d399" : conf === "medium" ? "#fbbf24" : "#f87171";
   return (
-    <div style={{
-      display:"flex", alignItems:"center", gap:10, marginBottom:12,
-      padding:"10px 16px", borderRadius:12,
-      border:"1px solid rgba(52,211,153,0.25)",
-      background:"rgba(52,211,153,0.05)",
-    }}>
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"10px 16px", borderRadius:12, border:"1px solid rgba(52,211,153,0.25)", background:"rgba(52,211,153,0.05)" }}>
       <Icon name="Sparkles" size={14} style={{color:"#34d399"}}/>
       <span style={{fontSize:11, fontWeight:700, color:"#34d399", flex:1}}>
         OCR extracted <strong>{ocrFields.size}</strong> fields automatically
-        {conf && <span style={{marginLeft:8, fontSize:10, color:confColor, fontStyle:"italic"}}>
-          {conf} confidence
-        </span>}
+        {conf && <span style={{marginLeft:8, fontSize:10, color:confColor, fontStyle:"italic"}}>{conf} confidence</span>}
       </span>
-      <span style={{fontSize:9, color:"#475569", fontStyle:"italic"}}>
-        Italic fields = OCR-filled
-      </span>
+      <span style={{fontSize:9, color:"#475569", fontStyle:"italic"}}>Italic fields = OCR-filled</span>
     </div>
   );
 };
 
-// ── Sidebar ───────────────────────────────────────────────────────────────
 function SidebarContent({ trades }: any) {
   const stats = useMemo(() => {
     if (!trades.length) return null;
@@ -423,12 +404,36 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [analyzing,setAnalyzing]     = useState(false);
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
   const [saving,setSaving]           = useState(false);
-  // Track which fields were populated by OCR for italic distinction
   const [ocrFields,setOcrFields]     = useState<OcrFilledSet>(new Set());
+
+  // ── FIX 1: live running balance from all existing session trades ──────────
+  const { currentBalance } = useSessionBalance(sessionId);
+
+  // ── FIX 2: auto-calculate P&L + accountBalance whenever key fields change ─
+  // Runs when riskPercent, riskReward, outcome, or currentBalance changes.
+  // calcAllTradeValues is pure — safe to call on every keystroke.
+  // Only fires when all three inputs are present and outcome is valid.
+  useEffect(() => {
+    if (!currentBalance || !form.riskPercent || !form.riskReward || !form.outcome) return;
+    const outcome = form.outcome as "Win" | "Loss" | "BE";
+    if (!["Win", "Loss", "BE"].includes(outcome)) return;
+    const values = calcAllTradeValues(
+      currentBalance,
+      String(form.riskPercent),
+      String(form.riskReward),
+      outcome,
+    );
+    setForm(prev => ({
+      ...prev,
+      profitLoss:     values.profitLoss,
+      accountBalance: values.accountBalance,
+      monetaryRisk:   values.dollarRisk,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.riskPercent, form.riskReward, form.outcome, currentBalance]);
 
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
 
-  // Helper for building field/select with ocr flag
   const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
     <Field label={label} field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type} ocrFilled={ocrFields.has(field)}/>;
   const ls  = (label: string,field: string,options: string[]) =>
@@ -440,22 +445,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const g3="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
   const g4="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
 
-  // ── OCR v8 field mapping ────────────────────────────────────────────────
-  //
-  // v8 OCR returns these fields (from analyzer.py → fields dict):
-  //   instrument, pairCategory, direction
-  //   entryPrice, openingPrice, closingPrice
-  //   stopLoss, stopLossPoints, stopLossPips, stopLossUSD
-  //   takeProfit, takeProfitPoints, takeProfitPips, takeProfitUSD
-  //   plannedSLPoints, plannedTPPoints, plannedRR
-  //   riskReward, achievedRR, takeProfitR, priceExcursionR
-  //   lotSize, units, contractSize
-  //   openPLUSD, openPLPoints
-  //   runUpPoints, runUpUSD, drawdownPoints, drawdownUSD
-  //   outcome, tradeIsOpen
-  //   exitTime, dayOfWeek, sessionName, sessionPhase, tradeDuration
-  //
-  // All fields written by OCR are marked in ocrFilledSet for italic styling.
   const analyzeScreenshot = async (base64Image: string) => {
     setAnalyzing(true);
     setAnalyzeError(null);
@@ -469,17 +458,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
         const mark = (field: string) => newOcrFields.add(field);
         const maybe = (field: string, val: any) => {
-          if (val != null && val !== "") {
-            mark(field);
-            return String(val);
-          }
+          if (val != null && val !== "") { mark(field); return String(val); }
           return undefined;
         };
 
         setForm(prev => {
           const u = { ...prev };
 
-          // ── Instrument & category ────────────────────────────────────
           if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
           if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
           else if (f.instrument) {
@@ -492,66 +477,45 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             mark("pairCategory");
           }
 
-          // ── Direction ───────────────────────────────────────────────
           if (f.direction) { u.direction = f.direction; mark("direction"); }
 
-          // ── Prices ──────────────────────────────────────────────────
-          // entryPrice = the orange arrow label on chart
           const ep = maybe("entryPrice", f.entryPrice);
           if (ep) { u.entryPrice = ep; u.plannedEntry = ep; u.actualEntry = ep; }
 
-          // openingPrice = SL-line → right-axis coordinate mapping
           const op = maybe("openingPrice", f.openingPrice);
           if (op) u.openingPrice = op;
 
-          // closingPrice = TP-line → right-axis coordinate mapping
           const cp = maybe("closingPrice", f.closingPrice);
           if (cp) u.closingPrice = cp;
 
-          // SL / TP absolute prices (calculated from entry ± points × pip_size)
           const sl = maybe("stopLoss", f.stopLoss);
           if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; }
 
           const tp = maybe("takeProfit", f.takeProfit);
           if (tp) { u.takeProfit = tp; u.plannedTP = tp; u.actualTP = tp; }
 
-          // ── SL / TP distances ─────────────────────────────────────────
-          // Use points (not pips) — JForex uses "points" as the unit
           const slPts = f.stopLossPoints ?? f.plannedSLPoints;
-          if (slPts != null) {
-            u.stopLossDistancePips = String(slPts); mark("stopLossDistancePips");
-          }
+          if (slPts != null) { u.stopLossDistancePips = String(slPts); mark("stopLossDistancePips"); }
+
           const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
-          if (tpPts != null) {
-            u.takeProfitDistancePips = String(tpPts); mark("takeProfitDistancePips");
-          }
+          if (tpPts != null) { u.takeProfitDistancePips = String(tpPts); mark("takeProfitDistancePips"); }
 
-          // SL / TP USD costs (labelled in the info panel)
-          if (f.stopLossUSD  != null) { u.stopLossUSD  = String(f.stopLossUSD);  mark("stopLossUSD"); }
-          if (f.takeProfitUSD!= null) { u.takeProfitUSD= String(f.takeProfitUSD);mark("takeProfitUSD"); }
+          if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
+          if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
 
-          // ── Position size ────────────────────────────────────────────
-          if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);       mark("lotSize"); }
-          if (f.units        != null) { u.units        = String(f.units);         mark("units"); }
-          if (f.contractSize != null) { u.contractSize = String(f.contractSize);  mark("contractSize"); }
+          if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);      mark("lotSize"); }
+          if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
+          if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
 
-          // ── Risk/Reward ──────────────────────────────────────────────
-          if (f.riskReward  != null) { u.riskReward  = String(f.riskReward);  mark("riskReward"); }
-          if (f.plannedRR   != null) { u.plannedRR   = String(f.plannedRR);   mark("plannedRR"); }
-          if (f.achievedRR  != null) { u.achievedRR  = String(f.achievedRR);  mark("achievedRR"); }
+          if (f.riskReward != null) { u.riskReward = String(f.riskReward); mark("riskReward"); }
+          if (f.plannedRR  != null) { u.plannedRR  = String(f.plannedRR);  mark("plannedRR"); }
+          if (f.achievedRR != null) { u.achievedRR = String(f.achievedRR); mark("achievedRR"); }
 
-          // ── Outcome & P&L ─────────────────────────────────────────────
           if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
 
-          // openPLUSD holds whichever is present (Closed P/L preferred by v8)
-          if (f.openPLUSD != null) {
-            u.profitLoss = String(f.openPLUSD); mark("profitLoss");
-          }
-          if (f.openPLPoints != null) {
-            u.pipsGainedLost = String(f.openPLPoints); mark("pipsGainedLost");
-          }
+          if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
+          if (f.openPLPoints != null) { u.pipsGainedLost = String(f.openPLPoints); mark("pipsGainedLost"); }
 
-          // ── MFE / MAE (run-up / drawdown) ─────────────────────────────
           if (f.runUpPoints != null) {
             u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
             mark("mfe");
@@ -561,40 +525,24 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             mark("mae");
           }
 
-          // ── Timing ───────────────────────────────────────────────────
-          // exitTime = replay bar timestamp (e.g. "2023-12-28 19:59")
-          // This is the most reliably OCR-extracted date field.
           if (f.exitTime) {
             u.exitTime = f.exitTime; mark("exitTime");
-            // CRITICAL: also write exitTime into entryTime when entryTime is
-            // blank. The calendar uses entryTime as the primary date key.
-            // Without this a 2024 trade logged in 2026 would appear in 2026.
-            if (!u.entryTime || u.entryTime === "") {
-              u.entryTime = f.exitTime; mark("entryTime");
-            }
+            if (!u.entryTime || u.entryTime === "") { u.entryTime = f.exitTime; mark("entryTime"); }
           }
-          // v8 does not extract entryTime (timeframe removed by design),
-          // so exitTime (replay bar) is the canonical trade date from OCR.
 
-          if (f.dayOfWeek)    { u.dayOfWeek    = f.dayOfWeek;    mark("dayOfWeek"); }
-          if (f.tradeDuration){ u.tradeDuration= f.tradeDuration; mark("tradeDuration"); }
+          if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
+          if (f.tradeDuration){ u.tradeDuration  = f.tradeDuration; mark("tradeDuration"); }
 
-          // ── Session ───────────────────────────────────────────────────
-          if (f.sessionName)  {
-            u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName");
-          }
+          if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
           if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
 
-          // ── OCR metadata (for badge display) ─────────────────────────
           u.ocrConfidence = data.confidence || "";
           u.ocrValidation = data.validation?.summary || "";
 
           return u;
         });
 
-        // Update which fields were OCR-filled (for italic styling)
         setOcrFields(newOcrFields);
-
       } else {
         setAnalyzeError(data.error || "OCR analysis failed");
       }
@@ -658,7 +606,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         entryTimeUTC:         form.entryTimeUTC          || null,
         sessionId:            sessionId                  || null,
         timingContext:        form.timingContext          || null,
-        // Store full v8 OCR metadata (opening/closing prices, raw fields, validation)
         aiExtracted: {
           method:          "ocr_v8_jforex",
           ocrConfidence:   form.ocrConfidence,
@@ -735,8 +682,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         .sidebar-drawer-panel::-webkit-scrollbar{display:none}
         @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @media(max-width:479px){.steps-grid{grid-template-columns:1fr 1fr!important}}
-        /* OCR-filled italic input override */
-        input.ocr-italic, textarea.ocr-italic, select.ocr-italic { font-style: italic !important; color: #34d399 !important; }
       `}</style>
 
       <div style={{display:"flex",height:"100%",overflow:"hidden",background:"#05070a",color:"#cbd5e1",fontFamily:"sans-serif",position:"relative"}}>
@@ -757,7 +702,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
             )}
 
-            {/* OCR summary badge */}
             <OcrSummaryBadge form={form} ocrFields={ocrFields}/>
 
             <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
@@ -864,9 +808,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       {analyzing&&(
                         <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
                           <Icon name="Activity" size={14}/>
-                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>
-                            OCR v8 analyzing screenshot… extracting fields
-                          </span>
+                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>OCR v8 analyzing screenshot… extracting fields</span>
                         </div>
                       )}
                       {form.ocrConfidence && !analyzing && (
@@ -876,9 +818,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                             OCR complete · {ocrFields.size} fields extracted · confidence: {form.ocrConfidence}
                           </span>
                           {form.ocrValidation && (
-                            <span style={{fontSize:"9px",color:"#64748b",marginLeft:"auto",fontStyle:"italic"}}>
-                              {form.ocrValidation}
-                            </span>
+                            <span style={{fontSize:"9px",color:"#64748b",marginLeft:"auto",fontStyle:"italic"}}>{form.ocrValidation}</span>
                           )}
                         </div>
                       )}
@@ -908,7 +848,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       </div>
                     </section>
 
-                    {/* OCR-only fields — opening/closing prices from coordinate mapping */}
                     {(form.openingPrice || form.closingPrice) && (
                       <section className="space-y-4">
                         <SectionHeader icon="Target" title="Price Axis (OCR Coordinate Mapping)"/>
@@ -1187,6 +1126,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             </div>
           </div>
         )}
+
       </div>
     </>
   );
