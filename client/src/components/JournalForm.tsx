@@ -684,7 +684,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       <style>{`
         .form-scroll::-webkit-scrollbar,.side-scroll::-webkit-scrollbar{display:none}
         .form-scroll,.side-scroll{-ms-overflow-style:none;scrollbar-width:none}
-        .sidebar-panel{position:relative;z-index:1;width:28vw;min-width:280px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:24px}
+        .sidebar-panel{position:relative;z-index:1;width:18vw;min-width:200px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:12px}
         .sidebar-panel::-webkit-scrollbar{display:none}
         @media(max-width:899px){.sidebar-panel{display:none}.sidebar-fab{display:flex!important}}
         .sidebar-drawer{position:fixed;inset:0;z-index:100;display:flex}
