@@ -504,11 +504,16 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           const tp = maybe("takeProfit", f.takeProfit);
           if (tp) { u.takeProfit = tp; u.plannedTP = tp; u.actualTP = tp; }
 
+          // Convert MT4/MT5 points → pips.
+          // For indices 1 point = 1 pip; for all other asset classes 1 pip = 10 points.
+          const pipFactor = /index|idx|us30|spx|nas|dax|ftse|cac/i.test(String(u.instrument ?? "")) || u.pairCategory === "Index" ? 1 : 10;
+          const ptsToPips = (pts: any) => String(parseFloat(String(pts)) / pipFactor);
+
           const slPts = f.stopLossPoints ?? f.plannedSLPoints;
-          if (slPts != null) { u.stopLossDistancePips = String(slPts); mark("stopLossDistancePips"); }
+          if (slPts != null) { u.stopLossDistancePips = ptsToPips(slPts); mark("stopLossDistancePips"); }
 
           const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
-          if (tpPts != null) { u.takeProfitDistancePips = String(tpPts); mark("takeProfitDistancePips"); }
+          if (tpPts != null) { u.takeProfitDistancePips = ptsToPips(tpPts); mark("takeProfitDistancePips"); }
 
           if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
           if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
@@ -524,7 +529,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
 
           if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
-          if (f.openPLPoints != null) { u.pipsGainedLost = String(f.openPLPoints); mark("pipsGainedLost"); }
+          if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
 
           if (f.runUpPoints != null) {
             u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
