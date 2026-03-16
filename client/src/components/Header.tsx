@@ -1,298 +1,349 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'wouter';
-import { Menu, X } from 'lucide-react';
-import { SiTelegram } from 'react-icons/si';
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 
-const navLinks = [
-  { name: 'Home/Bias', path: '/' },
-  { name: 'Economic Calendar', path: '/calendar' },
-  { name: 'Major Pairs', path: '/major-pairs' },
-  { name: 'US Stocks', path: '/stocks' },
-  { name: 'Commodities', path: '/commodities' },
-  { name: 'Cryptocurrency', path: '/crypto' },
-  { name: 'History', path: '/history' },
-  { name: 'Blog', path: '/blog' },
-  { name: 'Premarket', path: '/premarket' },
-  { name: 'Stats', path: '/stats' },
-  { name: 'Charting', path: '/charting' },
-  { name: 'Research', path: '/research' },
+const TICKER_DATA = [
+  { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
+  { symbol: "BTC/USD", price: "67,204", change: "-1.34%", up: false },
+  { symbol: "GOLD",    price: "2,318.4", change: "+0.45%", up: true },
+  { symbol: "SPX500",  price: "5,236.1", change: "+0.28%", up: true },
+  { symbol: "GBP/USD", price: "1.2691",  change: "-0.08%", up: false },
+  { symbol: "ETH/USD", price: "3,512.7", change: "+2.11%", up: true },
+  { symbol: "OIL/WTI", price: "78.34",   change: "-0.67%", up: false },
+  { symbol: "USD/JPY", price: "156.72",  change: "+0.19%", up: true },
 ];
 
-const SESSIONS = [
-  { name: 'Sydney', start: 22, end: 7, nextDayEnd: true },
-  { name: 'Tokyo', start: 0, end: 9 },
-  { name: 'London', start: 7, end: 16 },
-  { name: 'New York', start: 12, end: 21 }
-];
-
-function getSessionInfo(): { utcTime: string; sessionName: string | null; timeInSession: string } {
-  const now = new Date();
-  const utcHours = now.getUTCHours();
-  const utcMinutes = now.getUTCMinutes();
-  const utcSeconds = now.getUTCSeconds();
-  const utcTimeInMinutes = utcHours * 60 + utcMinutes;
-
-  const formatTime = (unit: number) => String(unit).padStart(2, '0');
-  const utcTime = `${formatTime(utcHours)}:${formatTime(utcMinutes)}:${formatTime(utcSeconds)}`;
-
-  let activeSession: string | null = null;
-  let timeInMinutes = 0;
-
-  for (const session of SESSIONS) {
-    const startTimeInMinutes = session.start * 60;
-    const endTimeInMinutes = session.end * 60;
-
-    let isActive = false;
-
-    if (session.nextDayEnd) {
-      if (utcTimeInMinutes >= startTimeInMinutes || utcTimeInMinutes < endTimeInMinutes) {
-        isActive = true;
-        if (utcTimeInMinutes >= startTimeInMinutes) {
-          timeInMinutes = utcTimeInMinutes - startTimeInMinutes;
-        } else {
-          const minutesInDay = 24 * 60;
-          timeInMinutes = (minutesInDay - startTimeInMinutes) + utcTimeInMinutes;
-        }
-      }
-    } else {
-      if (utcTimeInMinutes >= startTimeInMinutes && utcTimeInMinutes < endTimeInMinutes) {
-        isActive = true;
-        timeInMinutes = utcTimeInMinutes - startTimeInMinutes;
-      }
-    }
-
-    if (isActive) {
-      activeSession = session.name;
-      break;
-    }
-  }
-
-  let timeInSession = '';
-  if (activeSession) {
-    const hoursIn = Math.floor(timeInMinutes / 60);
-    const minutesIn = timeInMinutes % 60;
-    if (hoursIn > 0) {
-      timeInSession = `${hoursIn}h ${minutesIn}m`;
-    } else {
-      timeInSession = `${minutesIn}m`;
-    }
-  }
-
-  return { utcTime, sessionName: activeSession, timeInSession };
+function TickerTape() {
+  const items = [...TICKER_DATA, ...TICKER_DATA];
+  return (
+    <div style={{
+      background: "#080c10",
+      borderBottom: "1px solid #0f1923",
+      height: 32,
+      overflow: "hidden",
+      display: "flex",
+      alignItems: "center",
+    }}>
+      <style>{`
+        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
+        .ticker-wrap:hover { animation-play-state: paused; }
+      `}</style>
+      <div className="ticker-wrap">
+        {items.map((t, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "0 28px", borderRight: "1px solid #0f1923",
+            whiteSpace: "nowrap",
+          }}>
+            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", fontFamily: "'Montserrat', sans-serif" }}>{t.symbol}</span>
+            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600, fontFamily: "'Montserrat', sans-serif" }}>{t.price}</span>
+            <span style={{
+              fontSize: 9, fontWeight: 700, fontFamily: "'Montserrat', sans-serif",
+              color: t.up ? "#22d3a5" : "#f4617f",
+              background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)",
+              padding: "1px 5px", borderRadius: 3,
+            }}>{t.change}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export default function Header() {
+const navItems = [
+  { label: "HOME",              icon: "⌂", href: "/" },
+  { label: "JOURNAL",           icon: "▤", href: "/journal" },
+  { label: "ECONOMIC CALENDAR", icon: "▦", href: "/calendar" },
+  { label: "ASSETS",            icon: "◈", href: "/major-pairs" },
+  { label: "TSC",               icon: "◉", href: "/stats" },
+  { label: "BLOG",              icon: "≡", href: "/blog" },
+];
+
+interface NewHeaderProps {
+  isDark?: boolean;
+  toggleTheme?: () => void;
+}
+
+export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
   const [location] = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sessionInfo, setSessionInfo] = useState(getSessionInfo());
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSessionInfo(getSessionInfo());
-    }, 1000);
-    return () => clearInterval(interval);
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  const isActivePath = (path: string) => {
-    if (path === '/') return location === '/';
-    return location.startsWith(path);
-  };
+  useEffect(() => { setMobileOpen(false); }, [location]);
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-  };
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
+  const fmt = (d: Date) =>
+    d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
+
+  const isActive = (href: string) =>
+    href === "/" ? location === "/" : location.startsWith(href);
 
   return (
-    <header className="bg-white dark:bg-gray-900 shadow-md sticky top-0 z-50" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4 border-b border-gray-100 dark:border-gray-800 lg:border-none">
-          <div className="flex-shrink-0">
-            <Link 
-              href="/" 
-              className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight"
-              data-testid="link-logo"
-            >
-              F<span className="text-emerald-500">S</span>D<span className="text-emerald-500">ZONES</span>.com
-            </Link>
-          </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
 
-          <div className="hidden md:flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 gap-3 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-lg shadow-inner">
-            <span className="text-xs font-normal text-gray-400 dark:text-gray-500">
-              UTC: <span className="font-semibold text-gray-800 dark:text-gray-200" data-testid="text-utc-time">{sessionInfo.utcTime}</span>
-            </span>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            <span data-testid="text-session-status">
-              {sessionInfo.sessionName ? (
-                <>
-                  Session: <span className="font-bold text-emerald-600">{sessionInfo.sessionName}</span> (<span className="font-bold text-emerald-600">{sessionInfo.timeInSession}</span> In)
-                </>
-              ) : (
-                <>Session: <span className="font-bold text-gray-500">Quiet</span></>
-              )}
-            </span>
-          </div>
+        :root {
+          --bg:         #080c10;
+          --surface:    #0c1219;
+          --border:     #0f1923;
+          --border-lit: #172233;
+          --accent:     #3b9eff;
+          --text:       #c8d8e8;
+          --muted:      #4a6580;
+        }
 
-          <div className="hidden lg:flex items-center gap-6">
-            <a 
-              href="https://t.me/BuySellZonesBot" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-blue-600 hover:text-blue-700 transition duration-150 flex items-center gap-1 p-2 rounded-full bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
-              data-testid="link-telegram"
-            >
-              <SiTelegram className="w-4 h-4" />
-              <span>Join Telegram</span>
-            </a>
-            <Link 
-              href="/join" 
-              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition duration-150"
-              data-testid="link-subscribe"
-            >
-              Subscribe
-            </Link>
-            <div className="flex items-center gap-2">
-              <Link 
-                href="/login" 
-                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition duration-150"
-                data-testid="link-signin"
-              >
-                Sign In
-              </Link>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
-              <Link 
-                href="/signup"
-                className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-emerald-700 transition duration-200"
-                data-testid="link-signup"
-              >
-                Sign Up
-              </Link>
-            </div>
-          </div>
+        .fsd-nav-link {
+          color: var(--muted);
+          text-decoration: none;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          padding: 6px 12px;
+          border-radius: 4px;
+          transition: all 0.15s;
+          white-space: nowrap;
+          border: 1px solid transparent;
+          font-family: 'Montserrat', sans-serif;
+          cursor: pointer;
+          background: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .fsd-nav-link:hover      { color: var(--text);   border-color: var(--border-lit); background: var(--surface); }
+        .fsd-nav-link.fsd-active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
 
-          <button 
-            className="lg:hidden text-gray-500 hover:text-emerald-600 focus:outline-none p-2 rounded-md transition duration-150" 
-            type="button" 
-            onClick={toggleMobileMenu}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            data-testid="button-mobile-menu"
-          >
-            {mobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-        </div>
+        .fsd-btn-sub {
+          background: var(--accent);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          padding: 14px 16px;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+          font-family: 'Montserrat', sans-serif;
+          transition: opacity 0.2s;
+          white-space: nowrap;
+          flex: 1;
+        }
+        .fsd-btn-sub:hover { opacity: 0.9; }
 
-        <nav className="hidden lg:block py-3">
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                href={link.path}
-                className={`text-sm font-medium transition duration-150 relative ${
-                  isActivePath(link.path)
-                    ? 'text-emerald-600 font-semibold'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-emerald-600'
-                }`}
-                data-testid={`link-nav-${link.name.toLowerCase().replace(/\s+/g, '-').replace('/', '-')}`}
-              >
-                {link.name}
-                {isActivePath(link.path) && (
-                  <span className="absolute left-0 -bottom-2 w-full h-0.5 bg-emerald-600 rounded-full" />
-                )}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      </div>
+        .fsd-btn-in {
+          background: transparent;
+          color: var(--text);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          padding: 14px 16px;
+          border-radius: 4px;
+          border: 1px solid var(--border-lit);
+          cursor: pointer;
+          font-family: 'Montserrat', sans-serif;
+          transition: all 0.2s;
+          white-space: nowrap;
+          flex: 1;
+        }
+        .fsd-btn-in:hover { border-color: var(--muted); background: var(--surface); }
 
-      <div className="md:hidden bg-gray-50 dark:bg-gray-800 px-4 py-2 flex items-center justify-center gap-3 text-sm border-t border-gray-100 dark:border-gray-700">
-        <span className="text-xs text-gray-400">
-          UTC: <span className="font-semibold text-gray-800 dark:text-gray-200">{sessionInfo.utcTime}</span>
-        </span>
-        <span className="text-gray-300">|</span>
-        <span>
-          {sessionInfo.sessionName ? (
-            <>
-              <span className="font-bold text-emerald-600">{sessionInfo.sessionName}</span> (<span className="text-emerald-600">{sessionInfo.timeInSession}</span>)
-            </>
-          ) : (
-            <span className="text-gray-500">Quiet</span>
-          )}
-        </span>
-      </div>
+        .fsd-icon-btn {
+          background: var(--surface);
+          border: 1px solid var(--border-lit);
+          border-radius: 4px;
+          color: var(--muted);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+        .fsd-icon-btn:hover { color: var(--text); border-color: var(--accent); }
 
-      {mobileMenuOpen && (
-        <div 
-          className="lg:hidden fixed inset-y-0 right-0 w-64 bg-white dark:bg-gray-900 z-40 shadow-xl overflow-y-auto transform transition-transform duration-300"
-          style={{ fontFamily: "'Montserrat', sans-serif" }}
-          data-testid="mobile-drawer"
-        >
-          <div className="p-5">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Navigation</h3>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-gray-500 hover:text-emerald-600 focus:outline-none p-2 rounded-md"
-                aria-label="Close menu"
-                data-testid="button-close-menu"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+        @keyframes fsd-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-            <nav className="space-y-4">
-              {navLinks.map((link) => (
+        .fsd-mobile-overlay {
+          position: fixed;
+          inset: 0;
+          background: var(--bg);
+          z-index: 200;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+          animation: fsd-fade-in 0.15s ease;
+        }
+
+        .fsd-mob-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px 20px;
+          border-bottom: 1px solid var(--border);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          font-family: 'Montserrat', sans-serif;
+          text-decoration: none;
+          color: var(--text);
+          cursor: pointer;
+          transition: color 0.15s;
+        }
+        .fsd-mob-link:hover      { color: var(--accent); }
+        .fsd-mob-link.fsd-active { color: var(--accent); }
+        .fsd-mob-link .fsd-icon  { opacity: 0.35; font-size: 12px; line-height: 1; }
+
+        @media (max-width: 1024px) { .fsd-desktop { display: none !important; } }
+        @media (min-width: 1025px) { .fsd-mobile  { display: none !important; } }
+      `}</style>
+
+      {/* Sticky header bar */}
+      <div style={{ position: "sticky", top: 0, zIndex: 100, fontFamily: "'Montserrat', sans-serif" }}>
+        <TickerTape />
+
+        <header style={{
+          background: "var(--bg)",
+          borderBottom: "1px solid var(--border-lit)",
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+        }}>
+          <Link href="/" style={{ display: "flex", alignItems: "baseline", textDecoration: "none", flexShrink: 0 }}>
+            <span style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>FSDZONES</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
+          </Link>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+            <nav className="fsd-desktop" style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {navItems.map(item => (
                 <Link
-                  key={link.path}
-                  href={link.path}
-                  className={`block text-base font-medium pl-3 transition duration-150 ${
-                    isActivePath(link.path)
-                      ? 'text-emerald-600 font-semibold border-l-4 border-emerald-600'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-emerald-600 hover:border-l-4 hover:border-emerald-600'
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  data-testid={`mobile-link-nav-${link.name.toLowerCase().replace(/\s+/g, '-').replace('/', '-')}`}
+                  key={item.label}
+                  href={item.href}
+                  className={`fsd-nav-link${isActive(item.href) ? " fsd-active" : ""}`}
                 >
-                  {link.name}
+                  <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
+                  {item.label}
                 </Link>
               ))}
+              <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 12px" }} />
+              <Link href="/join" style={{ textDecoration: "none" }}>
+                <button className="fsd-btn-sub" style={{ padding: "7px 16px", fontSize: 10 }}>SUBSCRIBE</button>
+              </Link>
             </nav>
 
-            <hr className="my-6 border-gray-200 dark:border-gray-700" />
+            <div className="fsd-desktop" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
+            <Link href="/login" className="fsd-desktop" style={{ textDecoration: "none" }}>
+              <button className="fsd-btn-in" style={{ padding: "6px 14px", fontSize: 10 }}>SIGN IN</button>
+            </Link>
 
-            <div className="space-y-4">
-              <a 
-                href="https://t.me/BuySellZonesBot" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-blue-600 text-blue-600 text-sm font-semibold rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition duration-150"
-                data-testid="mobile-link-telegram"
-              >
-                <SiTelegram className="w-5 h-5" />
-                <span>Join Telegram</span>
-              </a>
-              <Link 
-                href="/signup"
-                className="w-full flex items-center justify-center px-4 py-3 bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-lg hover:bg-emerald-700 transition duration-150"
-                onClick={() => setMobileMenuOpen(false)}
-                data-testid="mobile-link-signup"
-              >
-                Sign Up
-              </Link>
-              <Link 
-                href="/login"
-                className="w-full block text-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                onClick={() => setMobileMenuOpen(false)}
-                data-testid="mobile-link-signin"
-              >
-                Already have an account? <span className="text-emerald-600 font-semibold">Sign In</span>
-              </Link>
+            {/* Clock — always visible */}
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "flex-end",
+              padding: "4px 10px",
+              background: "var(--surface)",
+              border: "1px solid var(--border-lit)",
+              borderRadius: 4,
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>
+                {fmt(time)}
+              </span>
+              <span style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.08em" }}>
+                {fmtDate(time)} · UTC
+              </span>
             </div>
+
+            {/* Hamburger — mobile only */}
+            <button
+              className="fsd-mobile fsd-icon-btn"
+              style={{ width: 34, height: 34, flexDirection: "column", gap: 4, padding: 0 }}
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+              data-testid="button-mobile-menu"
+            >
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: 16, height: 1.5, background: "currentColor", borderRadius: 2 }} />
+              ))}
+            </button>
           </div>
+        </header>
+      </div>
+
+      {/* Full-screen mobile menu */}
+      {mobileOpen && (
+        <div className="fsd-mobile-overlay">
+
+          {/* Top bar */}
+          <div style={{
+            height: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 24px",
+            borderBottom: "1px solid var(--border-lit)",
+            flexShrink: 0,
+          }}>
+            <Link href="/" style={{ display: "flex", alignItems: "baseline", textDecoration: "none" }}
+              onClick={() => setMobileOpen(false)}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>FSDZONES</span>
+              <span style={{ fontSize: 20, fontWeight: 900, color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>.COM</span>
+            </Link>
+
+            <button
+              className="fsd-icon-btn"
+              style={{ width: 34, height: 34, flexDirection: "column", gap: 4, padding: 0, flexShrink: 0 }}
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              data-testid="button-close-menu"
+            >
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: 16, height: 1.5, background: "currentColor", borderRadius: 2 }} />
+              ))}
+            </button>
+          </div>
+
+          {/* CTA buttons */}
+          <div style={{ display: "flex", gap: 0, flexShrink: 0 }}>
+            <Link href="/join" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
+              <button className="fsd-btn-sub" style={{ width: "100%", borderRadius: 0 }}>SUBSCRIBE</button>
+            </Link>
+            <Link href="/login" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
+              <button className="fsd-btn-in" style={{ width: "100%", borderRadius: 0, borderTop: "none", borderBottom: "none" }}>SIGN IN</button>
+            </Link>
+          </div>
+
+          {/* Nav links */}
+          <nav style={{ flex: 1 }}>
+            {navItems.map(item => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`fsd-mob-link${isActive(item.href) ? " fsd-active" : ""}`}
+                onClick={() => setMobileOpen(false)}
+                data-testid={`mobile-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                <span className="fsd-icon">{item.icon}</span>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       )}
-    </header>
+    </>
   );
 }
