@@ -25,23 +25,12 @@ interface AnalysisResult {
  *
  * Calibrated for JForex replay-mode dark-theme screenshots.
  * Works offline — no API key required.
- *
- * Fields extracted (99% accuracy across tested instruments):
- *   instrument, direction, pairCategory
- *   entryPrice, openingPrice, closingPrice
- *   stopLossPoints, takeProfitPoints, stopLossPips, takeProfitPips
- *   riskReward, plannedRR, achievedRR
- *   units, lotSize, contractSize
- *   openPLUSD, openPLPoints, runUpPoints, drawdownPoints
- *   outcome, tradeIsOpen
- *   exitTime, dayOfWeek, sessionName, sessionPhase
  */
 export async function analyzeScreenshotWithOCR(
   base64Image: string
 ): Promise<AnalysisResult> {
   return new Promise((resolve) => {
-    // Entry-point wrapper lives at server/python/ocr_screenshot_analyzer.py
-    // which delegates to trading_ocr_v8/analyzer.py
+    // All pipeline modules live in server/python/ alongside this entry-point wrapper
     const scriptPath = path.join(
       process.cwd(),
       "server",
@@ -59,12 +48,8 @@ export async function analyzeScreenshotWithOCR(
     child.stdin.write(base64Image);
     child.stdin.end();
 
-    child.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-    child.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
+    child.stdout.on("data", (data) => { stdout += data.toString(); });
+    child.stderr.on("data", (data) => { stderr += data.toString(); });
 
     let settled = false;
     const settle = (result: AnalysisResult) => {
@@ -84,17 +69,11 @@ export async function analyzeScreenshotWithOCR(
           settle(result);
           return;
         } catch (e) {
-          console.error(
-            "[OCRAnalyzer v8] JSON parse error:",
-            stdout.slice(0, 200)
-          );
+          console.error("[OCRAnalyzer v8] JSON parse error:", stdout.slice(0, 200));
         }
       }
       if (code !== 0 || stderr.trim()) {
-        console.error(
-          "[OCRAnalyzer v8] Python error:",
-          stderr.slice(0, 500)
-        );
+        console.error("[OCRAnalyzer v8] Python error:", stderr.slice(0, 500));
         settle({
           success: false,
           method: "ocr",
@@ -120,9 +99,7 @@ export async function analyzeScreenshotWithOCR(
 
     // 90s timeout — v8 pipeline includes Hough + calibration which takes ~30s
     setTimeout(() => {
-      try {
-        child.kill();
-      } catch {}
+      try { child.kill(); } catch {}
       settle({
         success: false,
         method: "ocr",
@@ -134,14 +111,18 @@ export async function analyzeScreenshotWithOCR(
 
 /**
  * Check whether the v8 OCR pipeline and its dependencies are available.
+ * All modules live in server/python/ so we just check imports from there.
  */
 export async function isOCRAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
+    const scriptDir = path.join(process.cwd(), "server", "python");
+
     const check = spawn("python3", [
       "-c",
       [
         "import sys, os",
-        "sys.path.insert(0, os.path.join(os.path.dirname(os.getcwd()), 'trading_ocr_v8'))",
+        // Point directly at server/python/ where all modules live
+        `sys.path.insert(0, ${JSON.stringify(scriptDir)})`,
         "import pytesseract, cv2, numpy, scipy",
         "import subprocess",
         "r = subprocess.run(['tesseract', '--version'], capture_output=True)",
@@ -151,12 +132,8 @@ export async function isOCRAvailable(): Promise<boolean> {
     ]);
 
     let out = "";
-    check.stdout.on("data", (d) => {
-      out += d.toString();
-    });
-    check.on("close", (code) =>
-      resolve(code === 0 && out.includes("ok"))
-    );
+    check.stdout.on("data", (d) => { out += d.toString(); });
+    check.on("close", (code) => resolve(code === 0 && out.includes("ok")));
     check.on("error", () => resolve(false));
   });
 }
