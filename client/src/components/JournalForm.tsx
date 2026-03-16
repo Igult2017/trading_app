@@ -559,9 +559,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           }
 
           if (screenshotField === "screenshot") {
-            if (f.entryTime) { u.entryTime = f.entryTime; mark("entryTime"); }
-            if (f.exitTime && (!u.exitTime || u.exitTime === "")) { u.exitTime = f.exitTime; mark("exitTime"); }
+            // Entry screenshot: grab whichever time field the AI populated (it often labels it exitTime)
+            const entryT = f.entryTime || f.exitTime;
+            if (entryT) { u.entryTime = entryT; mark("entryTime"); }
           } else {
+            // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
             if (f.exitTime) { u.exitTime = f.exitTime; mark("exitTime"); }
             if (f.entryTime && (!u.entryTime || u.entryTime === "")) { u.entryTime = f.entryTime; mark("entryTime"); }
           }
