@@ -1,123 +1,109 @@
-import { Link } from 'wouter';
-import { Facebook, Instagram, Send } from 'lucide-react';
+import {
+  Twitter,
+  Youtube,
+  Instagram,
+  Facebook,
+} from 'lucide-react';
 
-export default function Footer() {
+const TelegramIcon = ({ size = 18, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m22 2-7 20-4-9-9-4Z" />
+    <path d="M22 2 11 13" />
+  </svg>
+);
+
+interface NewFooterProps {
+  isDark: boolean;
+}
+
+export default function NewFooter({ isDark }: NewFooterProps) {
+  const borderColor = isDark ? 'border-white/10' : 'border-black/10';
+
   return (
-    <footer className="bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-t border-gray-300 dark:border-gray-700 mt-12" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <div className="max-w-7xl mx-auto px-6 py-12 md:py-16">
-
-        {/* Grid Layout for Links */}
-        <div className="grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-4 lg:grid-cols-6 xl:gap-x-8">
-
-          {/* Column 1: Markets & Data */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Markets & Data</h3>
-            <ul role="list" className="space-y-3">
-              <li><Link href="/" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Major Pairs</Link></li>
-              <li><Link href="/stocks" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Stocks & Equities</Link></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Commodities</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Crypto Currencies</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">High Impact News</a></li>
-            </ul>
-          </div>
-
-          {/* Column 2: Platform */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Platform</h3>
-            <ul role="list" className="space-y-3">
-              <li><Link href="/signals" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Signals & Alerts</Link></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Trading Strategies</a></li>
-              <li><Link href="/analytics" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Analytics</Link></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">API Access</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Documentation</a></li>
-            </ul>
-          </div>
-
-          {/* Column 3: Company */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Company</h3>
-            <ul role="list" className="space-y-3">
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">About Us</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Careers (We're Hiring)</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Our Team</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Blog</a></li>
-            </ul>
-          </div>
-
-          {/* Column 4: Partners */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Partners</h3>
-            <ul role="list" className="space-y-3">
-              {/* Add future partner links here */}
-            </ul>
-          </div>
-
-          {/* Column 5: Legal & Support */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Legal & Support</h3>
-            <ul role="list" className="space-y-3">
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Terms of Service</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Privacy Policy</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Risk Disclaimer</a></li>
-              <li><a href="#" className="text-sm text-gray-600 hover:text-blue-600 transition duration-150">Contact Us</a></li>
-            </ul>
-          </div>
-
-          {/* Column 6: Branding & Social */}
-          <div className="col-span-2 sm:col-span-4 lg:col-span-1 border-t sm:border-t-0 pt-6 sm:pt-0 border-gray-300 lg:border-none">
-            <div className="flex flex-wrap items-center mb-3">
-              <span className="text-base font-extrabold text-gray-900">F</span>
-              <span className="text-base font-extrabold text-emerald-500">S</span>
-              <span className="text-base font-extrabold text-gray-900">D</span>
-              <span className="text-base font-extrabold text-emerald-500">ZONES</span>
-              <span className="text-base font-extrabold text-gray-900">.com</span>
+    <footer className={`${isDark ? 'bg-[#0d1117]' : 'bg-[#f0f2f5]'} border-t ${borderColor} pt-20 pb-10 px-6 overflow-hidden relative transition-colors`}>
+      <div className="max-w-7xl mx-auto relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
+          <div className="space-y-6">
+            <div className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-black'}`}>
+              FSDZONES<span className="text-blue-500">.COM</span>
             </div>
-            <p className="text-xs text-gray-500 mb-6">Less Charting. No worries. Only precision.</p>
-            
-            {/* Social Media Icons */}
-            <div className="flex space-x-5 items-center">
-              
-              {/* Facebook */}
-              <a href="#" className="text-[#1877F2] hover:opacity-80 transition duration-150" aria-label="Facebook">
-                <Facebook className="w-6 h-6" fill="currentColor" />
-              </a>
-              
-              {/* Instagram */}
-              <a href="#" className="text-[#DD2A7B] hover:opacity-80 transition duration-150" aria-label="Instagram">
-                <Instagram className="w-6 h-6" />
-              </a>
-              
-              {/* Telegram */}
-              <a href="#" className="text-[#26A5E4] hover:opacity-80 transition duration-150" aria-label="Telegram">
-                <Send className="w-6 h-6" fill="currentColor" />
-              </a>
-              
-              {/* TikTok */}
-              <a href="#" className="hover:opacity-80 transition duration-150" aria-label="TikTok">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                  <path fill="#010101" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                </svg>
-              </a>
+            <div className="flex items-center gap-4 pt-2">
+              <a href="#" className={`${isDark ? 'text-slate-400 hover:text-[#1DA1F2]' : 'text-slate-500 hover:text-[#1DA1F2]'} transition-colors`} data-testid="link-twitter"><Twitter size={18} fill="currentColor" stroke="none" /></a>
+              <a href="#" className={`${isDark ? 'text-slate-400 hover:text-[#FF0000]' : 'text-slate-500 hover:text-[#FF0000]'} transition-colors`} data-testid="link-youtube"><Youtube size={18} /></a>
+              <a href="#" className={`${isDark ? 'text-slate-400 hover:text-[#229ED9]' : 'text-slate-500 hover:text-[#229ED9]'} transition-colors`} title="Telegram" data-testid="link-footer-telegram"><TelegramIcon size={18} color="inherit" /></a>
+              <a href="#" className={`${isDark ? 'text-slate-400 hover:text-[#1877F2]' : 'text-slate-500 hover:text-[#1877F2]'} transition-colors`} data-testid="link-facebook"><Facebook size={18} fill="currentColor" stroke="none" /></a>
+              <a href="#" className={`${isDark ? 'text-slate-400 hover:text-[#E4405F]' : 'text-slate-500 hover:text-[#E4405F]'} transition-colors`} data-testid="link-instagram"><Instagram size={18} /></a>
             </div>
           </div>
 
+          <div>
+            <h4 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-8 ${isDark ? 'text-white' : 'text-black'}`}>Markets</h4>
+            <ul className={`space-y-4 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">Major Forex Pairs</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">US Indices (NAS/SPX)</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">Commodities (Gold/Oil)</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">Cryptocurrency</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">Institutional Order Flow</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-8 ${isDark ? 'text-white' : 'text-black'}`}>Resources</h4>
+            <ul className={`space-y-4 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              <li><a href="/journal" className="hover:text-blue-500 transition-colors">Free Trading Journal</a></li>
+              <li><a href="#tsc" className="hover:text-blue-500 transition-colors">Session Clock (TSC)</a></li>
+              <li><a href="#calendar" className="hover:text-blue-500 transition-colors">Economic Calendar</a></li>
+              <li><a href="#blog" className="hover:text-blue-500 transition-colors">Strategy Blog</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">Backtesting Data</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-8 ${isDark ? 'text-white' : 'text-black'}`}>Stay Updated</h4>
+            <p className={`text-[10px] mb-6 uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Get intraday zone alerts and macro updates directly to your inbox.</p>
+            <div className={`flex border p-1 ${isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/10'}`}>
+              <input
+                type="email"
+                placeholder="EMAIL ADDRESS"
+                className={`bg-transparent border-none text-[10px] p-2 flex-grow focus:outline-none ${isDark ? 'text-white' : 'text-black'} placeholder:text-slate-500 font-bold`}
+                data-testid="input-email-newsletter"
+              />
+              <button className="bg-blue-500 text-white px-4 text-[10px] font-black uppercase hover:bg-blue-600 transition-colors" data-testid="button-join-newsletter">
+                Join
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Separator Line */}
-        <div className="mt-12 mb-8 border-t border-gray-300"></div>
-
-        {/* Copyright */}
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            &copy; 2025 <span className="font-extrabold text-gray-900">F</span>
-            <span className="font-extrabold text-emerald-500">S</span>
-            <span className="font-extrabold text-gray-900">D</span>
-            <span className="font-extrabold text-emerald-500">ZONES</span>
-            <span className="font-extrabold text-gray-900">.com</span>. All rights reserved.
-          </p>
+        <div className={`pt-10 border-t ${isDark ? 'border-white/5' : 'border-black/5'}`}>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+            <div className="space-y-2">
+              <div className={`text-[9px] uppercase tracking-[0.2em] font-bold ${isDark ? 'text-slate-600' : 'text-slate-500'}`}>
+                &copy; {new Date().getFullYear()} FSDZONES.COM | ALL RIGHTS RESERVED
+              </div>
+              <div className={`text-[8px] max-w-2xl uppercase leading-relaxed font-bold ${isDark ? 'text-slate-700' : 'text-slate-400'}`}>
+                Risk Warning: Trading financial markets involves significant risk. FSDZONES provides educational content and data analytics for informational purposes only. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
+              </div>
+            </div>
+            <div className={`flex gap-6 text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              <a href="#" className="hover:text-blue-500 transition-colors" data-testid="link-privacy">Privacy Policy</a>
+              <a href="#" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-terms">Terms of Service</a>
+              <a href="#" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-contact">Contact</a>
+            </div>
+          </div>
         </div>
-
       </div>
+
+      <div className={`absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -mr-48 -mt-48 ${isDark ? 'bg-blue-500/5' : 'bg-blue-500/10'}`}></div>
     </footer>
   );
 }
