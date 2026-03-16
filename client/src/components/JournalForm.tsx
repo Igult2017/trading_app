@@ -455,7 +455,25 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const g3="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
   const g4="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
 
-  const analyzeScreenshot = async (base64Image: string) => {
+  const computeDuration = (entryStr: string, exitStr: string): string | null => {
+    if (!entryStr || !exitStr) return null;
+    try {
+      const entry = new Date(entryStr);
+      const exit = new Date(exitStr);
+      if (isNaN(entry.getTime()) || isNaN(exit.getTime())) return null;
+      const diffMs = exit.getTime() - entry.getTime();
+      if (diffMs <= 0) return null;
+      const totalMins = Math.floor(diffMs / 60000);
+      const hours = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      const days = Math.floor(hours / 24);
+      if (days > 0) return `${days}d ${hours % 24}h`;
+      if (hours > 0) return `${hours}h ${mins}m`;
+      return `${mins}m`;
+    } catch { return null; }
+  };
+
+  const analyzeScreenshot = async (base64Image: string, screenshotField: string) => {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
@@ -540,13 +558,19 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             mark("mae");
           }
 
-          if (f.exitTime) {
-            u.exitTime = f.exitTime; mark("exitTime");
-            if (!u.entryTime || u.entryTime === "") { u.entryTime = f.exitTime; mark("entryTime"); }
+          if (screenshotField === "screenshot") {
+            if (f.entryTime) { u.entryTime = f.entryTime; mark("entryTime"); }
+            if (f.exitTime && (!u.exitTime || u.exitTime === "")) { u.exitTime = f.exitTime; mark("exitTime"); }
+          } else {
+            if (f.exitTime) { u.exitTime = f.exitTime; mark("exitTime"); }
+            if (f.entryTime && (!u.entryTime || u.entryTime === "")) { u.entryTime = f.entryTime; mark("entryTime"); }
           }
 
+          const computed = computeDuration(u.entryTime, u.exitTime);
+          if (computed) { u.tradeDuration = computed; mark("tradeDuration"); }
+          else if (f.tradeDuration) { u.tradeDuration = f.tradeDuration; mark("tradeDuration"); }
+
           if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
-          if (f.tradeDuration){ u.tradeDuration  = f.tradeDuration; mark("tradeDuration"); }
 
           if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
           if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
@@ -571,7 +595,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const handleScreenshotUpload = (field: string, value: any) => {
     set(field, value);
     if (value && typeof value === "string" && (field === "screenshot" || field === "exitScreenshot")) {
-      analyzeScreenshot(value);
+      analyzeScreenshot(value, field);
     }
   };
 
