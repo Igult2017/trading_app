@@ -216,6 +216,14 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  input,
+  select,
+  textarea,
+  button[role="combobox"] {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+  }
 }
 
 /**
