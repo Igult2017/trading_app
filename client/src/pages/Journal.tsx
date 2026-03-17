@@ -11,7 +11,6 @@ import TradingCalendar from '@/components/TradingCalendar';
 import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
-import TraderAI from '@/components/TraderAI';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -30,13 +29,7 @@ const SI = {
   Settings: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
   ChevronRight: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
   Close: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  // Updated Trader AI icon — atom/neural style
-  TraderAI: () => <svg width="16" height="16" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="20" cy="20" rx="17" ry="6.5" stroke="currentColor" strokeWidth="1.8" fill="none"/>
-    <ellipse cx="20" cy="20" rx="17" ry="6.5" stroke="currentColor" strokeWidth="1.8" fill="none" transform="rotate(60 20 20)"/>
-    <ellipse cx="20" cy="20" rx="17" ry="6.5" stroke="currentColor" strokeWidth="1.8" fill="none" transform="rotate(120 20 20)"/>
-    <circle cx="20" cy="20" r="3" fill="currentColor"/>
-  </svg>,
+  FsdAi: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="1.5"/><circle cx="19" cy="6" r="1.5"/><circle cx="5" cy="18" r="1.5"/><circle cx="19" cy="18" r="1.5"/><circle cx="12" cy="3" r="1.5"/><circle cx="12" cy="21" r="1.5"/><line x1="12" y1="9.5" x2="5" y2="6"/><line x1="12" y1="9.5" x2="19" y2="6"/><line x1="12" y1="14.5" x2="5" y2="18"/><line x1="12" y1="14.5" x2="19" y2="18"/><line x1="12" y1="9.5" x2="12" y2="3"/><line x1="12" y1="14.5" x2="12" y2="21"/></svg>,
   TfMetrics: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>,
 };
 
@@ -65,8 +58,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'vault', label: 'Trade Vault', icon: SI.Vault },
     { id: 'leaderboard', label: 'Leaderboard', icon: SI.Leaderboard },
     { id: 'sync', label: 'Sync Trade', icon: SI.Sync },
-    // ── Renamed from fsdai → traderai ──
-    { id: 'traderai', label: 'Trader AI', icon: SI.TraderAI },
+    { id: 'fsdai', label: 'FSD AI', icon: SI.FsdAi },
   ]},
   { section: 'Live Trading', items: [
     { id: 'sessions', label: 'Sessions', icon: SI.Sessions, arrow: true },
@@ -90,8 +82,8 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
     border: isActive ? '1px solid rgba(56,189,248,0.25)' : '1px solid transparent',
     cursor: 'pointer', transition: 'all 0.2s', fontFamily: "'Montserrat',sans-serif",
   }}
-    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; }}
-    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
       <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: showLabels ? 'scale(1)' : 'scale(1.5)', transition: 'transform 0.25s ease' }}><item.icon /></span>
       {showLabels && <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.03em', color: isActive ? '#e2e8f0' : 'rgba(148,163,184,0.8)', whiteSpace: 'nowrap' }}>{item.label}</span>}
@@ -212,26 +204,52 @@ const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => 
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SMART DATE PARSER
+// Handles all formats that may come from OCR or manual entry:
+//   "2024-01-15T09:30:00"   ISO with time
+//   "2024-01-15"            ISO date only
+//   "15/01/2024 09:30"      DD/MM/YYYY with time
+//   "15/01/2024"            DD/MM/YYYY date only
+//   "01/15/2024"            MM/DD/YYYY (US format, defensive)
+// Returns { year, month (1-12), day } or null if unparseable.
+// ─────────────────────────────────────────────────────────────────────────────
 function parseTradeDate(raw: string | null | undefined): { year: number; month: number; day: number } | null {
   if (!raw) return null;
   const s = String(raw).trim();
   if (!s) return null;
+
+  // 1. ISO format: YYYY-MM-DD (with optional time component)
   const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
     const year = parseInt(isoMatch[1], 10);
     const month = parseInt(isoMatch[2], 10);
     const day = parseInt(isoMatch[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { year, month, day };
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return { year, month, day };
+    }
   }
+
+  // 2. Slash-separated: DD/MM/YYYY or MM/DD/YYYY (with optional time)
   const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (slashMatch) {
     const a = parseInt(slashMatch[1], 10);
     const b = parseInt(slashMatch[2], 10);
     const year = parseInt(slashMatch[3], 10);
-    if (a > 12) { if (b >= 1 && b <= 12 && a >= 1 && a <= 31) return { year, month: b, day: a }; }
-    else if (b > 12) { if (a >= 1 && a <= 12 && b >= 1 && b <= 31) return { year, month: a, day: b }; }
-    else { if (a >= 1 && a <= 31 && b >= 1 && b <= 12) return { year, month: b, day: a }; }
+    // Disambiguate: if first part > 12 it must be a day (DD/MM/YYYY)
+    if (a > 12) {
+      // DD/MM/YYYY
+      if (b >= 1 && b <= 12 && a >= 1 && a <= 31) return { year, month: b, day: a };
+    } else if (b > 12) {
+      // MM/DD/YYYY
+      if (a >= 1 && a <= 12 && b >= 1 && b <= 31) return { year, month: a, day: b };
+    } else {
+      // Ambiguous — default to DD/MM/YYYY (more common outside US)
+      if (a >= 1 && a <= 31 && b >= 1 && b <= 12) return { year, month: b, day: a };
+    }
   }
+
+  // 3. Dot-separated: DD.MM.YYYY
   const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
   if (dotMatch) {
     const day = parseInt(dotMatch[1], 10);
@@ -239,23 +257,35 @@ function parseTradeDate(raw: string | null | undefined): { year: number; month: 
     const year = parseInt(dotMatch[3], 10);
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { year, month, day };
   }
+
+  // 4. Last resort — let JS Date try it
   try {
     const d = new Date(s);
-    if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    if (!isNaN(d.getTime())) {
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    }
   } catch {}
+
   return null;
 }
 
+// Get the best date string from a journal entry row
 function getEntryDateStr(entry: any): string | null {
   return entry.entryTime || entry.entryTimeUTC || entry.openedAt || entry.tradeDate || entry.createdAt || null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVITY CALENDAR — month-navigable, date-format-agnostic
+// ─────────────────────────────────────────────────────────────────────────────
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_LABELS = ['S','M','T','W','T','F','S'];
 
 function ActivityCalendar({ entries }: { entries: any[] }) {
+  // Build full trade map: "YYYY-M" → { day: 'profit' | 'loss' | 'mixed' }
   const { tradeMap, sortedMonths } = useMemo(() => {
+    // map: "YYYY-M" → { [day]: { wins, losses } }
     const raw: Record<string, Record<number, { wins: number; losses: number; pnl: number }>> = {};
+
     entries.forEach((e: any) => {
       const parsed = parseTradeDate(getEntryDateStr(e));
       if (!parsed) return;
@@ -263,12 +293,15 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
       const mk = `${year}-${month}`;
       if (!raw[mk]) raw[mk] = {};
       if (!raw[mk][day]) raw[mk][day] = { wins: 0, losses: 0, pnl: 0 };
+
       const outcome = (e.outcome || '').toLowerCase();
       const pnl = parseFloat(e.profitLoss || e.pnl || '0') || 0;
       raw[mk][day].pnl += pnl;
       if (outcome === 'win') raw[mk][day].wins++;
       else if (outcome === 'loss') raw[mk][day].losses++;
     });
+
+    // Convert to status map
     const tradeMap: Record<string, Record<number, 'profit' | 'loss' | 'mixed'>> = {};
     for (const mk in raw) {
       tradeMap[mk] = {};
@@ -277,34 +310,48 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
         if (wins > 0 && losses === 0) tradeMap[mk][Number(d)] = 'profit';
         else if (losses > 0 && wins === 0) tradeMap[mk][Number(d)] = 'loss';
         else if (wins > 0 && losses > 0) tradeMap[mk][Number(d)] = 'mixed';
+        // else breakeven / no outcome — leave unset (neutral)
       }
     }
+
+    // Sort months chronologically
     const sortedMonths = Object.keys(tradeMap).sort((a, b) => {
       const [ay, am] = a.split('-').map(Number);
       const [by, bm] = b.split('-').map(Number);
       return ay !== by ? ay - by : am - bm;
     });
+
     return { tradeMap, sortedMonths };
   }, [entries]);
 
+  // Default to most recent month that has trades
   const defaultMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : null;
   const [activeMonthKey, setActiveMonthKey] = useState<string | null>(defaultMonth);
 
+  // Keep activeMonthKey in sync if entries change and current key disappears
   useEffect(() => {
-    if (!activeMonthKey && defaultMonth) setActiveMonthKey(defaultMonth);
+    if (!activeMonthKey && defaultMonth) {
+      setActiveMonthKey(defaultMonth);
+    }
   }, [defaultMonth]);
 
   const activeIdx = activeMonthKey ? sortedMonths.indexOf(activeMonthKey) : -1;
   const canPrev = activeIdx > 0;
   const canNext = activeIdx < sortedMonths.length - 1;
+
   const prev = () => canPrev && setActiveMonthKey(sortedMonths[activeIdx - 1]);
   const next = () => canNext && setActiveMonthKey(sortedMonths[activeIdx + 1]);
+
+  // Parse active month
   const activeYear = activeMonthKey ? parseInt(activeMonthKey.split('-')[0], 10) : new Date().getFullYear();
   const activeMonth = activeMonthKey ? parseInt(activeMonthKey.split('-')[1], 10) : new Date().getMonth() + 1;
+
+  // Calendar grid
   const daysInMonth = new Date(activeYear, activeMonth, 0).getDate();
-  const firstDayOfWeek = new Date(activeYear, activeMonth - 1, 1).getDay();
+  const firstDayOfWeek = new Date(activeYear, activeMonth - 1, 1).getDay(); // 0=Sun
   const dayStatuses = tradeMap[activeMonthKey || ''] || {};
 
+  // Summary counts for the active month
   const monthSummary = useMemo(() => {
     const days = dayStatuses;
     let profit = 0, loss = 0, mixed = 0;
@@ -325,55 +372,94 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
 
   return (
     <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-activity-calendar">
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
           <Activity size={14} strokeWidth={3} />
         </div>
         <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
       </div>
+
       {sortedMonths.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(100,116,139,0.5)', fontSize: 10 }}>No trade data yet</div>
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(100,116,139,0.5)', fontSize: 10 }}>
+          No trade data yet
+        </div>
       ) : (
         <>
+          {/* Month navigator */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <button onClick={prev} disabled={!canPrev} style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+            <button
+              onClick={prev}
+              disabled={!canPrev}
+              style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
+              {/* Month dot indicators */}
               <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 5 }}>
                 {sortedMonths.map(mk => (
-                  <button key={mk} onClick={() => setActiveMonthKey(mk)}
-                    style={{ width: mk === activeMonthKey ? 16 : 5, height: 5, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0, background: mk === activeMonthKey ? '#38bdf8' : 'rgba(56,189,248,0.25)', transition: 'all 0.2s' }}
+                  <button
+                    key={mk}
+                    onClick={() => setActiveMonthKey(mk)}
+                    style={{
+                      width: mk === activeMonthKey ? 16 : 5,
+                      height: 5, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                      background: mk === activeMonthKey ? '#38bdf8' : 'rgba(56,189,248,0.25)',
+                      transition: 'all 0.2s',
+                    }}
                     title={(() => { const [y,m]=mk.split('-'); return `${MONTH_NAMES[parseInt(m)-1]} ${y}`; })()}
                   />
                 ))}
               </div>
             </div>
-            <button onClick={next} disabled={!canNext} style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+            <button
+              onClick={next}
+              disabled={!canNext}
+              style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
               <ChevronRight size={14} strokeWidth={3} />
             </button>
           </div>
+
+          {/* Day-of-week headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 3 }}>
             {DAY_LABELS.map((d, i) => (
               <div key={i} style={{ fontSize: 8, color: 'rgba(55,65,81,0.8)', textAlign: 'center', paddingBottom: 2, fontWeight: 900 }}>{d}</div>
             ))}
           </div>
+
+          {/* Calendar grid — offset first day correctly */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
-            {Array.from({ length: firstDayOfWeek }, (_, i) => <div key={`empty-${i}`} style={{ aspectRatio: '1' }} />)}
+            {/* Empty cells before day 1 */}
+            {Array.from({ length: firstDayOfWeek }, (_, i) => (
+              <div key={`empty-${i}`} style={{ aspectRatio: '1' }} />
+            ))}
+            {/* Day cells */}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const day = i + 1;
               const status = dayStatuses[day];
               const c = cellColor(status);
               return (
-                <div key={day} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 9, fontWeight: 900, background: c.bg, color: c.color, border: `1px solid ${c.border}`, opacity: status ? 1 : 0.5, transition: 'all 0.15s' }}>
+                <div
+                  key={day}
+                  style={{
+                    aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 4, fontSize: 9, fontWeight: 900,
+                    background: c.bg, color: c.color,
+                    border: `1px solid ${c.border}`,
+                    opacity: status ? 1 : 0.5,
+                    transition: 'all 0.15s',
+                    cursor: status ? 'default' : 'default',
+                  }}>
                   {day}
                 </div>
               );
             })}
           </div>
+
+          {/* Month summary */}
           {monthSummary.total > 0 && (
             <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               {[
@@ -383,10 +469,14 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
               ].map(s => s.count > 0 && (
                 <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 6, height: 6, borderRadius: 2, background: s.color }} />
-                  <span style={{ fontSize: 8, color: 'rgba(148,163,184,0.6)', letterSpacing: '0.1em' }}>{s.count} {s.label}</span>
+                  <span style={{ fontSize: 8, color: 'rgba(148,163,184,0.6)', letterSpacing: '0.1em' }}>
+                    {s.count} {s.label}
+                  </span>
                 </div>
               ))}
-              <span style={{ fontSize: 8, color: 'rgba(100,116,139,0.4)', marginLeft: 'auto', letterSpacing: '0.1em' }}>{monthSummary.total} TRADE DAYS</span>
+              <span style={{ fontSize: 8, color: 'rgba(100,116,139,0.4)', marginLeft: 'auto', letterSpacing: '0.1em' }}>
+                {monthSummary.total} TRADE DAYS
+              </span>
             </div>
           )}
         </>
@@ -398,14 +488,23 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
 function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string; isMobile: boolean; windowWidth: number }) {
   const metricsUrl = `/api/metrics/compute?sessionId=${sessionId}`;
   const entriesUrl = `/api/journal/entries?sessionId=${sessionId}`;
-  const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({ queryKey: ['/api/metrics/compute', sessionId], queryFn: () => fetch(metricsUrl).then(r => r.json()) });
-  const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({ queryKey: ['/api/journal/entries', sessionId], queryFn: () => fetch(entriesUrl).then(r => r.json()) });
+
+  const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
+    queryKey: ['/api/metrics/compute', sessionId],
+    queryFn: () => fetch(metricsUrl).then(r => r.json()),
+  });
+
+  const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
+    queryKey: ['/api/journal/entries', sessionId],
+    queryFn: () => fetch(entriesUrl).then(r => r.json()),
+  });
 
   const m = metricsData?.metrics;
   const core = m?.core || {};
   const equityCurve = m?.equityCurve || [];
   const equityGrowth = m?.equityGrowth;
   const instrumentBreakdown = m?.instrumentBreakdown || {};
+
   const totalPL = equityGrowth ? equityGrowth.totalPL : core.totalPL || 0;
   const plSign = totalPL >= 0 ? '+' : '';
 
@@ -418,10 +517,13 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
     { id: 'avgtrade', label: 'AVG TRADE', value: `$${core.totalTrades ? (totalPL / core.totalTrades).toFixed(2) : '0.00'}`, Icon: KPI_ICONS.AvgTrade, color: '#fb7185', bg: 'rgba(244,63,94,0.1)' },
   ];
 
-  const chartData = equityCurve.length > 0 ? equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL })) : [{ label: 'Start', pnl: 0 }];
+  const chartData = equityCurve.length > 0
+    ? equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))
+    : [{ label: 'Start', pnl: 0 }];
 
   const recentTrades = [...entries].slice(0, 8).map((e: any) => ({
-    id: e.id, ticker: e.instrument || 'N/A',
+    id: e.id,
+    ticker: e.instrument || 'N/A',
     date: e.entryTime || (e.createdAt ? new Date(e.createdAt).toLocaleString() : ''),
     type: (e.direction || 'LONG').toUpperCase(),
     pnl: parseFloat(e.profitLoss || e.pnl || '0'),
@@ -433,6 +535,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const totalCount = core.totalTrades || 0;
   const profitRatio = totalCount > 0 ? Math.round((winCount / totalCount) * 100) : 0;
   const lossRatio = totalCount > 0 ? 100 - profitRatio : 0;
+
   const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 4);
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
 
@@ -450,6 +553,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : windowWidth < 900 ? 3 : 6},1fr)`, gap: 8 }}>
         {stats.map(s => <StatCard key={s.id} stat={s} />)}
       </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 12 }}>
         <div style={{ background: '#080d18', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 16, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -457,13 +561,20 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
               <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(56,189,248,0.1)', borderRadius: 8, color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}><Activity size={16} strokeWidth={3} /></div>
               <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
-            {equityGrowth && <span style={{ fontSize: 10, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>{equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%</span>}
+            {equityGrowth && (
+              <span style={{ fontSize: 10, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
+                {equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%
+              </span>
+            )}
           </div>
           <div style={{ height: 220, width: '100%' }}>
-            {chartData.length > 1 ? <NeonLineChart data={chartData} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No equity data yet</div>}
+            {chartData.length > 1 ? <NeonLineChart data={chartData} /> : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No equity data yet</div>
+            )}
           </div>
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'rgba(56,189,248,0.04)', filter: 'blur(70px)', pointerEvents: 'none' }} />
         </div>
+
         <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-performance-mix">
           <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
           {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
@@ -488,6 +599,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
           </div>
         </div>
       </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 12 }}>
         <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
           <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -524,6 +636,8 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
             )}
           </div>
         </div>
+
+        {/* ── Smart Activity Calendar ── */}
         <ActivityCalendar entries={entries} />
       </div>
     </div>
@@ -533,48 +647,77 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
 function JournalSessionGate({ onSelectSession, onCreated }: { onSelectSession: (id: string) => void; onCreated: (id: string) => void }) {
   const [mode, setMode] = useState<'pick' | 'create'>('pick');
   const { data: sessions = [], isLoading } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
+
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 0' }}>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><SI.Journal /></div>
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <SI.Journal />
+        </div>
         <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 6 }} data-testid="text-journal-session-gate">Select a Session to Log Trades</h2>
-        <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', lineHeight: 1.6 }}>Every trade must belong to a session. Pick an existing one or create a new session.</p>
+        <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', lineHeight: 1.6 }}>
+          Every trade must belong to a session. Pick an existing one or create a new session.
+        </p>
       </div>
+
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#0d1117', borderRadius: 8, padding: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
         {(['pick', 'create'] as const).map(tab => (
           <button key={tab} onClick={() => setMode(tab)} data-testid={`button-tab-${tab}`}
-            style={{ flex: 1, padding: '10px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', background: mode === tab ? 'rgba(99,102,241,0.15)' : 'transparent', color: mode === tab ? '#a5b4fc' : 'rgba(148,163,184,0.5)', transition: 'all 0.15s' }}>
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
+              background: mode === tab ? 'rgba(99,102,241,0.15)' : 'transparent',
+              color: mode === tab ? '#a5b4fc' : 'rgba(148,163,184,0.5)',
+              transition: 'all 0.15s',
+            }}>
             {tab === 'pick' ? 'Existing Sessions' : 'Create New'}
           </button>
         ))}
       </div>
+
       {mode === 'pick' ? (
-        isLoading ? <div style={{ textAlign: 'center', padding: 40, color: 'rgba(148,163,184,0.5)', fontSize: 11 }}>Loading sessions...</div>
-        : sessions.length === 0 ? (
+        isLoading ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(148,163,184,0.5)', fontSize: 11 }}>Loading sessions...</div>
+        ) : sessions.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.5)', marginBottom: 16 }}>No sessions yet.</p>
-            <button onClick={() => setMode('create')} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }} data-testid="button-switch-to-create">Create Your First Session</button>
+            <button onClick={() => setMode('create')}
+              style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}
+              data-testid="button-switch-to-create">
+              Create Your First Session
+            </button>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
             {sessions.map((s: any) => (
               <button key={s.id} onClick={() => onSelectSession(s.id)} data-testid={`button-pick-session-${s.id}`}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s', background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)', textAlign: 'left' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.3)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,102,241,0.05)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.background = '#0d1117'; }}>
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 18px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
+                  background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)'; e.currentTarget.style.background = 'rgba(99,102,241,0.05)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = '#0d1117'; }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 900, color: '#e2e8f0', marginBottom: 3 }}>{s.sessionName}</div>
-                  <div style={{ fontSize: 9, color: 'rgba(148,163,184,0.5)', letterSpacing: '0.1em' }}>${parseFloat(s.startingBalance).toLocaleString()} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ''}</div>
+                  <div style={{ fontSize: 9, color: 'rgba(148,163,184,0.5)', letterSpacing: '0.1em' }}>
+                    ${parseFloat(s.startingBalance).toLocaleString()} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ''}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4, background: s.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)', color: s.status === 'active' ? '#34d399' : '#94a3b8' }}>{s.status || 'active'}</span>
+                  <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4, background: s.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)', color: s.status === 'active' ? '#34d399' : '#94a3b8' }}>
+                    {s.status || 'active'}
+                  </span>
                   <span style={{ color: 'rgba(148,163,184,0.3)', display: 'flex' }}><SI.ChevronRight /></span>
                 </div>
               </button>
             ))}
           </div>
         )
-      ) : <CreateSessionForm onCreated={onCreated} />}
+      ) : (
+        <CreateSessionForm onCreated={onCreated} />
+      )}
     </div>
   );
 }
@@ -588,13 +731,27 @@ export default function Journal() {
   const [theme, setTheme] = useState('dark');
   const isDark = theme === 'dark';
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
   const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
   const activeSession = sessions.find((s: any) => String(s.id) === String(activeSessionId));
 
-  const handleSessionCreated = (sessionId: string) => { setActiveSessionId(sessionId); setActiveNav('dashboard'); };
-  const handleSelectSession = (sessionId: string) => { setActiveSessionId(sessionId); setActiveNav('dashboard'); };
-  const handleDeleteSession = (deletedId: string) => { if (activeSessionId === deletedId) setActiveSessionId(null); };
+  const handleSessionCreated = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setActiveNav('dashboard');
+  };
+
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setActiveNav('dashboard');
+  };
+
+  const handleDeleteSession = (deletedId: string) => {
+    if (activeSessionId === deletedId) {
+      setActiveSessionId(null);
+    }
+  };
 
   useEffect(() => {
     const check = () => {
@@ -622,6 +779,7 @@ export default function Journal() {
       `}</style>
 
       <JournalHeader isDark={isDark} toggleTheme={toggleTheme} />
+
       <div style={{ height: '8px', flexShrink: 0 }} />
 
       <header style={{ height:54, flexShrink:0, background:'#07090f', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', gap:8, zIndex:30 }} data-testid="journal-header">
@@ -637,14 +795,15 @@ export default function Journal() {
               { icon:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, label:'Find a Prop Firm' },
             ].map((b,i) => (
               <button key={i} style={{ background:'none', border:'none', color:'rgba(99,102,241,0.8)', cursor:'pointer', padding:'4px 8px', display:'flex', alignItems:'center', gap:6, borderRadius:8, transition:'all .15s', whiteSpace:'nowrap', fontSize:10, fontWeight:900, letterSpacing:'0.08em' }}
-                onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color='#a5b4fc';(e.currentTarget as HTMLButtonElement).style.background='rgba(99,102,241,0.08)';}}
-                onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color='rgba(99,102,241,0.8)';(e.currentTarget as HTMLButtonElement).style.background='none';}}>
+                onMouseEnter={e=>{e.currentTarget.style.color='#a5b4fc';e.currentTarget.style.background='rgba(99,102,241,0.08)';}}
+                onMouseLeave={e=>{e.currentTarget.style.color='rgba(99,102,241,0.8)';e.currentTarget.style.background='none';}}>
                 {b.icon}
                 <span style={{ display: isMobile ? 'none' : 'inline' }}>{b.label}</span>
               </button>
             ))}
           </div>
         </div>
+
         <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
           {activeSessionId && (
             <span style={{ fontSize: 9, color: 'rgba(99,102,241,0.8)', background: 'rgba(99,102,241,0.1)', padding: '3px 8px', borderRadius: 4, marginRight: 8, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }} data-testid="text-active-session-indicator">
@@ -663,14 +822,14 @@ export default function Journal() {
             { svg:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>, hide:isMobile },
           ].map((b,i) => !b.hide && (
             <button key={i} style={{ background:'none', border:'none', color:'rgba(148,163,184,0.55)', cursor:'pointer', padding:6, borderRadius:8, display:'flex', transition:'all .2s' }}
-              onMouseEnter={e=>(e.currentTarget as HTMLButtonElement).style.color='#38bdf8'}
-              onMouseLeave={e=>(e.currentTarget as HTMLButtonElement).style.color='rgba(148,163,184,0.55)'}>
+              onMouseEnter={e=>e.currentTarget.style.color='#38bdf8'}
+              onMouseLeave={e=>e.currentTarget.style.color='rgba(148,163,184,0.55)'}>
               {b.svg}
             </button>
           ))}
           <button style={{ width:34, height:34, borderRadius:8, background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', marginLeft:8, transition:'all 0.2s' }} data-testid="button-logout" title="Logout"
-            onMouseEnter={e=>{ (e.currentTarget as HTMLButtonElement).style.background='rgba(239,68,68,0.25)'; (e.currentTarget as HTMLButtonElement).style.borderColor='rgba(239,68,68,0.5)'; }}
-            onMouseLeave={e=>{ (e.currentTarget as HTMLButtonElement).style.background='rgba(239,68,68,0.15)'; (e.currentTarget as HTMLButtonElement).style.borderColor='rgba(239,68,68,0.3)'; }}>
+            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.25)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.5)'; }}
+            onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.15)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.3)'; }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/></svg>
           </button>
         </div>
@@ -679,12 +838,19 @@ export default function Journal() {
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
 
-        <main style={{ flex:1, overflowY: activeNav === 'traderai' ? 'hidden' : 'auto', padding: activeNav === 'traderai' ? 0 : isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0, display: 'flex', flexDirection: 'column' }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
             <MetricsPanel sessionId={activeSessionId} />
           ) : activeNav === 'journal' ? (
-            activeSessionId ? <JournalForm sessionId={activeSessionId} /> : <JournalSessionGate onSelectSession={(id) => setActiveSessionId(id)} onCreated={(id) => setActiveSessionId(id)} />
+            activeSessionId ? (
+              <JournalForm sessionId={activeSessionId} />
+            ) : (
+              <JournalSessionGate
+                onSelectSession={(id) => setActiveSessionId(id)}
+                onCreated={(id) => setActiveSessionId(id)}
+              />
+            )
           ) : activeNav === 'strategy' ? (
             <StrategyAudit />
           ) : activeNav === 'vault' ? (
@@ -699,29 +865,36 @@ export default function Journal() {
             <TFMetricsPanel />
           ) : activeNav === 'drawdown' ? (
             <DrawdownPanel />
-          ) : activeNav === 'traderai' ? (
-            // ── Trader AI page — full height, no padding ──
-            <TraderAI />
           ) : (
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 400 }}>
                 <div style={{ textAlign: 'center', maxWidth: 400 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}><SI.Sessions /></div>
+                  <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                    <SI.Sessions />
+                  </div>
                   <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 8 }} data-testid="text-no-session-prompt">Create or Select a Session</h2>
-                  <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', marginBottom: 24, lineHeight: 1.6 }}>You need an active trading session to view your dashboard, enter trades, and track performance.</p>
+                  <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', marginBottom: 24, lineHeight: 1.6 }}>
+                    You need an active trading session to view your dashboard, enter trades, and track performance.
+                  </p>
                   <button onClick={() => setActiveNav('create')} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#6366f1'}
-                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#4f46e5'}
-                    data-testid="button-create-first-session">Create Session</button>
-                  <button onClick={() => setActiveNav('sessions')} style={{ background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', marginLeft: 12, transition: 'all 0.15s' }} data-testid="button-view-sessions">View Sessions</button>
+                    onMouseEnter={e => e.currentTarget.style.background = '#6366f1'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
+                    data-testid="button-create-first-session">
+                    Create Session
+                  </button>
+                  <button onClick={() => setActiveNav('sessions')} style={{ background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', marginLeft: 12, transition: 'all 0.15s' }}
+                    data-testid="button-view-sessions">
+                    View Sessions
+                  </button>
                 </div>
               </div>
             )
           )}
         </main>
       </div>
+
     </div>
   );
 }
