@@ -14,7 +14,10 @@ import {
   PlusCircle,
   Clock,
   Settings,
-  Cpu
+  Cpu,
+  Stethoscope,
+  GitFork,
+  Bot
 } from 'lucide-react';
 
 const StrategyAudit = () => {
@@ -120,53 +123,56 @@ const StrategyAudit = () => {
   }), []);
 
   const levels = [
-    { id: 1, label: 'STRATEGY AUDIT', icon: <Search className="w-4 h-4" /> },
-    { id: 2, label: 'EVIDENCE & PROOF', icon: <Database className="w-4 h-4" /> },
-    { id: 3, label: 'DIAGNOSTICS', icon: <Activity className="w-4 h-4" /> },
-    { id: 4, label: 'ACTION & ITERATION', icon: <PlusCircle className="w-4 h-4" /> },
+    { id: 1, label: 'STRATEGY AUDIT', icon: <ScanSearch className="w-3.5 h-3.5" /> },
+    { id: 2, label: 'EVIDENCE & PROOF', icon: <Database className="w-3.5 h-3.5" /> },
+    { id: 3, label: 'DIAGNOSTICS', icon: <Stethoscope className="w-3.5 h-3.5" /> },
+    { id: 4, label: 'ACTION & ITERATION', icon: <GitFork className="w-3.5 h-3.5" /> },
   ];
 
   return (
     <div className="strategy-audit-root min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-      <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-12 sm:h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 rounded flex items-center justify-center shrink-0">
-              <Cpu className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" />
+      <nav className="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-4">
+
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9 shrink-0">
+              <div className="absolute inset-0 bg-blue-600 rounded-lg rotate-3 opacity-60"></div>
+              <div className="relative w-full h-full bg-blue-600 rounded-lg flex items-center justify-center border border-blue-400/30">
+                <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
             </div>
-            <div className="flex flex-col leading-tight min-w-0">
-              <span className="font-bold text-[10px] sm:text-sm uppercase text-slate-100 whitespace-nowrap" style={{ letterSpacing: '0.15em' }}>
-                <span className="hidden sm:inline">AI Strategy</span>
-                <span className="sm:hidden">AI</span>
-                <span className="text-blue-500">
-                  <span className="hidden sm:inline"> Auditor</span>
-                  <span className="sm:hidden"> Audit</span>
-                </span>
+            <div className="flex flex-col leading-none">
+              <span className="text-[9px] text-slate-500 uppercase tracking-[0.25em] font-semibold hidden sm:block" style={{ fontFamily: "'Rajdhani', sans-serif" }}>Powered by AI</span>
+              <span className="font-bold text-xs sm:text-sm uppercase text-white whitespace-nowrap" style={{ letterSpacing: '0.12em', fontFamily: "'Rajdhani', sans-serif" }}>
+                Strategy <span className="text-blue-400">Auditor</span>
               </span>
             </div>
           </div>
 
+          {/* Nav Tabs */}
           <div className="flex items-center shrink-0">
-            <div className="flex bg-slate-800/50 p-0.5 sm:p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-[calc(100vw-160px)] sm:max-w-none">
+            <div className="flex bg-slate-950/60 p-1 rounded-xl border border-slate-700/60 gap-0.5 overflow-x-auto max-w-[calc(100vw-160px)] sm:max-w-none">
               {levels.map((level) => (
                 <button
                   key={level.id}
                   onClick={() => setActiveLevel(level.id)}
                   data-testid={`button-level-${level.id}`}
-                  className={`px-2 sm:px-4 py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap shrink-0 ${
-                    activeLevel === level.id 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                    : 'text-slate-400 hover:text-slate-100'
+                  className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                    activeLevel === level.id
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+                      : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
-                  style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.08em' }}
+                  style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}
                 >
-                  {level.icon}
+                  <span className={activeLevel === level.id ? 'text-blue-200' : 'text-slate-500'}>{level.icon}</span>
                   <span className="hidden lg:inline">{level.label}</span>
                   <span className="hidden sm:inline lg:hidden">L{level.id}</span>
                 </button>
               ))}
             </div>
           </div>
+
         </div>
       </nav>
 
