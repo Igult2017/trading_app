@@ -169,8 +169,10 @@ const StrategyAudit = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6 sm:mb-8">
+      {/* CHANGE 1: Reduced py-4 sm:py-8 → py-2 sm:py-3 */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3 pb-8">
+        {/* CHANGE 2: Reduced mb-6 sm:mb-8 → mb-3 sm:mb-4 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-3 sm:mb-4">
           <StatCard label="Audit Win Rate" value="64.2%" trend="+2.1%" color="text-emerald-400" />
           <StatCard label="Edge Persistence" value="2.14" trend="+0.12" color="text-blue-400" />
           <StatCard label="Risk Entropy" value="Low" trend="-0.2" color="text-slate-400" />
@@ -366,7 +368,8 @@ const StrategyAudit = () => {
               <div className="mt-6 pt-6 border-t border-slate-800/50 flex items-center justify-end gap-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span className="text-xs font-bold text-emerald-400 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>System Certified</span>
+                  {/* CHANGE 3: Reduced font size to text-[10px] and added italic */}
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase italic" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>System Certified</span>
                 </div>
               </div>
             </Section>
