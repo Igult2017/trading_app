@@ -179,6 +179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ocrResult = await analyzeScreenshotWithOCR(image);
 
       if (ocrResult.success) {
+        const f = ocrResult.fields || {};
+        console.log("[OCR fields] stopLossPoints:", f.stopLossPoints, "stopLossPips:", f.stopLossPips, "takeProfitPoints:", f.takeProfitPoints, "takeProfitPips:", f.takeProfitPips, "instrument:", f.instrument, "pairCategory:", f.pairCategory);
         return res.json(ocrResult);
       }
 

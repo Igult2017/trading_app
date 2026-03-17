@@ -540,11 +540,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
           // SL pips — prefer pre-computed value from OCR, fall back to points conversion
           const slPts = f.stopLossPoints ?? f.plannedSLPoints;
+          const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
+          console.log("[OCR→pips] instrument:", u.instrument, "isIndex:", isIndex, "pipFactor:", pipFactor,
+            "f.stopLossPips:", f.stopLossPips, "slPts:", slPts,
+            "f.takeProfitPips:", f.takeProfitPips, "tpPts:", tpPts);
           if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
           else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
 
           // TP pips — same priority
-          const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
           if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
           else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
 
@@ -599,6 +602,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           u.ocrConfidence = data.confidence || "";
           u.ocrValidation = data.validation?.summary || "";
 
+          console.log("[OCR→form] stopLossDistancePips:", u.stopLossDistancePips, "takeProfitDistancePips:", u.takeProfitDistancePips, "pipsGainedLost:", u.pipsGainedLost);
           return u;
         });
 
@@ -900,9 +904,9 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {lf("Lot Size","lotSize",undefined,"0.01")}
                         {lf("Entry Price","entryPrice",undefined,"0.00","number")}
                         {lf("Stop Loss","stopLoss",undefined,"0.00","number")}
-                        {lf("SL Distance (Points)","stopLossDistancePips",undefined,"0","number")}
+                        {lf("SL Distance (Pips)","stopLossDistancePips",undefined,"0","number")}
                         {lf("Take Profit","takeProfit",undefined,"0.00","number")}
-                        {lf("TP Distance (Points)","takeProfitDistancePips",undefined,"0","number")}
+                        {lf("TP Distance (Pips)","takeProfitDistancePips",undefined,"0","number")}
                         {lf("Risk %","riskPercent",undefined,"1.0","number")}
                         {ls("Order Type","orderType",["Market","Limit","Stop","Stop-Limit"])}
                         {ls("Outcome","outcome",["Win","Loss","BE"])}
