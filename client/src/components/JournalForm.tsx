@@ -529,16 +529,24 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           const tp = maybe("takeProfit", f.takeProfit);
           if (tp) { u.takeProfit = tp; u.plannedTP = tp; u.actualTP = tp; }
 
-          // Convert MT4/MT5 points → pips.
-          // For indices 1 point = 1 pip; for all other asset classes 1 pip = 10 points.
-          const pipFactor = /index|idx|us30|spx|nas|dax|ftse|cac/i.test(String(u.instrument ?? "")) || u.pairCategory === "Index" ? 1 : 10;
-          const ptsToPips = (pts: any) => String(parseFloat(String(pts)) / pipFactor);
+          // Points → pips conversion.
+          // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
+          // using correct per-instrument factors. Prefer those. Only fall back to the
+          // frontend ÷10 formula when the pre-computed values are absent.
+          const INDEX_RE = /index|idx|us30|nas|spx|dax|ftse|cac|dow|usa500|spx500|nas100|usa30/i;
+          const isIndex  = INDEX_RE.test(String(u.instrument ?? "")) || u.pairCategory === "Index";
+          const pipFactor = isIndex ? 1 : 10;
+          const ptsToPips = (pts: any) => String(Math.round(parseFloat(String(pts)) / pipFactor * 10) / 10);
 
+          // SL pips — prefer pre-computed value from OCR, fall back to points conversion
           const slPts = f.stopLossPoints ?? f.plannedSLPoints;
-          if (slPts != null) { u.stopLossDistancePips = ptsToPips(slPts); mark("stopLossDistancePips"); }
+          if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
+          else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
 
+          // TP pips — same priority
           const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
-          if (tpPts != null) { u.takeProfitDistancePips = ptsToPips(tpPts); mark("takeProfitDistancePips"); }
+          if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
+          else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
 
           if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
           if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
@@ -554,6 +562,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
 
           if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
+          // pipsGainedLost: openPLPoints are in JForex points → convert to pips
           if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
 
           if (f.runUpPoints != null) {
