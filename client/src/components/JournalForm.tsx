@@ -455,6 +455,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const g3="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
   const g4="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
 
+  const normaliseDatetime = (val: string | null | undefined): string => {
+    if (!val) return "";
+    const s = String(val).trim();
+    // Convert "2025-01-14 08:00" → "2025-01-14T08:00" for datetime-local inputs
+    return s.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}).*$/, "$1T$2");
+  };
+
   const computeDuration = (entryStr: string, exitStr: string): string | null => {
     if (!entryStr || !exitStr) return null;
     try {
@@ -559,13 +566,16 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           }
 
           if (screenshotField === "screenshot") {
-            // Entry screenshot: grab whichever time field the AI populated (it often labels it exitTime)
-            const entryT = f.entryTime || f.exitTime;
+            // Entry screenshot: grab whichever time field the OCR populated (it often stores the
+            // replay-bar ISO timestamp as exitTime, not entryTime)
+            const entryT = normaliseDatetime(f.entryTime || f.exitTime);
             if (entryT) { u.entryTime = entryT; mark("entryTime"); }
           } else {
             // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
-            if (f.exitTime) { u.exitTime = f.exitTime; mark("exitTime"); }
-            if (f.entryTime && (!u.entryTime || u.entryTime === "")) { u.entryTime = f.entryTime; mark("entryTime"); }
+            if (f.exitTime) { u.exitTime = normaliseDatetime(f.exitTime); mark("exitTime"); }
+            if (f.entryTime && (!u.entryTime || u.entryTime === "")) {
+              u.entryTime = normaliseDatetime(f.entryTime); mark("entryTime");
+            }
           }
 
           const computed = computeDuration(u.entryTime, u.exitTime);
@@ -583,7 +593,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           return u;
         });
 
-        setOcrFields(newOcrFields);
+        setOcrFields(prev => new Set([...prev, ...newOcrFields]));
       } else {
         setAnalyzeError(data.error || "OCR analysis failed");
       }
