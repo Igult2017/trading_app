@@ -10,6 +10,7 @@ import {
   Zap, 
   BarChart3,
   Search,
+  ScanSearch,
   PlusCircle,
   Clock,
   Settings,
@@ -182,8 +183,8 @@ const StrategyAudit = () => {
         {activeLevel === 1 && (
           <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <h2 className="text-sm sm:text-lg font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
-                <Search className="text-blue-500 shrink-0 w-4 h-4 sm:w-5 sm:h-5" /> LEVEL 1 — STRATEGY AUDIT
+              <h2 className="text-xs sm:text-sm font-bold flex items-center gap-2 sm:gap-3" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.1em' }}>
+                <ScanSearch className="text-blue-500 shrink-0 w-4 h-4 sm:w-5 sm:h-5" /> LEVEL 1 — STRATEGY AUDIT
               </h2>
               <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 border border-slate-700 w-fit" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.1em' }}>
                 Audit Cycle: Q4 2023 - PRESENT
@@ -739,11 +740,11 @@ const StrategyAudit = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-6 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
                   <div className="text-xs text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>Last 50 Trades</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last50}R</div>
+                  <div className="text-lg sm:text-xl font-bold text-blue-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{tradeData.edgeDecay.last50}R</div>
                 </div>
                 <div className="p-4 sm:p-6 bg-purple-500/5 border border-purple-500/20 rounded-xl text-center">
                   <div className="text-xs text-slate-500 uppercase font-bold mb-2" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.15em' }}>Last 200 Trades</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-purple-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{tradeData.edgeDecay.last200}R</div>
+                  <div className="text-lg sm:text-xl font-bold text-purple-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{tradeData.edgeDecay.last200}R</div>
                 </div>
               </div>
               <div className="mt-6 pt-6 border-t border-slate-800/50">
@@ -764,14 +765,14 @@ const StrategyAudit = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] sm:text-xs text-emerald-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.2em' }}>Final Audit Verdict</span>
                     </div>
-                    <div className="text-lg sm:text-xl font-bold text-emerald-400 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.08em' }}>System Authorized</div>
+                    <div className="text-sm sm:text-base font-bold text-emerald-400 uppercase italic" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.08em' }}>System Authorized</div>
                     <div className="text-xs sm:text-sm text-slate-400 mt-1" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 500 }}>Structural check passed. Max DD 8.4% within tolerance.</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg">
                     <div className="text-[10px] text-slate-500 uppercase font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.15em' }}>Next Phase</div>
-                    <div className="text-base font-bold text-blue-400" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.05em' }}>Walk-Forward 30D</div>
+                    <div className="text-sm font-bold text-blue-400 italic" style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '0.05em' }}>Walk-Forward 30D</div>
                   </div>
                   <div className="text-[9px] text-slate-600 uppercase" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.2em' }}>Audit: Alpha-4.6</div>
                 </div>
@@ -782,7 +783,7 @@ const StrategyAudit = () => {
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
         .strategy-audit-root, .strategy-audit-root * {
           font-family: 'Rajdhani', sans-serif;
