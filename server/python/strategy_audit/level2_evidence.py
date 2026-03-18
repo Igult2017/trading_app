@@ -13,7 +13,7 @@ import math
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from .normalise import (
+from ._utils import (
     check_minimum_sample,
     safe_mean,
     safe_std,
