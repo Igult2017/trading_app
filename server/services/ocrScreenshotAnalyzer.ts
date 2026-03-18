@@ -30,11 +30,12 @@ export async function analyzeScreenshotWithOCR(
   base64Image: string
 ): Promise<AnalysisResult> {
   return new Promise((resolve) => {
-    // All pipeline modules live in server/python/ alongside this entry-point wrapper
+    // All pipeline modules live in server/python/ocr/
     const scriptPath = path.join(
       process.cwd(),
       "server",
       "python",
+      "ocr",
       "ocr_screenshot_analyzer.py"
     );
 
@@ -111,17 +112,17 @@ export async function analyzeScreenshotWithOCR(
 
 /**
  * Check whether the v8 OCR pipeline and its dependencies are available.
- * All modules live in server/python/ so we just check imports from there.
+ * All modules live in server/python/ocr/ so we just check imports from there.
  */
 export async function isOCRAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
-    const scriptDir = path.join(process.cwd(), "server", "python");
+    const scriptDir = path.join(process.cwd(), "server", "python", "ocr");
 
     const check = spawn("python3", [
       "-c",
       [
         "import sys, os",
-        // Point directly at server/python/ where all modules live
+        // Point directly at server/python/ocr/ where all modules live
         `sys.path.insert(0, ${JSON.stringify(scriptDir)})`,
         "import pytesseract, cv2, numpy, scipy",
         "import subprocess",
