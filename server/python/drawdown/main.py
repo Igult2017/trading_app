@@ -1,28 +1,14 @@
 """
 drawdown/main.py
-────────────────────────────────────────────────────────────────────────────
-Entry point for the drawdown analysis engine.
-Spawned by server/services/drawdownCalculator.ts as a child process.
-
-HOW IT WORKS:
-  - Reads a JSON payload from stdin: { "trades": [...], "startingBalance": float }
-  - Calls core.compute_drawdown() which orchestrates all sub-modules
-  - Writes a single JSON result to stdout
-  - Any debug/error output goes to stderr only — never stdout
-
-CALLED BY:
-  server/services/drawdownCalculator.ts  (Node.js bridge)
-  which is called by:
-  GET /api/drawdown/compute?sessionId=X  (server/routes.ts)
+Entry point spawned by drawdownCalculator.ts as a child process.
 """
-
 import sys
 import json
 import os
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core import compute_drawdown
+from drawdown.core import compute_drawdown
 
 
 def main():
