@@ -1,58 +1,73 @@
 """
 drawdown/sessions.py
-────────────────────────────────────────────────────────────────────────────
-Drawdown breakdown by trading session (time-of-day analysis).
-
-Responsibility:
-  Group trades by the market session they were taken in and compute
-  per-session drawdown statistics, including the worst-performing instrument
-  within each session.
-  Powers the "Session" breakdown card in DrawdownPanel.
-
-Input:
-  trades: list[dict]  — trade records (see core.py for field schema)
-                        Each trade should have a "sessionTime" field.
-                        If absent, derive session from UTC hour of entryTime:
-                          00:00–07:00 UTC  → "Asian Close"
-                          07:00–10:00 UTC  → "London Open"
-                          12:00–17:00 UTC  → "London/NY Overlap"
-                          17:00–22:00 UTC  → "NY Mid-Day"
-                          Otherwise        → "Off-Hours"
-
-Output (returned as list, stored under "sessions" by core.py):
-  [
-    {
-      "session":    "London Open",
-      "avgDdPct":   -1.2,        # mean pnlPct of losing trades in this session
-      "total":      45,
-      "losses":     15,
-      "lossRate":   33.3,        # losses / total * 100
-      "worstPair":  "XAUUSD",    # instrument with the deepest avg loss in session
-      "worstDdPct": -3.8         # avg pnlPct of losing trades on worstPair in session
-    },
-    ...
-  ]
-
-Calculation notes:
-  - avgDdPct is computed from losing trades only (outcome == "loss").
-  - worstPair: among losing trades in the session, find the instrument whose
-    mean pnlPct is most negative.
-  - Sort output by avgDdPct ascending so the worst session appears first.
-  - Sessions with zero trades are omitted from the output.
-
-TODO — implement compute_sessions(trades):
-  - Assign session labels (from field or UTC hour derivation)
-  - Group trades by session label
-  - For each session: compute avgDdPct, lossRate, worstPair, worstDdPct
-  - Sort by avgDdPct ascending
-  - Return the list matching the output schema above
+Drawdown breakdown by trading session.
 """
+from __future__ import annotations
+from collections import defaultdict
+from ._utils import (
+    get_session, get_outcome, get_pnl_pct,
+    get_instrument, safe_mean
+)
 
 
 def compute_sessions(trades: list) -> list:
     """
     Compute per-session drawdown statistics.
-    Returns a list of session dicts matching the output schema above.
+    Sessions with zero trades are omitted.
+    Output sorted by avgDdPct ascending (worst session first).
     """
-    # TODO: implement
-    return []
+    if not trades:
+        return []
+
+    # Group by session
+    session_groups: dict[str, list] = defaultdict(list)
+    for t in trades:
+        session = get_session(t)
+        session_groups[session].append(t)
+
+    result = []
+    for session, group in session_groups.items():
+        if not group:
+            continue
+
+        total  = len(group)
+        losses = [t for t in group if get_outcome(t) == "loss"]
+        loss_count = len(losses)
+
+        loss_pcts = [
+            p for t in losses
+            for p in [get_pnl_pct(t)]
+            if p is not None
+        ]
+        avg_dd = round(safe_mean(loss_pcts), 2) if loss_pcts else 0.0
+        loss_rate = round(loss_count / total * 100, 1) if total > 0 else 0.0
+        bar_width = f"{round(loss_rate)}%"
+
+        # Worst pair: instrument with most negative avg pnl_pct among losses
+        instr_groups: dict[str, list] = defaultdict(list)
+        for t in losses:
+            instr = get_instrument(t)
+            pct   = get_pnl_pct(t)
+            if pct is not None:
+                instr_groups[instr].append(pct)
+
+        worst_pair = "N/A"
+        worst_dd   = 0.0
+        if instr_groups:
+            worst_pair = min(instr_groups, key=lambda k: safe_mean(instr_groups[k]))
+            worst_dd   = round(safe_mean(instr_groups[worst_pair]), 2)
+
+        result.append({
+            "session":    session,
+            "avgDdPct":   avg_dd,
+            "total":      total,
+            "losses":     loss_count,
+            "lossRate":   loss_rate,
+            "barWidthPct": loss_rate,   # frontend uses this as CSS width %
+            "worstPair":  worst_pair,
+            "worstDdPct": worst_dd,
+        })
+
+    # Sort: worst session (most negative avgDdPct) first
+    result.sort(key=lambda x: x["avgDdPct"])
+    return result
