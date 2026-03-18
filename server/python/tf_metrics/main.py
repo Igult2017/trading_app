@@ -1,28 +1,16 @@
 """
 tf_metrics/main.py
-────────────────────────────────────────────────────────────────────────────
 Entry point for the timeframe metrics engine.
 Spawned by server/services/tfMetricsCalculator.ts as a child process.
-
-HOW IT WORKS:
-  - Reads a JSON payload from stdin: { "trades": [...], "startingBalance": float }
-  - Calls core.compute_tf_metrics() which orchestrates all sub-modules
-  - Writes a single JSON result to stdout
-  - Any debug/error output goes to stderr only — never stdout
-
-CALLED BY:
-  server/services/tfMetricsCalculator.ts  (Node.js bridge)
-  which is called by:
-  GET /api/tf-metrics/compute?sessionId=X  (server/routes.ts)
 """
-
 import sys
 import json
 import os
 
-sys.path.insert(0, os.path.dirname(__file__))
+# Insert parent directory so the tf_metrics package is importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core import compute_tf_metrics
+from tf_metrics.core import compute_tf_metrics
 
 
 def main():
