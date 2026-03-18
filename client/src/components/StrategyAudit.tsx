@@ -317,9 +317,9 @@ const StrategyAudit = ({ sessionId, userId }: StrategyAuditProps) => {
               />
               <StatCard
                 label="Max Drawdown"
-                value={`${Math.abs(l2.drawdown.maxDrawdown).toFixed(1)}%`}
-                trend={`Calmar ${l2.drawdown.calmarRatio.toFixed(1)}`}
-                color={Math.abs(l2.drawdown.maxDrawdown) <= 5 ? 'text-emerald-400' : 'text-red-400'}
+                value={l2.drawdown?.maxDrawdown != null ? `${Math.abs(l2.drawdown.maxDrawdown).toFixed(1)}%` : 'N/A'}
+                trend={l2.drawdown?.calmarRatio != null ? `Calmar ${l2.drawdown.calmarRatio.toFixed(1)}` : 'Calmar N/A'}
+                color={l2.drawdown?.maxDrawdown != null && Math.abs(l2.drawdown.maxDrawdown) <= 5 ? 'text-emerald-400' : 'text-red-400'}
               />
               <StatCard
                 label="Overall Grade"
