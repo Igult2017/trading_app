@@ -51,7 +51,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'dashboard', label: 'Dashboard', icon: SI.Dashboard },
     { id: 'journal', label: 'Journal', icon: SI.Journal },
     { id: 'metrics', label: 'Metrics', icon: SI.Metrics },
-    { id: 'tfmetrics', label: 'TF Metrics', icon: SI.TfMetrics },
+    { id: 'tfmetrics', label: 'Context', icon: SI.TfMetrics },
     { id: 'calendar', label: 'Calendar', icon: SI.Calendar },
     { id: 'strategy', label: 'Strategy Audit', icon: SI.Strategy },
     { id: 'drawdown', label: 'Drawdown', icon: SI.Drawdown },
