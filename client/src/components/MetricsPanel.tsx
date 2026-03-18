@@ -68,9 +68,9 @@ const Panel = ({ title, accent=P.green, tag, children, style={} as React.CSSProp
     <div style={{ borderBottom:`1px solid ${P.line2}`, padding:'7px 12px', background:P.bg3, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ width:2, height:12, background:accent, flexShrink:0 }} />
-        <Cond size={11} color={P.bright} weight={700}>{title}</Cond>
+        <Cond size={8} color={P.bright} weight={700}>{title}</Cond>
       </div>
-      {tag && <Mono size={8} color={P.dim}>{tag}</Mono>}
+      {tag && <Mono size={8} color="#5B9BF0" style={{ fontStyle:'italic' }}>{tag}</Mono>}
     </div>
     <div style={{ padding:12 }}>{children}</div>
   </div>
