@@ -1,75 +1,158 @@
 """
 drawdown/frequency.py
-────────────────────────────────────────────────────────────────────────────
-Loss-frequency breakdown by trade attributes and by instrument.
-
-Responsibility:
-  Power the "Frequency" toggle card in DrawdownPanel by producing two views:
-
-  1. Attributes view  — loss frequency grouped by categorical tags:
-       Strategy    (e.g. "Trend Following", "Impulse Break")
-       Session     (e.g. "London Open", "NY Session")
-       Psychology  (extracted from tags list: "FOMO Trigger", "Calm Execution")
-       Structure   (derived from ob_valid/choch_valid flags + tags)
-
-  2. Instruments view — loss frequency grouped by instrument symbol only
-
-Input:
-  trades: list[dict]  — trade records (see core.py for field schema)
-
-Output (returned as dict, stored under "frequency" by core.py):
-  {
-    "attr": [
-      {
-        "cat":      "Strategy",
-        "name":     "S1: Trend Following",
-        "total":    42,
-        "losses":   12,
-        "lossRate": 28.6          # losses / total * 100
-      },
-      ...
-    ],
-    "instr": [
-      {
-        "cat":      "Instrument",
-        "name":     "EURUSD",
-        "total":    110,
-        "losses":   35,
-        "lossRate": 31.8
-      },
-      ...
-    ]
-  }
-
-Calculation notes:
-  - Sort each list descending by lossRate so worst performers appear first.
-  - Psychology tags: parse the free-text "tags" array for keywords:
-      "fomo" → "FOMO Trigger"
-      "revenge" → "Revenge Trade"
-      "calm" / "disciplined" → "Calm Execution"
-      "oversize" → "Oversized Position"
-  - Structural tags are derived from boolean fields:
-      ob_valid=False + outcome="loss"  → "HTF OB Failed"
-      choch_valid=False + outcome="loss" → "CHOCH Failure"
-      fvg_trap=True → "FVG Trap"
-      htfBias="counter_trend" → "Counter-Trend Entry"
-  - Minimum group size: only include groups with >= 5 trades to avoid
-    misleading 100% loss rates from tiny samples.
-
-TODO — implement compute_frequency(trades):
-  - Build attr groups: strategy, session, psychology tags, structural
-  - Build instr groups: by symbol
-  - Compute total/losses/lossRate for each group
-  - Filter out groups with < 5 trades
-  - Sort both lists by lossRate descending
-  - Return the dict with "attr" and "instr" keys
+Loss-frequency breakdown by attributes and by instrument.
 """
+from __future__ import annotations
+from collections import defaultdict
+from ._utils import (
+    get_instrument, get_strategy, get_session, get_outcome,
+    blob_field, _s
+)
+
+_MIN_GROUP = 5   # minimum trades to include a group
+
+
+def _rate(losses: int, total: int) -> float:
+    return round(losses / total * 100, 1) if total > 0 else 0.0
+
+
+def _psychology_tag(t: dict) -> str | None:
+    """
+    Extract psychology label from tags array or manualFields.
+    Returns None when no psychology signal is found.
+    """
+    tags_raw = (
+        t.get("tags") or
+        blob_field(t, "tags") or
+        blob_field(t, "psychology") or
+        []
+    )
+    if isinstance(tags_raw, str):
+        tags_raw = [tags_raw]
+    tags = [str(x).lower() for x in (tags_raw or [])]
+    combined = " ".join(tags)
+
+    if "revenge" in combined:       return "Revenge Trade"
+    if "fomo" in combined:          return "FOMO Trigger"
+    if "oversize" in combined:      return "Oversized Position"
+    if any(x in combined for x in ("calm", "disciplined", "patient")):
+        return "Calm Execution"
+    return None
+
+
+def _structural_tag(t: dict) -> str | None:
+    """Derive structural diagnosis label from boolean fields."""
+    outcome = get_outcome(t)
+
+    ob_valid = blob_field(t, "ob_valid")
+    if ob_valid is not None:
+        try:
+            ob_valid = str(ob_valid).lower() not in ("false", "0", "no")
+        except: pass
+        if ob_valid is False and outcome == "loss":
+            return "HTF OB Failed"
+
+    choch_valid = blob_field(t, "choch_valid")
+    if choch_valid is not None:
+        try:
+            choch_valid = str(choch_valid).lower() not in ("false", "0", "no")
+        except: pass
+        if choch_valid is False and outcome == "loss":
+            return "CHOCH Failure"
+
+    fvg_trap = blob_field(t, "fvg_trap")
+    if fvg_trap is not None:
+        try:
+            fvg_trap = str(fvg_trap).lower() in ("true", "1", "yes")
+        except: pass
+        if fvg_trap:
+            return "FVG Trap"
+
+    htf_bias = (
+        t.get("htfBias") or t.get("htf_bias") or
+        blob_field(t, "htf_bias") or blob_field(t, "htfBias") or ""
+    )
+    if str(htf_bias).lower() in ("counter_trend", "counter trend", "against"):
+        return "Counter-Trend Entry"
+
+    return None
 
 
 def compute_frequency(trades: list) -> dict:
     """
     Compute attribute-based and instrument-based loss frequency.
-    Returns a dict with keys "attr" and "instr", each a list of group dicts.
     """
-    # TODO: implement
-    return {"attr": [], "instr": []}
+    if not trades:
+        return {"attr": [], "instr": []}
+
+    # ── Attribute groups ──────────────────────────────────────────────────────
+    # Each group: { cat, name } → { total, losses }
+    attr_groups: dict[tuple, dict] = defaultdict(lambda: {"total": 0, "losses": 0})
+
+    for t in trades:
+        outcome = get_outcome(t)
+        is_loss = outcome == "loss"
+
+        # Strategy
+        strat = get_strategy(t)
+        if strat and strat != "Unknown":
+            key = ("Strategy", strat)
+            attr_groups[key]["total"]  += 1
+            attr_groups[key]["losses"] += int(is_loss)
+
+        # Session
+        session = get_session(t)
+        if session and session != "Off-Hours":
+            key = ("Session", session)
+            attr_groups[key]["total"]  += 1
+            attr_groups[key]["losses"] += int(is_loss)
+
+        # Psychology
+        psych = _psychology_tag(t)
+        if psych:
+            key = ("Psychology", psych)
+            attr_groups[key]["total"]  += 1
+            attr_groups[key]["losses"] += int(is_loss)
+
+        # Structure
+        struct = _structural_tag(t)
+        if struct:
+            key = ("Structure", struct)
+            attr_groups[key]["total"]  += 1
+            attr_groups[key]["losses"] += int(is_loss)
+
+    attr_list = []
+    for (cat, name), d in attr_groups.items():
+        if d["total"] < _MIN_GROUP:
+            continue
+        attr_list.append({
+            "cat":      cat,
+            "name":     name,
+            "total":    d["total"],
+            "losses":   d["losses"],
+            "lossRate": _rate(d["losses"], d["total"]),
+        })
+    attr_list.sort(key=lambda x: x["lossRate"], reverse=True)
+
+    # ── Instrument groups ─────────────────────────────────────────────────────
+    instr_groups: dict[str, dict] = defaultdict(lambda: {"total": 0, "losses": 0})
+    for t in trades:
+        instr   = get_instrument(t)
+        outcome = get_outcome(t)
+        instr_groups[instr]["total"]  += 1
+        instr_groups[instr]["losses"] += int(outcome == "loss")
+
+    instr_list = []
+    for instr, d in instr_groups.items():
+        if d["total"] < _MIN_GROUP:
+            continue
+        instr_list.append({
+            "cat":      "Instrument",
+            "name":     instr,
+            "total":    d["total"],
+            "losses":   d["losses"],
+            "lossRate": _rate(d["losses"], d["total"]),
+        })
+    instr_list.sort(key=lambda x: x["lossRate"], reverse=True)
+
+    return {"attr": attr_list, "instr": instr_list}
