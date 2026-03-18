@@ -23,9 +23,11 @@ import sys
 import json
 import os
 
-sys.path.insert(0, os.path.dirname(__file__))
+# Insert the parent of strategy_audit/ so we can import it as a package,
+# which is required for the relative imports inside core.py to work.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core import compute_strategy_audit
+from strategy_audit.core import compute_strategy_audit
 
 
 def main():

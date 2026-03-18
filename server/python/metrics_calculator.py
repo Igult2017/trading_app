@@ -64,10 +64,15 @@ FIELD_MAP: Dict[str, str] = {
     "lot_size": "lot_size",
     # ── Scores ───────────────────────────────────────────────────────────────
     "entryPrecisionScore": "entry_precision_score",
+    "entryPrecision": "entry_precision_score",       # JournalForm stores without "Score"
     "timingQualityScore": "timing_quality_score",
+    "timingQuality": "timing_quality_score",
     "marketAlignmentScore": "market_alignment_score",
+    "marketAlignment": "market_alignment_score",
     "setupClarityScore": "setup_clarity_score",
+    "setupClarity": "setup_clarity_score",
     "confluenceScore": "confluence_score",
+    "confluence": "confluence_score",
     "signalValidationScore": "signal_validation_score",
     "momentumScore": "momentum_score",
     # ── Booleans ─────────────────────────────────────────────────────────────
@@ -388,6 +393,17 @@ def _get_field(raw: Dict[str, Any], camel: str) -> Any:
 
 def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
     """Convert raw camelCase dict to typed TradeRecord. Returns None if invalid."""
+    # Merge manualFields and aiExtracted JSONB blobs into the flat dict first,
+    # so scores, booleans and categorical fields are visible to _get_field().
+    # Top-level values always win (they override blob values).
+    merged: Dict[str, Any] = {}
+    for blob_key in ("manualFields", "manual_fields", "aiExtracted", "ai_extracted"):
+        blob = raw.get(blob_key)
+        if isinstance(blob, dict):
+            merged.update(blob)
+    merged.update(raw)
+    raw = merged
+
     def g(camel: str) -> Any:
         return _get_field(raw, camel)
 
