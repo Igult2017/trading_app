@@ -1,35 +1,8 @@
 """
 drawdown/core.py
-────────────────────────────────────────────────────────────────────────────
-Orchestrator for all drawdown intelligence calculations.
-
-Responsibility:
-  - Accept a list of trade records and an account starting balance.
-  - Call every sub-module in the correct order and assemble the results
-    into a single dict that maps 1-to-1 with the shape expected by
-    DrawdownPanel.tsx on the frontend.
-
-Expected input (passed as Python args, not JSON — main.py handles parsing):
-  trades:           list[dict]   — trade records from journal_entries table
-  starting_balance: float        — account starting balance for the period
-
-Expected output (returned as dict, serialised to JSON by main.py):
-  {
-    "topStats":    { ... },   # from metrics.py
-    "heatmap":     [ ... ],   # from heatmap.py
-    "frequency":   { ... },   # from frequency.py
-    "structural":  { ... },   # from structural.py
-    "sessions":    [ ... ],   # from sessions.py
-    "streaks":     { ... },   # from streaks.py
-    "distribution":{ ... },   # from distribution.py  (rr_buckets + monthly)
-  }
-
-TODO — implement compute_drawdown:
-  1. Import each sub-module function
-  2. Apply any filters if passed (date range, instrument, strategy)
-  3. Call each sub-module and collect its output
-  4. Merge all outputs into a single result dict and return it
+Orchestrator — calls all sub-modules and assembles the result dict.
 """
+from __future__ import annotations
 
 from .metrics      import compute_metrics
 from .heatmap      import compute_heatmap
@@ -42,17 +15,52 @@ from .distribution import compute_rr_buckets, compute_monthly
 
 def compute_drawdown(trades: list, starting_balance: float) -> dict:
     """
-    Main orchestrator. Calls all sub-modules and assembles the result.
-    Returns a fully merged dict ready to be JSON-serialised by main.py.
+    Main orchestrator. Calls all sub-modules and returns a single merged dict
+    that maps 1-to-1 with DrawdownPanel.tsx data shape.
+
+    Output keys:
+      topStats    → header KPIs (maxDrawdown, avgDrawdown, recoveryFactor, trendAlignment)
+      heatmap     → pair × strategy loss matrix
+      frequency   → attr and instr loss frequency groups
+      structural  → context and entry SMC diagnostics
+      sessions    → per-session breakdown
+      streaks     → loss/win streaks + revenge rate + timeline
+      rrBuckets   → R:R distribution (4 buckets)
+      monthly     → month-by-month drawdown timeline
     """
-    # TODO: implement — call each sub-module and merge results:
-    # top_stats  = compute_metrics(trades, starting_balance)
-    # heatmap    = compute_heatmap(trades)
-    # frequency  = compute_frequency(trades)
-    # structural = compute_structural(trades)
-    # sessions   = compute_sessions(trades)
-    # streaks    = compute_streaks(trades)
-    # rr_buckets = compute_rr_buckets(trades)
-    # monthly    = compute_monthly(trades)
-    # return { "topStats": top_stats, "heatmap": heatmap, ... }
-    return {}
+    if not trades:
+        return {
+            "topStats":   {"maxDrawdown": 0.0, "avgDrawdown": 0.0, "recoveryFactor": 0.0, "trendAlignment": 0.0},
+            "heatmap":    [],
+            "frequency":  {"attr": [], "instr": []},
+            "structural": {"context": [], "entry": []},
+            "sessions":   [],
+            "streaks":    {"maxLossStreak": {"length": 0, "startDate": None, "endDate": None},
+                           "avgLossStreak": 0.0, "revengeRate": 0.0,
+                           "bestWinStreak": {"length": 0, "startDate": None, "endDate": None},
+                           "timeline": []},
+            "rrBuckets":  [],
+            "monthly":    [],
+        }
+
+    sb = float(starting_balance) if starting_balance else 10_000.0
+
+    top_stats  = compute_metrics(trades, sb)
+    heatmap    = compute_heatmap(trades)
+    frequency  = compute_frequency(trades)
+    structural = compute_structural(trades)
+    sessions   = compute_sessions(trades)
+    streaks    = compute_streaks(trades)
+    rr_buckets = compute_rr_buckets(trades)
+    monthly    = compute_monthly(trades)
+
+    return {
+        "topStats":   top_stats,
+        "heatmap":    heatmap,
+        "frequency":  frequency,
+        "structural": structural,
+        "sessions":   sessions,
+        "streaks":    streaks,
+        "rrBuckets":  rr_buckets,
+        "monthly":    monthly,
+    }
