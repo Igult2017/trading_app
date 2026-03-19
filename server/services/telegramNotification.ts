@@ -498,7 +498,14 @@ Expect increased volatility and volume.`;
 
 let telegramNotificationService: TelegramNotificationService | null = null;
 
+// Telegram notifications are muted. To re-enable, remove the TELEGRAM_MUTED check below.
+const TELEGRAM_MUTED = true;
+
 (async () => {
+  if (TELEGRAM_MUTED) {
+    console.log('[Telegram] Service is muted. Notifications disabled.');
+    return;
+  }
   try {
     telegramNotificationService = await TelegramNotificationService.create();
     if (telegramNotificationService?.isReady()) {
