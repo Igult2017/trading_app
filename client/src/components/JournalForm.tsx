@@ -60,7 +60,7 @@ const Icon = ({ name, size=16, style, className }: any) => {
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed";
+const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed italic font-normal";
 const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 font-mono leading-relaxed italic";
 const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
 
@@ -224,7 +224,7 @@ const Score = ({ label, field, value, onChange }: any) => (
 const Check = ({ label, field, value, onChange }: any) => (
   <label className="flex items-start gap-3 p-4 rounded-xl border border-slate-800/80 bg-slate-950/40 cursor-pointer hover:border-blue-500/20 transition-all">
     <input type="checkbox" checked={!!value} onChange={(e: any)=>onChange(field,e.target.checked)} className="w-4 h-4 mt-0.5 flex-shrink-0 rounded border-2 border-slate-700 bg-slate-900 cursor-pointer"/>
-    <span className="text-[12px] font-semibold text-slate-400 leading-snug">{label}</span>
+    <span className="text-[12px] italic font-normal text-slate-400 leading-snug">{label}</span>
   </label>
 );
 
