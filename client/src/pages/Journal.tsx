@@ -139,43 +139,20 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
 };
 
 const KPI_ICONS = {
-  PnL: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
-  WinRate: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>,
-  Expectancy: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>,
-  Trades: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>,
-  ProfitFactor: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>,
-  AvgTrade: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+  PnL: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+  WinRate: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>,
+  Expectancy: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>,
+  Trades: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>,
+  ProfitFactor: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>,
+  AvgTrade: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
 };
 
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
-  <div data-testid={`stat-${stat.id}`} style={{
-    background: 'linear-gradient(160deg, #131a24 0%, #0d1117 100%)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    borderTop: `1px solid ${stat.color}55`,
-    borderRadius: 14,
-    padding: '18px 10px 16px',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
-    boxShadow: `0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 ${stat.color}18`,
-    position: 'relative', overflow: 'hidden',
-  }}>
-    <div style={{
-      position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-      width: 60, height: 1,
-      background: `linear-gradient(90deg, transparent, ${stat.color}88, transparent)`,
-    }} />
-    <div style={{
-      width: 42, height: 42, borderRadius: '50%',
-      background: `radial-gradient(circle, ${stat.color}22 0%, ${stat.color}08 70%)`,
-      border: `1px solid ${stat.color}33`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: stat.color,
-      boxShadow: `0 0 18px ${stat.color}33, inset 0 0 8px ${stat.color}11`,
-    }}>
-      <stat.Icon />
-    </div>
+  <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.05)', padding: 12, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
+    <div style={{ background: stat.bg, padding: 6, borderRadius: 6, color: stat.color, display: 'flex' }}><stat.Icon /></div>
     <div style={{ textAlign: 'center' }}>
-      <p style={{ fontSize: 8, fontWeight: 700, color: 'rgba(148,163,184,0.55)', margin: '0 0 5px', letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
-      <p style={{ fontSize: 15, fontWeight: 900, color: stat.color, margin: 0, letterSpacing: '-0.01em' }}>{stat.value}</p>
+      <p style={{ fontSize: 9, color: 'rgba(148,163,184,0.7)', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
+      <p style={{ fontSize: 13, fontWeight: 900, color: stat.color, margin: 0 }}>{stat.value}</p>
     </div>
   </div>
 );

@@ -790,20 +790,42 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
               {STEPS.map(s=>{
                 const isActive=s.id===step, isDone=s.id<step;
+                const accentColor = isActive ? '#60a5fa' : isDone ? '#3b82f6' : '#334155';
                 return (
-                  <button key={s.id} onClick={()=>setStep(s.id)}
-                    className={`relative flex flex-col p-3 sm:p-4 rounded-2xl border transition-all duration-500 overflow-hidden text-left
-                      ${isActive?"bg-blue-950/40 border-blue-500/70 shadow-[0_0_24px_rgba(59,130,246,0.25),inset_0_1px_0_rgba(59,130,246,0.15)]":"bg-slate-900/20 border-slate-700/60 hover:border-slate-600 hover:bg-slate-900/30"}`}>
-                    <div className="flex items-center justify-between mb-2 sm:mb-3">
-                      <div className={`p-1.5 sm:p-2 rounded-lg ${isActive?"bg-blue-500/15 text-blue-400":isDone?"text-blue-500/40":"text-slate-600"}`}>
-                        <Icon name={s.icon} size={14}/>
-                      </div>
-                      <span className={`text-[9px] sm:text-[10px] font-bold ${isActive?"text-blue-400":"text-slate-600"}`}>0{s.id}</span>
+                  <button key={s.id} onClick={()=>setStep(s.id)} style={{
+                    position:'relative', display:'flex', flexDirection:'column', alignItems:'center',
+                    padding:'16px 10px 14px', borderRadius:'16px', border:'1px solid',
+                    borderColor: isActive ? 'rgba(96,165,250,0.45)' : isDone ? 'rgba(59,130,246,0.2)' : 'rgba(51,65,85,0.5)',
+                    borderTop: `1px solid ${accentColor}${isActive?'88':isDone?'44':'33'}`,
+                    background: isActive
+                      ? 'linear-gradient(160deg,#0f1e35 0%,#080d17 100%)'
+                      : isDone
+                      ? 'linear-gradient(160deg,#0c1525 0%,#07090f 100%)'
+                      : 'linear-gradient(160deg,#0c111a 0%,#07090f 100%)',
+                    boxShadow: isActive
+                      ? '0 8px 32px rgba(59,130,246,0.2), inset 0 1px 0 rgba(96,165,250,0.1)'
+                      : '0 4px 16px rgba(0,0,0,0.4)',
+                    cursor:'pointer', textAlign:'center', transition:'all 0.3s ease', overflow:'hidden',
+                  }}>
+                    <div style={{
+                      position:'absolute', top:0, left:'50%', transform:'translateX(-50%)',
+                      width:48, height:1,
+                      background:`linear-gradient(90deg,transparent,${accentColor}${isActive?'99':isDone?'55':'33'},transparent)`,
+                    }}/>
+                    <div style={{
+                      width:36, height:36, borderRadius:'50%', marginBottom:10,
+                      background:`radial-gradient(circle,${accentColor}${isActive?'25':isDone?'18':'10'} 0%,${accentColor}05 70%)`,
+                      border:`1px solid ${accentColor}${isActive?'44':isDone?'30':'20'}`,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      color: isActive ? '#60a5fa' : isDone ? '#3b82f6' : '#475569',
+                      boxShadow: isActive ? `0 0 16px rgba(96,165,250,0.25)` : 'none',
+                    }}>
+                      <Icon name={s.icon} size={15}/>
                     </div>
-                    <p className={`text-[10px] sm:text-[11px] font-black tracking-widest uppercase mb-0.5 ${isActive?"text-white":"text-slate-400"}`}>{s.label}</p>
-                    <p className={`hidden sm:block text-[9px] font-medium tracking-wider uppercase opacity-60 ${isActive?"text-blue-300":"text-slate-600"}`}>{s.sub}</p>
-                    {isActive&&<div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent"/>}
-                    {isDone&&<Icon name="CheckCircle2" size={12} className="absolute top-3 right-3 text-blue-500/40"/>}
+                    <p style={{fontSize:'10px',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase',color:isActive?'#e2e8f0':isDone?'#64748b':'#475569',margin:'0 0 3px',whiteSpace:'nowrap'}}>{s.label}</p>
+                    <p style={{fontSize:'8px',fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase',color:isActive?'rgba(96,165,250,0.7)':isDone?'rgba(59,130,246,0.4)':'#334155',margin:0}}>{s.sub}</p>
+                    {isDone&&<Icon name="CheckCircle2" size={11} style={{position:'absolute',top:10,right:10,color:'rgba(59,130,246,0.35)'}}/>}
+                    {isActive&&<div style={{position:'absolute',bottom:0,left:0,right:0,height:2,background:'linear-gradient(90deg,transparent,#60a5fa,transparent)'}}/>}
                   </button>
                 );
               })}
