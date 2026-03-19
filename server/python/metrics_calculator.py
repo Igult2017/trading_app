@@ -96,6 +96,7 @@ FIELD_MAP: Dict[str, str] = {
     # ── Categoricals ─────────────────────────────────────────────────────────
     "tradeGrade": "trade_grade",
     "setupType": "setup_type",
+    "setupTag": "setup_type",              # JournalForm uses setupTag, not setupType
     "exitReason": "exit_reason",
     "primaryExitReason": "exit_reason",    # journalEntries uses primaryExitReason
     "primary_exit_reason": "exit_reason",
@@ -124,13 +125,16 @@ FIELD_MAP: Dict[str, str] = {
     "managementType": "management_type",
     "candlePattern": "candle_pattern",
     "newsImpact": "news_impact",
+    "newsEnvironment": "news_impact",      # JournalForm uses newsEnvironment
     "emotionalState": "emotional_state",
     "focusLevel": "focus_level",
+    "focusStressLevel": "focus_level",     # JournalForm uses focusStressLevel
     "confidenceLevel": "confidence_level",
     "energyLevel": "energy_level",
     "confidenceAtEntry": "confidence_at_entry",
     "rulesFollowed": "rules_followed",
     "strategy": "strategy",
+    "strategyVersionId": "strategy",       # JournalForm uses strategyVersionId
     "riskHeat": "risk_heat",
     # ── MAE / MFE ────────────────────────────────────────────────────────────
     "mae": "mae", "mfe": "mfe",

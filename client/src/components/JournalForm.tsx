@@ -736,6 +736,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           boredomTrade:            form.impulseCheckBored,
           emotionalTrade:          form.impulseCheckEmotional,
           externalDistraction:     form.externalDistraction,
+          strategyVersionId:       form.strategyVersionId,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
