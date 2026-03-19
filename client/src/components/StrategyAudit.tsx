@@ -553,25 +553,25 @@ const StrategyAudit = ({ sessionId, userId }: StrategyAuditProps) => {
                     <div className="space-y-4">
                       <div className="flex justify-between items-baseline">
                         <span className="text-sm text-slate-400">Win Rate</span>
-                        <span className="text-xl font-bold text-emerald-400">{l2.variance.winRate.toFixed(1)}%</span>
+                        <span className="text-xl font-bold text-emerald-400">{(l2.variance.winRate ?? 0).toFixed(1)}%</span>
                       </div>
                       <div className="flex justify-between items-baseline">
                         <span className="text-sm text-slate-400">Sample Size</span>
-                        <span className="text-lg font-bold text-blue-400">{l2.variance.sampleSize}</span>
+                        <span className="text-lg font-bold text-blue-400">{l2.variance.sampleSize ?? 0}</span>
                       </div>
                       <div className="flex justify-between items-baseline">
                         <span className="text-sm text-slate-400">Win/Loss Ratio</span>
-                        <span className="text-lg font-bold text-purple-400">{l2.variance.winLossRatio.toFixed(2)}</span>
+                        <span className="text-lg font-bold text-purple-400">{(l2.variance.winLossRatio ?? 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-baseline">
                         <span className="text-sm text-slate-400">Skewness</span>
-                        <span className={`text-base font-bold ${l2.variance.skewness > 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                          {l2.variance.skewness.toFixed(3)}
+                        <span className={`text-base font-bold ${(l2.variance.skewness ?? 0) > 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                          {(l2.variance.skewness ?? 0).toFixed(3)}
                         </span>
                       </div>
                       <div className="flex justify-between items-baseline">
                         <span className="text-sm text-slate-400">Kurtosis</span>
-                        <span className="text-base font-bold text-slate-300">{l2.variance.kurtosis.toFixed(3)}</span>
+                        <span className="text-base font-bold text-slate-300">{(l2.variance.kurtosis ?? 0).toFixed(3)}</span>
                       </div>
                       <div className="pt-3 border-t border-slate-800/50 flex items-center justify-between">
                         <span className="text-xs text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.12em' }}>Positive Skew</span>
@@ -591,31 +591,31 @@ const StrategyAudit = ({ sessionId, userId }: StrategyAuditProps) => {
                         <svg className="w-full h-full -rotate-90">
                           <circle cx="64" cy="64" r="56" fill="none" stroke="#1e293b" strokeWidth="10" />
                           <circle cx="64" cy="64" r="56" fill="none" stroke="#f97316" strokeWidth="10"
-                            strokeDasharray={`${2 * Math.PI * 56 * (Math.min(Math.abs(l2.drawdown.maxDrawdown), 100) / 100)} ${2 * Math.PI * 56}`}
+                            strokeDasharray={`${2 * Math.PI * 56 * (Math.min(Math.abs(l2.drawdown.maxDrawdown ?? 0), 100) / 100)} ${2 * Math.PI * 56}`}
                             strokeLinecap="round"
                           />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <div className="text-xl font-bold text-orange-400">{Math.abs(l2.drawdown.maxDrawdown).toFixed(1)}%</div>
+                          <div className="text-xl font-bold text-orange-400">{Math.abs(l2.drawdown.maxDrawdown ?? 0).toFixed(1)}%</div>
                           <div className="text-[8px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.12em' }}>Max DD</div>
                         </div>
                       </div>
                       <div className="w-full grid grid-cols-2 gap-4 text-center">
                         <div>
                           <div className="text-sm text-slate-500">Recovery Factor</div>
-                          <div className="text-base font-bold text-slate-300">{l2.drawdown.recoveryFactor.toFixed(2)}</div>
+                          <div className="text-base font-bold text-slate-300">{(l2.drawdown.recoveryFactor ?? 0).toFixed(2)}</div>
                         </div>
                         <div>
                           <div className="text-sm text-slate-500">Ulcer Index</div>
-                          <div className="text-base font-bold text-slate-300">{l2.drawdown.ulcerIndex.toFixed(3)}</div>
+                          <div className="text-base font-bold text-slate-300">{(l2.drawdown.ulcerIndex ?? 0).toFixed(3)}</div>
                         </div>
                         <div>
                           <div className="text-sm text-slate-500">Calmar Ratio</div>
-                          <div className="text-base font-bold text-blue-400">{l2.drawdown.calmarRatio.toFixed(2)}</div>
+                          <div className="text-base font-bold text-blue-400">{(l2.drawdown.calmarRatio ?? 0).toFixed(2)}</div>
                         </div>
                         <div>
                           <div className="text-sm text-slate-500">Avg Drawdown</div>
-                          <div className="text-base font-bold text-slate-300">{Math.abs(l2.drawdown.avgDrawdown).toFixed(2)}%</div>
+                          <div className="text-base font-bold text-slate-300">{Math.abs(l2.drawdown.avgDrawdown ?? 0).toFixed(2)}%</div>
                         </div>
                       </div>
                     </div>
@@ -625,20 +625,20 @@ const StrategyAudit = ({ sessionId, userId }: StrategyAuditProps) => {
                     <div className="space-y-4">
                       <div className="text-center py-2">
                         <div className="text-sm text-slate-500 uppercase font-bold mb-2" style={{ letterSpacing: '0.12em' }}>Consistency Score</div>
-                        <div className="text-3xl font-bold text-purple-400">{l2.equityVariance.consistencyScore.toFixed(1)}%</div>
+                        <div className="text-3xl font-bold text-purple-400">{(l2.equityVariance.consistencyScore ?? 0).toFixed(1)}%</div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800/50">
                         <div className="text-center">
                           <div className="text-xs text-slate-500">Best Month</div>
-                          <div className="text-base font-bold text-emerald-400">+{l2.equityVariance.bestMonth.toFixed(0)}</div>
+                          <div className="text-base font-bold text-emerald-400">+{(l2.equityVariance.bestMonth ?? 0).toFixed(0)}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-xs text-slate-500">Worst Month</div>
-                          <div className="text-base font-bold text-red-400">{l2.equityVariance.worstMonth.toFixed(0)}</div>
+                          <div className="text-base font-bold text-red-400">{(l2.equityVariance.worstMonth ?? 0).toFixed(0)}</div>
                         </div>
                         <div className="text-center col-span-2">
                           <div className="text-xs text-slate-500">Monthly Std Dev</div>
-                          <div className="text-base font-bold text-slate-300">{l2.equityVariance.monthlyStdDev.toFixed(2)}</div>
+                          <div className="text-base font-bold text-slate-300">{(l2.equityVariance.monthlyStdDev ?? 0).toFixed(2)}</div>
                         </div>
                       </div>
                     </div>
@@ -650,21 +650,21 @@ const StrategyAudit = ({ sessionId, userId }: StrategyAuditProps) => {
                     <div className="space-y-4">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-400">Avg Confluence Score</span>
-                        <span className="font-bold text-blue-400">{l2.tradeQuality.avgConfluenceScore.toFixed(1)}</span>
+                        <span className="font-bold text-blue-400">{(l2.tradeQuality.avgConfluenceScore ?? 0).toFixed(1)}</span>
                       </div>
-                      {l2.tradeQuality.highQualityWinRate !== null && (
+                      {l2.tradeQuality.highQualityWinRate != null && (
                         <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                           <div className="text-xs text-slate-500 mb-1">High Confluence Win Rate (≥70)</div>
                           <div className="text-lg font-bold text-emerald-400">{l2.tradeQuality.highQualityWinRate.toFixed(1)}%</div>
                         </div>
                       )}
-                      {l2.tradeQuality.lowQualityWinRate !== null && (
+                      {l2.tradeQuality.lowQualityWinRate != null && (
                         <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
                           <div className="text-xs text-slate-500 mb-1">Low Confluence Win Rate (&lt;40)</div>
                           <div className="text-lg font-bold text-red-400">{l2.tradeQuality.lowQualityWinRate.toFixed(1)}%</div>
                         </div>
                       )}
-                      {l2.tradeQuality.highQualityWinRate === null && l2.tradeQuality.lowQualityWinRate === null && (
+                      {l2.tradeQuality.highQualityWinRate == null && l2.tradeQuality.lowQualityWinRate == null && (
                         <p className="text-sm text-slate-500 italic">Confluence scores not recorded — add them via manual fields.</p>
                       )}
                     </div>
