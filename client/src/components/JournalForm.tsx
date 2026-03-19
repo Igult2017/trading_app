@@ -1167,9 +1167,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none",transition:"all 0.3s"}}/>
               </div>
               <div>
-                <div style={{display:"flex",alignItems:"flex-end",gap:"6px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                  <span style={{fontSize:"12px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
+                    {trades.length===1?"TRADE":"TRADES"}:
+                  </span>
                   <span style={{fontSize:"17px",fontWeight:400,fontFamily:"'JetBrains Mono', monospace",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
-                  <span style={{fontSize:"11px",fontWeight:700,color:"#475569",marginBottom:"2px"}}>{trades.length===1?"TRADE":"TRADES"}</span>
                 </div>
                 <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
                   <div style={{height:"100%",borderRadius:"2px",background:"linear-gradient(90deg,#3b82f6,#1d4ed8)",width:`${Math.min((trades.length/10)*100,100)}%`,transition:"width 0.4s ease"}}/>
