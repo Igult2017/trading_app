@@ -10,6 +10,7 @@ import TradeVault from '@/components/TradeVault';
 import TradingCalendar from '@/components/TradingCalendar';
 import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
+import { useSessionBalance } from '@/hooks/useSessionBalance';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 
 const SI = {
@@ -736,6 +737,7 @@ export default function Journal() {
 
   const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
   const activeSession = sessions.find((s: any) => String(s.id) === String(activeSessionId));
+  const { currentBalance: activeCurrentBalance, totalPnL: activeTotalPnL, isLoading: balanceLoading } = useSessionBalance(activeSessionId);
 
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
@@ -809,7 +811,11 @@ export default function Journal() {
             <span style={{ fontSize: 9, color: 'rgba(99,102,241,0.8)', background: 'rgba(99,102,241,0.1)', padding: '3px 8px', borderRadius: 4, marginRight: 8, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }} data-testid="text-active-session-indicator">
               {activeSession && <span style={{ fontWeight: 900, color: '#a5b4fc' }}>{activeSession.sessionName}</span>}
               {activeSession && <span style={{ color: 'rgba(148,163,184,0.4)' }}>|</span>}
-              {activeSession && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>${(parseFloat(activeSession.startingBalance) || 0).toLocaleString()}</span>}
+              {activeSession && (
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: balanceLoading ? 'rgba(148,163,184,0.5)' : activeTotalPnL > 0 ? '#34d399' : activeTotalPnL < 0 ? '#fb7185' : '#a5b4fc' }}>
+                  {balanceLoading ? '···' : `$${activeCurrentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </span>
+              )}
               {activeSession && <span style={{ color: 'rgba(148,163,184,0.4)' }}>|</span>}
               Session Active
             </span>

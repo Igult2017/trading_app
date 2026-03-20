@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Globe, Trash2 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { useSessionBalance } from '@/hooks/useSessionBalance';
 
 interface SessionData {
   id: string;
@@ -128,6 +129,71 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   );
 };
 
+const SessionCard = ({ session, isActive, onSelect, onDelete }: {
+  session: SessionData;
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+}) => {
+  const { currentBalance, totalPnL, tradeCount, isLoading } = useSessionBalance(session.id);
+  const startBal = parseFloat(session.startingBalance) || 0;
+  const pnlPositive = totalPnL >= 0;
+  const pnlColor = totalPnL === 0 ? '#94a3b8' : pnlPositive ? '#34d399' : '#fb7185';
+
+  return (
+    <div
+      onClick={onSelect}
+      className={`bg-slate-900 border rounded-md p-6 cursor-pointer transition-all ${isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-800 hover:border-slate-700'}`}
+      data-testid={`card-session-${session.id}`}
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h3 className="text-lg font-black text-white mb-1 tracking-tight" data-testid={`text-session-name-${session.id}`}>{session.sessionName}</h3>
+          <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : ''}</p>
+        </div>
+        {isActive && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded">Active</span>}
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 font-black">Current Balance</p>
+          <p className="text-xl font-bold font-mono" style={{ color: pnlColor }}>
+            {isLoading ? <span className="text-slate-600">—</span> : `$${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </p>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-[9px] text-slate-600 uppercase tracking-wider font-black mb-0.5">Starting Balance</p>
+            <p className="text-xs text-slate-400 font-mono">${startBal.toLocaleString()}</p>
+          </div>
+          {!isLoading && tradeCount > 0 && (
+            <div className="text-right">
+              <p className="text-[9px] text-slate-600 uppercase tracking-wider font-black mb-0.5">P&amp;L</p>
+              <p className="text-xs font-mono font-bold" style={{ color: pnlColor }}>
+                {pnlPositive ? '+' : ''}{totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-3 border-t border-slate-800 flex justify-between items-center">
+          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded ${session.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700/30 text-slate-400'}`}>
+            {session.status || 'active'}
+          </span>
+          <button
+            onClick={onDelete}
+            className="text-slate-600 hover:text-red-400 transition-colors p-1"
+            data-testid={`button-delete-session-${session.id}`}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface SessionsListProps {
   onSelectSession: (sessionId: string) => void;
   activeSessionId: string | null;
@@ -183,43 +249,15 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
         <p className="text-sm text-slate-400">Select a session to view its data across Dashboard, Metrics, and Trade Vault</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sessions.map((session) => {
-          const isActive = activeSessionId === session.id;
-          return (
-            <div
-              key={session.id}
-              onClick={() => onSelectSession(session.id)}
-              className={`bg-slate-900 border rounded-md p-6 cursor-pointer transition-all ${isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-800 hover:border-slate-700'}`}
-              data-testid={`card-session-${session.id}`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-black text-white mb-1 tracking-tight" data-testid={`text-session-name-${session.id}`}>{session.sessionName}</h3>
-                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : ''}</p>
-                </div>
-                {isActive && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded">Active</span>}
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 font-black">Starting Balance</p>
-                  <p className="text-xl font-bold text-white font-mono">${parseFloat(session.startingBalance).toLocaleString()}</p>
-                </div>
-                <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
-                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded ${session.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700/30 text-slate-400'}`}>
-                    {session.status || 'active'}
-                  </span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
-                    className="text-slate-600 hover:text-red-400 transition-colors p-1"
-                    data-testid={`button-delete-session-${session.id}`}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {sessions.map((session) => (
+          <SessionCard
+            key={session.id}
+            session={session}
+            isActive={activeSessionId === session.id}
+            onSelect={() => onSelectSession(session.id)}
+            onDelete={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
+          />
+        ))}
       </div>
     </div>
   );
