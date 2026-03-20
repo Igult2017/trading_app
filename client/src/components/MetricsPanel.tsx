@@ -41,8 +41,8 @@ const Mono = ({ children, size=11, color=P.muted, weight=400, upper=true, spacin
 const Cond = ({ children, size=14, color=P.bright, weight=600, upper=true, style={} as React.CSSProperties, className='' }: any) => (
   <span className={className} style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:size, color, fontWeight:weight, letterSpacing:'0.06em', textTransform:upper?'uppercase':'none', lineHeight:1, ...style }}>{children}</span>
 );
-const Num = ({ children, size=13, color=P.green, style={} as React.CSSProperties }: any) => (
-  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
+const Num = ({ children, size=11, color=P.green, style={} as React.CSSProperties }: any) => (
+  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, fontStyle:'italic', letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
 );
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ const Bar = ({ label, pct, sub }: { label:string; pct:number|null|undefined; sub
           {sub && <Mono size={9} color={P.muted}>{sub}</Mono>}
           {pct == null
             ? <Mono size={9} color={P.dim}>--</Mono>
-            : <Num size={17} color={pColor(val)}>{Math.round(val)}<span style={{ fontSize:9, opacity:0.6 }}>%</span></Num>
+            : <Num color={pColor(val)}>{Math.round(val)}<span style={{ fontSize:8, opacity:0.6 }}>%</span></Num>
           }
         </div>
       </div>
@@ -123,11 +123,11 @@ const YN = ({ label, yes, no }: { label:string; yes:number|null|undefined; no:nu
     </div>
     <div style={{ width:52, padding:'3px 5px', borderRight:`1px solid ${P.line}`, textAlign:'center' }}>
       <Mono size={7} color={P.dim} style={{ display:'block', marginBottom:1 }}>YES</Mono>
-      {yes == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num size={12} color={pColor(yes)}>{Math.round(yes)}%</Num>}
+      {yes == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(yes)}>{Math.round(yes)}%</Num>}
     </div>
     <div style={{ width:52, padding:'3px 5px', textAlign:'center' }}>
       <Mono size={7} color={P.dim} style={{ display:'block', marginBottom:1 }}>NO</Mono>
-      {no == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num size={12} color={pColor(no)}>{Math.round(no)}%</Num>}
+      {no == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(no)}>{Math.round(no)}%</Num>}
     </div>
   </div>
 );
@@ -144,7 +144,7 @@ const Multi = ({ label, options }: { label?:string; options:{ label:string; pct:
       {options.map((o,i) => (
         <div key={i} style={{ background:P.bg2, padding:'5px 4px', textAlign:'center' }}>
           <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:1 }}>{o.label}</Mono>
-          {o.pct == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num size={12} color={pColor(o.pct)}>{Math.round(o.pct)}%</Num>}
+          {o.pct == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(o.pct)}>{Math.round(o.pct)}%</Num>}
         </div>
       ))}
     </div>
@@ -158,7 +158,7 @@ const ScoreRow = ({ label, scores }: { label:string; scores:{ score:string; pct:
       {scores.map((s,i) => (
         <div key={i} style={{ background:P.bg2, padding:'5px 3px', textAlign:'center' }}>
           <Mono size={8} color={P.muted} style={{ display:'block' }}>{s.score}</Mono>
-          {s.pct == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num size={12} color={pColor(s.pct)}>{Math.round(s.pct)}%</Num>}
+          {s.pct == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(s.pct)}>{Math.round(s.pct)}%</Num>}
           <div style={{ height:1, background:P.line2, marginTop:2 }}>
             <div style={{ width:`${s.pct??0}%`, height:'100%', background:pColor(s.pct??0) }} />
           </div>
@@ -239,7 +239,7 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve:any[]; equityG
           {([['BALANCE',fmtBal(balance),isPos?P.green:P.red],['RETURN',retPct?`${retPct>=0?'+':''}${retPct.toFixed(2)}%`:'--',isPos?P.green:P.red],['START',fmtBal(startBal),P.body]] as [string,string,string][]).map(([l,v,c],i)=>(
             <div key={i} style={{ textAlign:'right' }}>
               <Mono size={7} color={P.dim} style={{ display:'block' }}>{l}</Mono>
-              <Num size={13} color={c}>{v}</Num>
+              <Num color={c}>{v}</Num>
             </div>
           ))}
         </div>
@@ -494,7 +494,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
         ].map((k,i)=>(
           <div key={i} className={`mp-kpi-cell ${k.cls}`} data-testid={`metric-kpi-${i}`}>
             <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:6, letterSpacing:'0.16em' }}>{k.l}</Mono>
-            <Num size={13} color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5 }}>{k.v}</Num>
+            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5 }}>{k.v}</Num>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <div style={{ width:16, height:1, background:k.cls==='mp-kpi-pos'?P.greenDim:k.cls==='mp-kpi-neg'?P.redDim:P.line2 }}/>
               <Mono size={8} color={P.dim}>{k.s}</Mono>
@@ -540,7 +540,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                   {[['YES', boolImpacts.breakevenApplied?.yes?.winRate, P.green],['NO', boolImpacts.breakevenApplied?.no?.winRate, P.red]] .map(([l,v,c]:any,i)=>(
                     <div key={i} style={{ background:P.bg2, padding:'5px 4px', textAlign:'center' }}>
                       <Mono size={7} color={P.dim} style={{ display:'block' }}>{l}</Mono>
-                      {v==null?<Mono size={9} color={P.dim}>--</Mono>:<Num size={12} color={c}>{Math.round(v)}%</Num>}
+                      {v==null?<Mono size={9} color={P.dim}>--</Mono>:<Num color={c}>{Math.round(v)}%</Num>}
                     </div>
                   ))}
                 </div>
@@ -642,7 +642,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 <div key={i} style={{ marginBottom:8 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:3 }}>
                     <Mono size={9} color={P.muted}>{x.reason} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
-                    <Num size={17} color={pColor(x.pct)}>{x.pct}<span style={{ fontSize:9, opacity:0.6 }}>%</span></Num>
+                    <Num color={pColor(x.pct)}>{x.pct}<span style={{ fontSize:8, opacity:0.6 }}>%</span></Num>
                   </div>
                   <div style={{ height:2, background:P.line2 }}>
                     <div style={{ height:'100%', width:`${x.pct||1}%`, background:pColor(x.pct), opacity:0.85 }}/>
@@ -803,7 +803,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               ? candleEntries.map((x,i)=>(
                   <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                     <Mono size={9} color={P.muted}>{x.pat} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
-                    {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num size={12} color={pColor(x.wr)}>{x.wr}%</Num>}
+                    {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(x.wr)}>{x.wr}%</Num>}
                   </div>
                 ))
               : <Mono size={9} color={P.dim}>No candle pattern data</Mono>
@@ -819,7 +819,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               ? orderEntries.map((x,i)=>(
                   <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                     <Mono size={9} color={P.muted}>{x.ot} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
-                    {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num size={12} color={pColor(x.wr)}>{x.wr}%</Num>}
+                    {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(x.wr)}>{x.wr}%</Num>}
                   </div>
                 ))
               : <Mono size={9} color={P.dim}>No order type data</Mono>
@@ -932,7 +932,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                       <Mono size={7} color={P.dim}>{x.ct}</Mono>
                     </div>
                   </div>
-                  <Num size={12} color={x.c}>{x.wr}</Num>
+                  <Num color={x.c}>{x.wr}</Num>
                 </div>
               ))}
               <div style={{ display:'flex', justifyContent:'space-between', paddingTop:8 }}>
