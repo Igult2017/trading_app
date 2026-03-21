@@ -10,7 +10,6 @@ import TradeVault from '@/components/TradeVault';
 import TradingCalendar from '@/components/TradingCalendar';
 import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
-import { useSessionBalance } from '@/hooks/useSessionBalance';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 
 const SI = {
@@ -729,16 +728,9 @@ export default function Journal() {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const [theme, setTheme] = useState('dark');
-  const isDark = theme === 'dark';
-  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
-  const activeSession = sessions.find((s: any) => String(s.id) === String(activeSessionId));
-  const { currentBalance: activeCurrentBalance, totalPnL: activeTotalPnL, isLoading: balanceLoading } = useSessionBalance(activeSessionId);
-
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
     setActiveNav('dashboard');
@@ -780,66 +772,7 @@ export default function Journal() {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
-      <JournalHeader isDark={isDark} toggleTheme={toggleTheme} />
-
-      <div style={{ height: '8px', flexShrink: 0 }} />
-
-      <header style={{ height:54, flexShrink:0, background:'#07090f', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', gap:8, zIndex:30 }} data-testid="journal-header">
-        <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0, overflow:'hidden' }}>
-          <button onClick={() => isMobile ? setMobileOpen(o=>!o) : setSidebarOpen(o=>!o)}
-            style={{ background:'none', border:'none', color:'rgba(148,163,184,0.6)', cursor:'pointer', padding:6, display:'flex', borderRadius:8, flexShrink:0 }}
-            data-testid="button-toggle-sidebar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <div style={{ display:'flex', alignItems:'center', gap:4, overflow:'hidden' }}>
-            {[
-              { icon:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12,2 20,7 4,7"/></svg>, label:'Find a Broker' },
-              { icon:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, label:'Find a Prop Firm' },
-            ].map((b,i) => (
-              <button key={i} style={{ background:'none', border:'none', color:'rgba(99,102,241,0.8)', cursor:'pointer', padding:'4px 8px', display:'flex', alignItems:'center', gap:6, borderRadius:8, transition:'all .15s', whiteSpace:'nowrap', fontSize:10, fontWeight:900, letterSpacing:'0.08em' }}
-                onMouseEnter={e=>{e.currentTarget.style.color='#a5b4fc';e.currentTarget.style.background='rgba(99,102,241,0.08)';}}
-                onMouseLeave={e=>{e.currentTarget.style.color='rgba(99,102,241,0.8)';e.currentTarget.style.background='none';}}>
-                {b.icon}
-                <span style={{ display: isMobile ? 'none' : 'inline' }}>{b.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
-          {activeSessionId && (
-            <span style={{ fontSize: 9, color: 'rgba(99,102,241,0.8)', background: 'rgba(99,102,241,0.1)', padding: '3px 8px', borderRadius: 4, marginRight: 8, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }} data-testid="text-active-session-indicator">
-              {activeSession && <span style={{ fontWeight: 900, color: '#a5b4fc' }}>{activeSession.sessionName}</span>}
-              {activeSession && <span style={{ color: 'rgba(148,163,184,0.4)' }}>|</span>}
-              {activeSession && (
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: balanceLoading ? 'rgba(148,163,184,0.5)' : activeTotalPnL > 0 ? '#34d399' : activeTotalPnL < 0 ? '#fb7185' : '#a5b4fc' }}>
-                  {balanceLoading ? '···' : `$${activeCurrentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </span>
-              )}
-              {activeSession && <span style={{ color: 'rgba(148,163,184,0.4)' }}>|</span>}
-              Session Active
-            </span>
-          )}
-          {!isMobile && <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', marginRight:4 }} />}
-          {[
-            { svg:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, hide:isMobile },
-            { svg:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>, hide:false },
-            { svg:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>, hide:isMobile },
-            { svg:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>, hide:isMobile },
-          ].map((b,i) => !b.hide && (
-            <button key={i} style={{ background:'none', border:'none', color:'rgba(148,163,184,0.55)', cursor:'pointer', padding:6, borderRadius:8, display:'flex', transition:'all .2s' }}
-              onMouseEnter={e=>e.currentTarget.style.color='#38bdf8'}
-              onMouseLeave={e=>e.currentTarget.style.color='rgba(148,163,184,0.55)'}>
-              {b.svg}
-            </button>
-          ))}
-          <button style={{ width:34, height:34, borderRadius:8, background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', marginLeft:8, transition:'all 0.2s' }} data-testid="button-logout" title="Logout"
-            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.25)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.5)'; }}
-            onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.15)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.3)'; }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/></svg>
-          </button>
-        </div>
-      </header>
+      <JournalHeader onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)} />
 
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />

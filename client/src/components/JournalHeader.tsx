@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "wouter";
+import { useState } from "react";
+import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -15,35 +15,18 @@ const TICKER_DATA = [
 function TickerTape() {
   const items = [...TICKER_DATA, ...TICKER_DATA];
   return (
-    <div style={{
-      background: "#080c10",
-      borderBottom: "1px solid #0f1923",
-      height: 32,
-      overflow: "hidden",
-      display: "flex",
-      alignItems: "center",
-      position: "relative"
-    }}>
+    <div style={{ background: "#080c10", borderBottom: "1px solid #0f1923", height: 32, overflow: "hidden", display: "flex", alignItems: "center" }}>
       <style>{`
         @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
         .ticker-wrap:hover { animation-play-state: paused; }
       `}</style>
-      <div className="ticker-wrap" style={{ gap: 0 }}>
+      <div className="ticker-wrap">
         {items.map((t, i) => (
-          <div key={i} style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "0 28px", borderRight: "1px solid #0f1923",
-            whiteSpace: "nowrap"
-          }}>
-            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", fontFamily: "'Montserrat', sans-serif" }}>{t.symbol}</span>
-            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600, fontFamily: "'Montserrat', sans-serif" }}>{t.price}</span>
-            <span style={{
-              fontSize: 9, fontWeight: 700, fontFamily: "'Montserrat', sans-serif",
-              color: t.up ? "#22d3a5" : "#f4617f",
-              background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)",
-              padding: "1px 5px", borderRadius: 3
-            }}>{t.change}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
+            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
+            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600 }}>{t.price}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
       </div>
@@ -51,275 +34,167 @@ function TickerTape() {
   );
 }
 
-const navItems = [
-  { label: "HOME", icon: "⌂", href: "/", isExternal: false },
-  { label: "TSC", icon: "◉", href: "https://fsdzones.com", isExternal: true },
-  { label: "ECONOMIC CALENDAR", icon: "▦", href: "https://fsdzones.com/calendar", isExternal: true },
-  { label: "BLOG", icon: "≡", href: "https://fsdzones.com/blog", isExternal: true },
-];
-
 interface JournalHeaderProps {
-  isDark: boolean;
-  toggleTheme: () => void;
+  onToggleSidebar: () => void;
 }
 
-export default function JournalHeader({ isDark, toggleTheme }: JournalHeaderProps) {
-  const [active, setActive] = useState("HOME");
-  const [dropdown, setDropdown] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [time, setTime] = useState(new Date());
-  const dropRef = useRef(null);
+export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const dm = darkMode;
 
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  const t = dm ? {
+    navBg: 'rgba(8,12,16,0.97)',
+    navBorder: '#172233',
+    logoWhite: '#ffffff',
+    navLink: '#4a6580',
+    navLinkHover: '#c8d8e8',
+    text: '#ffffff',
+    iconColor: '#3b82f6',
+    iconBtnHover: '#0c1219',
+  } : {
+    navBg: 'rgba(255,255,255,0.97)',
+    navBorder: '#e2e8f0',
+    logoWhite: '#0f172a',
+    navLink: '#475569',
+    navLinkHover: '#0f172a',
+    text: '#0f172a',
+    iconColor: '#3b82f6',
+    iconBtnHover: '#f1f5f9',
+  };
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropRef.current && !dropRef.current.contains(e.target)) setDropdown(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  const NAV_ITEMS = ['Economic Calendar', 'Assets', 'Blog', 'TSC'];
 
-  const fmt = (d) => d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const fmtDate = (d) => d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
+  const iconButtonStyle = {
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    border: 'none',
+    background: 'transparent',
+    color: t.iconColor,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+    flexShrink: 0 as const,
+  };
 
   return (
-    <>
+    <div>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
-        :root {
-          --bg: #080c10;
-          --surface: #0c1219;
-          --border: #0f1923;
-          --border-lit: #172233;
-          --accent: #3b9eff;
-          --green: #22d3a5;
-          --red: #f4617f;
-          --text: #c8d8e8;
-          --muted: #4a6580;
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
+        .nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
+        .nav-links { display:flex; align-items:center; gap:6px; }
+        .nav-mob-controls { display:none; align-items:center; gap:8px; }
+        .jh-icon-btn:hover { background: ${dm ? '#0c1219' : '#f1f5f9'} !important; }
+        .avatar-btn { 
+          width:32px; height:32px; border-radius:50%; border:none; 
+          background: linear-gradient(135deg,#1e3a5f,#2563eb);
+          display:flex; align-items:center; justify-content:center; 
+          cursor:pointer; transition: background 0.15s; flex-shrink:0;
         }
-        .journal-nav-link {
-          color: var(--muted);
-          text-decoration: none;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          padding: 6px 12px;
-          border-radius: 4px;
-          transition: all 0.15s;
-          white-space: nowrap;
-          border: 1px solid transparent;
-          font-family: 'Montserrat', sans-serif;
-          cursor: pointer;
-          background: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
+        .avatar-btn:hover { background: linear-gradient(135deg,#2563eb,#3b82f6) !important; }
+        .settings-btn {
+          width:32px; height:32px; border-radius:50%; border:none;
+          background: ${dm ? '#1a2535' : '#e2e8f0'};
+          display:flex; align-items:center; justify-content:center;
+          cursor:pointer; transition: background 0.15s; flex-shrink:0;
+          color: ${t.iconColor};
         }
-        .journal-nav-link:hover { color: var(--text); border-color: var(--border-lit); background: var(--surface); }
-        .journal-nav-link.active { color: var(--accent); border-color: rgba(59,158,255,0.25); background: rgba(59,158,255,0.06); }
-        .journal-icon-btn { background: var(--surface); border: 1px solid var(--border-lit); border-radius: 4px; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-        .journal-icon-btn:hover { color: var(--text); border-color: var(--accent); }
-        @media (max-width: 1024px) { .journal-desktop-only { display: none !important; } .journal-mobile-toggle { display: flex !important; } }
-        @media (min-width: 1025px) { .journal-desktop-only { display: flex !important; } .journal-mobile-toggle { display: none !important; } }
-        @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .settings-btn:hover { background: ${dm ? '#0c1219' : '#cbd5e1'} !important; }
+        @media (max-width: 1024px) {
+          .nav-links { display:none !important; }
+          .nav-mob-controls { display:flex !important; }
+        }
       `}</style>
 
-      <TickerTape />
+      <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+        <TickerTape />
+        <nav style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
-      <header style={{
-        background: "var(--bg)",
-        borderBottom: "1px solid var(--border-lit)",
-        height: 44,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 24px",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-      }}>
+          {/* Left: Sidebar hamburger + Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <button
+              onClick={onToggleSidebar}
+              title="Toggle sidebar"
+              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text, flexShrink: 0, transition: 'background 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = dm ? '#172233' : '#e2e8f0'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+            >
+              <Menu size={18} />
+            </button>
 
-        {/* Logo */}
-        <a href="/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "baseline", cursor: "pointer", flexShrink: 0, textDecoration: "none" }} onClick={(e) => e.preventDefault()}>
-          <span style={{ fontSize: "16px", fontWeight: "900", color: "#fff", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
-            FSDZONES
-          </span>
-          <span style={{ fontSize: "16px", fontWeight: "900", color: "#4da8f0", letterSpacing: "-0.02em", fontFamily: "'Montserrat', sans-serif" }}>
-            .COM
-          </span>
-        </a>
-
-        {/* Right Nav */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <nav className="journal-desktop-only" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {navItems.map((item: any) => {
-              if (item.label === "HOME") {
-                // HOME opens in new tab
-                return (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                    onClick={() => setActive(item.label)}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                    {item.label}
-                  </a>
-                );
-              } else if (item.isExternal) {
-                // External links
-                return (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                    onClick={() => setActive(item.label)}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                    {item.label}
-                  </a>
-                );
-              } else {
-                // Internal routes with wouter Link
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`journal-nav-link${active === item.label ? " active" : ""}`}
-                    onClick={() => setActive(item.label)}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <span style={{ opacity: 0.4, fontSize: 10 }}>{item.icon}</span>
-                    {item.label}
-                  </Link>
-                );
-              }
-            })}
-          </nav>
-
-          <div className="journal-desktop-only" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
-
-          {/* Clock */}
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "flex-end",
-            padding: "4px 12px",
-            background: "var(--surface)",
-            border: "1px solid var(--border-lit)",
-            borderRadius: 4,
-          }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{fmt(time)}</span>
-            <span style={{ fontSize: 7, color: "var(--muted)", letterSpacing: "0.08em" }}>{fmtDate(time)} · UTC</span>
+            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer' }}>
+              <span style={{ color: t.logoWhite }}>FSD </span>
+              <span style={{ color: '#3b82f6' }}>Journal</span>
+            </span>
           </div>
 
-          <button
-            className="journal-mobile-toggle journal-icon-btn"
-            style={{ width: 34, height: 34, display: "none", flexDirection: "column", gap: 4, padding: 0 }}
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {[0,1,2].map(i => (
-              <div key={i} style={{ width: 16, height: 1.5, background: "currentColor", borderRadius: 2 }} />
+          {/* Desktop Nav Links + Icons */}
+          <div className="nav-links">
+            {NAV_ITEMS.map(item => (
+              <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="nav-a" style={{ color: t.navLink }}
+                onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+              >{item}</a>
             ))}
-          </button>
 
-          <button
-            className="journal-icon-btn"
-            style={{ width: 34, height: 34, display: "flex", gap: 4, padding: 0 }}
-            onClick={toggleTheme}
-          >
-            {isDark ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            )}
-          </button>
-        </div>
-      </header>
+            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div style={{
-          position: "fixed", top: 76, left: 0, right: 0, bottom: 0,
-          background: "#080c10", zIndex: 99, padding: 20,
-          overflowY: "auto", animation: "fadeIn 0.2s ease",
-          borderTop: "1px solid var(--border-lit)"
-        }}>
-          {navItems.map((item: any) => {
-            if (item.label === "HOME") {
-              // HOME opens in new tab
-              return (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => { setActive(item.label); setMobileOpen(false); }}
-                  style={{
-                    padding: "16px 0", borderBottom: "1px solid var(--border)",
-                    fontSize: 14, fontWeight: 700, cursor: "pointer",
-                    color: active === item.label ? "var(--accent)" : "var(--text)",
-                    display: "flex", alignItems: "center", gap: 10,
-                    textDecoration: "none"
-                  }}
-                >
-                  <span style={{ opacity: 0.4 }}>{item.icon}</span>
-                  {item.label}
-                </a>
-              );
-            } else if (item.isExternal) {
-              // External links
-              return (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => { setActive(item.label); setMobileOpen(false); }}
-                  style={{
-                    padding: "16px 0", borderBottom: "1px solid var(--border)",
-                    fontSize: 14, fontWeight: 700, cursor: "pointer",
-                    color: active === item.label ? "var(--accent)" : "var(--text)",
-                    display: "flex", alignItems: "center", gap: 10,
-                    textDecoration: "none"
-                  }}
-                >
-                  <span style={{ opacity: 0.4 }}>{item.icon}</span>
-                  {item.label}
-                </a>
-              );
-            } else {
-              // Internal routes with wouter Link
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => { setActive(item.label); setMobileOpen(false); }}
-                  style={{
-                    padding: "16px 0", borderBottom: "1px solid var(--border)",
-                    fontSize: 14, fontWeight: 700, cursor: "pointer",
-                    color: active === item.label ? "var(--accent)" : "var(--text)",
-                    display: "flex", alignItems: "center", gap: 10,
-                    textDecoration: "none"
-                  }}
-                >
-                  <span style={{ opacity: 0.4 }}>{item.icon}</span>
-                  {item.label}
-                </Link>
-              );
-            }
-          })}
+            <button className="jh-icon-btn" style={iconButtonStyle} title="Language"><Globe size={16} /></button>
+            <button className="jh-icon-btn" style={iconButtonStyle} title="Notifications"><Bell size={16} /></button>
+            <button className="jh-icon-btn" style={iconButtonStyle} title="Fullscreen"><Maximize2 size={16} /></button>
+            <button className="jh-icon-btn" style={iconButtonStyle} title="Brightness"><SunMedium size={16} /></button>
+
+            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
+
+            <button className="avatar-btn" title="Profile">
+              <UserCircle2 size={18} color="#60a5fa" />
+            </button>
+            <button className="settings-btn" title="Settings">
+              <Settings size={15} />
+            </button>
+
+            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
+
+            <button onClick={() => setDarkMode(!dm)}
+              style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
+              <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
+              </div>
+            </button>
+          </div>
+
+          {/* Mobile Controls */}
+          <div className="nav-mob-controls">
+            <button onClick={() => setDarkMode(!dm)}
+              style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
+              <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
+              </div>
+            </button>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>
+              <Menu size={18} />
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      {/* Mobile Dropdown Menu */}
+      {mobileMenuOpen && (
+        <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}`, position: 'relative', zIndex: 99 }}>
+          {NAV_ITEMS.map(item => (
+            <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}
+              onClick={() => setMobileMenuOpen(false)}
+              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.color = t.text)}
+              onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
+            >{item}</a>
+          ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
