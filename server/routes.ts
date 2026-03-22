@@ -800,6 +800,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   console.log('[Server] Signal monitor: DISABLED');
 
+  app.post("/api/trader-ai/chat", async (req, res) => {
+    try {
+      const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ error: "messages array required" });
+      }
+
+      const SYSTEM_PROMPT = `You are an elite trading coach and performance analyst connected directly to the trader's TradeLog journal database. You have full access to all their trade entries.
+
+Your role is to:
+- Query and analyse the trader's data to give sharp, specific, actionable insights.
+- Point out weaknesses without sugarcoating.
+- Reference specific data points and statistics.
+- Keep responses focused, structured, and professional. Use markdown tables or lists for data.
+
+Always respond as if you have already retrieved the relevant data from the database.`;
+
+      const { GoogleGenAI } = await import("@google/genai");
+      const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
+
+      const history = messages.slice(0, -1).map(m => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: m.content }],
+      }));
+      const lastMsg = messages[messages.length - 1];
+
+      const chat = genai.chats.create({
+        model: "gemini-2.0-flash",
+        config: { systemInstruction: SYSTEM_PROMPT, maxOutputTokens: 1000 },
+        history,
+      });
+      const result = await chat.sendMessage({ message: lastMsg.content });
+      const text = result.text ?? "";
+      return res.json({ reply: text });
+    } catch (err: any) {
+      console.error("[TraderAI] Error:", err.message);
+      return res.status(500).json({ error: err.message || "AI request failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

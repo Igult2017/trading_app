@@ -4,18 +4,6 @@ import {
   FileText, ChevronRight, AlertCircle, User
 } from "lucide-react";
 
-const MODEL_NAME = "claude-sonnet-4-20250514";
-
-const SYSTEM_PROMPT = `You are an elite trading coach and performance analyst connected directly to the trader's TradeLog journal database. You have full access to all their trade entries.
-
-Your role is to:
-- Query and analyse the trader's data to give sharp, specific, actionable insights.
-- Point out weaknesses without sugarcoating.
-- Reference specific data points and statistics.
-- Keep responses focused, structured, and professional. Use markdown tables or lists for data.
-
-Always respond as if you have already retrieved the relevant data from the database.`;
-
 const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none"/>
@@ -38,8 +26,10 @@ const SUGGESTIONS = [
 
 const F = "'Montserrat', sans-serif";
 
+interface Message { role: "user" | "model"; content: string; }
+
 export default function TraderAI() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
@@ -56,23 +46,15 @@ export default function TraderAI() {
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   };
 
-  const callClaude = async (msgs: { role: string; content: string }[]) => {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const callAI = async (msgs: Message[]) => {
+    const res = await fetch("/api/trader-ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL_NAME,
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT,
-        messages: msgs.map(m => ({
-          role: m.role === "model" ? "assistant" : "user",
-          content: m.content,
-        })),
-      }),
+      body: JSON.stringify({ messages: msgs }),
     });
     if (!res.ok) throw new Error(`${res.status}`);
     const data = await res.json();
-    return data.content?.[0]?.text ?? "";
+    return data.reply as string;
   };
 
   const send = async (override?: string) => {
@@ -81,11 +63,11 @@ export default function TraderAI() {
     setInput("");
     setError(null);
     if (taRef.current) taRef.current.style.height = "28px";
-    const next = [...messages, { role: "user", content: text }];
+    const next: Message[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setLoading(true);
     try {
-      const reply = await callClaude(next);
+      const reply = await callAI(next);
       setMessages([...next, { role: "model", content: reply }]);
     } catch {
       setError("Something went wrong. Please try again.");
@@ -107,7 +89,7 @@ export default function TraderAI() {
       .join("\n\n---\n\n");
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([content], { type: "text/plain" })),
-      download: `trader-ai-analysis-${Date.now()}.txt`,
+      download: `trader-ai-${Date.now()}.txt`,
     });
     a.click();
   };
@@ -137,20 +119,22 @@ export default function TraderAI() {
         elements.push(
           <div key={`t${i}`} style={{ overflowX: "auto", margin: "12px 0" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F }}>
-              {tableLines.map((row, ri) => {
-                if (row.replace(/[|\s\-]/g, "") === "") return null;
-                const cells = row.split("|").slice(1, -1);
-                const isHeader = ri === 0;
-                return (
-                  <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                    {cells.map((cell, ci) => (
-                      <td key={ci} style={{ padding: "8px 12px", color: isHeader ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.7)", fontWeight: isHeader ? 500 : 400, fontSize: isHeader ? 11 : 13, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.05em" : 0, whiteSpace: "nowrap", fontFamily: F }}>
-                        {cell.trim()}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
+              <tbody>
+                {tableLines.map((row, ri) => {
+                  if (row.replace(/[|\s\-]/g, "") === "") return null;
+                  const cells = row.split("|").slice(1, -1);
+                  const isHeader = ri === 0;
+                  return (
+                    <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      {cells.map((cell, ci) => (
+                        <td key={ci} style={{ padding: "8px 12px", color: isHeader ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.7)", fontWeight: isHeader ? 500 : 400, fontSize: isHeader ? 11 : 13, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.05em" : "0", whiteSpace: "nowrap", fontFamily: F }}>
+                          {cell.trim()}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
         );
@@ -172,31 +156,36 @@ export default function TraderAI() {
   };
 
   return (
-    <div style={{ height: "100%", background: "#08090c", display: "flex", flexDirection: "column", fontFamily: F, position: "relative", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)", background: "#08090c", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", fontFamily: F }}>
 
-      {/* Top accent line */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)", zIndex: 10 }} />
+      <style>{`
+        @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @keyframes traderai-spin   { to{transform:rotate(360deg)} }
+        .traderai-scroll::-webkit-scrollbar{width:4px}
+        .traderai-scroll::-webkit-scrollbar-track{background:transparent}
+        .traderai-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
+        .traderai-ta::placeholder{color:rgba(255,255,255,0.2);font-family:'Montserrat',sans-serif;}
+      `}</style>
 
-      {/* Inner Header */}
-      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: 52, background: "rgba(8,9,12,0.95)", borderBottom: "1px solid rgba(255,255,255,0.06)", zIndex: 9 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(8,9,12,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <AtomAI size={14} color="white" />
           </div>
-          <span style={{ fontFamily: F, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.01em" }}>Trader AI</span>
+          <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}>Trader AI</span>
           <span style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
         </div>
-
         {messages.length > 0 && (
           <div style={{ display: "flex", gap: 6 }}>
             {[
-              { label: "Export", icon: <FileText size={13} />, action: exportChat },
-              { label: "Clear",  icon: <RotateCcw size={13} />, action: () => { setMessages([]); setError(null); } },
+              { label: "Export", icon: <FileText size={12} />, action: exportChat },
+              { label: "Clear",  icon: <RotateCcw size={12} />, action: () => { setMessages([]); setError(null); } },
             ].map(({ label, icon, action }) => (
               <button key={label} onClick={action}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.09)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.45)"; }}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
+                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; }}
+                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "rgba(255,255,255,0.45)"; }}
               >
                 {icon}<span>{label}</span>
               </button>
@@ -205,30 +194,28 @@ export default function TraderAI() {
         )}
       </div>
 
-      {/* Scrollable content area */}
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+      {/* Scrollable messages / empty state */}
+      <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
         {messages.length === 0 ? (
-          /* ── Empty state / suggestions ── */
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, padding: "32px 24px", textAlign: "center" }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 0 48px rgba(99,102,241,0.25)" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "32px 20px", textAlign: "center" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 0 48px rgba(99,102,241,0.25)" }}>
               <AtomAI size={22} color="white" />
             </div>
-            <h1 style={{ fontFamily: F, fontSize: 22, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.2 }}>
+            <h2 style={{ fontFamily: F, fontSize: 21, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 8, lineHeight: 1.2 }}>
               How can I analyse<br />your trades today?
-            </h1>
-            <p style={{ fontFamily: F, fontSize: 13, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, maxWidth: 340, marginBottom: 32, fontWeight: 400 }}>
+            </h2>
+            <p style={{ fontFamily: F, fontSize: 13, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, maxWidth: 340, marginBottom: 28, fontWeight: 400 }}>
               Connected to your TradeLog database. Ask me anything about your performance, patterns, and edge.
             </p>
-
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%", maxWidth: 600 }}>
               {SUGGESTIONS.map((s, i) => (
                 <button key={i} onClick={() => send(s)}
-                  style={{ padding: "14px 16px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "rgba(255,255,255,0.55)", fontSize: 12, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 8 }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background = "rgba(99,102,241,0.08)"; el.style.borderColor = "rgba(99,102,241,0.35)"; el.style.color = "rgba(255,255,255,0.85)"; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background = "rgba(255,255,255,0.03)"; el.style.borderColor = "rgba(255,255,255,0.08)"; el.style.color = "rgba(255,255,255,0.55)"; }}
+                  style={{ padding: "13px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "rgba(255,255,255,0.55)", fontSize: 12, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 8 }}
+                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(99,102,241,0.08)"; b.style.borderColor = "rgba(99,102,241,0.35)"; b.style.color = "rgba(255,255,255,0.85)"; }}
+                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.03)"; b.style.borderColor = "rgba(255,255,255,0.08)"; b.style.color = "rgba(255,255,255,0.55)"; }}
                 >
-                  <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <ChevronRight size={12} color="#818cf8" />
+                  <div style={{ width: 24, height: 24, borderRadius: 6, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ChevronRight size={11} color="#818cf8" />
                   </div>
                   <span style={{ fontFamily: F }}>{s}</span>
                 </button>
@@ -236,15 +223,14 @@ export default function TraderAI() {
             </div>
           </div>
         ) : (
-          /* ── Message thread ── */
-          <div style={{ padding: "24px 24px 0", maxWidth: 720, width: "100%", margin: "0 auto", alignSelf: "center", boxSizing: "border-box" }}>
+          <div style={{ padding: "24px 20px 8px" }}>
             {messages.map((msg, idx) => (
               <div key={idx} style={{ marginBottom: 28, display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: msg.role === "user" ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg, #6366f1, #8b5cf6)", border: msg.role === "user" ? "1px solid rgba(255,255,255,0.09)" : "none", marginTop: 2 }}>
                   {msg.role === "user" ? <User size={12} color="rgba(255,255,255,0.45)" /> : <AtomAI size={12} color="white" />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: F, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.28)", marginBottom: 6 }}>
+                  <div style={{ fontFamily: F, fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.28)", marginBottom: 6 }}>
                     {msg.role === "user" ? "You" : "Trader AI"}
                   </div>
                   {msg.role === "user"
@@ -253,8 +239,8 @@ export default function TraderAI() {
                       <div>
                         {renderContent(msg.content)}
                         <div style={{ display: "flex", gap: 4, marginTop: 8 }}
-                          onMouseEnter={e => Array.from((e.currentTarget as HTMLElement).children).forEach((c: any) => c.style.opacity = "1")}
-                          onMouseLeave={e => Array.from((e.currentTarget as HTMLElement).children).forEach((c: any) => c.style.opacity = "0")}
+                          onMouseEnter={e => Array.from(e.currentTarget.children).forEach(c => (c as HTMLElement).style.opacity = "1")}
+                          onMouseLeave={e => Array.from(e.currentTarget.children).forEach(c => (c as HTMLElement).style.opacity = "0")}
                         >
                           {[
                             { icon: copied === idx ? <Check size={12} /> : <Copy size={12} />, action: () => copyMsg(msg.content, idx) },
@@ -262,8 +248,8 @@ export default function TraderAI() {
                           ].map(({ icon, action }, bi) => (
                             <button key={bi} onClick={action}
                               style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.35)", opacity: 0, transition: "all 0.15s" }}
-                              onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background = "rgba(255,255,255,0.07)"; el.style.color = "rgba(255,255,255,0.65)"; }}
-                              onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background = "transparent"; el.style.color = "rgba(255,255,255,0.35)"; }}
+                              onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.07)"; b.style.color = "rgba(255,255,255,0.65)"; }}
+                              onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "transparent"; b.style.color = "rgba(255,255,255,0.35)"; }}
                             >{icon}</button>
                           ))}
                         </div>
@@ -273,14 +259,13 @@ export default function TraderAI() {
                 </div>
               </div>
             ))}
-
             {loading && (
               <div style={{ marginBottom: 28, display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
                   <AtomAI size={12} color="white" />
                 </div>
-                <div style={{ flex: 1, paddingTop: 5 }}>
-                  <div style={{ fontFamily: F, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.28)", marginBottom: 10 }}>Trader AI</div>
+                <div style={{ flex: 1, paddingTop: 6 }}>
+                  <div style={{ fontFamily: F, fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.28)", marginBottom: 10 }}>Trader AI</div>
                   <div style={{ display: "flex", gap: 5 }}>
                     {[0, 1, 2].map(d => (
                       <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.22)", animation: `traderai-bounce 1.2s ${d * 0.18}s ease-in-out infinite` }} />
@@ -289,56 +274,47 @@ export default function TraderAI() {
                 </div>
               </div>
             )}
-            <div ref={bottomRef} style={{ height: 140 }} />
+            <div ref={bottomRef} style={{ height: 1 }} />
           </div>
         )}
       </div>
 
-      {/* ── Fixed input bar ── */}
-      <div style={{ flexShrink: 0, padding: "12px 20px 16px", background: "linear-gradient(to top, #08090c 70%, transparent)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      {/* Input bar */}
+      <div style={{ flexShrink: 0, padding: "12px 16px 14px", background: "rgba(8,9,12,0.97)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         {error && (
-          <div style={{ maxWidth: 720, margin: "0 auto 8px", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 9 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, marginBottom: 8 }}>
             <AlertCircle size={12} color="#f87171" />
             <span style={{ fontFamily: F, fontSize: 12, color: "#f87171" }}>{error}</span>
           </div>
         )}
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <div
-            style={{ display: "flex", alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 13, padding: "9px 9px 9px 14px", backdropFilter: "blur(20px)", transition: "border-color 0.15s, box-shadow 0.15s" }}
-            onFocusCapture={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.45)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)"; }}
-            onBlurCapture={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.09)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+        <div style={{ display: "flex", alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 8px 8px 14px", transition: "border-color 0.15s, box-shadow 0.15s" }}
+          onFocusCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = "rgba(99,102,241,0.45)"; d.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)"; }}
+          onBlurCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = "rgba(255,255,255,0.09)"; d.style.boxShadow = "none"; }}
+        >
+          <textarea
+            ref={taRef}
+            value={input}
+            onChange={e => { setInput(e.target.value); autoResize(e.target); }}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            disabled={loading}
+            rows={1}
+            placeholder="Message Trader AI..."
+            className="traderai-ta"
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F, fontSize: 14, fontWeight: 400, color: "rgba(255,255,255,0.88)", lineHeight: 1.55, minHeight: 28, maxHeight: 160, padding: 0 }}
+          />
+          <button onClick={() => send()} disabled={!input.trim() || loading}
+            style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: input.trim() && !loading ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", cursor: input.trim() && !loading ? "pointer" : "default", transition: "all 0.15s", flexShrink: 0, boxShadow: input.trim() && !loading ? "0 2px 14px rgba(99,102,241,0.35)" : "none" }}
           >
-            <textarea
-              ref={taRef}
-              value={input}
-              onChange={e => { setInput(e.target.value); autoResize(e.target); }}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              disabled={loading}
-              rows={1}
-              placeholder="Message Trader AI..."
-              style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F, fontSize: 14, fontWeight: 400, color: "rgba(255,255,255,0.88)", lineHeight: 1.55, minHeight: 28, maxHeight: 200, padding: 0 }}
-            />
-            <button onClick={() => send()} disabled={!input.trim() || loading}
-              style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: input.trim() && !loading ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", cursor: input.trim() && !loading ? "pointer" : "default", transition: "all 0.15s", flexShrink: 0, boxShadow: input.trim() && !loading ? "0 2px 14px rgba(99,102,241,0.35)" : "none" }}
-            >
-              {loading
-                ? <div style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "white", borderRadius: "50%", animation: "traderai-spin 0.7s linear infinite" }} />
-                : <Send size={13} color={input.trim() ? "white" : "rgba(255,255,255,0.18)"} />
-              }
-            </button>
-          </div>
-          <p style={{ fontFamily: F, textAlign: "center", fontSize: 10, fontWeight: 400, color: "rgba(255,255,255,0.15)", marginTop: 7 }}>
-            Trader AI can make mistakes. Verify important insights independently.
-          </p>
+            {loading
+              ? <div style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "white", borderRadius: "50%", animation: "traderai-spin 0.7s linear infinite" }} />
+              : <Send size={13} color={input.trim() ? "white" : "rgba(255,255,255,0.18)"} />
+            }
+          </button>
         </div>
+        <p style={{ fontFamily: F, textAlign: "center", fontSize: 10, fontWeight: 400, color: "rgba(255,255,255,0.15)", marginTop: 6 }}>
+          Trader AI can make mistakes. Verify important insights independently.
+        </p>
       </div>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
-        @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
-        @keyframes traderai-spin   { to{transform:rotate(360deg)} }
-        textarea::placeholder { color:rgba(255,255,255,0.2); font-family:'Montserrat',sans-serif; }
-      `}</style>
     </div>
   );
 }

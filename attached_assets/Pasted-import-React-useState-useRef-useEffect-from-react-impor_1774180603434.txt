@@ -1,0 +1,349 @@
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Send, RotateCcw, Copy, Check, Download,
+  FileText, ChevronRight, AlertCircle, User
+} from "lucide-react";
+
+const MODEL_NAME = "claude-sonnet-4-20250514";
+
+const SYSTEM_PROMPT = `You are an elite trading coach and performance analyst connected directly to the trader's TradeLog journal database. You have full access to all their trade entries.
+
+Your role is to:
+- Query and analyse the trader's data to give sharp, specific, actionable insights.
+- Point out weaknesses without sugarcoating.
+- Reference specific data points and statistics.
+- Keep responses focused, structured, and professional. Use markdown tables or lists for data.
+
+Always respond as if you have already retrieved the relevant data from the database.`;
+
+
+const AtomAI = ({ size = 20, color = "white" }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Orbit 1 - horizontal ellipse */}
+    <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none"/>
+    {/* Orbit 2 - rotated 60deg */}
+    <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none" transform="rotate(60 20 20)"/>
+    {/* Orbit 3 - rotated 120deg */}
+    <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none" transform="rotate(120 20 20)"/>
+    {/* Center text */}
+    <text x="20" y="24.5" textAnchor="middle" fontSize="9" fontWeight="700" fontFamily="Montserrat, sans-serif" fill={color} letterSpacing="0.5">AI</text>
+  </svg>
+);
+
+const SUGGESTIONS = [
+  "What patterns do you see in my losing trades?",
+  "Am I over-trading on any particular day?",
+  "How does my emotional state affect my win rate?",
+  "Which setup tags perform best for me?",
+  "Am I following my risk management rules?",
+  "What's my average R:R on winning vs losing trades?",
+  "Do I trade better in specific sessions?",
+  "Which instruments give me the best results?",
+];
+
+const F = "'Montserrat', sans-serif";
+
+export default function App() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(null);
+  const [error, setError] = useState(null);
+  const bottomRef = useRef(null);
+  const taRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const autoResize = (el) => {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  };
+
+  const callClaude = async (msgs) => {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL_NAME,
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: msgs.map(m => ({
+          role: m.role === "model" ? "assistant" : "user",
+          content: m.content,
+        })),
+      }),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
+    return data.content?.[0]?.text ?? "";
+  };
+
+  const send = async (override) => {
+    const text = (override ?? input).trim();
+    if (!text || loading) return;
+    setInput("");
+    setError(null);
+    if (taRef.current) taRef.current.style.height = "28px";
+    const next = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setLoading(true);
+    try {
+      const reply = await callClaude(next);
+      setMessages([...next, { role: "model", content: reply }]);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyMsg = (text, idx) => {
+    navigator.clipboard.writeText(text);
+    setCopied(idx);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const exportChat = () => {
+    if (!messages.length) return;
+    const content = messages
+      .map(m => `${m.role === "user" ? "You" : "Trader AI : FSD AI"}:\n${m.content}`)
+      .join("\n\n---\n\n");
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([content], { type: "text/plain" })),
+      download: `fsd-analysis-${Date.now()}.txt`,
+    });
+    a.click();
+  };
+
+  const renderContent = (content) => {
+    const lines = content.split("\n");
+    const elements = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) { elements.push(<div key={i} style={{ height: 8 }} />); i++; continue; }
+      if (line.startsWith("### ")) {
+        elements.push(<p key={i} style={{ fontFamily: F, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginTop: 20, marginBottom: 8 }}>{line.slice(4)}</p>);
+        i++; continue;
+      }
+      if (line.startsWith("## ")) {
+        elements.push(<p key={i} style={{ fontFamily: F, fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.88)", marginTop: 16, marginBottom: 6 }}>{line.slice(3)}</p>);
+        i++; continue;
+      }
+      if (line.startsWith("**") && line.endsWith("**")) {
+        elements.push(<p key={i} style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.82)", marginBottom: 4 }}>{line.slice(2, -2)}</p>);
+        i++; continue;
+      }
+      if (line.trim().startsWith("|")) {
+        const tableLines = [];
+        while (i < lines.length && lines[i].trim().startsWith("|")) { tableLines.push(lines[i]); i++; }
+        elements.push(
+          <div key={`t${i}`} style={{ overflowX: "auto", margin: "12px 0" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F }}>
+              {tableLines.map((row, ri) => {
+                if (row.replace(/[|\s\-]/g, "") === "") return null;
+                const cells = row.split("|").slice(1, -1);
+                const isHeader = ri === 0;
+                return (
+                  <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    {cells.map((cell, ci) => (
+                      <td key={ci} style={{ padding: "8px 12px", color: isHeader ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.7)", fontWeight: isHeader ? 500 : 400, fontSize: isHeader ? 11 : 13, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.05em" : 0, whiteSpace: "nowrap", fontFamily: F }}>
+                        {cell.trim()}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </table>
+          </div>
+        );
+        continue;
+      }
+      if (/^[-•*]\s/.test(line)) {
+        elements.push(
+          <div key={i} style={{ display: "flex", gap: 10, marginBottom: 5, alignItems: "flex-start" }}>
+            <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.2)", marginTop: 8, flexShrink: 0 }} />
+            <span style={{ fontFamily: F, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.65, fontWeight: 400 }}>{line.replace(/^[-•*]\s/, "")}</span>
+          </div>
+        );
+        i++; continue;
+      }
+      elements.push(<p key={i} style={{ fontFamily: F, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.72, marginBottom: 4, fontWeight: 400 }}>{line}</p>);
+      i++;
+    }
+    return elements;
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#08090c", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: F }}>
+
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)", zIndex: 10 }} />
+
+      {/* Header */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 56, background: "rgba(8,9,12,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <AtomAI size={14} color="white" />
+          </div>
+          <span style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}>Trader AI : FSD AI</span>
+          <span style={{ fontFamily: F, fontSize: 12, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
+        </div>
+
+        {messages.length > 0 && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {[
+              { label: "Export", icon: <FileText size={13} />, action: exportChat },
+              { label: "Clear",  icon: <RotateCcw size={13} />, action: () => { setMessages([]); setError(null); } },
+            ].map(({ label, icon, action }) => (
+              <button key={label} onClick={action} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
+              >
+                {icon}<span>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div style={{ width: "100%", maxWidth: 720, paddingTop: 56, paddingBottom: 148, minHeight: "100vh" }}>
+
+        {messages.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 200px)", padding: "40px 24px", textAlign: "center" }}>
+            <div style={{ width: 50, height: 50, borderRadius: 15, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 0 48px rgba(99,102,241,0.25)" }}>
+              <AtomAI size={22} color="white" />
+            </div>
+            <h1 style={{ fontFamily: F, fontSize: 26, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 10, lineHeight: 1.2 }}>
+              How can I analyse<br />your trades today?
+            </h1>
+            <p style={{ fontFamily: F, fontSize: 14, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, maxWidth: 360, marginBottom: 40, fontWeight: 400 }}>
+              Connected to your TradeLog database. Ask me anything about your performance, patterns, and edge.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, width: "100%", maxWidth: 640 }}>
+              {SUGGESTIONS.map((s, i) => (
+                <button key={i} onClick={() => send(s)}
+                  style={{ padding: "16px 18px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, color: "rgba(255,255,255,0.55)", fontSize: 13, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 10 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(99,102,241,0.08)"; e.currentTarget.style.borderColor = "rgba(99,102,241,0.35)"; e.currentTarget.style.color = "rgba(255,255,255,0.85)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
+                >
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ChevronRight size={13} color="#818cf8" />
+                  </div>
+                  <span style={{ fontFamily: F }}>{s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "32px 24px 0" }}>
+            {messages.map((msg, idx) => (
+              <div key={idx} style={{ marginBottom: 32, display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: msg.role === "user" ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg, #6366f1, #8b5cf6)", border: msg.role === "user" ? "1px solid rgba(255,255,255,0.09)" : "none", marginTop: 2 }}>
+                  {msg.role === "user" ? <User size={13} color="rgba(255,255,255,0.45)" /> : <AtomAI size={13} color="white" />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: F, fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.28)", marginBottom: 7 }}>
+                    {msg.role === "user" ? "You" : "Trader AI : FSD AI"}
+                  </div>
+                  {msg.role === "user"
+                    ? <p style={{ fontFamily: F, fontSize: 15, color: "rgba(255,255,255,0.88)", lineHeight: 1.65, fontWeight: 400 }}>{msg.content}</p>
+                    : (
+                      <div>
+                        {renderContent(msg.content)}
+                        <div style={{ display: "flex", gap: 4, marginTop: 10 }}
+                          onMouseEnter={e => Array.from(e.currentTarget.children).forEach(c => c.style.opacity = "1")}
+                          onMouseLeave={e => Array.from(e.currentTarget.children).forEach(c => c.style.opacity = "0")}
+                        >
+                          {[
+                            { icon: copied === idx ? <Check size={13} /> : <Copy size={13} />, action: () => copyMsg(msg.content, idx) },
+                            { icon: <Download size={13} />, action: () => { const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([msg.content], { type: "text/plain" })), download: `analysis-${Date.now()}.txt` }); a.click(); } },
+                          ].map(({ icon, action }, bi) => (
+                            <button key={bi} onClick={action} style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.35)", opacity: 0, transition: "all 0.15s" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.65)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
+                            >{icon}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  }
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div style={{ marginBottom: 32, display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
+                  <AtomAI size={13} color="white" />
+                </div>
+                <div style={{ flex: 1, paddingTop: 6 }}>
+                  <div style={{ fontFamily: F, fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.28)", marginBottom: 12 }}>Trader AI : FSD AI</div>
+                  <div style={{ display: "flex", gap: 5 }}>
+                    {[0, 1, 2].map(d => (
+                      <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.22)", animation: `bounce 1.2s ${d * 0.18}s ease-in-out infinite` }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9, padding: "16px 24px 24px", background: "linear-gradient(to top, #08090c 65%, transparent)" }}>
+        {error && (
+          <div style={{ maxWidth: 720, margin: "0 auto 10px", display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 10 }}>
+            <AlertCircle size={13} color="#f87171" />
+            <span style={{ fontFamily: F, fontSize: 13, color: "#f87171" }}>{error}</span>
+          </div>
+        )}
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "10px 10px 10px 16px", backdropFilter: "blur(20px)", transition: "border-color 0.15s, box-shadow 0.15s" }}
+            onFocusCapture={e => { e.currentTarget.style.borderColor = "rgba(99,102,241,0.45)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)"; }}
+            onBlurCapture={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)"; e.currentTarget.style.boxShadow = "none"; }}
+          >
+            <textarea
+              ref={taRef}
+              value={input}
+              onChange={e => { setInput(e.target.value); autoResize(e.target); }}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              disabled={loading}
+              rows={1}
+              placeholder="Message Trader AI..."
+              style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F, fontSize: 15, fontWeight: 400, color: "rgba(255,255,255,0.88)", lineHeight: 1.55, minHeight: 28, maxHeight: 200, padding: 0 }}
+            />
+            <button onClick={() => send()} disabled={!input.trim() || loading}
+              style={{ width: 34, height: 34, borderRadius: 9, border: "none", background: input.trim() && !loading ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", cursor: input.trim() && !loading ? "pointer" : "default", transition: "all 0.15s", flexShrink: 0, boxShadow: input.trim() && !loading ? "0 2px 14px rgba(99,102,241,0.35)" : "none" }}
+            >
+              {loading
+                ? <div style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                : <Send size={14} color={input.trim() ? "white" : "rgba(255,255,255,0.18)"} />
+              }
+            </button>
+          </div>
+          <p style={{ fontFamily: F, textAlign: "center", fontSize: 11, fontWeight: 400, color: "rgba(255,255,255,0.15)", marginTop: 8 }}>
+            Trader AI can make mistakes. Verify important insights independently.
+          </p>
+        </div>
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @keyframes spin   { to{transform:rotate(360deg)} }
+        textarea::placeholder { color:rgba(255,255,255,0.2); font-family:'Montserrat',sans-serif; }
+        html,body,#root { height:100%; overflow:auto; background:#08090c; font-family:'Montserrat',sans-serif; }
+        *{ box-sizing:border-box; margin:0; padding:0; }
+        ::-webkit-scrollbar{width:5px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
+      `}</style>
+    </div>
+  );
+}
