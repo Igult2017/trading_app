@@ -11,6 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tf_metrics.core import compute_tf_metrics
+from tf_metrics.matrix import compute_tf_combo_matrix
 
 
 def main():
@@ -22,11 +23,16 @@ def main():
         sys.exit(1)
 
     trades = payload.get("trades", [])
-    starting_balance = payload.get("startingBalance", 10000.0)
+    mode   = payload.get("mode", "standard")
 
     try:
-        result = compute_tf_metrics(trades, starting_balance)
-        result["success"] = True
+        if mode == "matrix":
+            rows = compute_tf_combo_matrix(trades)
+            result = {"success": True, "rows": rows}
+        else:
+            starting_balance = payload.get("startingBalance", 10000.0)
+            result = compute_tf_metrics(trades, starting_balance)
+            result["success"] = True
         print(json.dumps(result))
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))

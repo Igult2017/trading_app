@@ -48,6 +48,30 @@ const PYTHON_BIN = process.env.PYTHON_BIN ?? "python3";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export interface TFMatrixRow {
+  id: number;
+  htf: string; atf: string; etf: string;
+  tf1: { candle: string; pa: string };
+  tf2: { candle: string; pa: string };
+  tf3: { candle: string; pa: string };
+  indicators: string;
+  session: string;
+  condition: string;
+  bias: string;
+  news: string;
+  momentum: string;
+  wr: number;
+  avgR: number;
+  trades: number;
+  netPL: number;
+}
+
+export interface TFMatrixResult {
+  success: boolean;
+  rows?: TFMatrixRow[];
+  error?: string;
+}
+
 export interface TFMetricsResult {
   success: boolean;
   timeframes?: string[];
@@ -143,6 +167,69 @@ export async function computeTFMetrics(
     child.on("error", (err) => {
       clearTimeout(timer);
       console.error("[TFMetricsCalculator] Spawn error:", err);
+      resolve({ success: false, error: err.message });
+    });
+  });
+}
+
+/**
+ * computeTFMatrix
+ * ───────────────
+ * Spawns the same Python TF metrics engine with mode="matrix".
+ * Groups trades by (contextTF, analysisTF, entryTF) combo and returns
+ * per-combo performance stats with aggregated contextual fields.
+ *
+ * @param trades  Raw journal entry rows from the database
+ */
+export async function computeTFMatrix(trades: any[]): Promise<TFMatrixResult> {
+  return new Promise((resolve) => {
+    if (!Array.isArray(trades)) {
+      resolve({ success: false, error: "trades must be an array" });
+      return;
+    }
+
+    const payload = { trades, mode: "matrix" };
+
+    const child = spawn(PYTHON_BIN, [PYTHON_SCRIPT_PATH], {
+      env: { ...process.env },
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    const timer = setTimeout(() => {
+      try { child.kill("SIGTERM"); } catch {}
+      resolve({ success: false, error: "TF matrix computation timed out (30s)" });
+    }, TIMEOUT_MS);
+
+    child.stdin?.write(JSON.stringify(payload));
+    child.stdin?.end();
+
+    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (stderr.trim()) {
+        console.error("[TFMatrixCalculator] Python stderr:", stderr.slice(0, 500));
+      }
+      if (stdout.trim()) {
+        try {
+          resolve(JSON.parse(stdout.trim()) as TFMatrixResult);
+          return;
+        } catch {
+          console.error("[TFMatrixCalculator] JSON parse error:", stdout.slice(0, 300));
+        }
+      }
+      resolve({
+        success: false,
+        error: code !== 0 ? `Python exited with code ${code}: ${stderr}` : "No output from TF matrix engine",
+      });
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      console.error("[TFMatrixCalculator] Spawn error:", err);
       resolve({ success: false, error: err.message });
     });
   });

@@ -7,7 +7,7 @@ import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreensh
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
 import { computeDrawdown } from "./services/drawdownCalculator";
-import { computeTFMetrics } from "./services/tfMetricsCalculator";
+import { computeTFMetrics, computeTFMatrix } from "./services/tfMetricsCalculator";
 import { computeStrategyAudit } from "./services/strategyAuditCalculator";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
@@ -394,6 +394,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[Routes] TF metrics computation error:", error);
       res.status(500).json({ success: false, error: "TF metrics computation failed" });
+    }
+  });
+
+  app.get("/api/tf-metrics/matrix", async (req, res) => {
+    try {
+      const userId    = req.query.userId    as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries   = await storage.getJournalEntries(userId, sessionId);
+      const result    = await computeTFMatrix(entries);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("[Routes] TF matrix computation error:", error);
+      res.status(500).json({ success: false, error: "TF matrix computation failed" });
     }
   });
 
