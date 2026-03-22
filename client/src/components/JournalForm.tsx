@@ -417,7 +417,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [ocrFields,setOcrFields]     = useState<OcrFilledSet>(new Set());
 
   // ── FIX 1: live running balance from all existing session trades ──────────
-  const { currentBalance } = useSessionBalance(sessionId);
+  const { currentBalance, startingBalance } = useSessionBalance(sessionId);
 
   // ── FIX 2: auto-calculate P&L + accountBalance whenever key fields change ─
   // Runs when riskPercent, riskReward, outcome, or currentBalance changes.
@@ -1167,17 +1167,28 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>SESSION</span>
                 <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none",transition:"all 0.3s"}}/>
               </div>
-              <div>
-                <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                  <span style={{fontSize:"12px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
-                    {trades.length===1?"TRADE":"TRADES"}:
-                  </span>
-                  <span className="jb-num" style={{fontSize:"17px",color:"#e2e8f0",lineHeight:1}}>{trades.length}</span>
-                </div>
-                <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
-                  <div style={{height:"100%",borderRadius:"2px",background:"linear-gradient(90deg,#3b82f6,#1d4ed8)",width:`${Math.min((trades.length/10)*100,100)}%`,transition:"width 0.4s ease"}}/>
-                </div>
-              </div>
+              {(() => {
+                const netPnL = trades.reduce((a: number, t: any) => a + (parseFloat(t.profitLoss) || 0), 0);
+                const growthPct = startingBalance > 0 ? (netPnL / startingBalance) * 100 : 0;
+                const growthColor = growthPct > 0 ? '#34d399' : growthPct < 0 ? '#f87171' : '#e2e8f0';
+                const barWidth = Math.min(Math.abs(growthPct), 100);
+                const barColor = growthPct >= 0 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
+                return (
+                  <div>
+                    <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                      <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
+                        GROWTH:
+                      </span>
+                      <span className="jb-num" style={{fontSize:"13px",color:growthColor,lineHeight:1,fontWeight:900}}>
+                        {growthPct >= 0 ? '+' : ''}{growthPct.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
+                      <div style={{height:"100%",borderRadius:"2px",background:barColor,width:`${barWidth}%`,transition:"width 0.4s ease"}}/>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <SidebarContent trades={trades}/>
