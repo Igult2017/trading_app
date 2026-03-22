@@ -254,8 +254,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={F}>
 
-      {/* ── NAV ────────────────────────────────────────────────────────── */}
-      <nav className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl sticky top-0 z-50"
+      {/* ── STICKY HEADER (nav + KPI strip) ─────────────────────────── */}
+      <div className="sticky top-0 z-50">
+      <nav className="border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl"
         style={{ boxShadow: '0 1px 0 rgba(59,130,246,0.08), 0 4px 24px rgba(0,0,0,0.4)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
@@ -319,16 +320,22 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         <div className="h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"/>
       </nav>
 
+      {/* KPI stat cards — part of sticky header */}
+      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60 px-4 sm:px-6 py-2"
+        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <StatCard label="Audit Win Rate"   value={`${d.auditSummary.winRate.toFixed(1)}%`}         trend={`+${(d.auditSummary.winRate - 50).toFixed(1)}pp`} color="text-emerald-400"/>
+            <StatCard label="Edge Persistence" value={d.auditSummary.edgePersistence.toFixed(2)}        trend={d.auditSummary.edgeVerdict}                        color="text-blue-400"/>
+            <StatCard label="Risk Entropy"     value={d.auditSummary.riskEntropy}                       trend={`Auto: ${d.automationRisk.score.toFixed(0)}/100`}  color="text-slate-400"/>
+            <StatCard label="AI Confidence"    value={`${d.auditSummary.aiConfidence.toFixed(0)}%`}     trend={`Grade ${d.auditSummary.grade}`}                   color="text-purple-400"/>
+          </div>
+        </div>
+      </div>
+      </div>{/* end sticky header */}
+
       {/* ── MAIN ───────────────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-6 py-3 pb-3">
-
-        {/* Summary stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-          <StatCard label="Audit Win Rate"   value={`${d.auditSummary.winRate.toFixed(1)}%`}         trend={`+${(d.auditSummary.winRate - 50).toFixed(1)}pp`} color="text-emerald-400"/>
-          <StatCard label="Edge Persistence" value={d.auditSummary.edgePersistence.toFixed(2)}        trend={d.auditSummary.edgeVerdict}                        color="text-blue-400"/>
-          <StatCard label="Risk Entropy"     value={d.auditSummary.riskEntropy}                       trend={`Auto: ${d.automationRisk.score.toFixed(0)}/100`}  color="text-slate-400"/>
-          <StatCard label="AI Confidence"    value={`${d.auditSummary.aiConfidence.toFixed(0)}%`}     trend={`Grade ${d.auditSummary.grade}`}                   color="text-purple-400"/>
-        </div>
 
         {/* ════ LEVEL 1 ════════════════════════════════════════════════════ */}
         {activeLevel === 1 && (
