@@ -254,8 +254,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={F}>
 
-      {/* ── STICKY HEADER (nav + KPI strip) ─────────────────────────── */}
-      <div className="sticky top-0 z-50">
+      {/* ── HEADER (nav + KPI strip) ────────────────────────────────── */}
       <nav className="border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl"
         style={{ boxShadow: '0 1px 0 rgba(59,130,246,0.08), 0 4px 24px rgba(0,0,0,0.4)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -332,7 +331,6 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
           </div>
         </div>
       </div>
-      </div>{/* end sticky header */}
 
       {/* ── MAIN ───────────────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-6 py-3 pb-3">
