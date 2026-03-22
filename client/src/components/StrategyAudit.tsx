@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   TrendingUp,
@@ -526,7 +526,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             {/* Logical Verification */}
             <Section title="Logical Verification Elements" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-                {Object.entries(d.logicalVerification).map(([k, v]) => (
+                {Object.entries(d.logicalVerification ?? {}).map(([k, v]) => (
                   <VerificationItem key={k}
                     label={k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
                     value={v}/>
@@ -536,7 +536,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500"/>
                   <span className="text-xs font-black italic text-emerald-400 uppercase" style={{ letterSpacing: '0.15em' }}>
-                    {d.finalVerdict.authorized ? 'System Certified' : 'Pending Certification'}
+                    {d.finalVerdict?.authorized ? 'System Certified' : 'Pending Certification'}
                   </span>
                 </div>
               </div>
