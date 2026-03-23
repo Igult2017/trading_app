@@ -49,7 +49,10 @@ def _calc_closing_price(entry_price_str, direction: str,
     try:
         entry  = float(str(entry_price_str))
         pt_sz, _, _, dec = _instrument_specs(instrument)
-        sign   = 1 if (direction or "Long").lower() == "long" else -1
+        if direction is None:
+        import sys
+        print("[OCR WARNING] _calc_closing_price: direction is None, defaulting to Long", file=sys.stderr)
+    sign   = 1 if (direction or "Long").lower() == "long" else -1
         return round(entry + sign * float(pl_points) * pt_sz, dec)
     except Exception:
         return None
@@ -158,7 +161,7 @@ def _detect_entry_price(pimg: PreprocessedImage, objects, tokens, layout):
     orange[:int(h*0.08), :] = 0
     row_sums = orange.sum(axis=1)
     orange_ys = np.where(row_sums > 300)[0]
-    if len(orange_ys):
+    if len(orange_ys) > 0:
         oy = int(orange_ys.mean())
         price = _extract_price(_ocr_strip(oy - 10, oy + 12, scale=8, psm=7))
         if price: return price

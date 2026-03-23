@@ -70,11 +70,12 @@ export async function analyzeScreenshotWithOCR(
           settle(result);
           return;
         } catch (e) {
-          console.error("[OCRAnalyzer v8] JSON parse error:", stdout.slice(0, 200));
+          console.error("[OCRAnalyzer v8] JSON parse error. stdout length:", stdout.length);
+          console.error("[OCRAnalyzer v8] stdout (first 500 chars):", stdout.slice(0, 500));
         }
       }
       if (code !== 0 || stderr.trim()) {
-        console.error("[OCRAnalyzer v8] Python error:", stderr.slice(0, 500));
+        console.error("[OCRAnalyzer v8] Python error (exit code", code, "):", stderr);
         settle({
           success: false,
           method: "ocr",
