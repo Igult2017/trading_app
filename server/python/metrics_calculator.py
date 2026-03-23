@@ -733,9 +733,29 @@ def calc_core(ctx: SharedContext) -> Dict:
         return {}
     avg_win  = float(ctx.win_pnl_arr.mean())        if ctx.win_count  else 0.0
     avg_loss = float(abs(ctx.loss_pnl_arr.mean()))  if ctx.loss_count else 0.0
-    pf       = (ctx.gross_profit / ctx.gross_loss)  if ctx.gross_loss else None
-    exp      = (avg_win * (ctx.win_rate / 100) - avg_loss * (1 - ctx.win_rate / 100)
-                if ctx.win_rate is not None else None)
+
+    # Profit Factor: gross_profit / gross_loss.
+    # When there are no losing trades, return 999.0 (conventional ∞ sentinel)
+    # so the frontend can display "∞" rather than falling back to 0.
+    if ctx.gross_loss > 0:
+        pf: Optional[float] = ctx.gross_profit / ctx.gross_loss
+    elif ctx.gross_profit > 0:
+        pf = 999.0   # all-win session — infinite profit factor
+    else:
+        pf = None
+
+    # R Expectancy: expectancy expressed in R-multiples, NOT dollars.
+    # Each winning trade contributes its rr_ratio (defaulting to 1R when absent).
+    # Each losing trade contributes -1R. Breakevens contribute 0R.
+    # Formula: Σ(outcome_in_R) / total_trades
+    r_outcomes: List[float] = (
+        [t.rr_ratio if (t.rr_ratio is not None and t.rr_ratio > 0) else 1.0
+         for t in ctx.wins] +
+        [-1.0 for _ in ctx.losses]
+        # breakevens → 0R (omitting them is equivalent to adding 0.0)
+    )
+    r_exp = safe_mean(r_outcomes) if r_outcomes else None
+
     rr_vals  = [t.rr_ratio for t in ctx.trades if t.rr_ratio is not None and t.rr_ratio > 0]
     return {
         "totalPL":      round(ctx.total_pnl,   2),
@@ -748,8 +768,8 @@ def calc_core(ctx: SharedContext) -> Dict:
         "totalTrades":  ctx.total,
         "avgWin":       round(avg_win,  2),
         "avgLoss":      round(avg_loss, 2),
-        "profitFactor": round(pf,  3)  if pf  is not None else None,
-        "expectancy":   round(exp, 3)  if exp is not None else None,
+        "profitFactor": round(pf,   3) if pf   is not None else None,
+        "expectancy":   round(r_exp, 3) if r_exp is not None else None,
         "avgRR":        round(safe_mean(rr_vals), 2) if rr_vals else None,
     }
 
