@@ -442,6 +442,44 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.riskPercent, form.riskReward, form.outcome, currentBalance]);
 
+  // ── Derive pipsGainedLost from planned TP/SL distance + outcome ────────────
+  // Win  → takeProfitDistancePips (positive pips)
+  // Loss → stopLossDistancePips   (negative pips — SL was hit)
+  // BE   → 0
+  // Skipped when OCR already provided openPLPoints for this field.
+  useEffect(() => {
+    if (ocrFields.has("pipsGainedLost")) return;
+    const outcome = form.outcome;
+    if (!outcome || !["Win", "Loss", "BE"].includes(outcome)) return;
+    if (outcome === "Win" && form.takeProfitDistancePips) {
+      const v = parseFloat(form.takeProfitDistancePips);
+      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, pipsGainedLost: String(v) }));
+    } else if (outcome === "Loss" && form.stopLossDistancePips) {
+      const v = parseFloat(form.stopLossDistancePips);
+      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, pipsGainedLost: String(-v) }));
+    } else if (outcome === "BE") {
+      setForm(prev => ({ ...prev, pipsGainedLost: "0" }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.outcome, form.takeProfitDistancePips, form.stopLossDistancePips, ocrFields]);
+
+  // ── Auto-update actualTP when outcome is changed manually ──────────────────
+  // Win  → mirror plannedTP price
+  // Loss → negative SL pips (SL was hit instead of TP)
+  // Only fires when OCR has not explicitly set actualTP from a screenshot 2 analysis.
+  useEffect(() => {
+    if (ocrFields.has("actualTP")) return;
+    const outcome = form.outcome;
+    if (!outcome || !["Win", "Loss"].includes(outcome)) return;
+    if (outcome === "Win" && form.plannedTP) {
+      setForm(prev => ({ ...prev, actualTP: prev.plannedTP }));
+    } else if (outcome === "Loss" && form.stopLossDistancePips) {
+      const v = parseFloat(form.stopLossDistancePips);
+      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, actualTP: String(-v) }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.outcome, ocrFields]);
+
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
 
   const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
@@ -525,11 +563,35 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           const tp = maybe("takeProfit", f.takeProfit);
           // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
           const resolvedTP = tp || cp;
-          if (resolvedTP) { u.takeProfit = resolvedTP; u.plannedTP = resolvedTP; u.actualTP = resolvedTP; mark("takeProfit"); }
           if (cp) u.closingPrice = cp;
 
+          if (screenshotField === "screenshot") {
+            // ── Screenshot 1 (setup): planned TP only ──────────────────────
+            if (resolvedTP) {
+              u.takeProfit = resolvedTP;
+              u.plannedTP  = resolvedTP;
+              mark("takeProfit"); mark("plannedTP");
+            }
+          } else {
+            // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
+            // Win/BE → actualTP = TP price extracted from exit screenshot
+            // Loss   → actualTP = negative SL distance in pips (SL was hit)
+            if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
+            const exitOutcome = (u.outcome || "").toLowerCase();
+            if (exitOutcome === "loss") {
+              const slPipsStr = u.stopLossDistancePips;
+              if (slPipsStr) {
+                u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
+                mark("actualTP");
+              }
+            } else if (resolvedTP) {
+              u.actualTP = resolvedTP;
+              mark("actualTP");
+            }
+          }
+
           const sl = maybe("stopLoss", f.stopLoss);
-          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; }
+          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
 
           // Points → pips conversion.
           // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
