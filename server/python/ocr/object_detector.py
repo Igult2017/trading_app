@@ -115,10 +115,10 @@ def _detect_level_lines(pimg: PreprocessedImage,
                        pimg.bgr[y, cx1:cx2, 2])
         ).astype(np.uint8)
         t, bc = _transition_score(row_max, thresh=140)
-        if bc == 0:
+        if bc == 0 or bc < dyn_min_b:
             continue
         ratio = t / bc
-        if t >= dyn_min_t and bc >= dyn_min_b and ratio >= 0.20:
+        if t >= dyn_min_t and ratio >= 0.20:
             level_rows.append((y, float(t * ratio)))
 
     if not level_rows:
