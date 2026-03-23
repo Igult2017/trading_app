@@ -515,19 +515,21 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           if (f.direction) { u.direction = f.direction; mark("direction"); }
 
           const ep = maybe("entryPrice", f.entryPrice);
-          if (ep) { u.entryPrice = ep; u.plannedEntry = ep; u.actualEntry = ep; }
-
           const op = maybe("openingPrice", f.openingPrice);
+          // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
+          const resolvedEntry = ep || op;
+          if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
           if (op) u.openingPrice = op;
 
           const cp = maybe("closingPrice", f.closingPrice);
+          const tp = maybe("takeProfit", f.takeProfit);
+          // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
+          const resolvedTP = tp || cp;
+          if (resolvedTP) { u.takeProfit = resolvedTP; u.plannedTP = resolvedTP; u.actualTP = resolvedTP; mark("takeProfit"); }
           if (cp) u.closingPrice = cp;
 
           const sl = maybe("stopLoss", f.stopLoss);
           if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; }
-
-          const tp = maybe("takeProfit", f.takeProfit);
-          if (tp) { u.takeProfit = tp; u.plannedTP = tp; u.actualTP = tp; }
 
           // Points → pips conversion.
           // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
@@ -953,17 +955,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {ls("Outcome","outcome",["Win","Loss","BE"])}
                       </div>
                     </section>
-
-                    {(form.openingPrice || form.closingPrice) && (
-                      <section className="space-y-4">
-                        <SectionHeader icon="Target" title="Price Axis (OCR Coordinate Mapping)"/>
-                        <InfoBox color="green" icon="Sparkles" title="Axis Calibration" text="Opening and closing prices are read directly from the chart's right-edge price axis using pixel-to-price linear interpolation (R²=1.0 on JForex charts)."/>
-                        <div className={g2}>
-                          {lf("Opening Price (SL axis)","openingPrice",undefined,"—")}
-                          {lf("Closing Price (TP axis)","closingPrice",undefined,"—")}
-                        </div>
-                      </section>
-                    )}
 
                     <section className="space-y-4">
                       <SectionHeader icon="Clock" title="Timing & Duration"/>

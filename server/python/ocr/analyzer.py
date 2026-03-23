@@ -50,9 +50,9 @@ def _calc_closing_price(entry_price_str, direction: str,
         entry  = float(str(entry_price_str))
         pt_sz, _, _, dec = _instrument_specs(instrument)
         if direction is None:
-        import sys
-        print("[OCR WARNING] _calc_closing_price: direction is None, defaulting to Long", file=sys.stderr)
-    sign   = 1 if (direction or "Long").lower() == "long" else -1
+            import sys
+            print("[OCR WARNING] _calc_closing_price: direction is None, defaulting to Long", file=sys.stderr)
+        sign   = 1 if (direction or "Long").lower() == "long" else -1
         return round(entry + sign * float(pl_points) * pt_sz, dec)
     except Exception:
         return None
