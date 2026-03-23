@@ -397,7 +397,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const expectancy   = core.expectancy   || 0;
   const totalTrades  = core.totalTrades  || 0;
   const profitFactor    = core.profitFactor || 0;
-  const pfDisplay       = profitFactor >= 999 ? '∞' : pfDisplay;
+  const pfDisplay       = profitFactor >= 999 ? '∞' : profitFactor.toFixed(2);
   const avgRR           = core.avgRR        || 0;
   const wins         = core.wins         || 0;
   const losses       = core.losses       || 0;
@@ -531,9 +531,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <ScoreRow label="Confluence Score"  scores={scoreRowFromImpact(scoreImpacts.confluenceScore)}/>
               <ScoreRow label="Signal Validation" scores={scoreRowFromImpact(scoreImpacts.signalValidationScore)}/>
               <SubLabel>Planned vs Actual (Avg Pips)</SubLabel>
-              <DR label="Entry Deviation" value={riskMetrics.avgEntryDeviation!=null?`${riskMetrics.avgEntryDeviation} pips`:'--'} vc={P.green}/>
-              <DR label="SL Deviation"    value={riskMetrics.avgSLDeviation!=null?`${riskMetrics.avgSLDeviation} pips`:'--'}    vc={P.amber}/>
-              <DR label="TP Deviation"    value={riskMetrics.avgTPDeviation!=null?`${riskMetrics.avgTPDeviation} pips`:'--'}    vc={P.green}/>
+              <DR label="Entry Deviation" value={riskMetrics.avgEntryDeviation!=null?`${riskMetrics.avgEntryDeviation.toFixed(2)} pips`:'--'} vc={P.green}/>
+              <DR label="SL Deviation"    value={riskMetrics.avgSLDeviation!=null?`${riskMetrics.avgSLDeviation.toFixed(2)} pips`:'--'}    vc={P.amber}/>
+              <DR label="TP Deviation"    value={riskMetrics.avgTPDeviation!=null?`${riskMetrics.avgTPDeviation.toFixed(2)} pips`:'--'}    vc={P.green}/>
               <SubLabel>Breakeven Applied</SubLabel>
               <div style={{ marginBottom:6 }}>
                 <Mono size={8} color={P.dim} style={{ display:'block', marginBottom:4 }}>Breakeven Effect</Mono>
@@ -671,8 +671,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <BoolYN label="Boredom Trades"   data={boolImpacts.boredomTrade}/>
               <BoolYN label="Emotional Trades" data={boolImpacts.emotionalTrade}/>
               <SubLabel>Risk State</SubLabel>
-              <DR label="Avg Risk %" value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'}/>
-              <DR label="Avg Spread" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry} pips`:'--'}/>
+              <DR label="Avg Risk %" value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent.toFixed(2)}%`:'--'}/>
+              <DR label="Avg Spread" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips`:'--'}/>
             </Scroll>
           </Panel>
         </div>
@@ -746,10 +746,10 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* Risk & Position Sizing */}
           <Panel title="Risk & Position Sizing" accent={P.amber} tag="HEAT ANALYSIS">
-            <DR label="Avg Risk %"      value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'}/>
-            <DR label="Max Risk %"      value={riskMetrics.maxRiskPercent!=null?`${riskMetrics.maxRiskPercent}%`:'--'}/>
-            <DR label="Min Risk %"      value={riskMetrics.minRiskPercent!=null?`${riskMetrics.minRiskPercent}%`:'--'}/>
-            <DR label="Avg Spread"      value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry} pips`:'--'}/>
+            <DR label="Avg Risk %"      value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent.toFixed(2)}%`:'--'}/>
+            <DR label="Max Risk %"      value={riskMetrics.maxRiskPercent!=null?`${riskMetrics.maxRiskPercent.toFixed(2)}%`:'--'}/>
+            <DR label="Min Risk %"      value={riskMetrics.minRiskPercent!=null?`${riskMetrics.minRiskPercent.toFixed(2)}%`:'--'}/>
+            <DR label="Avg Spread"      value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips`:'--'}/>
             <SubLabel>Risk Heat</SubLabel>
             <Bar label="Low Heat"    pct={riskHeatBreakdown['Low']?.winRate    ?? null} sub={`${ct(riskHeatBreakdown['Low'])}t`}/>
             <Bar label="Medium Heat" pct={riskHeatBreakdown['Medium']?.winRate ?? null} sub={`${ct(riskHeatBreakdown['Medium'])}t`}/>
@@ -764,8 +764,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* MAE / MFE */}
           <Panel title="MAE / MFE Analysis" accent={P.cyan} tag="ENTRY QUALITY">
             <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>MAE — Adverse Excursion</SubLabel>
-            <DR label="Avg MAE"   value={maeMfe.avgMAE  !=null?`${maeMfe.avgMAE} pip`:'--'}   vc={P.red}/>
-            <DR label="Worst MAE" value={maeMfe.worstMAE!=null?`${maeMfe.worstMAE} pip`:'--'} vc={P.red}/>
+            <DR label="Avg MAE"   value={maeMfe.avgMAE  !=null?`${maeMfe.avgMAE.toFixed(2)} pips`:'--'}   vc={P.red}/>
+            <DR label="Worst MAE" value={maeMfe.worstMAE!=null?`${maeMfe.worstMAE.toFixed(2)} pips`:'--'} vc={P.red}/>
             <DR label="MAE > SL"  value={maeMfe.maeGtSLCount!=null?`${maeMfe.maeGtSLCount} trades`:'--'} vc={maeMfe.maeGtSLCount===0?P.green:P.red}/>
             {maeMfe.avgMAE!=null && (
               <div style={{ margin:'6px 0 10px' }}>
@@ -779,14 +779,14 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               </div>
             )}
             <SubLabel>MFE — Favourable Excursion</SubLabel>
-            <DR label="Avg MFE"  value={maeMfe.avgMFE !=null?`+${maeMfe.avgMFE} pip`:'--'}  vc={P.green}/>
-            <DR label="Best MFE" value={maeMfe.bestMFE!=null?`+${maeMfe.bestMFE} pip`:'--'} vc={P.green}/>
-            <DR label="Avg Capture Rate" value={maeMfe.avgMFECapture!=null?`${maeMfe.avgMFECapture}% of MFE`:'--'} vc={P.cyan}/>
+            <DR label="Avg MFE"  value={maeMfe.avgMFE !=null?`+${maeMfe.avgMFE.toFixed(2)} pips`:'--'}  vc={P.green}/>
+            <DR label="Best MFE" value={maeMfe.bestMFE!=null?`+${maeMfe.bestMFE.toFixed(2)} pips`:'--'} vc={P.green}/>
+            <DR label="Avg Capture Rate" value={maeMfe.avgMFECapture!=null?`${maeMfe.avgMFECapture.toFixed(1)}% of MFE`:'--'} vc={P.cyan}/>
             {maeMfe.avgMFECapture!=null && (
               <div style={{ margin:'6px 0 10px' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                   <Mono size={7} color={P.dim}>Avg MFE captured</Mono>
-                  <Mono size={7} color={P.cyan}>{maeMfe.avgMFECapture}%</Mono>
+                  <Mono size={7} color={P.cyan}>{maeMfe.avgMFECapture.toFixed(1)}%</Mono>
                 </div>
                 <div style={{ height:2, background:P.line2 }}>
                   <div style={{ width:`${maeMfe.avgMFECapture||0}%`, height:'100%', background:P.cyan, opacity:0.7 }}/>
@@ -813,7 +813,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* Execution Metrics */}
           <Panel title="Execution Metrics" accent={P.amber} tag="ENTRY TIMING · SLIPPAGE">
-            <DR label="Avg Spread at Entry" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry} pips`:'--'} vc={P.green}/>
+            <DR label="Avg Spread at Entry" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips`:'--'} vc={P.green}/>
             <DR label="Avg R:R Achieved"    value={avgRR?`1:${avgRR.toFixed(1)}`:'--'} vc={P.cyan}/>
             <SubLabel>Order Type</SubLabel>
             {orderEntries.length>0
@@ -1002,7 +1002,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           <Panel title="Risk of Ruin" accent={P.amber} tag="ACCOUNT SAFETY">
             <DR label="Ruin Probability" value={`${riskOfRuin}%`}         vc={rorColor}/>
             <DR label="Win Rate"         value={fmtPct(winRate)}           vc={winRate>=50?P.green:P.red}/>
-            <DR label="Risk per Trade"   value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'} vc={P.cyan}/>
+            <DR label="Risk per Trade"   value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent.toFixed(2)}%`:'--'} vc={P.cyan}/>
             <DR label="Profit Factor"    value={pfDisplay}   vc={profitFactor>=1?P.green:P.red}/>
             <DR label="Risk Status"      value={rorStatus}                 vc={rorColor}/>
           </Panel>

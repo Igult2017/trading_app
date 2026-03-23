@@ -688,7 +688,7 @@ def breakdown_by_score_bucket(trades: List[TradeRecord], field_name: str) -> Lis
 def avg_field(trades: List[TradeRecord], field_name: str) -> Optional[float]:
     vals = [getattr(t, field_name) for t in trades if getattr(t, field_name) is not None]
     m = safe_mean(vals)
-    return round(m, 4) if m is not None else None
+    return round(m, 2) if m is not None else None
 
 
 def percent_true(trades: List[TradeRecord], field_name: str) -> Optional[float]:
@@ -857,9 +857,9 @@ def calc_risk_metrics(ctx: SharedContext) -> Dict:
         if len(rule_rel) >= MIN_SAMPLE else None
     )
     return {
-        "avgRiskPercent": round(safe_mean(risk_v), 3) if risk_v else None,
-        "maxRiskPercent": round(max(risk_v), 3)       if risk_v else None,
-        "minRiskPercent": round(min(risk_v), 3)       if risk_v else None,
+        "avgRiskPercent": round(safe_mean(risk_v), 2) if risk_v else None,
+        "maxRiskPercent": round(max(risk_v), 2)       if risk_v else None,
+        "minRiskPercent": round(min(risk_v), 2)       if risk_v else None,
         "avgMAE":         round(safe_mean(mae_v), 2)  if mae_v  else None,
         "worstMAE":       round(max(mae_v), 2)        if mae_v  else None,
         "avgMFE":         round(safe_mean(mfe_v), 2)  if mfe_v  else None,
@@ -1148,10 +1148,10 @@ def calc_mae_mfe(ctx: SharedContext) -> Dict:
     ratio_v = [t.mae / t.mfe for t in trades
                 if t.mae is not None and t.mfe is not None and t.mfe > 0]
     return {
-        "avgMAE":         round(safe_mean(mae_v), 4) if mae_v else None,
-        "worstMAE":       round(max(mae_v), 4)       if mae_v else None,
-        "avgMFE":         round(safe_mean(mfe_v), 4) if mfe_v else None,
-        "bestMFE":        round(max(mfe_v), 4)       if mfe_v else None,
+        "avgMAE":         round(safe_mean(mae_v), 2) if mae_v else None,
+        "worstMAE":       round(max(mae_v), 2)       if mae_v else None,
+        "avgMFE":         round(safe_mean(mfe_v), 2) if mfe_v else None,
+        "bestMFE":        round(max(mfe_v), 2)       if mfe_v else None,
         "maeGtSLCount":   mae_gt_sl,
         "avgMFECapture":  round(safe_mean(cap_r),   2) if cap_r   else None,
         "avgMAEMFERatio": round(safe_mean(ratio_v), 3) if ratio_v else None,
