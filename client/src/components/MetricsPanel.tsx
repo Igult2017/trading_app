@@ -405,6 +405,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const avgLoss      = core.avgLoss      || 0;
   const rulesAdh     = riskMetrics.rulesAdherence || 0;
   const maxDD        = streaks.maxDrawdown        || 0;
+  const currentDD    = streaks.currentDrawdown    || 0;
   const isPos        = totalPL >= 0;
   const winLossRatio = avgLoss > 0 ? (avgWin/avgLoss).toFixed(1) : '0';
 
@@ -443,8 +444,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   const topStrat = stratEntries.length>0 ? stratEntries.reduce((a,b)=>a.pl>b.pl?a:b) : null;
 
-  const ddPct = equityGrowth?.startingBalance
-    ? ((Math.abs(maxDD)/equityGrowth.startingBalance)*100).toFixed(2)
+  const ddPct        = equityGrowth?.startingBalance && maxDD > 0
+    ? ((maxDD     / equityGrowth.startingBalance) * 100).toFixed(2)
+    : '0.00';
+  const currentDDPct = equityGrowth?.startingBalance && currentDD > 0
+    ? ((currentDD / equityGrowth.startingBalance) * 100).toFixed(2)
     : '0.00';
 
   /* ── helpers for psychology categoricals ── */
@@ -965,18 +969,18 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
         <div className="mp-g4">
 
           <Panel title="Drawdown" accent={P.red} tag="CURRENT PERIOD">
-            <DR label="Max DD"     value={maxDD!==0?`${fmtPL(maxDD)} (${ddPct}%)`:'$0 (0.00%)'} vc={P.red}/>
-            <DR label="Current DD" value={maxDD!==0?`${ddPct}% · ${fmtPL(maxDD)}`:'0.00% · $0'}  vc={P.amber}/>
+            <DR label="Max DD"     value={maxDD > 0 ? `-$${maxDD.toLocaleString()} (${ddPct}%)` : '$0 (0.00%)'} vc={P.red}/>
+            <DR label="Current DD" value={currentDD > 0 ? `-$${currentDD.toLocaleString()} (${currentDDPct}%)` : '$0 (0.00%)'} vc={currentDD > 0 ? P.amber : P.green}/>
             <DR label="Balance"    value={equityGrowth?.currentBalance?`$${equityGrowth.currentBalance.toLocaleString(undefined,{maximumFractionDigits:0})}`:'--'} vc={P.green}/>
             <DR label="Period"     value="THIS SESSION" vc={P.dim}/>
-            {maxDD!==0 && (
+            {maxDD > 0 && (
               <div style={{ marginTop:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
                   <Mono size={8} color={P.dim}>DD USED</Mono>
-                  <Mono size={8} color={P.red}>{ddPct}%</Mono>
+                  <Mono size={8} color={currentDD > 0 ? P.red : P.green}>{currentDDPct}%</Mono>
                 </div>
                 <div style={{ height:2, background:P.line2 }}>
-                  <div style={{ width:`${Math.min(100,parseFloat(ddPct))}%`, height:'100%', background:P.red }}/>
+                  <div style={{ width:`${Math.min(100,parseFloat(currentDDPct))}%`, height:'100%', background:currentDD > 0 ? P.red : P.green }}/>
                 </div>
               </div>
             )}
