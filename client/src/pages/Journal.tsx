@@ -778,7 +778,7 @@ export default function Journal() {
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
 
-        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0 }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : (activeNav === 'journal' && !!activeSessionId) ? '14px 0 32px' : '14px 16px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
             <MetricsPanel sessionId={activeSessionId} />
