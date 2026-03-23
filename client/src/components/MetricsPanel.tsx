@@ -499,7 +499,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
         ].map((k,i)=>(
           <div key={i} className={`mp-kpi-cell ${k.cls}`} data-testid={`metric-kpi-${i}`}>
             <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:6, letterSpacing:'0.16em' }}>{k.l}</Mono>
-            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5 }}>{k.v}</Num>
+            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5, fontStyle:'normal' }}>{k.v}</Num>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <div style={{ width:16, height:1, background:k.cls==='mp-kpi-pos'?P.greenDim:k.cls==='mp-kpi-neg'?P.redDim:P.line2 }}/>
               <Mono size={8} color={P.dim}>{k.s}</Mono>
