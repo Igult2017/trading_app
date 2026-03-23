@@ -396,8 +396,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const winRate      = core.winRate      || 0;
   const expectancy   = core.expectancy   || 0;
   const totalTrades  = core.totalTrades  || 0;
-  const profitFactor = core.profitFactor || 0;
-  const avgRR        = core.avgRR        || 0;
+  const profitFactor    = core.profitFactor || 0;
+  const pfDisplay       = profitFactor >= 999 ? '∞' : pfDisplay;
+  const avgRR           = core.avgRR        || 0;
   const wins         = core.wins         || 0;
   const losses       = core.losses       || 0;
   const avgWin       = core.avgWin       || 0;
@@ -488,7 +489,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           { l:'Win Rate',        v:fmtPct(winRate),         s:`${wins}W · ${losses}L`, cls:winRate>=50?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'R Expectancy',    v:expectancy.toFixed(2),   s:'per trade',             cls:expectancy>0?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'Trades',          v:`${totalTrades}`,        s:'this period',           cls:'mp-kpi-neu' },
-          { l:'Profit Factor',   v:profitFactor.toFixed(2), s:'gross ratio',           cls:profitFactor>=1?'mp-kpi-pos':'mp-kpi-neg' },
+          { l:'Profit Factor',   v:pfDisplay,               s:'gross ratio',           cls:profitFactor>=1?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'Avg R:R',         v:`1:${avgRR.toFixed(1)}`, s:'achieved',              cls:'mp-kpi-neu' },
           { l:'Rules Adherence', v:fmtPct(rulesAdh),        s:'followed',              cls:rulesAdh>=80?'mp-kpi-pos':'mp-kpi-neg' },
         ].map((k,i)=>(
@@ -1002,7 +1003,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <DR label="Ruin Probability" value={`${riskOfRuin}%`}         vc={rorColor}/>
             <DR label="Win Rate"         value={fmtPct(winRate)}           vc={winRate>=50?P.green:P.red}/>
             <DR label="Risk per Trade"   value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'} vc={P.cyan}/>
-            <DR label="Profit Factor"    value={profitFactor.toFixed(2)}   vc={profitFactor>=1?P.green:P.red}/>
+            <DR label="Profit Factor"    value={pfDisplay}   vc={profitFactor>=1?P.green:P.red}/>
             <DR label="Risk Status"      value={rorStatus}                 vc={rorColor}/>
           </Panel>
         </div>
@@ -1014,7 +1015,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           <Panel title="Period Summary" accent={P.cyan} tag="PERFORMANCE">
             <DR label="Total P/L"     value={fmtPL(totalPL)}             vc={isPos?P.green:P.red}/>
             <DR label="Win Rate"      value={fmtPct(winRate)}             vc={winRate>=50?P.green:P.red}/>
-            <DR label="Profit Factor" value={profitFactor.toFixed(2)}     vc={profitFactor>=1?P.green:P.red}/>
+            <DR label="Profit Factor" value={pfDisplay}     vc={profitFactor>=1?P.green:P.red}/>
             <DR label="Expectancy"    value={`${expectancy.toFixed(2)}R`} vc={expectancy>0?P.green:P.red}/>
             <DR label="Total Trades"  value={`${totalTrades}`}/>
             <DR label="Avg R:R"       value={`1:${avgRR.toFixed(1)}`}/>
