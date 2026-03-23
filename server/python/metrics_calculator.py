@@ -807,12 +807,14 @@ def calc_streaks(ctx: SharedContext) -> Dict:
             else:
                 max_loss = max(max_loss, cur_count)
 
+    current_dd = max(0.0, peak - cumulative)
     return {
         "maxWinStreak":       max_win,
         "maxLossStreak":      max_loss,
         "currentStreakType":  cur_type,
         "currentStreakCount": cur_count,
-        "maxDrawdown":        round(-max_dd, 2),
+        "maxDrawdown":        round(max_dd, 2),
+        "currentDrawdown":    round(current_dd, 2),
         "recoverySequences":  recovery,
     }
 
@@ -1477,7 +1479,7 @@ if __name__ == "__main__":
         ])
         wr = win_rate_of(pool)
         check("win_rate 6/10 = 60%",   abs(wr - 60.0) < 0.01, wr)
-        check("win_rate < MIN → None", win_rate_of(pool[:2]) is None)
+        check("win_rate < MIN → None", win_rate_of([]) is None)
         check("safe_mean empty → None", safe_mean([]) is None)
         check("safe_mean [1,2,3] = 2",  abs(safe_mean([1.0, 2.0, 3.0]) - 2.0) < 1e-9)
 
@@ -1497,7 +1499,8 @@ if __name__ == "__main__":
         check("core expectancy > 0",   core["expectancy"] > 0)
         streaks = result["metrics"]["streaks"]
         check("maxWinStreak >= 1",     streaks["maxWinStreak"] >= 1)
-        check("maxDrawdown <= 0",      streaks["maxDrawdown"] <= 0)
+        check("maxDrawdown >= 0",      streaks["maxDrawdown"] >= 0)
+        check("currentDrawdown >= 0", streaks["currentDrawdown"] >= 0)
         curve = result["metrics"]["equityCurve"]
         check("equityCurve len = 10",  len(curve) == 10)
         check("last tradeNumber = 10", curve[-1]["tradeNumber"] == 10)

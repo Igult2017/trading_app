@@ -118,6 +118,9 @@ function parseNumericValue(value: string | null): number | null {
 }
 
 function calculateSurpriseFactor(actual: number, expected: number): string {
+  if (Math.abs(expected) === 0) {
+    return actual === 0 ? 'In-line' : actual > 0 ? 'Major Beat' : 'Major Miss';
+  }
   const diff = actual - expected;
   const percentDiff = ((diff / Math.abs(expected)) * 100);
   

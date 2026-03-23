@@ -33,7 +33,7 @@ function getStats(data: MonthData) {
   const avgWin   = winDays.length  ? winDays.reduce((s, d) => s + d.pnl, 0) / winDays.length : 0;
   const avgLoss  = lossDays.length ? Math.abs(lossDays.reduce((s, d) => s + d.pnl, 0) / lossDays.length) : 0;
   const trades   = days.reduce((s, d) => s + d.trades, 0);
-  const winRate  = Math.round(days.reduce((s, d) => s + d.winRate, 0) / days.length);
+  const winRate  = days.length > 0 ? Math.round((winDays.length / days.length) * 100) : 0;
   const totalVol = days.reduce((s, d) => s + Math.abs(d.pnl), 0);
   const pct      = totalVol > 0 ? ((net / totalVol) * 100).toFixed(2) : "0.00";
   return { net, winRate, trades, ratio: avgLoss ? (avgWin / avgLoss).toFixed(2) : "—", profitDays: winDays.length, lossDays: lossDays.length, pct };
@@ -272,8 +272,9 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     calendarData: Record<string, MonthData>;
     availableMonths: string[];
   }>({
-    queryKey: [`/api/calendar/compute?sessionId=${sessionId}`],
+    queryKey: ['/api/calendar/compute', sessionId],
     enabled: !!sessionId,
+    queryFn: () => fetch(`/api/calendar/compute?sessionId=${sessionId}`).then(r => r.json()),
   });
 
   const allCalendarData = calendarResult?.calendarData || {};

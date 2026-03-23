@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
 import { calcAllTradeValues } from "@/lib/tradeCalculations";
@@ -294,8 +295,8 @@ function SidebarContent({ trades }: any) {
     const profitFactor = totalLoss>0?(totalWins/totalLoss).toFixed(2):totalWins>0?"∞":"0";
     const winrate = ((wins.length/trades.length)*100).toFixed(1);
     const commissions = trades.reduce((a: number,t: any)=>a+(parseFloat(t.commission)||0),0);
-    const startBal = parseFloat(trades[0]?.accountBalance)||0;
     const endBal   = parseFloat(trades[trades.length-1]?.accountBalance)||0;
+    const startBal = endBal - netPnL;
     let peak=startBal,maxDD=0,runBal=startBal;
     for(const t of trades){runBal+=parseFloat(t.profitLoss)||0;if(runBal>peak)peak=runBal;const dd=peak-runBal;if(dd>maxDD)maxDD=dd;}
     const buys  = trades.filter((t: any)=>t.direction==="Long").length;
@@ -394,7 +395,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [step,setStep]               = useState(1);
   const [form,setForm]               = useState<Record<string,any>>(INIT);
   const [saved,setSaved]             = useState(false);
-  const [trades,setTrades]           = useState<any[]>([]);
+  const { data: trades = [] } = useQuery<any[]>({
+    queryKey: ['/api/journal/entries', sessionId],
+    queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`)
+      .then(r => r.json())
+      .then((data: any[]) => [...data].reverse()), // reverse to chronological (oldest first)
+    enabled: !!sessionId,
+  });
   const [sidebarOpen,setSidebarOpen] = useState(false);
   const [analyzing,setAnalyzing]     = useState(false);
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
@@ -825,7 +832,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       await apiRequest("POST", "/api/journal/entries", payload);
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
-      setTrades(p=>[...p,{...form}]);
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute', sessionId] });
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");
@@ -837,6 +844,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
         .form-scroll::-webkit-scrollbar,.side-scroll::-webkit-scrollbar{display:none}
         .form-scroll,.side-scroll{-ms-overflow-style:none;scrollbar-width:none}
         .sidebar-panel{position:relative;z-index:1;width:22vw;min-width:240px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:12px}
@@ -848,7 +856,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         .sidebar-drawer-panel::-webkit-scrollbar{display:none}
         @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @media(max-width:479px){.steps-grid{grid-template-columns:1fr 1fr!important}}
-        .jb-num{font-family:'JetBrains Mono',monospace!important;font-weight:400!important;font-variant-numeric:slashed-zero!important;font-feature-settings:"zero" 1!important;}
+        .jb-num{font-family:'Share Tech Mono',monospace!important;font-weight:400!important;font-style:normal!important;letter-spacing:0.05em!important;font-variant-numeric:tabular-nums!important;}
       `}</style>
 
       <div style={{display:"flex",height:"100%",overflow:"hidden",background:"#05070a",color:"#cbd5e1",fontFamily:"sans-serif",position:"relative"}}>
@@ -1244,7 +1252,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
                         GROWTH:
                       </span>
-                      <span className="jb-num" style={{fontSize:"13px",color:growthColor,lineHeight:1,fontWeight:900}}>
+                      <span className="jb-num" style={{fontSize:"13px",color:growthColor,lineHeight:1}}>
                         {growthPct >= 0 ? '+' : ''}{growthPct.toFixed(1)}%
                       </span>
                     </div>
@@ -1280,7 +1288,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                     <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none"}}/>
-                    <span style={{fontSize:"12px",fontWeight:900,fontFamily:"monospace",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
+                    <span className="jb-num" style={{fontSize:"12px",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
                   </div>
                   <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
                     <Icon name="X" size={14}/>
