@@ -41,8 +41,8 @@ const Mono = ({ children, size=11, color=P.muted, weight=400, upper=true, spacin
 const Cond = ({ children, size=14, color=P.bright, weight=600, upper=true, style={} as React.CSSProperties, className='' }: any) => (
   <span className={className} style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:size, color, fontWeight:weight, letterSpacing:'0.06em', textTransform:upper?'uppercase':'none', lineHeight:1, ...style }}>{children}</span>
 );
-const Num = ({ children, size=11, color=P.green, style={} as React.CSSProperties }: any) => (
-  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, fontStyle:'italic', letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
+const Num = ({ children, size=9, color=P.green, style={} as React.CSSProperties }: any) => (
+  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
 );
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ const SubLabel = ({ children, style={} as React.CSSProperties }: any) => (
 const DR = ({ label, value, vc }: { label:string; value:string; vc?:string }) => (
   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
     <Mono size={10} color={P.body}>{label}</Mono>
-    <Mono size={11} color={vc||P.bright} weight={500}>{value}</Mono>
+    <Mono size={9} color={vc||P.bright} weight={500}>{value}</Mono>
   </div>
 );
 
@@ -879,7 +879,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 ? tfEntries.map((x,i)=>(
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                       <Mono size={9} color={P.muted}>{x.tf}</Mono>
-                      <Cond size={13} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}%`:'--'}</Cond>
+                      <Cond size={10} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}%`:'--'}</Cond>
                     </div>
                   ))
                 : <Mono size={9} color={P.dim}>No entry TF data</Mono>
@@ -888,7 +888,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfAnalysis).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={13} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfAnalysis).length===0 && <Mono size={9} color={P.dim}>No analysis TF data</Mono>}
@@ -896,7 +896,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfContext).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={13} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfContext).length===0 && <Mono size={9} color={P.dim}>No context TF data</Mono>}
@@ -1064,7 +1064,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                           <td style={{ color:P.amber }}>{rangWR!=null?`${Math.round(rangWR)}%`:'--'}</td>
                           <td style={{ color:P.muted }}>{s.trades}</td>
                           <td style={{ color:pColor(s.wr) }}>{s.wr!=null?`${Math.round(s.wr)}%`:'--'}</td>
-                          <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:17, fontWeight:700, color:s.pl>=0?P.green:P.red, textAlign:'right' }}>{fmtPL(s.pl)}</td>
+                          <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, color:s.pl>=0?P.green:P.red, textAlign:'right' }}>{fmtPL(s.pl)}</td>
                         </tr>
                       );
                     })
