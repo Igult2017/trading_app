@@ -509,13 +509,18 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const totalPL = equityGrowth ? equityGrowth.totalPL : core.totalPL || 0;
   const plSign = totalPL >= 0 ? '+' : '';
 
+  const pfRaw = core.profitFactor ?? 0;
+  const pfDisplay = pfRaw >= 999 ? '∞' : pfRaw > 0 ? pfRaw.toFixed(2) : '0';
+  const avgTradeRaw = core.totalTrades ? totalPL / core.totalTrades : 0;
+  const avgTradeDisplay = `${avgTradeRaw >= 0 ? '+' : '-'}$${Math.abs(avgTradeRaw).toFixed(2)}`;
+
   const stats = [
     { id: 'pnl', label: 'TOTAL P&L', value: `${plSign}$${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, Icon: KPI_ICONS.PnL, color: totalPL >= 0 ? '#34d399' : '#fb7185', bg: totalPL >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
-    { id: 'winrate', label: 'WIN RATE', value: `${core.winRate || 0}%`, Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
-    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy || 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' },
+    { id: 'winrate', label: 'WIN RATE', value: `${(core.winRate ?? 0).toFixed(1)}%`, Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
+    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy ?? 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: (core.expectancy ?? 0) >= 0 ? '#fbbf24' : '#fb7185', bg: 'rgba(245,158,11,0.1)' },
     { id: 'tradecount', label: 'TRADES', value: `${core.totalTrades || 0}`, Icon: KPI_ICONS.Trades, color: '#94a3b8', bg: 'rgba(100,116,139,0.1)' },
-    { id: 'pfactor', label: 'PROFIT FACTOR', value: `${core.profitFactor || 0}`, Icon: KPI_ICONS.ProfitFactor, color: '#c084fc', bg: 'rgba(168,85,247,0.1)' },
-    { id: 'avgtrade', label: 'AVG TRADE', value: `$${core.totalTrades ? (totalPL / core.totalTrades).toFixed(2) : '0.00'}`, Icon: KPI_ICONS.AvgTrade, color: '#fb7185', bg: 'rgba(244,63,94,0.1)' },
+    { id: 'pfactor', label: 'PROFIT FACTOR', value: pfDisplay, Icon: KPI_ICONS.ProfitFactor, color: pfRaw >= 1 || pfRaw >= 999 ? '#c084fc' : '#fb7185', bg: 'rgba(168,85,247,0.1)' },
+    { id: 'avgtrade', label: 'AVG TRADE', value: avgTradeDisplay, Icon: KPI_ICONS.AvgTrade, color: avgTradeRaw >= 0 ? '#34d399' : '#fb7185', bg: avgTradeRaw >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
   ];
 
   const chartData = equityCurve.length > 0

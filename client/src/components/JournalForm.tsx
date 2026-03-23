@@ -96,7 +96,7 @@ const INIT: Record<string, any> = {
   takeProfit:"", takeProfitDistancePips:"", entryTime:"", exitTime:"",
   tradeDuration:"", dayOfWeek:"Monday", outcome:"Win", profitLoss:"",
   accountBalance:"", orderType:"Market", riskPercent:"", riskReward:"", entryTF:"5M",
-  analysisTF:"1HR", contextTF:"1D", marketRegime:"Trending",
+  analysisTF:"1HR", contextTF:"1D", marketRegime:"Bullish",
   trendDirection:"Bullish", volatilityState:"Normal", liquidity:"High",
   newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
   sessionName:"London", timingContext:"Impulse", candlePattern:"",
@@ -729,9 +729,9 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         analysisTF:           form.analysisTF            || null,
         contextTF:            form.contextTF             || null,
         outcome:              form.outcome               || null,
-        profitLoss:           form.profitLoss            || null,
-        pipsGainedLost:       form.pipsGainedLost        || null,
-        accountBalance:       form.accountBalance        || null,
+        profitLoss:           form.profitLoss !== "" ? form.profitLoss : null,
+        pipsGainedLost:       form.pipsGainedLost !== "" ? form.pipsGainedLost : null,
+        accountBalance:       form.accountBalance !== "" ? form.accountBalance : null,
         commission:           form.commission            || null,
         mae:                  form.mae                   || null,
         mfe:                  form.mfe                   || null,
@@ -812,6 +812,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           emotionalTrade:          form.impulseCheckEmotional,
           externalDistraction:     form.externalDistraction,
           strategyVersionId:       form.strategyVersionId,
+          riskHeat:                form.riskHeat,
+          trailingStopApplied:     form.trailingStopApplied,
+          exitStrategy:            form.exitStrategy,
+          openTradesCount:         form.openTradesCount,
+          totalRiskOpen:           form.totalRiskOpen,
+          correlatedExposure:      form.correlatedExposure,
+          primarySignals:          form.primarySignals,
+          secondarySignals:        form.secondarySignals,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
@@ -1067,7 +1075,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="Boxes" title="Market Environment"/>
                       <div className={g4}>
-                        {ls("Market Regime","marketRegime",["Trending","Ranging"])}
+                        {ls("Market Regime","marketRegime",["Bullish","Bearish","Ranging"])}
                         {ls("Trend Direction","trendDirection",["Bullish","Bearish","Sideways"])}
                         {ls("Volatility","volatilityState",["Low","Normal","High"])}
                         {ls("Liquidity","liquidity",["Low","Normal","High"])}
