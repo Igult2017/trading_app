@@ -24,7 +24,7 @@ from scipy import stats as scipy_stats
 # LAYER 0 — CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
 
-MIN_SAMPLE: int = 3
+MIN_SAMPLE: int = 1
 
 SCORE_BUCKETS: List[Tuple[float, float, str]] = [
     (4.25, 5.01, "4.5"),

@@ -96,7 +96,7 @@ const INIT: Record<string, any> = {
   takeProfit:"", takeProfitDistancePips:"", entryTime:"", exitTime:"",
   tradeDuration:"", dayOfWeek:"Monday", outcome:"Win", profitLoss:"",
   accountBalance:"", orderType:"Market", riskPercent:"", riskReward:"", entryTF:"5M",
-  analysisTF:"1HR", contextTF:"1D", marketRegime:"Trending",
+  analysisTF:"1HR", contextTF:"1D", marketRegime:"Bullish",
   trendDirection:"Bullish", volatilityState:"Normal", liquidity:"High",
   newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
   sessionName:"London", timingContext:"Impulse", candlePattern:"",
@@ -1091,7 +1091,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="Boxes" title="Market Environment"/>
                       <div className={g4}>
-                        {ls("Market Regime","marketRegime",["Trending","Ranging"])}
+                        {ls("Market Regime","marketRegime",["Bullish","Bearish","Ranging"])}
                         {ls("Trend Direction","trendDirection",["Bullish","Bearish","Sideways"])}
                         {ls("Volatility","volatilityState",["Low","Normal","High"])}
                         {ls("Liquidity","liquidity",["Low","Normal","High"])}

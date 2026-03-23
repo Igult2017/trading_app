@@ -416,7 +416,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const shortTrades = shortData.trades  || 0;
 
   const stratEntries = Object.entries(strategyPerformance).map(([name,d]: [string,any]) => ({
-    name, wr: d.winRate||0, trades: d.trades||0, pl: d.pl||0,
+    name, wr: d.winRate ?? null, trades: d.trades||0, pl: d.pl||0,
   }));
   const strategies = ['ALL STRATEGIES', ...Object.keys(strategyPerformance).filter(k=>k!=='Unclassified')];
 
@@ -512,9 +512,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* Market Regime */}
           <Panel title="Market Regime" accent={P.cyan} tag="REGIME · VOLATILITY">
-            <Bar label="Trending" pct={wr(regimeData['Trending'])} sub={`${ct(regimeData['Trending'])}t`}/>
-            <Bar label="Ranging"  pct={wr(regimeData['Ranging'])}  sub={`${ct(regimeData['Ranging'])}t`}/>
-            <Bar label="Volatile" pct={wr(regimeData['Volatile'])} sub={`${ct(regimeData['Volatile'])}t`}/>
+            <Bar label="Bullish"  pct={wr(regimeData['Bullish']  ?? regimeData['Trending'])} sub={`${ct(regimeData['Bullish'] ?? regimeData['Trending'])}t`}/>
+            <Bar label="Bearish"  pct={wr(regimeData['Bearish']  ?? regimeData['Bear'])}     sub={`${ct(regimeData['Bearish'] ?? regimeData['Bear'])}t`}/>
+            <Bar label="Ranging"  pct={wr(regimeData['Ranging']  ?? regimeData['Range'])}    sub={`${ct(regimeData['Ranging'] ?? regimeData['Range'])}t`}/>
             <SubLabel>Volatility State</SubLabel>
             <Bar label="Low"    pct={wr(volatilityData['Low'])}    sub={`${ct(volatilityData['Low'])}t`}/>
             <Bar label="Normal" pct={wr(volatilityData['Normal'])} sub={`${ct(volatilityData['Normal'])}t`}/>
@@ -1053,9 +1053,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 {stratEntries.length>0
                   ? stratEntries.map((s,i)=>{
                       const matrix = stratMarketMatrix[s.name] || {};
-                      const bullWR = matrix['Bull']?.winRate     ?? matrix['Trending']?.winRate ?? null;
-                      const bearWR = matrix['Bear']?.winRate     ?? null;
-                      const rangWR = matrix['Range']?.winRate    ?? matrix['Ranging']?.winRate  ?? null;
+                      const bullWR = matrix['Bullish']?.winRate  ?? matrix['Bull']?.winRate    ?? matrix['Trending']?.winRate ?? null;
+                      const bearWR = matrix['Bearish']?.winRate  ?? matrix['Bear']?.winRate    ?? null;
+                      const rangWR = matrix['Ranging']?.winRate  ?? matrix['Range']?.winRate   ?? null;
                       return (
                         <tr key={i}>
                           <td className="mp-dn">{s.name}</td>
