@@ -847,6 +847,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       await apiRequest("POST", "/api/journal/entries", payload);
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute', sessionId] });
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");
