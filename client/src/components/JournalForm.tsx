@@ -422,10 +422,26 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       ...prev,
       profitLoss:     values.profitLoss,
       accountBalance: values.accountBalance,
-      monetaryRisk:   values.dollarRisk,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.riskPercent, form.riskReward, form.outcome, currentBalance]);
+
+  // ── Monetary Risk + Potential Reward ───────────────────────────────────────
+  // monetaryRisk    = riskPercent % of current balance (no outcome needed)
+  // potentialReward = monetaryRisk × riskReward (the dollar gain if TP is hit)
+  useEffect(() => {
+    if (!currentBalance || !form.riskPercent) return;
+    const risk = parseFloat(String(form.riskPercent));
+    if (isNaN(risk) || risk <= 0) return;
+    const dollarRisk = parseFloat(((currentBalance * risk) / 100).toFixed(2));
+    const rr = parseFloat(String(form.riskReward)) || 0;
+    setForm(prev => ({
+      ...prev,
+      monetaryRisk:    dollarRisk.toFixed(2),
+      ...(rr > 0 ? { potentialReward: (dollarRisk * rr).toFixed(2) } : {}),
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.riskPercent, form.riskReward, currentBalance]);
 
   // ── Derive pipsGainedLost from planned TP/SL distance + outcome ────────────
   // Win  → takeProfitDistancePips (positive pips)
@@ -607,9 +623,19 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
           if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
 
-          if (f.riskReward != null) { u.riskReward = String(f.riskReward); mark("riskReward"); }
-          if (f.plannedRR  != null) { u.plannedRR  = String(f.plannedRR);  mark("plannedRR"); }
-          if (f.achievedRR != null) { u.achievedRR = String(f.achievedRR); mark("achievedRR"); }
+          if (screenshotField === "screenshot") {
+            // Screenshot 1 (setup): planned R:R
+            const rrVal = f.riskReward ?? f.plannedRR;
+            if (rrVal != null) {
+              u.riskReward = String(rrVal);
+              u.plannedRR  = String(rrVal);
+              mark("riskReward"); mark("plannedRR");
+            }
+          } else {
+            // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
+            const rrVal = f.riskReward ?? f.achievedRR;
+            if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
+          }
 
           if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
 
