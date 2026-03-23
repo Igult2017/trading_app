@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import * as path from "path";
+import { PYTHON_BIN } from "../lib/pythonBin";
 
 interface AnalysisResult {
   success: boolean;
@@ -39,7 +40,7 @@ export async function analyzeScreenshotWithOCR(
       "ocr_screenshot_analyzer.py"
     );
 
-    const child = spawn("python3", [scriptPath], {
+    const child = spawn(PYTHON_BIN, [scriptPath], {
       env: { ...process.env },
     });
 
@@ -118,7 +119,7 @@ export async function isOCRAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     const scriptDir = path.join(process.cwd(), "server", "python", "ocr");
 
-    const check = spawn("python3", [
+    const check = spawn(PYTHON_BIN, [
       "-c",
       [
         "import sys, os",

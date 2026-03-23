@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import path from 'path';
+import { PYTHON_BIN } from './pythonBin';
 
 interface PriceRequest {
   action: 'get_price' | 'get_multiple_prices' | 'ping';
@@ -29,7 +30,7 @@ const PYTHON_SCRIPT_PATH = path.join(process.cwd(), 'server', 'python', 'price_s
 
 async function callPythonService(request: PriceRequest): Promise<any> {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', [PYTHON_SCRIPT_PATH], {
+    const pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT_PATH], {
       stdio: ['pipe', 'pipe', 'pipe']
     });
     

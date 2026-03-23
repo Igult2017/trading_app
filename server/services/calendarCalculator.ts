@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import * as path from "path";
+import { PYTHON_BIN } from "../lib/pythonBin";
 
 interface CalendarResult {
   success: boolean;
@@ -12,7 +13,7 @@ export async function computeCalendar(trades: any[]): Promise<CalendarResult> {
   return new Promise((resolve) => {
     const scriptPath = path.join(process.cwd(), "server", "python", "calendar_calculator.py");
 
-    const child = spawn("python3", [scriptPath], {
+    const child = spawn(PYTHON_BIN, [scriptPath], {
       env: { ...process.env },
     });
 

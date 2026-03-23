@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import { PYTHON_BIN } from '../lib/pythonBin';
 
 export interface ChartCandle {
   date: string;
@@ -57,7 +58,7 @@ export async function generateSignalChart(input: ChartGeneratorInput): Promise<C
       return;
     }
     
-    const python = spawn('python3', [pythonScript]);
+    const python = spawn(PYTHON_BIN, [pythonScript]);
     let stdout = '';
     let stderr = '';
     

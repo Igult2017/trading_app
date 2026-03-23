@@ -33,6 +33,7 @@
 
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
+import { PYTHON_BIN } from "../lib/pythonBin";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,6 @@ const PYTHON_SCRIPT_PATH = path.join(
 );
 
 const TIMEOUT_MS = 45_000;
-const PYTHON_BIN = process.env.PYTHON_BIN ?? "python3";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
