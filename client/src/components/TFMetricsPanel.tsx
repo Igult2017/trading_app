@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -49,6 +50,8 @@ const ROWS = [
   {id:14,htf:'D1',atf:'H4',etf:'M15',tf1:{candle:'D1 At Range Boundary (No Trend)',pa:'D1 in range. No trend bias. Price at HTF support boundary. Range fade setup only.'},tf2:{candle:'H4 OB — Range Edge Compression',pa:'H4 confirms OB at range boundary. Compression / inside bar. Range boundary holding.'},tf3:{candle:'M15 Pin Bar — Range Extreme',pa:'M15 pin bar at range low. Rejection candle. Range fade entry. Target: opposite boundary.'},indicators:'Stoch oversold at range low\nBB at extreme (range)\nRSI extreme at boundary\nEMA flat (ranging)',session:'Asian Session · 00:00–07:00 GMT',condition:'Ranging',bias:'🟡 Neutral',news:'✅ News-Free',momentum:'Low ATR · Range trade only',wr:68,avgR:2.4,trades:10,netPL:420},
   {id:15,htf:'H4',atf:'30M',etf:'M1',tf1:{candle:'H4 Engulfing (Weak HTF)',pa:'H4 as HTF = no macro context. Bias shifts intraday. No institutional backing at this level.'},tf2:{candle:'30M False Patterns — No Edge',pa:'30M patterns: 42–50% WR alone. Coin-flip ATF. No reliable structure. Avoid.'},tf3:{candle:'M1 Noise Candles — No Pattern',pa:'M1 dominated by spread noise. No institutional footprint. Every candle is effectively random.'},indicators:'RSI: false signals M1\nMACD: whipsaw M1\nVolume: unreliable M1\nEMA: lagging, useless M1',session:'Asian / Dead Zone · 20:00–23:00 GMT',condition:'Choppy / Volatile',bias:'🔴 Bearish',news:'📰 Near News',momentum:'Erratic · No predictability',wr:33,avgR:0.4,trades:6,netPL:-160},
 ];
+
+type TFRow = TFRow;
 
 const roleColor: Record<string, string> = { W1:C.htf, D1:C.htf, H4:C.atf, H1:C.atf, '30M':C.warn, M5:C.etf, M15:C.etf, M1:C.loss };
 const roleName  = (i: number) => ['HTF','ATF','ETF'][i];
@@ -226,7 +229,7 @@ const SampleCell = ({ trades, wr }: { trades: number; wr: number }) => {
 };
 
 // ─── PERFORMANCE CELL ────────────────────────────────────────────────────────
-const PerfCell = ({ row }: { row: typeof ROWS[number] }) => {
+const PerfCell = ({ row }: { row: TFRow }) => {
   const col = wrC(row.wr);
   return (
     <td style={{ ...cellTd(140, { borderLeft:`1px solid ${C.sep}` }), verticalAlign:'middle' }}>
@@ -269,7 +272,7 @@ const PerfCell = ({ row }: { row: typeof ROWS[number] }) => {
 };
 
 // ─── TF COMBO CELL ───────────────────────────────────────────────────────────
-const ComboCell = ({ row }: { row: typeof ROWS[number] }) => (
+const ComboCell = ({ row }: { row: TFRow }) => (
   <td style={{ width:136, minWidth:136, padding:'7px 6px', borderRight:`1px solid ${C.sep}`, borderBottom:`1px solid ${C.border}`, verticalAlign:'middle' }}>
     <Card>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -295,7 +298,7 @@ const ComboCell = ({ row }: { row: typeof ROWS[number] }) => (
 );
 
 // ─── TABLE ROW ────────────────────────────────────────────────────────────────
-const MatrixRow = ({ row }: { row: typeof ROWS[number] }) => (
+const MatrixRow = ({ row }: { row: TFRow }) => (
   <tr className="mrow">
     <ComboCell row={row}/>
     <TFCell data={row.tf1} color={C.htf} tfLabel={`${row.htf} · HTF`}/>
@@ -327,7 +330,7 @@ const ColHeaders = [
 ];
 
 // ─── MOBILE CARD ─────────────────────────────────────────────────────────────
-const MobileCard = ({ row }: { row: typeof ROWS[number] }) => {
+const MobileCard = ({ row }: { row: TFRow }) => {
   const [open, setOpen] = useState(false);
   const col=wrC(row.wr), wins=Math.round(row.trades*row.wr/100), losses=row.trades-wins;
   const bC=biasCol((row.bias||'').split(' · ')[0]);
@@ -460,7 +463,7 @@ const InsightsPanel = ({ isMobile }: { isMobile: boolean }) => (
 );
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-export default function TFMetricsPanel() {
+export default function TFMetricsPanel({ sessionId }: { sessionId?: string }) {
   const [page, setPage] = useState(1);
   const [isMobile, setMobile] = useState(false);
   useEffect(()=>{
@@ -468,9 +471,24 @@ export default function TFMetricsPanel() {
     check(); window.addEventListener('resize',check);
     return()=>window.removeEventListener('resize',check);
   },[]);
-  const rows = page===2 ? [...ROWS].filter(r=>r.wr>=78).sort((a,b)=>b.wr-a.wr) : ROWS;
-  const avgWR=Math.round(ROWS.reduce((s,r)=>s+r.wr,0)/ROWS.length);
-  const bestWR=Math.max(...ROWS.map(r=>r.wr));
+
+  const { data: matrixData, isLoading } = useQuery<{ success: boolean; rows?: TFRow[] }>({
+    queryKey: ['tf-metrics-matrix', sessionId],
+    queryFn: async () => {
+      const url = sessionId
+        ? `/api/tf-metrics/matrix?sessionId=${sessionId}`
+        : '/api/tf-metrics/matrix';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch TF matrix');
+      return res.json();
+    },
+    enabled: !!sessionId,
+  });
+
+  const allRows: TFRow[] = matrixData?.rows ?? [];
+  const rows = page===2 ? [...allRows].filter(r=>r.wr>=78).sort((a,b)=>b.wr-a.wr) : allRows;
+  const avgWR = allRows.length ? Math.round(allRows.reduce((s,r)=>s+r.wr,0)/allRows.length) : 0;
+  const bestWR = allRows.length ? Math.max(...allRows.map(r=>r.wr)) : 0;
 
   return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text }}>
@@ -503,7 +521,7 @@ export default function TFMetricsPanel() {
           {!isMobile && (
             <div style={{ display:'flex',alignItems:'center',gap:8 }}>
               {[
-                {label:'Scenarios',value:ROWS.length, color:C.bright, bg:'rgba(194,217,239,0.07)',border:'rgba(194,217,239,0.15)'},
+                {label:'Scenarios',value:allRows.length, color:C.bright, bg:'rgba(194,217,239,0.07)',border:'rgba(194,217,239,0.15)'},
                 {label:'Avg WR',   value:`${avgWR}%`, color:C.perf,   bg:`${C.perf}10`,border:`${C.perf}30`},
                 {label:'Best WR',  value:`${bestWR}%`,color:C.win,    bg:`${C.win}10`, border:`${C.win}30`},
               ].map(({label,value,color,bg,border})=>(
@@ -517,7 +535,7 @@ export default function TFMetricsPanel() {
         </div>
         <div style={{ display:'flex',alignItems:'stretch',justifyContent:'space-between',padding:isMobile?'0 16px':'0 28px',height:42 }}>
           <nav style={{ display:'flex',alignItems:'stretch' }}>
-            {[{n:1,label:'Full Matrix',sub:`${ROWS.length} scenarios`},{n:2,label:'Best Performers',sub:'WR ≥ 78%'}].map(tab=>{
+            {[{n:1,label:'Full Matrix',sub:`${allRows.length} scenarios`},{n:2,label:'Best Performers',sub:'WR ≥ 78%'}].map(tab=>{
               const active=page===tab.n;
               return (
                 <button key={tab.n} onClick={()=>setPage(tab.n)} style={{ display:'flex',alignItems:'center',gap:9,paddingRight:22,paddingLeft:tab.n===1?0:22,borderBottom:active?`2px solid ${C.accent}`:'2px solid transparent',borderRight:tab.n===1?`1px solid rgba(100,160,255,0.09)`:'none',transition:'all 0.15s' }}>
@@ -564,7 +582,19 @@ export default function TFMetricsPanel() {
       )}
 
       <main className="fade" key={`${page}-${isMobile}`} style={{ paddingBottom:32 }}>
-        {isMobile ? (
+        {isLoading ? (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:320, gap:12 }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:C.accent, animation:'fi 1s ease infinite alternate' }}/>
+            <span style={{ fontFamily:MONO, fontSize:11, color:C.muted, letterSpacing:'0.12em' }}>COMPUTING MATRIX…</span>
+          </div>
+        ) : !sessionId || rows.length === 0 ? (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320, gap:10 }}>
+            <span style={{ fontFamily:MONO, fontSize:20, color:C.sep }}>◫</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:C.muted, letterSpacing:'0.12em' }}>
+              {!sessionId ? 'SELECT A SESSION TO VIEW THE MATRIX' : 'NO SCENARIOS FOUND FOR THIS SESSION'}
+            </span>
+          </div>
+        ) : isMobile ? (
           <div style={{ paddingTop:8 }}>{rows.map(row=><MobileCard key={row.id} row={row}/>)}</div>
         ) : (
           <div style={{ overflowX:'auto',borderLeft:`3px solid ${C.sep}` }}>

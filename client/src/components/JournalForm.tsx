@@ -986,6 +986,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {ls("News Environment","newsEnvironment",["Clear","Minor","Major"])}
                         {ls("Session Phase","sessionPhase",["Open","Mid","Close"])}
                         {lf("ATR at Entry","atrAtEntry",undefined,"0.0045","number")}
+                        {ls("Session","sessionName",["London","New York","Tokyo","Sydney","Overlap"])}
                       </div>
                     </section>
                     <section className="space-y-4">
@@ -1007,14 +1008,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Target" title="Liquidity & Bias"/>
                       {lf("Liquidity Targets","liquidityTargets",3,"Major liquidity pools, stop hunts...")}
                     </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Clock" title="Session Timing"/>
-                      <div className={g3}>
-                        {lf("Entry Time (UTC)","entryTimeUTC",undefined,"","time")}
-                        {ls("Session","sessionName",["London","New York","Tokyo","Sydney","Overlap"])}
-                        {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
-                      </div>
-                    </section>
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
@@ -1027,6 +1020,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         <div className="space-y-4">
                           <SectionHeader icon="Activity" title="Technical Signals"/>
                           <div className="space-y-4">
+                            {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
                             {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
                             {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
                             {lf("Primary Signals","primarySignals",2,"Main confirmations")}

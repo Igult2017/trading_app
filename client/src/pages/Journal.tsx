@@ -802,7 +802,7 @@ export default function Journal() {
           ) : activeNav === 'create' ? (
             <CreateSessionForm onCreated={handleSessionCreated} />
           ) : activeNav === 'tfmetrics' ? (
-            <TFMetricsPanel />
+            <TFMetricsPanel sessionId={activeSessionId} />
           ) : activeNav === 'drawdown' ? (
             <DrawdownPanel />
           ) : activeNav === 'fsdai' ? (
