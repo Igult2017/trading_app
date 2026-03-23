@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
 import { calcAllTradeValues } from "@/lib/tradeCalculations";
@@ -309,8 +310,8 @@ function SidebarContent({ trades }: any) {
     const profitFactor = totalLoss>0?(totalWins/totalLoss).toFixed(2):totalWins>0?"∞":"0";
     const winrate = ((wins.length/trades.length)*100).toFixed(1);
     const commissions = trades.reduce((a: number,t: any)=>a+(parseFloat(t.commission)||0),0);
-    const startBal = parseFloat(trades[0]?.accountBalance)||0;
     const endBal   = parseFloat(trades[trades.length-1]?.accountBalance)||0;
+    const startBal = endBal - netPnL;
     let peak=startBal,maxDD=0,runBal=startBal;
     for(const t of trades){runBal+=parseFloat(t.profitLoss)||0;if(runBal>peak)peak=runBal;const dd=peak-runBal;if(dd>maxDD)maxDD=dd;}
     const buys  = trades.filter((t: any)=>t.direction==="Long").length;
@@ -409,7 +410,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [step,setStep]               = useState(1);
   const [form,setForm]               = useState<Record<string,any>>(INIT);
   const [saved,setSaved]             = useState(false);
-  const [trades,setTrades]           = useState<any[]>([]);
+  const { data: trades = [] } = useQuery<any[]>({
+    queryKey: ['/api/journal/entries', sessionId],
+    queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`)
+      .then(r => r.json())
+      .then((data: any[]) => [...data].reverse()), // reverse to chronological (oldest first)
+    enabled: !!sessionId,
+  });
   const [sidebarOpen,setSidebarOpen] = useState(false);
   const [analyzing,setAnalyzing]     = useState(false);
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
@@ -840,7 +847,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       await apiRequest("POST", "/api/journal/entries", payload);
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
-      setTrades(p=>[...p,{...form}]);
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");
