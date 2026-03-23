@@ -278,21 +278,6 @@ const StatRow = ({ label, value, valueColor }: any) => (
   </div>
 );
 
-const OcrSummaryBadge = ({ form, ocrFields }: { form: Record<string,any>; ocrFields: OcrFilledSet }) => {
-  if (!ocrFields.size) return null;
-  const conf = form.ocrConfidence;
-  const confColor = conf === "high" ? "#34d399" : conf === "medium" ? "#fbbf24" : "#f87171";
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"10px 16px", borderRadius:12, border:"1px solid rgba(52,211,153,0.25)", background:"rgba(52,211,153,0.05)" }}>
-      <Icon name="Sparkles" size={14} style={{color:"#34d399"}}/>
-      <span style={{fontSize:11, fontWeight:700, color:"#34d399", flex:1}}>
-        OCR extracted <strong>{ocrFields.size}</strong> fields automatically
-        {conf && <span style={{marginLeft:8, fontSize:10, color:confColor, fontStyle:"italic"}}>{conf} confidence</span>}
-      </span>
-      <span style={{fontSize:9, color:"#475569", fontStyle:"italic"}}>Italic fields = OCR-filled</span>
-    </div>
-  );
-};
 
 function SidebarContent({ trades }: any) {
   const stats = useMemo(() => {
@@ -786,7 +771,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
             )}
 
-            <OcrSummaryBadge form={form} ocrFields={ocrFields}/>
 
             <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
               {STEPS.map(s=>{
