@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 const C = {
   bg:      '#010409',
@@ -392,7 +393,7 @@ const GROUPS = [
   { label:'Performance', sub:'WR · Avg R · Net P/L',          color:C.perf,leftBorder:true  },
 ];
 
-export default function TFMetricsPanel() {
+export default function TFMetricsPanel({ sessionId }: { sessionId?: string | null }) {
   const [page, setPage]       = useState(1);
   const [isMobile, setMobile] = useState(false);
 
@@ -403,7 +404,24 @@ export default function TFMetricsPanel() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  const rows = page === 1 ? ROWS : [...ROWS].filter(r => r.wr >= 78).sort((a, b) => b.wr - a.wr);
+  const matrixUrl = sessionId
+    ? `/api/tf-metrics/matrix?sessionId=${sessionId}`
+    : null;
+
+  const { data: matrixData, isLoading } = useQuery<{ success: boolean; rows?: Row[] }>({
+    queryKey: ['/api/tf-metrics/matrix', sessionId],
+    queryFn: async () => {
+      const res = await fetch(matrixUrl!);
+      if (!res.ok) throw new Error('Failed to fetch TF matrix');
+      return res.json();
+    },
+    enabled: !!matrixUrl,
+    staleTime: 60_000,
+  });
+
+  const liveRows: Row[] = matrixData?.success && matrixData.rows?.length ? matrixData.rows : ROWS;
+  const rows = page === 1 ? liveRows : [...liveRows].filter(r => r.wr >= 78).sort((a, b) => b.wr - a.wr);
+  const isLive = !!(matrixData?.success && matrixData.rows?.length);
 
   return (
     <div style={{ minHeight:'100%', background:C.bg, color:C.text, margin: '-14px -16px' }}>
@@ -423,10 +441,13 @@ export default function TFMetricsPanel() {
           <div style={{ display:'flex', alignItems:'center', gap:8, paddingRight:20, borderRight:'1px solid rgba(148,200,255,0.07)', flexShrink:0 }}>
             <span style={{ fontFamily:"'Montserrat', sans-serif", fontSize: isMobile?11:12, fontWeight:900, color:'#cbd5e1', letterSpacing:'0.18em', textTransform:'uppercase' }}>TF</span>
             <span style={{ fontFamily:"'Montserrat', sans-serif", fontSize: isMobile?11:12, fontWeight:700, color:'rgba(148,200,255,0.35)', letterSpacing:'0.18em', textTransform:'uppercase' }}>Analytics</span>
+            {isLive && !isMobile && (
+              <span style={{ fontFamily:"'DM Mono','Fira Code',monospace", fontSize:8, fontWeight:500, letterSpacing:'0.14em', textTransform:'uppercase', color:'#34d399', background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.25)', padding:'2px 7px', borderRadius:2 }}>LIVE</span>
+            )}
           </div>
           <div style={{ display:'flex', alignItems:'stretch', height:'100%', marginRight:'auto' }}>
             {[
-              { n:1, label: isMobile ? 'Matrix' : 'Full Matrix',     sub:`${ROWS.length} scenarios` },
+              { n:1, label: isMobile ? 'Matrix' : 'Full Matrix',     sub: isLoading ? 'loading…' : `${liveRows.length} scenarios` },
               { n:2, label: isMobile ? 'Best'   : 'Best Performers',  sub:'WR ≥ 78%' },
             ].map(p => {
               const active = page === p.n;
