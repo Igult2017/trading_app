@@ -491,7 +491,7 @@ export default function TFMetricsPanel() {
       `}</style>
 
       {/* HEADER */}
-      <header style={{ position:'sticky',top:0,zIndex:100,background:'rgba(6,8,15,0.97)',backdropFilter:'blur(24px)',borderBottom:`1px solid rgba(100,160,255,0.13)` }}>
+      <header style={{ background:'rgba(6,8,15,0.97)',backdropFilter:'blur(24px)',borderBottom:`1px solid rgba(100,160,255,0.13)` }}>
         <div style={{ height:2, background:`linear-gradient(90deg,${C.htf}cc 0%,${C.atf}cc 40%,${C.etf}cc 72%,transparent 100%)` }}/>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:isMobile?'10px 16px':'11px 28px',borderBottom:`1px solid rgba(100,160,255,0.07)` }}>
           <div style={{ display:'flex',alignItems:'center',gap:12,flexShrink:0 }}>
