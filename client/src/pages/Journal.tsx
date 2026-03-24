@@ -528,7 +528,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
     ? equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))
     : [{ label: 'Start', pnl: 0 }];
 
-  const recentTrades = [...entries].slice(0, 8).map((e: any) => ({
+  const recentTrades = [...entries].slice(0, 6).map((e: any) => ({
     id: e.id,
     ticker: e.instrument || 'N/A',
     date: e.entryTime || (e.createdAt ? new Date(e.createdAt).toLocaleString() : ''),
@@ -543,7 +543,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const profitRatio = totalCount > 0 ? Math.round((winCount / totalCount) * 100) : 0;
   const lossRatio = totalCount > 0 ? 100 - profitRatio : 0;
 
-  const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 4);
+  const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 6);
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
 
   if (metricsLoading || entriesLoading) {
@@ -810,7 +810,7 @@ export default function Journal() {
           ) : activeNav === 'tfmetrics' ? (
             <TFMetricsPanel sessionId={activeSessionId} />
           ) : activeNav === 'drawdown' ? (
-            <DrawdownPanel />
+            <DrawdownPanel sessionId={activeSessionId} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI />
           ) : activeNav === 'leaderboard' ? (
