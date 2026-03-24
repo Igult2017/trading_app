@@ -274,8 +274,8 @@ const NavButtons = ({ step, onPrev, onNext }: any) => (
 
 const StatRow = ({ label, value, valueColor }: any) => (
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(51,65,85,0.3)"}}>
-    <span style={{fontSize:"11px",color:"#64748b"}}>{label}</span>
-    <span className="jb-num" style={{fontSize:"11px",color:valueColor||"#e2e8f0"}}>{value}</span>
+    <span style={{fontSize:"9px",color:"#64748b"}}>{label}</span>
+    <span className="jb-num" style={{fontSize:"9px",color:valueColor||"#e2e8f0"}}>{value}</span>
   </div>
 );
 
@@ -317,26 +317,26 @@ function SidebarContent({ trades }: any) {
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
         </div>
         <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span className="jb-num" style={{fontSize:"15px",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
-          <span className="jb-num" style={{fontSize:"11px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
       <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"10px 14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
-          <span style={{fontSize:"10px",color:"#475569"}}>Start Balance</span>
-          <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
+          <span style={{fontSize:"8px",color:"#475569"}}>Start Balance</span>
+          <span style={{fontSize:"8px",color:"#475569"}}>End Balance</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between"}}>
-          <span className="jb-num" style={{fontSize:"12px",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
-          <span className="jb-num" style={{fontSize:"12px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
         </div>
       </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
-          <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
+          <span style={{fontSize:"9px",color:"#475569"}}>Commissions & Fees</span>
         </div>
-        <span className="jb-num" style={{fontSize:"11px",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
+        <span className="jb-num" style={{fontSize:"9px",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"2px 0"}}>
         <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
@@ -354,7 +354,7 @@ function SidebarContent({ trades }: any) {
         ].map(({label,val,color})=>(
           <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"9px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"3px"}}>{label}</p>
-            <p className="jb-num" style={{fontSize:"14px",color}}>{val}</p>
+            <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
@@ -363,8 +363,8 @@ function SidebarContent({ trades }: any) {
         <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
         <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
-          <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
-          <span className="jb-num" style={{fontSize:"11px",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
+          <span style={{fontSize:"9px",color:"#64748b"}}>Max Drawdown</span>
+          <span className="jb-num" style={{fontSize:"9px",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
@@ -375,7 +375,7 @@ function SidebarContent({ trades }: any) {
         ].map(({label,val,color})=>(
           <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"10px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"5px"}}>{label}</p>
-            <p className="jb-num" style={{fontSize:"12px",color}}>{val}</p>
+            <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
@@ -1249,10 +1249,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 return (
                   <div>
                     <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                      <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
+                      <span style={{fontSize:"8px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
                         GROWTH:
                       </span>
-                      <span className="jb-num" style={{fontSize:"13px",color:growthColor,lineHeight:1}}>
+                      <span className="jb-num" style={{fontSize:"9px",color:growthColor,lineHeight:1}}>
                         {growthPct >= 0 ? '+' : ''}{growthPct.toFixed(1)}%
                       </span>
                     </div>
