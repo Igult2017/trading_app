@@ -274,7 +274,7 @@ const NavButtons = ({ step, onPrev, onNext }: any) => (
 
 const StatRow = ({ label, value, valueColor }: any) => (
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(51,65,85,0.3)"}}>
-    <span style={{fontSize:"9px",color:"#64748b"}}>{label}</span>
+    <span style={{fontSize:"11px",color:"#64748b"}}>{label}</span>
     <span className="jb-num" style={{fontSize:"9px",color:valueColor||"#e2e8f0"}}>{value}</span>
   </div>
 );
@@ -323,8 +323,8 @@ function SidebarContent({ trades }: any) {
       </div>
       <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"10px 14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
-          <span style={{fontSize:"8px",color:"#475569"}}>Start Balance</span>
-          <span style={{fontSize:"8px",color:"#475569"}}>End Balance</span>
+          <span style={{fontSize:"10px",color:"#475569"}}>Start Balance</span>
+          <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between"}}>
           <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
@@ -334,7 +334,7 @@ function SidebarContent({ trades }: any) {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
-          <span style={{fontSize:"9px",color:"#475569"}}>Commissions & Fees</span>
+          <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
         </div>
         <span className="jb-num" style={{fontSize:"9px",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
       </div>
@@ -363,7 +363,7 @@ function SidebarContent({ trades }: any) {
         <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
         <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
-          <span style={{fontSize:"9px",color:"#64748b"}}>Max Drawdown</span>
+          <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
           <span className="jb-num" style={{fontSize:"9px",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
         </div>
       </div>
@@ -1249,7 +1249,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 return (
                   <div>
                     <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                      <span style={{fontSize:"8px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
+                      <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
                         GROWTH:
                       </span>
                       <span className="jb-num" style={{fontSize:"9px",color:growthColor,lineHeight:1}}>
