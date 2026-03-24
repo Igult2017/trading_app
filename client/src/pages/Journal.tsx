@@ -809,7 +809,7 @@ export default function Journal() {
           ) : activeNav === 'tfmetrics' ? (
             <TFMetricsPanel sessionId={activeSessionId} />
           ) : activeNav === 'drawdown' ? (
-            <DrawdownPanel />
+            <DrawdownPanel sessionId={activeSessionId} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI />
           ) : (
