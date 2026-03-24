@@ -1,0 +1,329 @@
+import { useState, useEffect } from "react";
+
+const sessions = [
+  { id: 1, name: "SMC", date: "3/18/2026", balance: "$10,000" },
+  { id: 2, name: "MSS", date: "3/18/2026", balance: "$100,000" },
+  { id: 3, name: "Scalping", date: "3/18/2026", balance: "$10,000" },
+];
+
+function usePulse() {
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    const t = setInterval(() => setOn(v => !v), 1500);
+    return () => clearInterval(t);
+  }, []);
+  return on;
+}
+
+function useVisible(delay = 0) {
+  const [v, setV] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setV(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+  return v;
+}
+
+const TrashIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14H6L5 6"/>
+    <path d="M10 11v6M14 11v6"/>
+    <path d="M9 6V4h6v2"/>
+  </svg>
+);
+
+function Card({ s, selected, onSelect, index }) {
+  const [hov, setHov] = useState(false);
+  const visible = useVisible(index * 80 + 120);
+  const pulse = usePulse();
+  const sel = selected === s.id;
+
+  return (
+    <div
+      onClick={onSelect}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        borderRadius: 16,
+        background: sel
+          ? "linear-gradient(160deg, #141e2e 0%, #0f1a28 100%)"
+          : hov
+          ? "linear-gradient(160deg, #111827 0%, #0d1420 100%)"
+          : "linear-gradient(160deg, #0e1623 0%, #0a1018 100%)",
+        border: `1px solid ${sel ? "rgba(99,210,170,0.45)" : hov ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.06)"}`,
+        boxShadow: sel
+          ? "0 0 0 1px rgba(99,210,170,0.12), 0 16px 48px rgba(0,0,0,0.5), 0 0 32px rgba(99,210,170,0.06)"
+          : hov
+          ? "0 12px 40px rgba(0,0,0,0.4)"
+          : "0 4px 20px rgba(0,0,0,0.3)",
+        cursor: "pointer",
+        padding: "28px 26px",
+        transition: "all 0.3s ease",
+        transform: visible
+          ? hov && !sel ? "translateY(-4px)" : "translateY(0)"
+          : "translateY(20px)",
+        opacity: visible ? 1 : 0,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {sel && (
+        <div style={{
+          position: "absolute", top: 0, left: "20%", right: "20%", height: 1,
+          background: "linear-gradient(90deg, transparent, rgba(99,210,170,0.8), transparent)",
+        }} />
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <span style={{
+          fontFamily: "'Montserrat', sans-serif",
+          fontWeight: 800,
+          fontSize: 22,
+          letterSpacing: "0.01em",
+          color: sel ? "#e8f4f0" : "#b0bfd4",
+          transition: "color 0.2s ease",
+        }}>
+          {s.name}
+        </span>
+
+        {sel && (
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "#63d2aa",
+            background: "rgba(99,210,170,0.1)",
+            border: "1px solid rgba(99,210,170,0.25)",
+            padding: "3px 8px",
+            borderRadius: 5,
+          }}>
+            ACTIVE
+          </span>
+        )}
+      </div>
+
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 10,
+        color: sel ? "rgba(99,210,170,0.45)" : "rgba(255,255,255,0.2)",
+        letterSpacing: "0.05em",
+        marginBottom: 28,
+        transition: "color 0.2s ease",
+      }}>
+        {s.date}
+      </div>
+
+      <div style={{
+        height: 1,
+        background: sel
+          ? "linear-gradient(90deg, rgba(99,210,170,0.15), rgba(99,210,170,0.05))"
+          : "rgba(255,255,255,0.05)",
+        marginBottom: 20,
+        transition: "background 0.2s ease",
+      }} />
+
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 9,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color: sel ? "rgba(99,210,170,0.5)" : "rgba(255,255,255,0.22)",
+        marginBottom: 10,
+        transition: "color 0.2s ease",
+      }}>
+        Starting Balance
+      </div>
+      <div style={{
+        fontFamily: "'Montserrat', sans-serif",
+        fontWeight: 800,
+        fontSize: 34,
+        letterSpacing: "-0.02em",
+        color: sel ? "#ffffff" : "#c5d2e8",
+        marginBottom: 28,
+        lineHeight: 1,
+        transition: "color 0.2s ease",
+      }}>
+        {s.balance}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9,
+          fontWeight: 500,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "#63d2aa",
+          background: "rgba(99,210,170,0.07)",
+          border: "1px solid rgba(99,210,170,0.14)",
+          padding: "7px 12px",
+          borderRadius: 7,
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+            background: pulse ? "#63d2aa" : "rgba(99,210,170,0.3)",
+            boxShadow: pulse ? "0 0 6px rgba(99,210,170,0.8)" : "none",
+            transition: "all 0.6s ease",
+          }} />
+          Active
+        </div>
+
+        <button
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.07)",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "rgba(255,255,255,0.22)",
+            transition: "all 0.18s ease",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = "rgba(239,68,68,0.08)";
+            e.currentTarget.style.borderColor = "rgba(239,68,68,0.2)";
+            e.currentTarget.style.color = "rgba(239,100,100,0.7)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+            e.currentTarget.style.color = "rgba(255,255,255,0.22)";
+          }}
+        >
+          <TrashIcon />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function TradingSessions() {
+  const [selected, setSelected] = useState(1);
+  const headerVis = useVisible(40);
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #080e18; }
+
+        .sessions-wrapper {
+          min-height: 100vh;
+          background: #080e18;
+          padding: 56px 48px;
+          font-family: 'Montserrat', sans-serif;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .sessions-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        /* Tablet: 2 columns */
+        @media (max-width: 768px) {
+          .sessions-wrapper {
+            padding: 40px 24px;
+          }
+          .sessions-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        /* Mobile: 1 column */
+        @media (max-width: 480px) {
+          .sessions-wrapper {
+            padding: 28px 16px;
+          }
+          .sessions-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      <div className="sessions-wrapper">
+        {/* Subtle grid */}
+        <div style={{
+          position: "fixed", inset: 0, pointerEvents: "none",
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px)," +
+            "linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)",
+          backgroundSize: "52px 52px",
+        }} />
+
+        {/* Top ambient glow */}
+        <div style={{
+          position: "fixed", top: -180, left: "50%", transform: "translateX(-50%)",
+          width: 700, height: 360,
+          background: "radial-gradient(ellipse, rgba(60,130,100,0.08) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1060, margin: "0 auto" }}>
+
+          {/* Header */}
+          <div style={{
+            marginBottom: 40,
+            opacity: headerVis ? 1 : 0,
+            transform: headerVis ? "translateY(0)" : "translateY(-10px)",
+            transition: "opacity 0.5s ease, transform 0.5s ease",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <h2 style={{
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: 800,
+                fontSize: 20,
+                color: "#e2eaf5",
+                letterSpacing: "0.01em",
+              }}>
+                Trading Sessions
+              </h2>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 9,
+                letterSpacing: "0.14em",
+                color: "rgba(99,210,170,0.55)",
+                background: "rgba(99,210,170,0.06)",
+                border: "1px solid rgba(99,210,170,0.14)",
+                padding: "4px 11px",
+                borderRadius: 100,
+              }}>
+                {sessions.length} SESSIONS
+              </span>
+            </div>
+            <p style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              color: "rgba(255,255,255,0.28)",
+              letterSpacing: "0.04em",
+              lineHeight: 1.7,
+            }}>
+              Select a session to view its data across Dashboard, Metrics, and Trade Vault
+            </p>
+          </div>
+
+          {/* Cards */}
+          <div className="sessions-grid">
+            {sessions.map((s, i) => (
+              <Card
+                key={s.id}
+                s={s}
+                selected={selected}
+                onSelect={() => setSelected(s.id)}
+                index={i}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
