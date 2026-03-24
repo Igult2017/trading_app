@@ -856,7 +856,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         .sidebar-drawer-panel::-webkit-scrollbar{display:none}
         @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @media(max-width:479px){.steps-grid{grid-template-columns:1fr 1fr!important}}
-        .jb-num{font-family:'Share Tech Mono',monospace!important;font-weight:400!important;font-style:normal!important;letter-spacing:0.05em!important;font-variant-numeric:tabular-nums!important;}
+        .jb-num{font-family:'JetBrains Mono',monospace!important;font-weight:400!important;font-style:normal!important;letter-spacing:0.05em!important;font-variant-numeric:tabular-nums!important;}
       `}</style>
 
       <div style={{display:"flex",height:"100%",overflow:"hidden",background:"#05070a",color:"#cbd5e1",fontFamily:"sans-serif",position:"relative"}}>
