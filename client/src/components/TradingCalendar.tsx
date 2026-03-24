@@ -274,8 +274,23 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   }>({
     queryKey: ['/api/calendar/compute', sessionId],
     enabled: !!sessionId,
-    queryFn: () => fetch(`/api/calendar/compute?sessionId=${sessionId}`).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/calendar/compute?sessionId=${sessionId}`);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      const json = await r.json();
+      if (!json.success) throw new Error(json.error || "Calendar computation failed");
+      return json;
+    },
   });
+
+  // Auto-navigate to the most recent month that has data when the result first loads.
+  useEffect(() => {
+    if (!calendarResult?.availableMonths?.length) return;
+    const last = calendarResult.availableMonths[calendarResult.availableMonths.length - 1];
+    const [y, m] = last.split("-").map(Number);
+    if (!isNaN(y) && !isNaN(m)) setDate({ year: y, month: m });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarResult]);
 
   const allCalendarData = calendarResult?.calendarData || {};
   const key      = `${date.year}-${date.month}`;
