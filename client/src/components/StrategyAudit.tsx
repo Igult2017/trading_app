@@ -257,7 +257,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       {/* ── HEADER (nav + KPI strip) ────────────────────────────────── */}
       <nav className="border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl"
         style={{ boxShadow: '0 1px 0 rgba(59,130,246,0.08), 0 4px 24px rgba(0,0,0,0.4)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="h-14 flex items-center justify-between gap-4">
 
 
           <div className="flex-1 hidden md:flex items-center justify-center">
