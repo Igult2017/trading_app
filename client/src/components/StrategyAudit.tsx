@@ -301,20 +301,20 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       </div>
 
       {/* ── MAIN ───────────────────────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-6 py-3 pb-3">
+      <main className="max-w-7xl mx-auto py-3 pb-3">
 
         {/* ════ LEVEL 1 ════════════════════════════════════════════════════ */}
         {activeLevel === 1 && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch">
-              <div className="lg:col-span-2 flex flex-col gap-2">
+          <div className="space-y-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch">
+              <div className="lg:col-span-2 flex flex-col gap-0">
                 <Section title="Executive Summary" icon={<Zap className="w-4 h-4 text-yellow-400"/>} className="flex-1">
                   <p className="text-slate-300 leading-relaxed text-sm font-medium">
                     {d.executiveSummary || 'No trades found — add trades to generate an audit.'}
                   </p>
                 </Section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 flex-1">
                   <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>}>
                     <div className="flex items-center gap-4 mb-2">
                       <div className={`text-lg font-black italic ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
@@ -350,7 +350,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-0">
                 <Section title="What to Monitor Next" icon={<Activity className="w-4 h-4 text-orange-400"/>}>
                   <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {d.monitorItems.length ? (
@@ -383,7 +383,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               <Section title="Weaknesses & Failure Conditions" icon={<AlertTriangle className="w-4 h-4 text-red-400"/>}>
                 <div className="bg-red-950/10 border border-red-900/30 p-4 rounded-lg">
                   {d.weaknesses.length ? d.weaknesses.slice(0, 2).map((w, i) => (
@@ -417,7 +417,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </Section>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
               {/* Probabilistic Edge donut */}
               <Section title="Probabilistic Edge" icon={<DiceIcon/>}>
                 <div className="flex flex-col items-center justify-center py-2">
@@ -519,8 +519,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
         {/* ════ LEVEL 2 ════════════════════════════════════════════════════ */}
         {activeLevel === 2 && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+          <div className="space-y-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
               {/* Variance */}
               <Section title="Variance & Distribution" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>}>
                 <div className="space-y-3">
@@ -597,7 +597,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </Section>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               {/* Audit Scope */}
               <Section title="Audit Scope & Confidence">
                 <div className="space-y-4">
@@ -628,7 +628,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </Section>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               {/* Trade Quality A/B/C */}
               <Section title="Trade Quality Stratification" icon={<LayersIcon/>}>
                 <div className="space-y-2">
@@ -736,8 +736,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
         {/* ════ LEVEL 3 ════════════════════════════════════════════════════ */}
         {activeLevel === 3 && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-start">
+          <div className="space-y-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-start">
               <div className="lg:col-span-2">
                 <Section title="Component Breakdown">
                   <div className="overflow-x-auto custom-scrollbar">
@@ -796,7 +796,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </div>
             </Section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0">
               <Section title="Loss Cluster Severity" icon={<AlertTriangle className="w-4 h-4 text-red-400"/>}>
                 <div className="space-y-4">
                   <div className="text-center p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
@@ -837,7 +837,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </Section>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               <Section title="Capital Heat / Exposure" icon={<AlertTriangle className="w-4 h-4 text-purple-400"/>}>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-3 border-b border-slate-800/50">
@@ -866,8 +866,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
         {/* ════ LEVEL 4 ════════════════════════════════════════════════════ */}
         {activeLevel === 4 && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          <div className="space-y-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               <Section title="AI Policy Suggestions" icon={<Zap className="w-4 h-4 text-yellow-500"/>}>
                 <div className="space-y-4">
                   {d.aiPolicySuggestions.length ? d.aiPolicySuggestions.slice(0, 3).map((s, i) => (
@@ -897,7 +897,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             </div>
 
             <Section title="Edge Decay / Rolling Trend" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
                 <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
                   <div className="text-[9px] text-slate-500 uppercase font-black mb-1" style={{ letterSpacing: '0.15em' }}>Last 50 Trades</div>
                   <div className="text-xs font-black text-blue-400">{d.edgeDecay.last50.toFixed(2)}R</div>
@@ -988,7 +988,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 const Section = ({ title, children, icon = null, className = '' }: {
   title: string; children: React.ReactNode; icon?: React.ReactNode; className?: string;
 }) => (
-  <section className={`bg-slate-900/40 border border-slate-800/60 rounded-xl p-3 md:p-4 hover:border-slate-700/80 transition-all duration-300 ${className}`}>
+  <section className={`bg-slate-900/40 border border-slate-800/60 rounded-none p-3 md:p-4 hover:border-slate-700/80 transition-all duration-300 ${className}`}>
     <div className="flex items-center gap-2 mb-3">
       {icon && <div className="p-1.5 bg-slate-800/50 border border-slate-700/50 rounded-lg">{icon}</div>}
       <h3 className="text-xs font-black uppercase text-slate-400" style={{ letterSpacing: '0.15em' }}>{title}</h3>
