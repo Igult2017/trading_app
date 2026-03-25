@@ -299,7 +299,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       </div>
 
       {/* ── MAIN ───────────────────────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto py-3 pb-3">
+      <main className="w-full py-3 pb-3">
 
         {/* ════ LEVEL 1 ════════════════════════════════════════════════════ */}
         {activeLevel === 1 && (
