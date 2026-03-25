@@ -267,7 +267,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                 className={`flex flex-row items-center justify-center gap-2 w-48 py-3.5 transition-all duration-200 cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-blue-600 shadow-md shadow-blue-900/40'
-                    : 'bg-gray-800 hover:bg-gray-700'
+                    : 'bg-slate-900/40 hover:bg-slate-900/60'
                 }`}
               >
                 <span className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`}>
