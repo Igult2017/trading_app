@@ -401,14 +401,14 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </Section>
 
               <Section title="Psychology Impact" icon={<Brain className="w-4 h-4 text-pink-400"/>}>
-                <div className="flex gap-4 h-full items-center">
-                  <div className="flex-1 text-center p-3 bg-slate-900/80 rounded-none border border-slate-800">
+                <div className="-mx-3 -mb-3 md:-mx-4 md:-mb-4 flex border-t border-slate-800/60">
+                  <div className="flex-1 text-center p-4 bg-slate-900/80 border-r border-slate-800">
                     <div className="text-2xl font-black text-pink-400">
                       {d.psychologyScore > 0 ? d.psychologyScore.toFixed(1) : '—'}
                     </div>
                     <div className="text-[10px] uppercase text-slate-500 mt-1 font-bold" style={{ letterSpacing: '0.15em' }}>Stress Score</div>
                   </div>
-                  <div className="flex-1 text-center p-3 bg-slate-900/80 rounded-none border border-slate-800">
+                  <div className="flex-1 text-center p-4 bg-slate-900/80">
                     <div className="text-2xl font-black text-blue-400">
                       {d.disciplineScore > 0 ? `${d.disciplineScore.toFixed(0)}%` : '—'}
                     </div>
