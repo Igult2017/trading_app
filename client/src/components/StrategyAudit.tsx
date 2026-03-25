@@ -264,7 +264,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <button
                 key={lv.id}
                 onClick={() => setActiveLevel(lv.id)}
-                className={`flex-1 flex flex-row items-center justify-center gap-2 px-5 py-3.5 transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                className={`flex flex-row items-center justify-center gap-2 w-48 py-3.5 transition-all duration-200 cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-blue-600 shadow-md shadow-blue-900/40'
                     : 'bg-gray-800 hover:bg-gray-700'
