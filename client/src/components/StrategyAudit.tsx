@@ -288,10 +288,10 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       </nav>
 
       {/* KPI stat cards — part of sticky header */}
-      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60 px-4 sm:px-6 py-2"
+      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0">
             <StatCard label="Audit Win Rate"   value={`${d.auditSummary.winRate.toFixed(1)}%`}         trend={`+${(d.auditSummary.winRate - 50).toFixed(1)}pp`} color="text-emerald-400"/>
             <StatCard label="Edge Persistence" value={d.auditSummary.edgePersistence.toFixed(2)}        trend={d.auditSummary.edgeVerdict}                        color="text-blue-400"/>
             <StatCard label="Risk Entropy"     value={d.auditSummary.riskEntropy}                       trend={`Auto: ${d.automationRisk.score.toFixed(0)}/100`}  color="text-slate-400"/>
@@ -998,7 +998,7 @@ const Section = ({ title, children, icon = null, className = '' }: {
 );
 
 const StatCard = ({ label, value, trend, color }: { label: string; value: string; trend: string; color: string }) => (
-  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl flex flex-col gap-0.5 hover:bg-slate-900/80 transition-all">
+  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-none flex flex-col gap-0.5 hover:bg-slate-900/80 transition-all">
     <span className="text-[8px] font-black text-slate-500 uppercase" style={{ letterSpacing: '0.2em' }}>{label}</span>
     <div className="flex items-baseline justify-between gap-2">
       <span className={`text-sm font-black italic ${color}`}>{value}</span>
