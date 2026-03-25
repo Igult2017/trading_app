@@ -259,22 +259,6 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         style={{ boxShadow: '0 1px 0 rgba(59,130,246,0.08), 0 4px 24px rgba(0,0,0,0.4)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/40">
-                <Cpu className="w-4 h-4 text-white"/>
-              </div>
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-slate-950 animate-pulse"/>
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="font-black text-sm uppercase tracking-widest text-slate-100">
-                Audit <span className="text-blue-400">Results</span>
-              </span>
-              <span className="text-[8px] text-slate-600 font-bold uppercase tracking-[0.3em] mt-0.5">In Real Time</span>
-            </div>
-          </div>
-
-          <div className="hidden sm:block w-px h-6 bg-slate-800"/>
 
           <div className="flex-1 hidden md:flex items-center justify-center">
             <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-none p-1 gap-0.5">
@@ -299,22 +283,6 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             ))}
           </div>
 
-          <div className="hidden sm:block w-px h-6 bg-slate-800"/>
-
-          <div className="hidden sm:flex items-center gap-3 shrink-0">
-            <button onClick={() => refetch()} disabled={isFetching}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/60 border border-slate-700/50 rounded-lg hover:bg-slate-700/60 transition-all disabled:opacity-50">
-              <RefreshCw className={`w-3 h-3 text-slate-400 ${isFetching ? 'animate-spin' : ''}`}/>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Refresh</span>
-            </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"/>
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Activated</span>
-            </div>
-            <button className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800/60 border border-slate-700/50 hover:bg-slate-700/60 transition-all">
-              <Settings className="w-3.5 h-3.5 text-slate-400"/>
-            </button>
-          </div>
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"/>
       </nav>
