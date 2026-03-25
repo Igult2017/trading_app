@@ -14,6 +14,7 @@ import TFMetricsPanel from '@/components/TFMetricsPanel';
 import TraderAI from '@/components/TraderAI';
 import Leaderboard from '@/components/Leaderboard';
 import TradeSyncPage from '@/pages/TradeSyncPage';
+import AccountsPage from '@/pages/AccountsPage';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -785,7 +786,7 @@ export default function Journal() {
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
 
-        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 32px' : activeNav === 'tfmetrics' ? '0' : activeNav === 'sync' ? '0' : '14px 8px 32px', minWidth:0 }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 32px' : activeNav === 'tfmetrics' ? '0' : activeNav === 'sync' ? '0' : activeNav === 'accounts' ? '0' : activeNav === 'addaccount' ? '0' : '14px 8px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
             <MetricsPanel sessionId={activeSessionId} />
@@ -818,6 +819,10 @@ export default function Journal() {
             <Leaderboard />
           ) : activeNav === 'sync' ? (
             <TradeSyncPage />
+          ) : activeNav === 'accounts' ? (
+            <AccountsPage />
+          ) : activeNav === 'addaccount' ? (
+            <AccountsPage openModal={true} />
           ) : (
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
