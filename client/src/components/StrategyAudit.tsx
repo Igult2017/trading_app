@@ -16,6 +16,7 @@ import {
   Loader2,
   RefreshCw,
   WifiOff,
+  Wrench,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,7 +196,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   const levels = [
     { id: 1, label: 'STRATEGY AUDIT',   icon: <ChessGearIcon size={14} /> },
     { id: 2, label: 'EVIDENCE & PROOF', icon: <Database className="w-3.5 h-3.5" /> },
-    { id: 3, label: 'DIAGNOSTICS',      icon: <TargetIcon /> },
+    { id: 3, label: 'DIAGNOSTICS',      icon: <Wrench className="w-3.5 h-3.5" /> },
     { id: 4, label: 'ACTION & ITERATION', icon: <PlusCircle className="w-3.5 h-3.5" /> },
   ];
 
