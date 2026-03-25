@@ -1,9 +1,7 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import pkg from 'pg';
+const { Pool } = pkg;
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 const availableEnvVars = Object.keys(process.env).filter(key => 
   key.includes('DATABASE') || key.includes('PG') || key.includes('DB') || key.includes('POSTGRES')
@@ -15,11 +13,7 @@ if (!process.env.DATABASE_URL) {
   console.error('');
   console.error('Available database-related environment variables:', availableEnvVars.length > 0 ? availableEnvVars.join(', ') : 'NONE');
   console.error('');
-  console.error('For Coolify deployment, ensure:');
-  console.error('1. DATABASE_URL is set in Environment Variables (not Build Args)');
-  console.error('2. The value format is: postgresql://user:password@host:port/database');
-  console.error('3. No quotes around the value');
-  console.error('4. Redeploy after setting the variable');
+  console.error('Please ensure DATABASE_URL is set.');
   console.error('=====================================');
   
   throw new Error(
@@ -29,5 +23,5 @@ if (!process.env.DATABASE_URL) {
 
 console.log('[Database] Connecting to PostgreSQL...');
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+export const db = drizzle(pool, { schema });
 console.log('[Database] Database pool initialized');
