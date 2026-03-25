@@ -291,7 +291,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
         <div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <StatCard label="Audit Win Rate"   value={`${d.auditSummary.winRate.toFixed(1)}%`}         trend={`+${(d.auditSummary.winRate - 50).toFixed(1)}pp`} color="text-emerald-400"/>
             <StatCard label="Edge Persistence" value={d.auditSummary.edgePersistence.toFixed(2)}        trend={d.auditSummary.edgeVerdict}                        color="text-blue-400"/>
             <StatCard label="Risk Entropy"     value={d.auditSummary.riskEntropy}                       trend={`Auto: ${d.automationRisk.score.toFixed(0)}/100`}  color="text-slate-400"/>
