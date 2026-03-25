@@ -393,7 +393,7 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
 
       {vaultHeader(`Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
 
-      <div style={{ padding: "20px 24px 32px" }}>
+      <div style={{ padding: 0 }}>
       {trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
           <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
@@ -545,7 +545,7 @@ const styles: Record<string, React.CSSProperties> = {
   tableWrapper: {
     background: "#0d1220",
     border: "1px solid #1a2035",
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: "hidden",
   },
   table: {
