@@ -261,7 +261,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
 
           <div className="flex-1 hidden md:flex items-center justify-center">
-            <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-none p-1 gap-0.5">
+            <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-none p-1 gap-2">
               {levels.map(lv => (
                 <button key={lv.id} onClick={() => setActiveLevel(lv.id)}
                   className={`relative px-3 py-1.5 rounded-none text-[10px] font-black transition-all duration-200 flex items-center gap-1.5 tracking-widest ${
@@ -274,7 +274,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             </div>
           </div>
 
-          <div className="md:hidden flex bg-slate-900/60 border border-slate-800 rounded-none p-0.5 gap-0.5">
+          <div className="md:hidden flex bg-slate-900/60 border border-slate-800 rounded-none p-0.5 gap-2">
             {levels.map(lv => (
               <button key={lv.id} onClick={() => setActiveLevel(lv.id)}
                 className={`px-2.5 py-1 rounded-none text-[10px] font-black transition-all ${activeLevel === lv.id ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>
