@@ -256,7 +256,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={F}>
 
       {/* ── HEADER (nav + KPI strip) ────────────────────────────────── */}
-      <nav className="w-full bg-gray-900 border-b border-gray-800">
+      <nav className="w-full border-b border-gray-800">
         <div className="w-full flex flex-row justify-between items-center py-2 px-0 gap-3">
           {levels.map(lv => {
             const isActive = activeLevel === lv.id;
