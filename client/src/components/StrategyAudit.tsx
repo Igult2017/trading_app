@@ -735,9 +735,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         {/* ════ LEVEL 3 ════════════════════════════════════════════════════ */}
         {activeLevel === 3 && (
           <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-start">
-              <div className="lg:col-span-2">
-                <Section title="Component Breakdown">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch">
+              <div className="lg:col-span-2 flex flex-col">
+                <Section title="Component Breakdown" className="flex-1">
                   <div className="overflow-x-auto custom-scrollbar">
                     <div className="min-w-[500px] space-y-2">
                       <div className="text-xs text-slate-400 mb-2 font-medium">Regime performance analysis</div>
@@ -760,7 +760,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   </div>
                 </Section>
               </div>
-              <Section title="Failure Mode Analysis">
+              <Section title="Failure Mode Analysis" className="h-full">
                 <div className="space-y-3">
                   <div className="text-xs text-red-400 mb-2 font-bold">Critical risk factors</div>
                   {d.automationRisk.issues.length ? d.automationRisk.issues.slice(0, 3).map((iss, i) => (
