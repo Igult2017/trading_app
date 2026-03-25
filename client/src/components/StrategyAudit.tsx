@@ -266,8 +266,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                 onClick={() => setActiveLevel(lv.id)}
                 className={`flex flex-row items-center justify-center gap-2 w-48 py-3.5 transition-all duration-200 cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'bg-blue-600 shadow-md shadow-blue-900/40'
-                    : 'bg-slate-900/40 hover:bg-slate-900/60'
+                    ? 'bg-blue-600 shadow-md shadow-blue-900/40 border border-blue-500/40'
+                    : 'bg-slate-900/40 hover:bg-slate-900/60 border border-slate-500/30 hover:border-slate-400/50'
                 }`}
               >
                 <span className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`}>
