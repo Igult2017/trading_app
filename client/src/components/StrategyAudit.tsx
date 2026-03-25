@@ -256,34 +256,31 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={F}>
 
       {/* ── HEADER (nav + KPI strip) ────────────────────────────────── */}
-      <nav className="border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl"
-        style={{ boxShadow: '0 1px 0 rgba(59,130,246,0.08), 0 4px 24px rgba(0,0,0,0.4)' }}>
-        <div className="h-14 flex items-center justify-between gap-4">
-
-
-          <div className="flex-1 hidden md:flex items-center justify-center">
-            <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-none p-1 gap-3">
-              {levels.map(lv => (
-                <button key={lv.id} onClick={() => setActiveLevel(lv.id)}
-                  className={`relative px-3 py-1.5 rounded-none text-[10px] font-black transition-all duration-200 flex items-center gap-1.5 tracking-widest ${
-                    activeLevel === lv.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}>
-                  {activeLevel === lv.id && <span className="absolute inset-0 rounded-none bg-blue-500/20 blur-sm"/>}
-                  <span className="relative flex items-center gap-1.5">{lv.icon}{lv.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="md:hidden flex bg-slate-900/60 border border-slate-800 rounded-none p-0.5 gap-2">
-            {levels.map(lv => (
-              <button key={lv.id} onClick={() => setActiveLevel(lv.id)}
-                className={`px-2.5 py-1 rounded-none text-[10px] font-black transition-all ${activeLevel === lv.id ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>
-                L{lv.id}
+      <nav className="w-full bg-gray-900 border-b border-gray-800">
+        <div className="w-full flex flex-row justify-between items-center py-2 px-0 gap-3">
+          {levels.map(lv => {
+            const isActive = activeLevel === lv.id;
+            return (
+              <button
+                key={lv.id}
+                onClick={() => setActiveLevel(lv.id)}
+                className={`flex flex-row items-center gap-2 px-5 py-2 transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'bg-blue-600 shadow-md shadow-blue-900/40'
+                    : 'bg-gray-800 hover:bg-gray-700'
+                }`}
+              >
+                <span className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                  {lv.icon}
+                </span>
+                <p className={`text-[10px] font-black uppercase tracking-widest transition-colors duration-200 ${
+                  isActive ? 'text-white' : 'text-gray-200'
+                }`}>
+                  {lv.label}
+                </p>
               </button>
-            ))}
-          </div>
-
+            );
+          })}
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"/>
       </nav>
