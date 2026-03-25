@@ -264,7 +264,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <button
                 key={lv.id}
                 onClick={() => setActiveLevel(lv.id)}
-                className={`flex flex-row items-center justify-center gap-2 w-48 py-3.5 rounded transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                className={`flex flex-row items-center justify-center gap-2 w-48 py-3.5 transition-all duration-200 cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-blue-600 shadow-md shadow-blue-900/40'
                     : 'bg-gray-800 hover:bg-gray-700'
@@ -986,9 +986,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 const Section = ({ title, children, icon = null, className = '' }: {
   title: string; children: React.ReactNode; icon?: React.ReactNode; className?: string;
 }) => (
-  <section className={`bg-slate-900/40 border border-slate-800/60 rounded-none p-3 md:p-4 hover:border-slate-700/80 transition-all duration-300 ${className}`}>
+  <section className={`bg-slate-900/40 border border-slate-800/60 rounded p-3 md:p-4 hover:border-slate-700/80 transition-all duration-300 ${className}`}>
     <div className="flex items-center gap-2 mb-3">
-      {icon && <div className="p-1.5 bg-slate-800/50 border border-slate-700/50 rounded-none">{icon}</div>}
+      {icon && <div className="p-1.5 bg-slate-800/50 border border-slate-700/50 rounded">{icon}</div>}
       <h3 className="text-xs font-black uppercase text-slate-400" style={{ letterSpacing: '0.15em' }}>{title}</h3>
     </div>
     {children}
