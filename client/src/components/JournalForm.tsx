@@ -405,6 +405,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [step,setStep]               = useState(1);
   const [form,setForm]               = useState<Record<string,any>>(INIT);
   const [saved,setSaved]             = useState(false);
+  const [draftRestored,setDraftRestored] = useState(false);
   const { data: trades = [] } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
     queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`)
@@ -417,6 +418,39 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
   const [saving,setSaving]           = useState(false);
   const [ocrFields,setOcrFields]     = useState<OcrFilledSet>(new Set());
+
+  // ── Draft auto-save ────────────────────────────────────────────────────────
+  const draftKey = sessionId ? `journal_draft_${sessionId}` : null;
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const { form: savedForm, step: savedStep } = JSON.parse(raw);
+      // Skip binary screenshot fields — too large for localStorage
+      const { screenshot, exitScreenshot, ...rest } = savedForm ?? {};
+      const hasData = Object.entries(rest).some(([k, v]) => v !== INIT[k] && v !== '' && v !== null);
+      if (!hasData) return;
+      setForm(prev => ({ ...prev, ...rest }));
+      setStep(savedStep ?? 1);
+      setDraftRestored(true);
+    } catch (_) {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  // Auto-save draft on every form / step change (debounced 600ms)
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = setTimeout(() => {
+      try {
+        const { screenshot, exitScreenshot, ...rest } = form;
+        localStorage.setItem(draftKey, JSON.stringify({ form: rest, step }));
+      } catch (_) {}
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [form, step, draftKey]);
 
   // ── FIX 1: live running balance from all existing session trades ──────────
   const { currentBalance, startingBalance } = useSessionBalance(sessionId);
@@ -843,6 +877,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute', sessionId] });
+      if (draftKey) localStorage.removeItem(draftKey);
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");
@@ -884,6 +919,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <Icon name="AlertCircle" size={16}/>
                 <span style={{fontSize:"12px",fontWeight:600,flex:1}}>{analyzeError}</span>
                 <button onClick={()=>setAnalyzeError(null)}><Icon name="X" size={14}/></button>
+              </div>
+            )}
+
+            {draftRestored&&(
+              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"11px 16px",borderRadius:"10px",border:"1px solid rgba(59,130,246,0.25)",background:"rgba(59,130,246,0.06)",color:"#93c5fd"}}>
+                <Icon name="RefreshCcw" size={14} style={{flexShrink:0}}/>
+                <span style={{fontSize:"11px",fontWeight:600,flex:1,letterSpacing:"0.01em"}}>Draft restored — pick up where you left off.</span>
+                <button onClick={()=>{setForm(INIT);setStep(1);setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(147,197,253,0.5)",display:"flex",padding:2}} title="Discard draft"><Icon name="X" size={13}/></button>
               </div>
             )}
 
@@ -1340,7 +1383,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </p>
               <div style={{height:"1px",background:"linear-gradient(90deg,transparent,rgba(51,65,85,0.4),transparent)",marginBottom:"28px"}}/>
               <button
-                onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());}}
+                onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}}
                 style={{
                   width:"100%",padding:"14px 32px",borderRadius:"12px",
                   fontSize:"12px",fontWeight:700,letterSpacing:"0.08em",
