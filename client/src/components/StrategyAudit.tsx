@@ -333,7 +333,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-2">
                 <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>} className="h-full">
                   <div className="flex items-center gap-4 mb-2">
-                    <div className={`text-lg font-black italic ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
+                    <div className={`text-sm font-black ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
                       {verdictLabel}
                     </div>
                     <div className="h-0.5 flex-1 bg-slate-800 rounded-none overflow-hidden">
@@ -357,7 +357,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-xs text-slate-500 font-medium italic">
+                      <p className="text-xs text-slate-500 font-medium">
                         Tag trades with HTF bias, confluence score, session to unlock edge drivers.
                       </p>
                     )}
@@ -371,13 +371,13 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     {d.aiPolicySuggestions.slice(0, 2).map((s, i) => (
                       <div key={i} className="text-xs border-l-2 border-purple-500 pl-3 py-1 bg-purple-500/5">
                         <div className="font-bold text-slate-200" style={{ letterSpacing: '0.05em' }}>{s.rule}</div>
-                        <div className="text-slate-500 italic font-medium">{s.expectedImpact}</div>
+                        <div className="text-slate-500 font-medium">{s.expectedImpact}</div>
                       </div>
                     ))}
                     {!d.aiPolicySuggestions.length && (
                       <div className="text-xs border-l-2 border-slate-600 pl-3 py-1 bg-slate-800/20">
                         <div className="font-bold text-slate-400">No changes yet</div>
-                        <div className="text-slate-600 italic font-medium">Add more trades to generate suggestions.</div>
+                        <div className="text-slate-600 font-medium">Add more trades to generate suggestions.</div>
                       </div>
                     )}
                   </div>
@@ -510,7 +510,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <div className="mt-6 pt-6 border-t border-slate-800/50 flex items-center justify-end gap-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500"/>
-                  <span className="text-xs font-black italic text-emerald-400 uppercase" style={{ letterSpacing: '0.15em' }}>
+                  <span className="text-xs font-black text-emerald-400 uppercase" style={{ letterSpacing: '0.15em' }}>
                     {d.finalVerdict?.authorized ? 'System Certified' : 'Pending Certification'}
                   </span>
                 </div>
@@ -679,7 +679,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     </div>
                   </div>
                   <div className="pt-4 border-t border-slate-800/50">
-                    <div className="text-[10px] text-slate-600 italic text-center font-medium">
+                    <div className="text-[10px] text-slate-600 text-center font-medium">
                       Edge transferability: {d.edgeTransferability.toFixed(1)}%
                     </div>
                   </div>
@@ -723,12 +723,12 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">High</span>
                       </div>
-                      <div className="text-[9px] text-slate-600 italic font-medium">← Scroll horizontally →</div>
+                      <div className="text-[9px] text-slate-600 font-medium">← Scroll horizontally →</div>
                     </div>
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-slate-500 italic font-medium py-4 text-center">
+                <p className="text-xs text-slate-500 font-medium py-4 text-center">
                   Tag trades with instrument, confluence score, HTF bias, and session to unlock the AI classification heatmap.
                 </p>
               )}
@@ -770,7 +770,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   {d.automationRisk.issues.length ? d.automationRisk.issues.slice(0, 3).map((iss, i) => (
                     <div key={i} className="text-xs text-orange-300 font-medium bg-orange-500/5 border border-orange-500/20 rounded px-2 py-1">{iss}</div>
                   )) : (
-                    <div className="text-xs text-slate-500 font-medium italic">No critical failure modes detected.</div>
+                    <div className="text-xs text-slate-500 font-medium">No critical failure modes detected.</div>
                   )}
                 </div>
               </Section>
@@ -858,7 +858,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   <div className="text-2xl font-black text-yellow-400">{d.automationRisk.score.toFixed(1)}%</div>
                   <div className="text-[9px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.15em' }}>Execution Failure Risk</div>
                   <div className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-none">
-                    <span className={`text-xs italic font-black ${autoColor}`} style={{ letterSpacing: '0.1em' }}>{autoLabel}</span>
+                    <span className={`text-xs font-black ${autoColor}`} style={{ letterSpacing: '0.1em' }}>{autoLabel}</span>
                   </div>
                 </div>
               </Section>
@@ -881,7 +881,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                       )}
                     </div>
                   )) : (
-                    <p className="text-xs text-slate-500 italic font-medium">
+                    <p className="text-xs text-slate-500 font-medium">
                       No policy suggestions yet. Add more tagged trades to generate data-driven rules.
                     </p>
                   )}
@@ -934,7 +934,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[9px] text-emerald-500 uppercase font-black" style={{ letterSpacing: '0.2em' }}>Final Audit Verdict</span>
                     </div>
-                    <div className={`text-xs font-black italic uppercase ${gradeColor}`} style={{ letterSpacing: '0.08em' }}>
+                    <div className={`text-xs font-black uppercase ${gradeColor}`} style={{ letterSpacing: '0.08em' }}>
                       {d.finalVerdict.authorized ? 'System Authorized' : 'Pending Certification'}
                     </div>
                     <div className="text-[9px] text-slate-400 mt-0.5 font-medium">
@@ -945,7 +945,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                 <div className="flex flex-col items-end gap-1.5">
                   <div className="px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-none">
                     <div className="text-[9px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.15em' }}>Overall Grade</div>
-                    <div className={`text-lg font-black italic text-center ${gradeColor}`} style={{ fontFamily: "'Inter', sans-serif" }}>{grade}</div>
+                    <div className={`text-sm font-black text-center ${gradeColor}`} style={{ fontFamily: "'Inter', sans-serif" }}>{grade}</div>
                   </div>
                   {d.finalVerdict.nextActions[0] && (
                     <div className="text-[9px] text-slate-500 uppercase font-bold text-right max-w-[180px]" style={{ letterSpacing: '0.15em' }}>
@@ -1003,7 +1003,7 @@ const StatCard = ({ label, value, trend, color }: { label: string; value: string
   <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-none flex flex-col gap-0.5 hover:bg-slate-900/80 transition-all">
     <span className="text-[8px] font-black text-slate-500 uppercase" style={{ letterSpacing: '0.2em' }}>{label}</span>
     <div className="flex items-baseline justify-between gap-2">
-      <span className={`text-sm font-black italic ${color}`}>{value}</span>
+      <span className={`text-xs font-black ${color}`}>{value}</span>
       <span className={`text-[8px] font-bold px-1 py-0.5 rounded bg-slate-800/50 ${trend.startsWith('+') ? 'text-emerald-400' : 'text-slate-400'}`}>
         {trend}
       </span>
@@ -1076,7 +1076,7 @@ const VerificationItem = ({ label, value }: { label: string; value: string }) =>
       <svg className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="2,6 5,9 10,3"/>
       </svg>
-      <div className="text-xs italic text-slate-200 leading-relaxed font-medium">{value}</div>
+      <div className="text-xs text-slate-200 leading-relaxed font-medium">{value}</div>
     </div>
   </div>
 );
