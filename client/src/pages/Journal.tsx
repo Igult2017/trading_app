@@ -109,7 +109,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
     borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
   } : {
-    width: open ? 220 : 72, minWidth: open ? 220 : 72, height: '100%',
+    width: open ? 185 : 72, minWidth: open ? 185 : 72, height: '100%',
     overflowY: 'auto', overflowX: 'hidden', background: '#07090f',
     borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column',
     flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
