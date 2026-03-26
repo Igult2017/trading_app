@@ -183,7 +183,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        borderRadius: 20,
+        borderRadius: 12,
         background: isActive
           ? 'linear-gradient(145deg,#101c2c 0%,#0b1520 100%)'
           : hov
