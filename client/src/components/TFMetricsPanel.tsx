@@ -51,7 +51,7 @@ const ROWS = [
   {id:15,htf:'H4',atf:'30M',etf:'M1',tf1:{candle:'H4 Engulfing (Weak HTF)',pa:'H4 as HTF = no macro context. Bias shifts intraday. No institutional backing at this level.'},tf2:{candle:'30M False Patterns — No Edge',pa:'30M patterns: 42–50% WR alone. Coin-flip ATF. No reliable structure. Avoid.'},tf3:{candle:'M1 Noise Candles — No Pattern',pa:'M1 dominated by spread noise. No institutional footprint. Every candle is effectively random.'},indicators:'RSI: false signals M1\nMACD: whipsaw M1\nVolume: unreliable M1\nEMA: lagging, useless M1',session:'Asian / Dead Zone · 20:00–23:00 GMT',condition:'Choppy / Volatile',bias:'🔴 Bearish',news:'📰 Near News',momentum:'Erratic · No predictability',wr:33,avgR:0.4,trades:6,netPL:-160},
 ];
 
-type TFRow = TFRow;
+type TFRow = typeof ROWS[number];
 
 const roleColor: Record<string, string> = { W1:C.htf, D1:C.htf, H4:C.atf, H1:C.atf, '30M':C.warn, M5:C.etf, M15:C.etf, M1:C.loss };
 const roleName  = (i: number) => ['HTF','ATF','ETF'][i];
@@ -462,24 +462,8 @@ const InsightsPanel = ({ isMobile }: { isMobile: boolean }) => (
   </div>
 );
 
-const GROUPS = [
-  { label:'HTF',         sub:'Candle Pattern · Price Action', color:C.htf, leftBorder:false },
-  { label:'ATF',         sub:'Candle Pattern · Price Action', color:C.atf, leftBorder:false },
-  { label:'ETF',         sub:'Candle Pattern · Price Action', color:C.etf, leftBorder:false },
-  { label:'Indicators',  sub:'State at entry moment',         color:C.ind, leftBorder:true  },
-  { label:'Session',     sub:'Time window',                   color:C.ctx, leftBorder:false },
-  { label:'Condition',   sub:'Trend · Range · Volatile',      color:C.ctx, leftBorder:false },
-  { label:'Bias',        sub:'Direction',                     color:C.ctx, leftBorder:false },
-  { label:'News',        sub:'Event status',                  color:C.ctx, leftBorder:false },
-  { label:'Momentum',    sub:'ATR · Expansion',               color:C.ctx, leftBorder:false },
-  { label:'Sample Size', sub:'Trades in dataset',             color:C.sub, leftBorder:false },
-  { label:'Performance', sub:'WR · Avg R · Net P/L',          color:C.perf,leftBorder:true  },
-];
-
-export default function TFMetricsPanel({ sessionId }: { sessionId?: string | null }) {
-  const [page, setPage]       = useState(1);
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-export default function TFMetricsPanel({ sessionId }: { sessionId?: string }) {
+export default function TFMetricsPanel({ sessionId }: { sessionId?: string | null }) {
   const [page, setPage] = useState(1);
   const [isMobile, setMobile] = useState(false);
   useEffect(()=>{
@@ -488,24 +472,11 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string }) {
     return()=>window.removeEventListener('resize',check);
   },[]);
 
-  const { data: matrixData, isLoading } = useQuery<{ success: boolean; rows?: TFRow[] }>({
-    queryKey: ['tf-metrics-matrix', sessionId],
-    queryFn: async () => {
-      const url = sessionId
-        ? `/api/tf-metrics/matrix?sessionId=${sessionId}`
-        : '/api/tf-metrics/matrix';
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch TF matrix');
-      return res.json();
-    },
-    enabled: !!sessionId,
-  });
-
   const matrixUrl = sessionId
     ? `/api/tf-metrics/matrix?sessionId=${sessionId}`
     : null;
 
-  const { data: matrixData, isLoading } = useQuery<{ success: boolean; rows?: Row[] }>({
+  const { data: matrixData, isLoading } = useQuery<{ success: boolean; rows?: TFRow[] }>({
     queryKey: ['/api/tf-metrics/matrix', sessionId],
     queryFn: async () => {
       const res = await fetch(matrixUrl!);
@@ -516,11 +487,9 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string }) {
     staleTime: 60_000,
   });
 
-  const liveRows: Row[] = matrixData?.success && matrixData.rows?.length ? matrixData.rows : ROWS;
-  const rows = page === 1 ? liveRows : [...liveRows].filter(r => r.wr >= 78).sort((a, b) => b.wr - a.wr);
-  const isLive = !!(matrixData?.success && matrixData.rows?.length);
   const allRows: TFRow[] = matrixData?.rows ?? [];
   const rows = page===2 ? [...allRows].filter(r=>r.wr>=78).sort((a,b)=>b.wr-a.wr) : allRows;
+  const isLive = !!(matrixData?.success && matrixData.rows?.length);
   const avgWR = allRows.length ? Math.round(allRows.reduce((s,r)=>s+r.wr,0)/allRows.length) : 0;
   const bestWR = allRows.length ? Math.max(...allRows.map(r=>r.wr)) : 0;
 
@@ -542,22 +511,6 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string }) {
         @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
       `}</style>
 
-      {/* ── NAV ── */}
-      <div style={{ position:'sticky', top:0, zIndex:50, background:'rgba(2,6,14,0.97)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(148,200,255,0.07)' }}>
-        <div style={{ display:'flex', alignItems:'center', padding: isMobile ? '0 16px' : '0 24px', height: isMobile ? 46 : 52, gap:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, paddingRight:20, borderRight:'1px solid rgba(148,200,255,0.07)', flexShrink:0 }}>
-            <span style={{ fontFamily:"'Montserrat', sans-serif", fontSize: isMobile?11:12, fontWeight:900, color:'#cbd5e1', letterSpacing:'0.18em', textTransform:'uppercase' }}>TF</span>
-            <span style={{ fontFamily:"'Montserrat', sans-serif", fontSize: isMobile?11:12, fontWeight:700, color:'rgba(148,200,255,0.35)', letterSpacing:'0.18em', textTransform:'uppercase' }}>Analytics</span>
-            {isLive && !isMobile && (
-              <span style={{ fontFamily:"'DM Mono','Fira Code',monospace", fontSize:8, fontWeight:500, letterSpacing:'0.14em', textTransform:'uppercase', color:'#34d399', background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.25)', padding:'2px 7px', borderRadius:2 }}>LIVE</span>
-            )}
-          </div>
-          <div style={{ display:'flex', alignItems:'stretch', height:'100%', marginRight:'auto' }}>
-            {[
-              { n:1, label: isMobile ? 'Matrix' : 'Full Matrix',     sub: isLoading ? 'loading…' : `${liveRows.length} scenarios` },
-              { n:2, label: isMobile ? 'Best'   : 'Best Performers',  sub:'WR ≥ 78%' },
-            ].map(p => {
-              const active = page === p.n;
       {/* HEADER */}
       <header style={{ background:'rgba(6,8,15,0.97)',backdropFilter:'blur(24px)',borderBottom:`1px solid rgba(100,160,255,0.13)` }}>
         <div style={{ height:2, background:`linear-gradient(90deg,${C.htf}cc 0%,${C.atf}cc 40%,${C.etf}cc 72%,transparent 100%)` }}/>
