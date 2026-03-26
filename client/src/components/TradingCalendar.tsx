@@ -318,7 +318,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   function changeMonth(dir: number) { navigate(date.year, date.month + dir); }
 
   const cellHeight   = isMobile ? 58 : isTablet ? 80 : 110;
-  const pad          = isMobile ? "14px 10px" : isTablet ? "22px 18px" : "36px 32px";
+  const pad          = isMobile ? "14px 6px" : isTablet ? "22px 0" : "36px 0";
   const dayLabels    = isMobile ? DAYS_SHORT : DAYS_FULL;
   const compact      = isMobile || isTablet;
   const monthOptions = MONTH_NAMES.map((n, i) => ({ value: i + 1, label: n.toUpperCase() }));
