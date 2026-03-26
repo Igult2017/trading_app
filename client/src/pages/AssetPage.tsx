@@ -300,10 +300,10 @@ export default function AssetPage() {
         .chart-btn:hover { border-color: #3b82f6; color: #c8d8e8; }
         .chart-btn-alert { background: #0c1219; border: 1px solid #172233; color: #c8d8e8; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
         .chart-btn-alert:hover { border-color: #f59e0b; color: #f59e0b; }
-        .set-alert-btn { background: transparent; border: 1px solid #c8a84b; color: #c8a84b; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 12px 24px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
-        .set-alert-btn:hover { background: rgba(200,168,75,0.1); }
-        .set-alert-btn.active { background: rgba(200,168,75,0.15); border-color: #f0c040; color: #f0c040; }
-        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 12px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
+        .set-alert-btn { background: #100d04; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
+        .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
+        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: rgba(255,255,255,0.02); }
         .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
@@ -505,39 +505,59 @@ export default function AssetPage() {
           </div>
 
           {/* ── Probability Panel ── */}
-          <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, padding: "20px 24px", display: "flex", alignItems: "center", gap: 24 }}>
+          <div style={{
+            background: "#07090f",
+            border: "1px solid #131d2b",
+            borderRadius: 4,
+            padding: "22px 28px",
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+          }}>
             {/* Score Box */}
             <div style={{
-              width: 72, height: 72, flexShrink: 0,
-              border: "2px solid #3b82f6", borderRadius: 6,
-              background: "#0c1a2e",
+              width: 68, height: 68, flexShrink: 0,
+              border: "1.5px solid #1e2d45",
+              borderRadius: 4,
+              background: "#0b1120",
               display: "flex", alignItems: "center", justifyContent: "center",
-              position: "relative", overflow: "hidden"
+              position: "relative", overflow: "hidden",
             }}>
-              <svg style={{ position: "absolute", top: 0, left: 0 }} width="72" height="72">
-                <line x1="10" y1="62" x2="62" y2="10" stroke="#3b82f6" strokeWidth="2.5" opacity="0.5" />
+              {/* Thick diagonal slash */}
+              <svg style={{ position: "absolute", top: 0, left: 0 }} width="68" height="68">
+                <line x1="14" y1="58" x2="54" y2="10" stroke="#5b4fcf" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
               </svg>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#ffffff", position: "relative" }}>{data.probability}%</span>
+              <span style={{
+                fontSize: 16, fontWeight: 800, color: "#ffffff",
+                position: "relative", letterSpacing: "0.02em",
+              }}>{data.probability}%</span>
             </div>
 
             {/* Text */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#ffffff", letterSpacing: "0.04em", marginBottom: 4 }}>
+              <div style={{
+                fontSize: 20, fontWeight: 800, color: "#ffffff",
+                letterSpacing: "0.05em", marginBottom: 5,
+              }}>
                 PROBABILITY: {data.probability}%
               </div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#4a6580", letterSpacing: "0.08em" }}>
+              <div style={{
+                fontSize: 10, fontWeight: 600,
+                color: "#3d9fd3",
+                letterSpacing: "0.1em",
+              }}>
                 OPTIMAL RISK: {data.optimalRisk}
               </div>
             </div>
 
             {/* Buttons */}
-            <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
               <button className={`set-alert-btn${alertSet ? " active" : ""}`} onClick={() => setAlertSet(!alertSet)}>
-                <Bell size={14} />
+                <Bell size={13} />
                 {alertSet ? "ALERT SET" : "SET ALERT"}
               </button>
               <button className="share-btn">
-                <Share2 size={14} />
+                <Share2 size={13} />
                 SHARE
               </button>
             </div>
