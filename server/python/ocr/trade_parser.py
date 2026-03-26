@@ -109,30 +109,135 @@ def _clean_ocr(text: str) -> str:
 def _is_index(instrument: Optional[str]) -> bool:
     sym = (instrument or "").upper()
     return any(x in sym for x in
-               ['IDX','US30','NAS','SPX','DAX','FTSE','CAC','DOW','USA500'])
+               ['IDX','US30','NAS','SPX','DAX','FTSE','CAC','DOW','USA500',
+                'USTEC','US500','US2000','GER','UK100','JP225','AUS200','HK50',
+                'STOXX','EUSTX','VIX','UKOIL','USOIL'])
+
+
+# ── Instrument name OCR pre-cleaning ──────────────────────────────────────────
+
+def _clean_instrument_ocr(text: str) -> str:
+    """Fix OCR errors specific to instrument name tokens."""
+    # USA500 variants: O/0 confusion, S→5
+    text = re.sub(r'\bUSA\s*5[O0]{2}', 'USA500', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bUSAS\s*[O0]{2}', 'USA500', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bUSA\s*S[O0]{2}', 'USA500', text, flags=re.IGNORECASE)
+    # Restore period before IDX when dropped or swapped for comma/space
+    text = re.sub(r'(USA500|US30|NAS100|SPX500|GER40|UK100|JP225|AUS200|HK50)'
+                  r'[\s,_]+(IDX)', r'\1.\2', text, flags=re.IGNORECASE)
+    # NAS100 variants
+    text = re.sub(r'\bNAS\s*1[O0]{2}', 'NAS100', text, flags=re.IGNORECASE)
+    # US30 variants: 3O → 30
+    text = re.sub(r'\bUS\s*3[O0]\b', 'US30', text, flags=re.IGNORECASE)
+    # DAX40 variants
+    text = re.sub(r'\bDAX\s*4[O0]\b', 'DAX40', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bGER\s*4[O0]\b', 'GER40', text, flags=re.IGNORECASE)
+    # Remove stray spaces inside symbols
+    text = re.sub(r'\b([A-Z]{2,6})\s+([0-9]{2,4})', r'\1\2', text)
+    return text
+
+
+def _normalize_instrument(raw: str) -> str:
+    """Map common aliases to a canonical instrument name."""
+    aliases = {
+        'NASDAQ': 'NAS100', 'NDX': 'NAS100', 'USTEC': 'NAS100',
+        'SP500': 'SPX500',  'SPX': 'SPX500',  'US500': 'SPX500',
+        'DOW30': 'US30',    'DJI': 'US30',    'DOW': 'US30',
+        'GER30': 'DAX40',   'DAX': 'DAX40',
+        'FTSE100': 'UK100', 'FTSE': 'UK100',
+        'NIKKEI': 'JP225',  'NKY': 'JP225',
+        'ASX200': 'AUS200',
+        'HSI': 'HK50',
+        'FRA40': 'CAC40',   'CAC': 'CAC40',
+        'STOXX50': 'EUSTX50',
+        'WTI': 'XTIUSD',    'USOIL': 'XTIUSD',
+        'BRENT': 'XBRUSD',  'UKOIL': 'XBRUSD',
+        'NATGAS': 'XNGUSD', 'NGAS': 'XNGUSD', 'NATURALGAS': 'XNGUSD',
+    }
+    return aliases.get(raw, raw)
 
 
 # ── Instrument parsing ────────────────────────────────────────────────────────
 
 def _parse_instrument(lines: List[str], tokens: List[dict]) -> Optional[str]:
-    top_tokens = [t["text"] for t in tokens if t.get("y", 9999) < 80]
-    all_text   = lines + top_tokens
+    # Priority: title-bar tokens (top of screen), then all lines, then all tokens
+    top_tokens = [t["text"] for t in tokens if t.get("y", 9999) < 120]
+    all_tokens = [t["text"] for t in tokens]
+    # Deduplicate while preserving priority order
+    seen: set = set()
+    candidates: List[str] = []
+    for t in lines + top_tokens + all_tokens:
+        if t not in seen:
+            seen.add(t)
+            candidates.append(t)
 
-    for line in all_text:
-        # Standard forex pair — USD added to first group to catch USD/CHF, USD/JPY etc.
+    for line in candidates:
+        cl = _clean_instrument_ocr(line)
+
+        # 1. USA500.IDX and similar index.IDX format (most specific first)
         m = re.search(
-            r'\b((?:EUR|GBP|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|USD)'
-            r'[/\\]?(?:EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB))\b',
-            line, re.IGNORECASE)
-        if not m:
-            m = re.search(
-                r'\b(USA500[.,_]?IDX|USAS[O0]{2}[.,_]?IDX|US30|NAS100'
-                r'|DAX40|SPX500|XAUUSD|XAGUSD|BTCUSDT?|ETHUSD)\b',
-                line, re.IGNORECASE)
+            r'\b(USA\s*5[O0]{2}[\s.,_]?IDX'
+            r'|[A-Z]{2,8}[\s.,_]IDX)\b',
+            cl, re.IGNORECASE)
+        if m:
+            raw = re.sub(r'\s+', '', m.group(1)).upper()
+            raw = re.sub(r'[,_]IDX', '.IDX', raw)
+            raw = _normalize_instrument(raw)
+            return raw
+
+        # 2. Standard forex pair (EUR/USD, GBPUSD, USD/JPY, etc.)
+        m = re.search(
+            r'\b((?:EUR|GBP|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|USD|XRP|SOL|ADA)'
+            r'[/\\]?(?:EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY|XAU|XAG|BTC|ETH|BNB|USDT?))\b',
+            cl, re.IGNORECASE)
+        if m:
+            raw = m.group(1).upper().replace('\\', '/')
+            return raw
+
+        # 3. US / global equity indices
+        m = re.search(
+            r'\b(USA500|US30|US500|US2000|USTEC'
+            r'|NAS100|NASDAQ|NDX'
+            r'|SPX500?|SP500'
+            r'|DOW30?|DJI'
+            r'|DAX40?|GER40?|GER30'
+            r'|FTSE100?|UK100'
+            r'|JP225|NKY|NIKKEI'
+            r'|AUS200|ASX200'
+            r'|HK50|HSI'
+            r'|CAC40?|FRA40'
+            r'|EUSTX50|STOXX50'
+            r'|VIX|VSTOXX'
+            r')\b',
+            cl, re.IGNORECASE)
+        if m:
+            raw = _normalize_instrument(m.group(1).upper())
+            return raw
+
+        # 4. Metals, energy commodities
+        m = re.search(
+            r'\b(XAUUSD|XAGUSD|XPTUSD|XPDUSD'
+            r'|XBRUSD|XTIUSD|XNGUSD'
+            r'|USOIL|UKOIL|WTI|BRENT|OIL'
+            r'|GOLD|SILVER|COPPER'
+            r'|NATGAS|NGAS|NATURALGAS)\b',
+            cl, re.IGNORECASE)
+        if m:
+            raw = _normalize_instrument(m.group(1).upper())
+            return raw
+
+        # 5. Crypto pairs (BTC/USDT, ETHUSD, etc.)
+        m = re.search(
+            r'\b(BTC/?USD[T]?|ETH/?USD[T]?|BNB/?USD[T]?'
+            r'|XRP/?USD[T]?|SOL/?USD[T]?|ADA/?USD[T]?'
+            r'|DOT/?USD[T]?|LTC/?USD[T]?|DOGE/?USD[T]?'
+            r'|MATIC/?USD[T]?|LINK/?USD[T]?|AVAX/?USD[T]?'
+            r'|ATOM/?USD[T]?|UNI/?USD[T]?)\b',
+            cl, re.IGNORECASE)
         if m:
             raw = m.group(1).upper()
-            raw = re.sub(r'USAS[O0]{2}', 'USA500', raw)
             return raw
+
     return None
 
 
@@ -305,27 +410,75 @@ def _session_phase(h_utc: int, ref_date=None):
 
 
 def _parse_xaxis_timestamps(lines: List[str]) -> list:
-    """Extract x-axis chart timestamps (Mon DD Mon'YY HH:MM format), sorted."""
+    """
+    Extract x-axis chart timestamps, sorted.
+
+    Handles two label formats:
+      1. Full:    "Mon 02 Mar'26 03:00"  → full datetime
+      2. Partial: "10:00" or "12:00"     → time-only, anchored to nearest
+                                           preceding full date label
+
+    Partial time-only labels are paired with the last seen date so that
+    a chart showing "Mon 02 Mar'26 03:00 … 10:00 … 12:00" produces three
+    correct datetimes on the same day rather than losing the time-only ones.
+    """
     joined = " ".join(lines)
     joined = re.sub(r'\bGec\b', 'Dec', joined, flags=re.IGNORECASE)
     joined = re.sub(r'\bj?Jan\b', 'Jan', joined, flags=re.IGNORECASE)
     joined = re.sub(r'\bOF\b', '05', joined)
-    pattern = re.compile(
+
+    full_pat = re.compile(
         r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2})\s*"
         r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'?(\d{2})"
         r"(?:\s+(\d{2})[:.h](\d{2}))?",
         re.IGNORECASE)
+    time_pat = re.compile(r'\b(\d{2})[:.h](\d{2})\b')
+
     results = []
-    for m in pattern.finditer(joined):
-        try:
-            mon  = _MONTHS[m.group(3).lower()[:3]]
-            year = 2000 + int(m.group(4))
-            day  = int(m.group(2))
-            hh   = int(m.group(5)) if m.group(5) else 0
-            mm   = int(m.group(6)) if m.group(6) else 0
-            results.append(datetime(year, mon, day, hh, mm))
-        except Exception:
-            pass
+    last_date = None   # (year, month, day) from most recent full label
+
+    pos = 0
+    text = joined
+    while pos < len(text):
+        fm = full_pat.search(text, pos)
+        tm = time_pat.search(text, pos)
+
+        if fm is None and tm is None:
+            break
+        use_full = (fm is not None and (tm is None or fm.start() <= tm.start()))
+
+        if use_full:
+            m = fm
+            try:
+                mon  = _MONTHS[m.group(3).lower()[:3]]
+                year = 2000 + int(m.group(4))
+                day  = int(m.group(2))
+                hh   = int(m.group(5)) if m.group(5) else 0
+                mm   = int(m.group(6)) if m.group(6) else 0
+                last_date = (year, mon, day)
+                results.append(datetime(year, mon, day, hh, mm))
+            except Exception:
+                pass
+            pos = m.end()
+        else:
+            m = tm
+            if last_date:
+                try:
+                    hh = int(m.group(1))
+                    mm = int(m.group(2))
+                    if 0 <= hh <= 23 and 0 <= mm <= 59:
+                        year, mon, day = last_date
+                        t = datetime(year, mon, day, hh, mm)
+                        # If this time is earlier than or equal to the previous
+                        # timestamp on the same date, it has wrapped to next day
+                        if results and t.date() == results[-1].date() and t <= results[-1]:
+                            t += timedelta(days=1)
+                            last_date = (t.year, t.month, t.day)
+                        results.append(t)
+                except Exception:
+                    pass
+            pos = m.end()
+
     return sorted(set(results))
 
 
@@ -359,7 +512,7 @@ def _parse_datetimes(lines: List[str],
     cleaned = _clean_ocr(joined)
     entry_dt = exit_dt = dow = None
 
-    # ── Exit: ISO date from replay bar ────────────────────────────────
+    # ── Exit: ISO date from replay bar ("Last processed tick: YYYY-MM-DD HH:MM:SS")
     m = re.search(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}[:.]\d{2})',
                    joined, re.IGNORECASE)
     if m:
@@ -371,6 +524,23 @@ def _parse_datetimes(lines: List[str],
                 exit_dt = dt.isoformat(sep=' ', timespec='minutes')
             except Exception:
                 exit_dt = m.group(1)
+
+    # ── Exit: TradingView closing annotation "on DD Mon'YY HH:MM" ─────
+    if not exit_dt:
+        mc = re.search(
+            r'\bon\s+(\d{1,2})\s+'
+            r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\'?(\d{2})'
+            r'\s+(\d{2}):(\d{2})',
+            cleaned, re.IGNORECASE)
+        if mc:
+            try:
+                dt = datetime(2000 + int(mc.group(3)),
+                              _MONTHS[mc.group(2).lower()[:3]],
+                              int(mc.group(1)),
+                              int(mc.group(4)), int(mc.group(5)))
+                exit_dt = dt.isoformat(sep=' ', timespec='minutes')
+            except Exception:
+                pass
 
     # ── Entry: cTrader/JForex format "Mon 14 Jan'25 08:00" ────────────
     ms = list(re.finditer(
