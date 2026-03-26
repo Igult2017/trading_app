@@ -170,11 +170,31 @@ export default function AssetPage() {
   );
   const indicatorBtnRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Timeframe state
+  const [showTF, setShowTF] = useState(false);
+  const [activeTF, setActiveTF] = useState("5m");
+  const tfBtnRef = useRef<HTMLDivElement>(null);
+
+  const TIMEFRAMES: { label: string; interval: string; period: string }[] = [
+    { label: "1m",  interval: "1m",  period: "1d"  },
+    { label: "5m",  interval: "5m",  period: "5d"  },
+    { label: "15m", interval: "15m", period: "5d"  },
+    { label: "30m", interval: "30m", period: "1mo" },
+    { label: "1H",  interval: "60m", period: "1mo" },
+    { label: "4H",  interval: "4h",  period: "3mo" },
+    { label: "1D",  interval: "1d",  period: "1y"  },
+    { label: "1W",  interval: "1wk", period: "2y"  },
+  ];
+  const currentTF = TIMEFRAMES.find(t => t.label === activeTF) ?? TIMEFRAMES[1];
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (indicatorBtnRef.current && !indicatorBtnRef.current.contains(e.target as Node)) {
         setShowIndicators(false);
+      }
+      if (tfBtnRef.current && !tfBtnRef.current.contains(e.target as Node)) {
+        setShowTF(false);
       }
     }
     document.addEventListener("mousedown", handler);
@@ -477,7 +497,47 @@ export default function AssetPage() {
                   <Bell size={11} />
                   ALERT
                 </button>
-                <button className="chart-btn">TF</button>
+                <div ref={tfBtnRef} style={{ position: "relative" }}>
+                  <button
+                    className="chart-btn"
+                    style={{ borderColor: showTF ? "#22d3a5" : undefined, color: showTF ? "#22d3a5" : undefined }}
+                    onClick={() => setShowTF(v => !v)}
+                  >
+                    {activeTF}
+                  </button>
+                  {showTF && (
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 6px)", left: "50%",
+                      transform: "translateX(-50%)", zIndex: 100,
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      padding: "6px", display: "grid", gridTemplateColumns: "1fr 1fr",
+                      gap: 4, minWidth: 120,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                    }}>
+                      {TIMEFRAMES.map(tf => {
+                        const isActive = tf.label === activeTF;
+                        return (
+                          <button
+                            key={tf.label}
+                            onClick={() => { setActiveTF(tf.label); setShowTF(false); }}
+                            style={{
+                              background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
+                              border: `1px solid ${isActive ? "#22d3a5" : "#172233"}`,
+                              borderRadius: 4, color: isActive ? "#22d3a5" : "#4a6580",
+                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              padding: "6px 0", cursor: "pointer",
+                              transition: "all 0.1s",
+                            }}
+                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = "#2d4a63"; }}
+                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = "#172233"; }}
+                          >
+                            {tf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 {/* Indicators toggle */}
                 <div ref={indicatorBtnRef} style={{ position: "relative" }}>
@@ -561,7 +621,7 @@ export default function AssetPage() {
             </div>
 
             {/* Chart */}
-            <TradingChart symbol={selected} interval="5m" period="5d" height={360} activeIndicators={activeIndicators} />
+            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
           </div>
         </div>
       </div>
