@@ -15,6 +15,7 @@ import TraderAI from '@/components/TraderAI';
 import Leaderboard from '@/components/Leaderboard';
 import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
+import NoSessionPrompt from '@/components/NoSessionPrompt';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -789,7 +790,7 @@ export default function Journal() {
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 32px' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
-            <MetricsPanel sessionId={activeSessionId} />
+            activeSessionId ? <MetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'journal' ? (
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} />
@@ -802,17 +803,17 @@ export default function Journal() {
           ) : activeNav === 'strategy' ? (
             <StrategyAudit />
           ) : activeNav === 'vault' ? (
-            <TradeVault sessionId={activeSessionId} />
+            activeSessionId ? <TradeVault sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'calendar' ? (
-            <TradingCalendar sessionId={activeSessionId} />
+            activeSessionId ? <TradingCalendar sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'sessions' ? (
             <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} />
           ) : activeNav === 'create' ? (
             <CreateSessionForm onCreated={handleSessionCreated} />
           ) : activeNav === 'tfmetrics' ? (
-            <TFMetricsPanel sessionId={activeSessionId} />
+            activeSessionId ? <TFMetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'drawdown' ? (
-            <DrawdownPanel sessionId={activeSessionId} />
+            activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI />
           ) : activeNav === 'leaderboard' ? (
@@ -827,27 +828,7 @@ export default function Journal() {
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 400 }}>
-                <div style={{ textAlign: 'center', maxWidth: 400 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                    <SI.Sessions />
-                  </div>
-                  <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 8 }} data-testid="text-no-session-prompt">Create or Select a Session</h2>
-                  <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', marginBottom: 24, lineHeight: 1.6 }}>
-                    You need an active trading session to view your dashboard, enter trades, and track performance.
-                  </p>
-                  <button onClick={() => setActiveNav('create')} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#6366f1'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
-                    data-testid="button-create-first-session">
-                    Create Session
-                  </button>
-                  <button onClick={() => setActiveNav('sessions')} style={{ background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', marginLeft: 12, transition: 'all 0.15s' }}
-                    data-testid="button-view-sessions">
-                    View Sessions
-                  </button>
-                </div>
-              </div>
+              <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
             )
           )}
         </main>
