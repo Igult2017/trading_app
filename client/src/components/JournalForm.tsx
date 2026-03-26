@@ -1310,18 +1310,49 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
         {/* Save modal */}
         {saved&&(
-          <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",background:"rgba(5,7,10,0.92)",backdropFilter:"blur(8px)"}}>
-            <div style={{background:"#0a0d14",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"2rem",padding:"40px",maxWidth:"360px",width:"100%",textAlign:"center",boxShadow:"0 25px 50px rgba(0,0,0,0.5)"}}>
-              <div style={{width:"80px",height:"80px",borderRadius:"1.5rem",background:"rgba(30,41,59,0.5)",border:"1px solid rgba(51,65,85,0.5)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 24px"}}>
-                <Icon name="CheckCircle2" size={36} style={{color:"#34d399",opacity:0.8}}/>
+          <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",background:"rgba(2,4,8,0.88)",backdropFilter:"blur(12px)"}}>
+            <div style={{
+              background:"linear-gradient(160deg,#0d1117 0%,#0a0f1a 100%)",
+              border:"1px solid rgba(52,211,153,0.18)",
+              borderRadius:"24px",
+              padding:"48px 40px 40px",
+              maxWidth:"360px",
+              width:"100%",
+              textAlign:"center",
+              boxShadow:"0 0 0 1px rgba(52,211,153,0.06), 0 32px 64px rgba(0,0,0,0.6), 0 0 80px rgba(52,211,153,0.04)",
+              position:"relative",
+              overflow:"hidden"
+            }}>
+              <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:"180px",height:"1px",background:"linear-gradient(90deg,transparent,rgba(52,211,153,0.5),transparent)"}}/>
+              <div style={{
+                width:"88px",height:"88px",borderRadius:"50%",
+                background:"radial-gradient(circle at 40% 35%,rgba(52,211,153,0.15),rgba(16,185,129,0.04))",
+                border:"1px solid rgba(52,211,153,0.25)",
+                boxShadow:"0 0 32px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.15)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                margin:"0 auto 28px"
+              }}>
+                <Icon name="Check" size={38} style={{color:"#34d399",strokeWidth:2.5}}/>
               </div>
-              <h3 style={{fontSize:"13px",fontWeight:900,letterSpacing:"0.4em",color:"#cbd5e1",textTransform:"uppercase",marginBottom:"12px"}}>Trade Logged</h3>
-              <p style={{fontSize:"13px",color:"#64748b",fontFamily:"monospace",lineHeight:1.6,marginBottom:"32px"}}>
-                OCR-extracted data and manual annotations recorded.
+              <h3 style={{fontSize:"22px",fontWeight:700,color:"#f1f5f9",letterSpacing:"-0.02em",marginBottom:"10px",lineHeight:1.2}}>Trade Logged</h3>
+              <p style={{fontSize:"13px",color:"#475569",lineHeight:1.7,marginBottom:"36px"}}>
+                Your trade has been saved successfully.
               </p>
-              <button onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());}}
-                style={{width:"100%",padding:"12px 32px",borderRadius:"12px",fontSize:"11px",fontWeight:900,letterSpacing:"0.15em",color:"#fff",border:"none",cursor:"pointer",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)"}}>
-                CONTINUE TRADING
+              <div style={{height:"1px",background:"linear-gradient(90deg,transparent,rgba(51,65,85,0.4),transparent)",marginBottom:"28px"}}/>
+              <button
+                onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());}}
+                style={{
+                  width:"100%",padding:"14px 32px",borderRadius:"12px",
+                  fontSize:"12px",fontWeight:700,letterSpacing:"0.08em",
+                  color:"#fff",border:"none",cursor:"pointer",
+                  background:"linear-gradient(135deg,#10b981,#059669)",
+                  boxShadow:"0 4px 24px rgba(16,185,129,0.25), 0 1px 0 rgba(255,255,255,0.08) inset",
+                  transition:"opacity 0.15s"
+                }}
+                onMouseEnter={e=>(e.currentTarget.style.opacity="0.88")}
+                onMouseLeave={e=>(e.currentTarget.style.opacity="1")}
+              >
+                Continue Trading
               </button>
             </div>
           </div>
