@@ -2,31 +2,85 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
 import JournalHeader from "@/components/JournalHeader";
 import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
-import { useWatchlistPrices, formatPrice } from "@/hooks/usePrices";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
   symbol: string;
-  timeframe: string;
-  price: string;
-  probability: number;
-  direction: "up" | "down";
-  age: string;
-  signal: string;
+  assetClass: "crypto" | "forex" | "stock" | "commodity";
+  category: "Crypto" | "Forex" | "Stock" | "Index" | "Commodity";
 }
 
 interface ContextItem { label: string; value: string; color: string; loading?: boolean }
 interface TechItem    { label: string; value: string; color: string }
-interface PriceActionItem { icon: "layers" | "layers2" | "zoom"; text: JSX.Element }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const INSTRUMENTS: Instrument[] = [
-  { symbol: "BTC/USDT", timeframe: "2M",  price: "$63997.28", probability: 94, direction: "up",   age: "1 MINUTE AGO",   signal: "CONFIRMED/CHOCH" },
-  { symbol: "ETH/USDT", timeframe: "15M", price: "$3452.57",  probability: 82, direction: "down", age: "5 MINUTES AGO",  signal: "CONFIRMED/LIQUIDITY GRAB" },
-  { symbol: "SOL/USDT", timeframe: "1H",  price: "$144.81",   probability: 45, direction: "up",   age: "15 MINUTES AGO", signal: "CONFIRMED/BOS" },
-  { symbol: "XRP/USDT", timeframe: "3H",  price: "$0.62",     probability: 92, direction: "down", age: "20 MINUTES AGO", signal: "CONFIRMED/LIQUIDITY GRAB" },
+// ─── Full instrument list ──────────────────────────────────────────────────────
+const ALL_INSTRUMENTS: Instrument[] = [
+  // ── Crypto ─────────────────────────────────────────────────────────────────
+  { symbol: "BTC/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "ETH/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "SOL/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "XRP/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "BNB/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "ADA/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "DOGE/USDT",  assetClass: "crypto", category: "Crypto" },
+  { symbol: "AVAX/USDT",  assetClass: "crypto", category: "Crypto" },
+  { symbol: "MATIC/USDT", assetClass: "crypto", category: "Crypto" },
+  { symbol: "LTC/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "LINK/USDT",  assetClass: "crypto", category: "Crypto" },
+  { symbol: "DOT/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "UNI/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "ATOM/USDT",  assetClass: "crypto", category: "Crypto" },
+  // ── Major Forex ────────────────────────────────────────────────────────────
+  { symbol: "EUR/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "USD/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "USD/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "USD/CAD", assetClass: "forex", category: "Forex" },
+  // ── Cross Forex ────────────────────────────────────────────────────────────
+  { symbol: "EUR/GBP", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/AUD", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/CAD", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/AUD", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/CAD", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/CAD", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "NZD/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
+  // ── Commodities ────────────────────────────────────────────────────────────
+  { symbol: "XAU/USD", assetClass: "commodity", category: "Commodity" },
+  { symbol: "XAG/USD", assetClass: "commodity", category: "Commodity" },
+  { symbol: "WTI",     assetClass: "commodity", category: "Commodity" },
+  // ── US Indices ─────────────────────────────────────────────────────────────
+  { symbol: "US100",       assetClass: "stock", category: "Index" },
+  { symbol: "US500",       assetClass: "stock", category: "Index" },
+  { symbol: "US30",        assetClass: "stock", category: "Index" },
+  { symbol: "RUSSELL2000", assetClass: "stock", category: "Index" },
+  { symbol: "VIX",         assetClass: "stock", category: "Index" },
+  // ── US Stocks ──────────────────────────────────────────────────────────────
+  { symbol: "AAPL",  assetClass: "stock", category: "Stock" },
+  { symbol: "MSFT",  assetClass: "stock", category: "Stock" },
+  { symbol: "GOOGL", assetClass: "stock", category: "Stock" },
+  { symbol: "AMZN",  assetClass: "stock", category: "Stock" },
+  { symbol: "TSLA",  assetClass: "stock", category: "Stock" },
+  { symbol: "NVDA",  assetClass: "stock", category: "Stock" },
+  { symbol: "META",  assetClass: "stock", category: "Stock" },
+  { symbol: "NFLX",  assetClass: "stock", category: "Stock" },
+  { symbol: "JPM",   assetClass: "stock", category: "Stock" },
+  { symbol: "BAC",   assetClass: "stock", category: "Stock" },
+  { symbol: "GS",    assetClass: "stock", category: "Stock" },
+  { symbol: "AMD",   assetClass: "stock", category: "Stock" },
+  { symbol: "INTC",  assetClass: "stock", category: "Stock" },
+  { symbol: "DIS",   assetClass: "stock", category: "Stock" },
+  { symbol: "BABA",  assetClass: "stock", category: "Stock" },
 ];
 
 const ASSET_DATA: Record<string, {
@@ -211,31 +265,16 @@ export default function AssetPage() {
     });
   }
 
-  // Fast ticking prices — sidebar (every 5s) + selected entry price (every 5s)
-  const sidebarSymbols = INSTRUMENTS.map(i => i.symbol);
+  // Fast ticking prices — sidebar + selected entry price (30s matches API cache TTL)
+  const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 30000);
   const entryTick      = useFastPrice(selected, 30000);
 
-  // Slower watchlist for fallback / change %
-  const watchlist = INSTRUMENTS.map(i => ({ symbol: i.symbol, assetClass: "crypto" as const }));
-  const { data: livePrices } = useWatchlistPrices(watchlist);
-
-  const filtered = INSTRUMENTS.filter(i =>
+  const filtered = ALL_INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
   );
 
   const data = ASSET_DATA[selected] || ASSET_DATA["ETH/USDT"];
-  const inst = INSTRUMENTS.find(i => i.symbol === selected)!;
-
-  // Build a map of symbol → live price string
-  const livePriceMap: Record<string, string> = {};
-  if (livePrices) {
-    livePrices.forEach((p, idx) => {
-      if (p?.price != null) {
-        livePriceMap[INSTRUMENTS[idx].symbol] = "$" + formatPrice(p.price, p.price >= 1000 ? 2 : p.price >= 1 ? 4 : 6);
-      }
-    });
-  }
 
   function boldify(text: string, bold?: string) {
     if (!bold) return <span>{text}</span>;
@@ -254,9 +293,8 @@ export default function AssetPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        .asset-scroll::-webkit-scrollbar { width: 4px; }
-        .asset-scroll::-webkit-scrollbar-track { background: transparent; }
-        .asset-scroll::-webkit-scrollbar-thumb { background: #172233; border-radius: 2px; }
+        .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
+        .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .inst-card:hover { background: #0c1219 !important; cursor: pointer; }
         .chart-btn { background: #0c1219; border: 1px solid #172233; color: #4a6580; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
         .chart-btn:hover { border-color: #3b82f6; color: #c8d8e8; }
@@ -307,45 +345,53 @@ export default function AssetPage() {
                   transition: "all 0.15s",
                 }}
               >
-                {/* Row 1: Symbol + Timeframe */}
+                {/* Row 1: Symbol + Category badge */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#3a5470", letterSpacing: "0.06em" }}>{card.timeframe}</span>
-                </div>
-
-                {/* Row 2: Arrow + Price + Probability */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: 4,
-                      background: card.direction === "up" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)",
-                      display: "flex", alignItems: "center", justifyContent: "center"
-                    }}>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill={card.direction === "up" ? "#22d3a5" : "#f4617f"}>
-                        {card.direction === "up"
-                          ? <polygon points="6,1 11,10 1,10" />
-                          : <polygon points="6,11 11,2 1,2" />}
-                      </svg>
-                    </div>
-                    <TickingPrice
-                      price={tickerPrices[card.symbol]?.price ?? null}
-                      prevPrice={tickerPrices[card.symbol]?.prevPrice ?? null}
-                      direction={tickerPrices[card.symbol]?.direction ?? "flat"}
-                      fontSize={13}
-                    />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: card.probability >= 80 ? "#22d3a5" : card.probability >= 50 ? "#f59e0b" : "#f4617f" }}>
-                    {card.probability}%
+                  <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
+                    background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
+                    {card.category.toUpperCase()}
                   </span>
                 </div>
 
-                {/* Row 3: Age + Signal */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em" }}>{card.age}</span>
-                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.04em" }}>{card.signal}</span>
-                </div>
+                {/* Row 2: Arrow + Price + Change % */}
+                {(() => {
+                  const tp = tickerPrices[card.symbol];
+                  const dir = tp?.direction ?? "flat";
+                  const chg = tp?.changePercent;
+                  return (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 26, height: 26, borderRadius: 4,
+                          background: dir === "up" ? "rgba(34,211,165,0.12)" : dir === "down" ? "rgba(244,97,127,0.12)" : "rgba(255,255,255,0.04)",
+                          display: "flex", alignItems: "center", justifyContent: "center"
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12"
+                            fill={dir === "up" ? "#22d3a5" : dir === "down" ? "#f4617f" : "#2d4a63"}>
+                            {dir === "down"
+                              ? <polygon points="6,11 11,2 1,2" />
+                              : <polygon points="6,1 11,10 1,10" />}
+                          </svg>
+                        </div>
+                        <TickingPrice
+                          price={tp?.price ?? null}
+                          prevPrice={tp?.prevPrice ?? null}
+                          direction={dir}
+                          fontSize={13}
+                        />
+                      </div>
+                      {chg != null && (
+                        <span style={{ fontSize: 10, fontWeight: 700,
+                          color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
+                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

@@ -17,16 +17,44 @@ import {
 
 // ── Asset-class map ───────────────────────────────────────────────────────────
 const ASSET_CLASS_MAP: Record<string, "stock" | "forex" | "commodity" | "crypto"> = {
+  // Crypto
   "BTC/USDT": "crypto",  "BTC/USD": "crypto",
   "ETH/USDT": "crypto",  "ETH/USD": "crypto",
   "SOL/USDT": "crypto",  "SOL/USD": "crypto",
   "XRP/USDT": "crypto",  "XRP/USD": "crypto",
   "BNB/USDT": "crypto",  "ADA/USDT": "crypto",
   "DOGE/USDT": "crypto", "AVAX/USDT": "crypto",
-  "EUR/USD":  "forex",   "GBP/USD": "forex",
-  "USD/JPY":  "forex",   "AUD/USD": "forex",
-  "XAU/USD":  "commodity","XAG/USD": "commodity",
+  "MATIC/USDT": "crypto","LTC/USDT": "crypto",
+  "LINK/USDT": "crypto", "DOT/USDT": "crypto",
+  "UNI/USDT": "crypto",  "ATOM/USDT": "crypto",
+  // Major Forex
+  "EUR/USD": "forex",   "GBP/USD": "forex",
+  "USD/JPY": "forex",   "USD/CHF": "forex",
+  "AUD/USD": "forex",   "NZD/USD": "forex",
+  "USD/CAD": "forex",
+  // Cross Forex
+  "EUR/GBP": "forex",   "EUR/JPY": "forex",
+  "GBP/JPY": "forex",   "EUR/AUD": "forex",
+  "EUR/CAD": "forex",   "GBP/AUD": "forex",
+  "GBP/CAD": "forex",   "AUD/JPY": "forex",
+  "EUR/CHF": "forex",   "GBP/CHF": "forex",
+  "AUD/CAD": "forex",   "AUD/CHF": "forex",
+  "NZD/JPY": "forex",
+  // Commodities
+  "XAU/USD": "commodity","XAG/USD": "commodity",
   "WTI":      "commodity","BRENT":   "commodity",
+  // Indices & Stocks — treated as "stock" for yfinance ticker lookup
+  "US100": "stock",     "US500": "stock",
+  "US30":  "stock",     "RUSSELL2000": "stock",
+  "VIX":   "stock",
+  "AAPL":  "stock",     "MSFT": "stock",
+  "GOOGL": "stock",     "AMZN": "stock",
+  "TSLA":  "stock",     "NVDA": "stock",
+  "META":  "stock",     "NFLX": "stock",
+  "JPM":   "stock",     "BAC":  "stock",
+  "GS":    "stock",     "AMD":  "stock",
+  "INTC":  "stock",     "DIS":  "stock",
+  "BABA":  "stock",
 };
 function getAssetClass(sym: string): "stock" | "forex" | "commodity" | "crypto" {
   return ASSET_CLASS_MAP[sym] ?? "stock";

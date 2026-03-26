@@ -804,7 +804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { symbols } = req.body;
       if (!Array.isArray(symbols) || symbols.length === 0) return res.status(400).json({ error: "Symbols array is required" });
-      if (symbols.length > 50) return res.status(400).json({ error: "Maximum 50 symbols per request" });
+      if (symbols.length > 100) return res.status(400).json({ error: "Maximum 100 symbols per request" });
       res.json(await getCachedMultiplePrices(symbols));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch prices" });
