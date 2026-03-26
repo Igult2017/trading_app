@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 
 const TICKER_DATA = [
@@ -135,17 +136,24 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
           {/* Desktop Nav Links + Icons */}
           <div className="nav-links">
             {[
-              { label: 'Journal',           href: '/journal'             },
-              { label: 'Assets',            href: '/assets'              },
-              { label: 'Economic Calendar', href: '#economic-calendar'   },
-              { label: 'Blog',              href: '#blog'                },
-              { label: 'TSC',               href: '#tsc'                 },
-            ].map(({ label, href }) => (
-              <a key={label} href={href} className="nav-a" style={{ color: t.navLink }}
-                onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-              >{label}</a>
-            ))}
+              { label: 'Journal',           href: '/journal',            clientNav: true  },
+              { label: 'Assets',            href: '/assets',             clientNav: true  },
+              { label: 'Economic Calendar', href: '#economic-calendar',  clientNav: false },
+              { label: 'Blog',              href: '#blog',               clientNav: false },
+              { label: 'TSC',               href: '#tsc',                clientNav: false },
+            ].map(({ label, href, clientNav }) =>
+              clientNav ? (
+                <Link key={label} href={href} className="nav-a" style={{ color: t.navLink }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                  onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+                >{label}</Link>
+              ) : (
+                <a key={label} href={href} className="nav-a" style={{ color: t.navLink }}
+                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+                >{label}</a>
+              )
+            )
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
@@ -193,18 +201,26 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
       {mobileMenuOpen && (
         <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}`, position: 'relative', zIndex: 99 }}>
           {[
-            { label: 'Journal',           href: '/journal'           },
-            { label: 'Assets',            href: '/assets'            },
-            { label: 'Economic Calendar', href: '#economic-calendar' },
-            { label: 'Blog',              href: '#blog'              },
-            { label: 'TSC',               href: '#tsc'               },
-          ].map(({ label, href }) => (
-            <a key={label} href={href} onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-              onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-              onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-            >{label}</a>
-          ))}
+            { label: 'Journal',           href: '/journal',           clientNav: true  },
+            { label: 'Assets',            href: '/assets',            clientNav: true  },
+            { label: 'Economic Calendar', href: '#economic-calendar', clientNav: false },
+            { label: 'Blog',              href: '#blog',              clientNav: false },
+            { label: 'TSC',               href: '#tsc',               clientNav: false },
+          ].map(({ label, href, clientNav }) =>
+            clientNav ? (
+              <Link key={label} href={href} onClick={() => setMobileMenuOpen(false)}
+                style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+                onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = t.text)}
+                onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = t.navLink)}
+              >{label}</Link>
+            ) : (
+              <a key={label} href={href} onClick={() => setMobileMenuOpen(false)}
+                style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.color = t.text)}
+                onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
+              >{label}</a>
+            )
+          )}
         </div>
       )}
     </div>
