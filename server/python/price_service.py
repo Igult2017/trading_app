@@ -270,18 +270,40 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
         try:
             import pandas_ta as ta
 
-            # EMA 9, 21, 50, 200
-            df["ema9"]  = ta.ema(df["close"], length=9)
-            df["ema21"] = ta.ema(df["close"], length=21)
-            df["ema50"] = ta.ema(df["close"], length=50)
-            df["ema200"]= ta.ema(df["close"], length=200)
+            # ── TREND ──────────────────────────────────────────────────────
+            for length in [9, 21, 50, 100, 200]:
+                df[f"ema{length}"]  = ta.ema(df["close"], length=length)
+                df[f"sma{length}"]  = ta.sma(df["close"], length=length)
 
-            # Bollinger Bands (20, 2)
+            df["wma20"]  = ta.wma(df["close"],  length=20)
+            df["hma20"]  = ta.hma(df["close"],  length=20)
+            df["dema20"] = ta.dema(df["close"], length=20)
+            df["tema20"] = ta.tema(df["close"], length=20)
+
+            # Bollinger Bands
             bb = ta.bbands(df["close"], length=20, std=2)
             if bb is not None and not bb.empty:
                 df["bb_upper"] = bb.get("BBU_20_2.0")
                 df["bb_lower"] = bb.get("BBL_20_2.0")
                 df["bb_mid"]   = bb.get("BBM_20_2.0")
+                df["bb_width"] = bb.get("BBB_20_2.0")
+                df["bb_pct"]   = bb.get("BBP_20_2.0")
+
+            # Keltner Channel
+            kc = ta.kc(df["high"], df["low"], df["close"], length=20)
+            if kc is not None and not kc.empty:
+                cols = kc.columns.tolist()
+                df["kc_upper"] = kc[cols[0]] if len(cols) > 0 else None
+                df["kc_mid"]   = kc[cols[1]] if len(cols) > 1 else None
+                df["kc_lower"] = kc[cols[2]] if len(cols) > 2 else None
+
+            # Donchian Channel
+            dc = ta.donchian(df["high"], df["low"], lower_length=20, upper_length=20)
+            if dc is not None and not dc.empty:
+                dcols = dc.columns.tolist()
+                df["dc_lower"] = dc[dcols[0]] if len(dcols) > 0 else None
+                df["dc_mid"]   = dc[dcols[1]] if len(dcols) > 1 else None
+                df["dc_upper"] = dc[dcols[2]] if len(dcols) > 2 else None
 
             # VWAP
             try:
@@ -289,15 +311,157 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
             except Exception:
                 pass
 
-            # RSI (14)
-            df["rsi"] = ta.rsi(df["close"], length=14)
+            # Supertrend
+            try:
+                st = ta.supertrend(df["high"], df["low"], df["close"], length=7, multiplier=3.0)
+                if st is not None and not st.empty:
+                    st_cols = [c for c in st.columns if "SUPERT_" in c and "d" not in c and "l" not in c and "s" not in c]
+                    if st_cols:
+                        df["supertrend"] = st[st_cols[0]]
+            except Exception:
+                pass
+
+            # Parabolic SAR
+            try:
+                psar = ta.psar(df["high"], df["low"], df["close"])
+                if psar is not None and not psar.empty:
+                    psar_cols = [c for c in psar.columns if "PSARl" in c]
+                    if psar_cols:
+                        df["psar"] = psar[psar_cols[0]]
+            except Exception:
+                pass
+
+            # ── MOMENTUM ───────────────────────────────────────────────────
+            df["rsi"]  = ta.rsi(df["close"], length=14)
+            df["cci"]  = ta.cci(df["high"], df["low"], df["close"], length=20)
+            df["roc"]  = ta.roc(df["close"], length=10)
+            df["mom"]  = ta.mom(df["close"], length=10)
+            df["cmo"]  = ta.cmo(df["close"], length=14)
+            df["willr"]= ta.willr(df["high"], df["low"], df["close"], length=14)
+            df["dpo"]  = ta.dpo(df["close"],  length=20)
+
+            try:
+                df["tsi"] = ta.tsi(df["close"])
+            except Exception:
+                pass
+
+            try:
+                df["uo"] = ta.uo(df["high"], df["low"], df["close"])
+            except Exception:
+                pass
+
+            try:
+                df["ao"] = ta.ao(df["high"], df["low"])
+            except Exception:
+                pass
+
+            # MACD
+            macd = ta.macd(df["close"], fast=12, slow=26, signal=9)
+            if macd is not None and not macd.empty:
+                mcols = macd.columns.tolist()
+                df["macd"]        = macd[mcols[0]] if len(mcols) > 0 else None
+                df["macd_hist"]   = macd[mcols[1]] if len(mcols) > 1 else None
+                df["macd_signal"] = macd[mcols[2]] if len(mcols) > 2 else None
+
+            # Stochastic
+            stoch = ta.stoch(df["high"], df["low"], df["close"], k=14, d=3)
+            if stoch is not None and not stoch.empty:
+                scols = stoch.columns.tolist()
+                df["stoch_k"] = stoch[scols[0]] if len(scols) > 0 else None
+                df["stoch_d"] = stoch[scols[1]] if len(scols) > 1 else None
+
+            # Stochastic RSI
+            try:
+                srsi = ta.stochrsi(df["close"], length=14)
+                if srsi is not None and not srsi.empty:
+                    srcols = srsi.columns.tolist()
+                    df["stochrsi_k"] = srsi[srcols[0]] if len(srcols) > 0 else None
+                    df["stochrsi_d"] = srsi[srcols[1]] if len(srcols) > 1 else None
+            except Exception:
+                pass
+
+            # PPO
+            try:
+                ppo = ta.ppo(df["close"], fast=12, slow=26)
+                if ppo is not None and not ppo.empty:
+                    df["ppo"] = ppo[ppo.columns[0]]
+            except Exception:
+                pass
+
+            # ── VOLUME ─────────────────────────────────────────────────────
+            df["obv"] = ta.obv(df["close"], df["volume"])
+            df["cmf"] = ta.cmf(df["high"], df["low"], df["close"], df["volume"], length=20)
+            df["mfi"] = ta.mfi(df["high"], df["low"], df["close"], df["volume"], length=14)
+            df["ad"]  = ta.ad(df["high"], df["low"], df["close"], df["volume"])
+
+            try:
+                df["pvt"] = ta.pvt(df["close"], df["volume"])
+            except Exception:
+                pass
+
+            try:
+                df["vwma20"] = ta.vwma(df["close"], df["volume"], length=20)
+            except Exception:
+                pass
+
+            try:
+                df["efi"] = ta.efi(df["close"], df["volume"], length=13)
+            except Exception:
+                pass
+
+            # ── VOLATILITY / STRENGTH ──────────────────────────────────────
+            df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
+            df["tr"]  = ta.true_range(df["high"], df["low"], df["close"])
+
+            try:
+                df["ui"] = ta.ui(df["close"], length=14)
+            except Exception:
+                pass
+
+            # ADX + DI lines
+            adx = ta.adx(df["high"], df["low"], df["close"], length=14)
+            if adx is not None and not adx.empty:
+                acols = adx.columns.tolist()
+                df["adx"] = adx[acols[0]] if len(acols) > 0 else None
+                df["dip"] = adx[acols[1]] if len(acols) > 1 else None
+                df["dim"] = adx[acols[2]] if len(acols) > 2 else None
+
+            # Aroon
+            try:
+                aroon = ta.aroon(df["high"], df["low"], length=14)
+                if aroon is not None and not aroon.empty:
+                    arcols = aroon.columns.tolist()
+                    df["aroon_dn"]  = aroon[arcols[0]] if len(arcols) > 0 else None
+                    df["aroon_up"]  = aroon[arcols[1]] if len(arcols) > 1 else None
+                    df["aroon_osc"] = aroon[arcols[2]] if len(arcols) > 2 else None
+            except Exception:
+                pass
+
+            # TRIX
+            try:
+                df["trix"] = ta.trix(df["close"], length=18)
+            except Exception:
+                pass
 
         except ImportError:
             pass  # pandas-ta not installed — candles returned without indicators
 
         # ── Build output ─────────────────────────────────────────────────────
-        IND_COLS = ["ema9", "ema21", "ema50", "ema200",
-                    "bb_upper", "bb_lower", "bb_mid", "vwap", "rsi"]
+        IND_COLS = [
+            "ema9","ema21","ema50","ema100","ema200",
+            "sma9","sma20","sma50","sma100","sma200",
+            "wma20","hma20","dema20","tema20",
+            "bb_upper","bb_lower","bb_mid","bb_width","bb_pct",
+            "kc_upper","kc_lower","kc_mid",
+            "dc_upper","dc_lower","dc_mid",
+            "vwap","supertrend","psar",
+            "rsi","cci","roc","mom","cmo","willr","dpo","tsi","uo","ao",
+            "macd","macd_hist","macd_signal",
+            "stoch_k","stoch_d","stochrsi_k","stochrsi_d","ppo",
+            "obv","cmf","mfi","ad","pvt","vwma20","efi",
+            "atr","tr","ui","adx","dip","dim",
+            "aroon_dn","aroon_up","aroon_osc","trix",
+        ]
 
         candles = []
         for ts, row in df.iterrows():

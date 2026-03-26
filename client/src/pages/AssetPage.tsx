@@ -496,51 +496,65 @@ export default function AssetPage() {
                     )}
                   </button>
 
-                  {showIndicators && (
+                  {showIndicators && (() => {
+                    const categories = ["Trend", "Momentum", "Volume", "Volatility"] as const;
+                    return (
                     <div style={{
                       position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
                       background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
-                      padding: "8px 0", minWidth: 190,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                      minWidth: 220, maxHeight: 440, display: "flex", flexDirection: "column",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
                     }}>
-                      <div style={{ padding: "4px 14px 8px", fontSize: 9, fontWeight: 800, color: "#2d4a63", letterSpacing: "0.12em", borderBottom: "1px solid #0f1923", marginBottom: 4 }}>
-                        INDICATORS
+                      {/* Header */}
+                      <div style={{ padding: "8px 14px", fontSize: 9, fontWeight: 800, color: "#2d4a63", letterSpacing: "0.12em", borderBottom: "1px solid #0f1923", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>INDICATORS ({INDICATOR_DEFS.length})</span>
+                        <span style={{ color: "#7c3aed" }}>{activeIndicators.size} ON</span>
                       </div>
-                      {INDICATOR_DEFS.map(ind => {
-                        const on = activeIndicators.has(ind.id);
-                        return (
-                          <div
-                            key={ind.id}
-                            onClick={() => toggleIndicator(ind.id)}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 10,
-                              padding: "7px 14px", cursor: "pointer",
-                              background: on ? "rgba(124,58,237,0.08)" : "transparent",
-                              transition: "background 0.1s",
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
-                          >
-                            {/* Color swatch */}
-                            <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
-                            {/* Label */}
-                            <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? "#c8d8e8" : "#4a6580", letterSpacing: "0.06em" }}>
-                              {ind.label}
+                      {/* Scrollable body */}
+                      <div style={{ overflowY: "auto", flex: 1 }} className="asset-scroll">
+                        {categories.map(cat => {
+                          const catDefs = INDICATOR_DEFS.filter(d => d.category === cat);
+                          return (
+                            <div key={cat}>
+                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: "#1e3045", letterSpacing: "0.14em", background: "#080c10" }}>
+                                {cat.toUpperCase()}
+                              </div>
+                              {catDefs.map(ind => {
+                                const on = activeIndicators.has(ind.id);
+                                return (
+                                  <div
+                                    key={ind.id}
+                                    onClick={() => toggleIndicator(ind.id)}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 10,
+                                      padding: "6px 14px", cursor: "pointer",
+                                      background: on ? "rgba(124,58,237,0.08)" : "transparent",
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
+                                  >
+                                    <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
+                                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? "#c8d8e8" : "#4a6580", letterSpacing: "0.05em" }}>
+                                      {ind.label}
+                                    </span>
+                                    <span style={{
+                                      width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                                      border: `2px solid ${on ? "#7c3aed" : "#1e3045"}`,
+                                      background: on ? "#7c3aed" : "transparent",
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                    }}>
+                                      {on && <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff" }} />}
                             </span>
-                            {/* Toggle dot */}
-                            <span style={{
-                              width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
-                              border: `2px solid ${on ? "#7c3aed" : "#1e3045"}`,
-                              background: on ? "#7c3aed" : "transparent",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}>
-                              {on && <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff" }} />}
-                            </span>
-                          </div>
-                        );
-                      })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
               </div>
