@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Sun, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
+import JournalHeader from "@/components/JournalHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
@@ -242,17 +243,25 @@ function ZoomIcon({ color }: { color: string }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-export default function AssetPage() {
-  const [selected, setSelected]   = useState("ETH/USDT");
-  const [search,   setSearch]     = useState("");
-  const [now,      setNow]        = useState(new Date());
-  const [alertSet, setAlertSet]   = useState(false);
-
+// ─── Live Clock (isolated so only it re-renders every second) ─────────────────
+function LiveClock() {
+  const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+  const formatted =
+    now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() +
+    " | " +
+    now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).toUpperCase();
+  return <span>{formatted}</span>;
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function AssetPage() {
+  const [selected, setSelected]   = useState("ETH/USDT");
+  const [search,   setSearch]     = useState("");
+  const [alertSet, setAlertSet]   = useState(false);
 
   const filtered = INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
@@ -260,10 +269,6 @@ export default function AssetPage() {
 
   const data = ASSET_DATA[selected] || ASSET_DATA["ETH/USDT"];
   const inst = INSTRUMENTS.find(i => i.symbol === selected)!;
-
-  const formatDate = (d: Date) =>
-    d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() +
-    " | " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).toUpperCase();
 
   function boldify(text: string, bold?: string) {
     if (!bold) return <span>{text}</span>;
@@ -276,7 +281,9 @@ export default function AssetPage() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
+      <JournalHeader onToggleSidebar={() => {}} />
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
@@ -540,7 +547,7 @@ export default function AssetPage() {
                   LIVE VISUALIZER - {selected}
                 </div>
                 <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em", marginTop: 2 }}>
-                  {formatDate(now)}
+                  <LiveClock />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
@@ -560,6 +567,8 @@ export default function AssetPage() {
             </div>
           </div>
         </div>
+      </div>
+
       </div>
 
       <style>{`

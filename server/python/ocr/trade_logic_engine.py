@@ -51,13 +51,13 @@ class TradeOutcome:
 
 # Tolerance in pixels for "candle touched level line".
 # Scaled dynamically based on risk distance, but capped.
-_MIN_TOUCH_PX = 2
-_MAX_TOUCH_PX = 12
+_MIN_TOUCH_PX = 3
+_MAX_TOUCH_PX = 18
 
 
 def _touch_tolerance(risk_px: int) -> int:
-    """Dynamic tolerance: 5 % of risk distance, clamped."""
-    return max(_MIN_TOUCH_PX, min(_MAX_TOUCH_PX, int(risk_px * 0.05)))
+    """Dynamic tolerance: 6 % of risk distance, clamped [3, 18]."""
+    return max(_MIN_TOUCH_PX, min(_MAX_TOUCH_PX, int(risk_px * 0.06)))
 
 
 # ── Outcome detection ─────────────────────────────────────────────────────────
@@ -92,10 +92,6 @@ def evaluate_outcome_from_candles(
     }
 
     # ── Input validation ───────────────────────────────────────────────
-    if entry_candle_idx is None:
-        result.debug["reason"] = "entry_candle_not_found"
-        return result
-
     if tp_y is None or sl_y is None or entry_y is None:
         result.debug["reason"] = "missing_level_or_entry_y"
         return result
@@ -109,20 +105,68 @@ def evaluate_outcome_from_candles(
     risk_px  = max(raw_risk, 1)
     tol      = _touch_tolerance(risk_px)
 
-    # ── Post-entry candles ONLY ────────────────────────────────────────
-    post_entry = candles[entry_candle_idx + 1:]
+    # ── Determine post-entry candles ───────────────────────────────────
+    # If entry candle not found: use all candles that are on the correct
+    # side of entry_y (i.e. their body starts after the entry arrow's y).
+    # This is a fallback for when candle detection misses the entry candle
+    # (e.g. trade highlighted area has different background colour).
+    if entry_candle_idx is not None:
+        post_entry   = candles[entry_candle_idx + 1:]
+        start_offset = entry_candle_idx + 1
+    else:
+        # Fallback: treat ALL candles as post-entry candidates.
+        # Filter out any candle whose body is entirely on the wrong side
+        # (i.e. clearly a pre-entry candle based on direction).
+        result.debug["reason"] = "entry_candle_not_found_using_all"
+        post_entry   = candles
+        start_offset = 0
+
     result.entry_candle_index  = entry_candle_idx
     result.candles_after_entry = len(post_entry)
-    result.debug["risk_px"]  = risk_px
+    result.debug["risk_px"]   = risk_px
     result.debug["tolerance"] = tol
 
     if not post_entry:
         result.debug["reason"] = "no_post_entry_candles"
         return result
 
+    # ── Price-sweep check: if the furthest candle extreme clearly passed TP,
+    #    we can confirm the outcome even before the per-candle loop.
+    #    Uses 2× tolerance to be confident rather than border-line.
+    if long:
+        best_high = min(c.high_y for c in post_entry)
+        if best_high <= tp_y - tol * 2:
+            result.outcome     = "Win"
+            result.achieved_rr = round(abs(tp_y - entry_y) / risk_px, 2)
+            result.trade_is_open = False
+            result.debug["touch"] = "sweep_tp"
+            return result
+        worst_low = max(c.low_y for c in post_entry)
+        if worst_low >= sl_y + tol * 2:
+            result.outcome     = "Loss"
+            result.achieved_rr = 0.0
+            result.trade_is_open = False
+            result.debug["touch"] = "sweep_sl"
+            return result
+    else:
+        best_low = max(c.low_y for c in post_entry)
+        if best_low >= tp_y + tol * 2:
+            result.outcome     = "Win"
+            result.achieved_rr = round(abs(tp_y - entry_y) / risk_px, 2)
+            result.trade_is_open = False
+            result.debug["touch"] = "sweep_tp"
+            return result
+        worst_high = min(c.high_y for c in post_entry)
+        if worst_high <= sl_y - tol * 2:
+            result.outcome     = "Loss"
+            result.achieved_rr = 0.0
+            result.trade_is_open = False
+            result.debug["touch"] = "sweep_sl"
+            return result
+
     # ── Scan candles in chronological order ───────────────────────────
     for local_idx, candle in enumerate(post_entry):
-        global_idx = entry_candle_idx + 1 + local_idx
+        global_idx = start_offset + local_idx
 
         if long:
             tp_touched = candle.high_y <= tp_y + tol   # wick goes up (lower y)
@@ -130,6 +174,7 @@ def evaluate_outcome_from_candles(
         else:
             tp_touched = candle.low_y  >= tp_y - tol   # wick goes down (higher y)
             sl_touched = candle.high_y <= sl_y + tol   # wick goes up (lower y)
+
 
         if tp_touched and sl_touched:
             # Both on same candle — use body direction as tiebreaker

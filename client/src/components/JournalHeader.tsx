@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 
 const TICKER_DATA = [
@@ -42,7 +42,6 @@ interface JournalHeaderProps {
 export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
-  const [, navigate] = useLocation();
   const dm = darkMode;
 
   const t = dm ? {
