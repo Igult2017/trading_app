@@ -31,7 +31,7 @@ export default function EconomicCalendar() {
     queryKey: ['/api/economic-events'],
   });
 
-  const events = allEvents.slice(0, 20);
+  const events = allEvents;
 
   const handleEventClick = (eventId: string) => {
     setSelectedEventId(eventId);
@@ -48,11 +48,17 @@ export default function EconomicCalendar() {
   const groupEventsByDate = (events: EconomicEvent[]) => {
     const grouped: { [key: string]: EconomicEvent[] } = {};
     events.forEach(event => {
-      const dateKey = format(new Date(event.eventTime), 'yyyy-MM-dd');
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
+      try {
+        const date = new Date(event.eventTime);
+        if (isNaN(date.getTime())) return;
+        const dateKey = format(date, 'yyyy-MM-dd');
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = [];
+        }
+        grouped[dateKey].push(event);
+      } catch {
+        // skip events with unparseable dates
       }
-      grouped[dateKey].push(event);
     });
     return grouped;
   };
@@ -136,7 +142,8 @@ export default function EconomicCalendar() {
                     {dateEvents.map((event) => {
                       const sentiment = getMarketSentiment(event);
                       const eventTime = new Date(event.eventTime);
-                      
+                      const timeLabel = !isNaN(eventTime.getTime()) ? format(eventTime, 'HH:mm') : '--:--';
+
                       return (
                         <div
                           key={event.id}
@@ -153,7 +160,7 @@ export default function EconomicCalendar() {
                                 {event.currency || event.countryCode}
                               </Badge>
                               <span className="text-xs font-mono text-muted-foreground shrink-0" data-testid={`text-time-${event.id}`}>
-                                {format(eventTime, 'HH:mm')}
+                                {timeLabel}
                               </span>
                               {event.impactLevel?.toLowerCase() === 'high' && (
                                 <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />

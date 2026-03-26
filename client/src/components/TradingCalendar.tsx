@@ -1,19 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-const FONT = "'Montserrat', sans-serif";
+const FONT   = "'Montserrat', sans-serif";
 const GREEN  = "#00E5A0";
 const RED    = "#FF3D5A";
 const BG     = "#0A0D14";
 const CARD   = "#0F1520";
 const BORDER = "#1C2333";
 
-const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DAYS_FULL  = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
-const DAYS_SHORT = ["S","M","T","W","T","F","S"];
+const MONTH_NAMES  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTH_SHORT  = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const DAYS_FULL    = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const DAYS_SHORT   = ["S","M","T","W","T","F","S"];
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS        = Array.from({ length: CURRENT_YEAR - 2015 + 1 }, (_, i) => 2015 + i);
 
-type DayData = { pnl: number; trades: number; winRate: number };
+type DayData  = { pnl: number; trades: number; winRate: number };
 type MonthData = Record<string, DayData>;
 
 function fmt(pnl: number) {
@@ -27,13 +30,13 @@ function getStats(data: MonthData) {
   const net      = days.reduce((s, d) => s + d.pnl, 0);
   const winDays  = days.filter(d => d.pnl > 0);
   const lossDays = days.filter(d => d.pnl < 0);
-  const avgWin   = winDays.length  ? winDays.reduce((s,d)=>s+d.pnl,0)/winDays.length : 0;
-  const avgLoss  = lossDays.length ? Math.abs(lossDays.reduce((s,d)=>s+d.pnl,0)/lossDays.length) : 0;
-  const trades   = days.reduce((s,d)=>s+d.trades,0);
-  const winRate  = Math.round(days.reduce((s,d)=>s+d.winRate,0)/days.length);
-  const totalVol = days.reduce((s,d)=>s+Math.abs(d.pnl),0);
-  const pct      = totalVol > 0 ? ((net/totalVol)*100).toFixed(2) : "0.00";
-  return { net, winRate, trades, ratio: avgLoss ? (avgWin/avgLoss).toFixed(2) : "—", profitDays: winDays.length, lossDays: lossDays.length, pct };
+  const avgWin   = winDays.length  ? winDays.reduce((s, d) => s + d.pnl, 0) / winDays.length : 0;
+  const avgLoss  = lossDays.length ? Math.abs(lossDays.reduce((s, d) => s + d.pnl, 0) / lossDays.length) : 0;
+  const trades   = days.reduce((s, d) => s + d.trades, 0);
+  const winRate  = days.length > 0 ? Math.round((winDays.length / days.length) * 100) : 0;
+  const totalVol = days.reduce((s, d) => s + Math.abs(d.pnl), 0);
+  const pct      = totalVol > 0 ? ((net / totalVol) * 100).toFixed(2) : "0.00";
+  return { net, winRate, trades, ratio: avgLoss ? (avgWin / avgLoss).toFixed(2) : "—", profitDays: winDays.length, lossDays: lossDays.length, pct };
 }
 
 function useWindowWidth() {
@@ -49,12 +52,9 @@ function useWindowWidth() {
 function StatCard({ label, value, color, sub, compact }: { label: string; value: string | number; color: string; sub?: string; compact: boolean }) {
   return (
     <div style={{
-      background: CARD,
-      border: `2px solid ${BORDER}`,
-      borderTop: `4px solid ${color}`,
-      padding: compact ? "12px 14px" : "20px 24px",
-      flex: 1, minWidth: 0,
-    }} data-testid={`stat-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
+      background: CARD, border: `2px solid ${BORDER}`, borderTop: `4px solid ${color}`,
+      padding: compact ? "12px 14px" : "20px 24px", flex: 1, minWidth: 0,
+    }} data-testid={`stat-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
       <div style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "#4A556A", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
       <div style={{ fontFamily: FONT, fontSize: compact ? 16 : 26, fontWeight: 900, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
       {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: "#3A4558", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
@@ -64,7 +64,6 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
 
 function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | null; data: MonthData; maxPnl: number; cellHeight: number; isMobile: boolean }) {
   const [hovered, setHovered] = useState(false);
-
   if (!day) return <div style={{ background: "#080B11", minHeight: cellHeight }} />;
 
   const d        = data[String(day)];
@@ -94,7 +93,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
       <div style={{
         fontFamily: FONT, fontSize: isMobile ? 8 : 11, fontWeight: 900,
         color: d ? (isProfit ? "rgba(0,229,160,0.5)" : "rgba(255,61,90,0.5)") : "#2A3348",
-      }}>{String(day).padStart(2,"0")}</div>
+      }}>{String(day).padStart(2, "0")}</div>
 
       {d && (
         <div>
@@ -124,9 +123,9 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
           boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
         }}>
           {[
-            { l: "P&L",      v: fmt(d.pnl),     c: isProfit ? GREEN : RED },
-            { l: "TRADES",   v: String(d.trades), c: "#E8EDF5" },
-            { l: "WIN RATE", v: `${d.winRate}%`, c: "#E8EDF5" },
+            { l: "P&L",      v: fmt(d.pnl),          c: isProfit ? GREEN : RED },
+            { l: "TRADES",   v: String(d.trades),     c: "#E8EDF5" },
+            { l: "WIN RATE", v: `${d.winRate}%`,      c: "#E8EDF5" },
           ].map(r => (
             <div key={r.l} style={{ display: "flex", justifyContent: "space-between", gap: 20, marginBottom: 5 }}>
               <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: "#3A4558" }}>{r.l}</span>
@@ -144,21 +143,154 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
   );
 }
 
+function NavSelect({ value, onChange, options, width }: { value: number; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; options: { value: number; label: string }[]; width?: number }) {
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <select
+        value={value}
+        onChange={onChange}
+        style={{
+          appearance: "none", WebkitAppearance: "none",
+          background: CARD, border: `2px solid ${BORDER}`,
+          color: "#E8EDF5", height: 40,
+          padding: "0 28px 0 14px",
+          fontFamily: FONT, fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.1em", cursor: "pointer", outline: "none",
+          width: width || "auto",
+          transition: "border-color .15s",
+        }}
+        onFocus={e  => (e.target.style.borderColor = GREEN)}
+        onBlur={e   => (e.target.style.borderColor = BORDER)}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = "#2A3A55")}
+        onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = BORDER; }}
+      >
+        {options.map(o => (
+          <option key={o.value} value={o.value} style={{ background: "#0F1520", color: "#E8EDF5" }}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <svg style={{ position: "absolute", right: 9, pointerEvents: "none" }} width="10" height="6" viewBox="0 0 10 6" fill="none">
+        <path d="M1 1L5 5L9 1" stroke="#4A5A75" strokeWidth="1.5" strokeLinecap="square"/>
+      </svg>
+    </div>
+  );
+}
+
+function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) => void }) {
+  const [val, setVal]     = useState("");
+  const [state, setState] = useState<"idle" | "valid" | "error">("idle");
+  const inputRef          = useRef<HTMLInputElement>(null);
+
+  function parseInput(raw: string) {
+    const s = raw.trim();
+    let m = s.match(/^(\d{1,2})\/(\d{4})$/);
+    if (m) return { month: +m[1], year: +m[2] };
+    m = s.match(/^([a-zA-Z]{3,9})\s+(\d{4})$/);
+    if (m) {
+      const mi = MONTH_NAMES.findIndex(n => n.toLowerCase().startsWith(m![1].toLowerCase()));
+      if (mi >= 0) return { month: mi + 1, year: +m[2] };
+    }
+    m = s.match(/^(\d{4})\s+([a-zA-Z]{3,9})$/);
+    if (m) {
+      const mi = MONTH_NAMES.findIndex(n => n.toLowerCase().startsWith(m![2].toLowerCase()));
+      if (mi >= 0) return { month: mi + 1, year: +m[1] };
+    }
+    return null;
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    setVal(v);
+    if (!v) { setState("idle"); return; }
+    const p = parseInput(v);
+    setState(p && p.month >= 1 && p.month <= 12 && YEARS.includes(p.year) ? "valid" : "idle");
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    const p = parseInput(val);
+    if (p && p.month >= 1 && p.month <= 12 && YEARS.includes(p.year)) {
+      onNavigate(p.year, p.month);
+      setVal(""); setState("idle");
+    } else {
+      setState("error");
+      setTimeout(() => setState("idle"), 1800);
+    }
+  }
+
+  const borderColor   = state === "valid" ? GREEN : state === "error" ? RED : BORDER;
+  const placeholderNote = state === "error" ? "Try: Mar 2025 or 03/2025" : state === "valid" ? "↵ Press Enter" : "e.g. Mar 2025";
+
+  return (
+    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+      <svg style={{ position: "absolute", left: 11, pointerEvents: "none", zIndex: 1 }} width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <circle cx="5.5" cy="5.5" r="4" stroke={state === "valid" ? GREEN : "#4A5A75"} strokeWidth="1.5"/>
+        <line x1="8.7" y1="8.7" x2="12" y2="12" stroke={state === "valid" ? GREEN : "#4A5A75"} strokeWidth="1.5" strokeLinecap="square"/>
+      </svg>
+      <input
+        ref={inputRef}
+        type="text"
+        value={val}
+        onChange={handleChange}
+        onKeyDown={handleKey}
+        placeholder={placeholderNote}
+        maxLength={12}
+        spellCheck={false}
+        style={{
+          background: CARD, border: `2px solid ${borderColor}`,
+          color: state === "error" ? RED : "#E8EDF5",
+          height: 40, width: 170,
+          padding: "0 12px 0 32px",
+          fontFamily: FONT, fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.08em", outline: "none",
+          transition: "border-color .15s, color .15s",
+        }}
+        onFocus={e  => { if (state === "idle") e.target.style.borderColor = "#2A3A55"; }}
+        onBlur={e   => { if (state === "idle") e.target.style.borderColor = BORDER; }}
+      />
+      {val && (
+        <button
+          onClick={() => { setVal(""); setState("idle"); inputRef.current?.focus(); }}
+          style={{ position: "absolute", right: 8, background: "none", border: "none", color: "#3A4A60", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2 }}
+        >×</button>
+      )}
+    </div>
+  );
+}
+
 export default function TradingCalendar({ sessionId }: { sessionId?: string | null }) {
   const now = new Date();
-  const [date, setDate] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
-  const width     = useWindowWidth();
-  const isMobile  = width < 480;
-  const isTablet  = width >= 480 && width < 768;
+  const [date, setDate]         = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
+  const [flashKey, setFlashKey] = useState(0);
+  const width    = useWindowWidth();
+  const isMobile = width < 480;
+  const isTablet = width >= 480 && width < 768;
 
   const { data: calendarResult, isLoading, isError } = useQuery<{
     success: boolean;
     calendarData: Record<string, MonthData>;
     availableMonths: string[];
   }>({
-    queryKey: [`/api/calendar/compute?sessionId=${sessionId}`],
+    queryKey: ['/api/calendar/compute', sessionId],
     enabled: !!sessionId,
+    queryFn: async () => {
+      const r = await fetch(`/api/calendar/compute?sessionId=${sessionId}`);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      const json = await r.json();
+      if (!json.success) throw new Error(json.error || "Calendar computation failed");
+      return json;
+    },
   });
+
+  // Auto-navigate to the most recent month that has data when the result first loads.
+  useEffect(() => {
+    if (!calendarResult?.availableMonths?.length) return;
+    const last = calendarResult.availableMonths[calendarResult.availableMonths.length - 1];
+    const [y, m] = last.split("-").map(Number);
+    if (!isNaN(y) && !isNaN(m)) setDate({ year: y, month: m });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarResult]);
 
   const allCalendarData = calendarResult?.calendarData || {};
   const key      = `${date.year}-${date.month}`;
@@ -166,6 +298,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const stats    = getStats(data);
   const maxPnl   = Math.max(...Object.values(data).map(d => Math.abs(d.pnl)), 1);
   const netColor = stats.net >= 0 ? GREEN : RED;
+  const hasData  = Object.keys(data).length > 0;
 
   const firstDay    = new Date(date.year, date.month - 1, 1).getDay();
   const daysInMonth = new Date(date.year, date.month, 0).getDate();
@@ -174,19 +307,22 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  function changeMonth(dir: number) {
-    setDate(prev => {
-      let m = prev.month + dir, y = prev.year;
-      if (m > 12) { m = 1; y++; }
-      if (m < 1)  { m = 12; y--; }
-      return { year: y, month: m };
-    });
+  function navigate(year: number, month: number) {
+    let m = month, y = year;
+    if (m > 12) { m = 1; y++; }
+    if (m < 1)  { m = 12; y--; }
+    setDate({ year: y, month: m });
+    setFlashKey(k => k + 1);
   }
 
-  const cellHeight = isMobile ? 58 : isTablet ? 80 : 110;
-  const pad        = isMobile ? "14px 10px" : isTablet ? "22px 18px" : "36px 32px";
-  const dayLabels  = isMobile ? DAYS_SHORT : DAYS_FULL;
-  const compact    = isMobile || isTablet;
+  function changeMonth(dir: number) { navigate(date.year, date.month + dir); }
+
+  const cellHeight   = isMobile ? 58 : isTablet ? 80 : 110;
+  const pad          = isMobile ? "14px 6px" : isTablet ? "22px 0" : "36px 0";
+  const dayLabels    = isMobile ? DAYS_SHORT : DAYS_FULL;
+  const compact      = isMobile || isTablet;
+  const monthOptions = MONTH_NAMES.map((n, i) => ({ value: i + 1, label: n.toUpperCase() }));
+  const yearOptions  = YEARS.map(y => ({ value: y, label: String(y) }));
 
   if (!sessionId) {
     return (
@@ -220,12 +356,20 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
 
   return (
     <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap'); @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
+        * { box-sizing: border-box; }
+        select option { background: #0F1520; color: #E8EDF5; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes tagFlash { 0% { border-color: ${GREEN}; } 60% { border-color: ${GREEN}; } 100% { border-color: #1C2333; } }
+        @keyframes dotBlink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+      `}</style>
 
+      {/* ── HEADER ── */}
       <div style={{
-        display: "flex", alignItems: isMobile ? "flex-start" : "flex-end",
+        display: "flex", alignItems: isMobile ? "flex-start" : "center",
         flexDirection: isMobile ? "column" : "row",
-        justifyContent: "space-between", gap: 12, marginBottom: isMobile ? 12 : 24,
+        justifyContent: "space-between", gap: 16, marginBottom: isMobile ? 12 : 24, flexWrap: "wrap",
       }}>
         <div>
           <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348", marginBottom: 5 }}>PERFORMANCE OVERVIEW</div>
@@ -234,43 +378,103 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <button onClick={() => changeMonth(-1)} data-testid="button-prev-month" style={{
-            background: CARD, border: `2px solid ${BORDER}`, borderRight: "none",
-            color: "#E8EDF5", width: isMobile ? 32 : 40, height: isMobile ? 32 : 40,
-            cursor: "pointer", fontFamily: FONT, fontWeight: 900, fontSize: 15,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>←</button>
-          <div style={{
-            background: CARD, border: `2px solid ${BORDER}`,
-            padding: isMobile ? "0 10px" : "0 20px",
-            height: isMobile ? 32 : 40,
-            display: "flex", alignItems: "center",
-            fontSize: isMobile ? 8 : 11, fontWeight: 900, letterSpacing: "0.1em", color: "#E8EDF5", whiteSpace: "nowrap" as const,
-          }} data-testid="text-current-month">
-            {isMobile ? `${MONTH_NAMES[date.month-1].slice(0,3).toUpperCase()} ${date.year}` : `${MONTH_NAMES[date.month-1].toUpperCase()} ${date.year}`}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: isMobile ? "wrap" : "nowrap" as const }}>
+          <button
+            onClick={() => changeMonth(-1)}
+            data-testid="button-prev-month"
+            style={{
+              background: CARD, border: `2px solid ${BORDER}`,
+              color: "#E8EDF5", width: 40, height: 40, cursor: "pointer",
+              fontFamily: FONT, fontWeight: 900, fontSize: 15,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, transition: "background .15s, border-color .15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#1C2333"; e.currentTarget.style.borderColor = "#2A3A55"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = CARD; e.currentTarget.style.borderColor = BORDER; }}
+          >←</button>
+
+          <NavSelect
+            value={date.month}
+            onChange={e => navigate(date.year, +e.target.value)}
+            options={monthOptions}
+            width={isMobile ? 120 : 140}
+          />
+
+          <NavSelect
+            value={date.year}
+            onChange={e => navigate(+e.target.value, date.month)}
+            options={yearOptions}
+            width={88}
+          />
+
+          <button
+            onClick={() => changeMonth(1)}
+            data-testid="button-next-month"
+            style={{
+              background: CARD, border: `2px solid ${BORDER}`,
+              color: "#E8EDF5", width: 40, height: 40, cursor: "pointer",
+              fontFamily: FONT, fontWeight: 900, fontSize: 15,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, transition: "background .15s, border-color .15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#1C2333"; e.currentTarget.style.borderColor = "#2A3A55"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = CARD; e.currentTarget.style.borderColor = BORDER; }}
+          >→</button>
+
+          {!isMobile && <div style={{ width: 1, height: 24, background: BORDER, margin: "0 6px" }} />}
+          {!isMobile && <NavSearch onNavigate={(y, m) => navigate(y, m)} />}
+          {!isMobile && <div style={{ width: 1, height: 24, background: BORDER, margin: "0 2px" }} />}
+
+          <div
+            key={flashKey}
+            style={{
+              background: CARD, border: `2px solid ${BORDER}`,
+              height: 40, display: "flex", alignItems: "center",
+              padding: "0 14px", gap: 8,
+              fontSize: 11, fontWeight: 900, letterSpacing: "0.1em",
+              color: "#E8EDF5", whiteSpace: "nowrap" as const,
+              animation: flashKey > 0 ? "tagFlash 1.4s ease forwards" : "none",
+              flexShrink: 0,
+            }}
+            data-testid="text-current-month"
+          >
+            <div style={{
+              width: 6, height: 6,
+              background: hasData ? GREEN : "#3A4558", flexShrink: 0,
+              animation: hasData && flashKey > 0 ? "dotBlink .7s ease 2" : "none",
+            }} />
+            {MONTH_SHORT[date.month - 1]} {date.year}
           </div>
-          <button onClick={() => changeMonth(1)} data-testid="button-next-month" style={{
-            background: CARD, border: `2px solid ${BORDER}`, borderLeft: "none",
-            color: "#E8EDF5", width: isMobile ? 32 : 40, height: isMobile ? 32 : 40,
-            cursor: "pointer", fontFamily: FONT, fontWeight: 900, fontSize: 15,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>→</button>
         </div>
       </div>
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
-        gap: 2, marginBottom: 2,
-      }}>
-        <StatCard label="Net P&L"       value={fmt(stats.net)}      color={netColor} sub={`${stats.profitDays}W / ${stats.lossDays}L`} compact={compact} />
-        <StatCard label="Win Rate"       value={`${stats.winRate}%`} color={GREEN}    sub={`${stats.profitDays} profit days`}            compact={compact} />
-        <StatCard label="Total Trades"   value={stats.trades}        color="#4D9FFF"  sub="All active days"                              compact={compact} />
-        <StatCard label="W/L Ratio"      value={stats.ratio}         color="#E8EDF5"  sub="Avg win / avg loss"                           compact={compact} />
+      {isMobile && (
+        <div style={{ marginBottom: 12 }}>
+          <NavSearch onNavigate={(y, m) => navigate(y, m)} />
+        </div>
+      )}
+
+      {/* ── STATS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 2, marginBottom: 2 }}>
+        <StatCard label="Net P&L"      value={fmt(stats.net)}       color={netColor} sub={`${stats.profitDays}W / ${stats.lossDays}L`} compact={compact} />
+        <StatCard label="Win Rate"      value={`${stats.winRate}%`}  color={GREEN}    sub={`${stats.profitDays} profit days`}            compact={compact} />
+        <StatCard label="Total Trades"  value={stats.trades}         color="#4D9FFF"  sub="All active days"                              compact={compact} />
+        <StatCard label="W/L Ratio"     value={stats.ratio}          color="#E8EDF5"  sub="Avg win ÷ avg loss"                           compact={compact} />
       </div>
 
-      <div style={{ border: `2px solid ${BORDER}` }}>
+      {/* ── CALENDAR GRID ── */}
+      <div style={{ border: `2px solid ${BORDER}`, position: "relative" }}>
+        {!hasData && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 10,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            background: "rgba(10,13,20,0.82)", gap: 10,
+          }}>
+            <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "#2A3A55" }}>NO DATA FOR THIS PERIOD</div>
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: `2px solid ${BORDER}` }}>
           {dayLabels.map((d, i) => (
             <div key={i} style={{
@@ -300,6 +504,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
         </div>
       </div>
 
+      {/* ── FOOTER ── */}
       <div style={{
         display: "flex", alignItems: isMobile ? "flex-start" : "center",
         flexDirection: isMobile ? "column" : "row",
@@ -313,7 +518,6 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
             </div>
           ))}
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" as const }}>
           <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2A3348" }}>MONTH TOTAL</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />
@@ -322,6 +526,12 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
           <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 900, color: netColor }} data-testid="text-month-pct">{stats.net >= 0 ? "+" : ""}{stats.pct}%</span>
         </div>
       </div>
+
+      {!isMobile && (
+        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: "#1C2A3A" }}>
+          SEARCH: TYPE <span style={{ color: "#2A3A55" }}>MMM YYYY</span> OR <span style={{ color: "#2A3A55" }}>MM/YYYY</span> AND PRESS ENTER
+        </div>
+      )}
     </div>
   );
 }

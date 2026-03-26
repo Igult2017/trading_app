@@ -100,8 +100,13 @@ def evaluate_outcome_from_candles(
         result.debug["reason"] = "missing_level_or_entry_y"
         return result
 
+    import sys
     long     = direction.lower() == "long"
-    risk_px  = max(abs(sl_y - entry_y), 1)
+    raw_risk = abs(sl_y - entry_y)
+    if raw_risk <= 1:
+        print(f"[OCR WARNING] risk_px={raw_risk} (SL may be at or very near entry_y). "
+              "Outcome detection unreliable.", file=sys.stderr)
+    risk_px  = max(raw_risk, 1)
     tol      = _touch_tolerance(risk_px)
 
     # ── Post-entry candles ONLY ────────────────────────────────────────

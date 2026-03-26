@@ -1,7 +1,46 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { JournalEntry } from "@shared/schema";
+
+const CircleDownloadIcon = ({ success }: { success: boolean }) => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="14" cy="14" r="14" fill={success ? "#00d48a" : "#1e6fc8"} />
+    {success ? (
+      <polyline points="8,14 12,18 20,10" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    ) : (
+      <>
+        <line x1="14" y1="7" x2="14" y2="17" stroke="white" strokeWidth="2" strokeLinecap="round" />
+        <polyline points="9,13 14,18 19,13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <line x1="8" y1="21" x2="20" y2="21" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      </>
+    )}
+  </svg>
+);
+
+const VaultCell = ({ label, value, color, isMobile, first = false }: { label: string; value: string; color: string; isMobile: boolean; first?: boolean }) => (
+  <div style={{
+    flex: isMobile ? 1 : "none",
+    width: isMobile ? "auto" : 110,
+    padding: "10px 0",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+    borderLeft: first ? "none" : "1px solid #1e2535",
+  }}>
+    <span style={{ fontSize: 9, fontWeight: 900, color: "#3d4d6a", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+      {label}
+    </span>
+    <span style={{
+      fontSize: isMobile ? 15 : 18, fontWeight: 900, color,
+      fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em",
+      textShadow:
+        color === "#00d48a" ? "0 0 16px rgba(0,212,138,0.35)" :
+        color === "#4da6ff" ? "0 0 16px rgba(77,166,255,0.3)" :
+        color === "#a78bfa" ? "0 0 16px rgba(167,139,250,0.3)" : "none",
+    }}>
+      {value}
+    </span>
+  </div>
+);
 
 const SESSIONS = ["LONDON", "NEW YORK", "ASIAN", "FRANKFURT"];
 const STRATEGIES = ["SMC Breaker", "Silver Bullet", "ICT Killzone", "OB Mitigation"];
@@ -170,6 +209,15 @@ function downloadCSV(trades: Trade[]) {
 
 export default function TradeVault({ sessionId }: { sessionId?: string | null }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+  const [exported, setExported] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const queryUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '/api/journal/entries';
   const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
@@ -211,6 +259,71 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   const wins = trades.filter((t) => t.outcome === "WIN").length;
   const winRate = trades.length ? Math.round((wins / trades.length) * 100) : 0;
 
+  const firstEntry = journalEntries[0];
+  const startingBalance = firstEntry
+    ? (parseFloat(firstEntry.accountBalance || "0") || 0) - (parseFloat(firstEntry.profitLoss || "0") || 0)
+    : 0;
+  const growthPct = startingBalance > 0 ? (totalPL / startingBalance) * 100 : 0;
+  const days = new Set(trades.map(t => t.date)).size;
+
+  const handleExport = () => {
+    downloadCSV(trades);
+    setExported(true);
+    setTimeout(() => setExported(false), 1800);
+  };
+
+  const vaultHeader = (subtitle: string) => (
+    <header style={{
+      width: "100%",
+      background: "#111520",
+      borderBottom: "1px solid #1e2535",
+      padding: isMobile ? "12px 14px" : "14px 20px",
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: isMobile ? "stretch" : "center",
+      justifyContent: "space-between",
+      gap: isMobile ? 12 : 16,
+      boxSizing: "border-box",
+      fontFamily: "'Montserrat', sans-serif",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+      marginBottom: 0,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#eef2ff", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>TRADE VAULT</div>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#4a5778", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", background: "#0d1018", border: "1px solid #1e2535", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
+        <VaultCell label="NET P/L"  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
+        <VaultCell label="WIN RATE" value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
+        <VaultCell label="TRADES"   value={String(trades.length)} color="#f0f4ff" isMobile={isMobile} />
+        <VaultCell label="GROWTH"   value={`${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`} color="#a78bfa" isMobile={isMobile} />
+        <VaultCell label="DAYS"     value={String(days)}     color="#f0f4ff" isMobile={isMobile} />
+        <div
+          onClick={trades.length > 0 ? handleExport : undefined}
+          style={{
+            flex: isMobile ? 1 : "none", width: isMobile ? "auto" : 110,
+            padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+            borderLeft: "1px solid #1e2535",
+            cursor: trades.length > 0 ? "pointer" : "default",
+            opacity: trades.length > 0 ? 1 : 0.4,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => { if (trades.length > 0) e.currentTarget.style.background = "#161b27"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+          data-testid="button-download-csv"
+        >
+          <span style={{ fontSize: 9, fontWeight: 900, color: "#3d4d6a", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+            {exported ? "EXPORTED" : "EXPORT CSV"}
+          </span>
+          <CircleDownloadIcon success={exported} />
+        </div>
+      </div>
+    </header>
+  );
+
   const handleSave = (updated: Trade) => {
     updateMutation.mutate(updated);
   };
@@ -218,13 +331,8 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   if (!sessionId) {
     return (
       <div className="trade-vault-root" style={styles.page}>
-        <div style={styles.header}>
-          <div>
-            <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
-            <div style={styles.vaultSub}>No session selected</div>
-          </div>
-        </div>
-        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
+        {vaultHeader("No session selected")}
+        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const, marginTop: 20 }}>
           <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-no-session">Select or create a session to view trades.</div>
         </div>
       </div>
@@ -234,13 +342,8 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   if (isLoading) {
     return (
       <div className="trade-vault-root" style={styles.page}>
-        <div style={styles.header}>
-          <div>
-            <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
-            <div style={styles.vaultSub}>Loading entries...</div>
-          </div>
-        </div>
-        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
+        {vaultHeader("Loading entries...")}
+        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const, marginTop: 20 }}>
           <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-loading">Loading trade data...</div>
         </div>
       </div>
@@ -288,45 +391,9 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
         .delete-btn:hover { color: #ff4d6d; transform: scale(1.15); background: rgba(255,77,109,0.1); }
       `}</style>
 
-      <div style={styles.header}>
-        <div>
-          <div style={styles.vaultLabel}>&#x2B21; TRADE VAULT</div>
-          <div style={styles.vaultSub}>Performance ledger · {trades.length} entries</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' as const }}>
-        {trades.length > 0 && (
-          <button
-            onClick={() => downloadCSV(trades)}
-            style={styles.downloadBtn}
-            data-testid="button-download-csv"
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(91,140,248,0.2)'; e.currentTarget.style.borderColor = 'rgba(91,140,248,0.5)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(91,140,248,0.08)'; e.currentTarget.style.borderColor = 'rgba(91,140,248,0.2)'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            EXPORT CSV
-          </button>
-        )}
-        <div style={styles.statsRow}>
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>NET P/L</div>
-            <div style={{ ...styles.statValue, color: totalPL >= 0 ? "#00e5a0" : "#ff4d6d" }} data-testid="text-net-pl">
-              {formatPL(totalPL)}
-            </div>
-          </div>
-          <div style={styles.statDivider} />
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>WIN RATE</div>
-            <div style={{ ...styles.statValue, color: "#5b8cf8" }} data-testid="text-win-rate">{winRate}%</div>
-          </div>
-          <div style={styles.statDivider} />
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>TRADES</div>
-            <div style={{ ...styles.statValue, color: "#c0cce0" }} data-testid="text-trade-count">{trades.length}</div>
-          </div>
-        </div>
-        </div>
-      </div>
+      {vaultHeader(`Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
 
+      <div style={{ padding: 0 }}>
       {trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
           <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
@@ -406,6 +473,7 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
           </table>
         </div>
       )}
+      </div>
 
       {editingTrade && (
         <EditModal
@@ -425,7 +493,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#080b10",
     fontFamily: "'JetBrains Mono', monospace",
     color: "#c0cce0",
-    padding: "32px 24px",
+    padding: 0,
   },
   header: {
     display: "flex",
@@ -477,7 +545,7 @@ const styles: Record<string, React.CSSProperties> = {
   tableWrapper: {
     background: "#0d1220",
     border: "1px solid #1a2035",
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: "hidden",
   },
   table: {

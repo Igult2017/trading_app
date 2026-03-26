@@ -59,7 +59,7 @@ def _ocr_axis(img: np.ndarray, layout: LayoutRegions) -> list[tuple[int, float]]
         if data['conf'][i] < 20:
             continue
         t     = re.sub(r'[^\d.,]', '', tok.strip())
-        m     = re.match(r'^(\d{2,6})([.,]\d{1,3})?$', t)
+        m     = re.match(r'^(\d{1,6})([.,]\d{1,6})?$', t)
         if not m:
             continue
         try:
@@ -78,8 +78,12 @@ def _ocr_axis(img: np.ndarray, layout: LayoutRegions) -> list[tuple[int, float]]
     prices  = np.array([p for _, p in raw])
     q25, q75 = np.percentile(prices, 25), np.percentile(prices, 75)
     iqr       = q75 - q25
-    lo, hi    = q25 - 3 * iqr, q75 + 3 * iqr
-    filtered  = [(y, p) for y, p in raw if lo <= p <= hi]
+    if iqr == 0:
+        # All prices identical or nearly so — skip IQR filter to avoid discarding valid data
+        filtered = list(raw)
+    else:
+        lo, hi   = q25 - 3 * iqr, q75 + 3 * iqr
+        filtered = [(y, p) for y, p in raw if lo <= p <= hi]
 
     # Deduplicate: merge readings within 5px and 0.5 price unit
     if not filtered:

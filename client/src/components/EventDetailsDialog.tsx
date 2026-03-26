@@ -97,7 +97,10 @@ export default function EventDetailsDialog({ eventId, open, onOpenChange }: Even
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Calendar className="w-3 h-3" />
                       <span data-testid="text-event-time">
-                        {format(new Date(event.eventTime), 'MMM dd, yyyy HH:mm')}
+                        {(() => {
+                          const d = new Date(event.eventTime);
+                          return isNaN(d.getTime()) ? event.eventTime : format(d, 'MMM dd, yyyy HH:mm');
+                        })()}
                       </span>
                     </div>
                   </div>

@@ -24,7 +24,7 @@ from scipy import stats as scipy_stats
 # LAYER 0 — CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
 
-MIN_SAMPLE: int = 3
+MIN_SAMPLE: int = 1
 
 SCORE_BUCKETS: List[Tuple[float, float, str]] = [
     (4.25, 5.01, "4.5"),
@@ -688,7 +688,7 @@ def breakdown_by_score_bucket(trades: List[TradeRecord], field_name: str) -> Lis
 def avg_field(trades: List[TradeRecord], field_name: str) -> Optional[float]:
     vals = [getattr(t, field_name) for t in trades if getattr(t, field_name) is not None]
     m = safe_mean(vals)
-    return round(m, 4) if m is not None else None
+    return round(m, 2) if m is not None else None
 
 
 def percent_true(trades: List[TradeRecord], field_name: str) -> Optional[float]:
@@ -733,9 +733,29 @@ def calc_core(ctx: SharedContext) -> Dict:
         return {}
     avg_win  = float(ctx.win_pnl_arr.mean())        if ctx.win_count  else 0.0
     avg_loss = float(abs(ctx.loss_pnl_arr.mean()))  if ctx.loss_count else 0.0
-    pf       = (ctx.gross_profit / ctx.gross_loss)  if ctx.gross_loss else None
-    exp      = (avg_win * (ctx.win_rate / 100) - avg_loss * (1 - ctx.win_rate / 100)
-                if ctx.win_rate is not None else None)
+
+    # Profit Factor: gross_profit / gross_loss.
+    # When there are no losing trades, return 999.0 (conventional ∞ sentinel)
+    # so the frontend can display "∞" rather than falling back to 0.
+    if ctx.gross_loss > 0:
+        pf: Optional[float] = ctx.gross_profit / ctx.gross_loss
+    elif ctx.gross_profit > 0:
+        pf = 999.0   # all-win session — infinite profit factor
+    else:
+        pf = None
+
+    # R Expectancy: expectancy expressed in R-multiples, NOT dollars.
+    # Each winning trade contributes its rr_ratio (defaulting to 1R when absent).
+    # Each losing trade contributes -1R. Breakevens contribute 0R.
+    # Formula: Σ(outcome_in_R) / total_trades
+    r_outcomes: List[float] = (
+        [t.rr_ratio if (t.rr_ratio is not None and t.rr_ratio > 0) else 1.0
+         for t in ctx.wins] +
+        [-1.0 for _ in ctx.losses]
+        # breakevens → 0R (omitting them is equivalent to adding 0.0)
+    )
+    r_exp = safe_mean(r_outcomes) if r_outcomes else None
+
     rr_vals  = [t.rr_ratio for t in ctx.trades if t.rr_ratio is not None and t.rr_ratio > 0]
     return {
         "totalPL":      round(ctx.total_pnl,   2),
@@ -748,8 +768,8 @@ def calc_core(ctx: SharedContext) -> Dict:
         "totalTrades":  ctx.total,
         "avgWin":       round(avg_win,  2),
         "avgLoss":      round(avg_loss, 2),
-        "profitFactor": round(pf,  3)  if pf  is not None else None,
-        "expectancy":   round(exp, 3)  if exp is not None else None,
+        "profitFactor": round(pf,   3) if pf   is not None else None,
+        "expectancy":   round(r_exp, 3) if r_exp is not None else None,
         "avgRR":        round(safe_mean(rr_vals), 2) if rr_vals else None,
     }
 
@@ -787,12 +807,14 @@ def calc_streaks(ctx: SharedContext) -> Dict:
             else:
                 max_loss = max(max_loss, cur_count)
 
+    current_dd = max(0.0, peak - cumulative)
     return {
         "maxWinStreak":       max_win,
         "maxLossStreak":      max_loss,
         "currentStreakType":  cur_type,
         "currentStreakCount": cur_count,
-        "maxDrawdown":        round(-max_dd, 2),
+        "maxDrawdown":        round(max_dd, 2),
+        "currentDrawdown":    round(current_dd, 2),
         "recoverySequences":  recovery,
     }
 
@@ -837,9 +859,9 @@ def calc_risk_metrics(ctx: SharedContext) -> Dict:
         if len(rule_rel) >= MIN_SAMPLE else None
     )
     return {
-        "avgRiskPercent": round(safe_mean(risk_v), 3) if risk_v else None,
-        "maxRiskPercent": round(max(risk_v), 3)       if risk_v else None,
-        "minRiskPercent": round(min(risk_v), 3)       if risk_v else None,
+        "avgRiskPercent": round(safe_mean(risk_v), 2) if risk_v else None,
+        "maxRiskPercent": round(max(risk_v), 2)       if risk_v else None,
+        "minRiskPercent": round(min(risk_v), 2)       if risk_v else None,
         "avgMAE":         round(safe_mean(mae_v), 2)  if mae_v  else None,
         "worstMAE":       round(max(mae_v), 2)        if mae_v  else None,
         "avgMFE":         round(safe_mean(mfe_v), 2)  if mfe_v  else None,
@@ -1128,10 +1150,10 @@ def calc_mae_mfe(ctx: SharedContext) -> Dict:
     ratio_v = [t.mae / t.mfe for t in trades
                 if t.mae is not None and t.mfe is not None and t.mfe > 0]
     return {
-        "avgMAE":         round(safe_mean(mae_v), 4) if mae_v else None,
-        "worstMAE":       round(max(mae_v), 4)       if mae_v else None,
-        "avgMFE":         round(safe_mean(mfe_v), 4) if mfe_v else None,
-        "bestMFE":        round(max(mfe_v), 4)       if mfe_v else None,
+        "avgMAE":         round(safe_mean(mae_v), 2) if mae_v else None,
+        "worstMAE":       round(max(mae_v), 2)       if mae_v else None,
+        "avgMFE":         round(safe_mean(mfe_v), 2) if mfe_v else None,
+        "bestMFE":        round(max(mfe_v), 2)       if mfe_v else None,
         "maeGtSLCount":   mae_gt_sl,
         "avgMFECapture":  round(safe_mean(cap_r),   2) if cap_r   else None,
         "avgMAEMFERatio": round(safe_mean(ratio_v), 3) if ratio_v else None,
@@ -1457,7 +1479,7 @@ if __name__ == "__main__":
         ])
         wr = win_rate_of(pool)
         check("win_rate 6/10 = 60%",   abs(wr - 60.0) < 0.01, wr)
-        check("win_rate < MIN → None", win_rate_of(pool[:2]) is None)
+        check("win_rate < MIN → None", win_rate_of([]) is None)
         check("safe_mean empty → None", safe_mean([]) is None)
         check("safe_mean [1,2,3] = 2",  abs(safe_mean([1.0, 2.0, 3.0]) - 2.0) < 1e-9)
 
@@ -1477,7 +1499,8 @@ if __name__ == "__main__":
         check("core expectancy > 0",   core["expectancy"] > 0)
         streaks = result["metrics"]["streaks"]
         check("maxWinStreak >= 1",     streaks["maxWinStreak"] >= 1)
-        check("maxDrawdown <= 0",      streaks["maxDrawdown"] <= 0)
+        check("maxDrawdown >= 0",      streaks["maxDrawdown"] >= 0)
+        check("currentDrawdown >= 0", streaks["currentDrawdown"] >= 0)
         curve = result["metrics"]["equityCurve"]
         check("equityCurve len = 10",  len(curve) == 10)
         check("last tradeNumber = 10", curve[-1]["tradeNumber"] == 10)

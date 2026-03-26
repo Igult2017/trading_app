@@ -181,26 +181,28 @@ def _psm11_scan(pimg: PreprocessedImage) -> List[dict]:
     data   = pytesseract.image_to_data(thr, config="--psm 11 --oem 3",
                                         output_type=pytesseract.Output.DICT)
     return [{"text": t.strip(), "x": data['left'][i]//2, "y": data['top'][i]//2}
-            for i, t in enumerate(data['text']) if t.strip()]
+            for i, t in enumerate(data['text'])
+            if t.strip() and data['conf'][i] >= 30]
 
 
 def run_all_ocr(pimg: PreprocessedImage, layout: LayoutRegions) -> OcrResult:
+    import sys
     result = OcrResult()
     try:
         result.title_lines  = _ocr_title_bar(pimg, layout)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[OCR WARNING] title_bar OCR failed: {e}", file=sys.stderr)
     try:
         result.label_lines  = _find_label_rows(pimg, layout)
         result.label_lines += _ocr_info_panel(pimg, layout)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[OCR WARNING] label/info_panel OCR failed: {e}", file=sys.stderr)
     try:
         result.replay_lines = _ocr_replay_bar(pimg, layout)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[OCR WARNING] replay_bar OCR failed: {e}", file=sys.stderr)
     try:
         result.psm11_tokens = _psm11_scan(pimg)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[OCR WARNING] psm11 scan failed: {e}", file=sys.stderr)
     return result

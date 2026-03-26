@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
 import { calcAllTradeValues } from "@/lib/tradeCalculations";
@@ -96,7 +97,7 @@ const INIT: Record<string, any> = {
   takeProfit:"", takeProfitDistancePips:"", entryTime:"", exitTime:"",
   tradeDuration:"", dayOfWeek:"Monday", outcome:"Win", profitLoss:"",
   accountBalance:"", orderType:"Market", riskPercent:"", riskReward:"", entryTF:"5M",
-  analysisTF:"1HR", contextTF:"1D", marketRegime:"Trending",
+  analysisTF:"1HR", contextTF:"1D", marketRegime:"Bullish",
   trendDirection:"Bullish", volatilityState:"Normal", liquidity:"High",
   newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
   sessionName:"London", timingContext:"Impulse", candlePattern:"",
@@ -274,25 +275,10 @@ const NavButtons = ({ step, onPrev, onNext }: any) => (
 const StatRow = ({ label, value, valueColor }: any) => (
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(51,65,85,0.3)"}}>
     <span style={{fontSize:"11px",color:"#64748b"}}>{label}</span>
-    <span className="jb-num" style={{fontSize:"11px",color:valueColor||"#e2e8f0"}}>{value}</span>
+    <span className="jb-num" style={{fontSize:"9px",color:valueColor||"#e2e8f0"}}>{value}</span>
   </div>
 );
 
-const OcrSummaryBadge = ({ form, ocrFields }: { form: Record<string,any>; ocrFields: OcrFilledSet }) => {
-  if (!ocrFields.size) return null;
-  const conf = form.ocrConfidence;
-  const confColor = conf === "high" ? "#34d399" : conf === "medium" ? "#fbbf24" : "#f87171";
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:"10px 16px", borderRadius:12, border:"1px solid rgba(52,211,153,0.25)", background:"rgba(52,211,153,0.05)" }}>
-      <Icon name="Sparkles" size={14} style={{color:"#34d399"}}/>
-      <span style={{fontSize:11, fontWeight:700, color:"#34d399", flex:1}}>
-        OCR extracted <strong>{ocrFields.size}</strong> fields automatically
-        {conf && <span style={{marginLeft:8, fontSize:10, color:confColor, fontStyle:"italic"}}>{conf} confidence</span>}
-      </span>
-      <span style={{fontSize:9, color:"#475569", fontStyle:"italic"}}>Italic fields = OCR-filled</span>
-    </div>
-  );
-};
 
 function SidebarContent({ trades }: any) {
   const stats = useMemo(() => {
@@ -309,8 +295,8 @@ function SidebarContent({ trades }: any) {
     const profitFactor = totalLoss>0?(totalWins/totalLoss).toFixed(2):totalWins>0?"∞":"0";
     const winrate = ((wins.length/trades.length)*100).toFixed(1);
     const commissions = trades.reduce((a: number,t: any)=>a+(parseFloat(t.commission)||0),0);
-    const startBal = parseFloat(trades[0]?.accountBalance)||0;
     const endBal   = parseFloat(trades[trades.length-1]?.accountBalance)||0;
+    const startBal = endBal - netPnL;
     let peak=startBal,maxDD=0,runBal=startBal;
     for(const t of trades){runBal+=parseFloat(t.profitLoss)||0;if(runBal>peak)peak=runBal;const dd=peak-runBal;if(dd>maxDD)maxDD=dd;}
     const buys  = trades.filter((t: any)=>t.direction==="Long").length;
@@ -331,8 +317,8 @@ function SidebarContent({ trades }: any) {
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
         </div>
         <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span className="jb-num" style={{fontSize:"15px",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
-          <span className="jb-num" style={{fontSize:"11px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
       <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"10px 14px"}}>
@@ -341,8 +327,8 @@ function SidebarContent({ trades }: any) {
           <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between"}}>
-          <span className="jb-num" style={{fontSize:"12px",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
-          <span className="jb-num" style={{fontSize:"12px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
         </div>
       </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
@@ -350,7 +336,7 @@ function SidebarContent({ trades }: any) {
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
           <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
         </div>
-        <span className="jb-num" style={{fontSize:"11px",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
+        <span className="jb-num" style={{fontSize:"9px",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"2px 0"}}>
         <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
@@ -368,7 +354,7 @@ function SidebarContent({ trades }: any) {
         ].map(({label,val,color})=>(
           <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"9px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"3px"}}>{label}</p>
-            <p className="jb-num" style={{fontSize:"14px",color}}>{val}</p>
+            <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
@@ -378,7 +364,7 @@ function SidebarContent({ trades }: any) {
         <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
           <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
-          <span className="jb-num" style={{fontSize:"11px",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
+          <span className="jb-num" style={{fontSize:"9px",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
@@ -389,7 +375,7 @@ function SidebarContent({ trades }: any) {
         ].map(({label,val,color})=>(
           <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"10px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"5px"}}>{label}</p>
-            <p className="jb-num" style={{fontSize:"12px",color}}>{val}</p>
+            <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
@@ -409,7 +395,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [step,setStep]               = useState(1);
   const [form,setForm]               = useState<Record<string,any>>(INIT);
   const [saved,setSaved]             = useState(false);
-  const [trades,setTrades]           = useState<any[]>([]);
+  const { data: trades = [] } = useQuery<any[]>({
+    queryKey: ['/api/journal/entries', sessionId],
+    queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`)
+      .then(r => r.json())
+      .then((data: any[]) => [...data].reverse()), // reverse to chronological (oldest first)
+    enabled: !!sessionId,
+  });
   const [sidebarOpen,setSidebarOpen] = useState(false);
   const [analyzing,setAnalyzing]     = useState(false);
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
@@ -437,10 +429,64 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       ...prev,
       profitLoss:     values.profitLoss,
       accountBalance: values.accountBalance,
-      monetaryRisk:   values.dollarRisk,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.riskPercent, form.riskReward, form.outcome, currentBalance]);
+
+  // ── Monetary Risk + Potential Reward ───────────────────────────────────────
+  // monetaryRisk    = riskPercent % of current balance (no outcome needed)
+  // potentialReward = monetaryRisk × riskReward (the dollar gain if TP is hit)
+  useEffect(() => {
+    if (!currentBalance || !form.riskPercent) return;
+    const risk = parseFloat(String(form.riskPercent));
+    if (isNaN(risk) || risk <= 0) return;
+    const dollarRisk = parseFloat(((currentBalance * risk) / 100).toFixed(2));
+    const rr = parseFloat(String(form.riskReward)) || 0;
+    setForm(prev => ({
+      ...prev,
+      monetaryRisk:    dollarRisk.toFixed(2),
+      ...(rr > 0 ? { potentialReward: (dollarRisk * rr).toFixed(2) } : {}),
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.riskPercent, form.riskReward, currentBalance]);
+
+  // ── Derive pipsGainedLost from planned TP/SL distance + outcome ────────────
+  // Win  → takeProfitDistancePips (positive pips)
+  // Loss → stopLossDistancePips   (negative pips — SL was hit)
+  // BE   → 0
+  // Skipped when OCR already provided openPLPoints for this field.
+  useEffect(() => {
+    if (ocrFields.has("pipsGainedLost")) return;
+    const outcome = form.outcome;
+    if (!outcome || !["Win", "Loss", "BE"].includes(outcome)) return;
+    if (outcome === "Win" && form.takeProfitDistancePips) {
+      const v = parseFloat(form.takeProfitDistancePips);
+      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, pipsGainedLost: String(v) }));
+    } else if (outcome === "Loss" && form.stopLossDistancePips) {
+      const v = parseFloat(form.stopLossDistancePips);
+      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, pipsGainedLost: String(-v) }));
+    } else if (outcome === "BE") {
+      setForm(prev => ({ ...prev, pipsGainedLost: "0" }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.outcome, form.takeProfitDistancePips, form.stopLossDistancePips, ocrFields]);
+
+  // ── Auto-update actualTP when outcome is changed manually ──────────────────
+  // Win  → mirror plannedTP price
+  // Loss → negative SL pips (SL was hit instead of TP)
+  // Only fires when OCR has not explicitly set actualTP from a screenshot 2 analysis.
+  useEffect(() => {
+    if (ocrFields.has("actualTP")) return;
+    const outcome = form.outcome;
+    if (!outcome || !["Win", "Loss"].includes(outcome)) return;
+    if (outcome === "Win" && form.plannedTP) {
+      setForm(prev => ({ ...prev, actualTP: prev.plannedTP }));
+    } else if (outcome === "Loss" && form.stopLossDistancePips) {
+      const v = parseFloat(form.stopLossDistancePips);
+      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, actualTP: String(-v) }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.outcome, ocrFields]);
 
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
 
@@ -515,19 +561,45 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           if (f.direction) { u.direction = f.direction; mark("direction"); }
 
           const ep = maybe("entryPrice", f.entryPrice);
-          if (ep) { u.entryPrice = ep; u.plannedEntry = ep; u.actualEntry = ep; }
-
           const op = maybe("openingPrice", f.openingPrice);
+          // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
+          const resolvedEntry = ep || op;
+          if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
           if (op) u.openingPrice = op;
 
           const cp = maybe("closingPrice", f.closingPrice);
+          const tp = maybe("takeProfit", f.takeProfit);
+          // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
+          const resolvedTP = tp || cp;
           if (cp) u.closingPrice = cp;
 
-          const sl = maybe("stopLoss", f.stopLoss);
-          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; }
+          if (screenshotField === "screenshot") {
+            // ── Screenshot 1 (setup): planned TP only ──────────────────────
+            if (resolvedTP) {
+              u.takeProfit = resolvedTP;
+              u.plannedTP  = resolvedTP;
+              mark("takeProfit"); mark("plannedTP");
+            }
+          } else {
+            // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
+            // Win/BE → actualTP = TP price extracted from exit screenshot
+            // Loss   → actualTP = negative SL distance in pips (SL was hit)
+            if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
+            const exitOutcome = (u.outcome || "").toLowerCase();
+            if (exitOutcome === "loss") {
+              const slPipsStr = u.stopLossDistancePips;
+              if (slPipsStr) {
+                u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
+                mark("actualTP");
+              }
+            } else if (resolvedTP) {
+              u.actualTP = resolvedTP;
+              mark("actualTP");
+            }
+          }
 
-          const tp = maybe("takeProfit", f.takeProfit);
-          if (tp) { u.takeProfit = tp; u.plannedTP = tp; u.actualTP = tp; }
+          const sl = maybe("stopLoss", f.stopLoss);
+          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
 
           // Points → pips conversion.
           // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
@@ -558,9 +630,19 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
           if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
 
-          if (f.riskReward != null) { u.riskReward = String(f.riskReward); mark("riskReward"); }
-          if (f.plannedRR  != null) { u.plannedRR  = String(f.plannedRR);  mark("plannedRR"); }
-          if (f.achievedRR != null) { u.achievedRR = String(f.achievedRR); mark("achievedRR"); }
+          if (screenshotField === "screenshot") {
+            // Screenshot 1 (setup): planned R:R
+            const rrVal = f.riskReward ?? f.plannedRR;
+            if (rrVal != null) {
+              u.riskReward = String(rrVal);
+              u.plannedRR  = String(rrVal);
+              mark("riskReward"); mark("plannedRR");
+            }
+          } else {
+            // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
+            const rrVal = f.riskReward ?? f.achievedRR;
+            if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
+          }
 
           if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
 
@@ -654,9 +736,9 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         analysisTF:           form.analysisTF            || null,
         contextTF:            form.contextTF             || null,
         outcome:              form.outcome               || null,
-        profitLoss:           form.profitLoss            || null,
-        pipsGainedLost:       form.pipsGainedLost        || null,
-        accountBalance:       form.accountBalance        || null,
+        profitLoss:           form.profitLoss !== "" ? form.profitLoss : null,
+        pipsGainedLost:       form.pipsGainedLost !== "" ? form.pipsGainedLost : null,
+        accountBalance:       form.accountBalance !== "" ? form.accountBalance : null,
         commission:           form.commission            || null,
         mae:                  form.mae                   || null,
         mfe:                  form.mfe                   || null,
@@ -737,12 +819,20 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           emotionalTrade:          form.impulseCheckEmotional,
           externalDistraction:     form.externalDistraction,
           strategyVersionId:       form.strategyVersionId,
+          riskHeat:                form.riskHeat,
+          trailingStopApplied:     form.trailingStopApplied,
+          exitStrategy:            form.exitStrategy,
+          openTradesCount:         form.openTradesCount,
+          totalRiskOpen:           form.totalRiskOpen,
+          correlatedExposure:      form.correlatedExposure,
+          primarySignals:          form.primarySignals,
+          secondarySignals:        form.secondarySignals,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
-      setTrades(p=>[...p,{...form}]);
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute', sessionId] });
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");
@@ -754,6 +844,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
         .form-scroll::-webkit-scrollbar,.side-scroll::-webkit-scrollbar{display:none}
         .form-scroll,.side-scroll{-ms-overflow-style:none;scrollbar-width:none}
         .sidebar-panel{position:relative;z-index:1;width:22vw;min-width:240px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:12px}
@@ -765,7 +856,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         .sidebar-drawer-panel::-webkit-scrollbar{display:none}
         @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @media(max-width:479px){.steps-grid{grid-template-columns:1fr 1fr!important}}
-        .jb-num{font-family:'JetBrains Mono',monospace!important;font-weight:400!important;font-variant-numeric:slashed-zero!important;font-feature-settings:"zero" 1!important;}
+        .jb-num{font-family:'JetBrains Mono',monospace!important;font-weight:400!important;font-style:normal!important;letter-spacing:0.05em!important;font-variant-numeric:tabular-nums!important;}
       `}</style>
 
       <div style={{display:"flex",height:"100%",overflow:"hidden",background:"#05070a",color:"#cbd5e1",fontFamily:"sans-serif",position:"relative"}}>
@@ -776,7 +867,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
         {/* FORM */}
         <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0}}>
-          <div style={{width:"calc(100% + 16px)",margin:"0 0 0 -16px",padding:"2px 8px 12px 8px"}}>
+          <div style={{padding:"2px 8px 12px 8px"}}>
 
             {analyzeError&&(
               <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
@@ -786,7 +877,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
               </div>
             )}
 
-            <OcrSummaryBadge form={form} ocrFields={ocrFields}/>
 
             <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
               {STEPS.map(s=>{
@@ -954,17 +1044,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       </div>
                     </section>
 
-                    {(form.openingPrice || form.closingPrice) && (
-                      <section className="space-y-4">
-                        <SectionHeader icon="Target" title="Price Axis (OCR Coordinate Mapping)"/>
-                        <InfoBox color="green" icon="Sparkles" title="Axis Calibration" text="Opening and closing prices are read directly from the chart's right-edge price axis using pixel-to-price linear interpolation (R²=1.0 on JForex charts)."/>
-                        <div className={g2}>
-                          {lf("Opening Price (SL axis)","openingPrice",undefined,"—")}
-                          {lf("Closing Price (TP axis)","closingPrice",undefined,"—")}
-                        </div>
-                      </section>
-                    )}
-
                     <section className="space-y-4">
                       <SectionHeader icon="Clock" title="Timing & Duration"/>
                       <div className={g4}>
@@ -1004,13 +1083,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="Boxes" title="Market Environment"/>
                       <div className={g4}>
-                        {ls("Market Regime","marketRegime",["Trending","Ranging"])}
+                        {ls("Market Regime","marketRegime",["Bullish","Bearish","Ranging"])}
                         {ls("Trend Direction","trendDirection",["Bullish","Bearish","Sideways"])}
                         {ls("Volatility","volatilityState",["Low","Normal","High"])}
                         {ls("Liquidity","liquidity",["Low","Normal","High"])}
                         {ls("News Environment","newsEnvironment",["Clear","Minor","Major"])}
                         {ls("Session Phase","sessionPhase",["Open","Mid","Close"])}
                         {lf("ATR at Entry","atrAtEntry",undefined,"0.0045","number")}
+                        {ls("Session","sessionName",["London","New York","Tokyo","Sydney","Overlap"])}
                       </div>
                     </section>
                     <section className="space-y-4">
@@ -1032,14 +1112,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Target" title="Liquidity & Bias"/>
                       {lf("Liquidity Targets","liquidityTargets",3,"Major liquidity pools, stop hunts...")}
                     </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Clock" title="Session Timing"/>
-                      <div className={g3}>
-                        {lf("Entry Time (UTC)","entryTimeUTC",undefined,"","time")}
-                        {ls("Session","sessionName",["London","New York","Tokyo","Sydney","Overlap"])}
-                        {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
-                      </div>
-                    </section>
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
@@ -1052,6 +1124,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         <div className="space-y-4">
                           <SectionHeader icon="Activity" title="Technical Signals"/>
                           <div className="space-y-4">
+                            {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
                             {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
                             {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
                             {lf("Primary Signals","primarySignals",2,"Main confirmations")}
@@ -1179,7 +1252,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
                         GROWTH:
                       </span>
-                      <span className="jb-num" style={{fontSize:"13px",color:growthColor,lineHeight:1,fontWeight:900}}>
+                      <span className="jb-num" style={{fontSize:"9px",color:growthColor,lineHeight:1}}>
                         {growthPct >= 0 ? '+' : ''}{growthPct.toFixed(1)}%
                       </span>
                     </div>
@@ -1215,7 +1288,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                     <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none"}}/>
-                    <span style={{fontSize:"12px",fontWeight:900,fontFamily:"monospace",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
+                    <span className="jb-num" style={{fontSize:"12px",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
                   </div>
                   <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
                     <Icon name="X" size={14}/>

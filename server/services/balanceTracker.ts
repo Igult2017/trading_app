@@ -107,37 +107,50 @@ export async function computeTradeMonetaryValues(
  * enrichTradeWithBalance
  * ──────────────────────
  * Called in POST /api/journal/entries BEFORE saving to DB.
- * If profitLoss or accountBalance are missing/zero, computes them from
- * riskPercent + outcome so the DB always has correct monetary data.
  *
- * This is the safety net — even if the frontend didn't auto-fill the values,
- * the server ensures accuracy.
+ * Logic:
+ *   1. If profitLoss is supplied by the client → trust it, compute accountBalance from it.
+ *   2. If profitLoss is missing → derive both profitLoss and accountBalance from
+ *      riskPercent + riskReward + outcome (safety-net path).
+ *   3. If neither profitLoss nor riskPercent is available → pass through unchanged.
+ *
+ * accountBalance is ALWAYS recomputed here so the DB column is never left blank.
  */
 export async function enrichTradeWithBalance(
   sessionId: string,
   tradeData: Record<string, any>
 ): Promise<Record<string, any>> {
-  // If profitLoss is already a meaningful non-zero value, trust it
-  const existingPnL = parseFloat(tradeData.profitLoss ?? "0");
-  if (existingPnL !== 0 && !isNaN(existingPnL)) {
-    return tradeData;
-  }
+  const rawPnL      = String(tradeData.profitLoss ?? "").trim();
+  const existingPnL = parseFloat(rawPnL);
+  const hasPnL      = rawPnL !== "" && !isNaN(existingPnL);
 
-  // Need riskPercent to compute — if missing, can't enrich
   const riskPercent = parseFloat(tradeData.riskPercent ?? "0");
-  if (!riskPercent || isNaN(riskPercent)) {
-    return tradeData;
+  const hasRisk     = riskPercent > 0 && !isNaN(riskPercent);
+
+  // Nothing to work with — skip enrichment
+  if (!hasPnL && !hasRisk) return tradeData;
+
+  const { currentBalance } = await getCurrentBalance(sessionId);
+
+  let finalPnL: number;
+
+  if (hasPnL) {
+    // Client already supplied profitLoss — trust it
+    finalPnL = existingPnL;
+  } else {
+    // Derive from risk % + R:R + outcome
+    const outcome  = String(tradeData.outcome ?? "BE");
+    const rrRatio  = parseFloat(tradeData.riskReward ?? "1") || 1;
+    const dollarRisk = r2((currentBalance * riskPercent) / 100);
+    const norm       = outcome.toLowerCase();
+    if (norm === "win")  finalPnL = r2(dollarRisk * rrRatio);
+    else if (norm === "loss") finalPnL = r2(-dollarRisk);
+    else finalPnL = 0;
   }
-
-  // outcome may be "Win", "Loss", "BE", or "Breakeven"
-  const outcome  = tradeData.outcome ?? "BE";
-  const rrRatio  = parseFloat(tradeData.riskReward ?? "1") || 1;
-
-  const computed = await computeTradeMonetaryValues(sessionId, riskPercent, rrRatio, outcome);
 
   return {
     ...tradeData,
-    profitLoss:     String(computed.profitLoss),
-    accountBalance: String(computed.newBalance),
+    profitLoss:     String(finalPnL),
+    accountBalance: String(r2(currentBalance + finalPnL)),
   };
 }

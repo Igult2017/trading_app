@@ -41,8 +41,8 @@ const Mono = ({ children, size=11, color=P.muted, weight=400, upper=true, spacin
 const Cond = ({ children, size=14, color=P.bright, weight=600, upper=true, style={} as React.CSSProperties, className='' }: any) => (
   <span className={className} style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:size, color, fontWeight:weight, letterSpacing:'0.06em', textTransform:upper?'uppercase':'none', lineHeight:1, ...style }}>{children}</span>
 );
-const Num = ({ children, size=11, color=P.green, style={} as React.CSSProperties }: any) => (
-  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, fontStyle:'italic', letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
+const Num = ({ children, size=9, color=P.green, style={} as React.CSSProperties }: any) => (
+  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
 );
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ const SubLabel = ({ children, style={} as React.CSSProperties }: any) => (
 const DR = ({ label, value, vc }: { label:string; value:string; vc?:string }) => (
   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
     <Mono size={10} color={P.body}>{label}</Mono>
-    <Mono size={11} color={vc||P.bright} weight={500}>{value}</Mono>
+    <Mono size={9} color={vc||P.bright} weight={500}>{value}</Mono>
   </div>
 );
 
@@ -396,14 +396,16 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const winRate      = core.winRate      || 0;
   const expectancy   = core.expectancy   || 0;
   const totalTrades  = core.totalTrades  || 0;
-  const profitFactor = core.profitFactor || 0;
-  const avgRR        = core.avgRR        || 0;
+  const profitFactor    = core.profitFactor || 0;
+  const pfDisplay       = profitFactor >= 999 ? '∞' : profitFactor.toFixed(2);
+  const avgRR           = core.avgRR        || 0;
   const wins         = core.wins         || 0;
   const losses       = core.losses       || 0;
   const avgWin       = core.avgWin       || 0;
   const avgLoss      = core.avgLoss      || 0;
   const rulesAdh     = riskMetrics.rulesAdherence || 0;
   const maxDD        = streaks.maxDrawdown        || 0;
+  const currentDD    = streaks.currentDrawdown    || 0;
   const isPos        = totalPL >= 0;
   const winLossRatio = avgLoss > 0 ? (avgWin/avgLoss).toFixed(1) : '0';
 
@@ -415,7 +417,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const shortTrades = shortData.trades  || 0;
 
   const stratEntries = Object.entries(strategyPerformance).map(([name,d]: [string,any]) => ({
-    name, wr: d.winRate||0, trades: d.trades||0, pl: d.pl||0,
+    name, wr: d.winRate ?? null, trades: d.trades||0, pl: d.pl||0,
   }));
   const strategies = ['ALL STRATEGIES', ...Object.keys(strategyPerformance).filter(k=>k!=='Unclassified')];
 
@@ -442,8 +444,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   const topStrat = stratEntries.length>0 ? stratEntries.reduce((a,b)=>a.pl>b.pl?a:b) : null;
 
-  const ddPct = equityGrowth?.startingBalance
-    ? ((Math.abs(maxDD)/equityGrowth.startingBalance)*100).toFixed(2)
+  const ddPct        = equityGrowth?.startingBalance && maxDD > 0
+    ? ((maxDD     / equityGrowth.startingBalance) * 100).toFixed(2)
+    : '0.00';
+  const currentDDPct = equityGrowth?.startingBalance && currentDD > 0
+    ? ((currentDD / equityGrowth.startingBalance) * 100).toFixed(2)
     : '0.00';
 
   /* ── helpers for psychology categoricals ── */
@@ -488,13 +493,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           { l:'Win Rate',        v:fmtPct(winRate),         s:`${wins}W · ${losses}L`, cls:winRate>=50?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'R Expectancy',    v:expectancy.toFixed(2),   s:'per trade',             cls:expectancy>0?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'Trades',          v:`${totalTrades}`,        s:'this period',           cls:'mp-kpi-neu' },
-          { l:'Profit Factor',   v:profitFactor.toFixed(2), s:'gross ratio',           cls:profitFactor>=1?'mp-kpi-pos':'mp-kpi-neg' },
+          { l:'Profit Factor',   v:pfDisplay,               s:'gross ratio',           cls:profitFactor>=1?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'Avg R:R',         v:`1:${avgRR.toFixed(1)}`, s:'achieved',              cls:'mp-kpi-neu' },
           { l:'Rules Adherence', v:fmtPct(rulesAdh),        s:'followed',              cls:rulesAdh>=80?'mp-kpi-pos':'mp-kpi-neg' },
         ].map((k,i)=>(
           <div key={i} className={`mp-kpi-cell ${k.cls}`} data-testid={`metric-kpi-${i}`}>
             <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:6, letterSpacing:'0.16em' }}>{k.l}</Mono>
-            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5 }}>{k.v}</Num>
+            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5, fontStyle:'normal' }}>{k.v}</Num>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <div style={{ width:16, height:1, background:k.cls==='mp-kpi-pos'?P.greenDim:k.cls==='mp-kpi-neg'?P.redDim:P.line2 }}/>
               <Mono size={8} color={P.dim}>{k.s}</Mono>
@@ -511,9 +516,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* Market Regime */}
           <Panel title="Market Regime" accent={P.cyan} tag="REGIME · VOLATILITY">
-            <Bar label="Trending" pct={wr(regimeData['Trending'])} sub={`${ct(regimeData['Trending'])}t`}/>
-            <Bar label="Ranging"  pct={wr(regimeData['Ranging'])}  sub={`${ct(regimeData['Ranging'])}t`}/>
-            <Bar label="Volatile" pct={wr(regimeData['Volatile'])} sub={`${ct(regimeData['Volatile'])}t`}/>
+            <Bar label="Bullish"  pct={wr(regimeData['Bullish']  ?? regimeData['Trending'])} sub={`${ct(regimeData['Bullish'] ?? regimeData['Trending'])}t`}/>
+            <Bar label="Bearish"  pct={wr(regimeData['Bearish']  ?? regimeData['Bear'])}     sub={`${ct(regimeData['Bearish'] ?? regimeData['Bear'])}t`}/>
+            <Bar label="Ranging"  pct={wr(regimeData['Ranging']  ?? regimeData['Range'])}    sub={`${ct(regimeData['Ranging'] ?? regimeData['Range'])}t`}/>
             <SubLabel>Volatility State</SubLabel>
             <Bar label="Low"    pct={wr(volatilityData['Low'])}    sub={`${ct(volatilityData['Low'])}t`}/>
             <Bar label="Normal" pct={wr(volatilityData['Normal'])} sub={`${ct(volatilityData['Normal'])}t`}/>
@@ -530,9 +535,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <ScoreRow label="Confluence Score"  scores={scoreRowFromImpact(scoreImpacts.confluenceScore)}/>
               <ScoreRow label="Signal Validation" scores={scoreRowFromImpact(scoreImpacts.signalValidationScore)}/>
               <SubLabel>Planned vs Actual (Avg Pips)</SubLabel>
-              <DR label="Entry Deviation" value={riskMetrics.avgEntryDeviation!=null?`${riskMetrics.avgEntryDeviation} pips`:'--'} vc={P.green}/>
-              <DR label="SL Deviation"    value={riskMetrics.avgSLDeviation!=null?`${riskMetrics.avgSLDeviation} pips`:'--'}    vc={P.amber}/>
-              <DR label="TP Deviation"    value={riskMetrics.avgTPDeviation!=null?`${riskMetrics.avgTPDeviation} pips`:'--'}    vc={P.green}/>
+              <DR label="Entry Deviation" value={riskMetrics.avgEntryDeviation!=null?`${riskMetrics.avgEntryDeviation.toFixed(2)} pips`:'--'} vc={P.green}/>
+              <DR label="SL Deviation"    value={riskMetrics.avgSLDeviation!=null?`${riskMetrics.avgSLDeviation.toFixed(2)} pips`:'--'}    vc={P.amber}/>
+              <DR label="TP Deviation"    value={riskMetrics.avgTPDeviation!=null?`${riskMetrics.avgTPDeviation.toFixed(2)} pips`:'--'}    vc={P.green}/>
               <SubLabel>Breakeven Applied</SubLabel>
               <div style={{ marginBottom:6 }}>
                 <Mono size={8} color={P.dim} style={{ display:'block', marginBottom:4 }}>Breakeven Effect</Mono>
@@ -670,8 +675,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <BoolYN label="Boredom Trades"   data={boolImpacts.boredomTrade}/>
               <BoolYN label="Emotional Trades" data={boolImpacts.emotionalTrade}/>
               <SubLabel>Risk State</SubLabel>
-              <DR label="Avg Risk %" value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'}/>
-              <DR label="Avg Spread" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry} pips`:'--'}/>
+              <DR label="Avg Risk %" value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent.toFixed(2)}%`:'--'}/>
+              <DR label="Avg Spread" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips`:'--'}/>
             </Scroll>
           </Panel>
         </div>
@@ -745,10 +750,10 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* Risk & Position Sizing */}
           <Panel title="Risk & Position Sizing" accent={P.amber} tag="HEAT ANALYSIS">
-            <DR label="Avg Risk %"      value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'}/>
-            <DR label="Max Risk %"      value={riskMetrics.maxRiskPercent!=null?`${riskMetrics.maxRiskPercent}%`:'--'}/>
-            <DR label="Min Risk %"      value={riskMetrics.minRiskPercent!=null?`${riskMetrics.minRiskPercent}%`:'--'}/>
-            <DR label="Avg Spread"      value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry} pips`:'--'}/>
+            <DR label="Avg Risk %"      value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent.toFixed(2)}%`:'--'}/>
+            <DR label="Max Risk %"      value={riskMetrics.maxRiskPercent!=null?`${riskMetrics.maxRiskPercent.toFixed(2)}%`:'--'}/>
+            <DR label="Min Risk %"      value={riskMetrics.minRiskPercent!=null?`${riskMetrics.minRiskPercent.toFixed(2)}%`:'--'}/>
+            <DR label="Avg Spread"      value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips`:'--'}/>
             <SubLabel>Risk Heat</SubLabel>
             <Bar label="Low Heat"    pct={riskHeatBreakdown['Low']?.winRate    ?? null} sub={`${ct(riskHeatBreakdown['Low'])}t`}/>
             <Bar label="Medium Heat" pct={riskHeatBreakdown['Medium']?.winRate ?? null} sub={`${ct(riskHeatBreakdown['Medium'])}t`}/>
@@ -763,8 +768,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* MAE / MFE */}
           <Panel title="MAE / MFE Analysis" accent={P.cyan} tag="ENTRY QUALITY">
             <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>MAE — Adverse Excursion</SubLabel>
-            <DR label="Avg MAE"   value={maeMfe.avgMAE  !=null?`${maeMfe.avgMAE} pip`:'--'}   vc={P.red}/>
-            <DR label="Worst MAE" value={maeMfe.worstMAE!=null?`${maeMfe.worstMAE} pip`:'--'} vc={P.red}/>
+            <DR label="Avg MAE"   value={maeMfe.avgMAE  !=null?`${maeMfe.avgMAE.toFixed(2)} pips`:'--'}   vc={P.red}/>
+            <DR label="Worst MAE" value={maeMfe.worstMAE!=null?`${maeMfe.worstMAE.toFixed(2)} pips`:'--'} vc={P.red}/>
             <DR label="MAE > SL"  value={maeMfe.maeGtSLCount!=null?`${maeMfe.maeGtSLCount} trades`:'--'} vc={maeMfe.maeGtSLCount===0?P.green:P.red}/>
             {maeMfe.avgMAE!=null && (
               <div style={{ margin:'6px 0 10px' }}>
@@ -778,14 +783,14 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               </div>
             )}
             <SubLabel>MFE — Favourable Excursion</SubLabel>
-            <DR label="Avg MFE"  value={maeMfe.avgMFE !=null?`+${maeMfe.avgMFE} pip`:'--'}  vc={P.green}/>
-            <DR label="Best MFE" value={maeMfe.bestMFE!=null?`+${maeMfe.bestMFE} pip`:'--'} vc={P.green}/>
-            <DR label="Avg Capture Rate" value={maeMfe.avgMFECapture!=null?`${maeMfe.avgMFECapture}% of MFE`:'--'} vc={P.cyan}/>
+            <DR label="Avg MFE"  value={maeMfe.avgMFE !=null?`+${maeMfe.avgMFE.toFixed(2)} pips`:'--'}  vc={P.green}/>
+            <DR label="Best MFE" value={maeMfe.bestMFE!=null?`+${maeMfe.bestMFE.toFixed(2)} pips`:'--'} vc={P.green}/>
+            <DR label="Avg Capture Rate" value={maeMfe.avgMFECapture!=null?`${maeMfe.avgMFECapture.toFixed(1)}% of MFE`:'--'} vc={P.cyan}/>
             {maeMfe.avgMFECapture!=null && (
               <div style={{ margin:'6px 0 10px' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                   <Mono size={7} color={P.dim}>Avg MFE captured</Mono>
-                  <Mono size={7} color={P.cyan}>{maeMfe.avgMFECapture}%</Mono>
+                  <Mono size={7} color={P.cyan}>{maeMfe.avgMFECapture.toFixed(1)}%</Mono>
                 </div>
                 <div style={{ height:2, background:P.line2 }}>
                   <div style={{ width:`${maeMfe.avgMFECapture||0}%`, height:'100%', background:P.cyan, opacity:0.7 }}/>
@@ -812,7 +817,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* Execution Metrics */}
           <Panel title="Execution Metrics" accent={P.amber} tag="ENTRY TIMING · SLIPPAGE">
-            <DR label="Avg Spread at Entry" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry} pips`:'--'} vc={P.green}/>
+            <DR label="Avg Spread at Entry" value={riskMetrics.avgSpreadAtEntry!=null?`${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips`:'--'} vc={P.green}/>
             <DR label="Avg R:R Achieved"    value={avgRR?`1:${avgRR.toFixed(1)}`:'--'} vc={P.cyan}/>
             <SubLabel>Order Type</SubLabel>
             {orderEntries.length>0
@@ -878,7 +883,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 ? tfEntries.map((x,i)=>(
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                       <Mono size={9} color={P.muted}>{x.tf}</Mono>
-                      <Cond size={13} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}%`:'--'}</Cond>
+                      <Cond size={10} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}%`:'--'}</Cond>
                     </div>
                   ))
                 : <Mono size={9} color={P.dim}>No entry TF data</Mono>
@@ -887,7 +892,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfAnalysis).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={13} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfAnalysis).length===0 && <Mono size={9} color={P.dim}>No analysis TF data</Mono>}
@@ -895,7 +900,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfContext).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={13} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfContext).length===0 && <Mono size={9} color={P.dim}>No context TF data</Mono>}
@@ -964,18 +969,18 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
         <div className="mp-g4">
 
           <Panel title="Drawdown" accent={P.red} tag="CURRENT PERIOD">
-            <DR label="Max DD"     value={maxDD!==0?`${fmtPL(maxDD)} (${ddPct}%)`:'$0 (0.00%)'} vc={P.red}/>
-            <DR label="Current DD" value={maxDD!==0?`${ddPct}% · ${fmtPL(maxDD)}`:'0.00% · $0'}  vc={P.amber}/>
+            <DR label="Max DD"     value={maxDD > 0 ? `-$${maxDD.toLocaleString()} (${ddPct}%)` : '$0 (0.00%)'} vc={P.red}/>
+            <DR label="Current DD" value={currentDD > 0 ? `-$${currentDD.toLocaleString()} (${currentDDPct}%)` : '$0 (0.00%)'} vc={currentDD > 0 ? P.amber : P.green}/>
             <DR label="Balance"    value={equityGrowth?.currentBalance?`$${equityGrowth.currentBalance.toLocaleString(undefined,{maximumFractionDigits:0})}`:'--'} vc={P.green}/>
             <DR label="Period"     value="THIS SESSION" vc={P.dim}/>
-            {maxDD!==0 && (
+            {maxDD > 0 && (
               <div style={{ marginTop:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
                   <Mono size={8} color={P.dim}>DD USED</Mono>
-                  <Mono size={8} color={P.red}>{ddPct}%</Mono>
+                  <Mono size={8} color={currentDD > 0 ? P.red : P.green}>{currentDDPct}%</Mono>
                 </div>
                 <div style={{ height:2, background:P.line2 }}>
-                  <div style={{ width:`${Math.min(100,parseFloat(ddPct))}%`, height:'100%', background:P.red }}/>
+                  <div style={{ width:`${Math.min(100,parseFloat(currentDDPct))}%`, height:'100%', background:currentDD > 0 ? P.red : P.green }}/>
                 </div>
               </div>
             )}
@@ -1001,8 +1006,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           <Panel title="Risk of Ruin" accent={P.amber} tag="ACCOUNT SAFETY">
             <DR label="Ruin Probability" value={`${riskOfRuin}%`}         vc={rorColor}/>
             <DR label="Win Rate"         value={fmtPct(winRate)}           vc={winRate>=50?P.green:P.red}/>
-            <DR label="Risk per Trade"   value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent}%`:'--'} vc={P.cyan}/>
-            <DR label="Profit Factor"    value={profitFactor.toFixed(2)}   vc={profitFactor>=1?P.green:P.red}/>
+            <DR label="Risk per Trade"   value={riskMetrics.avgRiskPercent!=null?`${riskMetrics.avgRiskPercent.toFixed(2)}%`:'--'} vc={P.cyan}/>
+            <DR label="Profit Factor"    value={pfDisplay}   vc={profitFactor>=1?P.green:P.red}/>
             <DR label="Risk Status"      value={rorStatus}                 vc={rorColor}/>
           </Panel>
         </div>
@@ -1014,7 +1019,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           <Panel title="Period Summary" accent={P.cyan} tag="PERFORMANCE">
             <DR label="Total P/L"     value={fmtPL(totalPL)}             vc={isPos?P.green:P.red}/>
             <DR label="Win Rate"      value={fmtPct(winRate)}             vc={winRate>=50?P.green:P.red}/>
-            <DR label="Profit Factor" value={profitFactor.toFixed(2)}     vc={profitFactor>=1?P.green:P.red}/>
+            <DR label="Profit Factor" value={pfDisplay}     vc={profitFactor>=1?P.green:P.red}/>
             <DR label="Expectancy"    value={`${expectancy.toFixed(2)}R`} vc={expectancy>0?P.green:P.red}/>
             <DR label="Total Trades"  value={`${totalTrades}`}/>
             <DR label="Avg R:R"       value={`1:${avgRR.toFixed(1)}`}/>
@@ -1052,9 +1057,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 {stratEntries.length>0
                   ? stratEntries.map((s,i)=>{
                       const matrix = stratMarketMatrix[s.name] || {};
-                      const bullWR = matrix['Bull']?.winRate     ?? matrix['Trending']?.winRate ?? null;
-                      const bearWR = matrix['Bear']?.winRate     ?? null;
-                      const rangWR = matrix['Range']?.winRate    ?? matrix['Ranging']?.winRate  ?? null;
+                      const bullWR = matrix['Bullish']?.winRate  ?? matrix['Bull']?.winRate    ?? matrix['Trending']?.winRate ?? null;
+                      const bearWR = matrix['Bearish']?.winRate  ?? matrix['Bear']?.winRate    ?? null;
+                      const rangWR = matrix['Ranging']?.winRate  ?? matrix['Range']?.winRate   ?? null;
                       return (
                         <tr key={i}>
                           <td className="mp-dn">{s.name}</td>
@@ -1063,7 +1068,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                           <td style={{ color:P.amber }}>{rangWR!=null?`${Math.round(rangWR)}%`:'--'}</td>
                           <td style={{ color:P.muted }}>{s.trades}</td>
                           <td style={{ color:pColor(s.wr) }}>{s.wr!=null?`${Math.round(s.wr)}%`:'--'}</td>
-                          <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:17, fontWeight:700, color:s.pl>=0?P.green:P.red, textAlign:'right' }}>{fmtPL(s.pl)}</td>
+                          <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, color:s.pl>=0?P.green:P.red, textAlign:'right' }}>{fmtPL(s.pl)}</td>
                         </tr>
                       );
                     })

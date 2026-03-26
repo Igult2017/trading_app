@@ -16,6 +16,7 @@ import {
   Loader2,
   RefreshCw,
   WifiOff,
+  Wrench,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,7 +196,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   const levels = [
     { id: 1, label: 'STRATEGY AUDIT',   icon: <ChessGearIcon size={14} /> },
     { id: 2, label: 'EVIDENCE & PROOF', icon: <Database className="w-3.5 h-3.5" /> },
-    { id: 3, label: 'DIAGNOSTICS',      icon: <TargetIcon /> },
+    { id: 3, label: 'DIAGNOSTICS',      icon: <Wrench className="w-3.5 h-3.5" /> },
     { id: 4, label: 'ACTION & ITERATION', icon: <PlusCircle className="w-3.5 h-3.5" /> },
   ];
 
@@ -206,10 +207,10 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   if (isLoading) return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-6" style={F}>
       <div className="relative">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/40">
+        <div className="w-16 h-16 bg-blue-600 rounded-none flex items-center justify-center shadow-lg shadow-blue-900/40">
           <Cpu className="w-8 h-8 text-white"/>
         </div>
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 animate-pulse"/>
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-none border-2 border-slate-950 animate-pulse"/>
       </div>
       <div className="text-center space-y-2">
         <div className="flex items-center gap-3">
@@ -230,7 +231,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
           <p className="text-sm font-black uppercase tracking-widest text-red-400">Audit Engine Error</p>
           <p className="text-xs text-slate-400 font-medium max-w-sm">{msg}</p>
         </div>
-        <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-lg hover:bg-blue-500 transition-all">
+        <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-none hover:bg-blue-500 transition-all">
           <RefreshCw className="w-3.5 h-3.5"/> Retry
         </button>
       </div>
@@ -255,74 +256,39 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500/30" style={F}>
 
       {/* ── HEADER (nav + KPI strip) ────────────────────────────────── */}
-      <nav className="border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl"
-        style={{ boxShadow: '0 1px 0 rgba(59,130,246,0.08), 0 4px 24px rgba(0,0,0,0.4)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/40">
-                <Cpu className="w-4 h-4 text-white"/>
-              </div>
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-slate-950 animate-pulse"/>
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="font-black text-sm uppercase tracking-widest text-slate-100">
-                Audit <span className="text-blue-400">Results</span>
-              </span>
-              <span className="text-[8px] text-slate-600 font-bold uppercase tracking-[0.3em] mt-0.5">In Real Time</span>
-            </div>
-          </div>
-
-          <div className="hidden sm:block w-px h-6 bg-slate-800"/>
-
-          <div className="flex-1 hidden md:flex items-center justify-center">
-            <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-none p-1 gap-0.5">
-              {levels.map(lv => (
-                <button key={lv.id} onClick={() => setActiveLevel(lv.id)}
-                  className={`relative px-3 py-1.5 rounded-none text-[10px] font-black transition-all duration-200 flex items-center gap-1.5 tracking-widest ${
-                    activeLevel === lv.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}>
-                  {activeLevel === lv.id && <span className="absolute inset-0 rounded-none bg-blue-500/20 blur-sm"/>}
-                  <span className="relative flex items-center gap-1.5">{lv.icon}{lv.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="md:hidden flex bg-slate-900/60 border border-slate-800 rounded-lg p-0.5 gap-0.5">
-            {levels.map(lv => (
-              <button key={lv.id} onClick={() => setActiveLevel(lv.id)}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-black transition-all ${activeLevel === lv.id ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>
-                L{lv.id}
+      <nav className="w-full border-b border-gray-800">
+        <div className="w-full flex flex-row justify-between items-center py-2 px-0 gap-3">
+          {levels.map(lv => {
+            const isActive = activeLevel === lv.id;
+            return (
+              <button
+                key={lv.id}
+                onClick={() => setActiveLevel(lv.id)}
+                className={`flex flex-row items-center justify-center gap-2 w-48 py-3.5 transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'bg-blue-600 shadow-md shadow-blue-900/40 border border-blue-500/40'
+                    : 'bg-slate-900/40 hover:bg-slate-900/60 border border-slate-500/30 hover:border-slate-400/50'
+                }`}
+              >
+                <span className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                  {lv.icon}
+                </span>
+                <p className={`text-[10px] font-black uppercase tracking-widest transition-colors duration-200 ${
+                  isActive ? 'text-white' : 'text-gray-200'
+                }`}>
+                  {lv.label}
+                </p>
               </button>
-            ))}
-          </div>
-
-          <div className="hidden sm:block w-px h-6 bg-slate-800"/>
-
-          <div className="hidden sm:flex items-center gap-3 shrink-0">
-            <button onClick={() => refetch()} disabled={isFetching}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/60 border border-slate-700/50 rounded-lg hover:bg-slate-700/60 transition-all disabled:opacity-50">
-              <RefreshCw className={`w-3 h-3 text-slate-400 ${isFetching ? 'animate-spin' : ''}`}/>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Refresh</span>
-            </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"/>
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Activated</span>
-            </div>
-            <button className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800/60 border border-slate-700/50 hover:bg-slate-700/60 transition-all">
-              <Settings className="w-3.5 h-3.5 text-slate-400"/>
-            </button>
-          </div>
+            );
+          })}
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"/>
       </nav>
 
       {/* KPI stat cards — part of sticky header */}
-      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60 px-4 sm:px-6 py-2"
+      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
-        <div className="max-w-7xl mx-auto">
+        <div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <StatCard label="Audit Win Rate"   value={`${d.auditSummary.winRate.toFixed(1)}%`}         trend={`+${(d.auditSummary.winRate - 50).toFixed(1)}pp`} color="text-emerald-400"/>
             <StatCard label="Edge Persistence" value={d.auditSummary.edgePersistence.toFixed(2)}        trend={d.auditSummary.edgeVerdict}                        color="text-blue-400"/>
@@ -333,57 +299,23 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       </div>
 
       {/* ── MAIN ───────────────────────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-6 py-3 pb-3">
+      <main className="w-full py-3 pb-3">
 
         {/* ════ LEVEL 1 ════════════════════════════════════════════════════ */}
         {activeLevel === 1 && (
           <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch">
-              <div className="lg:col-span-2 flex flex-col gap-2">
-                <Section title="Executive Summary" icon={<Zap className="w-4 h-4 text-yellow-400"/>} className="flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+              {/* Row 1: Executive Summary (left) + What to Monitor Next (right) */}
+              <div className="lg:col-span-2 flex flex-col">
+                <Section title="Executive Summary" icon={<Zap className="w-4 h-4 text-yellow-400"/>} className="h-full">
                   <p className="text-slate-300 leading-relaxed text-sm font-medium">
                     {d.executiveSummary || 'No trades found — add trades to generate an audit.'}
                   </p>
                 </Section>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 flex-1">
-                  <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>}>
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className={`text-lg font-black italic ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
-                        {verdictLabel}
-                      </div>
-                      <div className="h-0.5 flex-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div className={`h-full ${verdictBarClr}`} style={{ width: `${verdictBar}%` }}/>
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-400 font-semibold" style={{ letterSpacing: '0.05em' }}>
-                      Confidence: {d.edgeVerdict.confidence.toFixed(1)}% | {d.edgeVerdict.sampleSize} samples
-                    </p>
-                  </Section>
-
-                  <Section title="Edge Drivers" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>}>
-                    <div className="max-h-[80px] overflow-y-auto pr-2 custom-scrollbar">
-                      {d.edgeDrivers.length ? (
-                        <ul className="text-sm space-y-2">
-                          {d.edgeDrivers.slice(0, 3).map((drv, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0"/>
-                              <span className="font-medium">{drv.factor} <span className="text-emerald-400 font-black">+{drv.lift.toFixed(1)}pp</span></span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-500 font-medium italic">
-                          Tag trades with HTF bias, confluence score, session to unlock edge drivers.
-                        </p>
-                      )}
-                    </div>
-                  </Section>
-                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Section title="What to Monitor Next" icon={<Activity className="w-4 h-4 text-orange-400"/>}>
+              <div className="flex flex-col">
+                <Section title="What to Monitor Next" icon={<Activity className="w-4 h-4 text-orange-400"/>} className="h-full">
                   <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {d.monitorItems.length ? (
                       d.monitorItems.map((m, i) => (
@@ -395,19 +327,57 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     )}
                   </div>
                 </Section>
+              </div>
 
-                <Section title="Audit-Driven Changes" icon={<Clock className="w-4 h-4 text-purple-400"/>}>
+              {/* Row 2: Is There an Edge? + Edge Drivers (left) + Audit-Driven Changes (right) */}
+              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>} className="h-full">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className={`text-sm font-black ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
+                      {verdictLabel}
+                    </div>
+                    <div className="h-0.5 flex-1 bg-slate-800 rounded-none overflow-hidden">
+                      <div className={`h-full ${verdictBarClr}`} style={{ width: `${verdictBar}%` }}/>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 font-semibold" style={{ letterSpacing: '0.05em' }}>
+                    Confidence: {d.edgeVerdict.confidence.toFixed(1)}% | {d.edgeVerdict.sampleSize} samples
+                  </p>
+                </Section>
+
+                <Section title="Edge Drivers" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>} className="h-full">
+                  <div className="max-h-[80px] overflow-y-auto pr-2 custom-scrollbar">
+                    {d.edgeDrivers.length ? (
+                      <ul className="text-sm space-y-2">
+                        {d.edgeDrivers.slice(0, 3).map((drv, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-none bg-blue-500 mt-1.5 shrink-0"/>
+                            <span className="font-medium">{drv.factor} <span className="text-emerald-400 font-black">+{drv.lift.toFixed(1)}pp</span></span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-500 font-medium">
+                        Tag trades with HTF bias, confluence score, session to unlock edge drivers.
+                      </p>
+                    )}
+                  </div>
+                </Section>
+              </div>
+
+              <div className="flex flex-col">
+                <Section title="Audit-Driven Changes" icon={<Clock className="w-4 h-4 text-purple-400"/>} className="h-full">
                   <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {d.aiPolicySuggestions.slice(0, 2).map((s, i) => (
                       <div key={i} className="text-xs border-l-2 border-purple-500 pl-3 py-1 bg-purple-500/5">
                         <div className="font-bold text-slate-200" style={{ letterSpacing: '0.05em' }}>{s.rule}</div>
-                        <div className="text-slate-500 italic font-medium">{s.expectedImpact}</div>
+                        <div className="text-slate-500 font-medium">{s.expectedImpact}</div>
                       </div>
                     ))}
                     {!d.aiPolicySuggestions.length && (
                       <div className="text-xs border-l-2 border-slate-600 pl-3 py-1 bg-slate-800/20">
                         <div className="font-bold text-slate-400">No changes yet</div>
-                        <div className="text-slate-600 italic font-medium">Add more trades to generate suggestions.</div>
+                        <div className="text-slate-600 font-medium">Add more trades to generate suggestions.</div>
                       </div>
                     )}
                   </div>
@@ -417,7 +387,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <Section title="Weaknesses & Failure Conditions" icon={<AlertTriangle className="w-4 h-4 text-red-400"/>}>
-                <div className="bg-red-950/10 border border-red-900/30 p-4 rounded-lg">
+                <div className="bg-red-950/10 border border-red-900/30 p-4 rounded-none">
                   {d.weaknesses.length ? d.weaknesses.slice(0, 2).map((w, i) => (
                     <div key={i} className="mb-3 last:mb-0">
                       <p className="text-sm text-red-200 mb-1 font-black" style={{ letterSpacing: '0.05em' }}>{w.factor}</p>
@@ -432,14 +402,14 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               </Section>
 
               <Section title="Psychology Impact" icon={<Brain className="w-4 h-4 text-pink-400"/>}>
-                <div className="flex gap-4 h-full items-center">
-                  <div className="flex-1 text-center p-3 bg-slate-900/80 rounded-lg border border-slate-800">
+                <div className="-mx-3 -mb-3 md:-mx-4 md:-mb-4 flex border-t border-slate-800/60">
+                  <div className="flex-1 text-center p-4 bg-slate-900/80 border-r border-slate-800">
                     <div className="text-2xl font-black text-pink-400">
                       {d.psychologyScore > 0 ? d.psychologyScore.toFixed(1) : '—'}
                     </div>
                     <div className="text-[10px] uppercase text-slate-500 mt-1 font-bold" style={{ letterSpacing: '0.15em' }}>Stress Score</div>
                   </div>
-                  <div className="flex-1 text-center p-3 bg-slate-900/80 rounded-lg border border-slate-800">
+                  <div className="flex-1 text-center p-4 bg-slate-900/80">
                     <div className="text-2xl font-black text-blue-400">
                       {d.disciplineScore > 0 ? `${d.disciplineScore.toFixed(0)}%` : '—'}
                     </div>
@@ -509,7 +479,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                       <span className="text-slate-400 uppercase font-black" style={{ letterSpacing: '0.1em' }}>Win Rate</span>
                       <span className="text-blue-400 font-black">{d.edgeComponents.winRateContribution.toFixed(1)}%</span>
                     </div>
-                    <div className="h-0.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-0.5 bg-slate-800 rounded-none overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-1000"
                         style={{ width: `${d.edgeComponents.winRateContribution}%` }}/>
                     </div>
@@ -519,7 +489,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                       <span className="text-slate-400 uppercase font-black" style={{ letterSpacing: '0.1em' }}>Risk-Reward</span>
                       <span className="text-purple-400 font-black">{d.edgeComponents.riskRewardContribution.toFixed(1)}%</span>
                     </div>
-                    <div className="h-0.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-0.5 bg-slate-800 rounded-none overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-1000"
                         style={{ width: `${d.edgeComponents.riskRewardContribution}%` }}/>
                     </div>
@@ -540,7 +510,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <div className="mt-6 pt-6 border-t border-slate-800/50 flex items-center justify-end gap-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500"/>
-                  <span className="text-xs font-black italic text-emerald-400 uppercase" style={{ letterSpacing: '0.15em' }}>
+                  <span className="text-xs font-black text-emerald-400 uppercase" style={{ letterSpacing: '0.15em' }}>
                     {d.finalVerdict?.authorized ? 'System Certified' : 'Pending Certification'}
                   </span>
                 </div>
@@ -571,7 +541,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   <div className="pt-2 border-t border-slate-800/50 flex items-center justify-between">
                     <span className="text-[9px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.12em' }}>Positive Skew</span>
                     <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${d.variance.positiveSkew ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}/>
+                      <div className={`w-1.5 h-1.5 rounded-none ${d.variance.positiveSkew ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}/>
                       <span className={`text-[9px] font-black uppercase ${d.variance.positiveSkew ? 'text-emerald-400' : 'text-red-400'}`} style={{ letterSpacing: '0.1em' }}>
                         {d.variance.positiveSkew ? 'Verified' : 'Negative'}
                       </span>
@@ -641,8 +611,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     <span className="text-slate-400 font-medium">Statistical Significance</span>
                     <span className="text-emerald-400 font-black">{d.auditScope.statisticalSignificance.toFixed(1)}%</span>
                   </div>
-                  <div className="h-0.5 bg-slate-800 rounded-full">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${d.auditScope.statisticalSignificance}%` }}/>
+                  <div className="h-0.5 bg-slate-800 rounded-none">
+                    <div className="h-full bg-emerald-500 rounded-none" style={{ width: `${d.auditScope.statisticalSignificance}%` }}/>
                   </div>
                 </div>
               </Section>
@@ -651,7 +621,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <Section title="Edge Evidence (Monte Carlo)">
                 <div className="flex items-end gap-1 h-24 overflow-hidden">
                   {(d.equityVariance.mcBars ?? [40,70,45,90,65,80,50,95,100,75,85,60,40,55,70,30]).map((h, i) => (
-                    <div key={i} className="flex-1 bg-blue-500/20 hover:bg-blue-500/50 transition-all rounded-t-sm" style={{ height: `${h}%` }}/>
+                    <div key={i} className="flex-1 bg-blue-500/20 hover:bg-blue-500/50 transition-all rounded-none" style={{ height: `${h}%` }}/>
                   ))}
                 </div>
                 <div className="mt-4 text-xs text-slate-500 text-center uppercase font-bold" style={{ letterSpacing: '0.2em' }}>
@@ -673,7 +643,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     ][i];
                     const t = d.tradeQuality[key];
                     return (
-                      <div key={key} className={`flex items-center justify-between p-3 bg-gradient-to-r ${colors.bg} border ${colors.border} rounded-xl`}>
+                      <div key={key} className={`flex items-center justify-between p-3 bg-gradient-to-r ${colors.bg} border ${colors.border} rounded-none`}>
                         <div>
                           <div className="text-[9px] text-slate-500 font-bold" style={{ letterSpacing: '0.1em' }}>
                             {labels[i]}-Trades <span className="text-slate-600">({t.count})</span>
@@ -690,7 +660,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               {/* Conditional Edge */}
               <Section title="Conditional Edge Validation" icon={<ShieldCheck className="w-4 h-4 text-blue-400"/>}>
                 <div className="space-y-2">
-                  <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+                  <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-none">
                     <div className="text-xs text-blue-400 uppercase font-black mb-3" style={{ letterSpacing: '0.1em' }}>
                       {d.conditionalEdge.liquidityGap.label}: {d.conditionalEdge.liquidityGap.rMultiple.toFixed(2)}R
                     </div>
@@ -699,7 +669,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                       <span className="text-xl font-black text-slate-300">{d.conditionalEdge.liquidityGap.samples}</span>
                     </div>
                   </div>
-                  <div className="p-4 bg-slate-800/20 border border-slate-700/30 rounded-xl">
+                  <div className="p-4 bg-slate-800/20 border border-slate-700/30 rounded-none">
                     <div className="text-xs text-slate-400 uppercase font-black mb-3" style={{ letterSpacing: '0.1em' }}>
                       {d.conditionalEdge.nonQualified.label}: {d.conditionalEdge.nonQualified.rMultiple.toFixed(2)}R
                     </div>
@@ -709,7 +679,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     </div>
                   </div>
                   <div className="pt-4 border-t border-slate-800/50">
-                    <div className="text-[10px] text-slate-600 italic text-center font-medium">
+                    <div className="text-[10px] text-slate-600 text-center font-medium">
                       Edge transferability: {d.edgeTransferability.toFixed(1)}%
                     </div>
                   </div>
@@ -724,7 +694,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   <div className="heatmap-outer">
                     <div style={{ display: 'flex', gap: '2rem', minWidth: 'max-content' }}>
                       <div style={{ width: 480, flexShrink: 0 }}>
-                        <div className="text-xs font-black text-emerald-400 uppercase bg-emerald-400/5 px-3 py-2 rounded-lg border border-emerald-500/10 mb-3" style={{ letterSpacing: '0.12em' }}>
+                        <div className="text-xs font-black text-emerald-400 uppercase bg-emerald-400/5 px-3 py-2 rounded-none border border-emerald-500/10 mb-3" style={{ letterSpacing: '0.12em' }}>
                           Alpha Profile (Success Factors)
                         </div>
                         <div className="heatmap-inner">
@@ -732,7 +702,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                         </div>
                       </div>
                       <div style={{ width: 480, flexShrink: 0 }}>
-                        <div className="text-xs font-black text-red-400 uppercase bg-red-400/5 px-3 py-2 rounded-lg border border-red-500/10 mb-3" style={{ letterSpacing: '0.12em' }}>
+                        <div className="text-xs font-black text-red-400 uppercase bg-red-400/5 px-3 py-2 rounded-none border border-red-500/10 mb-3" style={{ letterSpacing: '0.12em' }}>
                           Failure Profile (Decay Factors)
                         </div>
                         <div className="heatmap-inner" style={{ scrollbarColor: '#ef4444 #1e293b' }}>
@@ -753,12 +723,12 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">High</span>
                       </div>
-                      <div className="text-[9px] text-slate-600 italic font-medium">← Scroll horizontally →</div>
+                      <div className="text-[9px] text-slate-600 font-medium">← Scroll horizontally →</div>
                     </div>
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-slate-500 italic font-medium py-4 text-center">
+                <p className="text-xs text-slate-500 font-medium py-4 text-center">
                   Tag trades with instrument, confluence score, HTF bias, and session to unlock the AI classification heatmap.
                 </p>
               )}
@@ -769,9 +739,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         {/* ════ LEVEL 3 ════════════════════════════════════════════════════ */}
         {activeLevel === 3 && (
           <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-start">
-              <div className="lg:col-span-2">
-                <Section title="Component Breakdown">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch">
+              <div className="lg:col-span-2 flex flex-col">
+                <Section title="Component Breakdown" className="flex-1">
                   <div className="overflow-x-auto custom-scrollbar">
                     <div className="min-w-[500px] space-y-2">
                       <div className="text-xs text-slate-400 mb-2 font-medium">Regime performance analysis</div>
@@ -785,7 +755,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                             <span className="text-slate-400 font-bold">{r.label} Regime</span>
                             <span className="font-black text-slate-300">{r.value > 0 ? `${r.value.toFixed(1)}%` : '—'}</span>
                           </div>
-                          <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-1 bg-slate-800 rounded-none overflow-hidden">
                             <div className={`h-full ${r.color}`} style={{ width: `${r.value}%` }}/>
                           </div>
                         </div>
@@ -794,13 +764,13 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   </div>
                 </Section>
               </div>
-              <Section title="Failure Mode Analysis">
+              <Section title="Failure Mode Analysis" className="h-full">
                 <div className="space-y-3">
                   <div className="text-xs text-red-400 mb-2 font-bold">Critical risk factors</div>
                   {d.automationRisk.issues.length ? d.automationRisk.issues.slice(0, 3).map((iss, i) => (
                     <div key={i} className="text-xs text-orange-300 font-medium bg-orange-500/5 border border-orange-500/20 rounded px-2 py-1">{iss}</div>
                   )) : (
-                    <div className="text-xs text-slate-500 font-medium italic">No critical failure modes detected.</div>
+                    <div className="text-xs text-slate-500 font-medium">No critical failure modes detected.</div>
                   )}
                 </div>
               </Section>
@@ -820,7 +790,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                       </span>
                       <span className={`font-black ${row.textColor}`}>{row.value.toFixed(1)}%</span>
                     </div>
-                    <div className="h-0.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-0.5 bg-slate-800 rounded-none overflow-hidden">
                       <div className={`h-full ${row.color}`} style={{ width: `${Math.min(100, row.value)}%` }}/>
                     </div>
                   </div>
@@ -831,11 +801,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               <Section title="Loss Cluster Severity" icon={<AlertTriangle className="w-4 h-4 text-red-400"/>}>
                 <div className="space-y-4">
-                  <div className="text-center p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
+                  <div className="text-center p-4 bg-red-500/5 border border-red-500/20 rounded-none">
                     <div className="text-xs text-slate-500 mb-1 font-medium">Avg Cluster Length</div>
                     <div className="text-lg font-black text-red-400">{d.lossCluster.avgLength.toFixed(1)}</div>
                   </div>
-                  <div className="text-center p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                  <div className="text-center p-4 bg-orange-500/5 border border-orange-500/20 rounded-none">
                     <div className="text-xs text-slate-500 mb-1 font-medium">Worst DD Cluster</div>
                     <div className="text-lg font-black text-orange-400">{d.lossCluster.worstDD.toFixed(1)}%</div>
                   </div>
@@ -844,11 +814,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
               <Section title="Execution Asymmetry" icon={<Activity className="w-4 h-4 text-blue-400"/>}>
                 <div className="space-y-4">
-                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-none">
                     <div className="text-xs text-slate-500 font-medium">Slippage (Wins)</div>
                     <div className="text-sm font-black text-emerald-400">{d.executionAsymmetry.slippageWins.toFixed(2)} ticks</div>
                   </div>
-                  <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+                  <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-none">
                     <div className="text-xs text-slate-500 font-medium">Slippage (Losses)</div>
                     <div className="text-sm font-black text-red-400">{d.executionAsymmetry.slippageLosses.toFixed(2)} ticks</div>
                   </div>
@@ -857,11 +827,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
               <Section title="Regime Transition" icon={<TrendingUp className="w-4 h-4 text-orange-400"/>}>
                 <div className="space-y-4">
-                  <div className="text-center p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                  <div className="text-center p-4 bg-orange-500/5 border border-orange-500/20 rounded-none">
                     <div className="text-xs text-slate-500 mb-1 font-medium">Avg Transition DD</div>
                     <div className="text-lg font-black text-orange-400">{d.regimeTransition.avgTransitionDD.toFixed(1)}%</div>
                   </div>
-                  <div className="text-center p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+                  <div className="text-center p-4 bg-blue-500/5 border border-blue-500/20 rounded-none">
                     <div className="text-xs text-slate-500 mb-1 font-medium">Recovery Trades</div>
                     <div className="text-lg font-black text-blue-400">{d.regimeTransition.recoveryTrades}</div>
                   </div>
@@ -887,8 +857,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                 <div className="flex flex-col items-center justify-center py-4 gap-3">
                   <div className="text-2xl font-black text-yellow-400">{d.automationRisk.score.toFixed(1)}%</div>
                   <div className="text-[9px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.15em' }}>Execution Failure Risk</div>
-                  <div className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <span className={`text-xs italic font-black ${autoColor}`} style={{ letterSpacing: '0.1em' }}>{autoLabel}</span>
+                  <div className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-none">
+                    <span className={`text-xs font-black ${autoColor}`} style={{ letterSpacing: '0.1em' }}>{autoLabel}</span>
                   </div>
                 </div>
               </Section>
@@ -903,7 +873,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
               <Section title="AI Policy Suggestions" icon={<Zap className="w-4 h-4 text-yellow-500"/>}>
                 <div className="space-y-4">
                   {d.aiPolicySuggestions.length ? d.aiPolicySuggestions.slice(0, 3).map((s, i) => (
-                    <div key={i} className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+                    <div key={i} className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-none">
                       <div className="text-blue-400 font-black mb-2" style={{ letterSpacing: '0.05em' }}>{s.rule}</div>
                       <p className="text-sm text-slate-300 font-medium">{s.rationale}</p>
                       {s.expectedImpact && (
@@ -911,7 +881,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                       )}
                     </div>
                   )) : (
-                    <p className="text-xs text-slate-500 italic font-medium">
+                    <p className="text-xs text-slate-500 font-medium">
                       No policy suggestions yet. Add more tagged trades to generate data-driven rules.
                     </p>
                   )}
@@ -930,11 +900,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
             <Section title="Edge Decay / Rolling Trend" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
+                <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-none text-center">
                   <div className="text-[9px] text-slate-500 uppercase font-black mb-1" style={{ letterSpacing: '0.15em' }}>Last 50 Trades</div>
                   <div className="text-xs font-black text-blue-400">{d.edgeDecay.last50.toFixed(2)}R</div>
                 </div>
-                <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl text-center">
+                <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-none text-center">
                   <div className="text-[9px] text-slate-500 uppercase font-black mb-1" style={{ letterSpacing: '0.15em' }}>Last 200 Trades</div>
                   <div className="text-xs font-black text-purple-400">{d.edgeDecay.last200.toFixed(2)}R</div>
                 </div>
@@ -954,17 +924,17 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             </Section>
 
             {/* Final verdict banner */}
-            <div className="mt-2 p-3 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/30 rounded-xl">
+            <div className="mt-2 p-3 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/30 rounded-none">
               <div className="flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-none bg-emerald-500/20 flex items-center justify-center">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-400"/>
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[9px] text-emerald-500 uppercase font-black" style={{ letterSpacing: '0.2em' }}>Final Audit Verdict</span>
                     </div>
-                    <div className={`text-xs font-black italic uppercase ${gradeColor}`} style={{ letterSpacing: '0.08em' }}>
+                    <div className={`text-xs font-black uppercase ${gradeColor}`} style={{ letterSpacing: '0.08em' }}>
                       {d.finalVerdict.authorized ? 'System Authorized' : 'Pending Certification'}
                     </div>
                     <div className="text-[9px] text-slate-400 mt-0.5 font-medium">
@@ -973,9 +943,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <div className="px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg">
+                  <div className="px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-none">
                     <div className="text-[9px] text-slate-500 uppercase font-bold" style={{ letterSpacing: '0.15em' }}>Overall Grade</div>
-                    <div className={`text-lg font-black italic text-center ${gradeColor}`} style={{ fontFamily: "'Inter', sans-serif" }}>{grade}</div>
+                    <div className={`text-sm font-black text-center ${gradeColor}`} style={{ fontFamily: "'Inter', sans-serif" }}>{grade}</div>
                   </div>
                   {d.finalVerdict.nextActions[0] && (
                     <div className="text-[9px] text-slate-500 uppercase font-bold text-right max-w-[180px]" style={{ letterSpacing: '0.15em' }}>
@@ -1020,9 +990,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 const Section = ({ title, children, icon = null, className = '' }: {
   title: string; children: React.ReactNode; icon?: React.ReactNode; className?: string;
 }) => (
-  <section className={`bg-slate-900/40 border border-slate-800/60 rounded-xl p-3 md:p-4 hover:border-slate-700/80 transition-all duration-300 ${className}`}>
+  <section className={`bg-slate-900/40 border border-slate-800/60 rounded p-3 md:p-4 hover:border-slate-700/80 transition-all duration-300 ${className}`}>
     <div className="flex items-center gap-2 mb-3">
-      {icon && <div className="p-1.5 bg-slate-800/50 border border-slate-700/50 rounded-lg">{icon}</div>}
+      {icon && <div className="p-1.5 bg-slate-800/50 border border-slate-700/50 rounded">{icon}</div>}
       <h3 className="text-xs font-black uppercase text-slate-400" style={{ letterSpacing: '0.15em' }}>{title}</h3>
     </div>
     {children}
@@ -1030,10 +1000,10 @@ const Section = ({ title, children, icon = null, className = '' }: {
 );
 
 const StatCard = ({ label, value, trend, color }: { label: string; value: string; trend: string; color: string }) => (
-  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl flex flex-col gap-0.5 hover:bg-slate-900/80 transition-all">
+  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-none flex flex-col gap-0.5 hover:bg-slate-900/80 transition-all">
     <span className="text-[8px] font-black text-slate-500 uppercase" style={{ letterSpacing: '0.2em' }}>{label}</span>
     <div className="flex items-baseline justify-between gap-2">
-      <span className={`text-sm font-black italic ${color}`}>{value}</span>
+      <span className={`text-xs font-black ${color}`}>{value}</span>
       <span className={`text-[8px] font-bold px-1 py-0.5 rounded bg-slate-800/50 ${trend.startsWith('+') ? 'text-emerald-400' : 'text-slate-400'}`}>
         {trend}
       </span>
@@ -1042,7 +1012,7 @@ const StatCard = ({ label, value, trend, color }: { label: string; value: string
 );
 
 const MonitorItem = ({ label, status, color }: { label: string; status: string; color: string }) => (
-  <div className={`p-3 border-l-4 rounded-r-lg bg-slate-800/20 flex items-center justify-between ${color}`}>
+  <div className={`p-3 border-l-4 rounded-none bg-slate-800/20 flex items-center justify-between ${color}`}>
     <span className="text-sm font-bold text-slate-300 flex-1 leading-snug">{label}</span>
     <span className="text-[9px] uppercase font-black text-slate-500 bg-slate-800/40 px-2 py-0.5 rounded ml-2 shrink-0" style={{ letterSpacing: '0.12em' }}>{status}</span>
   </div>
@@ -1074,7 +1044,7 @@ const HeatmapGrid = ({ instruments, factors, correlations, type }: {
                 onMouseLeave={() => setHoveredCell(null)}>
                 <div className="text-[10px] font-black text-white text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{val}%</div>
                 {hoveredCell?.row === rowIdx && hoveredCell?.col === colIdx && (
-                  <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl whitespace-nowrap">
+                  <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 border border-slate-700 rounded-none shadow-xl whitespace-nowrap">
                     <div className="text-[10px] font-black text-slate-300">{instr}</div>
                     <div className="text-[9px] text-slate-500 font-medium">{factors[colIdx]}</div>
                     <div className="text-xs font-black text-white mt-1">{val}% — {getLabel(val)}</div>
@@ -1090,7 +1060,7 @@ const HeatmapGrid = ({ instruments, factors, correlations, type }: {
 };
 
 const GuardrailItem = ({ label, value, status, color = 'text-emerald-400' }: { label: string; value: string; status: string; color?: string }) => (
-  <div className="flex items-center justify-between p-3 bg-slate-800/20 rounded-xl border border-slate-700/30 gap-4">
+  <div className="flex items-center justify-between p-3 bg-slate-800/20 rounded-none border border-slate-700/30 gap-4">
     <div className="flex flex-col min-w-0 flex-1">
       <span className="text-[9px] font-black text-slate-500 uppercase" style={{ letterSpacing: '0.2em' }}>{label}</span>
       <span className="text-xs font-bold text-slate-300 leading-snug mt-0.5">{value}</span>
@@ -1106,7 +1076,7 @@ const VerificationItem = ({ label, value }: { label: string; value: string }) =>
       <svg className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="2,6 5,9 10,3"/>
       </svg>
-      <div className="text-xs italic text-slate-200 leading-relaxed font-medium">{value}</div>
+      <div className="text-xs text-slate-200 leading-relaxed font-medium">{value}</div>
     </div>
   </div>
 );

@@ -484,10 +484,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       let filteredEvents = events;
-      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region === filters.region);
-      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
-      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
-      
+      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region?.toLowerCase() === filters.region!.toLowerCase());
+      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel?.toLowerCase() === filters.impactLevel!.toLowerCase());
+      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency?.toLowerCase() === filters.currency!.toLowerCase());
+
       res.json(filteredEvents);
     } catch (error) {
       console.error('Error in /api/calendar/today:', error);
@@ -506,10 +506,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       let filteredEvents = events;
-      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region === filters.region);
-      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
-      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
-      
+      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region?.toLowerCase() === filters.region!.toLowerCase());
+      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel?.toLowerCase() === filters.impactLevel!.toLowerCase());
+      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency?.toLowerCase() === filters.currency!.toLowerCase());
+
       res.json(filteredEvents);
     } catch (error) {
       console.error('Error in /api/calendar/week:', error);
@@ -528,10 +528,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       let filteredEvents = events;
-      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region === filters.region);
-      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel === filters.impactLevel);
-      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency === filters.currency);
-      
+      if (filters.region) filteredEvents = filteredEvents.filter(e => e.region?.toLowerCase() === filters.region!.toLowerCase());
+      if (filters.impactLevel) filteredEvents = filteredEvents.filter(e => e.impactLevel?.toLowerCase() === filters.impactLevel!.toLowerCase());
+      if (filters.currency) filteredEvents = filteredEvents.filter(e => e.currency?.toLowerCase() === filters.currency!.toLowerCase());
+
       const eventsWithSentiment = filteredEvents.map(event => updateEventWithSentiment(event));
       res.json(eventsWithSentiment);
     } catch (error) {

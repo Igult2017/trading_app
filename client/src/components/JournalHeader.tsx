@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 
 const TICKER_DATA = [
@@ -41,6 +42,7 @@ interface JournalHeaderProps {
 export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [, navigate] = useLocation();
   const dm = darkMode;
 
   const t = dm ? {
@@ -85,7 +87,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
     <div>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
-        .nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
+        .nav-a { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
         .jh-icon-btn:hover { background: ${dm ? '#0c1219' : '#f1f5f9'} !important; }
@@ -126,7 +128,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
               <Menu size={18} />
             </button>
 
-            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer' }}>
+            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer', textTransform: 'uppercase' }}>
               <span style={{ color: t.logoWhite }}>FSD </span>
               <span style={{ color: '#3b82f6' }}>Journal</span>
             </span>
@@ -144,6 +146,19 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
                 onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
               >{item}</a>
             ))}
+            {NAV_ITEMS.map(item =>
+              item === 'Assets' ? (
+                <button key={item} onClick={() => navigate('/assets')} className="nav-a" style={{ color: t.navLink }}
+                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+                >{item}</button>
+              ) : (
+                <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="nav-a" style={{ color: t.navLink }}
+                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+                >{item}</a>
+              )
+            )}
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
@@ -203,6 +218,23 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
               onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
             >{item}</a>
           ))}
+          {NAV_ITEMS.map(item =>
+            item === 'Assets' ? (
+              <button key={item}
+                onClick={() => { setMobileMenuOpen(false); navigate('/assets'); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", background: 'none', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.color = t.text)}
+                onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
+              >{item}</button>
+            ) : (
+              <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.color = t.text)}
+                onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
+              >{item}</a>
+            )
+          )}
         </div>
       )}
     </div>

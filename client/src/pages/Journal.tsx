@@ -12,6 +12,10 @@ import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 import TraderAI from '@/components/TraderAI';
+import Leaderboard from '@/components/Leaderboard';
+import TradeSyncPage from '@/pages/TradeSyncPage';
+import AccountsPage from '@/pages/AccountsPage';
+import NoSessionPrompt from '@/components/NoSessionPrompt';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -19,7 +23,7 @@ const SI = {
   Metrics: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   Calendar: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   Strategy: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>,
-  Drawdown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+  Drawdown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{filter:'drop-shadow(0 0 4px #38bdf8) drop-shadow(0 0 2px #0ea5e9)'}}><polyline points="5 4 12 11 19 4" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points="5 13 12 20 19 13" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Vault: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>,
   Leaderboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/><path d="M18 7h2a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-2"/><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="10" y1="8" x2="14" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   Sync: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
@@ -86,7 +90,7 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
     onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-      <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: showLabels ? 'scale(1)' : 'scale(1.5)', transition: 'transform 0.25s ease' }}><item.icon /></span>
+      <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: showLabels ? 'scale(1)' : 'scale(2)', transition: 'transform 0.25s ease' }}><item.icon /></span>
       {showLabels && <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.03em', color: isActive ? '#e2e8f0' : 'rgba(148,163,184,0.8)', whiteSpace: 'nowrap' }}>{item.label}</span>}
     </div>
     {showLabels && (
@@ -106,7 +110,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
     borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
   } : {
-    width: open ? 220 : 56, minWidth: open ? 220 : 56, height: '100%',
+    width: open ? 185 : 72, minWidth: open ? 185 : 72, height: '100%',
     overflowY: 'auto', overflowX: 'hidden', background: '#07090f',
     borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column',
     flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
@@ -509,20 +513,25 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const totalPL = equityGrowth ? equityGrowth.totalPL : core.totalPL || 0;
   const plSign = totalPL >= 0 ? '+' : '';
 
+  const pfRaw = core.profitFactor ?? 0;
+  const pfDisplay = pfRaw >= 999 ? '∞' : pfRaw > 0 ? pfRaw.toFixed(2) : '0';
+  const avgTradeRaw = core.totalTrades ? totalPL / core.totalTrades : 0;
+  const avgTradeDisplay = `${avgTradeRaw >= 0 ? '+' : '-'}$${Math.abs(avgTradeRaw).toFixed(2)}`;
+
   const stats = [
     { id: 'pnl', label: 'TOTAL P&L', value: `${plSign}$${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, Icon: KPI_ICONS.PnL, color: totalPL >= 0 ? '#34d399' : '#fb7185', bg: totalPL >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
-    { id: 'winrate', label: 'WIN RATE', value: `${core.winRate || 0}%`, Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
-    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy || 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' },
+    { id: 'winrate', label: 'WIN RATE', value: `${(core.winRate ?? 0).toFixed(1)}%`, Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
+    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy ?? 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: (core.expectancy ?? 0) >= 0 ? '#fbbf24' : '#fb7185', bg: 'rgba(245,158,11,0.1)' },
     { id: 'tradecount', label: 'TRADES', value: `${core.totalTrades || 0}`, Icon: KPI_ICONS.Trades, color: '#94a3b8', bg: 'rgba(100,116,139,0.1)' },
-    { id: 'pfactor', label: 'PROFIT FACTOR', value: `${core.profitFactor || 0}`, Icon: KPI_ICONS.ProfitFactor, color: '#c084fc', bg: 'rgba(168,85,247,0.1)' },
-    { id: 'avgtrade', label: 'AVG TRADE', value: `$${core.totalTrades ? (totalPL / core.totalTrades).toFixed(2) : '0.00'}`, Icon: KPI_ICONS.AvgTrade, color: '#fb7185', bg: 'rgba(244,63,94,0.1)' },
+    { id: 'pfactor', label: 'PROFIT FACTOR', value: pfDisplay, Icon: KPI_ICONS.ProfitFactor, color: pfRaw >= 1 || pfRaw >= 999 ? '#c084fc' : '#fb7185', bg: 'rgba(168,85,247,0.1)' },
+    { id: 'avgtrade', label: 'AVG TRADE', value: avgTradeDisplay, Icon: KPI_ICONS.AvgTrade, color: avgTradeRaw >= 0 ? '#34d399' : '#fb7185', bg: avgTradeRaw >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
   ];
 
   const chartData = equityCurve.length > 0
     ? equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))
     : [{ label: 'Start', pnl: 0 }];
 
-  const recentTrades = [...entries].slice(0, 8).map((e: any) => ({
+  const recentTrades = [...entries].slice(0, 6).map((e: any) => ({
     id: e.id,
     ticker: e.instrument || 'N/A',
     date: e.entryTime || (e.createdAt ? new Date(e.createdAt).toLocaleString() : ''),
@@ -537,7 +546,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const profitRatio = totalCount > 0 ? Math.round((winCount / totalCount) * 100) : 0;
   const lossRatio = totalCount > 0 ? 100 - profitRatio : 0;
 
-  const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 4);
+  const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 6);
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
 
   if (metricsLoading || entriesLoading) {
@@ -645,83 +654,6 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   );
 }
 
-function JournalSessionGate({ onSelectSession, onCreated }: { onSelectSession: (id: string) => void; onCreated: (id: string) => void }) {
-  const [mode, setMode] = useState<'pick' | 'create'>('pick');
-  const { data: sessions = [], isLoading } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
-
-  return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 0' }}>
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <SI.Journal />
-        </div>
-        <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 6 }} data-testid="text-journal-session-gate">Select a Session to Log Trades</h2>
-        <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', lineHeight: 1.6 }}>
-          Every trade must belong to a session. Pick an existing one or create a new session.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#0d1117', borderRadius: 8, padding: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
-        {(['pick', 'create'] as const).map(tab => (
-          <button key={tab} onClick={() => setMode(tab)} data-testid={`button-tab-${tab}`}
-            style={{
-              flex: 1, padding: '10px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
-              background: mode === tab ? 'rgba(99,102,241,0.15)' : 'transparent',
-              color: mode === tab ? '#a5b4fc' : 'rgba(148,163,184,0.5)',
-              transition: 'all 0.15s',
-            }}>
-            {tab === 'pick' ? 'Existing Sessions' : 'Create New'}
-          </button>
-        ))}
-      </div>
-
-      {mode === 'pick' ? (
-        isLoading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(148,163,184,0.5)', fontSize: 11 }}>Loading sessions...</div>
-        ) : sessions.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.5)', marginBottom: 16 }}>No sessions yet.</p>
-            <button onClick={() => setMode('create')}
-              style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}
-              data-testid="button-switch-to-create">
-              Create Your First Session
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {sessions.map((s: any) => (
-              <button key={s.id} onClick={() => onSelectSession(s.id)} data-testid={`button-pick-session-${s.id}`}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 18px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
-                  background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)'; e.currentTarget.style.background = 'rgba(99,102,241,0.05)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = '#0d1117'; }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: '#e2e8f0', marginBottom: 3 }}>{s.sessionName}</div>
-                  <div style={{ fontSize: 9, color: 'rgba(148,163,184,0.5)', letterSpacing: '0.1em' }}>
-                    ${parseFloat(s.startingBalance).toLocaleString()} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ''}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4, background: s.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)', color: s.status === 'active' ? '#34d399' : '#94a3b8' }}>
-                    {s.status || 'active'}
-                  </span>
-                  <span style={{ color: 'rgba(148,163,184,0.3)', display: 'flex' }}><SI.ChevronRight /></span>
-                </div>
-              </button>
-            ))}
-          </div>
-        )
-      ) : (
-        <CreateSessionForm onCreated={onCreated} />
-      )}
-    </div>
-  );
-}
 
 export default function Journal() {
   const [activeNav, setActiveNav] = useState('dashboard');
@@ -778,60 +710,46 @@ export default function Journal() {
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
 
-        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : '14px 16px 32px', minWidth:0 }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 32px' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0 }}>
 
           {activeNav === 'metrics' ? (
-            <MetricsPanel sessionId={activeSessionId} />
+            activeSessionId ? <MetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'journal' ? (
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} />
             ) : (
-              <JournalSessionGate
-                onSelectSession={(id) => setActiveSessionId(id)}
-                onCreated={(id) => setActiveSessionId(id)}
-              />
+              <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
             )
           ) : activeNav === 'strategy' ? (
             <StrategyAudit />
           ) : activeNav === 'vault' ? (
-            <TradeVault sessionId={activeSessionId} />
+            activeSessionId ? <TradeVault sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'calendar' ? (
-            <TradingCalendar sessionId={activeSessionId} />
+            activeSessionId ? <TradingCalendar sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'sessions' ? (
             <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} />
           ) : activeNav === 'create' ? (
             <CreateSessionForm onCreated={handleSessionCreated} />
           ) : activeNav === 'tfmetrics' ? (
             <TFMetricsPanel sessionId={activeSessionId} />
+            activeSessionId ? <TFMetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'drawdown' ? (
-            <DrawdownPanel />
+            activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI />
+          ) : activeNav === 'leaderboard' ? (
+            <Leaderboard />
+          ) : activeNav === 'sync' ? (
+            <TradeSyncPage />
+          ) : activeNav === 'accounts' ? (
+            <AccountsPage />
+          ) : activeNav === 'addaccount' ? (
+            <AccountsPage openModal={true} />
           ) : (
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 400 }}>
-                <div style={{ textAlign: 'center', maxWidth: 400 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                    <SI.Sessions />
-                  </div>
-                  <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 8 }} data-testid="text-no-session-prompt">Create or Select a Session</h2>
-                  <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', marginBottom: 24, lineHeight: 1.6 }}>
-                    You need an active trading session to view your dashboard, enter trades, and track performance.
-                  </p>
-                  <button onClick={() => setActiveNav('create')} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#6366f1'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
-                    data-testid="button-create-first-session">
-                    Create Session
-                  </button>
-                  <button onClick={() => setActiveNav('sessions')} style={{ background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 28px', borderRadius: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', marginLeft: 12, transition: 'all 0.15s' }}
-                    data-testid="button-view-sessions">
-                    View Sessions
-                  </button>
-                </div>
-              </div>
+              <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
             )
           )}
         </main>
