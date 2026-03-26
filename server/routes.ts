@@ -18,7 +18,7 @@ import { telegramNotificationService } from "./services/telegramNotification";
 import { notificationService } from "./services/notificationService";
 import { signalDetectionService } from "./services/signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
-import { getCachedPrice, getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
+import { getCachedPrice, getCachedMultiplePrices, pingPriceService, getCachedCandleData } from "./lib/priceService";
 import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
 import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
 import { signalMonitor } from "./services/signalMonitor";
@@ -768,6 +768,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ status: isOnline ? "online" : "offline" });
     } catch (error) {
       res.json({ status: "offline" });
+    }
+  });
+
+  app.get("/api/prices/:symbol/candles", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const assetClass = (req.query.assetClass as string) || "stock";
+      const interval = (req.query.interval as string) || "5m";
+      const period = (req.query.period as string) || "1d";
+      const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
+      if (!validAssetClasses.includes(assetClass)) return res.status(400).json({ error: "Invalid asset class" });
+      const data = await getCachedCandleData(symbol, assetClass as any, interval, period);
+      if (data.error) return res.status(404).json({ error: data.error });
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch candle data" });
     }
   });
 

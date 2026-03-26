@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, Sun, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
 import JournalHeader from "@/components/JournalHeader";
+import TradingChart from "@/components/TradingChart";
+import { useWatchlistPrices, formatPrice } from "@/hooks/usePrices";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
@@ -125,106 +127,6 @@ const ASSET_DATA: Record<string, {
   },
 };
 
-// ─── Candlestick Chart ────────────────────────────────────────────────────────
-function generateCandles(count: number, startPrice: number) {
-  const candles = [];
-  let price = startPrice;
-  const now = Date.now();
-  for (let i = count; i >= 0; i--) {
-    const open  = price + (Math.random() - 0.5) * price * 0.008;
-    const close = open  + (Math.random() - 0.5) * price * 0.012;
-    const high  = Math.max(open, close) + Math.random() * price * 0.006;
-    const low   = Math.min(open, close) - Math.random() * price * 0.006;
-    candles.push({ time: now - i * 3600000, open, high, low, close });
-    price = close;
-  }
-  return candles;
-}
-
-const CANDLES_MAP: Record<string, ReturnType<typeof generateCandles>> = {
-  "ETH/USDT": generateCandles(50, 3452),
-  "BTC/USDT": generateCandles(50, 63997),
-  "SOL/USDT": generateCandles(50, 144.81),
-  "XRP/USDT": generateCandles(50, 0.62),
-};
-
-function CandlestickChart({ symbol }: { symbol: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const candles = CANDLES_MAP[symbol] || CANDLES_MAP["ETH/USDT"];
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const PAD = { top: 20, right: 60, bottom: 36, left: 10 };
-
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#080c10";
-    ctx.fillRect(0, 0, W, H);
-
-    const prices = candles.flatMap(c => [c.high, c.low]);
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
-    const range = maxP - minP || 1;
-    const chartH = H - PAD.top - PAD.bottom;
-    const chartW = W - PAD.left - PAD.right;
-
-    const toY = (p: number) => PAD.top + chartH - ((p - minP) / range) * chartH;
-
-    // Grid lines + price labels
-    const gridCount = 6;
-    for (let i = 0; i <= gridCount; i++) {
-      const y = PAD.top + (chartH / gridCount) * i;
-      const price = maxP - (range / gridCount) * i;
-      ctx.strokeStyle = "rgba(255,255,255,0.04)";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
-      ctx.fillStyle = "#4a6580";
-      ctx.font = "10px monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(price.toFixed(2), W - PAD.right + 6, y + 3);
-    }
-
-    // Time axis labels
-    const timeStep = Math.floor(candles.length / 5);
-    ctx.fillStyle = "#4a6580";
-    ctx.font = "9px monospace";
-    ctx.textAlign = "center";
-    for (let i = 0; i < candles.length; i += timeStep) {
-      const x = PAD.left + (i / (candles.length - 1)) * chartW;
-      const d = new Date(candles[i].time);
-      const label = `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")} ${d.getHours() >= 12 ? "PM" : "AM"}`;
-      ctx.fillText(label, x, H - 8);
-    }
-
-    // Candles
-    const candleW = Math.max(2, Math.floor(chartW / candles.length) - 1);
-    candles.forEach((c, i) => {
-      const x = PAD.left + (i / (candles.length - 1)) * chartW;
-      const isBull = c.close >= c.open;
-      const color = isBull ? "#26a69a" : "#ef5350";
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, toY(c.high));
-      ctx.lineTo(x, toY(c.low));
-      ctx.stroke();
-
-      const bodyTop = toY(Math.max(c.open, c.close));
-      const bodyH   = Math.max(1, Math.abs(toY(c.open) - toY(c.close)));
-      ctx.fillStyle = color;
-      ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
-    });
-  }, [candles]);
-
-  return <canvas ref={canvasRef} width={900} height={340} style={{ width: "100%", height: 340, display: "block" }} />;
-}
-
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 function LayersIcon({ color }: { color: string }) {
   return (
@@ -263,12 +165,26 @@ export default function AssetPage() {
   const [search,   setSearch]     = useState("");
   const [alertSet, setAlertSet]   = useState(false);
 
+  // Live prices for all sidebar instruments
+  const watchlist = INSTRUMENTS.map(i => ({ symbol: i.symbol, assetClass: "crypto" as const }));
+  const { data: livePrices } = useWatchlistPrices(watchlist);
+
   const filtered = INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
   );
 
   const data = ASSET_DATA[selected] || ASSET_DATA["ETH/USDT"];
   const inst = INSTRUMENTS.find(i => i.symbol === selected)!;
+
+  // Build a map of symbol → live price string
+  const livePriceMap: Record<string, string> = {};
+  if (livePrices) {
+    livePrices.forEach((p, idx) => {
+      if (p?.price != null) {
+        livePriceMap[INSTRUMENTS[idx].symbol] = "$" + formatPrice(p.price, p.price >= 1000 ? 2 : p.price >= 1 ? 4 : 6);
+      }
+    });
+  }
 
   function boldify(text: string, bold?: string) {
     if (!bold) return <span>{text}</span>;
@@ -325,13 +241,13 @@ export default function AssetPage() {
 
         {/* Instrument List */}
         <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
-          {filtered.map(inst => {
-            const isActive = inst.symbol === selected;
+          {filtered.map(card => {
+            const isActive = card.symbol === selected;
             return (
               <div
-                key={inst.symbol}
+                key={card.symbol}
                 className="inst-card"
-                onClick={() => setSelected(inst.symbol)}
+                onClick={() => setSelected(card.symbol)}
                 style={{
                   padding: "14px 16px",
                   borderBottom: "1px solid #0f1923",
@@ -343,9 +259,9 @@ export default function AssetPage() {
                 {/* Row 1: Symbol + Timeframe */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
-                    {inst.symbol}
+                    {card.symbol}
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#3a5470", letterSpacing: "0.06em" }}>{inst.timeframe}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#3a5470", letterSpacing: "0.06em" }}>{card.timeframe}</span>
                 </div>
 
                 {/* Row 2: Arrow + Price + Probability */}
@@ -353,26 +269,28 @@ export default function AssetPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
                       width: 26, height: 26, borderRadius: 4,
-                      background: inst.direction === "up" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)",
+                      background: card.direction === "up" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)",
                       display: "flex", alignItems: "center", justifyContent: "center"
                     }}>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill={inst.direction === "up" ? "#22d3a5" : "#f4617f"}>
-                        {inst.direction === "up"
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill={card.direction === "up" ? "#22d3a5" : "#f4617f"}>
+                        {card.direction === "up"
                           ? <polygon points="6,1 11,10 1,10" />
                           : <polygon points="6,11 11,2 1,2" />}
                       </svg>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#c8d8e8" }}>{inst.price}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#c8d8e8" }}>
+                      {livePriceMap[card.symbol] ?? card.price}
+                    </span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: inst.probability >= 80 ? "#22d3a5" : inst.probability >= 50 ? "#f59e0b" : "#f4617f" }}>
-                    {inst.probability}%
+                  <span style={{ fontSize: 12, fontWeight: 700, color: card.probability >= 80 ? "#22d3a5" : card.probability >= 50 ? "#f59e0b" : "#f4617f" }}>
+                    {card.probability}%
                   </span>
                 </div>
 
                 {/* Row 3: Age + Signal */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em" }}>{inst.age}</span>
-                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.04em" }}>{inst.signal}</span>
+                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em" }}>{card.age}</span>
+                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.04em" }}>{card.signal}</span>
                 </div>
               </div>
             );
@@ -541,9 +459,7 @@ export default function AssetPage() {
             </div>
 
             {/* Chart */}
-            <div style={{ background: "#080c10" }}>
-              <CandlestickChart symbol={selected} />
-            </div>
+            <TradingChart symbol={selected} interval="5m" period="1d" height={360} />
           </div>
         </div>
       </div>

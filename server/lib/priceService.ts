@@ -2,8 +2,25 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { PYTHON_BIN } from './pythonBin';
 
+export interface CandleBar {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface CandleResult {
+  symbol: string;
+  interval?: string;
+  period?: string;
+  candles: CandleBar[];
+  error?: string;
+}
+
 interface PriceRequest {
-  action: 'get_price' | 'get_multiple_prices' | 'ping';
+  action: 'get_price' | 'get_multiple_prices' | 'get_candles' | 'ping';
   symbol?: string;
   assetClass?: 'stock' | 'forex' | 'commodity' | 'crypto';
   symbols?: Array<{ symbol: string; assetClass: string }>;
@@ -118,6 +135,38 @@ export async function pingPriceService(): Promise<boolean> {
 // Cache for price data to reduce API calls
 const priceCache = new Map<string, { data: PriceResult; timestamp: number }>();
 const CACHE_TTL = 30000; // 30 seconds
+
+export async function getCandleData(
+  symbol: string,
+  assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock',
+  interval: string = '5m',
+  period: string = '1d'
+): Promise<CandleResult> {
+  try {
+    const result = await callPythonService({ action: 'get_candles', symbol, assetClass, interval, period } as any);
+    return result;
+  } catch (error) {
+    return { symbol, candles: [], error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+// Candle cache (2-minute TTL — data doesn't change faster than this)
+const candleCache = new Map<string, { data: CandleResult; timestamp: number }>();
+const CANDLE_CACHE_TTL = 120000;
+
+export async function getCachedCandleData(
+  symbol: string,
+  assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock',
+  interval: string = '5m',
+  period: string = '1d'
+): Promise<CandleResult> {
+  const key = `${symbol}-${assetClass}-${interval}-${period}`;
+  const cached = candleCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CANDLE_CACHE_TTL) return cached.data;
+  const result = await getCandleData(symbol, assetClass, interval, period);
+  if (!result.error) candleCache.set(key, { data: result, timestamp: Date.now() });
+  return result;
+}
 
 export async function getCachedPrice(symbol: string, assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock'): Promise<PriceResult> {
   const cacheKey = `${symbol}-${assetClass}`;

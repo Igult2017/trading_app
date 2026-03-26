@@ -238,6 +238,51 @@ def get_price(symbol: str, asset_class: str = "stock") -> Dict[str, Any]:
     return result
 
 
+def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", period: str = "1d") -> Dict[str, Any]:
+    """
+    Fetch OHLCV candle history for a symbol using yfinance.
+    Returns list of {time, open, high, low, close, volume} dicts.
+    """
+    try:
+        # Resolve the Yahoo Finance symbol
+        if asset_class == "crypto":
+            base = symbol.replace("/USDT", "").replace("/USD", "").replace("-USD", "").upper()
+            yf_symbol = f"{base}-USD"
+        elif asset_class == "forex":
+            yf_symbol = FOREX_MAP.get(symbol, symbol.replace("/", "") + "=X")
+        elif asset_class == "commodity":
+            yf_symbol = COMMODITIES_MAP.get(symbol, symbol)
+        else:  # stock / index
+            yf_symbol = INDEX_MAP.get(symbol.upper(), symbol)
+
+        ticker = yf.Ticker(yf_symbol)
+        hist = ticker.history(period=period, interval=interval)
+
+        if hist.empty:
+            return {"symbol": symbol, "candles": [], "error": "No data returned"}
+
+        candles = []
+        for ts, row in hist.iterrows():
+            # lightweight-charts expects Unix timestamp (seconds)
+            try:
+                t = int(ts.timestamp())
+            except Exception:
+                continue
+            candles.append({
+                "time":   t,
+                "open":   round(float(row["Open"]),   6),
+                "high":   round(float(row["High"]),   6),
+                "low":    round(float(row["Low"]),    6),
+                "close":  round(float(row["Close"]),  6),
+                "volume": int(row.get("Volume", 0)),
+            })
+
+        return {"symbol": symbol, "interval": interval, "period": period, "candles": candles}
+
+    except Exception as e:
+        return {"symbol": symbol, "candles": [], "error": str(e)}
+
+
 def get_multiple_prices(symbols: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """
     Get prices for multiple symbols
@@ -282,6 +327,14 @@ def main():
             results = get_multiple_prices(symbols)
             print(json.dumps(results))
             
+        elif action == 'get_candles':
+            symbol = request.get('symbol', '')
+            asset_class = request.get('assetClass', 'stock')
+            interval = request.get('interval', '5m')
+            period = request.get('period', '1d')
+            result = get_candles(symbol, asset_class, interval, period)
+            print(json.dumps(result))
+
         elif action == 'ping':
             print(json.dumps({"status": "ok", "timestamp": datetime.now().isoformat()}))
             
