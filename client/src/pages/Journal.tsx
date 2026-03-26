@@ -654,83 +654,6 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   );
 }
 
-function JournalSessionGate({ onSelectSession, onCreated }: { onSelectSession: (id: string) => void; onCreated: (id: string) => void }) {
-  const [mode, setMode] = useState<'pick' | 'create'>('pick');
-  const { data: sessions = [], isLoading } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
-
-  return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 0' }}>
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <SI.Journal />
-        </div>
-        <h2 style={{ fontSize: 14, fontWeight: 900, color: '#e2e8f0', marginBottom: 6 }} data-testid="text-journal-session-gate">Select a Session to Log Trades</h2>
-        <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', lineHeight: 1.6 }}>
-          Every trade must belong to a session. Pick an existing one or create a new session.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#0d1117', borderRadius: 8, padding: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
-        {(['pick', 'create'] as const).map(tab => (
-          <button key={tab} onClick={() => setMode(tab)} data-testid={`button-tab-${tab}`}
-            style={{
-              flex: 1, padding: '10px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
-              background: mode === tab ? 'rgba(99,102,241,0.15)' : 'transparent',
-              color: mode === tab ? '#a5b4fc' : 'rgba(148,163,184,0.5)',
-              transition: 'all 0.15s',
-            }}>
-            {tab === 'pick' ? 'Existing Sessions' : 'Create New'}
-          </button>
-        ))}
-      </div>
-
-      {mode === 'pick' ? (
-        isLoading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(148,163,184,0.5)', fontSize: 11 }}>Loading sessions...</div>
-        ) : sessions.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.5)', marginBottom: 16 }}>No sessions yet.</p>
-            <button onClick={() => setMode('create')}
-              style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}
-              data-testid="button-switch-to-create">
-              Create Your First Session
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {sessions.map((s: any) => (
-              <button key={s.id} onClick={() => onSelectSession(s.id)} data-testid={`button-pick-session-${s.id}`}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 18px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
-                  background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)'; e.currentTarget.style.background = 'rgba(99,102,241,0.05)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = '#0d1117'; }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: '#e2e8f0', marginBottom: 3 }}>{s.sessionName}</div>
-                  <div style={{ fontSize: 9, color: 'rgba(148,163,184,0.5)', letterSpacing: '0.1em' }}>
-                    ${parseFloat(s.startingBalance).toLocaleString()} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ''}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4, background: s.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)', color: s.status === 'active' ? '#34d399' : '#94a3b8' }}>
-                    {s.status || 'active'}
-                  </span>
-                  <span style={{ color: 'rgba(148,163,184,0.3)', display: 'flex' }}><SI.ChevronRight /></span>
-                </div>
-              </button>
-            ))}
-          </div>
-        )
-      ) : (
-        <CreateSessionForm onCreated={onCreated} />
-      )}
-    </div>
-  );
-}
 
 export default function Journal() {
   const [activeNav, setActiveNav] = useState('dashboard');
@@ -795,10 +718,7 @@ export default function Journal() {
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} />
             ) : (
-              <JournalSessionGate
-                onSelectSession={(id) => setActiveSessionId(id)}
-                onCreated={(id) => setActiveSessionId(id)}
-              />
+              <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
             )
           ) : activeNav === 'strategy' ? (
             <StrategyAudit />
