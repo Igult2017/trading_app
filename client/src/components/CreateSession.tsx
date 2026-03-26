@@ -183,15 +183,15 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        borderRadius: 12,
+        borderRadius: 6,
         background: isActive
-          ? 'linear-gradient(145deg,#101c2c 0%,#0b1520 100%)'
+          ? 'linear-gradient(145deg,#0e1a2e 0%,#0a1422 100%)'
           : hov
           ? 'linear-gradient(145deg,#0f1925 0%,#0c1420 100%)'
           : 'linear-gradient(145deg,#0d1520 0%,#090e18 100%)',
-        border: `1px solid ${isActive ? 'rgba(52,211,153,0.35)' : hov ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)'}`,
+        border: `1px solid ${isActive ? 'rgba(59,130,246,0.45)' : hov ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)'}`,
         boxShadow: isActive
-          ? '0 0 0 1px rgba(52,211,153,0.08), 0 20px 60px rgba(0,0,0,0.55), 0 0 40px rgba(52,211,153,0.05)'
+          ? '0 0 0 1px rgba(59,130,246,0.1), 0 20px 60px rgba(0,0,0,0.55), 0 0 40px rgba(59,130,246,0.07)'
           : hov
           ? '0 16px 48px rgba(0,0,0,0.45)'
           : '0 4px 24px rgba(0,0,0,0.3)',
@@ -208,7 +208,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       {isActive && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: 'linear-gradient(90deg,transparent 5%,rgba(52,211,153,0.7) 50%,transparent 95%)',
+          background: 'linear-gradient(90deg,transparent 5%,rgba(59,130,246,0.8) 50%,transparent 95%)',
         }} />
       )}
 
@@ -216,7 +216,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       {isActive && (
         <div style={{
           position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 3,
-          background: 'linear-gradient(180deg,transparent,rgba(52,211,153,0.7),transparent)',
+          background: 'linear-gradient(180deg,transparent,rgba(59,130,246,0.8),transparent)',
           borderRadius: '0 2px 2px 0',
         }} />
       )}
