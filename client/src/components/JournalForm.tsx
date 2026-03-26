@@ -154,10 +154,20 @@ const InfoBox = ({ color, icon, title, text }: any) => {
   );
 };
 
-const SectionHeader = ({ icon, title }: any) => (
+const KeyLevelIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1" y="8" width="3" height="7" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+    <rect x="6" y="4" width="3" height="11" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+    <rect x="11" y="1" width="3" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+    <circle cx="11.5" cy="12.5" r="3" fill="#1e293b" stroke="#ec4899" strokeWidth="1.1"/>
+    <path d="M10 12.5l1 1 1.5-1.5" stroke="#ec4899" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SectionHeader = ({ icon, title, customIcon }: any) => (
   <div className="flex items-center gap-4 mb-6">
     <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 flex-shrink-0">
-      <Icon name={icon} size={16}/>
+      {customIcon ? customIcon : <Icon name={icon} size={16}/>}
     </div>
     <div className="h-px flex-1 bg-gradient-to-r from-slate-700/50 to-transparent"/>
     <h2 className="text-[11px] font-black tracking-[0.3em] text-slate-500 uppercase italic whitespace-nowrap">{title}</h2>
@@ -1130,7 +1140,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       </div>
                     </section>
                     <section className="space-y-4">
-                      <SectionHeader icon="Target" title="Signals & Key Level Analysis"/>
+                      <SectionHeader customIcon={<KeyLevelIcon/>} title="Signals & Key Level Analysis"/>
                       <div className="grid grid-cols-2 gap-4">
                         {lf("Primary Signals","primarySignals",2,"Main confirmations")}
                         {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
