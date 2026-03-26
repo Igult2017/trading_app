@@ -383,27 +383,6 @@ export default function AssetPage() {
       {/* ── Main Content ── */}
       <div className="asset-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 0 32px" }}>
 
-        {/* Top Bar */}
-        <div style={{ padding: "18px 24px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #0f1923" }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em", marginBottom: 4 }}>
-              {selected}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22d3a5", boxShadow: "0 0 6px #22d3a5" }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.1em" }}>LIVE</span>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button style={{ background: "transparent", border: "1px solid #172233", borderRadius: 4, padding: "6px 8px", cursor: "pointer", color: "#4a6580", display: "flex", alignItems: "center" }}>
-              <Sun size={15} />
-            </button>
-            <button className="news-btn">
-              <span style={{ width: 8, height: 8, background: "#f4617f", borderRadius: 1, display: "inline-block" }} />
-              NEWS: HI
-            </button>
-          </div>
-        </div>
 
         <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
