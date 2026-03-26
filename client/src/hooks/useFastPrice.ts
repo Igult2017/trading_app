@@ -101,12 +101,15 @@ export function useFastBatchPrices(
 ): Record<string, FastPriceData> {
   const [data, setData] = useState<Record<string, FastPriceData>>({});
   const prevRef = useRef<Record<string, number>>({});
+  const fetchingRef = useRef(false); // guard: skip if a fetch is already in flight
 
   useEffect(() => {
     if (symbols.length === 0) return;
     let cancelled = false;
 
     async function fetch_() {
+      if (fetchingRef.current) return; // don't pile up concurrent requests
+      fetchingRef.current = true;
       try {
         const body = { symbols: symbols.map(s => ({ symbol: s, assetClass: assetClass(s) })) };
         const res = await fetch("/api/prices/batch", {
@@ -139,7 +142,9 @@ export function useFastBatchPrices(
           return next;
         });
       } catch {
-        // keep last values
+        // keep last values on network error
+      } finally {
+        fetchingRef.current = false;
       }
     }
 

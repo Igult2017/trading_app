@@ -266,7 +266,7 @@ export default function AssetPage() {
 
   // Live prices — sidebar batch every 15s, selected instrument every 8s for near-real-time feel
   const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
-  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 15000);
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
   const entryTick      = useFastPrice(selected, 8000);
 
   const filtered = ALL_INSTRUMENTS.filter(i =>

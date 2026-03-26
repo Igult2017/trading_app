@@ -134,7 +134,10 @@ export async function pingPriceService(): Promise<boolean> {
 
 // Cache for price data to reduce API calls
 const priceCache = new Map<string, { data: PriceResult; timestamp: number }>();
-const CACHE_TTL = 10000; // 10 seconds — allows near-real-time polling
+const CACHE_TTL = 30000; // 30 seconds — daily bars change slowly; prevents thundering herd
+
+// In-flight deduplication: if a fetch for a symbols key is already running, reuse the promise
+const inflightFetches = new Map<string, Promise<PriceResult[]>>();
 
 export async function getCandleData(
   symbol: string,
@@ -207,9 +210,19 @@ export async function getCachedMultiplePrices(symbols: Array<{ symbol: string; a
   
   // Fetch uncached symbols
   if (symbolsToFetch.length > 0) {
-    const fetchedResults = await getMultiplePrices(
-      symbolsToFetch.map(s => ({ symbol: s.symbol, assetClass: s.assetClass }))
-    );
+    // Build a stable key for this exact set of uncached symbols
+    const fetchKey = symbolsToFetch.map(s => `${s.symbol}:${s.assetClass}`).sort().join('|');
+
+    // Reuse an in-flight request for the same set rather than spawning a second Python process
+    let fetchPromise = inflightFetches.get(fetchKey);
+    if (!fetchPromise) {
+      fetchPromise = getMultiplePrices(
+        symbolsToFetch.map(s => ({ symbol: s.symbol, assetClass: s.assetClass }))
+      ).finally(() => inflightFetches.delete(fetchKey));
+      inflightFetches.set(fetchKey, fetchPromise);
+    }
+
+    const fetchedResults = await fetchPromise;
     
     fetchedResults.forEach((result, i) => {
       const originalIndex = symbolsToFetch[i].index;

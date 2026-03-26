@@ -86,6 +86,10 @@ INDEX_MAP = {
     "US100": "^NDX",        # NASDAQ 100
     "US500": "^GSPC",       # S&P 500
     "US30": "^DJI",         # Dow Jones Industrial Average
+    "UK100": "^FTSE",       # FTSE 100
+    "GER40": "^GDAXI",      # DAX 40
+    "JP225": "^N225",       # Nikkei 225
+    "AUS200": "^AXJO",      # ASX 200
     "RUSSELL2000": "^RUT",  # Russell 2000
     "VIX": "^VIX",          # Volatility Index
     "NASDAQ": "^IXIC",      # NASDAQ Composite
