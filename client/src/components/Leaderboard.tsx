@@ -72,7 +72,7 @@ export default function Leaderboard() {
   const btnIdle: React.CSSProperties   = { ...btnBase, background: '#0f172a', color: '#64748b' };
 
   return (
-    <div style={{ background: '#020617', color: '#f1f5f9', padding: '20px 24px 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
+    <div style={{ background: '#020617', color: '#f1f5f9', padding: '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');`}</style>
 
       <div>
