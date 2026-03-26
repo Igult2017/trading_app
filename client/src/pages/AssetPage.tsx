@@ -1,28 +1,86 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Sun, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
+import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
 import JournalHeader from "@/components/JournalHeader";
+import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
+import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
+import TickingPrice from "@/components/TickingPrice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
   symbol: string;
-  timeframe: string;
-  price: string;
-  probability: number;
-  direction: "up" | "down";
-  age: string;
-  signal: string;
+  assetClass: "crypto" | "forex" | "stock" | "commodity";
+  category: "Crypto" | "Forex" | "Stock" | "Index" | "Commodity";
 }
 
 interface ContextItem { label: string; value: string; color: string; loading?: boolean }
 interface TechItem    { label: string; value: string; color: string }
-interface PriceActionItem { icon: "layers" | "layers2" | "zoom"; text: JSX.Element }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const INSTRUMENTS: Instrument[] = [
-  { symbol: "BTC/USDT", timeframe: "2M",  price: "$63997.28", probability: 94, direction: "up",   age: "1 MINUTE AGO",   signal: "CONFIRMED/CHOCH" },
-  { symbol: "ETH/USDT", timeframe: "15M", price: "$3452.57",  probability: 82, direction: "down", age: "5 MINUTES AGO",  signal: "CONFIRMED/LIQUIDITY GRAB" },
-  { symbol: "SOL/USDT", timeframe: "1H",  price: "$144.81",   probability: 45, direction: "up",   age: "15 MINUTES AGO", signal: "CONFIRMED/BOS" },
-  { symbol: "XRP/USDT", timeframe: "3H",  price: "$0.62",     probability: 92, direction: "down", age: "20 MINUTES AGO", signal: "CONFIRMED/LIQUIDITY GRAB" },
+// ─── Full instrument list ──────────────────────────────────────────────────────
+const ALL_INSTRUMENTS: Instrument[] = [
+  // ── Crypto ─────────────────────────────────────────────────────────────────
+  { symbol: "BTC/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "ETH/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "SOL/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "XRP/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "BNB/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "ADA/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "DOGE/USDT",  assetClass: "crypto", category: "Crypto" },
+  { symbol: "AVAX/USDT",  assetClass: "crypto", category: "Crypto" },
+  { symbol: "MATIC/USDT", assetClass: "crypto", category: "Crypto" },
+  { symbol: "LTC/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "LINK/USDT",  assetClass: "crypto", category: "Crypto" },
+  { symbol: "DOT/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "UNI/USDT",   assetClass: "crypto", category: "Crypto" },
+  { symbol: "ATOM/USDT",  assetClass: "crypto", category: "Crypto" },
+  // ── Major Forex ────────────────────────────────────────────────────────────
+  { symbol: "EUR/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "USD/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "USD/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
+  { symbol: "USD/CAD", assetClass: "forex", category: "Forex" },
+  // ── Cross Forex ────────────────────────────────────────────────────────────
+  { symbol: "EUR/GBP", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/AUD", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/CAD", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/AUD", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/CAD", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "EUR/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "GBP/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/CAD", assetClass: "forex", category: "Forex" },
+  { symbol: "AUD/CHF", assetClass: "forex", category: "Forex" },
+  { symbol: "NZD/JPY", assetClass: "forex", category: "Forex" },
+  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
+  // ── Commodities ────────────────────────────────────────────────────────────
+  { symbol: "XAU/USD", assetClass: "commodity", category: "Commodity" },
+  { symbol: "XAG/USD", assetClass: "commodity", category: "Commodity" },
+  { symbol: "WTI",     assetClass: "commodity", category: "Commodity" },
+  // ── US Indices ─────────────────────────────────────────────────────────────
+  { symbol: "US100",       assetClass: "stock", category: "Index" },
+  { symbol: "US500",       assetClass: "stock", category: "Index" },
+  { symbol: "US30",        assetClass: "stock", category: "Index" },
+  { symbol: "RUSSELL2000", assetClass: "stock", category: "Index" },
+  { symbol: "VIX",         assetClass: "stock", category: "Index" },
+  // ── US Stocks ──────────────────────────────────────────────────────────────
+  { symbol: "AAPL",  assetClass: "stock", category: "Stock" },
+  { symbol: "MSFT",  assetClass: "stock", category: "Stock" },
+  { symbol: "GOOGL", assetClass: "stock", category: "Stock" },
+  { symbol: "AMZN",  assetClass: "stock", category: "Stock" },
+  { symbol: "TSLA",  assetClass: "stock", category: "Stock" },
+  { symbol: "NVDA",  assetClass: "stock", category: "Stock" },
+  { symbol: "META",  assetClass: "stock", category: "Stock" },
+  { symbol: "NFLX",  assetClass: "stock", category: "Stock" },
+  { symbol: "JPM",   assetClass: "stock", category: "Stock" },
+  { symbol: "BAC",   assetClass: "stock", category: "Stock" },
+  { symbol: "GS",    assetClass: "stock", category: "Stock" },
+  { symbol: "AMD",   assetClass: "stock", category: "Stock" },
+  { symbol: "INTC",  assetClass: "stock", category: "Stock" },
+  { symbol: "DIS",   assetClass: "stock", category: "Stock" },
+  { symbol: "BABA",  assetClass: "stock", category: "Stock" },
 ];
 
 const ASSET_DATA: Record<string, {
@@ -125,106 +183,6 @@ const ASSET_DATA: Record<string, {
   },
 };
 
-// ─── Candlestick Chart ────────────────────────────────────────────────────────
-function generateCandles(count: number, startPrice: number) {
-  const candles = [];
-  let price = startPrice;
-  const now = Date.now();
-  for (let i = count; i >= 0; i--) {
-    const open  = price + (Math.random() - 0.5) * price * 0.008;
-    const close = open  + (Math.random() - 0.5) * price * 0.012;
-    const high  = Math.max(open, close) + Math.random() * price * 0.006;
-    const low   = Math.min(open, close) - Math.random() * price * 0.006;
-    candles.push({ time: now - i * 3600000, open, high, low, close });
-    price = close;
-  }
-  return candles;
-}
-
-const CANDLES_MAP: Record<string, ReturnType<typeof generateCandles>> = {
-  "ETH/USDT": generateCandles(50, 3452),
-  "BTC/USDT": generateCandles(50, 63997),
-  "SOL/USDT": generateCandles(50, 144.81),
-  "XRP/USDT": generateCandles(50, 0.62),
-};
-
-function CandlestickChart({ symbol }: { symbol: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const candles = CANDLES_MAP[symbol] || CANDLES_MAP["ETH/USDT"];
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const PAD = { top: 20, right: 60, bottom: 36, left: 10 };
-
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#080c10";
-    ctx.fillRect(0, 0, W, H);
-
-    const prices = candles.flatMap(c => [c.high, c.low]);
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
-    const range = maxP - minP || 1;
-    const chartH = H - PAD.top - PAD.bottom;
-    const chartW = W - PAD.left - PAD.right;
-
-    const toY = (p: number) => PAD.top + chartH - ((p - minP) / range) * chartH;
-
-    // Grid lines + price labels
-    const gridCount = 6;
-    for (let i = 0; i <= gridCount; i++) {
-      const y = PAD.top + (chartH / gridCount) * i;
-      const price = maxP - (range / gridCount) * i;
-      ctx.strokeStyle = "rgba(255,255,255,0.04)";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
-      ctx.fillStyle = "#4a6580";
-      ctx.font = "10px monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(price.toFixed(2), W - PAD.right + 6, y + 3);
-    }
-
-    // Time axis labels
-    const timeStep = Math.floor(candles.length / 5);
-    ctx.fillStyle = "#4a6580";
-    ctx.font = "9px monospace";
-    ctx.textAlign = "center";
-    for (let i = 0; i < candles.length; i += timeStep) {
-      const x = PAD.left + (i / (candles.length - 1)) * chartW;
-      const d = new Date(candles[i].time);
-      const label = `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")} ${d.getHours() >= 12 ? "PM" : "AM"}`;
-      ctx.fillText(label, x, H - 8);
-    }
-
-    // Candles
-    const candleW = Math.max(2, Math.floor(chartW / candles.length) - 1);
-    candles.forEach((c, i) => {
-      const x = PAD.left + (i / (candles.length - 1)) * chartW;
-      const isBull = c.close >= c.open;
-      const color = isBull ? "#26a69a" : "#ef5350";
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, toY(c.high));
-      ctx.lineTo(x, toY(c.low));
-      ctx.stroke();
-
-      const bodyTop = toY(Math.max(c.open, c.close));
-      const bodyH   = Math.max(1, Math.abs(toY(c.open) - toY(c.close)));
-      ctx.fillStyle = color;
-      ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
-    });
-  }, [candles]);
-
-  return <canvas ref={canvasRef} width={900} height={340} style={{ width: "100%", height: 340, display: "block" }} />;
-}
-
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 function LayersIcon({ color }: { color: string }) {
   return (
@@ -262,13 +220,61 @@ export default function AssetPage() {
   const [selected, setSelected]   = useState("ETH/USDT");
   const [search,   setSearch]     = useState("");
   const [alertSet, setAlertSet]   = useState(false);
+  const [showIndicators, setShowIndicators] = useState(false);
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(
+    new Set<IndicatorId>(["EMA_9", "EMA_21", "VOL"])
+  );
+  const indicatorBtnRef = useRef<HTMLDivElement>(null);
 
-  const filtered = INSTRUMENTS.filter(i =>
+  // Timeframe state
+  const [showTF, setShowTF] = useState(false);
+  const [activeTF, setActiveTF] = useState("5m");
+  const tfBtnRef = useRef<HTMLDivElement>(null);
+
+  const TIMEFRAMES: { label: string; interval: string; period: string }[] = [
+    { label: "1m",  interval: "1m",  period: "1d"  },
+    { label: "5m",  interval: "5m",  period: "5d"  },
+    { label: "15m", interval: "15m", period: "5d"  },
+    { label: "30m", interval: "30m", period: "1mo" },
+    { label: "1H",  interval: "60m", period: "1mo" },
+    { label: "4H",  interval: "4h",  period: "3mo" },
+    { label: "1D",  interval: "1d",  period: "1y"  },
+    { label: "1W",  interval: "1wk", period: "2y"  },
+  ];
+  const currentTF = TIMEFRAMES.find(t => t.label === activeTF) ?? TIMEFRAMES[1];
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (indicatorBtnRef.current && !indicatorBtnRef.current.contains(e.target as Node)) {
+        setShowIndicators(false);
+      }
+      if (tfBtnRef.current && !tfBtnRef.current.contains(e.target as Node)) {
+        setShowTF(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function toggleIndicator(id: IndicatorId) {
+    setActiveIndicators(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  // Fast ticking prices — sidebar + selected entry price (30s matches API cache TTL)
+  const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 30000);
+  const entryTick      = useFastPrice(selected, 30000);
+
+  const filtered = ALL_INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
   );
 
   const data = ASSET_DATA[selected] || ASSET_DATA["ETH/USDT"];
-  const inst = INSTRUMENTS.find(i => i.symbol === selected)!;
 
   function boldify(text: string, bold?: string) {
     if (!bold) return <span>{text}</span>;
@@ -287,18 +293,17 @@ export default function AssetPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        .asset-scroll::-webkit-scrollbar { width: 4px; }
-        .asset-scroll::-webkit-scrollbar-track { background: transparent; }
-        .asset-scroll::-webkit-scrollbar-thumb { background: #172233; border-radius: 2px; }
+        .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
+        .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .inst-card:hover { background: #0c1219 !important; cursor: pointer; }
         .chart-btn { background: #0c1219; border: 1px solid #172233; color: #4a6580; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
         .chart-btn:hover { border-color: #3b82f6; color: #c8d8e8; }
         .chart-btn-alert { background: #0c1219; border: 1px solid #172233; color: #c8d8e8; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
         .chart-btn-alert:hover { border-color: #f59e0b; color: #f59e0b; }
-        .set-alert-btn { background: transparent; border: 1px solid #c8a84b; color: #c8a84b; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 12px 24px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
-        .set-alert-btn:hover { background: rgba(200,168,75,0.1); }
-        .set-alert-btn.active { background: rgba(200,168,75,0.15); border-color: #f0c040; color: #f0c040; }
-        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 12px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
+        .set-alert-btn { background: #100d04; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
+        .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
+        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: rgba(255,255,255,0.02); }
         .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
@@ -325,13 +330,13 @@ export default function AssetPage() {
 
         {/* Instrument List */}
         <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
-          {filtered.map(inst => {
-            const isActive = inst.symbol === selected;
+          {filtered.map(card => {
+            const isActive = card.symbol === selected;
             return (
               <div
-                key={inst.symbol}
+                key={card.symbol}
                 className="inst-card"
-                onClick={() => setSelected(inst.symbol)}
+                onClick={() => setSelected(card.symbol)}
                 style={{
                   padding: "14px 16px",
                   borderBottom: "1px solid #0f1923",
@@ -340,40 +345,53 @@ export default function AssetPage() {
                   transition: "all 0.15s",
                 }}
               >
-                {/* Row 1: Symbol + Timeframe */}
+                {/* Row 1: Symbol + Category badge */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
-                    {inst.symbol}
+                    {card.symbol}
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#3a5470", letterSpacing: "0.06em" }}>{inst.timeframe}</span>
+                  <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
+                    background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
+                    {card.category.toUpperCase()}
+                  </span>
                 </div>
 
-                {/* Row 2: Arrow + Price + Probability */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: 4,
-                      background: inst.direction === "up" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)",
-                      display: "flex", alignItems: "center", justifyContent: "center"
-                    }}>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill={inst.direction === "up" ? "#22d3a5" : "#f4617f"}>
-                        {inst.direction === "up"
-                          ? <polygon points="6,1 11,10 1,10" />
-                          : <polygon points="6,11 11,2 1,2" />}
-                      </svg>
+                {/* Row 2: Arrow + Price + Change % */}
+                {(() => {
+                  const tp = tickerPrices[card.symbol];
+                  const dir = tp?.direction ?? "flat";
+                  const chg = tp?.changePercent;
+                  return (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 26, height: 26, borderRadius: 4,
+                          background: dir === "up" ? "rgba(34,211,165,0.12)" : dir === "down" ? "rgba(244,97,127,0.12)" : "rgba(255,255,255,0.04)",
+                          display: "flex", alignItems: "center", justifyContent: "center"
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12"
+                            fill={dir === "up" ? "#22d3a5" : dir === "down" ? "#f4617f" : "#2d4a63"}>
+                            {dir === "down"
+                              ? <polygon points="6,11 11,2 1,2" />
+                              : <polygon points="6,1 11,10 1,10" />}
+                          </svg>
+                        </div>
+                        <TickingPrice
+                          price={tp?.price ?? null}
+                          prevPrice={tp?.prevPrice ?? null}
+                          direction={dir}
+                          fontSize={13}
+                        />
+                      </div>
+                      {chg != null && (
+                        <span style={{ fontSize: 10, fontWeight: 700,
+                          color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
+                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                        </span>
+                      )}
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#c8d8e8" }}>{inst.price}</span>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: inst.probability >= 80 ? "#22d3a5" : inst.probability >= 50 ? "#f59e0b" : "#f4617f" }}>
-                    {inst.probability}%
-                  </span>
-                </div>
-
-                {/* Row 3: Age + Signal */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em" }}>{inst.age}</span>
-                  <span style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.04em" }}>{inst.signal}</span>
-                </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -383,27 +401,6 @@ export default function AssetPage() {
       {/* ── Main Content ── */}
       <div className="asset-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 0 32px" }}>
 
-        {/* Top Bar */}
-        <div style={{ padding: "18px 24px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #0f1923" }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em", marginBottom: 4 }}>
-              {selected}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22d3a5", boxShadow: "0 0 6px #22d3a5" }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.1em" }}>LIVE</span>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button style={{ background: "transparent", border: "1px solid #172233", borderRadius: 4, padding: "6px 8px", cursor: "pointer", color: "#4a6580", display: "flex", alignItems: "center" }}>
-              <Sun size={15} />
-            </button>
-            <button className="news-btn">
-              <span style={{ width: 8, height: 8, background: "#f4617f", borderRadius: 1, display: "inline-block" }} />
-              NEWS: HI
-            </button>
-          </div>
-        </div>
 
         <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -414,12 +411,20 @@ export default function AssetPage() {
                 label: "ENTRY",
                 value: (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <svg width="14" height="14" viewBox="0 0 12 12" fill={data.direction === "down" ? "#f4617f" : "#22d3a5"}>
-                      {data.direction === "down"
+                    <svg width="14" height="14" viewBox="0 0 12 12"
+                      fill={entryTick.direction === "down" ? "#f4617f" : "#22d3a5"}
+                      style={{ transition: "fill 0.3s" }}>
+                      {entryTick.direction === "down"
                         ? <polygon points="6,11 11,2 1,2" />
                         : <polygon points="6,1 11,10 1,10" />}
                     </svg>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.entry}</span>
+                    <TickingPrice
+                      price={entryTick.price ?? parseFloat(data.entry)}
+                      prevPrice={entryTick.prevPrice}
+                      direction={entryTick.direction}
+                      fontSize={18}
+                      fontWeight={700}
+                    />
                   </div>
                 )
               },
@@ -500,39 +505,59 @@ export default function AssetPage() {
           </div>
 
           {/* ── Probability Panel ── */}
-          <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, padding: "20px 24px", display: "flex", alignItems: "center", gap: 24 }}>
+          <div style={{
+            background: "#07090f",
+            border: "1px solid #131d2b",
+            borderRadius: 4,
+            padding: "22px 28px",
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+          }}>
             {/* Score Box */}
             <div style={{
-              width: 72, height: 72, flexShrink: 0,
-              border: "2px solid #3b82f6", borderRadius: 6,
-              background: "#0c1a2e",
+              width: 68, height: 68, flexShrink: 0,
+              border: "1.5px solid #1e2d45",
+              borderRadius: 4,
+              background: "#0b1120",
               display: "flex", alignItems: "center", justifyContent: "center",
-              position: "relative", overflow: "hidden"
+              position: "relative", overflow: "hidden",
             }}>
-              <svg style={{ position: "absolute", top: 0, left: 0 }} width="72" height="72">
-                <line x1="10" y1="62" x2="62" y2="10" stroke="#3b82f6" strokeWidth="2.5" opacity="0.5" />
+              {/* Thick diagonal slash */}
+              <svg style={{ position: "absolute", top: 0, left: 0 }} width="68" height="68">
+                <line x1="14" y1="58" x2="54" y2="10" stroke="#5b4fcf" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
               </svg>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#ffffff", position: "relative" }}>{data.probability}%</span>
+              <span style={{
+                fontSize: 16, fontWeight: 800, color: "#ffffff",
+                position: "relative", letterSpacing: "0.02em",
+              }}>{data.probability}%</span>
             </div>
 
             {/* Text */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#ffffff", letterSpacing: "0.04em", marginBottom: 4 }}>
+              <div style={{
+                fontSize: 20, fontWeight: 800, color: "#ffffff",
+                letterSpacing: "0.05em", marginBottom: 5,
+              }}>
                 PROBABILITY: {data.probability}%
               </div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#4a6580", letterSpacing: "0.08em" }}>
+              <div style={{
+                fontSize: 10, fontWeight: 600,
+                color: "#3d9fd3",
+                letterSpacing: "0.1em",
+              }}>
                 OPTIMAL RISK: {data.optimalRisk}
               </div>
             </div>
 
             {/* Buttons */}
-            <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
               <button className={`set-alert-btn${alertSet ? " active" : ""}`} onClick={() => setAlertSet(!alertSet)}>
-                <Bell size={14} />
+                <Bell size={13} />
                 {alertSet ? "ALERT SET" : "SET ALERT"}
               </button>
               <button className="share-btn">
-                <Share2 size={14} />
+                <Share2 size={13} />
                 SHARE
               </button>
             </div>
@@ -556,15 +581,131 @@ export default function AssetPage() {
                   <Bell size={11} />
                   ALERT
                 </button>
-                <button className="chart-btn">TF</button>
-                <button className="chart-btn">INDICATORS</button>
+                <div ref={tfBtnRef} style={{ position: "relative" }}>
+                  <button
+                    className="chart-btn"
+                    style={{ borderColor: showTF ? "#22d3a5" : undefined, color: showTF ? "#22d3a5" : undefined }}
+                    onClick={() => setShowTF(v => !v)}
+                  >
+                    {activeTF}
+                  </button>
+                  {showTF && (
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 6px)", left: "50%",
+                      transform: "translateX(-50%)", zIndex: 100,
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      padding: "6px", display: "grid", gridTemplateColumns: "1fr 1fr",
+                      gap: 4, minWidth: 120,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                    }}>
+                      {TIMEFRAMES.map(tf => {
+                        const isActive = tf.label === activeTF;
+                        return (
+                          <button
+                            key={tf.label}
+                            onClick={() => { setActiveTF(tf.label); setShowTF(false); }}
+                            style={{
+                              background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
+                              border: `1px solid ${isActive ? "#22d3a5" : "#172233"}`,
+                              borderRadius: 4, color: isActive ? "#22d3a5" : "#4a6580",
+                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              padding: "6px 0", cursor: "pointer",
+                              transition: "all 0.1s",
+                            }}
+                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = "#2d4a63"; }}
+                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = "#172233"; }}
+                          >
+                            {tf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Indicators toggle */}
+                <div ref={indicatorBtnRef} style={{ position: "relative" }}>
+                  <button
+                    className="chart-btn"
+                    style={{ borderColor: showIndicators ? "#7c3aed" : undefined, color: showIndicators ? "#a78bfa" : undefined }}
+                    onClick={() => setShowIndicators(v => !v)}
+                  >
+                    INDICATORS
+                    {activeIndicators.size > 0 && (
+                      <span style={{
+                        marginLeft: 5, background: "#7c3aed", color: "#fff",
+                        borderRadius: 9, fontSize: 8, fontWeight: 800,
+                        padding: "1px 5px", letterSpacing: 0,
+                      }}>{activeIndicators.size}</span>
+                    )}
+                  </button>
+
+                  {showIndicators && (() => {
+                    const categories = ["Trend", "Momentum", "Volume", "Volatility"] as const;
+                    return (
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      minWidth: 220, maxHeight: 440, display: "flex", flexDirection: "column",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                    }}>
+                      {/* Header */}
+                      <div style={{ padding: "8px 14px", fontSize: 9, fontWeight: 800, color: "#2d4a63", letterSpacing: "0.12em", borderBottom: "1px solid #0f1923", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>INDICATORS ({INDICATOR_DEFS.length})</span>
+                        <span style={{ color: "#7c3aed" }}>{activeIndicators.size} ON</span>
+                      </div>
+                      {/* Scrollable body */}
+                      <div style={{ overflowY: "auto", flex: 1 }} className="asset-scroll">
+                        {categories.map(cat => {
+                          const catDefs = INDICATOR_DEFS.filter(d => d.category === cat);
+                          return (
+                            <div key={cat}>
+                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: "#1e3045", letterSpacing: "0.14em", background: "#080c10" }}>
+                                {cat.toUpperCase()}
+                              </div>
+                              {catDefs.map(ind => {
+                                const on = activeIndicators.has(ind.id);
+                                return (
+                                  <div
+                                    key={ind.id}
+                                    onClick={() => toggleIndicator(ind.id)}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 10,
+                                      padding: "6px 14px", cursor: "pointer",
+                                      background: on ? "rgba(124,58,237,0.08)" : "transparent",
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
+                                  >
+                                    <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
+                                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? "#c8d8e8" : "#4a6580", letterSpacing: "0.05em" }}>
+                                      {ind.label}
+                                    </span>
+                                    <span style={{
+                                      width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                                      border: `2px solid ${on ? "#7c3aed" : "#1e3045"}`,
+                                      background: on ? "#7c3aed" : "transparent",
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                    }}>
+                                      {on && <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff" }} />}
+                            </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    );
+                  })()}
+                </div>
+
               </div>
             </div>
 
             {/* Chart */}
-            <div style={{ background: "#080c10" }}>
-              <CandlestickChart symbol={selected} />
-            </div>
+            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
           </div>
         </div>
       </div>
