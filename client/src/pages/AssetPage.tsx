@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
 import JournalHeader from "@/components/JournalHeader";
-import TradingChart from "@/components/TradingChart";
+import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
 import { useWatchlistPrices, formatPrice } from "@/hooks/usePrices";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -164,6 +164,30 @@ export default function AssetPage() {
   const [selected, setSelected]   = useState("ETH/USDT");
   const [search,   setSearch]     = useState("");
   const [alertSet, setAlertSet]   = useState(false);
+  const [showIndicators, setShowIndicators] = useState(false);
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(
+    new Set<IndicatorId>(["EMA_9", "EMA_21", "VOL"])
+  );
+  const indicatorBtnRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (indicatorBtnRef.current && !indicatorBtnRef.current.contains(e.target as Node)) {
+        setShowIndicators(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function toggleIndicator(id: IndicatorId) {
+    setActiveIndicators(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   // Live prices for all sidebar instruments
   const watchlist = INSTRUMENTS.map(i => ({ symbol: i.symbol, assetClass: "crypto" as const }));
@@ -454,12 +478,76 @@ export default function AssetPage() {
                   ALERT
                 </button>
                 <button className="chart-btn">TF</button>
-                <button className="chart-btn">INDICATORS</button>
+
+                {/* Indicators toggle */}
+                <div ref={indicatorBtnRef} style={{ position: "relative" }}>
+                  <button
+                    className="chart-btn"
+                    style={{ borderColor: showIndicators ? "#7c3aed" : undefined, color: showIndicators ? "#a78bfa" : undefined }}
+                    onClick={() => setShowIndicators(v => !v)}
+                  >
+                    INDICATORS
+                    {activeIndicators.size > 0 && (
+                      <span style={{
+                        marginLeft: 5, background: "#7c3aed", color: "#fff",
+                        borderRadius: 9, fontSize: 8, fontWeight: 800,
+                        padding: "1px 5px", letterSpacing: 0,
+                      }}>{activeIndicators.size}</span>
+                    )}
+                  </button>
+
+                  {showIndicators && (
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      padding: "8px 0", minWidth: 190,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                    }}>
+                      <div style={{ padding: "4px 14px 8px", fontSize: 9, fontWeight: 800, color: "#2d4a63", letterSpacing: "0.12em", borderBottom: "1px solid #0f1923", marginBottom: 4 }}>
+                        INDICATORS
+                      </div>
+                      {INDICATOR_DEFS.map(ind => {
+                        const on = activeIndicators.has(ind.id);
+                        return (
+                          <div
+                            key={ind.id}
+                            onClick={() => toggleIndicator(ind.id)}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 10,
+                              padding: "7px 14px", cursor: "pointer",
+                              background: on ? "rgba(124,58,237,0.08)" : "transparent",
+                              transition: "background 0.1s",
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
+                          >
+                            {/* Color swatch */}
+                            <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
+                            {/* Label */}
+                            <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? "#c8d8e8" : "#4a6580", letterSpacing: "0.06em" }}>
+                              {ind.label}
+                            </span>
+                            {/* Toggle dot */}
+                            <span style={{
+                              width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                              border: `2px solid ${on ? "#7c3aed" : "#1e3045"}`,
+                              background: on ? "#7c3aed" : "transparent",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              {on && <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff" }} />}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
 
             {/* Chart */}
-            <TradingChart symbol={selected} interval="5m" period="1d" height={360} />
+            <TradingChart symbol={selected} interval="5m" period="1d" height={360} activeIndicators={activeIndicators} />
           </div>
         </div>
       </div>

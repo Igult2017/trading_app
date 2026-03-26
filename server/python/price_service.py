@@ -241,7 +241,8 @@ def get_price(symbol: str, asset_class: str = "stock") -> Dict[str, Any]:
 def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", period: str = "1d") -> Dict[str, Any]:
     """
     Fetch OHLCV candle history for a symbol using yfinance.
-    Returns list of {time, open, high, low, close, volume} dicts.
+    Returns list of candle dicts with optional indicator values embedded.
+    Indicators are computed with pandas-ta when available.
     """
     try:
         # Resolve the Yahoo Finance symbol
@@ -261,21 +262,66 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
         if hist.empty:
             return {"symbol": symbol, "candles": [], "error": "No data returned"}
 
+        import pandas as pd
+        df = hist[["Open", "High", "Low", "Close", "Volume"]].copy()
+        df.columns = ["open", "high", "low", "close", "volume"]
+
+        # ── Compute indicators with pandas-ta ────────────────────────────────
+        try:
+            import pandas_ta as ta
+
+            # EMA 9, 21, 50, 200
+            df["ema9"]  = ta.ema(df["close"], length=9)
+            df["ema21"] = ta.ema(df["close"], length=21)
+            df["ema50"] = ta.ema(df["close"], length=50)
+            df["ema200"]= ta.ema(df["close"], length=200)
+
+            # Bollinger Bands (20, 2)
+            bb = ta.bbands(df["close"], length=20, std=2)
+            if bb is not None and not bb.empty:
+                df["bb_upper"] = bb.get("BBU_20_2.0")
+                df["bb_lower"] = bb.get("BBL_20_2.0")
+                df["bb_mid"]   = bb.get("BBM_20_2.0")
+
+            # VWAP
+            try:
+                df["vwap"] = ta.vwap(df["high"], df["low"], df["close"], df["volume"])
+            except Exception:
+                pass
+
+            # RSI (14)
+            df["rsi"] = ta.rsi(df["close"], length=14)
+
+        except ImportError:
+            pass  # pandas-ta not installed — candles returned without indicators
+
+        # ── Build output ─────────────────────────────────────────────────────
+        IND_COLS = ["ema9", "ema21", "ema50", "ema200",
+                    "bb_upper", "bb_lower", "bb_mid", "vwap", "rsi"]
+
         candles = []
-        for ts, row in hist.iterrows():
-            # lightweight-charts expects Unix timestamp (seconds)
+        for ts, row in df.iterrows():
             try:
                 t = int(ts.timestamp())
             except Exception:
                 continue
-            candles.append({
+
+            candle: Dict[str, Any] = {
                 "time":   t,
-                "open":   round(float(row["Open"]),   6),
-                "high":   round(float(row["High"]),   6),
-                "low":    round(float(row["Low"]),    6),
-                "close":  round(float(row["Close"]),  6),
-                "volume": int(row.get("Volume", 0)),
-            })
+                "open":   round(float(row["open"]),   6),
+                "high":   round(float(row["high"]),   6),
+                "low":    round(float(row["low"]),    6),
+                "close":  round(float(row["close"]),  6),
+                "volume": int(row["volume"]) if not pd.isna(row["volume"]) else 0,
+            }
+
+            for col in IND_COLS:
+                if col in df.columns:
+                    val = row[col]
+                    if not pd.isna(val):
+                        candle[col] = round(float(val), 6)
+
+            candles.append(candle)
 
         return {"symbol": symbol, "interval": interval, "period": period, "candles": candles}
 

@@ -14,7 +14,7 @@ import {
   type Time,
 } from "lightweight-charts";
 
-// ── Asset-class map (symbol → assetClass for the price API) ──────────────────
+// ── Asset-class map ───────────────────────────────────────────────────────────
 const ASSET_CLASS_MAP: Record<string, "stock" | "forex" | "commodity" | "crypto"> = {
   "BTC/USDT": "crypto",  "BTC/USD": "crypto",
   "ETH/USDT": "crypto",  "ETH/USD": "crypto",
@@ -22,107 +22,118 @@ const ASSET_CLASS_MAP: Record<string, "stock" | "forex" | "commodity" | "crypto"
   "XRP/USDT": "crypto",  "XRP/USD": "crypto",
   "BNB/USDT": "crypto",  "ADA/USDT": "crypto",
   "DOGE/USDT": "crypto", "AVAX/USDT": "crypto",
-  "EUR/USD": "forex",    "GBP/USD": "forex",
-  "USD/JPY": "forex",    "AUD/USD": "forex",
-  "XAU/USD": "commodity","XAG/USD": "commodity",
-  "WTI": "commodity",    "BRENT": "commodity",
+  "EUR/USD":  "forex",   "GBP/USD": "forex",
+  "USD/JPY":  "forex",   "AUD/USD": "forex",
+  "XAU/USD":  "commodity","XAG/USD": "commodity",
+  "WTI":      "commodity","BRENT":   "commodity",
 };
-
-function getAssetClass(symbol: string): "stock" | "forex" | "commodity" | "crypto" {
-  return ASSET_CLASS_MAP[symbol] ?? "stock";
+function getAssetClass(sym: string): "stock" | "forex" | "commodity" | "crypto" {
+  return ASSET_CLASS_MAP[sym] ?? "stock";
 }
 
-// ── EMA calculation ──────────────────────────────────────────────────────────
-function calcEMA(closes: number[], period: number): (number | null)[] {
-  if (closes.length < period) return closes.map(() => null);
-  const k = 2 / (period + 1);
-  const result: (number | null)[] = new Array(period - 1).fill(null);
-  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  result.push(ema);
-  for (let i = period; i < closes.length; i++) {
-    ema = closes[i] * k + ema * (1 - k);
-    result.push(ema);
-  }
-  return result;
-}
+// ── Indicator definitions (single source of truth) ───────────────────────────
+export const INDICATOR_DEFS = [
+  { id: "EMA_9",   label: "EMA 9",            color: "#f59e0b", field: "ema9"  },
+  { id: "EMA_21",  label: "EMA 21",           color: "#818cf8", field: "ema21" },
+  { id: "EMA_50",  label: "EMA 50",           color: "#38bdf8", field: "ema50" },
+  { id: "EMA_200", label: "EMA 200",          color: "#a78bfa", field: "ema200"},
+  { id: "BB",      label: "Bollinger Bands",  color: "#64748b", field: "bb_upper" },
+  { id: "VWAP",    label: "VWAP",             color: "#22d3a5", field: "vwap"  },
+  { id: "VOL",     label: "Volume",           color: "#4a6580", field: "volume"},
+] as const;
 
-// ── Types ────────────────────────────────────────────────────────────────────
+export type IndicatorId = typeof INDICATOR_DEFS[number]["id"];
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface CandleBar {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+  time: number; open: number; high: number; low: number; close: number; volume: number;
+  ema9?: number; ema21?: number; ema50?: number; ema200?: number;
+  bb_upper?: number; bb_lower?: number; bb_mid?: number;
+  vwap?: number; rsi?: number;
 }
 
-interface Props {
+export interface Props {
   symbol: string;
   interval?: string;
   period?: string;
   height?: number;
+  activeIndicators: Set<IndicatorId>;
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
-export default function TradingChart({ symbol, interval = "5m", period = "1d", height = 320 }: Props) {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function toLineData(candles: CandleBar[], field: keyof CandleBar): LineData<Time>[] {
+  return candles
+    .filter(c => c[field] != null)
+    .map(c => ({ time: c.time as Time, value: c[field] as number }));
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export default function TradingChart({
+  symbol, interval = "5m", period = "1d", height = 320, activeIndicators,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
-  const candleRef    = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const ema9Ref      = useRef<ISeriesApi<"Line"> | null>(null);
-  const ema21Ref     = useRef<ISeriesApi<"Line"> | null>(null);
-  const volRef       = useRef<ISeriesApi<"Histogram"> | null>(null);
 
-  const [loading, setLoading]   = useState(true);
-  const [error,   setError]     = useState<string | null>(null);
+  // series refs
+  const candleRef  = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const ema9Ref    = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema21Ref   = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema50Ref   = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema200Ref  = useRef<ISeriesApi<"Line"> | null>(null);
+  const bbUpRef    = useRef<ISeriesApi<"Line"> | null>(null);
+  const bbLowRef   = useRef<ISeriesApi<"Line"> | null>(null);
+  const bbMidRef   = useRef<ISeriesApi<"Line"> | null>(null);
+  const vwapRef    = useRef<ISeriesApi<"Line"> | null>(null);
+  const volRef     = useRef<ISeriesApi<"Histogram"> | null>(null);
+
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
   const [lastClose, setLastClose] = useState<number | null>(null);
 
+  // ── Fetch + draw ────────────────────────────────────────────────────────────
   const fetchAndDraw = useCallback(async () => {
-    const assetClass = getAssetClass(symbol);
-    const encoded    = encodeURIComponent(symbol);
+    const ac = getAssetClass(symbol);
     try {
-      const res  = await fetch(
-        `/api/prices/${encoded}/candles?assetClass=${assetClass}&interval=${interval}&period=${period}`
+      const res = await fetch(
+        `/api/prices/${encodeURIComponent(symbol)}/candles?assetClass=${ac}&interval=${interval}&period=${period}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: { candles: CandleBar[]; error?: string } = await res.json();
       if (data.error) throw new Error(data.error);
-      if (!data.candles || data.candles.length === 0) throw new Error("No candle data");
+      if (!data.candles?.length) throw new Error("No candle data");
 
-      const candles = data.candles;
+      const cs = data.candles;
 
-      const candleData: CandlestickData<Time>[] = candles.map(c => ({
-        time:  c.time as Time,
-        open:  c.open,
-        high:  c.high,
-        low:   c.low,
-        close: c.close,
+      // Candles
+      const candleData: CandlestickData<Time>[] = cs.map(c => ({
+        time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close,
       }));
+      candleRef.current?.setData(candleData);
 
-      const closes = candles.map(c => c.close);
-      const ema9vals  = calcEMA(closes, 9);
-      const ema21vals = calcEMA(closes, 21);
+      // EMA lines
+      ema9Ref.current?.setData(toLineData(cs, "ema9"));
+      ema21Ref.current?.setData(toLineData(cs, "ema21"));
+      ema50Ref.current?.setData(toLineData(cs, "ema50"));
+      ema200Ref.current?.setData(toLineData(cs, "ema200"));
 
-      const ema9Data: LineData<Time>[] = candles
-        .map((c, i) => ema9vals[i] !== null ? { time: c.time as Time, value: ema9vals[i]! } : null)
-        .filter(Boolean) as LineData<Time>[];
+      // Bollinger Bands
+      bbUpRef.current?.setData(toLineData(cs, "bb_upper"));
+      bbLowRef.current?.setData(toLineData(cs, "bb_lower"));
+      bbMidRef.current?.setData(toLineData(cs, "bb_mid"));
 
-      const ema21Data: LineData<Time>[] = candles
-        .map((c, i) => ema21vals[i] !== null ? { time: c.time as Time, value: ema21vals[i]! } : null)
-        .filter(Boolean) as LineData<Time>[];
+      // VWAP
+      vwapRef.current?.setData(toLineData(cs, "vwap"));
 
-      const volMax = Math.max(...candles.map(c => c.volume));
-      const volData: HistogramData<Time>[] = candles.map(c => ({
-        time:  c.time as Time,
+      // Volume
+      const volMax = Math.max(...cs.map(c => c.volume));
+      const volData: HistogramData<Time>[] = cs.map(c => ({
+        time: c.time as Time,
         value: volMax > 0 ? (c.volume / volMax) * 20 : 0,
         color: c.close >= c.open ? "rgba(38,166,154,0.35)" : "rgba(239,83,80,0.35)",
       }));
-
-      candleRef.current?.setData(candleData);
-      ema9Ref.current?.setData(ema9Data);
-      ema21Ref.current?.setData(ema21Data);
       volRef.current?.setData(volData);
 
-      setLastClose(candles[candles.length - 1].close);
+      setLastClose(cs[cs.length - 1].close);
       setError(null);
       setLoading(false);
     } catch (e) {
@@ -131,18 +142,18 @@ export default function TradingChart({ symbol, interval = "5m", period = "1d", h
     }
   }, [symbol, interval, period]);
 
-  // Build chart once on mount
+  // ── Build chart once on mount ────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
       width:  containerRef.current.clientWidth,
-      height: height - 28,         // leave room for the bottom bar
+      height: height - 28,
       layout: {
-        background:  { type: ColorType.Solid, color: "#080c10" },
-        textColor:   "#4a6580",
-        fontFamily:  "'Poppins', sans-serif",
-        fontSize:    10,
+        background: { type: ColorType.Solid, color: "#080c10" },
+        textColor:  "#4a6580",
+        fontFamily: "'Poppins', sans-serif",
+        fontSize:   10,
       },
       grid: {
         vertLines: { color: "#0f1923" },
@@ -154,9 +165,9 @@ export default function TradingChart({ symbol, interval = "5m", period = "1d", h
         horzLine: { color: "#2d4a63", labelBackgroundColor: "#0c1219" },
       },
       rightPriceScale: {
-        borderColor:    "#0f1923",
-        textColor:      "#4a6580",
-        scaleMargins:   { top: 0.08, bottom: 0.22 },
+        borderColor:  "#0f1923",
+        textColor:    "#4a6580",
+        scaleMargins: { top: 0.08, bottom: 0.22 },
       },
       timeScale: {
         borderColor:    "#0f1923",
@@ -166,37 +177,46 @@ export default function TradingChart({ symbol, interval = "5m", period = "1d", h
     });
 
     candleRef.current = chart.addSeries(CandlestickSeries, {
-      upColor:       "#26a69a",
-      downColor:     "#ef5350",
+      upColor: "#26a69a", downColor: "#ef5350",
       borderVisible: false,
-      wickUpColor:   "#26a69a",
-      wickDownColor: "#ef5350",
+      wickUpColor: "#26a69a", wickDownColor: "#ef5350",
     });
 
-    ema9Ref.current = chart.addSeries(LineSeries, {
-      color:       "#f59e0b",
-      lineWidth:   1,
-      priceLineVisible: false,
-      lastValueVisible: false,
+    const addLine = (color: string, width: 1|2 = 1) =>
+      chart.addSeries(LineSeries, {
+        color, lineWidth: width,
+        priceLineVisible: false, lastValueVisible: false,
+      });
+
+    ema9Ref.current   = addLine("#f59e0b");
+    ema21Ref.current  = addLine("#818cf8");
+    ema50Ref.current  = addLine("#38bdf8");
+    ema200Ref.current = addLine("#a78bfa");
+
+    bbUpRef.current  = chart.addSeries(LineSeries, {
+      color: "#64748b", lineWidth: 1, lineStyle: 1,
+      priceLineVisible: false, lastValueVisible: false,
+    });
+    bbLowRef.current = chart.addSeries(LineSeries, {
+      color: "#64748b", lineWidth: 1, lineStyle: 1,
+      priceLineVisible: false, lastValueVisible: false,
+    });
+    bbMidRef.current = chart.addSeries(LineSeries, {
+      color: "#475569", lineWidth: 1, lineStyle: 2,
+      priceLineVisible: false, lastValueVisible: false,
     });
 
-    ema21Ref.current = chart.addSeries(LineSeries, {
-      color:       "#818cf8",
-      lineWidth:   1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
+    vwapRef.current = addLine("#22d3a5");
 
     volRef.current = chart.addSeries(HistogramSeries, {
-      color:         "rgba(38,166,154,0.3)",
-      priceFormat:   { type: "volume" },
-      priceScaleId:  "",
+      color: "rgba(38,166,154,0.3)",
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
     });
     volRef.current.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
     chartRef.current = chart;
 
-    // Resize observer
     const ro = new ResizeObserver(entries => {
       const w = entries[0]?.contentRect.width;
       if (w) chart.applyOptions({ width: w });
@@ -206,15 +226,29 @@ export default function TradingChart({ symbol, interval = "5m", period = "1d", h
     return () => {
       ro.disconnect();
       chart.remove();
-      chartRef.current  = null;
-      candleRef.current = null;
-      ema9Ref.current   = null;
-      ema21Ref.current  = null;
-      volRef.current    = null;
+      chartRef.current = candleRef.current = null;
+      ema9Ref.current = ema21Ref.current = ema50Ref.current = ema200Ref.current = null;
+      bbUpRef.current = bbLowRef.current = bbMidRef.current = null;
+      vwapRef.current = volRef.current = null;
     };
   }, [height]);
 
-  // Fetch data whenever symbol/interval/period changes, then poll every 30 s
+  // ── Toggle indicator visibility ──────────────────────────────────────────────
+  useEffect(() => {
+    const visible = (id: IndicatorId) => activeIndicators.has(id);
+    ema9Ref.current?.applyOptions({   visible: visible("EMA_9")  });
+    ema21Ref.current?.applyOptions({  visible: visible("EMA_21") });
+    ema50Ref.current?.applyOptions({  visible: visible("EMA_50") });
+    ema200Ref.current?.applyOptions({ visible: visible("EMA_200")});
+    const bbOn = visible("BB");
+    bbUpRef.current?.applyOptions({  visible: bbOn });
+    bbLowRef.current?.applyOptions({ visible: bbOn });
+    bbMidRef.current?.applyOptions({ visible: bbOn });
+    vwapRef.current?.applyOptions({  visible: visible("VWAP") });
+    volRef.current?.applyOptions({   visible: visible("VOL")  });
+  }, [activeIndicators]);
+
+  // ── Fetch on symbol/interval/period change, poll every 30 s ─────────────────
   useEffect(() => {
     setLoading(true);
     fetchAndDraw();
@@ -224,38 +258,31 @@ export default function TradingChart({ symbol, interval = "5m", period = "1d", h
 
   return (
     <div style={{ position: "relative", width: "100%", height, background: "#080c10" }}>
-      {/* Indicator legend */}
+      {/* Legend */}
       <div style={{
         position: "absolute", top: 8, left: 12, zIndex: 10,
-        display: "flex", gap: 12, alignItems: "center",
-        fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
-        pointerEvents: "none",
+        display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
+        fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", pointerEvents: "none",
       }}>
-        <span style={{ color: "#f59e0b" }}>▬ EMA 9</span>
-        <span style={{ color: "#818cf8" }}>▬ EMA 21</span>
-        <span style={{ color: "#4a6580" }}>▪ VOL</span>
+        {INDICATOR_DEFS.filter(d => activeIndicators.has(d.id) && d.id !== "VOL").map(d => (
+          <span key={d.id} style={{ color: d.color }}>▬ {d.label}</span>
+        ))}
         {lastClose !== null && (
-          <span style={{ color: "#22d3a5", marginLeft: 8 }}>
+          <span style={{ color: "#22d3a5", marginLeft: 4 }}>
             {lastClose.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
           </span>
         )}
       </div>
 
-      {/* Chart canvas */}
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-      {/* Loading overlay */}
       {loading && (
         <div style={{
           position: "absolute", inset: 0, display: "flex", alignItems: "center",
           justifyContent: "center", background: "rgba(8,12,16,0.85)",
           fontSize: 11, color: "#4a6580", letterSpacing: "0.1em",
-        }}>
-          LOADING CHART…
-        </div>
+        }}>LOADING CHART…</div>
       )}
-
-      {/* Error overlay */}
       {!loading && error && (
         <div style={{
           position: "absolute", inset: 0, display: "flex", alignItems: "center",
