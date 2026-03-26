@@ -95,35 +95,48 @@ INDEX_MAP = {
 
 
 def get_yahoo_price(symbol: str) -> Optional[Dict[str, Any]]:
-    """Fetch price from Yahoo Finance"""
+    """
+    Fetch price from Yahoo Finance using intraday history.
+    Uses 5-min bars for the last 2 days: last bar = current price,
+    first bar of today = today's open, first bar of period = prev close.
+    """
     try:
         ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        # Try different price fields
-        price = info.get('regularMarketPrice') or info.get('currentPrice') or info.get('previousClose')
-        
-        if price is None:
-            # Try to get from history
-            hist = ticker.history(period="1d")
-            if not hist.empty:
-                price = float(hist['Close'].iloc[-1])
-        
-        if price is not None:
-            return {
-                "symbol": symbol,
-                "price": float(price),
-                "change": info.get('regularMarketChange', 0),
-                "changePercent": info.get('regularMarketChangePercent', 0),
-                "high": info.get('regularMarketDayHigh', price),
-                "low": info.get('regularMarketDayLow', price),
-                "open": info.get('regularMarketOpen', price),
-                "previousClose": info.get('previousClose', price),
-                "volume": info.get('regularMarketVolume', 0),
-                "timestamp": datetime.now().isoformat(),
-                "source": "yahoo"
-            }
-    except Exception as e:
+        # 5-minute bars for last 2 trading days — gives us ~current price
+        hist = ticker.history(period="2d", interval="5m")
+        if hist.empty:
+            # Fallback to daily bars
+            hist = ticker.history(period="5d", interval="1d")
+        if hist.empty:
+            return None
+
+        current_price = float(hist['Close'].iloc[-1])
+        # Use first bar of previous day as prev_close
+        # Split by date
+        import pandas as pd
+        today = hist.index[-1].date()
+        prev_bars = hist[hist.index.date < today]
+        prev_close = float(prev_bars['Close'].iloc[-1]) if not prev_bars.empty else float(hist['Close'].iloc[0])
+        change = current_price - prev_close
+        change_pct = (change / prev_close * 100) if prev_close else 0
+        high  = float(hist['High'].iloc[-1])
+        low   = float(hist['Low'].iloc[-1])
+        open_p = float(hist['Open'].iloc[0])
+        volume = int(hist['Volume'].sum()) if 'Volume' in hist.columns else 0
+        return {
+            "symbol": symbol,
+            "price": current_price,
+            "change": change,
+            "changePercent": change_pct,
+            "high": high,
+            "low": low,
+            "open": open_p,
+            "previousClose": prev_close,
+            "volume": volume,
+            "timestamp": datetime.now().isoformat(),
+            "source": "yahoo"
+        }
+    except Exception:
         pass
     return None
 
@@ -156,6 +169,22 @@ def get_coingecko_price(coin_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def symbol_to_yf(symbol: str, asset_class: str) -> str:
+    """Convert an app symbol to its Yahoo Finance ticker string."""
+    if asset_class == "crypto":
+        base = symbol.replace("/USDT", "").replace("/USD", "").replace("-USD", "").upper()
+        return f"{base}-USD"
+    elif asset_class == "forex":
+        yf_sym = FOREX_MAP.get(symbol)
+        if yf_sym:
+            return yf_sym
+        return symbol.replace("/", "") + "=X"
+    elif asset_class == "commodity":
+        return COMMODITIES_MAP.get(symbol, symbol)
+    else:  # stock / index
+        return INDEX_MAP.get(symbol.upper(), symbol)
+
+
 def get_price(symbol: str, asset_class: str = "stock") -> Dict[str, Any]:
     """
     Get price for a symbol based on asset class
@@ -171,18 +200,17 @@ def get_price(symbol: str, asset_class: str = "stock") -> Dict[str, Any]:
     
     try:
         if asset_class == "crypto":
-            # Handle crypto symbols
-            base_symbol = symbol.replace("/USD", "").replace("-USD", "").upper()
-            coin_id = CRYPTO_ID_MAP.get(base_symbol, base_symbol.lower())
-            price_data = get_coingecko_price(coin_id)
-            
+            # Use yfinance directly (BTC-USD, ETH-USD, etc.) — faster and more reliable
+            base_symbol = symbol.replace("/USDT", "").replace("/USD", "").replace("-USD", "").upper()
+            yahoo_symbol = f"{base_symbol}-USD"
+            price_data = get_yahoo_price(yahoo_symbol)
             if price_data:
                 result.update(price_data)
                 result["symbol"] = symbol
             else:
-                # Try Yahoo as fallback for crypto
-                yahoo_symbol = f"{base_symbol}-USD"
-                price_data = get_yahoo_price(yahoo_symbol)
+                # Fallback to CoinGecko
+                coin_id = CRYPTO_ID_MAP.get(base_symbol, base_symbol.lower())
+                price_data = get_coingecko_price(coin_id)
                 if price_data:
                     result.update(price_data)
                     result["symbol"] = symbol
@@ -502,20 +530,100 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
 
 def get_multiple_prices(symbols: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """
-    Get prices for multiple symbols
-    
-    Args:
-        symbols: List of dicts with 'symbol' and 'assetClass' keys
-    
-    Returns:
-        List of price data dictionaries
+    Get prices for multiple symbols using a single yf.download() call for speed.
+    Falls back to sequential fetching for any symbols that fail.
     """
-    results = []
+    if not symbols:
+        return []
+
+    # Build yfinance symbol list and reverse map
+    yf_symbols: List[str] = []
+    yf_to_app: Dict[str, Dict[str, str]] = {}  # yf_sym -> {symbol, assetClass}
+
     for item in symbols:
-        symbol = item.get('symbol', '')
-        asset_class = item.get('assetClass', 'stock')
-        result = get_price(symbol, asset_class)
-        results.append(result)
+        sym = item.get('symbol', '')
+        ac = item.get('assetClass', 'stock')
+        yf_sym = symbol_to_yf(sym, ac)
+        yf_symbols.append(yf_sym)
+        yf_to_app[yf_sym] = {'symbol': sym, 'assetClass': ac}
+
+    # Download all symbols in a single HTTP request
+    prices_by_yf: Dict[str, Dict[str, Any]] = {}
+    try:
+        import pandas as pd
+        unique_yf = list(dict.fromkeys(yf_symbols))  # preserve order, dedupe
+
+        # Use daily bars for batch — one HTTP call, fast for any number of symbols.
+        # Individual price calls use 5-min bars for more current data.
+        data = yf.download(
+            unique_yf,
+            period="5d",
+            interval="1d",
+            progress=False,
+            threads=True,
+            auto_adjust=True,
+        )
+
+        if not data.empty:
+            # yf.download returns MultiIndex columns when >1 ticker, flat when =1
+            is_multi = isinstance(data.columns, pd.MultiIndex)
+
+            for yf_sym in unique_yf:
+                try:
+                    if is_multi:
+                        close_col = data['Close'][yf_sym] if yf_sym in data['Close'].columns else None
+                        high_col  = data['High'][yf_sym]  if yf_sym in data['High'].columns  else None
+                        low_col   = data['Low'][yf_sym]   if yf_sym in data['Low'].columns   else None
+                        open_col  = data['Open'][yf_sym]  if yf_sym in data['Open'].columns  else None
+                        vol_col   = data['Volume'][yf_sym] if yf_sym in data['Volume'].columns else None
+                    else:
+                        close_col = data['Close']
+                        high_col  = data['High']
+                        low_col   = data['Low']
+                        open_col  = data['Open']
+                        vol_col   = data['Volume']
+
+                    if close_col is None or close_col.dropna().empty:
+                        continue
+
+                    closes = close_col.dropna()
+                    current = float(closes.iloc[-1])
+                    # Daily bars: iloc[-2] is the previous trading day's close
+                    prev = float(closes.iloc[-2]) if len(closes) >= 2 else current
+                    change  = current - prev
+                    change_pct = (change / prev * 100) if prev else 0
+
+                    prices_by_yf[yf_sym] = {
+                        "price": current,
+                        "previousClose": prev,
+                        "change": change,
+                        "changePercent": change_pct,
+                        "high":   float(high_col.dropna().iloc[-1]) if high_col is not None and not high_col.dropna().empty else current,
+                        "low":    float(low_col.dropna().iloc[-1])  if low_col  is not None and not low_col.dropna().empty  else current,
+                        "open":   float(open_col.dropna().iloc[-1]) if open_col is not None and not open_col.dropna().empty else current,
+                        "volume": int(vol_col.dropna().sum())       if vol_col  is not None and not vol_col.dropna().empty  else 0,
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "yahoo_batch",
+                    }
+                except Exception:
+                    continue
+    except Exception:
+        pass  # fall through to sequential fallback
+
+    # Build results list in original order
+    results: List[Dict[str, Any]] = []
+    for i, item in enumerate(symbols):
+        sym = item.get('symbol', '')
+        ac  = item.get('assetClass', 'stock')
+        yf_sym = yf_symbols[i]
+        if yf_sym in prices_by_yf:
+            entry = {"symbol": sym, "assetClass": ac, "error": None}
+            entry.update(prices_by_yf[yf_sym])
+            results.append(entry)
+        else:
+            # Sequential fallback for symbols that didn't come through the batch
+            results.append(get_price(sym, ac))
+
     return results
 
 

@@ -54,7 +54,6 @@ const ALL_INSTRUMENTS: Instrument[] = [
   { symbol: "AUD/CAD", assetClass: "forex", category: "Forex" },
   { symbol: "AUD/CHF", assetClass: "forex", category: "Forex" },
   { symbol: "NZD/JPY", assetClass: "forex", category: "Forex" },
-  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
   // ── Commodities ────────────────────────────────────────────────────────────
   { symbol: "XAU/USD", assetClass: "commodity", category: "Commodity" },
   { symbol: "XAG/USD", assetClass: "commodity", category: "Commodity" },
@@ -265,10 +264,10 @@ export default function AssetPage() {
     });
   }
 
-  // Fast ticking prices — sidebar + selected entry price (30s matches API cache TTL)
+  // Live prices — sidebar batch every 15s, selected instrument every 8s for near-real-time feel
   const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
-  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 30000);
-  const entryTick      = useFastPrice(selected, 30000);
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 15000);
+  const entryTick      = useFastPrice(selected, 8000);
 
   const filtered = ALL_INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())

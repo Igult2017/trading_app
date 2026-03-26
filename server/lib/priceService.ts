@@ -134,7 +134,7 @@ export async function pingPriceService(): Promise<boolean> {
 
 // Cache for price data to reduce API calls
 const priceCache = new Map<string, { data: PriceResult; timestamp: number }>();
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 10000; // 10 seconds — allows near-real-time polling
 
 export async function getCandleData(
   symbol: string,
