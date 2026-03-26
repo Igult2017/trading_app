@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 
 const TICKER_DATA = [
@@ -42,7 +41,6 @@ interface JournalHeaderProps {
 export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
-  const [, navigate] = useLocation();
   const dm = darkMode;
 
   const t = dm ? {
@@ -136,29 +134,18 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
 
           {/* Desktop Nav Links + Icons */}
           <div className="nav-links">
-            <a href="/assets" className="nav-a" style={{ color: t.navLink }}
-              onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-            >Assets</a>
-            {NAV_ITEMS.map(item => (
-              <a key={item} href={NAV_LINKS[item]} className="nav-a" style={{ color: t.navLink }}
+            {[
+              { label: 'Journal',           href: '/journal'             },
+              { label: 'Assets',            href: '/assets'              },
+              { label: 'Economic Calendar', href: '#economic-calendar'   },
+              { label: 'Blog',              href: '#blog'                },
+              { label: 'TSC',               href: '#tsc'                 },
+            ].map(({ label, href }) => (
+              <a key={label} href={href} className="nav-a" style={{ color: t.navLink }}
                 onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
                 onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-              >{item}</a>
+              >{label}</a>
             ))}
-            {NAV_ITEMS.map(item =>
-              item === 'Assets' ? (
-                <button key={item} onClick={() => navigate('/assets')} className="nav-a" style={{ color: t.navLink }}
-                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-                >{item}</button>
-              ) : (
-                <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="nav-a" style={{ color: t.navLink }}
-                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-                >{item}</a>
-              )
-            )}
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
@@ -205,36 +192,19 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
         <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}`, position: 'relative', zIndex: 99 }}>
-          <a href="/assets" onClick={() => setMobileMenuOpen(false)}
-            style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-            onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-          >Assets</a>
-          {NAV_ITEMS.map(item => (
-            <a key={item} href={NAV_LINKS[item]}
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+          {[
+            { label: 'Journal',           href: '/journal'           },
+            { label: 'Assets',            href: '/assets'            },
+            { label: 'Economic Calendar', href: '#economic-calendar' },
+            { label: 'Blog',              href: '#blog'              },
+            { label: 'TSC',               href: '#tsc'               },
+          ].map(({ label, href }) => (
+            <a key={label} href={href} onClick={() => setMobileMenuOpen(false)}
+              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
               onMouseEnter={e => (e.currentTarget.style.color = t.text)}
               onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-            >{item}</a>
+            >{label}</a>
           ))}
-          {NAV_ITEMS.map(item =>
-            item === 'Assets' ? (
-              <button key={item}
-                onClick={() => { setMobileMenuOpen(false); navigate('/assets'); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", background: 'none', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-                onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-              >{item}</button>
-            ) : (
-              <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-                onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-              >{item}</a>
-            )
-          )}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Sun, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
+import JournalHeader from "@/components/JournalHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
@@ -276,7 +277,9 @@ export default function AssetPage() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
+      <JournalHeader onToggleSidebar={() => {}} />
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
@@ -560,6 +563,8 @@ export default function AssetPage() {
             </div>
           </div>
         </div>
+      </div>
+
       </div>
 
       <style>{`
