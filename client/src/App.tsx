@@ -17,6 +17,7 @@ import Cryptocurrency from "@/pages/Cryptocurrency";
 import Join from "@/pages/Join";
 import Blog from "@/pages/Blog";
 import Journal from "@/pages/Journal";
+import AssetPage from "@/pages/AssetPage";
 import NotFound from "@/pages/not-found";
 
 function InnerPages() {
@@ -52,6 +53,7 @@ export default function App() {
         <Switch>
           <Route path="/" component={HomePage} />
           <Route path="/journal" component={Journal} />
+          <Route path="/assets" component={AssetPage} />
           <Route>{() => <InnerPages />}</Route>
         </Switch>
         <Toaster />
