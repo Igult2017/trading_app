@@ -304,52 +304,18 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         {/* ════ LEVEL 1 ════════════════════════════════════════════════════ */}
         {activeLevel === 1 && (
           <div className="space-y-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch">
-              <div className="lg:col-span-2 flex flex-col gap-2">
-                <Section title="Executive Summary" icon={<Zap className="w-4 h-4 text-yellow-400"/>} className="flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+              {/* Row 1: Executive Summary (left) + What to Monitor Next (right) */}
+              <div className="lg:col-span-2 flex flex-col">
+                <Section title="Executive Summary" icon={<Zap className="w-4 h-4 text-yellow-400"/>} className="h-full">
                   <p className="text-slate-300 leading-relaxed text-sm font-medium">
                     {d.executiveSummary || 'No trades found — add trades to generate an audit.'}
                   </p>
                 </Section>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 flex-1">
-                  <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>}>
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className={`text-lg font-black italic ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
-                        {verdictLabel}
-                      </div>
-                      <div className="h-0.5 flex-1 bg-slate-800 rounded-none overflow-hidden">
-                        <div className={`h-full ${verdictBarClr}`} style={{ width: `${verdictBar}%` }}/>
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-400 font-semibold" style={{ letterSpacing: '0.05em' }}>
-                      Confidence: {d.edgeVerdict.confidence.toFixed(1)}% | {d.edgeVerdict.sampleSize} samples
-                    </p>
-                  </Section>
-
-                  <Section title="Edge Drivers" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>}>
-                    <div className="max-h-[80px] overflow-y-auto pr-2 custom-scrollbar">
-                      {d.edgeDrivers.length ? (
-                        <ul className="text-sm space-y-2">
-                          {d.edgeDrivers.slice(0, 3).map((drv, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <div className="w-1.5 h-1.5 rounded-none bg-blue-500 mt-1.5 shrink-0"/>
-                              <span className="font-medium">{drv.factor} <span className="text-emerald-400 font-black">+{drv.lift.toFixed(1)}pp</span></span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-500 font-medium italic">
-                          Tag trades with HTF bias, confluence score, session to unlock edge drivers.
-                        </p>
-                      )}
-                    </div>
-                  </Section>
-                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Section title="What to Monitor Next" icon={<Activity className="w-4 h-4 text-orange-400"/>}>
+              <div className="flex flex-col">
+                <Section title="What to Monitor Next" icon={<Activity className="w-4 h-4 text-orange-400"/>} className="h-full">
                   <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {d.monitorItems.length ? (
                       d.monitorItems.map((m, i) => (
@@ -361,8 +327,46 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
                     )}
                   </div>
                 </Section>
+              </div>
 
-                <Section title="Audit-Driven Changes" icon={<Clock className="w-4 h-4 text-purple-400"/>}>
+              {/* Row 2: Is There an Edge? + Edge Drivers (left) + Audit-Driven Changes (right) */}
+              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <Section title="Is There an Edge?" icon={<ShieldCheck className="w-4 h-4 text-emerald-400"/>} className="h-full">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className={`text-lg font-black italic ${verdictColor}`} style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.05em' }}>
+                      {verdictLabel}
+                    </div>
+                    <div className="h-0.5 flex-1 bg-slate-800 rounded-none overflow-hidden">
+                      <div className={`h-full ${verdictBarClr}`} style={{ width: `${verdictBar}%` }}/>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 font-semibold" style={{ letterSpacing: '0.05em' }}>
+                    Confidence: {d.edgeVerdict.confidence.toFixed(1)}% | {d.edgeVerdict.sampleSize} samples
+                  </p>
+                </Section>
+
+                <Section title="Edge Drivers" icon={<TrendingUp className="w-4 h-4 text-blue-400"/>} className="h-full">
+                  <div className="max-h-[80px] overflow-y-auto pr-2 custom-scrollbar">
+                    {d.edgeDrivers.length ? (
+                      <ul className="text-sm space-y-2">
+                        {d.edgeDrivers.slice(0, 3).map((drv, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-none bg-blue-500 mt-1.5 shrink-0"/>
+                            <span className="font-medium">{drv.factor} <span className="text-emerald-400 font-black">+{drv.lift.toFixed(1)}pp</span></span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-500 font-medium italic">
+                        Tag trades with HTF bias, confluence score, session to unlock edge drivers.
+                      </p>
+                    )}
+                  </div>
+                </Section>
+              </div>
+
+              <div className="flex flex-col">
+                <Section title="Audit-Driven Changes" icon={<Clock className="w-4 h-4 text-purple-400"/>} className="h-full">
                   <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {d.aiPolicySuggestions.slice(0, 2).map((s, i) => (
                       <div key={i} className="text-xs border-l-2 border-purple-500 pl-3 py-1 bg-purple-500/5">
