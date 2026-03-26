@@ -1113,32 +1113,32 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       {lf("Liquidity Targets","liquidityTargets",3,"Major liquidity pools, stop hunts...")}
                     </section>
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
+                        <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                          {sc("Market Alignment","marketAlignment")}{sc("Setup Clarity","setupClarity")}
+                          {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}
+                        </div>
+                      </div>
                       <div className="space-y-8">
                         <div className="space-y-4">
-                          <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
-                          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
-                            {sc("Market Alignment","marketAlignment")}{sc("Setup Clarity","setupClarity")}
-                            {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}
+                          <SectionHeader icon="Activity" title="Technical Signals"/>
+                          <div className="space-y-4">
+                            {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
+                            {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
+                            {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
+                            {lf("Primary Signals","primarySignals",2,"Main confirmations")}
+                            {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
                           </div>
                         </div>
                         <div className="space-y-4">
                           <SectionHeader icon="Target" title="Key Level Analysis"/>
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             {ls("Key Level Respect","keyLevelRespect",["Yes","No","Partial"])}
                             {ls("Key Level Type","keyLevelType",["Support","Resistance","Pivot","Fib Level"])}
                             {ls("Momentum Validity","momentumValidity",["Strong","Moderate","Weak"])}
                             {ls("Target Logic Clarity","targetLogicClarity",["High","Medium","Low"])}
                           </div>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <SectionHeader icon="Activity" title="Technical Signals"/>
-                        <div className="space-y-4">
-                          {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
-                          {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
-                          {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
-                          {lf("Primary Signals","primarySignals",2,"Main confirmations")}
-                          {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
                         </div>
                       </div>
                     </section>
