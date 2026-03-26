@@ -213,8 +213,8 @@ export default function AssetPage() {
 
   // Fast ticking prices — sidebar (every 5s) + selected entry price (every 5s)
   const sidebarSymbols = INSTRUMENTS.map(i => i.symbol);
-  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 5000);
-  const entryTick      = useFastPrice(selected, 5000);
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 30000);
+  const entryTick      = useFastPrice(selected, 30000);
 
   // Slower watchlist for fallback / change %
   const watchlist = INSTRUMENTS.map(i => ({ symbol: i.symbol, assetClass: "crypto" as const }));
