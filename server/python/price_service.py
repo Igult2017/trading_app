@@ -238,7 +238,7 @@ def get_price(symbol: str, asset_class: str = "stock") -> Dict[str, Any]:
     return result
 
 
-def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", period: str = "1d") -> Dict[str, Any]:
+def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", period: str = "5d") -> Dict[str, Any]:
     """
     Fetch OHLCV candle history for a symbol using yfinance.
     Returns list of candle dicts with optional indicator values embedded.
@@ -270,40 +270,45 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
         try:
             import pandas_ta as ta
 
+            def _col(frame, prefix: str):
+                """Return first column whose name starts with prefix, or None."""
+                if frame is None or frame.empty:
+                    return None
+                matches = [c for c in frame.columns if c.upper().startswith(prefix.upper())]
+                return frame[matches[0]] if matches else None
+
             # ── TREND ──────────────────────────────────────────────────────
             for length in [9, 21, 50, 100, 200]:
-                df[f"ema{length}"]  = ta.ema(df["close"], length=length)
-                df[f"sma{length}"]  = ta.sma(df["close"], length=length)
+                df[f"ema{length}"] = ta.ema(df["close"], length=length)
+                df[f"sma{length}"] = ta.sma(df["close"], length=length)
 
             df["wma20"]  = ta.wma(df["close"],  length=20)
             df["hma20"]  = ta.hma(df["close"],  length=20)
             df["dema20"] = ta.dema(df["close"], length=20)
             df["tema20"] = ta.tema(df["close"], length=20)
 
-            # Bollinger Bands
+            # Bollinger Bands — pandas-ta columns: BBL, BBM, BBU, BBB, BBP
             bb = ta.bbands(df["close"], length=20, std=2)
             if bb is not None and not bb.empty:
-                df["bb_upper"] = bb.get("BBU_20_2.0")
-                df["bb_lower"] = bb.get("BBL_20_2.0")
-                df["bb_mid"]   = bb.get("BBM_20_2.0")
-                df["bb_width"] = bb.get("BBB_20_2.0")
-                df["bb_pct"]   = bb.get("BBP_20_2.0")
+                df["bb_upper"] = _col(bb, "BBU")
+                df["bb_lower"] = _col(bb, "BBL")
+                df["bb_mid"]   = _col(bb, "BBM")
+                df["bb_width"] = _col(bb, "BBB")
+                df["bb_pct"]   = _col(bb, "BBP")
 
-            # Keltner Channel
+            # Keltner Channel — pandas-ta columns: KCLe (lower), KCBe (basis), KCUe (upper)
             kc = ta.kc(df["high"], df["low"], df["close"], length=20)
             if kc is not None and not kc.empty:
-                cols = kc.columns.tolist()
-                df["kc_upper"] = kc[cols[0]] if len(cols) > 0 else None
-                df["kc_mid"]   = kc[cols[1]] if len(cols) > 1 else None
-                df["kc_lower"] = kc[cols[2]] if len(cols) > 2 else None
+                df["kc_lower"] = _col(kc, "KCL")
+                df["kc_mid"]   = _col(kc, "KCB")
+                df["kc_upper"] = _col(kc, "KCU")
 
-            # Donchian Channel
+            # Donchian Channel — pandas-ta columns: DCL (lower), DCM (mid), DCU (upper)
             dc = ta.donchian(df["high"], df["low"], lower_length=20, upper_length=20)
             if dc is not None and not dc.empty:
-                dcols = dc.columns.tolist()
-                df["dc_lower"] = dc[dcols[0]] if len(dcols) > 0 else None
-                df["dc_mid"]   = dc[dcols[1]] if len(dcols) > 1 else None
-                df["dc_upper"] = dc[dcols[2]] if len(dcols) > 2 else None
+                df["dc_lower"] = _col(dc, "DCL")
+                df["dc_mid"]   = _col(dc, "DCM")
+                df["dc_upper"] = _col(dc, "DCU")
 
             # VWAP
             try:
@@ -311,80 +316,82 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
             except Exception:
                 pass
 
-            # Supertrend
+            # Supertrend — pandas-ta columns: SUPERT_x_x (value), SUPERTd (dir), SUPERTl, SUPERTs
             try:
                 st = ta.supertrend(df["high"], df["low"], df["close"], length=7, multiplier=3.0)
                 if st is not None and not st.empty:
-                    st_cols = [c for c in st.columns if "SUPERT_" in c and "d" not in c and "l" not in c and "s" not in c]
-                    if st_cols:
-                        df["supertrend"] = st[st_cols[0]]
+                    # Pick column that is SUPERT_ but NOT SUPERTd/l/s
+                    val_cols = [c for c in st.columns
+                                if c.upper().startswith("SUPERT_") and c.upper() not in
+                                [x.upper() for x in st.columns if any(x.upper().startswith(p) for p in ["SUPERTD","SUPERTL","SUPERTS"])]]
+                    if val_cols:
+                        df["supertrend"] = st[val_cols[0]]
             except Exception:
                 pass
 
-            # Parabolic SAR
+            # Parabolic SAR — pandas-ta columns: PSARl_x_x (long), PSARs_x_x (short)
             try:
-                psar = ta.psar(df["high"], df["low"], df["close"])
-                if psar is not None and not psar.empty:
-                    psar_cols = [c for c in psar.columns if "PSARl" in c]
-                    if psar_cols:
-                        df["psar"] = psar[psar_cols[0]]
+                psar_df = ta.psar(df["high"], df["low"], df["close"])
+                if psar_df is not None and not psar_df.empty:
+                    # Combine long + short into one series (whichever is not NaN)
+                    psar_l = _col(psar_df, "PSARl")
+                    psar_s = _col(psar_df, "PSARs")
+                    if psar_l is not None and psar_s is not None:
+                        df["psar"] = psar_l.combine_first(psar_s)
+                    elif psar_l is not None:
+                        df["psar"] = psar_l
             except Exception:
                 pass
 
             # ── MOMENTUM ───────────────────────────────────────────────────
-            df["rsi"]  = ta.rsi(df["close"], length=14)
-            df["cci"]  = ta.cci(df["high"], df["low"], df["close"], length=20)
-            df["roc"]  = ta.roc(df["close"], length=10)
-            df["mom"]  = ta.mom(df["close"], length=10)
-            df["cmo"]  = ta.cmo(df["close"], length=14)
-            df["willr"]= ta.willr(df["high"], df["low"], df["close"], length=14)
-            df["dpo"]  = ta.dpo(df["close"],  length=20)
+            df["rsi"]   = ta.rsi(df["close"],  length=14)
+            df["cci"]   = ta.cci(df["high"], df["low"], df["close"], length=20)
+            df["roc"]   = ta.roc(df["close"],  length=10)
+            df["mom"]   = ta.mom(df["close"],  length=10)
+            df["cmo"]   = ta.cmo(df["close"],  length=14)
+            df["willr"] = ta.willr(df["high"], df["low"], df["close"], length=14)
+            df["dpo"]   = ta.dpo(df["close"],  length=20)
 
             try:
                 df["tsi"] = ta.tsi(df["close"])
             except Exception:
                 pass
-
             try:
                 df["uo"] = ta.uo(df["high"], df["low"], df["close"])
             except Exception:
                 pass
-
             try:
                 df["ao"] = ta.ao(df["high"], df["low"])
             except Exception:
                 pass
 
-            # MACD
+            # MACD — pandas-ta columns: MACD_f_s_sig, MACDh_f_s_sig, MACDs_f_s_sig
             macd = ta.macd(df["close"], fast=12, slow=26, signal=9)
             if macd is not None and not macd.empty:
-                mcols = macd.columns.tolist()
-                df["macd"]        = macd[mcols[0]] if len(mcols) > 0 else None
-                df["macd_hist"]   = macd[mcols[1]] if len(mcols) > 1 else None
-                df["macd_signal"] = macd[mcols[2]] if len(mcols) > 2 else None
+                df["macd"]        = _col(macd, "MACD_")
+                df["macd_hist"]   = _col(macd, "MACDh")
+                df["macd_signal"] = _col(macd, "MACDs")
 
-            # Stochastic
+            # Stochastic — pandas-ta columns: STOCHk_k_d_s, STOCHd_k_d_s
             stoch = ta.stoch(df["high"], df["low"], df["close"], k=14, d=3)
             if stoch is not None and not stoch.empty:
-                scols = stoch.columns.tolist()
-                df["stoch_k"] = stoch[scols[0]] if len(scols) > 0 else None
-                df["stoch_d"] = stoch[scols[1]] if len(scols) > 1 else None
+                df["stoch_k"] = _col(stoch, "STOCHk")
+                df["stoch_d"] = _col(stoch, "STOCHd")
 
-            # Stochastic RSI
+            # Stochastic RSI — pandas-ta columns: STOCHRSIk, STOCHRSId
             try:
                 srsi = ta.stochrsi(df["close"], length=14)
                 if srsi is not None and not srsi.empty:
-                    srcols = srsi.columns.tolist()
-                    df["stochrsi_k"] = srsi[srcols[0]] if len(srcols) > 0 else None
-                    df["stochrsi_d"] = srsi[srcols[1]] if len(srcols) > 1 else None
+                    df["stochrsi_k"] = _col(srsi, "STOCHRSIk")
+                    df["stochrsi_d"] = _col(srsi, "STOCHRSId")
             except Exception:
                 pass
 
-            # PPO
+            # PPO — pandas-ta column: PPO_fast_slow_sig
             try:
                 ppo = ta.ppo(df["close"], fast=12, slow=26)
                 if ppo is not None and not ppo.empty:
-                    df["ppo"] = ppo[ppo.columns[0]]
+                    df["ppo"] = _col(ppo, "PPO_")
             except Exception:
                 pass
 

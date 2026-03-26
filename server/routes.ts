@@ -776,7 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { symbol } = req.params;
       const assetClass = (req.query.assetClass as string) || "stock";
       const interval = (req.query.interval as string) || "5m";
-      const period = (req.query.period as string) || "1d";
+      const period = (req.query.period as string) || "5d";
       const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
       if (!validAssetClasses.includes(assetClass)) return res.status(400).json({ error: "Invalid asset class" });
       const data = await getCachedCandleData(symbol, assetClass as any, interval, period);

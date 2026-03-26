@@ -561,7 +561,7 @@ export default function AssetPage() {
             </div>
 
             {/* Chart */}
-            <TradingChart symbol={selected} interval="5m" period="1d" height={360} activeIndicators={activeIndicators} />
+            <TradingChart symbol={selected} interval="5m" period="5d" height={360} activeIndicators={activeIndicators} />
           </div>
         </div>
       </div>
