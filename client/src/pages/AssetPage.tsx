@@ -3,6 +3,8 @@ import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-reac
 import JournalHeader from "@/components/JournalHeader";
 import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
 import { useWatchlistPrices, formatPrice } from "@/hooks/usePrices";
+import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
+import TickingPrice from "@/components/TickingPrice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
@@ -209,7 +211,12 @@ export default function AssetPage() {
     });
   }
 
-  // Live prices for all sidebar instruments
+  // Fast ticking prices — sidebar (every 5s) + selected entry price (every 5s)
+  const sidebarSymbols = INSTRUMENTS.map(i => i.symbol);
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 5000);
+  const entryTick      = useFastPrice(selected, 5000);
+
+  // Slower watchlist for fallback / change %
   const watchlist = INSTRUMENTS.map(i => ({ symbol: i.symbol, assetClass: "crypto" as const }));
   const { data: livePrices } = useWatchlistPrices(watchlist);
 
@@ -322,9 +329,12 @@ export default function AssetPage() {
                           : <polygon points="6,11 11,2 1,2" />}
                       </svg>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#c8d8e8" }}>
-                      {livePriceMap[card.symbol] ?? card.price}
-                    </span>
+                    <TickingPrice
+                      price={tickerPrices[card.symbol]?.price ?? null}
+                      prevPrice={tickerPrices[card.symbol]?.prevPrice ?? null}
+                      direction={tickerPrices[card.symbol]?.direction ?? "flat"}
+                      fontSize={13}
+                    />
                   </div>
                   <span style={{ fontSize: 12, fontWeight: 700, color: card.probability >= 80 ? "#22d3a5" : card.probability >= 50 ? "#f59e0b" : "#f4617f" }}>
                     {card.probability}%
@@ -355,12 +365,20 @@ export default function AssetPage() {
                 label: "ENTRY",
                 value: (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <svg width="14" height="14" viewBox="0 0 12 12" fill={data.direction === "down" ? "#f4617f" : "#22d3a5"}>
-                      {data.direction === "down"
+                    <svg width="14" height="14" viewBox="0 0 12 12"
+                      fill={entryTick.direction === "down" ? "#f4617f" : "#22d3a5"}
+                      style={{ transition: "fill 0.3s" }}>
+                      {entryTick.direction === "down"
                         ? <polygon points="6,11 11,2 1,2" />
                         : <polygon points="6,1 11,10 1,10" />}
                     </svg>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.entry}</span>
+                    <TickingPrice
+                      price={entryTick.price ?? parseFloat(data.entry)}
+                      prevPrice={entryTick.prevPrice}
+                      direction={entryTick.direction}
+                      fontSize={18}
+                      fontWeight={700}
+                    />
                   </div>
                 )
               },
