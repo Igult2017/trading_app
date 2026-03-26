@@ -1120,26 +1120,24 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                           {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}
                         </div>
                       </div>
-                      <div className="space-y-8">
+                      <div className="space-y-4">
+                        <SectionHeader icon="Activity" title="Technical Signals"/>
                         <div className="space-y-4">
-                          <SectionHeader icon="Activity" title="Technical Signals"/>
-                          <div className="space-y-4">
-                            {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
-                            {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
-                            {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
-                            {lf("Primary Signals","primarySignals",2,"Main confirmations")}
-                            {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
-                          </div>
+                          {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
+                          {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
+                          {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
                         </div>
-                        <div className="space-y-4">
-                          <SectionHeader icon="Target" title="Key Level Analysis"/>
-                          <div className="space-y-4">
-                            {ls("Key Level Respect","keyLevelRespect",["Yes","No","Partial"])}
-                            {ls("Key Level Type","keyLevelType",["Support","Resistance","Pivot","Fib Level"])}
-                            {ls("Momentum Validity","momentumValidity",["Strong","Moderate","Weak"])}
-                            {ls("Target Logic Clarity","targetLogicClarity",["High","Medium","Low"])}
-                          </div>
-                        </div>
+                      </div>
+                    </section>
+                    <section className="space-y-4">
+                      <SectionHeader icon="Target" title="Signals & Key Level Analysis"/>
+                      <div className="grid grid-cols-2 gap-4">
+                        {lf("Primary Signals","primarySignals",2,"Main confirmations")}
+                        {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
+                        {lf("Key Level Respect","keyLevelRespect",2,"Yes / No / Partial")}
+                        {lf("Key Level Type","keyLevelType",2,"Support / Resistance / Pivot / Fib Level")}
+                        {lf("Momentum Validity","momentumValidity",2,"Strong / Moderate / Weak")}
+                        {lf("Target Logic Clarity","targetLogicClarity",2,"High / Medium / Low")}
                       </div>
                     </section>
                     <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={()=>setStep(s=>s+1)}/>
