@@ -372,7 +372,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
             >
               Trading Sessions
             </h2>
-            <p style={{ fontSize: 11, fontWeight: 500, color: '#8a9bb0', letterSpacing: '0.02em', margin: '6px 0 0' }}>
+            <p style={{ fontSize: 11, fontWeight: 500, color: '#8a9bb0', letterSpacing: '0.02em', margin: '6px 0 0', textAlign: 'center' }}>
               Select a session to view dashboard, metrics &amp; trade vault
             </p>
           </div>
