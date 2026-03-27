@@ -186,7 +186,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       data-testid={`card-session-${session.id}`}
       style={{
         background: '#080c10',
-        border: `2px solid ${isActive ? '#2a5a8c' : hov ? '#2a5a8c' : '#1a3a5c'}`,
+        border: `2px solid ${isActive ? '#2a2a2a' : hov ? '#2a2a2a' : '#1a1a1a'}`,
         cursor: 'pointer',
         position: 'relative',
         transition: 'border-color 0.15s, transform 0.1s',
