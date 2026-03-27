@@ -185,7 +185,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        background: '#111',
+        background: '#080c10',
         border: `2px solid ${isActive ? '#2a5a8c' : hov ? '#2a5a8c' : '#1a3a5c'}`,
         cursor: 'pointer',
         position: 'relative',
@@ -201,8 +201,8 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 
       {/* Card top bar */}
       <div style={{
-        background: '#161616',
-        borderBottom: '2px solid #1e1e1e',
+        background: '#0c1018',
+        borderBottom: '2px solid #0f1923',
         padding: '14px 20px',
         display: 'flex',
         alignItems: 'center',
@@ -278,7 +278,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       {/* Footer */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 20px', borderTop: '2px solid #1a1a1a', background: '#0d0d0d',
+        padding: '12px 20px', borderTop: '2px solid #0f1923', background: '#0c1018',
       }}>
         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#3a3a3a', textTransform: 'uppercase' }}>
           {tradeCount === 0 ? 'No trades yet' : `${tradeCount} trade${tradeCount === 1 ? '' : 's'} logged`}
