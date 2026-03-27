@@ -11,7 +11,6 @@ import {
   Zap,
   PlusCircle,
   Clock,
-  Settings,
   Cpu,
   Loader2,
   RefreshCw,
