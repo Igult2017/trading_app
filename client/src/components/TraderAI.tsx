@@ -156,7 +156,7 @@ export default function TraderAI() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)", background: "#08090c", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", fontFamily: F }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 130px)", background: "#070d15", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", fontFamily: F }}>
 
       <style>{`
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
@@ -168,7 +168,7 @@ export default function TraderAI() {
       `}</style>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(8,9,12,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <AtomAI size={14} color="white" />
@@ -280,7 +280,7 @@ export default function TraderAI() {
       </div>
 
       {/* Input bar */}
-      <div style={{ flexShrink: 0, padding: "12px 16px 14px", background: "rgba(8,9,12,0.97)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ flexShrink: 0, padding: "12px 16px 14px", background: "rgba(7,13,21,0.97)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         {error && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, marginBottom: 8 }}>
             <AlertCircle size={12} color="#f87171" />
