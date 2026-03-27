@@ -353,8 +353,10 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   return (
     <>
       <style>{`
-        .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 3px; }
-        @media (max-width: 560px) { .sessions-grid { grid-template-columns: 1fr; } }
+        .sessions-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+        .sessions-grid > * { flex: 0 0 calc(33.333% - 2px); min-width: 260px; }
+        @media (max-width: 700px) { .sessions-grid > * { flex: 0 0 calc(50% - 2px); } }
+        @media (max-width: 480px) { .sessions-grid > * { flex: 0 0 100%; } }
       `}</style>
 
       <div style={{ position: 'relative', fontFamily: "'Montserrat', sans-serif" }}>
