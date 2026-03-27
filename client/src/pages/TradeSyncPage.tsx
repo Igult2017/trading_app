@@ -514,7 +514,7 @@ export default function TradeSyncPage() {
           <div className="ts-faq-inner">
             <div className="ts-section-header">
               <div className="ts-section-title">Frequently Asked Questions</div>
-              <div className="ts-section-sub">Everything you need to know about TradeWaves Trade Sync</div>
+              <div className="ts-section-sub">Everything you need to know about Sync Trade</div>
             </div>
             {faqs.map((f, i) => (
               <div key={i} className={`ts-faq-item ${openFaq === i ? "open" : ""}`}>
