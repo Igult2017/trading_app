@@ -359,23 +359,21 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
       <div style={{ position: 'relative', fontFamily: "'Montserrat', sans-serif" }}>
         <div style={{
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 40, borderBottom: '2px solid #222', paddingBottom: 24,
           opacity: headerVis ? 1 : 0,
           transform: headerVis ? 'translateY(0)' : 'translateY(-10px)',
           transition: 'opacity 0.5s ease, transform 0.5s ease',
         }}>
-          <div>
-            <h2
-              data-testid="text-sessions-title"
-              style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7eb8f7', margin: 0 }}
-            >
-              Trading Sessions
-            </h2>
-            <p style={{ fontSize: 11, fontWeight: 500, color: '#8a9bb0', letterSpacing: '0.02em', margin: '6px 0 0', textAlign: 'center' }}>
-              Select a session to view dashboard, metrics &amp; trade vault
-            </p>
-          </div>
+          <h2
+            data-testid="text-sessions-title"
+            style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7eb8f7', margin: 0 }}
+          >
+            Trading Sessions
+          </h2>
+          <p style={{ fontSize: 11, fontWeight: 500, color: '#8a9bb0', letterSpacing: '0.02em', margin: 0 }}>
+            Select a session to view dashboard, metrics &amp; trade vault
+          </p>
           <span style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
             color: '#3dff8f', border: '2px solid #3dff8f', padding: '6px 14px', whiteSpace: 'nowrap',
