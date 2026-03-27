@@ -248,7 +248,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
         <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: '#444', textTransform: 'uppercase', marginBottom: 4 }}>
           Starting Balance
         </div>
-        <div style={{ fontSize: 38, fontWeight: 800, color: '#7eb8f7', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 10 }}>
+        <div style={{ fontSize: 19, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 10 }}>
           ${startBal.toLocaleString()}
         </div>
       </div>
