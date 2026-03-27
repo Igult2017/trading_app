@@ -223,12 +223,12 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
           <span style={{
             display: 'flex', alignItems: 'center', gap: 5,
             fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#3dff8f', border: '1.5px solid #3dff8f', padding: '3px 8px',
+            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px',
           }}>
             <span style={{
               width: 5, height: 5, borderRadius: '50%',
-              background: pulse ? '#3dff8f' : 'rgba(61,255,143,0.3)',
-              boxShadow: pulse ? '0 0 5px rgba(61,255,143,0.9)' : 'none',
+              background: pulse ? '#60a5fa' : 'rgba(96,165,250,0.3)',
+              boxShadow: pulse ? '0 0 5px rgba(96,165,250,0.9)' : 'none',
               transition: 'all 0.6s ease', flexShrink: 0,
             }} />
             ACTIVE
@@ -236,7 +236,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
         ) : (
           <span style={{
             fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#3dff8f', border: '1.5px solid #3dff8f', padding: '3px 8px',
+            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px',
           }}>
             {session.status?.toUpperCase() || 'ACTIVE'}
           </span>
@@ -377,7 +377,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           </p>
           <span style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: '#3dff8f', border: '2px solid #3dff8f', padding: '6px 14px', whiteSpace: 'nowrap',
+            color: '#60a5fa', border: '2px solid #60a5fa', padding: '6px 14px', whiteSpace: 'nowrap',
           }}>
             {sessions.length} {sessions.length === 1 ? 'Session' : 'Sessions'}
           </span>
