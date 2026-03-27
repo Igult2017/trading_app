@@ -186,7 +186,6 @@ export default function HomePage() {
                 onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
               >{item}</a>
             ))}
-            <Link href="/journal" className="nav-journal-btn">Journal</Link>
             <button onClick={() => setDarkMode(!dm)}
               style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0, marginLeft: 4 }}>
               <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -211,12 +210,12 @@ export default function HomePage() {
 
       {mobileMenuOpen && (
         <div className="mob-dropdown open" style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}` }}>
-          {[...navItems, 'Journal'].map(item => (
-            <a key={item} href={item === 'Journal' ? '/journal' : `#${item.toLowerCase().replace(' ', '-')}`}
+          {navItems.map(item => (
+            <a key={item} href={`#${item.toLowerCase().replace(' ', '-')}`}
               onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: item === 'Journal' ? '#3b82f6' : t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
               onMouseEnter={e => e.currentTarget.style.color = t.text}
-              onMouseLeave={e => e.currentTarget.style.color = item === 'Journal' ? '#3b82f6' : t.textMuted}
+              onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
             >{item}</a>
           ))}
         </div>
