@@ -216,7 +216,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
           <Loader2 className="w-5 h-5 text-blue-400 animate-spin"/>
           <span className="text-sm font-black uppercase tracking-widest text-slate-300">Running Strategy Audit</span>
         </div>
-        <p className="text-xs text-slate-500 font-medium">Python engine analysing trades…</p>
+        <p className="text-xs text-slate-500 font-medium">Hi! I'm your strategy auditor. Welcome to audit room!</p>
       </div>
     </div>
   );
