@@ -150,7 +150,7 @@ export default function HomePage() {
   const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
   const calData = Array.from({ length: 35 }, () => (Math.random() - 0.45) * 900);
 
-  const navItems = ['Features', 'Pricing', 'Reviews', 'Economic Calendar', 'Assets', 'Blog', 'TSC'];
+  const navItems = ['Features', 'Pricing', 'Reviews', 'Economic Calendar', 'Assets', 'Blog', 'TSC', 'Login', 'Signup'];
 
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
