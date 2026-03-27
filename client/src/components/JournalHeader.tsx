@@ -64,8 +64,8 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
     iconBtnHover: '#f1f5f9',
   };
 
-  const NAV_ITEMS = ['Economic Calendar', 'Blog', 'TSC'];
-  const NAV_LINKS: Record<string, string> = { 'Economic Calendar': '#economic-calendar', 'Blog': '#blog', 'TSC': '#tsc' };
+  const NAV_ITEMS = ['Journal', 'Economic Calendar', 'Blog', 'TSC'];
+  const NAV_LINKS: Record<string, string> = { 'Journal': '/journal', 'Economic Calendar': '#economic-calendar', 'Blog': '#blog', 'TSC': '#tsc' };
 
   const iconButtonStyle = {
     width: 32,
