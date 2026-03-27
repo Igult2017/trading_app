@@ -309,7 +309,7 @@ const features = [
 ];
 
 const faqs = [
-  { q: "Does TraderWaves trade for me?", a: "No. Trade Sync is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
+  { q: "Does Sync Trade trade for me?", a: "No. Sync Trade is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
   { q: "Is this for accounts I own?", a: "Yes. Trade Sync is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
   { q: "Which platforms are supported?", a: "Currently MT4 and MT5 are fully supported. MatchTrader is also available. More platforms including cTrader, Binance, TradeLocker, and others are coming soon — you can vote for your favorites." },
   { q: "Do you provide signals or advice?", a: "No. Trade Sync does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
