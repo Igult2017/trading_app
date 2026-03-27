@@ -360,7 +360,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
       <div style={{ position: 'relative', fontFamily: "'Montserrat', sans-serif" }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 40, borderBottom: '2px solid #222', paddingBottom: 24,
+          marginBottom: 12, borderBottom: '2px solid #222', paddingBottom: 16,
           opacity: headerVis ? 1 : 0,
           transform: headerVis ? 'translateY(0)' : 'translateY(-10px)',
           transition: 'opacity 0.5s ease, transform 0.5s ease',
@@ -382,7 +382,8 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           </span>
         </div>
 
-        <div className="sessions-grid">
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="sessions-grid" style={{ width: '100%', maxWidth: 900 }}>
           {sessions.map((session, i) => (
             <SessionCard
               key={session.id}
@@ -393,6 +394,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
               index={i}
             />
           ))}
+        </div>
         </div>
       </div>
     </>
