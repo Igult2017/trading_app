@@ -165,16 +165,18 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
   index: number;
 }) => {
   const [hov, setHov] = useState(false);
+  const [deleteHov, setDeleteHov] = useState(false);
   const visible = useVisible(index * 80 + 120);
   const pulse = usePulse();
   const { totalPnL, tradeCount, isLoading: balLoading } = useSessionBalance(session.id);
   const startBal = parseFloat(session.startingBalance) || 0;
+  const hasData = !balLoading && tradeCount > 0;
   const pnlPositive = totalPnL >= 0;
-  const pnlColor = totalPnL === 0 ? 'rgba(148,163,184,0.7)' : pnlPositive ? '#34d399' : '#fb7185';
-  const pnlBg = totalPnL === 0 ? 'rgba(148,163,184,0.07)' : pnlPositive ? 'rgba(52,211,153,0.08)' : 'rgba(251,113,133,0.08)';
-  const pnlBorder = totalPnL === 0 ? 'rgba(148,163,184,0.12)' : pnlPositive ? 'rgba(52,211,153,0.2)' : 'rgba(251,113,133,0.2)';
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
   const dateStr = session.createdAt ? new Date(session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+
+  const pnlColor = !hasData ? '#555' : totalPnL === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
+  const retColor = !hasData ? '#555' : returnPct === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
 
   return (
     <div
@@ -183,181 +185,119 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        borderRadius: 6,
-        background: isActive
-          ? 'linear-gradient(145deg,#0e1a2e 0%,#0a1422 100%)'
-          : hov
-          ? 'linear-gradient(145deg,#0f1925 0%,#0c1420 100%)'
-          : 'linear-gradient(145deg,#0d1520 0%,#090e18 100%)',
-        border: `1px solid ${isActive ? 'rgba(59,130,246,0.45)' : hov ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)'}`,
-        boxShadow: isActive
-          ? '0 0 0 1px rgba(59,130,246,0.1), 0 20px 60px rgba(0,0,0,0.55), 0 0 40px rgba(59,130,246,0.07)'
-          : hov
-          ? '0 16px 48px rgba(0,0,0,0.45)'
-          : '0 4px 24px rgba(0,0,0,0.3)',
+        background: '#111',
+        border: `2px solid ${isActive ? '#2a5a8c' : hov ? '#2a5a8c' : '#1a3a5c'}`,
         cursor: 'pointer',
-        padding: '0',
-        transition: 'all 0.28s ease',
-        transform: visible ? (hov && !isActive ? 'translateY(-3px)' : 'translateY(0)') : 'translateY(24px)',
-        opacity: visible ? 1 : 0,
         position: 'relative',
+        transition: 'border-color 0.15s, transform 0.1s',
         overflow: 'hidden',
+        transform: visible ? (hov && !isActive ? 'translateY(-2px)' : 'translateY(0)') : 'translateY(24px)',
+        opacity: visible ? 1 : 0,
+        fontFamily: "'Montserrat', sans-serif",
       }}
     >
-      {/* Active top shimmer line */}
-      {isActive && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: 'linear-gradient(90deg,transparent 5%,rgba(59,130,246,0.8) 50%,transparent 95%)',
-        }} />
-      )}
+      {/* Top accent line */}
+      <div style={{ height: 3, background: hasData ? '#ff4d4d' : '#1e1e1e' }} />
 
-      {/* Left accent bar for active */}
-      {isActive && (
-        <div style={{
-          position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 3,
-          background: 'linear-gradient(180deg,transparent,rgba(59,130,246,0.8),transparent)',
-          borderRadius: '0 2px 2px 0',
-        }} />
-      )}
-
-      <div style={{ padding: '24px 24px 20px' }}>
-        {/* Header row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-          <div>
-            <span
-              data-testid={`text-session-name-${session.id}`}
-              className="sc-title"
-              style={{ fontSize: 18, color: isActive ? '#f0faf6' : '#c8d8ec', display: 'block', lineHeight: 1.2, marginBottom: 5 }}
-            >
-              {session.sessionName}
-            </span>
-            <span className="sc-mono" style={{ fontSize: 9, color: 'rgba(148,163,184,0.4)', letterSpacing: '0.06em' }}>
-              {dateStr}
-            </span>
+      {/* Card top bar */}
+      <div style={{
+        background: '#161616',
+        borderBottom: '2px solid #1e1e1e',
+        padding: '14px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div>
+          <div
+            data-testid={`text-session-name-${session.id}`}
+            style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7eb8f7' }}
+          >
+            {session.sessionName}
           </div>
-          {isActive ? (
-            <span className="sc-mono-600" style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase',
-              color: '#34d399',
-              background: 'rgba(52,211,153,0.09)',
-              border: '1px solid rgba(52,211,153,0.22)',
-              padding: '4px 10px', borderRadius: 100,
-            }}>
-              <span style={{
-                width: 5, height: 5, borderRadius: '50%',
-                background: pulse ? '#34d399' : 'rgba(52,211,153,0.3)',
-                boxShadow: pulse ? '0 0 5px rgba(52,211,153,0.9)' : 'none',
-                transition: 'all 0.6s ease', flexShrink: 0,
-              }} />
-              Live
-            </span>
-          ) : (
-            <span className="sc-mono" style={{
-              fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase',
-              color: 'rgba(148,163,184,0.3)',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              padding: '4px 10px', borderRadius: 100,
-            }}>
-              {session.status || 'Active'}
-            </span>
-          )}
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#444', textTransform: 'uppercase' }}>
+            {dateStr}
+          </div>
         </div>
-
-        {/* Divider */}
-        <div style={{
-          height: 1,
-          background: isActive ? 'linear-gradient(90deg,rgba(52,211,153,0.12),transparent)' : 'rgba(255,255,255,0.04)',
-          marginBottom: 18,
-        }} />
-
-        {/* Balance section */}
-        <div style={{ marginBottom: 18 }}>
-          <div className="sc-mono" style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(148,163,184,0.35)', marginBottom: 6 }}>
-            Starting Balance
-          </div>
-          <div className="sc-sans" style={{
-            fontSize: 30, letterSpacing: '-0.03em', lineHeight: 1,
-            color: isActive ? '#fff' : '#b8cce0',
-            transition: 'color 0.2s',
+        {isActive ? (
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: '#3dff8f', border: '1.5px solid #3dff8f', padding: '3px 8px',
           }}>
-            ${startBal.toLocaleString()}
+            <span style={{
+              width: 5, height: 5, borderRadius: '50%',
+              background: pulse ? '#3dff8f' : 'rgba(61,255,143,0.3)',
+              boxShadow: pulse ? '0 0 5px rgba(61,255,143,0.9)' : 'none',
+              transition: 'all 0.6s ease', flexShrink: 0,
+            }} />
+            ACTIVE
+          </span>
+        ) : (
+          <span style={{
+            fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: '#3dff8f', border: '1.5px solid #3dff8f', padding: '3px 8px',
+          }}>
+            {session.status?.toUpperCase() || 'ACTIVE'}
+          </span>
+        )}
+      </div>
+
+      {/* Card body */}
+      <div style={{ padding: '10px 20px 0' }}>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: '#444', textTransform: 'uppercase', marginBottom: 4 }}>
+          Starting Balance
+        </div>
+        <div style={{ fontSize: 38, fontWeight: 800, color: '#7eb8f7', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 10 }}>
+          ${startBal.toLocaleString()}
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '2px solid #1a1a1a' }}>
+        <div style={{ padding: '16px 20px', borderRight: '2px solid #1a1a1a' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: '#444', textTransform: 'uppercase', marginBottom: 6 }}>P&amp;L</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: pnlColor, letterSpacing: '-0.01em' }}>
+            {!hasData ? '—' : `${totalPnL < 0 ? '' : '+'}${totalPnL.toFixed(2)}`}
           </div>
         </div>
-
-        {/* Stats row */}
-        {!balLoading && tradeCount > 0 && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-            {/* P&L chip */}
-            <div style={{
-              flex: 1, borderRadius: 10,
-              background: pnlBg, border: `1px solid ${pnlBorder}`,
-              padding: '10px 12px',
-            }}>
-              <div className="sc-mono" style={{ fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(148,163,184,0.4)', marginBottom: 4 }}>P&L</div>
-              <div className="sc-mono-600" style={{ fontSize: 14, color: pnlColor, lineHeight: 1 }}>
-                {pnlPositive ? '+' : ''}{totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
-            {/* Return % chip */}
-            <div style={{
-              borderRadius: 10,
-              background: pnlBg, border: `1px solid ${pnlBorder}`,
-              padding: '10px 12px', minWidth: 64, textAlign: 'center',
-            }}>
-              <div className="sc-mono" style={{ fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(148,163,184,0.4)', marginBottom: 4 }}>Ret.</div>
-              <div className="sc-mono-600" style={{ fontSize: 14, color: pnlColor, lineHeight: 1 }}>
-                {pnlPositive ? '+' : ''}{returnPct.toFixed(1)}%
-              </div>
-            </div>
-            {/* Trades chip */}
-            <div style={{
-              borderRadius: 10,
-              background: 'rgba(148,163,184,0.04)', border: '1px solid rgba(148,163,184,0.08)',
-              padding: '10px 12px', minWidth: 52, textAlign: 'center',
-            }}>
-              <div className="sc-mono" style={{ fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(148,163,184,0.4)', marginBottom: 4 }}>Trades</div>
-              <div className="sc-mono-600" style={{ fontSize: 14, color: 'rgba(148,163,184,0.7)', lineHeight: 1 }}>{tradeCount}</div>
-            </div>
+        <div style={{ padding: '16px 20px', borderRight: '2px solid #1a1a1a' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: '#444', textTransform: 'uppercase', marginBottom: 6 }}>Return</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: retColor, letterSpacing: '-0.01em' }}>
+            {!hasData ? '—' : `${returnPct < 0 ? '' : '+'}${returnPct.toFixed(1)}%`}
           </div>
-        )}
+        </div>
+        <div style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: '#444', textTransform: 'uppercase', marginBottom: 6 }}>Trades</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: tradeCount > 0 ? '#7eb8f7' : '#555', letterSpacing: '-0.01em' }}>
+            {balLoading ? '—' : tradeCount}
+          </div>
+        </div>
       </div>
 
       {/* Footer */}
       <div style={{
-        padding: '12px 24px 16px',
-        borderTop: '1px solid rgba(255,255,255,0.04)',
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 20px', borderTop: '2px solid #1a1a1a', background: '#0d0d0d',
       }}>
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#3a3a3a', textTransform: 'uppercase' }}>
+          {tradeCount === 0 ? 'No trades yet' : `${tradeCount} trade${tradeCount === 1 ? '' : 's'} logged`}
+        </span>
         <button
           onClick={onDelete}
           data-testid={`button-delete-session-${session.id}`}
+          onMouseEnter={() => setDeleteHov(true)}
+          onMouseLeave={() => setDeleteHov(false)}
           style={{
-            height: 30, paddingInline: 12,
-            borderRadius: 8,
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.06)',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-            color: 'rgba(148,163,184,0.3)',
-            fontSize: 9, letterSpacing: '0.1em',
-            fontFamily: "'JetBrains Mono',monospace",
-            transition: 'all 0.18s ease',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(239,68,68,0.07)';
-            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.18)';
-            e.currentTarget.style.color = 'rgba(239,100,100,0.65)';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-            e.currentTarget.style.color = 'rgba(148,163,184,0.3)';
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: deleteHov ? '#ff4d4d' : '#3a3a3a',
+            background: 'none',
+            border: `1.5px solid ${deleteHov ? '#ff4d4d' : '#2a2a2a'}`,
+            padding: '5px 12px', cursor: 'pointer',
+            fontFamily: "'Montserrat', sans-serif",
+            transition: 'border-color 0.15s, color 0.15s',
           }}
         >
-          <TrashIcon />
           Delete
         </button>
       </div>
@@ -413,45 +353,35 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   return (
     <>
       <style>{`
-        .sessions-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-        @media (max-width: 900px) { .sessions-grid { grid-template-columns: repeat(2,1fr); } }
+        .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 3px; }
         @media (max-width: 560px) { .sessions-grid { grid-template-columns: 1fr; } }
-        .journal-root .sessions-grid .sc-mono { font-family:'JetBrains Mono',monospace!important; font-weight:400!important; }
-        .journal-root .sessions-grid .sc-mono-600 { font-family:'JetBrains Mono',monospace!important; font-weight:600!important; }
-        .journal-root .sessions-grid .sc-sans { font-family:'Montserrat',sans-serif!important; font-weight:800!important; }
-        .journal-root .sessions-grid .sc-title { font-family:'Montserrat',sans-serif!important; font-weight:800!important; letter-spacing:0.01em!important; }
-        .journal-root .sessions-header .sc-mono { font-family:'JetBrains Mono',monospace!important; font-weight:400!important; }
-        .journal-root .sessions-header .sc-sans { font-family:'Montserrat',sans-serif!important; font-weight:800!important; }
       `}</style>
 
-      <div style={{ position: 'relative' }}>
-        <div className="sessions-header" style={{
-          marginBottom: 32,
+      <div style={{ position: 'relative', fontFamily: "'Montserrat', sans-serif" }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+          marginBottom: 40, borderBottom: '2px solid #222', paddingBottom: 24,
           opacity: headerVis ? 1 : 0,
           transform: headerVis ? 'translateY(0)' : 'translateY(-10px)',
           transition: 'opacity 0.5s ease, transform 0.5s ease',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div>
             <h2
               data-testid="text-sessions-title"
-              className="sc-sans"
-              style={{ fontSize: 22, color: '#e8f0fa', letterSpacing: '-0.01em', margin: 0 }}
+              style={{ fontSize: 26, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7eb8f7', margin: 0 }}
             >
               Trading Sessions
             </h2>
-            <span className="sc-mono" style={{
-              fontSize: 8, letterSpacing: '0.16em', textTransform: 'uppercase',
-              color: 'rgba(52,211,153,0.6)',
-              background: 'rgba(52,211,153,0.06)',
-              border: '1px solid rgba(52,211,153,0.14)',
-              padding: '5px 12px', borderRadius: 100,
-            }}>
-              {sessions.length} {sessions.length === 1 ? 'Session' : 'Sessions'}
-            </span>
+            <p style={{ fontSize: 11, fontWeight: 500, color: '#555', letterSpacing: '0.05em', marginTop: 6, textTransform: 'uppercase', margin: '6px 0 0' }}>
+              Select a session to view dashboard, metrics &amp; trade vault
+            </p>
           </div>
-          <p className="sc-mono" style={{ fontSize: 10, color: 'rgba(148,163,184,0.35)', letterSpacing: '0.03em', lineHeight: 1.7, margin: 0 }}>
-            Select a session to view its data across Dashboard, Metrics, and Trade Vault
-          </p>
+          <span style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: '#3dff8f', border: '2px solid #3dff8f', padding: '6px 14px', whiteSpace: 'nowrap',
+          }}>
+            {sessions.length} {sessions.length === 1 ? 'Session' : 'Sessions'}
+          </span>
         </div>
 
         <div className="sessions-grid">
