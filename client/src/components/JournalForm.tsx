@@ -187,8 +187,8 @@ const Field = ({ label, field, value, onChange, placeholder="", rows, type="text
         </label>
       )}
       {rows
-        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls}/>
-        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"}/>
+        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls} style={{ fontWeight: 400, fontStyle: 'normal' }}/>
+        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"} style={{ fontWeight: 400, fontStyle: 'normal' }}/>
       }
     </div>
   );
@@ -206,6 +206,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
     )}
     <div className="relative">
       <select value={options.includes(value)?value:options[0]} onChange={(e: any)=>onChange(field,e.target.value)}
+        style={{ fontWeight: 400, fontStyle: 'normal' }}
         className={(ocrFilled
           ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-mono font-normal not-italic"
           : INPUT_CLS)+" appearance-none cursor-pointer pr-10 block"}>
