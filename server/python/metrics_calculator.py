@@ -1198,8 +1198,8 @@ def calc_duration_breakdown(ctx: SharedContext) -> Dict:
         },
         "timingContext": breakdown_by_categorical(ctx.trades, "timing_context"),
         "avgMinutes":      round(safe_mean(dur_v), 2) if dur_v else None,
-        "avgMinutesWin":   round(safe_mean([t.duration_minutes for t in ctx.wins   if t.duration_minutes is not None]), 2) if ctx.wins   else None,
-        "avgMinutesLoss":  round(safe_mean([t.duration_minutes for t in ctx.losses if t.duration_minutes is not None]), 2) if ctx.losses else None,
+        "avgMinutesWin":   round(v, 2) if (v := safe_mean([t.duration_minutes for t in ctx.wins   if t.duration_minutes is not None])) is not None else None,
+        "avgMinutesLoss":  round(v, 2) if (v := safe_mean([t.duration_minutes for t in ctx.losses if t.duration_minutes is not None])) is not None else None,
     }
 
 
