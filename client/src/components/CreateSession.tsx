@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Globe } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -166,6 +166,9 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 }) => {
   const [hov, setHov] = useState(false);
   const [deleteHov, setDeleteHov] = useState(false);
+  const [editingBal, setEditingBal] = useState(false);
+  const [balInput, setBalInput] = useState('');
+  const balInputRef = useRef<HTMLInputElement>(null);
   const visible = useVisible(index * 80 + 120);
   const pulse = usePulse();
   const { totalPnL, tradeCount, isLoading: balLoading } = useSessionBalance(session.id);
@@ -174,6 +177,31 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
   const pnlPositive = totalPnL >= 0;
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
   const dateStr = session.createdAt ? new Date(session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+
+  const updateBalMutation = useMutation({
+    mutationFn: (newBal: number) =>
+      apiRequest('PUT', `/api/sessions/${session.id}`, { startingBalance: String(newBal) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/sessions'] }),
+  });
+
+  const startEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBalInput(String(startBal));
+    setEditingBal(true);
+    setTimeout(() => balInputRef.current?.select(), 0);
+  };
+
+  const commitEdit = () => {
+    const num = parseFloat(balInput.replace(/[^0-9.]/g, ''));
+    if (!isNaN(num) && num > 0 && num !== startBal) updateBalMutation.mutate(num);
+    setEditingBal(false);
+  };
+
+  const handleBalKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') commitEdit();
+    if (e.key === 'Escape') setEditingBal(false);
+    e.stopPropagation();
+  };
 
   const pnlColor = !hasData ? '#555' : totalPnL === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
   const retColor = !hasData ? '#555' : returnPct === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
@@ -245,12 +273,34 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 
       {/* Card body */}
       <div style={{ padding: '10px 20px 0' }}>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: '#444', textTransform: 'uppercase', marginBottom: 4 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: '#444', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
           Starting Balance
+          <span onClick={startEdit} style={{ cursor: 'pointer', color: '#60a5fa', opacity: 0.7, fontSize: 8, letterSpacing: '0.1em' }} title="Edit balance">✎ EDIT</span>
         </div>
-        <div style={{ fontSize: 19, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 10 }}>
-          ${startBal.toLocaleString()}
-        </div>
+        {editingBal ? (
+          <div onClick={e => e.stopPropagation()} style={{ marginBottom: 10 }}>
+            <input
+              ref={balInputRef}
+              value={balInput}
+              onChange={e => setBalInput(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={handleBalKeyDown}
+              style={{
+                fontSize: 18, fontWeight: 800, color: '#ffffff', background: 'transparent',
+                border: 'none', borderBottom: '2px solid #60a5fa', outline: 'none',
+                width: '100%', fontFamily: "'Montserrat', sans-serif", letterSpacing: '-0.01em',
+                padding: '2px 0',
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            onClick={startEdit}
+            style={{ fontSize: 19, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 10, cursor: 'text' }}
+          >
+            ${startBal.toLocaleString()}
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
