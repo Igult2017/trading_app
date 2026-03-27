@@ -353,10 +353,9 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   return (
     <>
       <style>{`
-        .sessions-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
-        .sessions-grid > * { flex: 0 0 calc(33.333% - 2px); min-width: 260px; }
-        @media (max-width: 700px) { .sessions-grid > * { flex: 0 0 calc(50% - 2px); } }
-        @media (max-width: 480px) { .sessions-grid > * { flex: 0 0 100%; } }
+        .sessions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+        @media (max-width: 700px) { .sessions-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .sessions-grid { grid-template-columns: 1fr; } }
       `}</style>
 
       <div style={{ position: 'relative', fontFamily: "'Montserrat', sans-serif" }}>
@@ -384,8 +383,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           </span>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div className="sessions-grid" style={{ width: '100%', maxWidth: 900 }}>
+        <div className="sessions-grid">
           {sessions.map((session, i) => (
             <SessionCard
               key={session.id}
@@ -396,7 +394,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
               index={i}
             />
           ))}
-        </div>
         </div>
       </div>
     </>
