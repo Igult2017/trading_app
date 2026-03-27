@@ -368,7 +368,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           <div>
             <h2
               data-testid="text-sessions-title"
-              style={{ fontSize: 26, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7eb8f7', margin: 0 }}
+              style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7eb8f7', margin: 0 }}
             >
               Trading Sessions
             </h2>
