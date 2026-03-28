@@ -364,8 +364,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const candlePatterns      = m.candlePatterns            || {};
   const durationBreakdown   = m.durationBreakdown         || {};
   const sessionPhase        = m.sessionPhase              || {};
-  const instrSessMatrix     = m.instrumentSessionMatrix   || {};
-  const stratMarketMatrix   = m.strategyMarketMatrix      || {};
+  const instrSessMatrix           = m.instrumentSessionMatrix          || {};
+  const instrPhaseMomMatrix       = m.instrumentPhaseMomentumMatrix    || {};
+  const stratMarketMatrix         = m.strategyMarketMatrix             || {};
   const orderTypeBreakdown  = m.orderTypeBreakdown        || {};
   const riskHeatBreakdown   = m.riskHeatBreakdown         || {};
   const newsImpactBreakdown = m.newsImpactBreakdown       || {};
@@ -430,7 +431,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const exitEntries = Object.entries(exitAnalysis).map(([reason,d]: [string,any])     => ({ reason, pct: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const candleEntries = Object.entries(candlePatterns).map(([pat,d]: [string,any])    => ({ pat, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const orderEntries  = Object.entries(orderTypeBreakdown).map(([ot,d]: [string,any]) => ({ ot, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
-  const instrSessEntries = Object.entries(instrSessMatrix).map(([k,d]: [string,any])  => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0) }));
+  const instrSessEntries      = Object.entries(instrSessMatrix).map(([k,d]: [string,any])         => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0) }));
+  const instrPhaseMomEntries  = Object.entries(instrPhaseMomMatrix).map(([k,d]: [string,any])     => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const newsEntries = Object.entries(newsImpactBreakdown).map(([k,d]: [string,any])   => ({ k, wr: Math.round((d as any).winRate||0), r: (d as any).avgRR?.toFixed(2)||'--' }));
 
   const riskOfRuin = (()=>{
@@ -843,20 +845,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* Instrument × Session */}
           <Panel title="Instrument · Session Phase · Momentum" accent={P.cyan} tag="WIN / LOSS" style={{ height:480 }}>
             <Scroll>
-              <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Instrument × Session — Win Rate</SubLabel>
-              {instrSessEntries.length>0
-                ? instrSessEntries.slice(0,8).map((x,i)=><SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>)
-                : <Mono size={9} color={P.dim}>No data yet</Mono>
+              <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Instrument × Phase × Momentum</SubLabel>
+              {instrPhaseMomEntries.length>0
+                ? instrPhaseMomEntries.map((x,i)=>(
+                    <SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>
+                  ))
+                : <Mono size={9} color={P.dim}>No combined data yet — ensure Instrument, Session Phase, and Momentum Validity are all filled</Mono>
               }
-              <SubLabel>Session Phase</SubLabel>
-              <Bar label="Open  — high liquidity" pct={sessionPhase['Open']?.winRate  ?? null}/>
-              <Bar label="Mid   — consolidation"  pct={sessionPhase['Mid']?.winRate   ?? null}/>
-              <Bar label="Close — fading volume"  pct={sessionPhase['Close']?.winRate ?? null}/>
-              <SubLabel>Momentum at Entry</SubLabel>
-              <BoolYN label="Strong momentum confirmed" data={boolImpacts.strongMomentum}/>
-              <BoolYN label="Momentum with HTF align"   data={boolImpacts.momentumWithHTFAlign}/>
-              <BoolYN label="Counter-momentum entry"    data={boolImpacts.counterMomentumEntry}/>
-              <ScoreRow label="Momentum Score → Win%" scores={scoreRowFromImpact(scoreImpacts.momentumScore)}/>
             </Scroll>
           </Panel>
 

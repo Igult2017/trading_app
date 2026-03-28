@@ -1203,6 +1203,29 @@ def calc_instrument_session_matrix(ctx: SharedContext) -> Dict:
     }
 
 
+def _momentum_label(score: Optional[float]) -> Optional[str]:
+    if score is None:
+        return None
+    if score >= 4.0:
+        return "Strong"
+    if score >= 2.5:
+        return "Moderate"
+    return "Weak"
+
+
+def calc_instrument_phase_momentum_matrix(ctx: SharedContext) -> Dict:
+    groups: Dict[str, List[TradeRecord]] = defaultdict(list)
+    for t in ctx.trades:
+        mom = _momentum_label(t.momentum_score)
+        if t.instrument and t.session_phase and mom:
+            key = f"{t.instrument} · {t.session_phase} · {mom}"
+            groups[key].append(t)
+    return {
+        k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
+        for k, v in sorted(groups.items())
+    }
+
+
 def calc_strategy_market_matrix(ctx: SharedContext) -> Dict:
     outer: Dict[str, Dict[str, List[TradeRecord]]] = defaultdict(lambda: defaultdict(list))
     for t in ctx.trades:
@@ -1357,8 +1380,9 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "candlePatterns":           calc_candle_patterns,
     "durationBreakdown":        calc_duration_breakdown,
     "sessionPhase":             calc_session_phase,
-    "instrumentSessionMatrix":  calc_instrument_session_matrix,
-    "strategyMarketMatrix":     calc_strategy_market_matrix,
+    "instrumentSessionMatrix":        calc_instrument_session_matrix,
+    "instrumentPhaseMomentumMatrix":  calc_instrument_phase_momentum_matrix,
+    "strategyMarketMatrix":           calc_strategy_market_matrix,
     "orderTypeBreakdown":       calc_order_type_breakdown,
     "riskHeatBreakdown":        calc_risk_heat_breakdown,
     "newsImpactBreakdown":      calc_news_impact_breakdown,
