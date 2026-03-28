@@ -415,7 +415,7 @@ function SidebarContent({ trades }: any) {
 
   return (
     <div style={{padding:"12px 16px 24px",display:"flex",flexDirection:"column",gap:"8px",width:"100%",boxSizing:"border-box"}}>
-      <div style={{background:"rgba(10,13,20,0.8)",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"12px",padding:"12px 14px"}}>
+      <div style={{background:"rgba(10,13,20,0.8)",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"4px",padding:"12px 14px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
           <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>NET P&L</span>
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
@@ -425,7 +425,7 @@ function SidebarContent({ trades }: any) {
           <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
-      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"10px 14px"}}>
+      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"10px 14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
           <span style={{fontSize:"10px",color:"#475569"}}>Start Balance</span>
           <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
@@ -435,7 +435,7 @@ function SidebarContent({ trades }: any) {
           <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
         </div>
       </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"9px 14px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
           <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
@@ -456,13 +456,13 @@ function SidebarContent({ trades }: any) {
           {label:"Sells", val:stats?stats.sells:0, color:"#a78bfa"},
           {label:"Total", val:stats?stats.total:0, color:"#e2e8f0"},
         ].map(({label,val,color})=>(
-          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"9px 4px",textAlign:"center"}}>
+          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"9px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"3px"}}>{label}</p>
             <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
-      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"2px 14px"}}>
+      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"2px 14px"}}>
         <StatRow label="Best Trade"    value={stats?fmt(stats.bestTrade):"$0.00"}  valueColor="#34d399"/>
         <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
         <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
@@ -477,14 +477,14 @@ function SidebarContent({ trades }: any) {
           {label:"Profit Factor", val:stats?stats.profitFactor:"0", color:!stats?"#475569":parseFloat(stats?.profitFactor)>=1.5?"#34d399":parseFloat(stats?.profitFactor)>=1?"#fbbf24":"#f87171"},
           {label:"Expectancy",    val:stats?stats.exp:"0",          color:!stats?"#475569":parseFloat(stats?.exp)>0?"#34d399":"#f87171"},
         ].map(({label,val,color})=>(
-          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"10px 4px",textAlign:"center"}}>
+          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"10px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"5px"}}>{label}</p>
             <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
       {!trades.length&&(
-        <div style={{borderRadius:"12px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
+        <div style={{borderRadius:"4px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
           <Icon name="Activity" size={20} style={{color:"#1e293b",margin:"0 auto 6px",display:"block"}}/>
           <p style={{fontSize:"10px",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#1e293b"}}>No trades yet</p>
           <p style={{fontSize:"10px",color:"#0f172a",marginTop:"3px"}}>Log a trade to see stats</p>
@@ -1091,7 +1091,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           <div style={{padding:"2px 8px 12px 8px"}}>
 
             {analyzeError&&(
-              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"4px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
                 <Icon name="AlertCircle" size={16}/>
                 <span style={{fontSize:"12px",fontWeight:600,flex:1}}>{analyzeError}</span>
                 <button onClick={()=>setAnalyzeError(null)}><Icon name="X" size={14}/></button>
@@ -1099,7 +1099,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             )}
 
             {draftRestored&&(
-              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"11px 16px",borderRadius:"10px",border:"1px solid rgba(59,130,246,0.25)",background:"rgba(59,130,246,0.06)",color:"#93c5fd"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"11px 16px",borderRadius:"4px",border:"1px solid rgba(59,130,246,0.25)",background:"rgba(59,130,246,0.06)",color:"#93c5fd"}}>
                 <Icon name="RefreshCcw" size={14} style={{flexShrink:0}}/>
                 <span style={{fontSize:"11px",fontWeight:600,flex:1,letterSpacing:"0.01em"}}>Draft restored — pick up where you left off.</span>
                 <button onClick={()=>{setForm(INIT);setStep(1);setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(147,197,253,0.5)",display:"flex",padding:2}} title="Discard draft"><Icon name="X" size={13}/></button>
@@ -1114,7 +1114,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 return (
                   <button key={s.id} onClick={()=>setStep(s.id)} style={{
                     position:'relative', display:'flex', flexDirection:'column', alignItems:'center',
-                    padding:'16px 10px 14px', borderRadius:'16px', border:'1px solid',
+                    padding:'16px 10px 14px', borderRadius:'4px', border:'1px solid',
                     borderColor: isActive ? 'rgba(96,165,250,0.45)' : isDone ? 'rgba(59,130,246,0.2)' : 'rgba(51,65,85,0.5)',
                     borderTop: `1px solid ${accentColor}${isActive?'88':isDone?'44':'33'}`,
                     background: isActive
@@ -1231,13 +1231,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Camera" title="Trade Setup Screenshot"/>
                       <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode" onPasteText={(t:string)=>analyzeText(t,"screenshot")}/>
                       {analyzing&&(
-                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"4px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
                           <Icon name="Activity" size={14}/>
                           <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>Analyzing… extracting fields</span>
                         </div>
                       )}
                       {form.ocrConfidence && !analyzing && (
-                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"10px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"4px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
                           <Icon name="CheckCircle2" size={12} style={{color:"#34d399"}}/>
                           <span style={{fontSize:"10px",color:"#34d399",fontStyle:"italic"}}>
                             {form.ocrConfidence === "text input" ? "Text parsed" : "OCR complete"} · {ocrFields.size} fields extracted{form.ocrConfidence !== "text input" ? ` · confidence: ${form.ocrConfidence}` : ""}
