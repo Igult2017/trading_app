@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
-import { Search, Bell, Share2, ChevronRight, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
+import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
 
@@ -198,12 +199,69 @@ function ZoomIcon({ color }: { color: string }) {
   );
 }
 
+// ─── Live Clock (isolated so only it re-renders every second) ─────────────────
+function LiveClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const formatted =
+    now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() +
+    " | " +
+    now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).toUpperCase();
+  return <span>{formatted}</span>;
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AssetPage() {
   const [selected, setSelected]   = useState("ETH/USDT");
   const [search,   setSearch]     = useState("");
   const [alertSet, setAlertSet]   = useState(false);
+  const [showIndicators, setShowIndicators] = useState(false);
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(
+    new Set<IndicatorId>(["EMA_9", "EMA_21", "VOL"])
+  );
+  const indicatorBtnRef = useRef<HTMLDivElement>(null);
+
+  // Timeframe state
+  const [showTF, setShowTF] = useState(false);
+  const [activeTF, setActiveTF] = useState("5m");
+  const tfBtnRef = useRef<HTMLDivElement>(null);
+
+  const TIMEFRAMES: { label: string; interval: string; period: string }[] = [
+    { label: "1m",  interval: "1m",  period: "1d"  },
+    { label: "5m",  interval: "5m",  period: "5d"  },
+    { label: "15m", interval: "15m", period: "5d"  },
+    { label: "30m", interval: "30m", period: "1mo" },
+    { label: "1H",  interval: "60m", period: "1mo" },
+    { label: "4H",  interval: "4h",  period: "3mo" },
+    { label: "1D",  interval: "1d",  period: "1y"  },
+    { label: "1W",  interval: "1wk", period: "2y"  },
+  ];
+  const currentTF = TIMEFRAMES.find(t => t.label === activeTF) ?? TIMEFRAMES[1];
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (indicatorBtnRef.current && !indicatorBtnRef.current.contains(e.target as Node)) {
+        setShowIndicators(false);
+      }
+      if (tfBtnRef.current && !tfBtnRef.current.contains(e.target as Node)) {
+        setShowTF(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function toggleIndicator(id: IndicatorId) {
+    setActiveIndicators(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   // Right sidebar resize
   const [sidebarWidth, setSidebarWidth] = useState(320);
@@ -272,7 +330,6 @@ export default function AssetPage() {
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: rgba(255,255,255,0.02); }
         .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       {/* ── Main Content ── */}
@@ -440,6 +497,148 @@ export default function AssetPage() {
             </div>
           </div>
 
+          {/* ── Live Visualizer Chart ── */}
+          <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, overflow: "hidden" }}>
+            {/* Chart Header */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em", marginTop: 2 }}>
+                  <LiveClock />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="chart-btn">INSTRUMENTS</button>
+                <button className="chart-btn-alert">
+                  <Bell size={11} />
+                  ALERT
+                </button>
+                <div ref={tfBtnRef} style={{ position: "relative" }}>
+                  <button
+                    className="chart-btn"
+                    style={{ borderColor: showTF ? "#22d3a5" : undefined, color: showTF ? "#22d3a5" : undefined }}
+                    onClick={() => setShowTF(v => !v)}
+                  >
+                    {activeTF}
+                  </button>
+                  {showTF && (
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 6px)", left: "50%",
+                      transform: "translateX(-50%)", zIndex: 100,
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      padding: "6px", display: "grid", gridTemplateColumns: "1fr 1fr",
+                      gap: 4, minWidth: 120,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                    }}>
+                      {TIMEFRAMES.map(tf => {
+                        const isActive = tf.label === activeTF;
+                        return (
+                          <button
+                            key={tf.label}
+                            onClick={() => { setActiveTF(tf.label); setShowTF(false); }}
+                            style={{
+                              background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
+                              border: `1px solid ${isActive ? "#22d3a5" : "#172233"}`,
+                              borderRadius: 4, color: isActive ? "#22d3a5" : "#4a6580",
+                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              padding: "6px 0", cursor: "pointer",
+                              transition: "all 0.1s",
+                            }}
+                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = "#2d4a63"; }}
+                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = "#172233"; }}
+                          >
+                            {tf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Indicators toggle */}
+                <div ref={indicatorBtnRef} style={{ position: "relative" }}>
+                  <button
+                    className="chart-btn"
+                    style={{ borderColor: showIndicators ? "#7c3aed" : undefined, color: showIndicators ? "#a78bfa" : undefined }}
+                    onClick={() => setShowIndicators(v => !v)}
+                  >
+                    INDICATORS
+                    {activeIndicators.size > 0 && (
+                      <span style={{
+                        marginLeft: 5, background: "#7c3aed", color: "#fff",
+                        borderRadius: 9, fontSize: 8, fontWeight: 800,
+                        padding: "1px 5px", letterSpacing: 0,
+                      }}>{activeIndicators.size}</span>
+                    )}
+                  </button>
+
+                  {showIndicators && (() => {
+                    const categories = ["Trend", "Momentum", "Volume", "Volatility"] as const;
+                    return (
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      minWidth: 220, maxHeight: 440, display: "flex", flexDirection: "column",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                    }}>
+                      {/* Header */}
+                      <div style={{ padding: "8px 14px", fontSize: 9, fontWeight: 800, color: "#2d4a63", letterSpacing: "0.12em", borderBottom: "1px solid #0f1923", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>INDICATORS ({INDICATOR_DEFS.length})</span>
+                        <span style={{ color: "#7c3aed" }}>{activeIndicators.size} ON</span>
+                      </div>
+                      {/* Scrollable body */}
+                      <div style={{ overflowY: "auto", flex: 1 }} className="asset-scroll">
+                        {categories.map(cat => {
+                          const catDefs = INDICATOR_DEFS.filter(d => d.category === cat);
+                          return (
+                            <div key={cat}>
+                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: "#1e3045", letterSpacing: "0.14em", background: "#080c10" }}>
+                                {cat.toUpperCase()}
+                              </div>
+                              {catDefs.map(ind => {
+                                const on = activeIndicators.has(ind.id);
+                                return (
+                                  <div
+                                    key={ind.id}
+                                    onClick={() => toggleIndicator(ind.id)}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 10,
+                                      padding: "6px 14px", cursor: "pointer",
+                                      background: on ? "rgba(124,58,237,0.08)" : "transparent",
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
+                                  >
+                                    <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
+                                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? "#c8d8e8" : "#4a6580", letterSpacing: "0.05em" }}>
+                                      {ind.label}
+                                    </span>
+                                    <span style={{
+                                      width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                                      border: `2px solid ${on ? "#7c3aed" : "#1e3045"}`,
+                                      background: on ? "#7c3aed" : "transparent",
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                    }}>
+                                      {on && <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff" }} />}
+                            </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    );
+                  })()}
+                </div>
+
+              </div>
+            </div>
+
+            {/* Chart */}
+            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
+          </div>
+        </div>
       </div>
 
       {/* ── Right Sidebar ── */}
@@ -540,6 +739,9 @@ export default function AssetPage() {
 
       </div>
 
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
