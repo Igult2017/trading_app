@@ -194,28 +194,88 @@ const Field = ({ label, field, value, onChange, placeholder="", rows, type="text
   );
 };
 
-const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) => (
-  <div>
-    {label && (
-      <label className={LABEL_CLS}>
-        {label}
-        {ocrFilled && (
-          <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
-        )}
-      </label>
-    )}
-    <div className="relative">
-      <select value={options.includes(value)?value:options[0]} onChange={(e: any)=>onChange(field,e.target.value)}
-        style={{ fontWeight: 400, fontStyle: 'normal' }}
-        className={(ocrFilled
-          ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-mono font-normal not-italic"
-          : INPUT_CLS)+" appearance-none cursor-pointer pr-10 block"}>
-        {options.map((o: string)=><option key={o} value={o} className="bg-[#0a0d14]">{o}</option>)}
-      </select>
-      <Icon name="ChevronRight" size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none rotate-90"/>
+const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) => {
+  const notInOpts = value != null && value !== '' && !options.includes(value);
+  const [otherMode, setOtherMode] = useState(notInOpts);
+
+  useEffect(() => {
+    if (value != null && value !== '' && !options.includes(value)) {
+      setOtherMode(true);
+    } else if (options.includes(value)) {
+      setOtherMode(false);
+    }
+  }, [value, JSON.stringify(options)]);
+
+  const showOtherInput = otherMode || notInOpts;
+  const selectValue = showOtherInput ? 'Other' : (options.includes(value) ? value : options[0]);
+
+  const handleSelect = (e: any) => {
+    const v = e.target.value;
+    if (v === 'Other') {
+      setOtherMode(true);
+      // don't call onChange here — wait for the user to type
+    } else {
+      setOtherMode(false);
+      onChange(field, v);
+    }
+  };
+
+  const baseCls = ocrFilled
+    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-mono font-normal not-italic"
+    : INPUT_CLS;
+
+  return (
+    <div>
+      {label && (
+        <label className={LABEL_CLS}>
+          {label}
+          {ocrFilled && (
+            <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
+          )}
+        </label>
+      )}
+      {showOtherInput ? (
+        <div className="flex gap-2">
+          <input
+            autoFocus
+            type="text"
+            value={value || ''}
+            onChange={(e: any) => {
+              const v = e.target.value;
+              if (!v) {
+                setOtherMode(false);
+                onChange(field, options[0]);
+              } else {
+                onChange(field, v);
+              }
+            }}
+            placeholder="Type custom value…"
+            className={baseCls + " flex-1"}
+          />
+          <button
+            type="button"
+            onClick={() => { setOtherMode(false); onChange(field, options[0]); }}
+            className="px-3 py-2 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 text-xs"
+            title="Back to list"
+          >↩</button>
+        </div>
+      ) : (
+        <div className="relative">
+          <select
+            value={selectValue}
+            onChange={handleSelect}
+            style={{ fontWeight: 400, fontStyle: 'normal' }}
+            className={baseCls + " appearance-none cursor-pointer pr-10 block w-full"}>
+            {[...options, 'Other'].map((o: string) => (
+              <option key={o} value={o} className="bg-[#0a0d14]">{o}</option>
+            ))}
+          </select>
+          <Icon name="ChevronRight" size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none rotate-90"/>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 const Score = ({ label, field, value, onChange }: any) => (
   <div className="flex items-center justify-between gap-3 flex-wrap py-1">
