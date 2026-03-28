@@ -533,6 +533,39 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.outcome, ocrFields]);
 
+  // ── Clipboard paste listener (Step 2 only) ──────────────────────────────
+  // Intercepts Ctrl+V anywhere on the page when no form field is focused.
+  // • Image in clipboard → feeds into OCR pipeline (same as file upload)
+  // • Text in clipboard  → feeds into text trade parser
+  useEffect(() => {
+    if (step !== 2) return;
+    const handler = (e: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (
+        active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.isContentEditable
+      )) return; // let normal paste work inside form fields
+
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imgItem = items.find(i => i.type.startsWith("image/"));
+      if (imgItem) {
+        const file = imgItem.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => handleScreenshotUpload("screenshot", reader.result);
+          reader.readAsDataURL(file);
+        }
+        return;
+      }
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (text.trim()) analyzeText(text, "screenshot");
+    };
+    document.addEventListener("paste", handler);
+    return () => document.removeEventListener("paste", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
 
   const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
@@ -571,174 +604,196 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
     } catch { return null; }
   };
 
+  // ── Shared field-mapping helper ─────────────────────────────────────────
+  // Used by both OCR (analyzeScreenshot) and text-paste (analyzeText).
+  // Accepts the { success, fields, ... } response from either endpoint.
+  const applyParsedFields = (data: any, screenshotField: string) => {
+    const f = data.fields;
+    const newOcrFields = new Set<string>();
+
+    const mark = (field: string) => newOcrFields.add(field);
+    const maybe = (field: string, val: any) => {
+      if (val != null && val !== "") { mark(field); return String(val); }
+      return undefined;
+    };
+
+    setForm(prev => {
+      const u = { ...prev };
+
+      if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
+      if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
+      else if (f.instrument) {
+        const sym = String(f.instrument).toUpperCase();
+        if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) u.pairCategory = "Crypto";
+        else if (/XAU|XAG|GOLD|SILVER|OIL|WTI/.test(sym))        u.pairCategory = "Commodity";
+        else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|IDX/.test(sym))  u.pairCategory = "Index";
+        else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
+        else u.pairCategory = "Minor";
+        mark("pairCategory");
+      }
+
+      if (f.direction) { u.direction = f.direction; mark("direction"); }
+
+      const ep = maybe("entryPrice", f.entryPrice);
+      const op = maybe("openingPrice", f.openingPrice);
+      // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
+      const resolvedEntry = ep || op;
+      if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
+      if (op) u.openingPrice = op;
+
+      const cp = maybe("closingPrice", f.closingPrice);
+      const tp = maybe("takeProfit", f.takeProfit);
+      // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
+      const resolvedTP = tp || cp;
+      if (cp) u.closingPrice = cp;
+
+      if (screenshotField === "screenshot") {
+        // ── Screenshot 1 (setup): planned TP only ──────────────────────
+        if (resolvedTP) {
+          u.takeProfit = resolvedTP;
+          u.plannedTP  = resolvedTP;
+          mark("takeProfit"); mark("plannedTP");
+        }
+      } else {
+        // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
+        // Win/BE → actualTP = TP price extracted from exit screenshot
+        // Loss   → actualTP = negative SL distance in pips (SL was hit)
+        if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
+        const exitOutcome = (u.outcome || "").toLowerCase();
+        if (exitOutcome === "loss") {
+          const slPipsStr = u.stopLossDistancePips;
+          if (slPipsStr) {
+            u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
+            mark("actualTP");
+          }
+        } else if (resolvedTP) {
+          u.actualTP = resolvedTP;
+          mark("actualTP");
+        }
+      }
+
+      const sl = maybe("stopLoss", f.stopLoss);
+      if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
+
+      // Points → pips conversion.
+      // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
+      // using correct per-instrument factors. Prefer those. Only fall back to the
+      // frontend ÷10 formula when the pre-computed values are absent.
+      const INDEX_RE = /index|idx|us30|nas|spx|dax|ftse|cac|dow|usa500|spx500|nas100|usa30/i;
+      const isIndex  = INDEX_RE.test(String(u.instrument ?? "")) || u.pairCategory === "Index";
+      const pipFactor = isIndex ? 1 : 10;
+      const ptsToPips = (pts: any) => String(Math.round(parseFloat(String(pts)) / pipFactor * 10) / 10);
+
+      // SL pips — prefer pre-computed value, fall back to points conversion
+      const slPts = f.stopLossPoints ?? f.plannedSLPoints;
+      const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
+      if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
+      else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
+
+      // TP pips — same priority
+      if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
+      else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
+
+      if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
+      if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
+
+      if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);      mark("lotSize"); }
+      if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
+      if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
+
+      if (screenshotField === "screenshot") {
+        // Screenshot 1 (setup): planned R:R
+        const rrVal = f.riskReward ?? f.plannedRR;
+        if (rrVal != null) {
+          u.riskReward = String(rrVal);
+          u.plannedRR  = String(rrVal);
+          mark("riskReward"); mark("plannedRR");
+        }
+      } else {
+        // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
+        const rrVal = f.riskReward ?? f.achievedRR;
+        if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
+      }
+
+      if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
+
+      if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
+      // pipsGainedLost: openPLPoints are in JForex points → convert to pips
+      if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
+
+      if (f.runUpPoints != null) {
+        u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
+        mark("mfe");
+      }
+      if (f.drawdownPoints != null) {
+        u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+        mark("mae");
+      }
+
+      if (screenshotField === "screenshot") {
+        // Entry screenshot: grab whichever time field the OCR populated (it often stores the
+        // replay-bar ISO timestamp as exitTime, not entryTime)
+        const entryT = normaliseDatetime(f.entryTime || f.exitTime);
+        if (entryT) { u.entryTime = entryT; mark("entryTime"); }
+      } else {
+        // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
+        if (f.exitTime) { u.exitTime = normaliseDatetime(f.exitTime); mark("exitTime"); }
+        if (f.entryTime && (!u.entryTime || u.entryTime === "")) {
+          u.entryTime = normaliseDatetime(f.entryTime); mark("entryTime");
+        }
+      }
+
+      const computed = computeDuration(u.entryTime, u.exitTime);
+      if (computed) { u.tradeDuration = computed; mark("tradeDuration"); }
+      else if (f.tradeDuration) { u.tradeDuration = f.tradeDuration; mark("tradeDuration"); }
+
+      if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
+
+      if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
+      if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
+
+      // Show confidence for OCR; for text paste show field count instead
+      u.ocrConfidence = data.confidence || (data.method === "text" ? "text input" : "");
+      u.ocrValidation = data.validation?.summary || "";
+
+      return u;
+    });
+
+    setOcrFields(prev => new Set([...prev, ...newOcrFields]));
+  };
+
   const analyzeScreenshot = async (base64Image: string, screenshotField: string) => {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
       const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
       const data = await res.json();
-
       if (data.success && data.fields) {
-        const f = data.fields;
-        const newOcrFields = new Set<string>();
-
-        const mark = (field: string) => newOcrFields.add(field);
-        const maybe = (field: string, val: any) => {
-          if (val != null && val !== "") { mark(field); return String(val); }
-          return undefined;
-        };
-
-        setForm(prev => {
-          const u = { ...prev };
-
-          if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
-          if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
-          else if (f.instrument) {
-            const sym = String(f.instrument).toUpperCase();
-            if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) u.pairCategory = "Crypto";
-            else if (/XAU|XAG|GOLD|SILVER|OIL|WTI/.test(sym))        u.pairCategory = "Commodity";
-            else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|IDX/.test(sym))  u.pairCategory = "Index";
-            else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
-            else u.pairCategory = "Minor";
-            mark("pairCategory");
-          }
-
-          if (f.direction) { u.direction = f.direction; mark("direction"); }
-
-          const ep = maybe("entryPrice", f.entryPrice);
-          const op = maybe("openingPrice", f.openingPrice);
-          // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
-          const resolvedEntry = ep || op;
-          if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
-          if (op) u.openingPrice = op;
-
-          const cp = maybe("closingPrice", f.closingPrice);
-          const tp = maybe("takeProfit", f.takeProfit);
-          // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
-          const resolvedTP = tp || cp;
-          if (cp) u.closingPrice = cp;
-
-          if (screenshotField === "screenshot") {
-            // ── Screenshot 1 (setup): planned TP only ──────────────────────
-            if (resolvedTP) {
-              u.takeProfit = resolvedTP;
-              u.plannedTP  = resolvedTP;
-              mark("takeProfit"); mark("plannedTP");
-            }
-          } else {
-            // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
-            // Win/BE → actualTP = TP price extracted from exit screenshot
-            // Loss   → actualTP = negative SL distance in pips (SL was hit)
-            if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
-            const exitOutcome = (u.outcome || "").toLowerCase();
-            if (exitOutcome === "loss") {
-              const slPipsStr = u.stopLossDistancePips;
-              if (slPipsStr) {
-                u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
-                mark("actualTP");
-              }
-            } else if (resolvedTP) {
-              u.actualTP = resolvedTP;
-              mark("actualTP");
-            }
-          }
-
-          const sl = maybe("stopLoss", f.stopLoss);
-          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
-
-          // Points → pips conversion.
-          // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
-          // using correct per-instrument factors. Prefer those. Only fall back to the
-          // frontend ÷10 formula when the pre-computed values are absent.
-          const INDEX_RE = /index|idx|us30|nas|spx|dax|ftse|cac|dow|usa500|spx500|nas100|usa30/i;
-          const isIndex  = INDEX_RE.test(String(u.instrument ?? "")) || u.pairCategory === "Index";
-          const pipFactor = isIndex ? 1 : 10;
-          const ptsToPips = (pts: any) => String(Math.round(parseFloat(String(pts)) / pipFactor * 10) / 10);
-
-          // SL pips — prefer pre-computed value from OCR, fall back to points conversion
-          const slPts = f.stopLossPoints ?? f.plannedSLPoints;
-          const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
-          console.log("[OCR→pips] instrument:", u.instrument, "isIndex:", isIndex, "pipFactor:", pipFactor,
-            "f.stopLossPips:", f.stopLossPips, "slPts:", slPts,
-            "f.takeProfitPips:", f.takeProfitPips, "tpPts:", tpPts);
-          if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
-          else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
-
-          // TP pips — same priority
-          if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
-          else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
-
-          if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
-          if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
-
-          if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);      mark("lotSize"); }
-          if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
-          if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
-
-          if (screenshotField === "screenshot") {
-            // Screenshot 1 (setup): planned R:R
-            const rrVal = f.riskReward ?? f.plannedRR;
-            if (rrVal != null) {
-              u.riskReward = String(rrVal);
-              u.plannedRR  = String(rrVal);
-              mark("riskReward"); mark("plannedRR");
-            }
-          } else {
-            // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
-            const rrVal = f.riskReward ?? f.achievedRR;
-            if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
-          }
-
-          if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
-
-          if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
-          // pipsGainedLost: openPLPoints are in JForex points → convert to pips
-          if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
-
-          if (f.runUpPoints != null) {
-            u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
-            mark("mfe");
-          }
-          if (f.drawdownPoints != null) {
-            u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
-            mark("mae");
-          }
-
-          if (screenshotField === "screenshot") {
-            // Entry screenshot: grab whichever time field the OCR populated (it often stores the
-            // replay-bar ISO timestamp as exitTime, not entryTime)
-            const entryT = normaliseDatetime(f.entryTime || f.exitTime);
-            if (entryT) { u.entryTime = entryT; mark("entryTime"); }
-          } else {
-            // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
-            if (f.exitTime) { u.exitTime = normaliseDatetime(f.exitTime); mark("exitTime"); }
-            if (f.entryTime && (!u.entryTime || u.entryTime === "")) {
-              u.entryTime = normaliseDatetime(f.entryTime); mark("entryTime");
-            }
-          }
-
-          const computed = computeDuration(u.entryTime, u.exitTime);
-          if (computed) { u.tradeDuration = computed; mark("tradeDuration"); }
-          else if (f.tradeDuration) { u.tradeDuration = f.tradeDuration; mark("tradeDuration"); }
-
-          if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
-
-          if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
-          if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
-
-          u.ocrConfidence = data.confidence || "";
-          u.ocrValidation = data.validation?.summary || "";
-
-          console.log("[OCR→form] stopLossDistancePips:", u.stopLossDistancePips, "takeProfitDistancePips:", u.takeProfitDistancePips, "pipsGainedLost:", u.pipsGainedLost);
-          return u;
-        });
-
-        setOcrFields(prev => new Set([...prev, ...newOcrFields]));
+        applyParsedFields(data, screenshotField);
       } else {
         setAnalyzeError(data.error || "OCR analysis failed");
       }
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to analyze screenshot");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const analyzeText = async (text: string, screenshotField: string) => {
+    if (!text.trim()) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await apiRequest("POST", "/api/journal/analyze-text", { text });
+      const data = await res.json();
+      if (data.success && data.fields) {
+        applyParsedFields(data, screenshotField);
+      } else {
+        setAnalyzeError(data.error || "Could not parse trade text — check the format");
+      }
+    } catch (err: any) {
+      setAnalyzeError(err.message || "Text parse failed");
     } finally {
       setAnalyzing(false);
     }
@@ -1058,14 +1113,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       {analyzing&&(
                         <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
                           <Icon name="Activity" size={14}/>
-                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>OCR v8 analyzing screenshot… extracting fields</span>
+                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>Analyzing… extracting fields</span>
                         </div>
                       )}
                       {form.ocrConfidence && !analyzing && (
                         <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"10px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
                           <Icon name="CheckCircle2" size={12} style={{color:"#34d399"}}/>
                           <span style={{fontSize:"10px",color:"#34d399",fontStyle:"italic"}}>
-                            OCR complete · {ocrFields.size} fields extracted · confidence: {form.ocrConfidence}
+                            {form.ocrConfidence === "text input" ? "Text parsed" : "OCR complete"} · {ocrFields.size} fields extracted{form.ocrConfidence !== "text input" ? ` · confidence: ${form.ocrConfidence}` : ""}
                           </span>
                           {form.ocrValidation && (
                             <span style={{fontSize:"9px",color:"#64748b",marginLeft:"auto",fontStyle:"italic"}}>{form.ocrValidation}</span>
