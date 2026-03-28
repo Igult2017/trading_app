@@ -732,7 +732,7 @@ export default function Journal() {
           ) : activeNav === 'strategy' ? (
             <StrategyAudit />
           ) : activeNav === 'vault' ? (
-            activeSessionId ? <TradeVault sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+            activeSessionId ? <TradeVault sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'calendar' ? (
             activeSessionId ? <TradingCalendar sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'sessions' ? (

@@ -298,7 +298,7 @@ function downloadCSV(trades: Trade[]) {
   URL.revokeObjectURL(url);
 }
 
-export default function TradeVault({ sessionId }: { sessionId?: string | null }) {
+export default function TradeVault({ sessionId, startingBalance: sessionStartingBalance }: { sessionId?: string | null; startingBalance?: number }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [exported, setExported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -352,11 +352,9 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   const wins = trades.filter((t) => t.outcome === "WIN").length;
   const winRate = trades.length ? Math.round((wins / trades.length) * 100) : 0;
 
-  const firstEntry = journalEntries[0];
-  const startingBalance = firstEntry
-    ? (parseFloat(firstEntry.accountBalance || "0") || 0) - (parseFloat(firstEntry.profitLoss || "0") || 0)
+  const growthPct = sessionStartingBalance && sessionStartingBalance > 0
+    ? (totalPL / sessionStartingBalance) * 100
     : 0;
-  const growthPct = startingBalance > 0 ? (totalPL / startingBalance) * 100 : 0;
   const days = new Set(trades.map(t => t.date)).size;
 
   const handleExport = () => {
