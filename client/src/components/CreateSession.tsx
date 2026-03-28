@@ -178,28 +178,37 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
   const dateStr = session.createdAt ? new Date(session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
+  const [balSaved, setBalSaved] = useState(false);
+
   const updateBalMutation = useMutation({
     mutationFn: (newBal: number) =>
       apiRequest('PUT', `/api/sessions/${session.id}`, { startingBalance: String(newBal) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/sessions'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      setBalSaved(true);
+      setTimeout(() => setBalSaved(false), 1500);
+    },
   });
 
   const startEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     setBalInput(String(startBal));
     setEditingBal(true);
+    setBalSaved(false);
     setTimeout(() => balInputRef.current?.select(), 0);
   };
 
   const commitEdit = () => {
-    const num = parseFloat(balInput.replace(/[^0-9.]/g, ''));
-    if (!isNaN(num) && num > 0 && num !== startBal) updateBalMutation.mutate(num);
+    const parsed = parseFloat(balInput.replace(/[^0-9.]/g, ''));
+    if (!isNaN(parsed) && parsed > 0 && parsed !== startBal) updateBalMutation.mutate(parsed);
     setEditingBal(false);
   };
 
+  const cancelEdit = () => setEditingBal(false);
+
   const handleBalKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') commitEdit();
-    if (e.key === 'Escape') setEditingBal(false);
+    if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
     e.stopPropagation();
   };
 
@@ -208,7 +217,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 
   return (
     <div
-      onClick={onSelect}
+      onClick={editingBal ? undefined : onSelect}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
@@ -275,23 +284,47 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       <div style={{ padding: '10px 20px 0' }}>
         <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: '#444', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
           Starting Balance
-          <span onClick={startEdit} style={{ cursor: 'pointer', color: '#60a5fa', opacity: 0.7, fontSize: 8, letterSpacing: '0.1em' }} title="Edit balance">✎ EDIT</span>
+          {!editingBal && (
+            <span onClick={startEdit} style={{ cursor: 'pointer', color: '#60a5fa', opacity: 0.7, fontSize: 8, letterSpacing: '0.1em' }} title="Edit balance">✎ EDIT</span>
+          )}
+          {balSaved && (
+            <span style={{ color: '#3dff8f', fontSize: 8, letterSpacing: '0.1em' }}>✓ SAVED</span>
+          )}
         </div>
         {editingBal ? (
           <div onClick={e => e.stopPropagation()} style={{ marginBottom: 10 }}>
-            <input
-              ref={balInputRef}
-              value={balInput}
-              onChange={e => setBalInput(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={handleBalKeyDown}
-              style={{
-                fontSize: 18, fontWeight: 800, color: '#ffffff', background: 'transparent',
-                border: 'none', borderBottom: '2px solid #60a5fa', outline: 'none',
-                width: '100%', fontFamily: "'Montserrat', sans-serif", letterSpacing: '-0.01em',
-                padding: '2px 0',
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                ref={balInputRef}
+                value={balInput}
+                onChange={e => setBalInput(e.target.value)}
+                onKeyDown={handleBalKeyDown}
+                style={{
+                  fontSize: 18, fontWeight: 800, color: '#ffffff', background: 'transparent',
+                  border: 'none', borderBottom: '2px solid #60a5fa', outline: 'none',
+                  flex: 1, fontFamily: "'Montserrat', sans-serif", letterSpacing: '-0.01em',
+                  padding: '2px 0',
+                }}
+              />
+              <button
+                onMouseDown={e => { e.preventDefault(); commitEdit(); }}
+                style={{
+                  background: 'none', border: '1.5px solid #3dff8f', color: '#3dff8f',
+                  fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer',
+                  fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em',
+                  flexShrink: 0,
+                }}
+              >✓</button>
+              <button
+                onMouseDown={e => { e.preventDefault(); cancelEdit(); }}
+                style={{
+                  background: 'none', border: '1.5px solid #444', color: '#888',
+                  fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer',
+                  fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em',
+                  flexShrink: 0,
+                }}
+              >✗</button>
+            </div>
           </div>
         ) : (
           <div
