@@ -426,7 +426,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     pair, wr: Math.round(d.winRate||0), loss: 100-Math.round(d.winRate||0),
   }));
   const dayEntries  = Object.entries(dayOfWeekBreakdown).map(([day,d]: [string,any]) => ({ day, wr: Math.round((d as any).winRate||0) }));
-  const tfEntries   = Object.entries(tfEntry).map(([tf,d]: [string,any])              => ({ tf,  wr: Math.round((d as any).winRate||0) }));
+  const tfEntries   = Object.entries(tfEntry).map(([tf,d]: [string,any])              => ({ tf,  wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const sessEntries = Object.entries(sessionBreakdown).map(([name,d]: [string,any])   => ({ name, wr: Math.round((d as any).winRate||0) }));
   const exitEntries = Object.entries(exitAnalysis).map(([reason,d]: [string,any])     => ({ reason, pct: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const candleEntries = Object.entries(candlePatterns).map(([pat,d]: [string,any])    => ({ pat, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
@@ -879,7 +879,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 ? tfEntries.map((x,i)=>(
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                       <Mono size={9} color={P.muted}>{x.tf}</Mono>
-                      <Cond size={10} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}%`:'--'}</Cond>
+                      <Cond size={10} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}% (${x.count}t)`:'--'}</Cond>
                     </div>
                   ))
                 : <Mono size={9} color={P.dim}>No entry TF data</Mono>
@@ -888,7 +888,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfAnalysis).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}% (${d.count||0}t)`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfAnalysis).length===0 && <Mono size={9} color={P.dim}>No analysis TF data</Mono>}
@@ -896,7 +896,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfContext).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}% (${d.count||0}t)`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfContext).length===0 && <Mono size={9} color={P.dim}>No context TF data</Mono>}
