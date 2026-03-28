@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
+import { parseTradeText } from "./services/textTradeAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
 import { computeDrawdown } from "./services/drawdownCalculator";
@@ -174,6 +175,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Routes] Screenshot analysis error:", error);
       res.status(500).json({ error: "Screenshot analysis service unavailable" });
     }
+  });
+
+  app.post("/api/journal/analyze-text", (req, res) => {
+    const { text } = req.body;
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({ error: "No text provided" });
+    }
+    const result = parseTradeText(text);
+    if (!result.success) {
+      return res.status(422).json({ error: "No recognisable trade fields found in the pasted text", fieldCount: 0 });
+    }
+    res.json(result);
   });
 
   app.get("/api/journal/analyze-screenshot/status", async (_req, res) => {
