@@ -263,6 +263,32 @@ export default function AssetPage() {
     });
   }
 
+  // Right sidebar resize
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(320);
+
+  function handleDragStart(e: React.MouseEvent) {
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+    e.preventDefault();
+
+    function onMove(ev: MouseEvent) {
+      if (!isDragging.current) return;
+      const delta = dragStartX.current - ev.clientX;
+      setSidebarWidth(Math.max(140, Math.min(520, dragStartWidth.current + delta)));
+    }
+    function onUp() {
+      isDragging.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   // Live prices — sidebar batch every 15s, selected instrument every 8s for near-real-time feel
   const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
@@ -619,7 +645,14 @@ export default function AssetPage() {
       </div>
 
       {/* ── Right Sidebar ── */}
-      <div style={{ width: 320, minWidth: 320, background: "#0a0f16", borderLeft: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ width: sidebarWidth, minWidth: 140, maxWidth: 520, background: "#0a0f16", borderLeft: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100%", position: "relative", flexShrink: 0 }}>
+        {/* Drag handle */}
+        <div
+          onMouseDown={handleDragStart}
+          style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, cursor: "col-resize", zIndex: 10, background: "transparent" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(59,130,246,0.25)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+        />
 
         {/* Search */}
         <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #0f1923" }}>
@@ -656,7 +689,7 @@ export default function AssetPage() {
               >
                 {/* Row 1: Symbol + Category badge */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
+                  <span style={{ fontSize: 6, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
                   <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
@@ -689,7 +722,7 @@ export default function AssetPage() {
                           price={tp?.price ?? null}
                           prevPrice={tp?.prevPrice ?? null}
                           direction={dir}
-                          fontSize={13}
+                          fontSize={6}
                         />
                       </div>
                       {chg != null && (
