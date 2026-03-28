@@ -44,7 +44,9 @@ def compute_metrics(trades: list, starting_balance: float) -> dict:
         return empty
 
     # ── Max drawdown and episodes ─────────────────────────────────────────────
-    peak = equity[0]
+    # Peak starts at the session starting balance — NOT equity[0] — so that
+    # a loss on the very first trade is correctly counted as a drawdown episode.
+    peak = sb
     max_dd = 0.0
     episode_depths: list[float] = []
     in_dd = False

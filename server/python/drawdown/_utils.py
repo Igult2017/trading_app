@@ -81,14 +81,15 @@ def get_pnl_pct(t: dict) -> float | None:
     """
     Percentage P&L.  Priority:
       1. pnlPercent (explicit percentage field)
-      2. pipsGainedLost as a proxy (pips → pct is approximate, skip)
+      2. _pnlPct    (pre-computed by core._annotate_pnl_pct from monetary P&L)
     Returns None when absent.
     """
     return _f(
         t.get("pnlPercent") or
         t.get("pnl_percent") or
         blob_field(t, "pnlPercent") or
-        blob_field(t, "pnl_percent")
+        blob_field(t, "pnl_percent") or
+        t.get("_pnlPct")
     )
 
 
