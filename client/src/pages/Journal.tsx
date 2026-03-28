@@ -496,12 +496,20 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
 
   const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
     queryKey: ['/api/metrics/compute', sessionId],
-    queryFn: () => fetch(metricsUrl).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(metricsUrl);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
   });
 
   const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
-    queryFn: () => fetch(entriesUrl).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(entriesUrl);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
   });
 
   const m = metricsData?.metrics;

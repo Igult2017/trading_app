@@ -315,7 +315,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   const queryUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '/api/journal/entries';
   const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal/entries", sessionId],
-    queryFn: () => fetch(queryUrl).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(queryUrl);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
     enabled: !!sessionId,
   });
 

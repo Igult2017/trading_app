@@ -177,9 +177,13 @@ export class ScraperScheduler {
     // });
 
     this.notificationJob = cron.schedule('*/5 * * * *', async () => {
-      console.log('Checking for events and sessions to notify...');
-      await telegramNotificationService.checkAndNotifyUpcomingEvents();
-      await telegramNotificationService.checkAndNotifyTradingSessions();
+      if (!telegramNotificationService) return;
+      try {
+        await telegramNotificationService.checkAndNotifyUpcomingEvents();
+        await telegramNotificationService.checkAndNotifyTradingSessions();
+      } catch (err: any) {
+        console.error('[Scheduler] Notification job error:', err?.message);
+      }
     });
 
     // Signal scanning disabled for deployment safety

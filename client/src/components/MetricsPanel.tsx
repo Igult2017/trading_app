@@ -285,7 +285,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   const { data:metricsData, isLoading, isError } = useQuery<{ success:boolean; metrics:any }>({
     queryKey:['/api/metrics/compute', sessionId],
-    queryFn: ()=>fetch(queryUrl).then(r=>r.json()),
+    queryFn: async () => {
+      const r = await fetch(queryUrl);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
     enabled: !!sessionId,
   });
 

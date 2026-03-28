@@ -502,9 +502,12 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [draftRestored,setDraftRestored] = useState(false);
   const { data: trades = [] } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
-    queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`)
-      .then(r => r.json())
-      .then((data: any[]) => [...data].reverse()), // reverse to chronological (oldest first)
+    queryFn: async () => {
+      const r = await fetch(`/api/journal/entries?sessionId=${sessionId}`);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      const data: any[] = await r.json();
+      return [...data].reverse(); // reverse to chronological (oldest first)
+    },
     enabled: !!sessionId,
   });
   const [sidebarOpen,setSidebarOpen] = useState(false);
@@ -870,7 +873,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         setAnalyzeError(data.error || "OCR analysis failed");
       }
     } catch (err: any) {
-      setAnalyzeError(err.message || "Failed to analyze screenshot");
+      let msg: string = err.message || "Failed to analyze screenshot";
+      const jsonMatch = msg.match(/^\d+: (\{.*\})$/s);
+      if (jsonMatch) {
+        try { msg = JSON.parse(jsonMatch[1]).error || msg; } catch {}
+      } else if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token")) {
+        msg = "Server error — please try again";
+      }
+      setAnalyzeError(msg);
     } finally {
       setAnalyzing(false);
     }
@@ -889,7 +899,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         setAnalyzeError(data.error || "Could not parse trade text — check the format");
       }
     } catch (err: any) {
-      setAnalyzeError(err.message || "Text parse failed");
+      let msg: string = err.message || "Text parse failed";
+      const jsonMatch = msg.match(/^\d+: (\{.*\})$/s);
+      if (jsonMatch) {
+        try { msg = JSON.parse(jsonMatch[1]).error || msg; } catch {}
+      } else if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token")) {
+        msg = "Server error — please try again";
+      }
+      setAnalyzeError(msg);
     } finally {
       setAnalyzing(false);
     }
