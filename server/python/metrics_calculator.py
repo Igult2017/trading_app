@@ -341,6 +341,7 @@ def _coerce_datetime(value: Any) -> Optional[datetime]:
             return None
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z",
                     "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
+                    "%Y-%m-%dT%H:%M",          # datetime-local input (no seconds)
                     "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
                     "%d/%m/%Y %H:%M", "%d/%m/%Y"):
             try:
@@ -446,11 +447,26 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         or _coerce_datetime(raw.get("created_at"))
     )
 
-    # Duration
+    # Duration — prefer computed from timestamps, fall back to tradeDuration string
     duration = None
     if opened_at and closed_at:
         delta = (closed_at - opened_at).total_seconds()
         duration = delta / 60.0 if delta >= 0 else None
+    if duration is None:
+        # Parse tradeDuration strings like "2h 30m", "45m", "1h", "90" (minutes)
+        td_raw = g("tradeDuration") or raw.get("trade_duration") or raw.get("tradeDuration")
+        if td_raw is not None:
+            import re as _re
+            td_str = str(td_raw).strip()
+            h = _re.search(r"(\d+(?:\.\d+)?)\s*h", td_str)
+            m = _re.search(r"(\d+(?:\.\d+)?)\s*m", td_str)
+            if h or m:
+                duration = float(h.group(1) if h else 0) * 60 + float(m.group(1) if m else 0)
+            else:
+                try:
+                    duration = float(td_str)  # plain number → treat as minutes
+                except (ValueError, TypeError):
+                    pass
 
     # Day of week from trade_date
     dow = g("dayOfWeek") or (trade_date.strftime("%A") if trade_date else None)
