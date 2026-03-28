@@ -557,11 +557,11 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         candle_pattern=cat("candlePattern"),
         news_impact=cat("newsImpact"),
         emotional_state=cat("emotionalState"),
-        focus_level=cat("focusLevel"),
-        confidence_level=cat("confidenceLevel"),
-        energy_level=cat("energyLevel"),
-        confidence_at_entry=cat("confidenceAtEntry"),
-        rules_followed=cat("rulesFollowed"),
+        focus_level=_score_to_level(g("focusLevel") or g("focusStressLevel")),
+        confidence_level=_score_to_level(g("confidenceLevel")),
+        energy_level=_score_to_level(g("energyLevel")),
+        confidence_at_entry=_score_to_level(g("confidenceAtEntry")),
+        rules_followed=_pct_to_level(g("rulesFollowed")),
         strategy=cat("strategy"),
         risk_heat=cat("riskHeat"),
         mae=_coerce_float(g("mae")),
@@ -590,6 +590,40 @@ def _str(v: Any) -> Optional[str]:
         return None
     s = str(v).strip()
     return s or None
+
+
+def _score_to_level(v: Any) -> Optional[str]:
+    """Convert a 1–5 numeric score to Low / Medium / High.
+    If v is already a string label (e.g. 'High'), it is returned as-is."""
+    if v is None:
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        s = str(v).strip()
+        return s or None  # already a label string
+    if n <= 2:
+        return "Low"
+    if n <= 3:
+        return "Medium"
+    return "High"
+
+
+def _pct_to_level(v: Any) -> Optional[str]:
+    """Convert a 0–100 percentage to Low / Medium / High.
+    If v is already a string label, it is returned as-is."""
+    if v is None:
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        s = str(v).strip()
+        return s or None
+    if n < 60:
+        return "Low"
+    if n < 80:
+        return "Medium"
+    return "High"
 
 
 def validate_and_normalise(raw_trades: Any) -> List[TradeRecord]:
