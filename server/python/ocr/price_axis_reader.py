@@ -198,9 +198,7 @@ def _find_tp_sl_tokens(pimg, layout) -> dict:
     scan_y2 = min(h - 5, cy2 + 65)
 
     region = pimg.bgr[cy1:scan_y2, :x_end]
-    sh, sw = region.shape[:2]
-    sc = cv2.resize(region, (sw*2, sh*2), interpolation=cv2.INTER_CUBIC)
-    gray = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
     _, thr = cv2.threshold(gray, 110, 255, cv2.THRESH_BINARY_INV)
     data = pytesseract.image_to_data(thr, config="--psm 11 --oem 3",
                                       output_type=pytesseract.Output.DICT)
@@ -208,7 +206,7 @@ def _find_tp_sl_tokens(pimg, layout) -> dict:
     for i, tok in enumerate(data['text']):
         clean = re.sub(r'[^A-Za-z]', '', tok.strip()).upper()
         if data['conf'][i] < 10: continue
-        y_px = data['top'][i] // 2 + cy1
+        y_px = data['top'][i] + cy1
         if clean == 'TP' and 'TP' not in found:
             found['TP'] = y_px
         if clean == 'SL' and 'SL' not in found:
