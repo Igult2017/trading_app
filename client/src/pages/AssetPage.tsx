@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
-import JournalHeader from "@/components/JournalHeader";
 import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
@@ -286,8 +285,7 @@ export default function AssetPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
-      <JournalHeader onToggleSidebar={() => {}} />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
@@ -309,7 +307,7 @@ export default function AssetPage() {
       `}</style>
 
       {/* ── Left Sidebar ── */}
-      <div style={{ width: 320, minWidth: 320, background: "#0a0f16", borderRight: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100vh" }}>
+      <div style={{ width: 320, minWidth: 320, background: "#0a0f16", borderRight: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100%" }}>
 
         {/* Search */}
         <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #0f1923" }}>
