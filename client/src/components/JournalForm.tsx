@@ -102,7 +102,7 @@ const INIT: Record<string, any> = {
   newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
   sessionName:"London", timingContext:"Impulse", candlePattern:"",
   indicatorState:"", marketAlignment:3, setupClarity:3, entryPrecision:3,
-  confluence:3, timingQuality:3, primarySignals:"", secondarySignals:"",
+  confluence:3, timingQuality:3, signalValidation:3, primarySignals:"", secondarySignals:"",
   keyLevelRespect:"Yes", keyLevelType:"Support", momentumValidity:"Strong",
   targetLogicClarity:"High", plannedEntry:"", plannedSL:"", plannedTP:"",
   actualEntry:"", actualSL:"", actualTP:"", pipsGainedLost:"", mae:"",
@@ -934,6 +934,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           entryPrecision:          form.entryPrecision,
           confluence:              form.confluence,
           timingQuality:           form.timingQuality,
+          signalValidation:        form.signalValidation,
+          plannedEntry:            form.plannedEntry   || null,
+          plannedSL:               form.plannedSL      || null,
+          plannedTP:               form.plannedTP      || null,
+          actualEntry:             form.actualEntry    || null,
+          actualSL:                form.actualSL       || null,
+          actualTP:                form.actualTP       || null,
           confidenceAtEntry:       form.confidenceAtEntry,
           openingPrice:            form.openingPrice,
           closingPrice:            form.closingPrice,
@@ -1262,7 +1269,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
                         <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
                           {sc("Market Alignment","marketAlignment")}{sc("Setup Clarity","setupClarity")}
-                          {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}
+                          {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}{sc("Signal Validation","signalValidation")}
                         </div>
                       </div>
                       <div className="space-y-4">

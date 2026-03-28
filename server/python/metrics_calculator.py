@@ -74,6 +74,7 @@ FIELD_MAP: Dict[str, str] = {
     "confluenceScore": "confluence_score",
     "confluence": "confluence_score",
     "signalValidationScore": "signal_validation_score",
+    "signalValidation": "signal_validation_score",  # JournalForm stores without "Score"
     "momentumScore": "momentum_score",
     # ── Booleans ─────────────────────────────────────────────────────────────
     "mtfAlignment": "mtf_alignment",
@@ -504,6 +505,18 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         v = g(camel)
         return str(v).strip() or None if v is not None else None
 
+    # ── Planned vs Actual deviations ─────────────────────────────────────────
+    def _deviation(planned_key: str, actual_key: str) -> Optional[float]:
+        planned = _coerce_float(g(planned_key))
+        actual  = _coerce_float(g(actual_key))
+        if planned is not None and actual is not None and planned != 0:
+            return round(abs(actual - planned), 5)
+        return None
+
+    entry_dev = _coerce_float(g("entryDeviation")) or _deviation("plannedEntry", "actualEntry")
+    sl_dev    = _coerce_float(g("slDeviation"))    or _deviation("plannedSL",    "actualSL")
+    tp_dev    = _coerce_float(g("tpDeviation"))    or _deviation("plannedTP",    "actualTP")
+
     return TradeRecord(
         id=str(raw_id),
         session_id=str(g("sessionId") or raw.get("session_id") or ""),
@@ -519,7 +532,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         market_alignment_score=_coerce_float(g("marketAlignmentScore")),
         setup_clarity_score=_coerce_float(g("setupClarityScore")),
         confluence_score=_coerce_float(g("confluenceScore")),
-        signal_validation_score=_coerce_float(g("signalValidationScore")),
+        signal_validation_score=_coerce_float(g("signalValidationScore") or g("signalValidation")),
         momentum_score=_momentum_to_score(g("momentumScore") or g("momentumValidity")),
         mtf_alignment=_coerce_bool(g("mtfAlignment")),
         trend_alignment=_coerce_bool(g("trendAlignment")),
@@ -571,9 +584,9 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         sl_distance=sl_dist,
         tp_distance=tp_dist,
         spread_at_entry=_coerce_float(g("spreadAtEntry")) or _coerce_float(raw.get("spread_at_entry")),
-        entry_deviation=_coerce_float(g("entryDeviation")),
-        sl_deviation=_coerce_float(g("slDeviation")),
-        tp_deviation=_coerce_float(g("tpDeviation")),
+        entry_deviation=entry_dev,
+        sl_deviation=sl_dev,
+        tp_deviation=tp_dev,
         opened_at=opened_at,
         closed_at=closed_at,
         trade_date=trade_date,
