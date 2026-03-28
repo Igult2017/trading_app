@@ -214,6 +214,7 @@ class TradeRecord:
     external_distraction: Optional[bool]
     breakeven_applied: Optional[bool]
     strong_momentum: Optional[bool]
+    momentum_validity: Optional[str]   # raw "Strong"/"Moderate"/"Weak" string
     momentum_with_htf_align: Optional[bool]
     counter_momentum_entry: Optional[bool]
     trade_grade: Optional[str]
@@ -565,6 +566,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         external_distraction=_coerce_bool(g("externalDistraction")),
         breakeven_applied=_coerce_bool(g("breakevenApplied")),
         strong_momentum=_strong_momentum_bool(g("strongMomentum")),
+        momentum_validity=_normalise_momentum_validity(g("strongMomentum")),
         momentum_with_htf_align=_coerce_bool(g("momentumWithHTFAlign")),
         counter_momentum_entry=_coerce_bool(g("counterMomentumEntry")),
         trade_grade=cat("tradeGrade"),
@@ -671,6 +673,20 @@ def _momentum_to_score(v: Any) -> Optional[float]:
         return float(v)
     except (TypeError, ValueError):
         return _MOMENTUM_SCORE_MAP.get(str(v).strip().lower())
+
+
+def _normalise_momentum_validity(v: Any) -> Optional[str]:
+    """Return 'Strong', 'Moderate', or 'Weak' from a raw field value; None otherwise."""
+    if v is None:
+        return None
+    low = str(v).strip().lower()
+    if low == "strong":
+        return "Strong"
+    if low == "moderate":
+        return "Moderate"
+    if low == "weak":
+        return "Weak"
+    return None
 
 
 def _strong_momentum_bool(v: Any) -> Optional[bool]:
@@ -1102,7 +1118,7 @@ def calc_psychology(ctx: SharedContext) -> Dict:
         "volatilityState": "volatility_state", "htfBias": "htf_bias",
         "directionalBias": "directional_bias", "keyLevelType": "key_level_type",
         "sessionPhase": "session_phase", "newsImpact": "news_impact",
-        "riskHeat": "risk_heat",
+        "riskHeat": "risk_heat", "momentumValidity": "momentum_validity",
     }
     breakdowns = {camel: breakdown_by_categorical(trades, snake)
                   for camel, snake in cat_fields.items()}
