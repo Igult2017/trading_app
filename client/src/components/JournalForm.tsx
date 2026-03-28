@@ -319,7 +319,7 @@ const Upload = ({ field, inputId, value, onChange, label, sublabel, onPasteText 
   };
 
   return (
-    <div className={`relative rounded-2xl border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
+    <div className={`relative rounded border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
       <input type="file" className="hidden" id={inputId} accept="image/*" onChange={(e: any)=>{
         const f=e.target.files[0];
         if(f){const r=new FileReader();r.onloadend=()=>onChange(field,r.result);r.readAsDataURL(f);}
@@ -1152,8 +1152,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             </div>
 
             <div className="relative">
-              <div className="absolute -inset-0.5 bg-gradient-to-b from-slate-700/20 to-transparent rounded-[2rem] blur opacity-20"/>
-              <div className="relative bg-[#0a0d14] border border-slate-800/80 rounded-[2rem] p-5 sm:p-8 shadow-2xl">
+              <div className="absolute -inset-0.5 bg-gradient-to-b from-slate-700/20 to-transparent rounded blur opacity-20"/>
+              <div className="relative bg-[#0a0d14] border border-slate-800/80 rounded p-5 sm:p-8 shadow-2xl">
 
                 {step===1&&(
                   <div className="space-y-10">
@@ -1178,11 +1178,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-6">
                       <SectionHeader icon="Battery" title="Pre-Entry State Check"/>
                       <div className={g2}>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {sc("Energy Level","energyLevel")}{sc("Focus Level","focusLevel")}{sc("Confidence at Entry","confidenceAtEntry")}
                           {ls("External Distraction","externalDistraction",["No","Yes"])}
                         </div>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {lf("Open Trades Count","openTradesCount",undefined,"0","number")}
                           {lf("Total Risk Open (%)","totalRiskOpen",undefined,"2.5","number")}
                           {ls("Correlated Exposure","correlatedExposure",["No","Yes"])}
@@ -1192,18 +1192,18 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-6">
                       <SectionHeader icon="Layers" title="Classification & Quality"/>
                       <div className={g2}>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {lf("Strategy Version ID","strategyVersionId",undefined,"e.g., v2.1")}
                           {ls("Setup Tag","setupTag",["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"])}
                         </div>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {ls("Trade Grade","tradeGrade",["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"])}
                         </div>
                       </div>
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="ShieldCheck" title="Rule Governance"/>
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                      <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
                         <div className={g2}>
                           {ls("Setup Fully Valid","setupFullyValid",["Yes","No"])}
                           {ls("Any Rule Broken?","anyRuleBroken",["No","Yes"])}
@@ -1324,7 +1324,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="Layers3" title="Timeframe Context"/>
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                      <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
                         <div className={g2}>
                           {ls("HTF Bias","htfBias",["Bull","Bear","Range"])}
                           {ls("HTF Key Level Present","htfKeyLevelPresent",["Yes","No"])}
@@ -1344,7 +1344,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
-                        <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                        <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
                           {sc("Market Alignment","marketAlignment")}{sc("Setup Clarity","setupClarity")}
                           {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}{sc("Signal Validation","signalValidation")}
                         </div>
@@ -1433,7 +1433,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       </div>
                       <div className="space-y-4">
                         <SectionHeader icon="Microscope" title="Trade Reflections"/>
-                        <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-5">
+                        <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-5">
                           <div>
                             <p className="text-[10px] font-black tracking-[0.2em] uppercase text-emerald-500/80 mb-3">What Worked</p>
                             <textarea rows={3} className={INPUT_CLS} placeholder="What did you execute well?" value={form.whatWorked} onChange={(e: any)=>set("whatWorked",e.target.value)}/>
