@@ -336,7 +336,7 @@ export default function AssetPage() {
                   </div>
                 )
               },
-              { label: "TARGET (TP)", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.tp}</span> },
+              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.tp}</span> },
               { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.sl}</span> },
               { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.rr}</span> },
             ].map((col, i) => (
