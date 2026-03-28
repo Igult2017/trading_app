@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
@@ -240,31 +240,64 @@ const Check = ({ label, field, value, onChange }: any) => (
   </label>
 );
 
-const Upload = ({ field, inputId, value, onChange, label, sublabel }: any) => (
-  <div className={`relative rounded-2xl border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
-    <input type="file" className="hidden" id={inputId} accept="image/*" onChange={(e: any)=>{
-      const f=e.target.files[0];
-      if(f){const r=new FileReader();r.onloadend=()=>onChange(field,r.result);r.readAsDataURL(f);}
-    }}/>
-    {value?(
-      <div className="relative group/img">
-        <img src={value} alt="chart" className="w-full h-auto max-h-80 object-contain"/>
-        <div className="absolute inset-0 bg-[#05070a]/80 backdrop-blur-sm opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center gap-3">
-          <label htmlFor={inputId} className="p-3 bg-blue-600 rounded-xl cursor-pointer hover:bg-blue-500 transition-all"><Icon name="RefreshCcw" size={20} className="text-white"/></label>
-          <button onClick={()=>onChange(field,null)} className="p-3 bg-rose-600 rounded-xl hover:bg-rose-500 transition-all"><Icon name="Trash2" size={20} className="text-white"/></button>
+const Upload = ({ field, inputId, value, onChange, label, sublabel, onPasteText }: any) => {
+  const editRef = useRef<HTMLDivElement>(null);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (editRef.current) editRef.current.textContent = ""; // keep overlay empty
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imgItem = items.find(i => i.type.startsWith("image/"));
+    if (imgItem) {
+      const file = imgItem.getAsFile();
+      if (file) { const r = new FileReader(); r.onloadend = () => onChange(field, r.result); r.readAsDataURL(file); }
+      return;
+    }
+    const text = e.clipboardData?.getData("text/plain") ?? "";
+    if (text.trim() && onPasteText) onPasteText(text);
+  };
+
+  return (
+    <div className={`relative rounded-2xl border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
+      <input type="file" className="hidden" id={inputId} accept="image/*" onChange={(e: any)=>{
+        const f=e.target.files[0];
+        if(f){const r=new FileReader();r.onloadend=()=>onChange(field,r.result);r.readAsDataURL(f);}
+      }}/>
+      {/* Invisible contenteditable overlay — makes "Paste" appear in the browser right-click menu.
+          Only active when no image is loaded. Left-click is forwarded to the file input. */}
+      {!value && (
+        <div
+          ref={editRef}
+          contentEditable
+          suppressContentEditableWarning
+          data-paste-overlay
+          onPaste={handlePaste}
+          onClick={() => document.getElementById(inputId)?.click()}
+          onKeyDown={(e) => { if (!e.ctrlKey && !e.metaKey) e.preventDefault(); }}
+          style={{ position:"absolute", inset:0, zIndex:10, opacity:0, outline:"none", cursor:"pointer" }}
+        />
+      )}
+      {value?(
+        <div className="relative group/img">
+          <img src={value} alt="chart" className="w-full h-auto max-h-80 object-contain"/>
+          <div className="absolute inset-0 bg-[#05070a]/80 backdrop-blur-sm opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center gap-3">
+            <label htmlFor={inputId} className="p-3 bg-blue-600 rounded-xl cursor-pointer hover:bg-blue-500 transition-all"><Icon name="RefreshCcw" size={20} className="text-white"/></label>
+            <button onClick={()=>onChange(field,null)} className="p-3 bg-rose-600 rounded-xl hover:bg-rose-500 transition-all"><Icon name="Trash2" size={20} className="text-white"/></button>
+          </div>
         </div>
-      </div>
-    ):(
-      <label htmlFor={inputId} className="flex flex-col items-center justify-center p-10 cursor-pointer group">
-        <div className="w-14 h-14 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center mb-4 group-hover:border-blue-500/40 transition-all">
-          <Icon name="Camera" size={24} className="text-slate-700 group-hover:text-blue-500/60 transition-colors"/>
-        </div>
-        <span className="text-[13px] font-semibold text-slate-500 mb-1 text-center">{label}</span>
-        <span className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-700 text-center">{sublabel}</span>
-      </label>
-    )}
-  </div>
-);
+      ):(
+        <label htmlFor={inputId} className="flex flex-col items-center justify-center p-10 cursor-pointer group">
+          <div className="w-14 h-14 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center mb-4 group-hover:border-blue-500/40 transition-all">
+            <Icon name="Camera" size={24} className="text-slate-700 group-hover:text-blue-500/60 transition-colors"/>
+          </div>
+          <span className="text-[13px] font-semibold text-slate-500 mb-1 text-center">{label}</span>
+          <span className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-700 text-center">{sublabel}</span>
+        </label>
+      )}
+    </div>
+  );
+};
 
 const NavButtons = ({ step, onPrev, onNext }: any) => (
   <div className="flex items-center justify-between mt-12 pt-8 border-t border-slate-900">
@@ -541,11 +574,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
     if (step !== 2) return;
     const handler = (e: ClipboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
-      if (active && (
+      // Let normal paste work inside real form fields.
+      // Skip the guard for our own invisible overlay (data-paste-overlay attribute).
+      const isRealInput = active && (
         active.tagName === "INPUT" ||
         active.tagName === "TEXTAREA" ||
-        active.isContentEditable
-      )) return; // let normal paste work inside form fields
+        (active.isContentEditable && !active.hasAttribute("data-paste-overlay"))
+      );
+      if (isRealInput) return;
 
       const items = Array.from(e.clipboardData?.items ?? []);
       const imgItem = items.find(i => i.type.startsWith("image/"));
@@ -1109,7 +1145,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <div className="space-y-10">
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Trade Setup Screenshot"/>
-                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode"/>
+                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode" onPasteText={(t:string)=>analyzeText(t,"screenshot")}/>
                       {analyzing&&(
                         <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
                           <Icon name="Activity" size={14}/>
@@ -1132,7 +1168,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Exit Chart Screenshot"/>
                       <InfoBox color="green" icon="Activity" title="Post-Trade Evidence" text="Upload the outcome screenshot — OCR will extract Closed P/L, achieved RR, and drawdown."/>
-                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Outcome screenshot · Win/Loss detection"/>
+                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Outcome screenshot · Win/Loss detection" onPasteText={(t:string)=>analyzeText(t,"exitScreenshot")}/>
                     </section>
 
                     <section className="space-y-4">
