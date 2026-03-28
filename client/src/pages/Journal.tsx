@@ -16,6 +16,7 @@ import Leaderboard from '@/components/Leaderboard';
 import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import NoSessionPrompt from '@/components/NoSessionPrompt';
+import AssetsPage from '@/pages/AssetsPage';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -36,6 +37,7 @@ const SI = {
   Close: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   FsdAi: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="1.5"/><circle cx="19" cy="6" r="1.5"/><circle cx="5" cy="18" r="1.5"/><circle cx="19" cy="18" r="1.5"/><circle cx="12" cy="3" r="1.5"/><circle cx="12" cy="21" r="1.5"/><line x1="12" y1="9.5" x2="5" y2="6"/><line x1="12" y1="9.5" x2="19" y2="6"/><line x1="12" y1="14.5" x2="5" y2="18"/><line x1="12" y1="14.5" x2="19" y2="18"/><line x1="12" y1="9.5" x2="12" y2="3"/><line x1="12" y1="14.5" x2="12" y2="21"/></svg>,
   TfMetrics: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>,
+  Assets: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="2.5" height="10" rx="0.5"/><rect x="6.5" y="4" width="2.5" height="13" rx="0.5"/><rect x="11" y="9" width="2.5" height="8" rx="0.5"/><rect x="15.5" y="2" width="2.5" height="15" rx="0.5"/><rect x="20" y="6" width="2.5" height="11" rx="0.5"/><line x1="2" y1="21" x2="22" y2="21" strokeWidth="1.4"/></svg>,
 };
 
 interface NavItem {
@@ -64,6 +66,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'leaderboard', label: 'Leaderboard', icon: SI.Leaderboard },
     { id: 'sync', label: 'Sync Trade', icon: SI.Sync },
     { id: 'fsdai', label: 'Trader AI', icon: SI.FsdAi },
+    { id: 'assets', label: 'Assets', icon: SI.Assets },
   ]},
   { section: 'Live Trading', items: [
     { id: 'sessions', label: 'Sessions', icon: SI.Sessions, arrow: true },
@@ -761,6 +764,8 @@ export default function Journal() {
             <AccountsPage />
           ) : activeNav === 'addaccount' ? (
             <AccountsPage openModal={true} />
+          ) : activeNav === 'assets' ? (
+            <AssetsPage />
           ) : (
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
