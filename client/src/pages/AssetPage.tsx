@@ -689,7 +689,7 @@ export default function AssetPage() {
               >
                 {/* Row 1: Symbol + Category badge */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 6, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
                   <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
@@ -722,7 +722,7 @@ export default function AssetPage() {
                           price={tp?.price ?? null}
                           prevPrice={tp?.prevPrice ?? null}
                           direction={dir}
-                          fontSize={6}
+                          fontSize={11}
                         />
                       </div>
                       {chg != null && (
