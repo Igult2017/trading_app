@@ -272,6 +272,7 @@ export default function AssetPage() {
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: rgba(255,255,255,0.02); }
         .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       {/* ── Main Content ── */}
@@ -539,9 +540,6 @@ export default function AssetPage() {
 
       </div>
 
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }
