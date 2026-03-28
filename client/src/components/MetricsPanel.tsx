@@ -697,14 +697,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* ATF + Session + Instrument */}
           <Panel title="ATF + Session + Instrument" accent={P.green} tag="ASSET · TF · SESSION">
-            {(instrEntries.length>0
-              ? instrEntries.slice(0,5).map(ie=>({ label:ie.pair, win:ie.wr, loss:ie.loss }))
-              : []
-            ).map((x,i)=><SplitBar key={i} label={x.label} win={x.win} loss={x.loss}/>)}
-            {instrEntries.length===0 && <Mono size={9} color={P.dim}>No instrument data yet</Mono>}
-            {instrEntries.length>5 && (
+            {instrSessEntries.length>0
+              ? instrSessEntries.slice(0,8).map((x,i)=><SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>)
+              : <Mono size={9} color={P.dim}>No combined data yet — ensure Analysis TF, Session, and Instrument are all filled</Mono>
+            }
+            {instrSessEntries.length>8 && (
               <div style={{ borderTop:`1px solid ${P.line}`, paddingTop:8, textAlign:'center' }}>
-                <Mono size={8} color={P.dim}>+ {instrEntries.length-5} more instruments</Mono>
+                <Mono size={8} color={P.dim}>+ {instrSessEntries.length-8} more combinations</Mono>
               </div>
             )}
           </Panel>

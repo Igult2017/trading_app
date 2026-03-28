@@ -1194,8 +1194,9 @@ def calc_session_phase(ctx: SharedContext) -> Dict:
 def calc_instrument_session_matrix(ctx: SharedContext) -> Dict:
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
-        if t.instrument and t.session:
-            groups[f"{t.instrument} / {t.session}"].append(t)
+        if t.instrument and t.session and t.analysis_timeframe:
+            key = f"{t.instrument} · {t.analysis_timeframe} · {t.session}"
+            groups[key].append(t)
     return {
         k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
         for k, v in sorted(groups.items())
