@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   TrendingUp,
@@ -147,12 +147,19 @@ interface Props { sessionId?: string; userId?: string }
 
 export default function StrategyAudit({ sessionId, userId }: Props) {
   const [activeLevel, setActiveLevel] = useState(1);
+  const [queryEnabled, setQueryEnabled] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setQueryEnabled(true), 2500);
+    return () => clearTimeout(t);
+  }, []);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AuditData>({
     queryKey: ['strategyAudit', sessionId, userId],
     queryFn:  () => fetchAudit(sessionId, userId),
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    enabled: queryEnabled,
   });
 
   // ── Icons ────────────────────────────────────────────────────────────────
@@ -203,21 +210,29 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
   // ── Loading / Error states ──────────────────────────────────────────────
 
-  if (isLoading) return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-6" style={F}>
+  if (!queryEnabled || isLoading) return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-8" style={F}>
       <div className="relative">
-        <div className="w-16 h-16 bg-blue-600 rounded-none flex items-center justify-center shadow-lg shadow-blue-900/40">
-          <Cpu className="w-8 h-8 text-white"/>
+        <div className="w-20 h-20 bg-blue-600 rounded-none flex items-center justify-center shadow-xl shadow-blue-900/50">
+          <Cpu className="w-10 h-10 text-white"/>
         </div>
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-none border-2 border-slate-950 animate-pulse"/>
+        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-none border-2 border-slate-950 animate-pulse"/>
       </div>
-      <div className="text-center space-y-3">
-        <Loader2 className="w-5 h-5 text-blue-400 animate-spin mx-auto"/>
-        <p className="text-2xl font-black tracking-tight text-white leading-snug max-w-xs mx-auto">
+      <div className="text-center space-y-4">
+        <p className="text-5xl font-black tracking-tight text-white leading-tight max-w-sm mx-auto">
           Hi! I'm your<br/>
-          <span className="text-blue-400">Strategy Auditor.</span>
+          <span className="text-blue-400">Strategy</span><br/>
+          <span className="text-blue-400">Auditor.</span>
         </p>
-        <p className="text-sm text-slate-400 font-medium tracking-wide">Welcome to the audit room.</p>
+        <p className="text-base text-slate-400 font-medium tracking-widest uppercase">
+          Welcome to the audit room
+        </p>
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Loader2 className="w-4 h-4 text-blue-400 animate-spin"/>
+            <span className="text-xs text-slate-500 tracking-widest uppercase font-semibold">Analysing your trades…</span>
+          </div>
+        )}
       </div>
     </div>
   );
