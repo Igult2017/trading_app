@@ -211,12 +211,13 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         </div>
         <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-none border-2 border-slate-950 animate-pulse"/>
       </div>
-      <div className="text-center space-y-2">
-        <div className="flex items-center gap-3">
-          <Loader2 className="w-5 h-5 text-blue-400 animate-spin"/>
-          <span className="text-sm font-black uppercase tracking-widest text-slate-300">Running Strategy Audit</span>
-        </div>
-        <p className="text-xs text-slate-500 font-medium">Hi! I'm your strategy auditor. Welcome to audit room!</p>
+      <div className="text-center space-y-3">
+        <Loader2 className="w-5 h-5 text-blue-400 animate-spin mx-auto"/>
+        <p className="text-2xl font-black tracking-tight text-white leading-snug max-w-xs mx-auto">
+          Hi! I'm your<br/>
+          <span className="text-blue-400">Strategy Auditor.</span>
+        </p>
+        <p className="text-sm text-slate-400 font-medium tracking-wide">Welcome to the audit room.</p>
       </div>
     </div>
   );
