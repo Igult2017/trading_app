@@ -520,12 +520,12 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         setup_clarity_score=_coerce_float(g("setupClarityScore")),
         confluence_score=_coerce_float(g("confluenceScore")),
         signal_validation_score=_coerce_float(g("signalValidationScore")),
-        momentum_score=_coerce_float(g("momentumScore")),
+        momentum_score=_momentum_to_score(g("momentumScore") or g("momentumValidity")),
         mtf_alignment=_coerce_bool(g("mtfAlignment")),
         trend_alignment=_coerce_bool(g("trendAlignment")),
         htf_key_level_present=_coerce_bool(g("htfKeyLevelPresent")),
         key_level_respected=_coerce_bool(g("keyLevelRespected")),
-        target_logic=_coerce_bool(g("targetLogic")),
+        target_logic=_target_logic_bool(g("targetLogic")),
         setup_fully_valid=_coerce_bool(g("setupFullyValid")),
         rule_broken=_coerce_bool(g("ruleBroken")),
         worth_repeating=_coerce_bool(g("worthRepeating")),
@@ -535,7 +535,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         emotional_trade=_coerce_bool(g("emotionalTrade")),
         external_distraction=_coerce_bool(g("externalDistraction")),
         breakeven_applied=_coerce_bool(g("breakevenApplied")),
-        strong_momentum=_coerce_bool(g("strongMomentum")),
+        strong_momentum=_strong_momentum_bool(g("strongMomentum")),
         momentum_with_htf_align=_coerce_bool(g("momentumWithHTFAlign")),
         counter_momentum_entry=_coerce_bool(g("counterMomentumEntry")),
         trade_grade=cat("tradeGrade"),
@@ -624,6 +624,54 @@ def _pct_to_level(v: Any) -> Optional[str]:
     if n < 80:
         return "Medium"
     return "High"
+
+
+_MOMENTUM_SCORE_MAP: Dict[str, float] = {
+    "strong": 4.5,
+    "moderate": 3.0,
+    "weak": 1.5,
+}
+
+
+def _momentum_to_score(v: Any) -> Optional[float]:
+    """Convert momentumValidity string ('Strong'/'Moderate'/'Weak') or a raw
+    numeric score to a float suitable for score-bucket analysis."""
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return _MOMENTUM_SCORE_MAP.get(str(v).strip().lower())
+
+
+def _strong_momentum_bool(v: Any) -> Optional[bool]:
+    """'Strong' → True; 'Moderate' / 'Weak' → False; anything else defers to
+    _coerce_bool (handles 'yes'/'no'/'true'/'false' etc.)."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    low = str(v).strip().lower()
+    if low == "strong":
+        return True
+    if low in ("moderate", "weak"):
+        return False
+    return _coerce_bool(v)
+
+
+def _target_logic_bool(v: Any) -> Optional[bool]:
+    """'High' / 'Medium' → True (clear target logic present);
+    'Low' → False; other strings fall through to _coerce_bool."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    low = str(v).strip().lower()
+    if low in ("high", "medium"):
+        return True
+    if low == "low":
+        return False
+    return _coerce_bool(v)
 
 
 def validate_and_normalise(raw_trades: Any) -> List[TradeRecord]:
