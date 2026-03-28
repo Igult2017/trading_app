@@ -330,15 +330,15 @@ export default function AssetPage() {
                       price={entryTick.price ?? parseFloat(data.entry)}
                       prevPrice={entryTick.prevPrice}
                       direction={entryTick.direction}
-                      fontSize={18}
+                      fontSize={9}
                       fontWeight={700}
                     />
                   </div>
                 )
               },
               { label: "TARGET (TP)", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.tp}</span> },
-              { label: "PROTECT (SL)", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.sl}</span> },
-              { label: "RISK : REWARD", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.rr}</span> },
+              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.sl}</span> },
+              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.rr}</span> },
             ].map((col, i) => (
               <div key={i} style={{
                 padding: "20px 16px", textAlign: "center",
