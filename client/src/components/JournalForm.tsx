@@ -1275,7 +1275,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <div className="space-y-4">
                         <SectionHeader icon="Activity" title="Technical Signals"/>
                         <div className="space-y-4">
-                          {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
+                          {lf("Timing Context","timingContext",undefined,"e.g. Impulse, Correction, Ranging…")}
                           {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
                           {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
                         </div>

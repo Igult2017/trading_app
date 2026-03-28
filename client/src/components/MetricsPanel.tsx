@@ -575,7 +575,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <BoolYN label="Momentum: Strong" data={boolImpacts.strongMomentum}/>
               <ScoreRow label="Momentum Score" scores={scoreRowFromImpact(scoreImpacts.momentumScore)}/>
               <BoolYN label="Target Logic" data={boolImpacts.targetLogic}/>
-              <Multi label="Timing Context" options={['Impulse','Correction','Consolidation'].map(l=>({ label:l, pct: timingCtxData[l]?.winRate ?? null }))}/>
+              <Multi label="Timing Context" options={Object.keys(timingCtxData).map(l=>({ label:l, pct: timingCtxData[l]?.winRate ?? null }))}/>
               <Multi label="Order Type" options={['Limit','Market','Stop'].map(l=>({ label:l, pct: catBreakdown.orderType?.[l]?.winRate ?? null }))}/>
             </Scroll>
           </Panel>
@@ -743,9 +743,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <Bar label={`2–8 hrs    (${durationBuckets['2-8 hrs']?.count||0})`}    pct={durationBuckets['2-8 hrs']?.winRate    ?? null}/>
             <Bar label={`8+ hrs     (${durationBuckets['8+ hrs']?.count||0})`}     pct={durationBuckets['8+ hrs']?.winRate     ?? null}/>
             <SubLabel>Timing Context</SubLabel>
-            <Bar label="Impulse"       pct={timingCtxData['Impulse']?.winRate       ?? null} sub={`${ct(timingCtxData['Impulse'])}t`}/>
-            <Bar label="Correction"    pct={timingCtxData['Correction']?.winRate    ?? null} sub={`${ct(timingCtxData['Correction'])}t`}/>
-            <Bar label="Consolidation" pct={timingCtxData['Consolidation']?.winRate ?? null} sub={`${ct(timingCtxData['Consolidation'])}t`}/>
+            {Object.keys(timingCtxData).length > 0
+              ? Object.keys(timingCtxData).map(l => (
+                  <Bar key={l} label={l} pct={timingCtxData[l]?.winRate ?? null} sub={`${ct(timingCtxData[l])}t`}/>
+                ))
+              : <Bar label="No data" pct={null}/>
+            }
           </Panel>
 
           {/* Risk & Position Sizing */}
