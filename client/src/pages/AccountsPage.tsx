@@ -172,13 +172,6 @@ export default function AccountsPage({ openModal = false }: AccountsPageProps) {
     setModalOpen(openModal);
   }, [openModal]);
 
-  useEffect(() => {
-    const link = document.createElement("link");
-    link.href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
-    return () => document.head.removeChild(link);
-  }, []);
 
   return (
     <div style={s.root}>

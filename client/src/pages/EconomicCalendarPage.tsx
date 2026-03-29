@@ -71,8 +71,6 @@ export default function EconomicCalendarPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap');`}</style>
-
       <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
       <main className="max-w-7xl mx-auto px-4 py-8">

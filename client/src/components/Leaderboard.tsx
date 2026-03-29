@@ -73,8 +73,6 @@ export default function Leaderboard() {
 
   return (
     <div style={{ background: '#020617', color: '#f1f5f9', padding: '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');`}</style>
-
       <div>
 
         {/* ── Header ── */}

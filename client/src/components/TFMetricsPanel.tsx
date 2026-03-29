@@ -496,7 +496,6 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
   return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         body{background:${C.bg}}
         ::-webkit-scrollbar{width:3px;height:3px}

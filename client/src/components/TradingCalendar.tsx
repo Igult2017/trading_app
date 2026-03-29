@@ -357,7 +357,6 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   return (
     <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
         select option { background: #0F1520; color: #E8EDF5; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

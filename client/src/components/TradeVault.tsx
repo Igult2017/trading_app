@@ -450,7 +450,6 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   return (
     <div className="trade-vault-root" style={styles.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         .trade-vault-root, .trade-vault-root * { box-sizing: border-box; }
         .trade-vault-root select option { background: #111520; color: #e0e6f0; }
 

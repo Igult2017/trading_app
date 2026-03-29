@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react';
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
 ───────────────────────────────────────────────────────────────────── */
-const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap');`;
 
 const P = {
   bg:'#0D0F1C', bg2:'#121526', bg3:'#171A30',
@@ -295,7 +294,6 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   /* ── CSS ── */
   const css = `
-    ${FONTS}
     .mp-root,.mp-root *,.mp-root *::before,.mp-root *::after{box-sizing:border-box;margin:0;padding:0;}
     .mp-root{font-family:'Barlow',sans-serif;background:${P.bg};color:${P.body};}
     .mp-root::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px);}

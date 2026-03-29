@@ -314,7 +314,6 @@ export default function AssetPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
         .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
         .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }

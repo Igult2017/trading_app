@@ -68,7 +68,6 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
         .hh-nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
         .hh-nav-a.active { color:#3b82f6 !important; border-color:rgba(59,130,246,0.3) !important; background:rgba(59,130,246,0.08) !important; }
         .hh-nav-links { display:flex; align-items:center; gap:6px; }

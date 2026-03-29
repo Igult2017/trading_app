@@ -975,7 +975,6 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { font-family: 'Montserrat', sans-serif; }
         .custom-scrollbar { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #475569 #1e293b; }
         .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }

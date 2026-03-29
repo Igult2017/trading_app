@@ -162,7 +162,6 @@ export default function HomePage() {
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
         .nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
         .nav-journal-btn { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; padding:6px 16px; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; background:linear-gradient(to right,#2563eb,#3b82f6); color:#fff; border:none; }
         .nav-journal-btn:hover { background:linear-gradient(to right,#1d4ed8,#2563eb); }

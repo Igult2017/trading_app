@@ -715,7 +715,6 @@ export default function Journal() {
   return (
     <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@600;700&display=swap');
         .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
         .journal-root svg text{font-family:'Montserrat',sans-serif!important;}
         .journal-root ::-webkit-scrollbar{display:none;}

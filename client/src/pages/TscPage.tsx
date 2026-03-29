@@ -240,8 +240,6 @@ export default function TscPage() {
   return (
     <>
     <div style={{ minHeight: "100vh", background: bg, fontFamily: "'Montserrat', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');`}</style>
-
       <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: `radial-gradient(ellipse at 15% 10%,${dark ? "rgba(99,102,241,0.07)" : "rgba(99,102,241,0.05)"} 0%,transparent 55%), radial-gradient(ellipse at 85% 85%,${dark ? "rgba(16,185,129,0.05)" : "rgba(16,185,129,0.04)"} 0%,transparent 55%)` }} />

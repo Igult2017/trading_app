@@ -85,7 +85,6 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   return (
     <div>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
         .nav-a { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
