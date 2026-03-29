@@ -87,11 +87,15 @@ export function useFastPrice(symbol: string, intervalMs = 2000): FastPriceData {
     return () => { cancelled = true; clearInterval(id); };
   }, [symbol, intervalMs]);
 
+  // On first load prevPrice is null — fall back to changePercent from the API
+  // so the arrow shows the right colour immediately instead of staying grey.
   const direction: "up" | "down" | "flat" =
-    price === null || prevPrice === null ? "flat"
-    : price > prevPrice ? "up"
-    : price < prevPrice ? "down"
-    : "flat";
+    price === null ? "flat"
+    : prevPrice !== null
+      ? (price > prevPrice ? "up" : price < prevPrice ? "down" : "flat")
+      : changePct != null
+        ? (changePct > 0 ? "up" : changePct < 0 ? "down" : "flat")
+        : "flat";
 
   return { price, prevPrice, direction, changePercent: changePct, loading };
 }
@@ -128,11 +132,14 @@ export function useFastBatchPrices(
           results.forEach(r => {
             if (r.price == null) return;
             const prevP = prevRef.current[r.symbol] ?? null;
+            // Fall back to API changePercent on first load so arrows are
+            // immediately coloured instead of showing flat/grey.
             const dir: "up" | "down" | "flat" =
-              prevP === null ? "flat"
-              : r.price > prevP ? "up"
-              : r.price < prevP ? "down"
-              : "flat";
+              prevP !== null
+                ? (r.price > prevP ? "up" : r.price < prevP ? "down" : "flat")
+                : r.changePercent != null
+                  ? (r.changePercent > 0 ? "up" : r.changePercent < 0 ? "down" : "flat")
+                  : "flat";
             prevRef.current[r.symbol] = r.price;
             next[r.symbol] = {
               price: r.price,
