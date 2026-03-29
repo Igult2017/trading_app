@@ -39,7 +39,7 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
   { label: "Reviews", href: "/#reviews" },
-  { label: "Economic Calendar", href: "/#economic-calendar" },
+  { label: "Economic Calendar", href: "/calendar" },
   { label: "Assets", href: "/#assets" },
   { label: "Blog", href: "/blog" },
   { label: "TSC", href: "/tsc" },
