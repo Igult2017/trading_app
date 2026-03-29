@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
+import HomeFooter from '@/components/HomeFooter';
 
 const FEATURE_IMAGE_URL = "https://picsum.photos/seed/macro1/1200/800";
 const YEN_IMAGE_URL = "https://picsum.photos/seed/forex1/800/600";
@@ -292,9 +293,7 @@ export default function BlogPage() {
         </section>
       </main>
 
-      <footer className={`border-t py-12 px-12 mt-20 transition-colors duration-700 ${isDark ? 'bg-[#0f172a] border-[#1e293b]' : 'bg-white border-stone-200'}`}>
-        <div className="max-w-[1200px] mx-auto text-center" />
-      </footer>
+      <HomeFooter />
     </div>
   );
 }

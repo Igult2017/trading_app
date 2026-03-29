@@ -7,6 +7,7 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
+import HomeFooter from '@/components/HomeFooter';
 
 const calendarEvents = [
   { id: 1, date: 'Dec 29', time: '15:30', country: 'US', currency: 'USD', event: 'Pending Home Sales MoM (Nov)', importance: 'High', actual: '3.3%', forecast: '1.0%', previous: '2.4%', category: 'Stocks' },
@@ -236,6 +237,7 @@ export default function EconomicCalendarPage() {
 
         </div>
       </main>
+      <HomeFooter />
     </div>
   );
 }

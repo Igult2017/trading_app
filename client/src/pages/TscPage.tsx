@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import HomeHeader from "@/components/HomeHeader";
+import HomeFooter from "@/components/HomeFooter";
 
 function isLondonBST(date: Date) {
   const y = date.getUTCFullYear();
@@ -237,6 +238,7 @@ export default function TscPage() {
   const textMuted = dark ? "#64748b" : "#94a3b8";
 
   return (
+    <>
     <div style={{ minHeight: "100vh", background: bg, fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');`}</style>
 
@@ -356,19 +358,9 @@ export default function TscPage() {
         </div>
 
         {/* Footer */}
-        <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "0.25rem 0.25rem 0.5rem" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: textMuted, letterSpacing: "0.05em" }}>© 2025 FSDZONES.com</span>
-          <div style={{ display: "flex", gap: 18 }}>
-            {["Documentation", "API Status"].map(l => (
-              <a key={l} href="#" style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", color: textMuted, textDecoration: "none" }}
-                onMouseEnter={e => { (e.target as HTMLAnchorElement).style.color = "#6366f1"; }}
-                onMouseLeave={e => { (e.target as HTMLAnchorElement).style.color = textMuted; }}
-              >{l}</a>
-            ))}
-          </div>
-        </footer>
-
       </div>
     </div>
+    <HomeFooter />
+    </>
   );
 }
