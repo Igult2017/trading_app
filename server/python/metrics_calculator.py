@@ -74,6 +74,7 @@ FIELD_MAP: Dict[str, str] = {
     "confluenceScore": "confluence_score",
     "confluence": "confluence_score",
     "signalValidationScore": "signal_validation_score",
+    "signalValidation": "signal_validation_score",  # JournalForm stores without "Score"
     "momentumScore": "momentum_score",
     # ── Booleans ─────────────────────────────────────────────────────────────
     "mtfAlignment": "mtf_alignment",
@@ -124,6 +125,7 @@ FIELD_MAP: Dict[str, str] = {
     "order_type": "order_type",
     "managementType": "management_type",
     "candlePattern": "candle_pattern",
+    "indicatorState": "indicator_state",
     "newsImpact": "news_impact",
     "newsEnvironment": "news_impact",      # JournalForm uses newsEnvironment
     "emotionalState": "emotional_state",
@@ -213,6 +215,7 @@ class TradeRecord:
     external_distraction: Optional[bool]
     breakeven_applied: Optional[bool]
     strong_momentum: Optional[bool]
+    momentum_validity: Optional[str]   # raw "Strong"/"Moderate"/"Weak" string
     momentum_with_htf_align: Optional[bool]
     counter_momentum_entry: Optional[bool]
     trade_grade: Optional[str]
@@ -232,6 +235,7 @@ class TradeRecord:
     order_type: Optional[str]
     management_type: Optional[str]
     candle_pattern: Optional[str]
+    indicator_state: Optional[str]
     news_impact: Optional[str]
     emotional_state: Optional[str]
     focus_level: Optional[str]
@@ -340,6 +344,7 @@ def _coerce_datetime(value: Any) -> Optional[datetime]:
             return None
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z",
                     "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
+                    "%Y-%m-%dT%H:%M",          # datetime-local input (no seconds)
                     "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
                     "%d/%m/%Y %H:%M", "%d/%m/%Y"):
             try:
@@ -445,11 +450,26 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         or _coerce_datetime(raw.get("created_at"))
     )
 
-    # Duration
+    # Duration — prefer computed from timestamps, fall back to tradeDuration string
     duration = None
     if opened_at and closed_at:
         delta = (closed_at - opened_at).total_seconds()
         duration = delta / 60.0 if delta >= 0 else None
+    if duration is None:
+        # Parse tradeDuration strings like "2h 30m", "45m", "1h", "90" (minutes)
+        td_raw = g("tradeDuration") or raw.get("trade_duration") or raw.get("tradeDuration")
+        if td_raw is not None:
+            import re as _re
+            td_str = str(td_raw).strip()
+            h = _re.search(r"(\d+(?:\.\d+)?)\s*h", td_str)
+            m = _re.search(r"(\d+(?:\.\d+)?)\s*m", td_str)
+            if h or m:
+                duration = float(h.group(1) if h else 0) * 60 + float(m.group(1) if m else 0)
+            else:
+                try:
+                    duration = float(td_str)  # plain number → treat as minutes
+                except (ValueError, TypeError):
+                    pass
 
     # Day of week from trade_date
     dow = g("dayOfWeek") or (trade_date.strftime("%A") if trade_date else None)
@@ -504,6 +524,18 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         v = g(camel)
         return str(v).strip() or None if v is not None else None
 
+    # ── Planned vs Actual deviations ─────────────────────────────────────────
+    def _deviation(planned_key: str, actual_key: str) -> Optional[float]:
+        planned = _coerce_float(g(planned_key))
+        actual  = _coerce_float(g(actual_key))
+        if planned is not None and actual is not None and planned != 0:
+            return round(abs(actual - planned), 5)
+        return None
+
+    entry_dev = _coerce_float(g("entryDeviation")) or _deviation("plannedEntry", "actualEntry")
+    sl_dev    = _coerce_float(g("slDeviation"))    or _deviation("plannedSL",    "actualSL")
+    tp_dev    = _coerce_float(g("tpDeviation"))    or _deviation("plannedTP",    "actualTP")
+
     return TradeRecord(
         id=str(raw_id),
         session_id=str(g("sessionId") or raw.get("session_id") or ""),
@@ -519,13 +551,13 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         market_alignment_score=_coerce_float(g("marketAlignmentScore")),
         setup_clarity_score=_coerce_float(g("setupClarityScore")),
         confluence_score=_coerce_float(g("confluenceScore")),
-        signal_validation_score=_coerce_float(g("signalValidationScore")),
-        momentum_score=_coerce_float(g("momentumScore")),
+        signal_validation_score=_coerce_float(g("signalValidationScore") or g("signalValidation")),
+        momentum_score=_momentum_to_score(g("momentumScore") or g("momentumValidity")),
         mtf_alignment=_coerce_bool(g("mtfAlignment")),
         trend_alignment=_coerce_bool(g("trendAlignment")),
         htf_key_level_present=_coerce_bool(g("htfKeyLevelPresent")),
         key_level_respected=_coerce_bool(g("keyLevelRespected")),
-        target_logic=_coerce_bool(g("targetLogic")),
+        target_logic=_target_logic_bool(g("targetLogic")),
         setup_fully_valid=_coerce_bool(g("setupFullyValid")),
         rule_broken=_coerce_bool(g("ruleBroken")),
         worth_repeating=_coerce_bool(g("worthRepeating")),
@@ -535,7 +567,8 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         emotional_trade=_coerce_bool(g("emotionalTrade")),
         external_distraction=_coerce_bool(g("externalDistraction")),
         breakeven_applied=_coerce_bool(g("breakevenApplied")),
-        strong_momentum=_coerce_bool(g("strongMomentum")),
+        strong_momentum=_strong_momentum_bool(g("strongMomentum")),
+        momentum_validity=_normalise_momentum_validity(g("strongMomentum")),
         momentum_with_htf_align=_coerce_bool(g("momentumWithHTFAlign")),
         counter_momentum_entry=_coerce_bool(g("counterMomentumEntry")),
         trade_grade=cat("tradeGrade"),
@@ -555,14 +588,15 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         order_type=cat("orderType") or _str(raw.get("order_type")),
         management_type=cat("managementType"),
         candle_pattern=cat("candlePattern"),
+        indicator_state=cat("indicatorState"),
         news_impact=cat("newsImpact"),
         emotional_state=cat("emotionalState"),
-        focus_level=cat("focusLevel"),
-        confidence_level=cat("confidenceLevel"),
-        energy_level=cat("energyLevel"),
-        confidence_at_entry=cat("confidenceAtEntry"),
-        rules_followed=cat("rulesFollowed"),
-        strategy=cat("strategy"),
+        focus_level=_score_to_level(g("focusLevel") or g("focusStressLevel")),
+        confidence_level=_score_to_level(g("confidenceLevel")),
+        energy_level=_score_to_level(g("energyLevel")),
+        confidence_at_entry=_score_to_level(g("confidenceAtEntry")),
+        rules_followed=_pct_to_level(g("rulesFollowed")),
+        strategy=cat("strategyVersionId") or cat("strategy"),
         risk_heat=cat("riskHeat"),
         mae=_coerce_float(g("mae")),
         mfe=_coerce_float(g("mfe")),
@@ -571,9 +605,9 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         sl_distance=sl_dist,
         tp_distance=tp_dist,
         spread_at_entry=_coerce_float(g("spreadAtEntry")) or _coerce_float(raw.get("spread_at_entry")),
-        entry_deviation=_coerce_float(g("entryDeviation")),
-        sl_deviation=_coerce_float(g("slDeviation")),
-        tp_deviation=_coerce_float(g("tpDeviation")),
+        entry_deviation=entry_dev,
+        sl_deviation=sl_dev,
+        tp_deviation=tp_dev,
         opened_at=opened_at,
         closed_at=closed_at,
         trade_date=trade_date,
@@ -590,6 +624,102 @@ def _str(v: Any) -> Optional[str]:
         return None
     s = str(v).strip()
     return s or None
+
+
+def _score_to_level(v: Any) -> Optional[str]:
+    """Convert a 1–5 numeric score to Low / Medium / High.
+    If v is already a string label (e.g. 'High'), it is returned as-is."""
+    if v is None:
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        s = str(v).strip()
+        return s or None  # already a label string
+    if n <= 2:
+        return "Low"
+    if n <= 3:
+        return "Medium"
+    return "High"
+
+
+def _pct_to_level(v: Any) -> Optional[str]:
+    """Convert a 0–100 percentage to Low / Medium / High.
+    If v is already a string label, it is returned as-is."""
+    if v is None:
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        s = str(v).strip()
+        return s or None
+    if n < 60:
+        return "Low"
+    if n < 80:
+        return "Medium"
+    return "High"
+
+
+_MOMENTUM_SCORE_MAP: Dict[str, float] = {
+    "strong": 4.5,
+    "moderate": 3.0,
+    "weak": 1.5,
+}
+
+
+def _momentum_to_score(v: Any) -> Optional[float]:
+    """Convert momentumValidity string ('Strong'/'Moderate'/'Weak') or a raw
+    numeric score to a float suitable for score-bucket analysis."""
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return _MOMENTUM_SCORE_MAP.get(str(v).strip().lower())
+
+
+def _normalise_momentum_validity(v: Any) -> Optional[str]:
+    """Return 'Strong', 'Moderate', or 'Weak' from a raw field value; None otherwise."""
+    if v is None:
+        return None
+    low = str(v).strip().lower()
+    if low == "strong":
+        return "Strong"
+    if low == "moderate":
+        return "Moderate"
+    if low == "weak":
+        return "Weak"
+    return None
+
+
+def _strong_momentum_bool(v: Any) -> Optional[bool]:
+    """'Strong' → True; 'Moderate' / 'Weak' → False; anything else defers to
+    _coerce_bool (handles 'yes'/'no'/'true'/'false' etc.)."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    low = str(v).strip().lower()
+    if low == "strong":
+        return True
+    if low in ("moderate", "weak"):
+        return False
+    return _coerce_bool(v)
+
+
+def _target_logic_bool(v: Any) -> Optional[bool]:
+    """'High' / 'Medium' → True (clear target logic present);
+    'Low' → False; other strings fall through to _coerce_bool."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    low = str(v).strip().lower()
+    if low in ("high", "medium"):
+        return True
+    if low == "low":
+        return False
+    return _coerce_bool(v)
 
 
 def validate_and_normalise(raw_trades: Any) -> List[TradeRecord]:
@@ -991,7 +1121,7 @@ def calc_psychology(ctx: SharedContext) -> Dict:
         "volatilityState": "volatility_state", "htfBias": "htf_bias",
         "directionalBias": "directional_bias", "keyLevelType": "key_level_type",
         "sessionPhase": "session_phase", "newsImpact": "news_impact",
-        "riskHeat": "risk_heat",
+        "riskHeat": "risk_heat", "momentumValidity": "momentum_validity",
     }
     breakdowns = {camel: breakdown_by_categorical(trades, snake)
                   for camel, snake in cat_fields.items()}
@@ -1051,6 +1181,26 @@ def calc_candle_patterns(ctx: SharedContext) -> Dict:
     return breakdown_by_categorical(ctx.trades, "candle_pattern")
 
 
+def calc_candle_indicator_tf_matrix(ctx: SharedContext) -> Dict:
+    """3-way composite: candle_pattern · indicator_state · timeframe → performance."""
+    groups: Dict[str, List[TradeRecord]] = defaultdict(list)
+    for t in ctx.trades:
+        candle = t.candle_pattern
+        indicator = t.indicator_state
+        tf = t.timeframe or t.analysis_timeframe
+        if candle and indicator and tf:
+            key = f"{candle} · {indicator} · {tf}"
+            groups[key].append(t)
+    return {
+        k: {
+            "winRate": win_rate_of(v),
+            "count": len(v),
+            "pl": round(sum(t.pnl for t in v), 2),
+        }
+        for k, v in sorted(groups.items())
+    }
+
+
 def calc_duration_breakdown(ctx: SharedContext) -> Dict:
     bucket_groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
@@ -1071,8 +1221,8 @@ def calc_duration_breakdown(ctx: SharedContext) -> Dict:
         },
         "timingContext": breakdown_by_categorical(ctx.trades, "timing_context"),
         "avgMinutes":      round(safe_mean(dur_v), 2) if dur_v else None,
-        "avgMinutesWin":   round(safe_mean([t.duration_minutes for t in ctx.wins   if t.duration_minutes is not None]), 2) if ctx.wins   else None,
-        "avgMinutesLoss":  round(safe_mean([t.duration_minutes for t in ctx.losses if t.duration_minutes is not None]), 2) if ctx.losses else None,
+        "avgMinutesWin":   round(v, 2) if (v := safe_mean([t.duration_minutes for t in ctx.wins   if t.duration_minutes is not None])) is not None else None,
+        "avgMinutesLoss":  round(v, 2) if (v := safe_mean([t.duration_minutes for t in ctx.losses if t.duration_minutes is not None])) is not None else None,
     }
 
 
@@ -1083,8 +1233,32 @@ def calc_session_phase(ctx: SharedContext) -> Dict:
 def calc_instrument_session_matrix(ctx: SharedContext) -> Dict:
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
-        if t.instrument and t.session:
-            groups[f"{t.instrument} / {t.session}"].append(t)
+        if t.instrument and t.session and t.analysis_timeframe:
+            key = f"{t.instrument} · {t.analysis_timeframe} · {t.session}"
+            groups[key].append(t)
+    return {
+        k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
+        for k, v in sorted(groups.items())
+    }
+
+
+def _momentum_label(score: Optional[float]) -> Optional[str]:
+    if score is None:
+        return None
+    if score >= 4.0:
+        return "Strong"
+    if score >= 2.5:
+        return "Moderate"
+    return "Weak"
+
+
+def calc_instrument_phase_momentum_matrix(ctx: SharedContext) -> Dict:
+    groups: Dict[str, List[TradeRecord]] = defaultdict(list)
+    for t in ctx.trades:
+        mom = _momentum_label(t.momentum_score)
+        if t.instrument and t.session_phase and mom:
+            key = f"{t.instrument} · {t.session_phase} · {mom}"
+            groups[key].append(t)
     return {
         k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
         for k, v in sorted(groups.items())
@@ -1243,10 +1417,12 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "marketRegime":             calc_market_regime,
     "setupTags":                calc_setup_tags,
     "candlePatterns":           calc_candle_patterns,
+    "candleIndicatorTFMatrix":  calc_candle_indicator_tf_matrix,
     "durationBreakdown":        calc_duration_breakdown,
     "sessionPhase":             calc_session_phase,
-    "instrumentSessionMatrix":  calc_instrument_session_matrix,
-    "strategyMarketMatrix":     calc_strategy_market_matrix,
+    "instrumentSessionMatrix":        calc_instrument_session_matrix,
+    "instrumentPhaseMomentumMatrix":  calc_instrument_phase_momentum_matrix,
+    "strategyMarketMatrix":           calc_strategy_market_matrix,
     "orderTypeBreakdown":       calc_order_type_breakdown,
     "riskHeatBreakdown":        calc_risk_heat_breakdown,
     "newsImpactBreakdown":      calc_news_impact_breakdown,

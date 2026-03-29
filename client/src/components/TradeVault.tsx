@@ -55,6 +55,8 @@ type Trade = {
   session: string;
   outcome: string;
   pl: number;
+  rr: string;
+  direction: string;
 };
 
 function journalEntryToTrade(entry: JournalEntry): Trade {
@@ -71,8 +73,12 @@ function journalEntryToTrade(entry: JournalEntry): Trade {
   const manual = (entry.manualFields && typeof entry.manualFields === "object") ? entry.manualFields as Record<string, unknown> : {};
   const ai = (entry.aiExtracted && typeof entry.aiExtracted === "object") ? entry.aiExtracted as Record<string, unknown> : {};
 
-  const strategy = (manual.strategy as string) || (ai.strategy as string) || "";
+  const strategy = (manual.strategyVersionId as string) || (manual.strategy as string) || (ai.strategy as string) || "";
   const pl = entry.profitLoss ? parseFloat(entry.profitLoss) : 0;
+  const rr = entry.riskReward ? String(entry.riskReward) : "";
+  const rawDir = (entry.direction || "").toLowerCase();
+  // JournalForm saves "Long"/"Short"; support both that and "bullish"/"bearish"
+  const direction = rawDir === "long" ? "bullish" : rawDir === "short" ? "bearish" : rawDir;
 
   return {
     id: entry.id,
@@ -83,11 +89,73 @@ function journalEntryToTrade(entry: JournalEntry): Trade {
     session: entry.sessionName || "",
     outcome: (entry.outcome || "").toUpperCase(),
     pl: isNaN(pl) ? 0 : pl,
+    rr,
+    direction,
   };
 }
 
 function formatPL(pl: number) {
   return pl >= 0 ? `+$${pl.toLocaleString()}` : `-$${Math.abs(pl).toLocaleString()}`;
+}
+
+function DirectionBadge({ direction }: { direction: string }) {
+  const isBullish = direction === "bullish";
+  const isBearish = direction === "bearish";
+
+  if (!isBullish && !isBearish) {
+    return <span style={{ color: "#3a4a6a", fontSize: 11 }}>—</span>;
+  }
+
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      padding: "4px 10px",
+      borderRadius: 20,
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: "0.08em",
+      border: "1px solid transparent",
+      background: isBullish ? "rgba(0,212,138,0.08)" : "rgba(255,77,109,0.08)",
+      color: isBullish ? "#00d48a" : "#ff4d6d",
+      borderColor: isBullish ? "rgba(0,212,138,0.2)" : "rgba(255,77,109,0.2)",
+      fontFamily: "'Montserrat', sans-serif",
+    }}>
+      {isBullish ? (
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M4 7V1M1 4l3-3 3 3" stroke="#00d48a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ) : (
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M4 1v6M7 4L4 7 1 4" stroke="#ff4d6d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+      {isBullish ? "BULLISH" : "BEARISH"}
+    </span>
+  );
+}
+
+function RRBadge({ rr }: { rr: string }) {
+  const val = parseFloat(rr);
+  if (!rr || isNaN(val)) return <span style={{ color: "#3a4a6a", fontSize: 11 }}>—</span>;
+  const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
+  return (
+    <span style={{
+      display: "inline-block",
+      padding: "4px 10px",
+      borderRadius: 6,
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: "0.08em",
+      background: "rgba(77,166,255,0.06)",
+      border: "1px solid rgba(77,166,255,0.15)",
+      color,
+      fontFamily: "'Montserrat', sans-serif",
+    }}>
+      1:{val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}
+    </span>
+  );
 }
 
 function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean }) {
@@ -153,6 +221,29 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
           </div>
 
           <div style={styles.formGroup}>
+            <label style={styles.label}>Direction</label>
+            <select value={form.direction} onChange={(e) => handleChange("direction", e.target.value)} style={styles.input} data-testid="select-direction">
+              <option value="">— None —</option>
+              <option value="bullish">Bullish</option>
+              <option value="bearish">Bearish</option>
+            </select>
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Risk:Reward (R)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              placeholder="e.g. 2.5"
+              value={form.rr}
+              onChange={(e) => handleChange("rr", e.target.value)}
+              style={styles.input}
+              data-testid="input-rr"
+            />
+          </div>
+
+          <div style={styles.formGroup}>
             <label style={styles.label}>P/L ($)</label>
             <input
               type="number"
@@ -187,7 +278,7 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
 }
 
 function downloadCSV(trades: Trade[]) {
-  const headers = ["Date", "Time", "Asset", "Strategy", "Session", "Outcome", "P/L"];
+  const headers = ["Date", "Time", "Asset", "Strategy", "Session", "Outcome", "Direction", "RR", "P/L"];
   const rows = trades.map(t => [
     t.date,
     t.time,
@@ -195,6 +286,8 @@ function downloadCSV(trades: Trade[]) {
     t.strategy,
     t.session,
     t.outcome,
+    t.direction,
+    t.rr,
     t.pl.toString(),
   ]);
   const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -207,7 +300,7 @@ function downloadCSV(trades: Trade[]) {
   URL.revokeObjectURL(url);
 }
 
-export default function TradeVault({ sessionId }: { sessionId?: string | null }) {
+export default function TradeVault({ sessionId, startingBalance: sessionStartingBalance }: { sessionId?: string | null; startingBalance?: number }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [exported, setExported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -222,7 +315,11 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   const queryUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '/api/journal/entries';
   const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal/entries", sessionId],
-    queryFn: () => fetch(queryUrl).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(queryUrl);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
     enabled: !!sessionId,
   });
 
@@ -237,6 +334,8 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
         profitLoss: String(updated.pl),
         entryTime: `${updated.date}T${updated.time}`,
         manualFields: { strategy: updated.strategy },
+        direction: updated.direction || null,
+        riskReward: updated.rr ? String(updated.rr) : null,
       };
       await apiRequest("PUT", `/api/journal/entries/${updated.id}`, body);
     },
@@ -259,11 +358,9 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   const wins = trades.filter((t) => t.outcome === "WIN").length;
   const winRate = trades.length ? Math.round((wins / trades.length) * 100) : 0;
 
-  const firstEntry = journalEntries[0];
-  const startingBalance = firstEntry
-    ? (parseFloat(firstEntry.accountBalance || "0") || 0) - (parseFloat(firstEntry.profitLoss || "0") || 0)
+  const growthPct = sessionStartingBalance && sessionStartingBalance > 0
+    ? (totalPL / sessionStartingBalance) * 100
     : 0;
-  const growthPct = startingBalance > 0 ? (totalPL / startingBalance) * 100 : 0;
   const days = new Set(trades.map(t => t.date)).size;
 
   const handleExport = () => {
@@ -353,7 +450,6 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
   return (
     <div className="trade-vault-root" style={styles.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         .trade-vault-root, .trade-vault-root * { box-sizing: border-box; }
         .trade-vault-root select option { background: #111520; color: #e0e6f0; }
 
@@ -403,7 +499,7 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
           <table style={styles.table}>
             <thead>
               <tr>
-                {["DATE", "ASSET", "STRATEGY", "SESSION", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
+                {["DATE", "ASSET", "STRATEGY", "SESSION", "DIRECTION", "RR", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
                   <th key={col} style={styles.th}>{col}</th>
                 ))}
               </tr>
@@ -431,6 +527,12 @@ export default function TradeVault({ sessionId }: { sessionId?: string | null })
                   </td>
                   <td style={styles.td}>
                     <span style={styles.sessionBadge}>{trade.session}</span>
+                  </td>
+                  <td style={styles.td}>
+                    <DirectionBadge direction={trade.direction} />
+                  </td>
+                  <td style={styles.td}>
+                    <RRBadge rr={trade.rr} />
                   </td>
                   <td style={styles.td}>
                     <span style={{
@@ -624,14 +726,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   pl: {
     fontFamily: "'Montserrat', sans-serif",
-    fontWeight: 700,
+    fontWeight: 800,
     fontSize: 14,
   },
   overlay: {
     position: "fixed" as const,
     inset: 0,
     background: "rgba(0,0,0,0.7)",
-    backdropFilter: "blur(6px)",
+    backdropFilter: "blur(4px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -640,10 +742,12 @@ const styles: Record<string, React.CSSProperties> = {
   modal: {
     background: "#0d1220",
     border: "1px solid #1e2d4a",
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 28,
     width: "100%",
     maxWidth: 480,
+    maxHeight: "90vh",
+    overflowY: "auto" as const,
   },
   modalHeader: {
     display: "flex",
@@ -653,20 +757,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modalTitle: {
     fontFamily: "'Montserrat', sans-serif",
-    fontWeight: 700,
-    fontSize: 16,
+    fontWeight: 800,
+    fontSize: 14,
     color: "#e8eeff",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.1em",
   },
   closeBtn: {
     background: "none",
     border: "none",
     color: "#3a4a6a",
-    fontSize: 16,
     cursor: "pointer",
-    padding: "4px 8px",
-    borderRadius: 6,
-    transition: "color 0.2s",
+    fontSize: 16,
   },
   formGrid: {
     display: "grid",
@@ -674,18 +775,23 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 16,
     marginBottom: 24,
   },
-  formGroup: { display: "flex", flexDirection: "column" as const, gap: 6 },
+  formGroup: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 6,
+  },
   label: {
-    fontSize: 10,
+    fontSize: 9,
+    fontWeight: 700,
     color: "#3a4a6a",
-    letterSpacing: "0.1em",
-    fontWeight: 600,
+    letterSpacing: "0.12em",
+    fontFamily: "'Montserrat', sans-serif",
   },
   input: {
-    background: "#111825",
+    background: "#080c15",
     border: "1px solid #1e2d4a",
-    borderRadius: 8,
-    padding: "9px 12px",
+    borderRadius: 6,
+    padding: "8px 10px",
     color: "#c0cce0",
     fontSize: 12,
     fontFamily: "'JetBrains Mono', monospace",
@@ -694,45 +800,31 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modalActions: {
     display: "flex",
-    justifyContent: "flex-end",
     gap: 10,
+    justifyContent: "flex-end",
   },
   cancelBtn: {
+    padding: "8px 18px",
     background: "none",
     border: "1px solid #1e2d4a",
+    borderRadius: 6,
     color: "#5b7aaa",
-    padding: "9px 20px",
-    borderRadius: 8,
-    fontSize: 12,
-    cursor: "pointer",
-    fontFamily: "'JetBrains Mono', monospace",
-  },
-  downloadBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    background: "rgba(91,140,248,0.08)",
-    border: "1px solid rgba(91,140,248,0.2)",
-    color: "#5b8cf8",
-    padding: "9px 18px",
-    borderRadius: 10,
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: 700,
     cursor: "pointer",
     fontFamily: "'Montserrat', sans-serif",
-    fontWeight: 700,
-    letterSpacing: "0.1em",
-    transition: "all 0.2s ease",
+    letterSpacing: "0.08em",
   },
   saveBtn: {
-    background: "rgba(91,140,248,0.15)",
-    border: "1px solid rgba(91,140,248,0.3)",
-    color: "#5b8cf8",
-    padding: "9px 20px",
-    borderRadius: 8,
-    fontSize: 12,
+    padding: "8px 18px",
+    background: "#1e6fc8",
+    border: "none",
+    borderRadius: 6,
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: 700,
     cursor: "pointer",
     fontFamily: "'Montserrat', sans-serif",
-    fontWeight: 600,
-    letterSpacing: "0.05em",
+    letterSpacing: "0.08em",
   },
 };

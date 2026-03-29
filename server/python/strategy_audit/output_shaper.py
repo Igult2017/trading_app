@@ -78,12 +78,13 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     psych   = _safe(l1.get("psychologyScore"), 0.0)
     disc    = _safe(l1.get("disciplineScore"),  0.0)
     kelly   = _safe(l1.get("probabilisticEdge"), 0.0)
-    wr      = _pct(es.get("overallWinRate"), 0.0)
-    pf      = _r2(es.get("profitFactor"), 0.0)
-    exp_val = _r2(es.get("expectancy"), 0.0)
-    n       = int(_safe(es.get("sampleSize"), 0))
-    verdict = es.get("edgeVerdict", "Unconfirmed")
-    conf    = _verdict_to_confidence(verdict, pf, wr)
+    wr          = _pct(es.get("overallWinRate"), 0.0)
+    pf          = _r2(es.get("profitFactor"), 0.0)
+    exp_val     = _r2(es.get("expectancy"), 0.0)
+    n           = int(_safe(es.get("sampleSize"), 0))
+    verdict     = es.get("edgeVerdict", "Unconfirmed")
+    conf        = _verdict_to_confidence(verdict, pf, wr)
+    persistence = _r2(l1.get("edgePersistence"), 0.0)
     # ── L2 ──
     var     = l2.get("variance", {})
     dd      = l2.get("drawdown", {})
@@ -171,7 +172,7 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     return {
         "success": True,
         "auditSummary": {
-            "winRate": round(wr,1), "edgePersistence": round(pf,2), "riskEntropy": r_ent,
+            "winRate": round(wr,1), "edgePersistence": round(persistence,2), "riskEntropy": r_ent,
             "aiConfidence": round(conf,1), "sampleSize": n, "edgeVerdict": verdict,
             "confidence": conf, "grade": grade, "gradeSummary": summary,
         },

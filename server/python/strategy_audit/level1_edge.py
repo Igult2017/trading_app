@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from datetime import datetime, timezone as _tz
+
 from ._utils import (
     normalise_trades,
     check_minimum_sample,
@@ -75,7 +77,9 @@ def _conditions() -> list[tuple[str, Any]]:
 
     def _prime_session(t):
         label = (t.get("session_label") or "").lower()
-        return "london" in label or "new york" in label or "overlap" in label or None
+        if not label or label == "unknown":
+            return None  # session unknown — cannot evaluate
+        return "london" in label or "new york" in label or "overlap" in label
 
     def _good_psychology(t):
         v = t.get("psychology_score")
@@ -239,22 +243,78 @@ def _kelly_edge(trades: list[dict]) -> float:
     """
     Kelly% = W - (L / avg_RR) * 100
     Clamped to [-100, 100].
+
+    Uses actual average win / average loss P&L as the R:R ratio when both
+    are available (more accurate than planned RR). Falls back to the logged
+    rr_float when actual P&L data is insufficient.
     """
     knowns = [t for t in trades if t.get("win") is not None]
     if not knowns:
         return 0.0
 
-    W = sum(1 for t in knowns if t["win"] is True) / len(knowns)
+    wins_only   = [t for t in knowns if t["win"] is True]
+    losses_only = [t for t in knowns if t["win"] is False]
+    W = len(wins_only) / len(knowns)
     L = 1.0 - W
 
-    rr_values = [t["rr_float"] for t in trades if t.get("rr_float") and t["rr_float"] > 0]
-    avg_rr = safe_mean(rr_values) if rr_values else 1.0
+    # Prefer actual P&L ratio over planned RR
+    win_pnls  = [t["pnl"] for t in wins_only  if t.get("pnl") and t["pnl"] > 0]
+    loss_pnls = [abs(t["pnl"]) for t in losses_only if t.get("pnl") and t["pnl"] < 0]
+
+    if win_pnls and loss_pnls:
+        avg_rr = safe_mean(win_pnls) / max(safe_mean(loss_pnls), 0.0001)
+    else:
+        rr_values = [t["rr_float"] for t in trades if t.get("rr_float") and t["rr_float"] > 0]
+        avg_rr = safe_mean(rr_values) if rr_values else 1.0
 
     if avg_rr <= 0:
         avg_rr = 1.0
 
     kelly = (W - (L / avg_rr)) * 100
     return round(max(-100.0, min(100.0, kelly)), 2)
+
+
+# ── Edge persistence ─────────────────────────────────────────────────────────
+
+def _edge_persistence(trades: list[dict]) -> float:
+    """
+    Measures how consistently the edge holds across time.
+
+    Method: sort trades chronologically, split into first-half / second-half,
+    compute profit factor in each half.
+
+    persistence = min(pf_first, pf_second) / max(pf_first, pf_second)
+      → 1.0  means the edge is rock-solid across both periods
+      → 0.5  means one period is twice as strong as the other
+      → 0.0  means one period lost money (no persistent edge)
+
+    Returns 0.0 when there are fewer than 10 trades with P&L (not enough to split).
+    Falls back to list order when trades lack date fields.
+    """
+    # Keep only trades that have P&L; sort by date where available
+    with_pnl = [t for t in trades if t.get("pnl") is not None]
+    if len(with_pnl) < 10:
+        return 0.0
+
+    def _sort_key(t):
+        dt = t.get("exit_dt") or t.get("entry_dt") or t.get("created_dt")
+        return dt if dt is not None else datetime(2000, 1, 1, tzinfo=_tz.utc)
+
+    sorted_trades = sorted(with_pnl, key=_sort_key)
+
+    mid         = len(sorted_trades) // 2
+    first_half  = sorted_trades[:mid]
+    second_half = sorted_trades[mid:]
+
+    pf1 = profit_factor(first_half)
+    pf2 = profit_factor(second_half)
+
+    # Either half being unprofitable means the edge does not persist
+    if pf1 <= 0 or pf2 <= 0:
+        return 0.0
+
+    ratio = min(pf1, pf2) / max(pf1, pf2)
+    return round(min(1.0, max(0.0, ratio)), 2)
 
 
 # ── Edge verdict ──────────────────────────────────────────────────────────────
@@ -295,7 +355,8 @@ def compute_level1(trades: list[dict]) -> dict:
     )
 
     psych_score, disc_score = _psychology_discipline(trades)
-    kelly = _kelly_edge(trades)
+    kelly       = _kelly_edge(trades)
+    persistence = _edge_persistence(trades)
 
     return {
         "edgeSummary": {
@@ -313,6 +374,7 @@ def compute_level1(trades: list[dict]) -> dict:
         "psychologyScore":       psych_score,
         "disciplineScore":       disc_score,
         "probabilisticEdge":     kelly,
+        "edgePersistence":       persistence,
     }
 
 
@@ -334,4 +396,5 @@ def _empty_level1(reason: str = "") -> dict:
         "psychologyScore":       0.0,
         "disciplineScore":       0.0,
         "probabilisticEdge":     0.0,
+        "edgePersistence":       0.0,
     }

@@ -1958,7 +1958,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "mplfinance", specifier = ">=0.12.10b0" },
     { name = "opencv-python-headless", specifier = ">=4.13.0.92" },
-    { name = "pandas", specifier = ">=2.3.3" },
+    { name = "pandas", specifier = ">=2.2.0" },
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pycoingecko", specifier = ">=3.2.0" },

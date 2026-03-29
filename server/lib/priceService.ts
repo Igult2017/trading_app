@@ -124,56 +124,12 @@ export async function pingPriceService(): Promise<boolean> {
   }
 }
 
-// getCachedPrice / getCachedMultiplePrices are now trivial — the daemon cache
-// *is* the cache.  These wrappers keep the call-site API identical.
+// Cache for price data to reduce API calls
+const priceCache = new Map<string, { data: PriceResult; timestamp: number }>();
+const CACHE_TTL = 30000; // 30 seconds — daily bars change slowly; prevents thundering herd
 
-export const getCachedPrice        = getPrice;
-export const getCachedMultiplePrices = getMultiplePrices;
-
-// ── 2. CANDLE SUBPROCESS (on-demand OHLCV) ────────────────────────────────────
-
-const PYTHON_SCRIPT_PATH = path.join(
-  process.cwd(), 'server', 'python', 'price_service.py'
-);
-
-interface CandleRequest {
-  action:     'get_candles';
-  symbol:     string;
-  assetClass: string;
-  interval:   string;
-  period:     string;
-}
-
-function callCandleSubprocess(req: CandleRequest): Promise<CandleResult> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_BIN, [PYTHON_SCRIPT_PATH], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (d) => { stdout += d.toString(); });
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
-
-    proc.on('close', code => {
-      if (code !== 0) {
-        reject(new Error(`price_service.py exited ${code}: ${stderr}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(stdout));
-      } catch {
-        reject(new Error(`Failed to parse candle output: ${stdout.slice(0, 200)}`));
-      }
-    });
-
-    proc.on('error', err => reject(new Error(`Subprocess error: ${err.message}`)));
-
-    proc.stdin.write(JSON.stringify(req));
-    proc.stdin.end();
-  });
-}
+// In-flight deduplication: if a fetch for a symbols key is already running, reuse the promise
+const inflightFetches = new Map<string, Promise<PriceResult[]>>();
 
 export async function getCandleData(
   symbol:     string,
@@ -210,4 +166,54 @@ export async function getCachedCandleData(
   const result = await getCandleData(symbol, assetClass, interval, period);
   if (!result.error) candleCache.set(key, { data: result, ts: Date.now() });
   return result;
+}
+
+export async function getCachedMultiplePrices(symbols: Array<{ symbol: string; assetClass: string }>): Promise<PriceResult[]> {
+  const now = Date.now();
+  const results: PriceResult[] = [];
+  const symbolsToFetch: Array<{ symbol: string; assetClass: string; index: number }> = [];
+  
+  // Check cache for each symbol
+  symbols.forEach((s, index) => {
+    const cacheKey = `${s.symbol}-${s.assetClass}`;
+    const cached = priceCache.get(cacheKey);
+    
+    if (cached && now - cached.timestamp < CACHE_TTL) {
+      results[index] = cached.data;
+    } else {
+      symbolsToFetch.push({ ...s, index });
+    }
+  });
+  
+  // Fetch uncached symbols
+  if (symbolsToFetch.length > 0) {
+    // Build a stable key for this exact set of uncached symbols
+    const fetchKey = symbolsToFetch.map(s => `${s.symbol}:${s.assetClass}`).sort().join('|');
+
+    // Reuse an in-flight request for the same set rather than spawning a second Python process
+    let fetchPromise = inflightFetches.get(fetchKey);
+    if (!fetchPromise) {
+      fetchPromise = getMultiplePrices(
+        symbolsToFetch.map(s => ({ symbol: s.symbol, assetClass: s.assetClass }))
+      ).finally(() => inflightFetches.delete(fetchKey));
+      inflightFetches.set(fetchKey, fetchPromise);
+    }
+
+    const fetchedResults = await fetchPromise;
+    
+    fetchedResults.forEach((result, i) => {
+      const originalIndex = symbolsToFetch[i].index;
+      results[originalIndex] = result;
+      
+      if (!result.error) {
+        const cacheKey = `${result.symbol}-${symbolsToFetch[i].assetClass}`;
+        priceCache.set(cacheKey, {
+          data: result,
+          timestamp: now
+        });
+      }
+    });
+  }
+  
+  return results;
 }

@@ -163,7 +163,7 @@ def _detect_entry_price(pimg: PreprocessedImage, objects, tokens, layout):
     orange_ys = np.where(row_sums > 300)[0]
     if len(orange_ys) > 0:
         oy = int(orange_ys.mean())
-        price = _extract_price(_ocr_strip(oy - 10, oy + 12, scale=8, psm=7))
+        price = _extract_price(_ocr_strip(oy - 10, oy + 12, scale=4, psm=7))
         if price: return price
 
     # 2. Yellow horizontal entry line

@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
-import { analyzeScreenshot } from "./services/screenshotAnalyzer";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
+import { parseTradeText } from "./services/textTradeAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
 import { computeDrawdown } from "./services/drawdownCalculator";
@@ -159,23 +159,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No image provided" });
       }
 
-      const forceMethod = (req.query.method as string | undefined)?.toLowerCase();
-
-      if (forceMethod !== "ocr") {
-        try {
-          const aiResult = await analyzeScreenshot(image);
-          if (aiResult.success) {
-            return res.json({ ...aiResult, method: "ai" });
-          }
-          console.warn("[Routes] Gemini analysis failed, falling back to OCR:", aiResult.error);
-        } catch (aiError) {
-          if (forceMethod === "ai") {
-            return res.status(500).json({ error: "Gemini analysis unavailable", details: String(aiError) });
-          }
-          console.warn("[Routes] Gemini threw an error, falling back to OCR:", aiError);
-        }
-      }
-
       const ocrResult = await analyzeScreenshotWithOCR(image);
 
       if (ocrResult.success) {
@@ -185,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       return res.status(500).json({
-        error: "Screenshot analysis failed with both AI and OCR methods",
+        error: "Screenshot analysis failed",
         details: ocrResult.error,
       });
     } catch (error) {
@@ -194,19 +177,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/journal/analyze-text", (req, res) => {
+    const { text } = req.body;
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({ error: "No text provided" });
+    }
+    const result = parseTradeText(text);
+    if (!result.success) {
+      return res.status(422).json({ error: "No recognisable trade fields found in the pasted text", fieldCount: 0 });
+    }
+    res.json(result);
+  });
+
   app.get("/api/journal/analyze-screenshot/status", async (_req, res) => {
     try {
-      const [geminiConfigured, ocrAvailable] = await Promise.all([
-        Promise.resolve(!!process.env.GOOGLE_API_KEY),
-        isOCRAvailable(),
-      ]);
+      const ocrAvailable = await isOCRAvailable();
 
       res.json({
-        ai: {
-          available: geminiConfigured,
-          provider: "Google Gemini",
-          note: geminiConfigured ? "Active" : "GOOGLE_API_KEY not set",
-        },
         ocr: {
           available: ocrAvailable,
           provider: "Tesseract OCR",
@@ -214,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? "Active — best for screenshots with visible text labels"
             : "Tesseract or Python dependencies not installed",
         },
-        activeMethod: geminiConfigured ? "ai" : ocrAvailable ? "ocr" : "none",
+        activeMethod: ocrAvailable ? "ocr" : "none",
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to check analysis status" });

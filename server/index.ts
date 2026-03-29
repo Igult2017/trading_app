@@ -5,39 +5,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { initializeDatabase } from "./db-init";
-import { PYTHON_BIN } from "./lib/pythonBin";
-
-// ── Price daemon ───────────────────────────────────────────────────────────────
-// Starts price_daemon.py as a persistent child process.
-// The daemon streams crypto via Binance WebSocket and polls forex/stocks/indices/
-// commodities via yfinance, writing everything to an in-memory cache served on
-// http://127.0.0.1:8765.  If it crashes it restarts automatically.
-
-let priceDaemon: ChildProcess | null = null;
-let daemonRestarting = false;
-
-function startPriceDaemon() {
-  const script = path.join(process.cwd(), "server", "python", "price_daemon.py");
-  priceDaemon = spawn(PYTHON_BIN, [script], {
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-  });
-
-  priceDaemon.stdout?.on("data", (d: Buffer) =>
-    process.stdout.write(d)
-  );
-  priceDaemon.stderr?.on("data", (d: Buffer) =>
-    process.stderr.write(d)
-  );
-
-  priceDaemon.on("exit", (code) => {
-    if (daemonRestarting) return;
-    log(`[price-daemon] exited (code ${code}) — restarting in 3 s`);
-    setTimeout(startPriceDaemon, 3000);
-  });
-
-  log("[price-daemon] started");
-}
+import { getCachedMultiplePrices } from "./lib/priceService";
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -89,9 +57,10 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
+    log(`[Error] ${status}: ${message}`);
   });
 
   // importantly only setup vite in development and after
@@ -117,6 +86,48 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
     
     scraperScheduler.start();
+
+    // Pre-warm price cache in the background so the sidebar is ready on first page load
+    const WARMUP_SYMBOLS: Array<{ symbol: string; assetClass: string }> = [
+      // Crypto
+      { symbol: "BTC/USDT", assetClass: "crypto" }, { symbol: "ETH/USDT", assetClass: "crypto" },
+      { symbol: "SOL/USDT", assetClass: "crypto" }, { symbol: "XRP/USDT", assetClass: "crypto" },
+      { symbol: "BNB/USDT", assetClass: "crypto" }, { symbol: "ADA/USDT", assetClass: "crypto" },
+      { symbol: "DOGE/USDT", assetClass: "crypto" }, { symbol: "MATIC/USDT", assetClass: "crypto" },
+      { symbol: "LINK/USDT", assetClass: "crypto" }, { symbol: "DOT/USDT", assetClass: "crypto" },
+      { symbol: "AVAX/USDT", assetClass: "crypto" }, { symbol: "ATOM/USDT", assetClass: "crypto" },
+      { symbol: "UNI/USDT", assetClass: "crypto" },
+      // Forex major
+      { symbol: "EUR/USD", assetClass: "forex" }, { symbol: "GBP/USD", assetClass: "forex" },
+      { symbol: "USD/JPY", assetClass: "forex" }, { symbol: "AUD/USD", assetClass: "forex" },
+      { symbol: "USD/CAD", assetClass: "forex" }, { symbol: "USD/CHF", assetClass: "forex" },
+      { symbol: "NZD/USD", assetClass: "forex" },
+      // Forex cross
+      { symbol: "EUR/GBP", assetClass: "forex" }, { symbol: "EUR/JPY", assetClass: "forex" },
+      { symbol: "EUR/AUD", assetClass: "forex" }, { symbol: "EUR/CAD", assetClass: "forex" },
+      { symbol: "EUR/CHF", assetClass: "forex" }, { symbol: "GBP/JPY", assetClass: "forex" },
+      { symbol: "GBP/AUD", assetClass: "forex" }, { symbol: "GBP/CAD", assetClass: "forex" },
+      { symbol: "AUD/JPY", assetClass: "forex" }, { symbol: "AUD/CAD", assetClass: "forex" },
+      { symbol: "AUD/CHF", assetClass: "forex" }, { symbol: "CHF/JPY", assetClass: "forex" },
+      { symbol: "CAD/JPY", assetClass: "forex" },
+      // Commodities
+      { symbol: "XAU/USD", assetClass: "commodity" }, { symbol: "XAG/USD", assetClass: "commodity" },
+      { symbol: "WTI", assetClass: "commodity" },
+      // Indices
+      { symbol: "US100", assetClass: "stock" }, { symbol: "US500", assetClass: "stock" },
+      { symbol: "US30", assetClass: "stock" }, { symbol: "UK100", assetClass: "stock" },
+      { symbol: "GER40", assetClass: "stock" },
+      // Stocks
+      { symbol: "AAPL", assetClass: "stock" }, { symbol: "MSFT", assetClass: "stock" },
+      { symbol: "GOOGL", assetClass: "stock" }, { symbol: "AMZN", assetClass: "stock" },
+      { symbol: "TSLA", assetClass: "stock" }, { symbol: "NVDA", assetClass: "stock" },
+      { symbol: "AMD", assetClass: "stock" }, { symbol: "JPM", assetClass: "stock" },
+      { symbol: "DIS", assetClass: "stock" }, { symbol: "BAC", assetClass: "stock" },
+      { symbol: "META", assetClass: "stock" },
+    ];
+    getCachedMultiplePrices(WARMUP_SYMBOLS)
+      .then(() => log("[PriceCache] Warmup complete — sidebar prices ready"))
+      .catch((err) => log(`[PriceCache] Warmup error: ${err}`));
   });
 
   function shutdown(signal: string) {

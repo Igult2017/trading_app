@@ -99,17 +99,29 @@ def _find_label_rows(pimg: PreprocessedImage, layout: LayoutRegions) -> List[str
             clusters.append(cur); cur = [y]
     clusters.append(cur)
 
-    results: List[str] = []
-    for cl in clusters:
-        if cl[-1] - cl[0] < 2:
-            continue
+    # Batch all clusters into one Tesseract call — avoids N sequential calls
+    valid_clusters = [cl for cl in clusters if cl[-1] - cl[0] >= 2]
+    if not valid_clusters:
+        return []
+
+    # Build a single combined strip with 4px padding between clusters
+    PAD  = 4
+    strips = []
+    for cl in valid_clusters:
         y1c, y2c = cl[0], cl[-1]
-        strip = pimg.bgr[max(0, y1c - 2): min(h, y2c + 4), :int(w * 0.72)]
-        text  = _ocr(strip, scale=4, psm=6, invert=True, threshold=110)
-        for line in text.splitlines():
-            line = line.strip()
-            if line and re.search(r'[0-9a-zA-Z]', line) and len(line) > 3:
-                results.append(line)
+        strips.append(pimg.bgr[max(0, y1c - 2): min(h, y2c + 4), :int(w * 0.72)])
+
+    combined = np.vstack([
+        np.vstack([s, np.zeros((PAD, strips[0].shape[1], 3), dtype=np.uint8)])
+        for s in strips
+    ])
+
+    results: List[str] = []
+    text = _ocr(combined, scale=4, psm=6, invert=True, threshold=110)
+    for line in text.splitlines():
+        line = line.strip()
+        if line and re.search(r'[0-9a-zA-Z]', line) and len(line) > 3:
+            results.append(line)
     return results
 
 
@@ -173,14 +185,14 @@ def _ocr_replay_bar(pimg: PreprocessedImage, layout: LayoutRegions) -> List[str]
 
 
 def _psm11_scan(pimg: PreprocessedImage) -> List[dict]:
+    # No upscale — PSM 11 sparse-text scan doesn't benefit from 2× and it doubles Tesseract time
     h, w  = pimg.height, pimg.width
-    sc    = cv2.resize(pimg.gray, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
     clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
-    enh   = clahe.apply(sc)
+    enh   = clahe.apply(pimg.gray)
     _, thr = cv2.threshold(enh, 90, 255, cv2.THRESH_BINARY_INV)
     data   = pytesseract.image_to_data(thr, config="--psm 11 --oem 3",
                                         output_type=pytesseract.Output.DICT)
-    return [{"text": t.strip(), "x": data['left'][i]//2, "y": data['top'][i]//2}
+    return [{"text": t.strip(), "x": data['left'][i], "y": data['top'][i]}
             for i, t in enumerate(data['text'])
             if t.strip() and data['conf'][i] >= 30]
 

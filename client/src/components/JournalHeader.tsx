@@ -64,8 +64,9 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
     iconBtnHover: '#f1f5f9',
   };
 
-  const NAV_ITEMS = ['Economic Calendar', 'Blog', 'TSC'];
-  const NAV_LINKS: Record<string, string> = { 'Economic Calendar': '#economic-calendar', 'Blog': '#blog', 'TSC': '#tsc' };
+
+  const NAV_ITEMS = ['Brokers', 'Propfirms', 'New Features'];
+  const NAV_LINKS: Record<string, string> = { 'Brokers': '#brokers', 'Propfirms': '#propfirms', 'New Features': '#new-features' };
 
   const iconButtonStyle = {
     width: 32,
@@ -85,7 +86,6 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   return (
     <div>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
         .nav-a { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
@@ -115,8 +115,12 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
         <TickerTape />
         <nav style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
-          {/* Left: Sidebar hamburger + Logo */}
+          {/* Left: Logo + Sidebar Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer', textTransform: 'uppercase' }}>
+              <span style={{ color: t.logoWhite }}>FSD </span>
+              <span style={{ color: '#3b82f6' }}>Journal</span>
+            </span>
             <button
               onClick={onToggleSidebar}
               title="Toggle sidebar"
@@ -126,19 +130,10 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
             >
               <Menu size={18} />
             </button>
-
-            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer', textTransform: 'uppercase' }}>
-              <span style={{ color: t.logoWhite }}>FSD </span>
-              <span style={{ color: '#3b82f6' }}>Journal</span>
-            </span>
           </div>
 
           {/* Desktop Nav Links + Icons */}
           <div className="nav-links">
-            <a href="/assets" className="nav-a" style={{ color: t.navLink }}
-              onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-            >Assets</a>
             {NAV_ITEMS.map(item => (
               <a key={item} href={NAV_LINKS[item]} className="nav-a" style={{ color: t.navLink }}
                 onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
@@ -170,6 +165,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
                 {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
               </div>
             </button>
+
           </div>
 
           {/* Mobile Controls */}
@@ -191,11 +187,6 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
         <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}`, position: 'relative', zIndex: 99 }}>
-          <a href="/assets" onClick={() => setMobileMenuOpen(false)}
-            style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-            onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-          >Assets</a>
           {NAV_ITEMS.map(item => (
             <a key={item} href={NAV_LINKS[item]}
               onClick={() => setMobileMenuOpen(false)}

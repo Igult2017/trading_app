@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
@@ -61,8 +61,8 @@ const Icon = ({ name, size=16, style, className }: any) => {
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed italic font-normal";
-const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 font-mono leading-relaxed italic";
+const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed font-normal not-italic";
+const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 font-mono leading-relaxed font-normal not-italic";
 const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
 
 const STEPS = [
@@ -102,7 +102,7 @@ const INIT: Record<string, any> = {
   newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
   sessionName:"London", timingContext:"Impulse", candlePattern:"",
   indicatorState:"", marketAlignment:3, setupClarity:3, entryPrecision:3,
-  confluence:3, timingQuality:3, primarySignals:"", secondarySignals:"",
+  confluence:3, timingQuality:3, signalValidation:3, primarySignals:"", secondarySignals:"",
   keyLevelRespect:"Yes", keyLevelType:"Support", momentumValidity:"Strong",
   targetLogicClarity:"High", plannedEntry:"", plannedSL:"", plannedTP:"",
   actualEntry:"", actualSL:"", actualTP:"", pipsGainedLost:"", mae:"",
@@ -187,34 +187,95 @@ const Field = ({ label, field, value, onChange, placeholder="", rows, type="text
         </label>
       )}
       {rows
-        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls}/>
-        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"}/>
+        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls} style={{ fontWeight: 400, fontStyle: 'normal' }}/>
+        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"} style={{ fontWeight: 400, fontStyle: 'normal' }}/>
       }
     </div>
   );
 };
 
-const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) => (
-  <div>
-    {label && (
-      <label className={LABEL_CLS}>
-        {label}
-        {ocrFilled && (
-          <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
-        )}
-      </label>
-    )}
-    <div className="relative">
-      <select value={options.includes(value)?value:options[0]} onChange={(e: any)=>onChange(field,e.target.value)}
-        className={(ocrFilled
-          ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 italic"
-          : INPUT_CLS)+" appearance-none cursor-pointer pr-10 block"}>
-        {options.map((o: string)=><option key={o} value={o} className="bg-[#0a0d14]">{o}</option>)}
-      </select>
-      <Icon name="ChevronRight" size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none rotate-90"/>
+const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) => {
+  const notInOpts = value != null && value !== '' && !options.includes(value);
+  const [otherMode, setOtherMode] = useState(notInOpts);
+
+  useEffect(() => {
+    if (value != null && value !== '' && !options.includes(value)) {
+      setOtherMode(true);
+    } else if (options.includes(value)) {
+      setOtherMode(false);
+    }
+  }, [value, JSON.stringify(options)]);
+
+  const showOtherInput = otherMode || notInOpts;
+  const selectValue = showOtherInput ? 'Other' : (options.includes(value) ? value : options[0]);
+
+  const handleSelect = (e: any) => {
+    const v = e.target.value;
+    if (v === 'Other') {
+      setOtherMode(true);
+      // don't call onChange here — wait for the user to type
+    } else {
+      setOtherMode(false);
+      onChange(field, v);
+    }
+  };
+
+  const baseCls = ocrFilled
+    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-mono font-normal not-italic"
+    : INPUT_CLS;
+
+  return (
+    <div>
+      {label && (
+        <label className={LABEL_CLS}>
+          {label}
+          {ocrFilled && (
+            <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
+          )}
+        </label>
+      )}
+      {showOtherInput ? (
+        <div className="flex gap-2">
+          <input
+            autoFocus
+            type="text"
+            value={value || ''}
+            onChange={(e: any) => {
+              const v = e.target.value;
+              if (!v) {
+                setOtherMode(false);
+                onChange(field, options[0]);
+              } else {
+                onChange(field, v);
+              }
+            }}
+            placeholder="Type custom value…"
+            className={baseCls + " flex-1"}
+          />
+          <button
+            type="button"
+            onClick={() => { setOtherMode(false); onChange(field, options[0]); }}
+            className="px-3 py-2 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 text-xs"
+            title="Back to list"
+          >↩</button>
+        </div>
+      ) : (
+        <div className="relative">
+          <select
+            value={selectValue}
+            onChange={handleSelect}
+            style={{ fontWeight: 400, fontStyle: 'normal' }}
+            className={baseCls + " appearance-none cursor-pointer pr-10 block w-full"}>
+            {[...options, 'Other'].map((o: string) => (
+              <option key={o} value={o} className="bg-[#0a0d14]">{o}</option>
+            ))}
+          </select>
+          <Icon name="ChevronRight" size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none rotate-90"/>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 const Score = ({ label, field, value, onChange }: any) => (
   <div className="flex items-center justify-between gap-3 flex-wrap py-1">
@@ -239,31 +300,64 @@ const Check = ({ label, field, value, onChange }: any) => (
   </label>
 );
 
-const Upload = ({ field, inputId, value, onChange, label, sublabel }: any) => (
-  <div className={`relative rounded-2xl border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
-    <input type="file" className="hidden" id={inputId} accept="image/*" onChange={(e: any)=>{
-      const f=e.target.files[0];
-      if(f){const r=new FileReader();r.onloadend=()=>onChange(field,r.result);r.readAsDataURL(f);}
-    }}/>
-    {value?(
-      <div className="relative group/img">
-        <img src={value} alt="chart" className="w-full h-auto max-h-80 object-contain"/>
-        <div className="absolute inset-0 bg-[#05070a]/80 backdrop-blur-sm opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center gap-3">
-          <label htmlFor={inputId} className="p-3 bg-blue-600 rounded-xl cursor-pointer hover:bg-blue-500 transition-all"><Icon name="RefreshCcw" size={20} className="text-white"/></label>
-          <button onClick={()=>onChange(field,null)} className="p-3 bg-rose-600 rounded-xl hover:bg-rose-500 transition-all"><Icon name="Trash2" size={20} className="text-white"/></button>
+const Upload = ({ field, inputId, value, onChange, label, sublabel, onPasteText }: any) => {
+  const editRef = useRef<HTMLDivElement>(null);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (editRef.current) editRef.current.textContent = ""; // keep overlay empty
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imgItem = items.find(i => i.type.startsWith("image/"));
+    if (imgItem) {
+      const file = imgItem.getAsFile();
+      if (file) { const r = new FileReader(); r.onloadend = () => onChange(field, r.result); r.readAsDataURL(file); }
+      return;
+    }
+    const text = e.clipboardData?.getData("text/plain") ?? "";
+    if (text.trim() && onPasteText) onPasteText(text);
+  };
+
+  return (
+    <div className={`relative rounded border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
+      <input type="file" className="hidden" id={inputId} accept="image/*" onChange={(e: any)=>{
+        const f=e.target.files[0];
+        if(f){const r=new FileReader();r.onloadend=()=>onChange(field,r.result);r.readAsDataURL(f);}
+      }}/>
+      {/* Invisible contenteditable overlay — makes "Paste" appear in the browser right-click menu.
+          Only active when no image is loaded. Left-click is forwarded to the file input. */}
+      {!value && (
+        <div
+          ref={editRef}
+          contentEditable
+          suppressContentEditableWarning
+          data-paste-overlay
+          onPaste={handlePaste}
+          onClick={() => document.getElementById(inputId)?.click()}
+          onKeyDown={(e) => { if (!e.ctrlKey && !e.metaKey) e.preventDefault(); }}
+          style={{ position:"absolute", inset:0, zIndex:10, opacity:0, outline:"none", cursor:"pointer" }}
+        />
+      )}
+      {value?(
+        <div className="relative group/img">
+          <img src={value} alt="chart" className="w-full h-auto max-h-80 object-contain"/>
+          <div className="absolute inset-0 bg-[#05070a]/80 backdrop-blur-sm opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center gap-3">
+            <label htmlFor={inputId} className="p-3 bg-blue-600 rounded-xl cursor-pointer hover:bg-blue-500 transition-all"><Icon name="RefreshCcw" size={20} className="text-white"/></label>
+            <button onClick={()=>onChange(field,null)} className="p-3 bg-rose-600 rounded-xl hover:bg-rose-500 transition-all"><Icon name="Trash2" size={20} className="text-white"/></button>
+          </div>
         </div>
-      </div>
-    ):(
-      <label htmlFor={inputId} className="flex flex-col items-center justify-center p-10 cursor-pointer group">
-        <div className="w-14 h-14 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center mb-4 group-hover:border-blue-500/40 transition-all">
-          <Icon name="Camera" size={24} className="text-slate-700 group-hover:text-blue-500/60 transition-colors"/>
-        </div>
-        <span className="text-[13px] font-semibold text-slate-500 mb-1 text-center">{label}</span>
-        <span className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-700 text-center">{sublabel}</span>
-      </label>
-    )}
-  </div>
-);
+      ):(
+        <label htmlFor={inputId} className="flex flex-col items-center justify-center p-10 cursor-pointer group">
+          <div className="w-14 h-14 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center mb-4 group-hover:border-blue-500/40 transition-all">
+            <Icon name="Camera" size={24} className="text-slate-700 group-hover:text-blue-500/60 transition-colors"/>
+          </div>
+          <span className="text-[13px] font-semibold text-slate-500 mb-1 text-center">{label}</span>
+          <span className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-700 text-center">{sublabel}</span>
+        </label>
+      )}
+    </div>
+  );
+};
 
 const NavButtons = ({ step, onPrev, onNext }: any) => (
   <div className="flex items-center justify-between mt-12 pt-8 border-t border-slate-900">
@@ -321,7 +415,7 @@ function SidebarContent({ trades }: any) {
 
   return (
     <div style={{padding:"12px 16px 24px",display:"flex",flexDirection:"column",gap:"8px",width:"100%",boxSizing:"border-box"}}>
-      <div style={{background:"rgba(10,13,20,0.8)",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"12px",padding:"12px 14px"}}>
+      <div style={{background:"rgba(10,13,20,0.8)",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"4px",padding:"12px 14px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
           <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>NET P&L</span>
           <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
@@ -331,7 +425,7 @@ function SidebarContent({ trades }: any) {
           <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
         </div>
       </div>
-      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"10px 14px"}}>
+      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"10px 14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
           <span style={{fontSize:"10px",color:"#475569"}}>Start Balance</span>
           <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
@@ -341,7 +435,7 @@ function SidebarContent({ trades }: any) {
           <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
         </div>
       </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"9px 14px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"9px 14px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
           <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
           <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
@@ -362,13 +456,13 @@ function SidebarContent({ trades }: any) {
           {label:"Sells", val:stats?stats.sells:0, color:"#a78bfa"},
           {label:"Total", val:stats?stats.total:0, color:"#e2e8f0"},
         ].map(({label,val,color})=>(
-          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"9px 4px",textAlign:"center"}}>
+          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"9px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"3px"}}>{label}</p>
             <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
-      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"12px",padding:"2px 14px"}}>
+      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"2px 14px"}}>
         <StatRow label="Best Trade"    value={stats?fmt(stats.bestTrade):"$0.00"}  valueColor="#34d399"/>
         <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
         <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
@@ -383,14 +477,14 @@ function SidebarContent({ trades }: any) {
           {label:"Profit Factor", val:stats?stats.profitFactor:"0", color:!stats?"#475569":parseFloat(stats?.profitFactor)>=1.5?"#34d399":parseFloat(stats?.profitFactor)>=1?"#fbbf24":"#f87171"},
           {label:"Expectancy",    val:stats?stats.exp:"0",          color:!stats?"#475569":parseFloat(stats?.exp)>0?"#34d399":"#f87171"},
         ].map(({label,val,color})=>(
-          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"10px",padding:"10px 4px",textAlign:"center"}}>
+          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"10px 4px",textAlign:"center"}}>
             <p style={{fontSize:"9px",color:"#475569",marginBottom:"5px"}}>{label}</p>
             <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
           </div>
         ))}
       </div>
       {!trades.length&&(
-        <div style={{borderRadius:"12px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
+        <div style={{borderRadius:"4px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
           <Icon name="Activity" size={20} style={{color:"#1e293b",margin:"0 auto 6px",display:"block"}}/>
           <p style={{fontSize:"10px",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#1e293b"}}>No trades yet</p>
           <p style={{fontSize:"10px",color:"#0f172a",marginTop:"3px"}}>Log a trade to see stats</p>
@@ -405,11 +499,15 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [step,setStep]               = useState(1);
   const [form,setForm]               = useState<Record<string,any>>(INIT);
   const [saved,setSaved]             = useState(false);
+  const [draftRestored,setDraftRestored] = useState(false);
   const { data: trades = [] } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
-    queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`)
-      .then(r => r.json())
-      .then((data: any[]) => [...data].reverse()), // reverse to chronological (oldest first)
+    queryFn: async () => {
+      const r = await fetch(`/api/journal/entries?sessionId=${sessionId}`);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      const data: any[] = await r.json();
+      return [...data].reverse(); // reverse to chronological (oldest first)
+    },
     enabled: !!sessionId,
   });
   const [sidebarOpen,setSidebarOpen] = useState(false);
@@ -417,6 +515,39 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   const [analyzeError,setAnalyzeError] = useState<string|null>(null);
   const [saving,setSaving]           = useState(false);
   const [ocrFields,setOcrFields]     = useState<OcrFilledSet>(new Set());
+
+  // ── Draft auto-save ────────────────────────────────────────────────────────
+  const draftKey = sessionId ? `journal_draft_${sessionId}` : null;
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const { form: savedForm, step: savedStep } = JSON.parse(raw);
+      // Skip binary screenshot fields — too large for localStorage
+      const { screenshot, exitScreenshot, ...rest } = savedForm ?? {};
+      const hasData = Object.entries(rest).some(([k, v]) => v !== INIT[k] && v !== '' && v !== null);
+      if (!hasData) return;
+      setForm(prev => ({ ...prev, ...rest }));
+      setStep(savedStep ?? 1);
+      setDraftRestored(true);
+    } catch (_) {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  // Auto-save draft on every form / step change (debounced 600ms)
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = setTimeout(() => {
+      try {
+        const { screenshot, exitScreenshot, ...rest } = form;
+        localStorage.setItem(draftKey, JSON.stringify({ form: rest, step }));
+      } catch (_) {}
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [form, step, draftKey]);
 
   // ── FIX 1: live running balance from all existing session trades ──────────
   const { currentBalance, startingBalance } = useSessionBalance(sessionId);
@@ -498,6 +629,42 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.outcome, ocrFields]);
 
+  // ── Clipboard paste listener (Step 2 only) ──────────────────────────────
+  // Intercepts Ctrl+V anywhere on the page when no form field is focused.
+  // • Image in clipboard → feeds into OCR pipeline (same as file upload)
+  // • Text in clipboard  → feeds into text trade parser
+  useEffect(() => {
+    if (step !== 2) return;
+    const handler = (e: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      // Let normal paste work inside real form fields.
+      // Skip the guard for our own invisible overlay (data-paste-overlay attribute).
+      const isRealInput = active && (
+        active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        (active.isContentEditable && !active.hasAttribute("data-paste-overlay"))
+      );
+      if (isRealInput) return;
+
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imgItem = items.find(i => i.type.startsWith("image/"));
+      if (imgItem) {
+        const file = imgItem.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => handleScreenshotUpload("screenshot", reader.result);
+          reader.readAsDataURL(file);
+        }
+        return;
+      }
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (text.trim()) analyzeText(text, "screenshot");
+    };
+    document.addEventListener("paste", handler);
+    return () => document.removeEventListener("paste", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
 
   const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
@@ -536,174 +703,210 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
     } catch { return null; }
   };
 
+  // ── Shared field-mapping helper ─────────────────────────────────────────
+  // Used by both OCR (analyzeScreenshot) and text-paste (analyzeText).
+  // Accepts the { success, fields, ... } response from either endpoint.
+  const applyParsedFields = (data: any, screenshotField: string) => {
+    const f = data.fields;
+    const newOcrFields = new Set<string>();
+
+    const mark = (field: string) => newOcrFields.add(field);
+    const maybe = (field: string, val: any) => {
+      if (val != null && val !== "") { mark(field); return String(val); }
+      return undefined;
+    };
+
+    setForm(prev => {
+      const u = { ...prev };
+
+      if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
+      if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
+      else if (f.instrument) {
+        const sym = String(f.instrument).toUpperCase();
+        if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) u.pairCategory = "Crypto";
+        else if (/XAU|XAG|GOLD|SILVER|OIL|WTI/.test(sym))        u.pairCategory = "Commodity";
+        else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|IDX/.test(sym))  u.pairCategory = "Index";
+        else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
+        else u.pairCategory = "Minor";
+        mark("pairCategory");
+      }
+
+      if (f.direction) { u.direction = f.direction; mark("direction"); }
+
+      const ep = maybe("entryPrice", f.entryPrice);
+      const op = maybe("openingPrice", f.openingPrice);
+      // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
+      const resolvedEntry = ep || op;
+      if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
+      if (op) u.openingPrice = op;
+
+      const cp = maybe("closingPrice", f.closingPrice);
+      const tp = maybe("takeProfit", f.takeProfit);
+      // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
+      const resolvedTP = tp || cp;
+      if (cp) u.closingPrice = cp;
+
+      if (screenshotField === "screenshot") {
+        // ── Screenshot 1 (setup): planned TP only ──────────────────────
+        if (resolvedTP) {
+          u.takeProfit = resolvedTP;
+          u.plannedTP  = resolvedTP;
+          mark("takeProfit"); mark("plannedTP");
+        }
+      } else {
+        // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
+        // Win/BE → actualTP = TP price extracted from exit screenshot
+        // Loss   → actualTP = negative SL distance in pips (SL was hit)
+        if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
+        const exitOutcome = (u.outcome || "").toLowerCase();
+        if (exitOutcome === "loss") {
+          const slPipsStr = u.stopLossDistancePips;
+          if (slPipsStr) {
+            u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
+            mark("actualTP");
+          }
+        } else if (resolvedTP) {
+          u.actualTP = resolvedTP;
+          mark("actualTP");
+        }
+      }
+
+      const sl = maybe("stopLoss", f.stopLoss);
+      if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
+
+      // Points → pips conversion.
+      // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
+      // using correct per-instrument factors. Prefer those. Only fall back to the
+      // frontend ÷10 formula when the pre-computed values are absent.
+      const INDEX_RE = /index|idx|us30|nas|spx|dax|ftse|cac|dow|usa500|spx500|nas100|usa30/i;
+      const isIndex  = INDEX_RE.test(String(u.instrument ?? "")) || u.pairCategory === "Index";
+      const pipFactor = isIndex ? 1 : 10;
+      const ptsToPips = (pts: any) => String(Math.round(parseFloat(String(pts)) / pipFactor * 10) / 10);
+
+      // SL pips — prefer pre-computed value, fall back to points conversion
+      const slPts = f.stopLossPoints ?? f.plannedSLPoints;
+      const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
+      if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
+      else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
+
+      // TP pips — same priority
+      if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
+      else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
+
+      if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
+      if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
+
+      if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);      mark("lotSize"); }
+      if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
+      if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
+
+      if (screenshotField === "screenshot") {
+        // Screenshot 1 (setup): planned R:R
+        const rrVal = f.riskReward ?? f.plannedRR;
+        if (rrVal != null) {
+          u.riskReward = String(rrVal);
+          u.plannedRR  = String(rrVal);
+          mark("riskReward"); mark("plannedRR");
+        }
+      } else {
+        // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
+        const rrVal = f.riskReward ?? f.achievedRR;
+        if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
+      }
+
+      if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
+
+      if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
+      // pipsGainedLost: openPLPoints are in JForex points → convert to pips
+      if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
+
+      if (f.runUpPoints != null) {
+        u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
+        mark("mfe");
+      }
+      if (f.drawdownPoints != null) {
+        u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
+        mark("mae");
+      }
+
+      if (screenshotField === "screenshot") {
+        // Entry screenshot: grab whichever time field the OCR populated (it often stores the
+        // replay-bar ISO timestamp as exitTime, not entryTime)
+        const entryT = normaliseDatetime(f.entryTime || f.exitTime);
+        if (entryT) { u.entryTime = entryT; mark("entryTime"); }
+      } else {
+        // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
+        if (f.exitTime) { u.exitTime = normaliseDatetime(f.exitTime); mark("exitTime"); }
+        if (f.entryTime && (!u.entryTime || u.entryTime === "")) {
+          u.entryTime = normaliseDatetime(f.entryTime); mark("entryTime");
+        }
+      }
+
+      const computed = computeDuration(u.entryTime, u.exitTime);
+      if (computed) { u.tradeDuration = computed; mark("tradeDuration"); }
+      else if (f.tradeDuration) { u.tradeDuration = f.tradeDuration; mark("tradeDuration"); }
+
+      if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
+
+      if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
+      if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
+
+      // Show confidence for OCR; for text paste show field count instead
+      u.ocrConfidence = data.confidence || (data.method === "text" ? "text input" : "");
+      u.ocrValidation = data.validation?.summary || "";
+
+      return u;
+    });
+
+    setOcrFields(prev => new Set([...prev, ...newOcrFields]));
+  };
+
   const analyzeScreenshot = async (base64Image: string, screenshotField: string) => {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
       const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
       const data = await res.json();
-
       if (data.success && data.fields) {
-        const f = data.fields;
-        const newOcrFields = new Set<string>();
-
-        const mark = (field: string) => newOcrFields.add(field);
-        const maybe = (field: string, val: any) => {
-          if (val != null && val !== "") { mark(field); return String(val); }
-          return undefined;
-        };
-
-        setForm(prev => {
-          const u = { ...prev };
-
-          if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
-          if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
-          else if (f.instrument) {
-            const sym = String(f.instrument).toUpperCase();
-            if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) u.pairCategory = "Crypto";
-            else if (/XAU|XAG|GOLD|SILVER|OIL|WTI/.test(sym))        u.pairCategory = "Commodity";
-            else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|IDX/.test(sym))  u.pairCategory = "Index";
-            else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
-            else u.pairCategory = "Minor";
-            mark("pairCategory");
-          }
-
-          if (f.direction) { u.direction = f.direction; mark("direction"); }
-
-          const ep = maybe("entryPrice", f.entryPrice);
-          const op = maybe("openingPrice", f.openingPrice);
-          // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
-          const resolvedEntry = ep || op;
-          if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
-          if (op) u.openingPrice = op;
-
-          const cp = maybe("closingPrice", f.closingPrice);
-          const tp = maybe("takeProfit", f.takeProfit);
-          // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
-          const resolvedTP = tp || cp;
-          if (cp) u.closingPrice = cp;
-
-          if (screenshotField === "screenshot") {
-            // ── Screenshot 1 (setup): planned TP only ──────────────────────
-            if (resolvedTP) {
-              u.takeProfit = resolvedTP;
-              u.plannedTP  = resolvedTP;
-              mark("takeProfit"); mark("plannedTP");
-            }
-          } else {
-            // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
-            // Win/BE → actualTP = TP price extracted from exit screenshot
-            // Loss   → actualTP = negative SL distance in pips (SL was hit)
-            if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
-            const exitOutcome = (u.outcome || "").toLowerCase();
-            if (exitOutcome === "loss") {
-              const slPipsStr = u.stopLossDistancePips;
-              if (slPipsStr) {
-                u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
-                mark("actualTP");
-              }
-            } else if (resolvedTP) {
-              u.actualTP = resolvedTP;
-              mark("actualTP");
-            }
-          }
-
-          const sl = maybe("stopLoss", f.stopLoss);
-          if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
-
-          // Points → pips conversion.
-          // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
-          // using correct per-instrument factors. Prefer those. Only fall back to the
-          // frontend ÷10 formula when the pre-computed values are absent.
-          const INDEX_RE = /index|idx|us30|nas|spx|dax|ftse|cac|dow|usa500|spx500|nas100|usa30/i;
-          const isIndex  = INDEX_RE.test(String(u.instrument ?? "")) || u.pairCategory === "Index";
-          const pipFactor = isIndex ? 1 : 10;
-          const ptsToPips = (pts: any) => String(Math.round(parseFloat(String(pts)) / pipFactor * 10) / 10);
-
-          // SL pips — prefer pre-computed value from OCR, fall back to points conversion
-          const slPts = f.stopLossPoints ?? f.plannedSLPoints;
-          const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
-          console.log("[OCR→pips] instrument:", u.instrument, "isIndex:", isIndex, "pipFactor:", pipFactor,
-            "f.stopLossPips:", f.stopLossPips, "slPts:", slPts,
-            "f.takeProfitPips:", f.takeProfitPips, "tpPts:", tpPts);
-          if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
-          else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
-
-          // TP pips — same priority
-          if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
-          else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
-
-          if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
-          if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
-
-          if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);      mark("lotSize"); }
-          if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
-          if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
-
-          if (screenshotField === "screenshot") {
-            // Screenshot 1 (setup): planned R:R
-            const rrVal = f.riskReward ?? f.plannedRR;
-            if (rrVal != null) {
-              u.riskReward = String(rrVal);
-              u.plannedRR  = String(rrVal);
-              mark("riskReward"); mark("plannedRR");
-            }
-          } else {
-            // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
-            const rrVal = f.riskReward ?? f.achievedRR;
-            if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
-          }
-
-          if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
-
-          if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
-          // pipsGainedLost: openPLPoints are in JForex points → convert to pips
-          if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
-
-          if (f.runUpPoints != null) {
-            u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
-            mark("mfe");
-          }
-          if (f.drawdownPoints != null) {
-            u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
-            mark("mae");
-          }
-
-          if (screenshotField === "screenshot") {
-            // Entry screenshot: grab whichever time field the OCR populated (it often stores the
-            // replay-bar ISO timestamp as exitTime, not entryTime)
-            const entryT = normaliseDatetime(f.entryTime || f.exitTime);
-            if (entryT) { u.entryTime = entryT; mark("entryTime"); }
-          } else {
-            // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
-            if (f.exitTime) { u.exitTime = normaliseDatetime(f.exitTime); mark("exitTime"); }
-            if (f.entryTime && (!u.entryTime || u.entryTime === "")) {
-              u.entryTime = normaliseDatetime(f.entryTime); mark("entryTime");
-            }
-          }
-
-          const computed = computeDuration(u.entryTime, u.exitTime);
-          if (computed) { u.tradeDuration = computed; mark("tradeDuration"); }
-          else if (f.tradeDuration) { u.tradeDuration = f.tradeDuration; mark("tradeDuration"); }
-
-          if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
-
-          if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
-          if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
-
-          u.ocrConfidence = data.confidence || "";
-          u.ocrValidation = data.validation?.summary || "";
-
-          console.log("[OCR→form] stopLossDistancePips:", u.stopLossDistancePips, "takeProfitDistancePips:", u.takeProfitDistancePips, "pipsGainedLost:", u.pipsGainedLost);
-          return u;
-        });
-
-        setOcrFields(prev => new Set([...prev, ...newOcrFields]));
+        applyParsedFields(data, screenshotField);
       } else {
         setAnalyzeError(data.error || "OCR analysis failed");
       }
     } catch (err: any) {
-      setAnalyzeError(err.message || "Failed to analyze screenshot");
+      let msg: string = err.message || "Failed to analyze screenshot";
+      const jsonMatch = msg.match(/^\d+: (\{.*\})$/s);
+      if (jsonMatch) {
+        try { msg = JSON.parse(jsonMatch[1]).error || msg; } catch {}
+      } else if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token")) {
+        msg = "Server error — please try again";
+      }
+      setAnalyzeError(msg);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const analyzeText = async (text: string, screenshotField: string) => {
+    if (!text.trim()) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await apiRequest("POST", "/api/journal/analyze-text", { text });
+      const data = await res.json();
+      if (data.success && data.fields) {
+        applyParsedFields(data, screenshotField);
+      } else {
+        setAnalyzeError(data.error || "Could not parse trade text — check the format");
+      }
+    } catch (err: any) {
+      let msg: string = err.message || "Text parse failed";
+      const jsonMatch = msg.match(/^\d+: (\{.*\})$/s);
+      if (jsonMatch) {
+        try { msg = JSON.parse(jsonMatch[1]).error || msg; } catch {}
+      } else if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token")) {
+        msg = "Server error — please try again";
+      }
+      setAnalyzeError(msg);
     } finally {
       setAnalyzing(false);
     }
@@ -808,6 +1011,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           entryPrecision:          form.entryPrecision,
           confluence:              form.confluence,
           timingQuality:           form.timingQuality,
+          signalValidation:        form.signalValidation,
+          plannedEntry:            form.plannedEntry   || null,
+          plannedSL:               form.plannedSL      || null,
+          plannedTP:               form.plannedTP      || null,
+          actualEntry:             form.actualEntry    || null,
+          actualSL:                form.actualSL       || null,
+          actualTP:                form.actualTP       || null,
           confidenceAtEntry:       form.confidenceAtEntry,
           openingPrice:            form.openingPrice,
           closingPrice:            form.closingPrice,
@@ -820,6 +1030,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           strongMomentum:          form.momentumValidity,
           managementType:          form.managementType,
           candlePattern:           form.candlePattern,
+          indicatorState:          form.indicatorState  || null,
           setupFullyValid:         form.setupFullyValid,
           ruleBroken:              form.anyRuleBroken,
           breakevenApplied:        form.breakEvenApplied,
@@ -843,6 +1054,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute', sessionId] });
+      if (draftKey) localStorage.removeItem(draftKey);
       setSaved(true);
     } catch (err: any) {
       setAnalyzeError(err.message || "Failed to save entry");
@@ -854,7 +1066,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
         .form-scroll::-webkit-scrollbar,.side-scroll::-webkit-scrollbar{display:none}
         .form-scroll,.side-scroll{-ms-overflow-style:none;scrollbar-width:none}
         .sidebar-panel{position:relative;z-index:1;width:22vw;min-width:240px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:12px}
@@ -880,10 +1091,18 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           <div style={{padding:"2px 8px 12px 8px"}}>
 
             {analyzeError&&(
-              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"12px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"4px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
                 <Icon name="AlertCircle" size={16}/>
                 <span style={{fontSize:"12px",fontWeight:600,flex:1}}>{analyzeError}</span>
                 <button onClick={()=>setAnalyzeError(null)}><Icon name="X" size={14}/></button>
+              </div>
+            )}
+
+            {draftRestored&&(
+              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"11px 16px",borderRadius:"4px",border:"1px solid rgba(59,130,246,0.25)",background:"rgba(59,130,246,0.06)",color:"#93c5fd"}}>
+                <Icon name="RefreshCcw" size={14} style={{flexShrink:0}}/>
+                <span style={{fontSize:"11px",fontWeight:600,flex:1,letterSpacing:"0.01em"}}>Draft restored — pick up where you left off.</span>
+                <button onClick={()=>{setForm(INIT);setStep(1);setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(147,197,253,0.5)",display:"flex",padding:2}} title="Discard draft"><Icon name="X" size={13}/></button>
               </div>
             )}
 
@@ -895,7 +1114,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                 return (
                   <button key={s.id} onClick={()=>setStep(s.id)} style={{
                     position:'relative', display:'flex', flexDirection:'column', alignItems:'center',
-                    padding:'16px 10px 14px', borderRadius:'16px', border:'1px solid',
+                    padding:'16px 10px 14px', borderRadius:'4px', border:'1px solid',
                     borderColor: isActive ? 'rgba(96,165,250,0.45)' : isDone ? 'rgba(59,130,246,0.2)' : 'rgba(51,65,85,0.5)',
                     borderTop: `1px solid ${accentColor}${isActive?'88':isDone?'44':'33'}`,
                     background: isActive
@@ -933,8 +1152,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             </div>
 
             <div className="relative">
-              <div className="absolute -inset-0.5 bg-gradient-to-b from-slate-700/20 to-transparent rounded-[2rem] blur opacity-20"/>
-              <div className="relative bg-[#0a0d14] border border-slate-800/80 rounded-[2rem] p-5 sm:p-8 shadow-2xl">
+              <div className="absolute -inset-0.5 bg-gradient-to-b from-slate-700/20 to-transparent rounded blur opacity-20"/>
+              <div className="relative bg-[#0a0d14] border border-slate-800/80 rounded p-5 sm:p-8 shadow-2xl">
 
                 {step===1&&(
                   <div className="space-y-10">
@@ -943,7 +1162,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Lightbulb" title="Core Thesis"/>
                       {lf("Trade Thesis","thesis",4,"Example: Price broke key resistance at 1.0850...")}
                       <div className={g2}>
-                        <InfoBox color="blue"  icon="Target" title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one."/>
+                        <InfoBox color="blue"  icon="CheckCircle2" title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one."/>
                         <InfoBox color="green" icon="Zap"    title="Edge"      text="Defines your systematic advantage. Separates disciplined entries from random impulse trades."/>
                       </div>
                     </section>
@@ -959,11 +1178,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-6">
                       <SectionHeader icon="Battery" title="Pre-Entry State Check"/>
                       <div className={g2}>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {sc("Energy Level","energyLevel")}{sc("Focus Level","focusLevel")}{sc("Confidence at Entry","confidenceAtEntry")}
                           {ls("External Distraction","externalDistraction",["No","Yes"])}
                         </div>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {lf("Open Trades Count","openTradesCount",undefined,"0","number")}
                           {lf("Total Risk Open (%)","totalRiskOpen",undefined,"2.5","number")}
                           {ls("Correlated Exposure","correlatedExposure",["No","Yes"])}
@@ -973,18 +1192,18 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-6">
                       <SectionHeader icon="Layers" title="Classification & Quality"/>
                       <div className={g2}>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
-                          {lf("Strategy Version ID","strategyVersionId",undefined,"e.g., v2.1")}
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
+                          {lf("Strategy","strategyVersionId",undefined,"e.g., Supply & Demand, Breakout, VWAP Reversion…")}
                           {ls("Setup Tag","setupTag",["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"])}
                         </div>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded-xl p-5">
+                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
                           {ls("Trade Grade","tradeGrade",["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"])}
                         </div>
                       </div>
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="ShieldCheck" title="Rule Governance"/>
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                      <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
                         <div className={g2}>
                           {ls("Setup Fully Valid","setupFullyValid",["Yes","No"])}
                           {ls("Any Rule Broken?","anyRuleBroken",["No","Yes"])}
@@ -1010,18 +1229,18 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <div className="space-y-10">
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Trade Setup Screenshot"/>
-                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode"/>
+                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode" onPasteText={(t:string)=>analyzeText(t,"screenshot")}/>
                       {analyzing&&(
-                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"12px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"4px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
                           <Icon name="Activity" size={14}/>
-                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>OCR v8 analyzing screenshot… extracting fields</span>
+                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>Analyzing… extracting fields</span>
                         </div>
                       )}
                       {form.ocrConfidence && !analyzing && (
-                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"10px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"4px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
                           <Icon name="CheckCircle2" size={12} style={{color:"#34d399"}}/>
                           <span style={{fontSize:"10px",color:"#34d399",fontStyle:"italic"}}>
-                            OCR complete · {ocrFields.size} fields extracted · confidence: {form.ocrConfidence}
+                            {form.ocrConfidence === "text input" ? "Text parsed" : "OCR complete"} · {ocrFields.size} fields extracted{form.ocrConfidence !== "text input" ? ` · confidence: ${form.ocrConfidence}` : ""}
                           </span>
                           {form.ocrValidation && (
                             <span style={{fontSize:"9px",color:"#64748b",marginLeft:"auto",fontStyle:"italic"}}>{form.ocrValidation}</span>
@@ -1033,7 +1252,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="space-y-4">
                       <SectionHeader icon="Camera" title="Exit Chart Screenshot"/>
                       <InfoBox color="green" icon="Activity" title="Post-Trade Evidence" text="Upload the outcome screenshot — OCR will extract Closed P/L, achieved RR, and drawdown."/>
-                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Outcome screenshot · Win/Loss detection"/>
+                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Outcome screenshot · Win/Loss detection" onPasteText={(t:string)=>analyzeText(t,"exitScreenshot")}/>
                     </section>
 
                     <section className="space-y-4">
@@ -1105,7 +1324,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     </section>
                     <section className="space-y-4">
                       <SectionHeader icon="Layers3" title="Timeframe Context"/>
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                      <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
                         <div className={g2}>
                           {ls("HTF Bias","htfBias",["Bull","Bear","Range"])}
                           {ls("HTF Key Level Present","htfKeyLevelPresent",["Yes","No"])}
@@ -1125,15 +1344,15 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
-                        <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-4">
+                        <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
                           {sc("Market Alignment","marketAlignment")}{sc("Setup Clarity","setupClarity")}
-                          {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}
+                          {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}{sc("Signal Validation","signalValidation")}
                         </div>
                       </div>
                       <div className="space-y-4">
                         <SectionHeader icon="Activity" title="Technical Signals"/>
                         <div className="space-y-4">
-                          {ls("Timing Context","timingContext",["Impulse","Correction","Consolidation"])}
+                          {lf("Timing Context","timingContext",undefined,"e.g. Impulse, Correction, Ranging…")}
                           {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
                           {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
                         </div>
@@ -1144,10 +1363,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <div className="grid grid-cols-2 gap-4">
                         {lf("Primary Signals","primarySignals",2,"Main confirmations")}
                         {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
-                        {lf("Key Level Respect","keyLevelRespect",2,"Yes / No / Partial")}
-                        {lf("Key Level Type","keyLevelType",2,"Support / Resistance / Pivot / Fib Level")}
-                        {lf("Momentum Validity","momentumValidity",2,"Strong / Moderate / Weak")}
-                        {lf("Target Logic Clarity","targetLogicClarity",2,"High / Medium / Low")}
+                        {ls("Key Level Respect","keyLevelRespect",["Yes","No","Partial"])}
+                        {ls("Key Level Type","keyLevelType",["Support","Resistance","Pivot","Fib Level"])}
+                        {ls("Momentum Validity","momentumValidity",["Strong","Moderate","Weak"])}
+                        {ls("Target Logic Clarity","targetLogicClarity",["High","Medium","Low"])}
                       </div>
                     </section>
                     <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={()=>setStep(s=>s+1)}/>
@@ -1214,7 +1433,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       </div>
                       <div className="space-y-4">
                         <SectionHeader icon="Microscope" title="Trade Reflections"/>
-                        <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-5 space-y-5">
+                        <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-5">
                           <div>
                             <p className="text-[10px] font-black tracking-[0.2em] uppercase text-emerald-500/80 mb-3">What Worked</p>
                             <textarea rows={3} className={INPUT_CLS} placeholder="What did you execute well?" value={form.whatWorked} onChange={(e: any)=>set("whatWorked",e.target.value)}/>
@@ -1242,8 +1461,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         {/* SIDEBAR desktop */}
         <div className="sidebar-panel side-scroll">
           <div style={{padding:"12px",borderBottom:"1px solid rgba(51,65,85,0.35)",background:"#07090f"}}>
-            <div style={{background:"rgba(10,13,20,0.9)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"16px",padding:"14px 16px",height:"94px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-              <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(59,130,246,0.06),transparent)",borderRadius:"16px",pointerEvents:"none"}}/>
+            <div style={{background:"rgba(10,13,20,0.9)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"4px",padding:"14px 16px",height:"94px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(59,130,246,0.06),transparent)",borderRadius:"4px",pointerEvents:"none"}}/>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>SESSION</span>
                 <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none",transition:"all 0.3s"}}/>
@@ -1310,18 +1529,49 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
         {/* Save modal */}
         {saved&&(
-          <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",background:"rgba(5,7,10,0.92)",backdropFilter:"blur(8px)"}}>
-            <div style={{background:"#0a0d14",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"2rem",padding:"40px",maxWidth:"360px",width:"100%",textAlign:"center",boxShadow:"0 25px 50px rgba(0,0,0,0.5)"}}>
-              <div style={{width:"80px",height:"80px",borderRadius:"1.5rem",background:"rgba(30,41,59,0.5)",border:"1px solid rgba(51,65,85,0.5)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 24px"}}>
-                <Icon name="CheckCircle2" size={36} style={{color:"#34d399",opacity:0.8}}/>
+          <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",background:"rgba(2,4,8,0.88)",backdropFilter:"blur(12px)"}}>
+            <div style={{
+              background:"linear-gradient(160deg,#0d1117 0%,#0a0f1a 100%)",
+              border:"1px solid rgba(52,211,153,0.18)",
+              borderRadius:"24px",
+              padding:"48px 40px 40px",
+              maxWidth:"360px",
+              width:"100%",
+              textAlign:"center",
+              boxShadow:"0 0 0 1px rgba(52,211,153,0.06), 0 32px 64px rgba(0,0,0,0.6), 0 0 80px rgba(52,211,153,0.04)",
+              position:"relative",
+              overflow:"hidden"
+            }}>
+              <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:"180px",height:"1px",background:"linear-gradient(90deg,transparent,rgba(52,211,153,0.5),transparent)"}}/>
+              <div style={{
+                width:"88px",height:"88px",borderRadius:"50%",
+                background:"radial-gradient(circle at 40% 35%,rgba(52,211,153,0.15),rgba(16,185,129,0.04))",
+                border:"1px solid rgba(52,211,153,0.25)",
+                boxShadow:"0 0 32px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.15)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                margin:"0 auto 28px"
+              }}>
+                <Icon name="Check" size={38} style={{color:"#34d399",strokeWidth:2.5}}/>
               </div>
-              <h3 style={{fontSize:"13px",fontWeight:900,letterSpacing:"0.4em",color:"#cbd5e1",textTransform:"uppercase",marginBottom:"12px"}}>Trade Logged</h3>
-              <p style={{fontSize:"13px",color:"#64748b",fontFamily:"monospace",lineHeight:1.6,marginBottom:"32px"}}>
-                OCR-extracted data and manual annotations recorded.
+              <h3 style={{fontSize:"22px",fontWeight:700,color:"#f1f5f9",letterSpacing:"-0.02em",marginBottom:"10px",lineHeight:1.2}}>Trade Logged</h3>
+              <p style={{fontSize:"13px",color:"#475569",lineHeight:1.7,marginBottom:"36px"}}>
+                Your trade has been saved successfully.
               </p>
-              <button onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());}}
-                style={{width:"100%",padding:"12px 32px",borderRadius:"12px",fontSize:"11px",fontWeight:900,letterSpacing:"0.15em",color:"#fff",border:"none",cursor:"pointer",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)"}}>
-                CONTINUE TRADING
+              <div style={{height:"1px",background:"linear-gradient(90deg,transparent,rgba(51,65,85,0.4),transparent)",marginBottom:"28px"}}/>
+              <button
+                onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}}
+                style={{
+                  width:"100%",padding:"14px 32px",borderRadius:"12px",
+                  fontSize:"12px",fontWeight:700,letterSpacing:"0.08em",
+                  color:"#fff",border:"none",cursor:"pointer",
+                  background:"linear-gradient(135deg,#10b981,#059669)",
+                  boxShadow:"0 4px 24px rgba(16,185,129,0.25), 0 1px 0 rgba(255,255,255,0.08) inset",
+                  transition:"opacity 0.15s"
+                }}
+                onMouseEnter={e=>(e.currentTarget.style.opacity="0.88")}
+                onMouseLeave={e=>(e.currentTarget.style.opacity="1")}
+              >
+                Continue Trading
               </button>
             </div>
           </div>

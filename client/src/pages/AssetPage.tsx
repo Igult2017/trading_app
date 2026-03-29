@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
-import JournalHeader from "@/components/JournalHeader";
 import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
@@ -54,7 +53,6 @@ const ALL_INSTRUMENTS: Instrument[] = [
   { symbol: "AUD/CAD", assetClass: "forex", category: "Forex" },
   { symbol: "AUD/CHF", assetClass: "forex", category: "Forex" },
   { symbol: "NZD/JPY", assetClass: "forex", category: "Forex" },
-  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
   // ── Commodities ────────────────────────────────────────────────────────────
   { symbol: "XAU/USD", assetClass: "commodity", category: "Commodity" },
   { symbol: "XAG/USD", assetClass: "commodity", category: "Commodity" },
@@ -265,10 +263,36 @@ export default function AssetPage() {
     });
   }
 
-  // Fast ticking prices — sidebar + selected entry price (30s matches API cache TTL)
+  // Right sidebar resize
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(320);
+
+  function handleDragStart(e: React.MouseEvent) {
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+    e.preventDefault();
+
+    function onMove(ev: MouseEvent) {
+      if (!isDragging.current) return;
+      const delta = dragStartX.current - ev.clientX;
+      setSidebarWidth(Math.max(140, Math.min(520, dragStartWidth.current + delta)));
+    }
+    function onUp() {
+      isDragging.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  // Live prices — sidebar batch every 15s, selected instrument every 8s for near-real-time feel
   const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
-  const tickerPrices   = useFastBatchPrices(sidebarSymbols);  // 2s default
-  const entryTick      = useFastPrice(selected);              // 2s default
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
+  const entryTick      = useFastPrice(selected, 8000);
 
   const filtered = ALL_INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
@@ -287,11 +311,9 @@ export default function AssetPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
-      <JournalHeader onToggleSidebar={() => {}} />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
         .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
         .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
@@ -308,95 +330,6 @@ export default function AssetPage() {
         .ctx-row:hover { background: rgba(255,255,255,0.02); }
         .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
       `}</style>
-
-      {/* ── Left Sidebar ── */}
-      <div style={{ width: 320, minWidth: 320, background: "#0a0f16", borderRight: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100vh" }}>
-
-        {/* Search */}
-        <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #0f1923" }}>
-          <div style={{ position: "relative" }}>
-            <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#2d4a63" }} />
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="SEARCH INSTRUMENTS..."
-              style={{
-                width: "100%", background: "#0c1219", border: "1px solid #172233", borderRadius: 4,
-                color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-                padding: "8px 10px 8px 30px", outline: "none", fontFamily: "inherit"
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Instrument List */}
-        <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
-          {filtered.map(card => {
-            const isActive = card.symbol === selected;
-            return (
-              <div
-                key={card.symbol}
-                className="inst-card"
-                onClick={() => setSelected(card.symbol)}
-                style={{
-                  padding: "14px 16px",
-                  borderBottom: "1px solid #0f1923",
-                  background: isActive ? "#0e1620" : "transparent",
-                  borderLeft: isActive ? "3px solid #7c3aed" : "3px solid transparent",
-                  transition: "all 0.15s",
-                }}
-              >
-                {/* Row 1: Symbol + Category badge */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
-                    {card.symbol}
-                  </span>
-                  <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
-                    background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
-                    {card.category.toUpperCase()}
-                  </span>
-                </div>
-
-                {/* Row 2: Arrow + Price + Change % */}
-                {(() => {
-                  const tp = tickerPrices[card.symbol];
-                  const dir = tp?.direction ?? "flat";
-                  const chg = tp?.changePercent;
-                  return (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{
-                          width: 26, height: 26, borderRadius: 4,
-                          background: dir === "up" ? "rgba(34,211,165,0.12)" : dir === "down" ? "rgba(244,97,127,0.12)" : "rgba(255,255,255,0.04)",
-                          display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          <svg width="12" height="12" viewBox="0 0 12 12"
-                            fill={dir === "up" ? "#22d3a5" : dir === "down" ? "#f4617f" : "#2d4a63"}>
-                            {dir === "down"
-                              ? <polygon points="6,11 11,2 1,2" />
-                              : <polygon points="6,1 11,10 1,10" />}
-                          </svg>
-                        </div>
-                        <TickingPrice
-                          price={tp?.price ?? null}
-                          prevPrice={tp?.prevPrice ?? null}
-                          direction={dir}
-                          fontSize={13}
-                        />
-                      </div>
-                      {chg != null && (
-                        <span style={{ fontSize: 10, fontWeight: 700,
-                          color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
-                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
       {/* ── Main Content ── */}
       <div className="asset-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 0 32px" }}>
@@ -422,15 +355,15 @@ export default function AssetPage() {
                       price={entryTick.price ?? parseFloat(data.entry)}
                       prevPrice={entryTick.prevPrice}
                       direction={entryTick.direction}
-                      fontSize={18}
+                      fontSize={9}
                       fontWeight={700}
                     />
                   </div>
                 )
               },
-              { label: "TARGET (TP)", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.tp}</span> },
-              { label: "PROTECT (SL)", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.sl}</span> },
-              { label: "RISK : REWARD", value: <span style={{ fontSize: 18, fontWeight: 700, color: "#c8d8e8" }}>{data.rr}</span> },
+              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.tp}</span> },
+              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.sl}</span> },
+              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.rr}</span> },
             ].map((col, i) => (
               <div key={i} style={{
                 padding: "20px 16px", textAlign: "center",
@@ -568,9 +501,6 @@ export default function AssetPage() {
             {/* Chart Header */}
             <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em" }}>
-                  LIVE VISUALIZER - {selected}
-                </div>
                 <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em", marginTop: 2 }}>
                   <LiveClock />
                 </div>
@@ -707,6 +637,104 @@ export default function AssetPage() {
             {/* Chart */}
             <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
           </div>
+        </div>
+      </div>
+
+      {/* ── Right Sidebar ── */}
+      <div style={{ width: sidebarWidth, minWidth: 140, maxWidth: 520, background: "#0a0f16", borderLeft: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100%", position: "relative", flexShrink: 0 }}>
+        {/* Drag handle */}
+        <div
+          onMouseDown={handleDragStart}
+          style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, cursor: "col-resize", zIndex: 10, background: "transparent" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(59,130,246,0.25)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+        />
+
+        {/* Search */}
+        <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #0f1923" }}>
+          <div style={{ position: "relative" }}>
+            <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#2d4a63" }} />
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="SEARCH INSTRUMENTS..."
+              style={{
+                width: "100%", background: "#0c1219", border: "1px solid #172233", borderRadius: 4,
+                color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+                padding: "8px 10px 8px 30px", outline: "none", fontFamily: "inherit"
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Instrument List */}
+        <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
+          {filtered.map(card => {
+            const isActive = card.symbol === selected;
+            return (
+              <div
+                key={card.symbol}
+                className="inst-card"
+                onClick={() => setSelected(card.symbol)}
+                style={{
+                  padding: "14px 16px",
+                  borderBottom: "1px solid #0f1923",
+                  background: isActive ? "#0e1620" : "transparent",
+                  borderRight: isActive ? "3px solid #7c3aed" : "3px solid transparent",
+                  transition: "all 0.15s",
+                }}
+              >
+                {/* Row 1: Symbol + Category badge */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
+                    {card.symbol}
+                  </span>
+                  {sidebarWidth >= 200 && (
+                    <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
+                      {card.category.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Row 2: Arrow + Price + Change % */}
+                {(() => {
+                  const tp = tickerPrices[card.symbol];
+                  const dir = tp?.direction ?? "flat";
+                  const chg = tp?.changePercent;
+                  return (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 26, height: 26, borderRadius: 4,
+                          background: dir === "up" ? "rgba(34,211,165,0.12)" : dir === "down" ? "rgba(244,97,127,0.12)" : "rgba(255,255,255,0.04)",
+                          display: "flex", alignItems: "center", justifyContent: "center"
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12"
+                            fill={dir === "up" ? "#22d3a5" : dir === "down" ? "#f4617f" : "#2d4a63"}>
+                            {dir === "down"
+                              ? <polygon points="6,11 11,2 1,2" />
+                              : <polygon points="6,1 11,10 1,10" />}
+                          </svg>
+                        </div>
+                        <TickingPrice
+                          price={tp?.price ?? null}
+                          prevPrice={tp?.prevPrice ?? null}
+                          direction={dir}
+                          fontSize={11}
+                        />
+                      </div>
+                      {chg != null && sidebarWidth >= 200 && (
+                        <span style={{ fontSize: 10, fontWeight: 700,
+                          color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
+                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })}
         </div>
       </div>
 

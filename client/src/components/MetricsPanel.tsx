@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react';
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
 ───────────────────────────────────────────────────────────────────── */
-const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap');`;
 
 const P = {
   bg:'#0D0F1C', bg2:'#121526', bg3:'#171A30',
@@ -285,13 +284,16 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   const { data:metricsData, isLoading, isError } = useQuery<{ success:boolean; metrics:any }>({
     queryKey:['/api/metrics/compute', sessionId],
-    queryFn: ()=>fetch(queryUrl).then(r=>r.json()),
+    queryFn: async () => {
+      const r = await fetch(queryUrl);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
     enabled: !!sessionId,
   });
 
   /* ── CSS ── */
   const css = `
-    ${FONTS}
     .mp-root,.mp-root *,.mp-root *::before,.mp-root *::after{box-sizing:border-box;margin:0;padding:0;}
     .mp-root{font-family:'Barlow',sans-serif;background:${P.bg};color:${P.body};}
     .mp-root::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px);}
@@ -361,11 +363,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const psychology          = m.psychology                || {};
   const marketRegime        = m.marketRegime              || {};
   const setupTags           = m.setupTags                 || {};
-  const candlePatterns      = m.candlePatterns            || {};
+  const candlePatterns          = m.candlePatterns              || {};
+  const candleIndicatorTFMatrix = m.candleIndicatorTFMatrix     || {};
   const durationBreakdown   = m.durationBreakdown         || {};
   const sessionPhase        = m.sessionPhase              || {};
-  const instrSessMatrix     = m.instrumentSessionMatrix   || {};
-  const stratMarketMatrix   = m.strategyMarketMatrix      || {};
+  const instrSessMatrix           = m.instrumentSessionMatrix          || {};
+  const instrPhaseMomMatrix       = m.instrumentPhaseMomentumMatrix    || {};
+  const stratMarketMatrix         = m.strategyMarketMatrix             || {};
   const orderTypeBreakdown  = m.orderTypeBreakdown        || {};
   const riskHeatBreakdown   = m.riskHeatBreakdown         || {};
   const newsImpactBreakdown = m.newsImpactBreakdown       || {};
@@ -425,12 +429,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     pair, wr: Math.round(d.winRate||0), loss: 100-Math.round(d.winRate||0),
   }));
   const dayEntries  = Object.entries(dayOfWeekBreakdown).map(([day,d]: [string,any]) => ({ day, wr: Math.round((d as any).winRate||0) }));
-  const tfEntries   = Object.entries(tfEntry).map(([tf,d]: [string,any])              => ({ tf,  wr: Math.round((d as any).winRate||0) }));
+  const tfEntries   = Object.entries(tfEntry).map(([tf,d]: [string,any])              => ({ tf,  wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const sessEntries = Object.entries(sessionBreakdown).map(([name,d]: [string,any])   => ({ name, wr: Math.round((d as any).winRate||0) }));
   const exitEntries = Object.entries(exitAnalysis).map(([reason,d]: [string,any])     => ({ reason, pct: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const candleEntries = Object.entries(candlePatterns).map(([pat,d]: [string,any])    => ({ pat, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const orderEntries  = Object.entries(orderTypeBreakdown).map(([ot,d]: [string,any]) => ({ ot, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
-  const instrSessEntries = Object.entries(instrSessMatrix).map(([k,d]: [string,any])  => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0) }));
+  const instrSessEntries      = Object.entries(instrSessMatrix).map(([k,d]: [string,any])         => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0) }));
+  const instrPhaseMomEntries  = Object.entries(instrPhaseMomMatrix).map(([k,d]: [string,any])     => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const newsEntries = Object.entries(newsImpactBreakdown).map(([k,d]: [string,any])   => ({ k, wr: Math.round((d as any).winRate||0), r: (d as any).avgRR?.toFixed(2)||'--' }));
 
   const riskOfRuin = (()=>{
@@ -572,10 +577,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <BoolYN label="Key Level Respect"     data={boolImpacts.keyLevelRespected}/>
               <SubLabel>Key Level Type</SubLabel>
               <Multi label="" options={['Support','Resistance','Supply','Demand'].map(l=>({ label:l==='Resistance'?'Resist.':l, pct: catBreakdown.keyLevelType?.[l]?.winRate ?? null }))}/>
-              <BoolYN label="Momentum: Strong" data={boolImpacts.strongMomentum}/>
-              <ScoreRow label="Momentum Score" scores={scoreRowFromImpact(scoreImpacts.momentumScore)}/>
+              <Multi label="Momentum" options={['Strong','Moderate','Weak'].map(l=>({ label:l, pct: catBreakdown.momentumValidity?.[l]?.winRate ?? null }))}/>
               <BoolYN label="Target Logic" data={boolImpacts.targetLogic}/>
-              <Multi label="Timing Context" options={['Impulse','Correction','Consolidation'].map(l=>({ label:l, pct: timingCtxData[l]?.winRate ?? null }))}/>
+              <Multi label="Timing Context" options={Object.keys(timingCtxData).map(l=>({ label:l, pct: timingCtxData[l]?.winRate ?? null }))}/>
               <Multi label="Order Type" options={['Limit','Market','Stop'].map(l=>({ label:l, pct: catBreakdown.orderType?.[l]?.winRate ?? null }))}/>
             </Scroll>
           </Panel>
@@ -697,14 +701,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
           {/* ATF + Session + Instrument */}
           <Panel title="ATF + Session + Instrument" accent={P.green} tag="ASSET · TF · SESSION">
-            {(instrEntries.length>0
-              ? instrEntries.slice(0,5).map(ie=>({ label:ie.pair, win:ie.wr, loss:ie.loss }))
-              : []
-            ).map((x,i)=><SplitBar key={i} label={x.label} win={x.win} loss={x.loss}/>)}
-            {instrEntries.length===0 && <Mono size={9} color={P.dim}>No instrument data yet</Mono>}
-            {instrEntries.length>5 && (
+            {instrSessEntries.length>0
+              ? instrSessEntries.slice(0,8).map((x,i)=><SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>)
+              : <Mono size={9} color={P.dim}>No combined data yet — ensure Analysis TF, Session, and Instrument are all filled</Mono>
+            }
+            {instrSessEntries.length>8 && (
               <div style={{ borderTop:`1px solid ${P.line}`, paddingTop:8, textAlign:'center' }}>
-                <Mono size={8} color={P.dim}>+ {instrEntries.length-5} more instruments</Mono>
+                <Mono size={8} color={P.dim}>+ {instrSessEntries.length-8} more combinations</Mono>
               </div>
             )}
           </Panel>
@@ -743,9 +746,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <Bar label={`2–8 hrs    (${durationBuckets['2-8 hrs']?.count||0})`}    pct={durationBuckets['2-8 hrs']?.winRate    ?? null}/>
             <Bar label={`8+ hrs     (${durationBuckets['8+ hrs']?.count||0})`}     pct={durationBuckets['8+ hrs']?.winRate     ?? null}/>
             <SubLabel>Timing Context</SubLabel>
-            <Bar label="Impulse"       pct={timingCtxData['Impulse']?.winRate       ?? null} sub={`${ct(timingCtxData['Impulse'])}t`}/>
-            <Bar label="Correction"    pct={timingCtxData['Correction']?.winRate    ?? null} sub={`${ct(timingCtxData['Correction'])}t`}/>
-            <Bar label="Consolidation" pct={timingCtxData['Consolidation']?.winRate ?? null} sub={`${ct(timingCtxData['Consolidation'])}t`}/>
+            {Object.keys(timingCtxData).length > 0
+              ? Object.keys(timingCtxData).map(l => (
+                  <Bar key={l} label={l} pct={timingCtxData[l]?.winRate ?? null} sub={`${ct(timingCtxData[l])}t`}/>
+                ))
+              : <Bar label="No data" pct={null}/>
+            }
           </Panel>
 
           {/* Risk & Position Sizing */}
@@ -801,18 +807,37 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <DR label="MAE / MFE Ratio" value={maeMfe.avgMAEMFERatio!=null?`${maeMfe.avgMAEMFERatio.toFixed(3)}${maeMfe.avgMAEMFERatio<0.35?' · Good':maeMfe.avgMAEMFERatio<0.6?' · Fair':' · Poor'}`:'--'} vc={maeMfe.avgMAEMFERatio!=null?(maeMfe.avgMAEMFERatio<0.35?P.green:maeMfe.avgMAEMFERatio<0.6?P.amber:P.red):P.dim}/>
           </Panel>
 
-          {/* Candle Patterns */}
+          {/* Candle Pattern × Indicator × Timeframe */}
           <Panel title="Candle Pattern × Timeframe" accent={P.green} tag="PATTERNS · INDICATORS">
-            <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Candle Pattern</SubLabel>
-            {candleEntries.length>0
-              ? candleEntries.map((x,i)=>(
-                  <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
-                    <Mono size={9} color={P.muted}>{x.pat} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
-                    {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(x.wr)}>{x.wr}%</Num>}
+            <Scroll>
+              <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Pattern · Indicator · TF → Performance</SubLabel>
+              {Object.entries(candleIndicatorTFMatrix).length > 0
+                ? Object.entries(candleIndicatorTFMatrix).map(([key, d]: [string, any], i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:`1px solid ${P.line}` }}>
+                      <Mono size={9} color={P.muted} style={{ flex:1, paddingRight:8 }}>{key}</Mono>
+                      <Cond size={10} color={pColor(d.winRate??null)} weight={600} style={{ whiteSpace:'nowrap' }}>
+                        {d.winRate!=null ? `${Math.round(d.winRate)}% (${d.count}t)` : '--'}
+                      </Cond>
+                    </div>
+                  ))
+                : (
+                  <div>
+                    <Mono size={9} color={P.dim}>No combined data yet — fill Candle Pattern, Indicator State, and Entry TF on journal entries</Mono>
+                    {candleEntries.length > 0 && (
+                      <div style={{ marginTop:12 }}>
+                        <SubLabel>Candle Patterns (standalone)</SubLabel>
+                        {candleEntries.map((x,i)=>(
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
+                            <Mono size={9} color={P.muted}>{x.pat} <span style={{ color:P.dim }}>({x.ct}t)</span></Mono>
+                            {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(x.wr)}>{x.wr}%</Num>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))
-              : <Mono size={9} color={P.dim}>No candle pattern data</Mono>
-            }
+                )
+              }
+            </Scroll>
           </Panel>
 
           {/* Execution Metrics */}
@@ -841,20 +866,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* Instrument × Session */}
           <Panel title="Instrument · Session Phase · Momentum" accent={P.cyan} tag="WIN / LOSS" style={{ height:480 }}>
             <Scroll>
-              <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Instrument × Session — Win Rate</SubLabel>
-              {instrSessEntries.length>0
-                ? instrSessEntries.slice(0,8).map((x,i)=><SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>)
-                : <Mono size={9} color={P.dim}>No data yet</Mono>
+              <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Instrument × Phase × Momentum</SubLabel>
+              {instrPhaseMomEntries.length>0
+                ? instrPhaseMomEntries.map((x,i)=>(
+                    <SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>
+                  ))
+                : <Mono size={9} color={P.dim}>No combined data yet — ensure Instrument, Session Phase, and Momentum Validity are all filled</Mono>
               }
-              <SubLabel>Session Phase</SubLabel>
-              <Bar label="Open  — high liquidity" pct={sessionPhase['Open']?.winRate  ?? null}/>
-              <Bar label="Mid   — consolidation"  pct={sessionPhase['Mid']?.winRate   ?? null}/>
-              <Bar label="Close — fading volume"  pct={sessionPhase['Close']?.winRate ?? null}/>
-              <SubLabel>Momentum at Entry</SubLabel>
-              <BoolYN label="Strong momentum confirmed" data={boolImpacts.strongMomentum}/>
-              <BoolYN label="Momentum with HTF align"   data={boolImpacts.momentumWithHTFAlign}/>
-              <BoolYN label="Counter-momentum entry"    data={boolImpacts.counterMomentumEntry}/>
-              <ScoreRow label="Momentum Score → Win%" scores={scoreRowFromImpact(scoreImpacts.momentumScore)}/>
             </Scroll>
           </Panel>
 
@@ -883,7 +901,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                 ? tfEntries.map((x,i)=>(
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                       <Mono size={9} color={P.muted}>{x.tf}</Mono>
-                      <Cond size={10} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}%`:'--'}</Cond>
+                      <Cond size={10} color={pColor(x.wr||null)} weight={600}>{x.wr?`${x.wr}% (${x.count}t)`:'--'}</Cond>
                     </div>
                   ))
                 : <Mono size={9} color={P.dim}>No entry TF data</Mono>
@@ -892,7 +910,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfAnalysis).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}% (${d.count||0}t)`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfAnalysis).length===0 && <Mono size={9} color={P.dim}>No analysis TF data</Mono>}
@@ -900,7 +918,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               {Object.entries(tfContext).map(([tf,d]: [string,any],i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
                   <Mono size={9} color={P.muted}>{tf}</Mono>
-                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}%`:'--'}</Cond>
+                  <Cond size={10} color={pColor(d.winRate||null)} weight={600}>{d.winRate!=null?`${Math.round(d.winRate)}% (${d.count||0}t)`:'--'}</Cond>
                 </div>
               ))}
               {Object.keys(tfContext).length===0 && <Mono size={9} color={P.dim}>No context TF data</Mono>}

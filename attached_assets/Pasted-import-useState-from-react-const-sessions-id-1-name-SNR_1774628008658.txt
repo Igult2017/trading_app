@@ -1,0 +1,338 @@
+import { useState } from "react";
+
+const sessions = [
+  {
+    id: 1,
+    name: "SNR",
+    date: "25 Mar 2026",
+    status: "ACTIVE",
+    balance: 5000,
+    pnl: -1.87,
+    ret: -0.0,
+    trades: 1,
+  },
+  {
+    id: 2,
+    name: "SNR",
+    date: "25 Mar 2026",
+    status: "ACTIVE",
+    balance: 1000,
+    pnl: null,
+    ret: null,
+    trades: 0,
+  },
+];
+
+const styles = {
+  root: {
+    fontFamily: "'Montserrat', sans-serif",
+    background: "#0a0a0a",
+    minHeight: "100vh",
+    padding: "40px 36px",
+    color: "#fff",
+  },
+  header: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: "40px",
+    borderBottom: "2px solid #222",
+    paddingBottom: "24px",
+  },
+  title: {
+    fontSize: "26px",
+    fontWeight: "800",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#7eb8f7",
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: "11px",
+    fontWeight: "500",
+    color: "#555",
+    letterSpacing: "0.05em",
+    marginTop: "6px",
+    textTransform: "uppercase",
+  },
+  sessionCount: {
+    fontSize: "11px",
+    fontWeight: "700",
+    letterSpacing: "0.12em",
+    color: "#3dff8f",
+    border: "2px solid #3dff8f",
+    padding: "6px 14px",
+    textTransform: "uppercase",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+    gap: "3px",
+  },
+  card: {
+    background: "#111",
+    border: "2px solid #1a3a5c",
+    padding: "0",
+    cursor: "pointer",
+    position: "relative",
+    transition: "border-color 0.15s, transform 0.1s",
+    overflow: "hidden",
+  },
+  cardHovered: {
+    borderColor: "#2a5a8c",
+    transform: "translateY(-2px)",
+  },
+  cardTopBar: {
+    background: "#161616",
+    borderBottom: "2px solid #1e1e1e",
+    padding: "14px 20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardName: {
+    fontSize: "13px",
+    fontWeight: "800",
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+    color: "#7eb8f7",
+  },
+  cardDate: {
+    fontSize: "10px",
+    fontWeight: "600",
+    letterSpacing: "0.08em",
+    color: "#444",
+    textTransform: "uppercase",
+  },
+  statusPill: {
+    fontSize: "9px",
+    fontWeight: "800",
+    letterSpacing: "0.14em",
+    color: "#3dff8f",
+    border: "1.5px solid #3dff8f",
+    padding: "3px 8px",
+    textTransform: "uppercase",
+  },
+  cardBody: {
+    padding: "10px 20px 0",
+  },
+  balanceLabel: {
+    fontSize: "9px",
+    fontWeight: "700",
+    letterSpacing: "0.16em",
+    color: "#444",
+    textTransform: "uppercase",
+    marginBottom: "4px",
+  },
+  balanceValue: {
+    fontSize: "38px",
+    fontWeight: "800",
+    color: "#7eb8f7",
+    letterSpacing: "-0.01em",
+    lineHeight: 1,
+    marginBottom: "10px",
+  },
+  divider: {
+    height: "2px",
+    background: "#1a1a1a",
+    marginBottom: "0",
+  },
+  statsRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    borderTop: "2px solid #1a1a1a",
+  },
+  statBox: {
+    padding: "16px 20px",
+    borderRight: "2px solid #1a1a1a",
+    position: "relative",
+  },
+  statBoxLast: {
+    padding: "16px 20px",
+    position: "relative",
+  },
+  statLabel: {
+    fontSize: "9px",
+    fontWeight: "700",
+    letterSpacing: "0.14em",
+    color: "#444",
+    textTransform: "uppercase",
+    marginBottom: "6px",
+  },
+  statValueNeg: {
+    fontSize: "17px",
+    fontWeight: "800",
+    color: "#ff4d4d",
+    letterSpacing: "-0.01em",
+  },
+  statValueNeutral: {
+    fontSize: "17px",
+    fontWeight: "800",
+    color: "#555",
+    letterSpacing: "-0.01em",
+  },
+  statValueWhite: {
+    fontSize: "17px",
+    fontWeight: "800",
+    color: "#7eb8f7",
+    letterSpacing: "-0.01em",
+  },
+  cardFooter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "12px 20px",
+    borderTop: "2px solid #1a1a1a",
+    background: "#0d0d0d",
+  },
+  tradeNote: {
+    fontSize: "10px",
+    fontWeight: "600",
+    letterSpacing: "0.08em",
+    color: "#3a3a3a",
+    textTransform: "uppercase",
+  },
+  deleteBtn: {
+    fontSize: "9px",
+    fontWeight: "700",
+    letterSpacing: "0.12em",
+    color: "#3a3a3a",
+    background: "none",
+    border: "1.5px solid #2a2a2a",
+    padding: "5px 12px",
+    cursor: "pointer",
+    textTransform: "uppercase",
+    fontFamily: "'Montserrat', sans-serif",
+    transition: "border-color 0.15s, color 0.15s",
+  },
+  deleteBtnHovered: {
+    borderColor: "#ff4d4d",
+    color: "#ff4d4d",
+  },
+  accentLine: {
+    height: "3px",
+    background: "#ff4d4d",
+  },
+  accentLineEmpty: {
+    height: "3px",
+    background: "#1e1e1e",
+  },
+};
+
+function SessionCard({ session }) {
+  const [hovered, setHovered] = useState(false);
+  const [deleteHovered, setDeleteHovered] = useState(false);
+
+  const hasData = session.trades > 0;
+  const pnlPositive = session.pnl > 0;
+
+  return (
+    <div
+      style={{ ...styles.card, ...(hovered ? styles.cardHovered : {}) }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={hasData ? styles.accentLine : styles.accentLineEmpty} />
+
+      <div style={styles.cardTopBar}>
+        <div>
+          <div style={styles.cardName}>{session.name}</div>
+          <div style={styles.cardDate}>{session.date}</div>
+        </div>
+        <span style={styles.statusPill}>{session.status}</span>
+      </div>
+
+      <div style={styles.cardBody}>
+        <div style={styles.balanceLabel}>Starting Balance</div>
+        <div style={styles.balanceValue}>
+          ${session.balance.toLocaleString()}
+        </div>
+      </div>
+
+      <div style={styles.statsRow}>
+        <div style={styles.statBox}>
+          <div style={styles.statLabel}>P&L</div>
+          <div
+            style={
+              session.pnl === null
+                ? styles.statValueNeutral
+                : session.pnl < 0
+                ? styles.statValueNeg
+                : { ...styles.statValueWhite, color: "#3dff8f" }
+            }
+          >
+            {session.pnl === null
+              ? "—"
+              : `${session.pnl < 0 ? "" : "+"}${session.pnl.toFixed(2)}`}
+          </div>
+        </div>
+        <div style={styles.statBox}>
+          <div style={styles.statLabel}>Return</div>
+          <div
+            style={
+              session.ret === null
+                ? styles.statValueNeutral
+                : session.ret < 0
+                ? styles.statValueNeg
+                : { ...styles.statValueWhite, color: "#3dff8f" }
+            }
+          >
+            {session.ret === null
+              ? "—"
+              : `${session.ret < 0 ? "" : "+"}${session.ret.toFixed(1)}%`}
+          </div>
+        </div>
+        <div style={styles.statBoxLast}>
+          <div style={styles.statLabel}>Trades</div>
+          <div style={session.trades > 0 ? styles.statValueWhite : styles.statValueNeutral}>
+            {session.trades}
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.cardFooter}>
+        <span style={styles.tradeNote}>
+          {session.trades === 0 ? "No trades yet" : `${session.trades} trade logged`}
+        </span>
+        <button
+          style={{
+            ...styles.deleteBtn,
+            ...(deleteHovered ? styles.deleteBtnHovered : {}),
+          }}
+          onMouseEnter={() => setDeleteHovered(true)}
+          onMouseLeave={() => setDeleteHovered(false)}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function TradingSessions() {
+  return (
+    <>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet"
+      />
+      <div style={styles.root}>
+        <div style={styles.header}>
+          <div>
+            <h1 style={styles.title}>Trading Sessions</h1>
+            <p style={styles.subtitle}>
+              Select a session to view dashboard, metrics &amp; trade vault
+            </p>
+          </div>
+          <span style={styles.sessionCount}>{sessions.length} Sessions</span>
+        </div>
+
+        <div style={styles.grid}>
+          {sessions.map((s) => (
+            <SessionCard key={s.id} session={s} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
