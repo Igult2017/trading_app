@@ -310,8 +310,11 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
                 return frame[matches[0]] if matches else None
 
             # ── TREND ──────────────────────────────────────────────────────
+            # EMA: 9, 21, 50, 100, 200  (standard EMA periods)
             for length in [9, 21, 50, 100, 200]:
                 df[f"ema{length}"] = ta.ema(df["close"], length=length)
+            # SMA: 9, 20, 50, 100, 200  (SMA 20 is standard, not 21)
+            for length in [9, 20, 50, 100, 200]:
                 df[f"sma{length}"] = ta.sma(df["close"], length=length)
 
             df["wma20"]  = ta.wma(df["close"],  length=20)
