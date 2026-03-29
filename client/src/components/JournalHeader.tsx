@@ -64,8 +64,6 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
     iconBtnHover: '#f1f5f9',
   };
 
-  const NAV_ITEMS = ['Journal', 'Economic Calendar', 'Blog', 'TSC'];
-  const NAV_LINKS: Record<string, string> = { 'Journal': '/journal', 'Economic Calendar': '#economic-calendar', 'Blog': '#blog', 'TSC': '#tsc' };
 
   const iconButtonStyle = {
     width: 32,
@@ -131,15 +129,8 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
             </button>
           </div>
 
-          {/* Desktop Nav Links + Icons */}
+          {/* Desktop Nav Icons */}
           <div className="nav-links">
-            {NAV_ITEMS.map(item => (
-              <a key={item} href={NAV_LINKS[item]} className="nav-a" style={{ color: t.navLink }}
-                onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-              >{item}</a>
-            ))}
-
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
             <button className="jh-icon-btn" style={iconButtonStyle} title="Language"><Globe size={16} /></button>
@@ -183,19 +174,6 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
         </nav>
       </div>
 
-      {/* Mobile Dropdown Menu */}
-      {mobileMenuOpen && (
-        <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}`, position: 'relative', zIndex: 99 }}>
-          {NAV_ITEMS.map(item => (
-            <a key={item} href={NAV_LINKS[item]}
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-              onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-              onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-            >{item}</a>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
