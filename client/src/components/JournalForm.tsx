@@ -1162,7 +1162,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Lightbulb" title="Core Thesis"/>
                       {lf("Trade Thesis","thesis",4,"Example: Price broke key resistance at 1.0850...")}
                       <div className={g2}>
-                        <InfoBox color="blue"  icon="Target" title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one."/>
+                        <InfoBox color="blue"  icon="CheckCircle2" title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one."/>
                         <InfoBox color="green" icon="Zap"    title="Edge"      text="Defines your systematic advantage. Separates disciplined entries from random impulse trades."/>
                       </div>
                     </section>
