@@ -689,10 +689,12 @@ export default function AssetPage() {
                   <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
-                  <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
-                    background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
-                    {card.category.toUpperCase()}
-                  </span>
+                  {sidebarWidth >= 200 && (
+                    <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
+                      background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
+                      {card.category.toUpperCase()}
+                    </span>
+                  )}
                 </div>
 
                 {/* Row 2: Arrow + Price + Change % */}
@@ -722,7 +724,7 @@ export default function AssetPage() {
                           fontSize={11}
                         />
                       </div>
-                      {chg != null && (
+                      {chg != null && sidebarWidth >= 200 && (
                         <span style={{ fontSize: 10, fontWeight: 700,
                           color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
                           {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
