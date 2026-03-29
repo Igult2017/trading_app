@@ -115,18 +115,8 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
         <TickerTape />
         <nav style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
-          {/* Left: Sidebar hamburger + Logo */}
+          {/* Left: Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-            <button
-              onClick={onToggleSidebar}
-              title="Toggle sidebar"
-              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text, flexShrink: 0, transition: 'background 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = dm ? '#172233' : '#e2e8f0'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-            >
-              <Menu size={18} />
-            </button>
-
             <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer', textTransform: 'uppercase' }}>
               <span style={{ color: t.logoWhite }}>FSD </span>
               <span style={{ color: '#3b82f6' }}>Journal</span>
@@ -166,6 +156,18 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
                 {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
               </div>
             </button>
+
+            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
+
+            <button
+              onClick={onToggleSidebar}
+              title="Toggle sidebar"
+              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text, flexShrink: 0, transition: 'background 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = dm ? '#172233' : '#e2e8f0'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+            >
+              <Menu size={18} />
+            </button>
           </div>
 
           {/* Mobile Controls */}
@@ -178,6 +180,13 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
             </button>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>
+              <Menu size={18} />
+            </button>
+            <button
+              onClick={onToggleSidebar}
+              title="Toggle sidebar"
+              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text, flexShrink: 0, transition: 'background 0.15s' }}
+            >
               <Menu size={18} />
             </button>
           </div>
