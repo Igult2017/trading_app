@@ -125,6 +125,7 @@ FIELD_MAP: Dict[str, str] = {
     "order_type": "order_type",
     "managementType": "management_type",
     "candlePattern": "candle_pattern",
+    "indicatorState": "indicator_state",
     "newsImpact": "news_impact",
     "newsEnvironment": "news_impact",      # JournalForm uses newsEnvironment
     "emotionalState": "emotional_state",
@@ -234,6 +235,7 @@ class TradeRecord:
     order_type: Optional[str]
     management_type: Optional[str]
     candle_pattern: Optional[str]
+    indicator_state: Optional[str]
     news_impact: Optional[str]
     emotional_state: Optional[str]
     focus_level: Optional[str]
@@ -586,6 +588,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         order_type=cat("orderType") or _str(raw.get("order_type")),
         management_type=cat("managementType"),
         candle_pattern=cat("candlePattern"),
+        indicator_state=cat("indicatorState"),
         news_impact=cat("newsImpact"),
         emotional_state=cat("emotionalState"),
         focus_level=_score_to_level(g("focusLevel") or g("focusStressLevel")),
@@ -1178,6 +1181,26 @@ def calc_candle_patterns(ctx: SharedContext) -> Dict:
     return breakdown_by_categorical(ctx.trades, "candle_pattern")
 
 
+def calc_candle_indicator_tf_matrix(ctx: SharedContext) -> Dict:
+    """3-way composite: candle_pattern · indicator_state · timeframe → performance."""
+    groups: Dict[str, List[TradeRecord]] = defaultdict(list)
+    for t in ctx.trades:
+        candle = t.candle_pattern
+        indicator = t.indicator_state
+        tf = t.timeframe or t.analysis_timeframe
+        if candle and indicator and tf:
+            key = f"{candle} · {indicator} · {tf}"
+            groups[key].append(t)
+    return {
+        k: {
+            "winRate": win_rate_of(v),
+            "count": len(v),
+            "pl": round(sum(t.pnl for t in v), 2),
+        }
+        for k, v in sorted(groups.items())
+    }
+
+
 def calc_duration_breakdown(ctx: SharedContext) -> Dict:
     bucket_groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
@@ -1394,6 +1417,7 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "marketRegime":             calc_market_regime,
     "setupTags":                calc_setup_tags,
     "candlePatterns":           calc_candle_patterns,
+    "candleIndicatorTFMatrix":  calc_candle_indicator_tf_matrix,
     "durationBreakdown":        calc_duration_breakdown,
     "sessionPhase":             calc_session_phase,
     "instrumentSessionMatrix":        calc_instrument_session_matrix,

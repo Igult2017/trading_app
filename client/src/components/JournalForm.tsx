@@ -1030,6 +1030,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
           strongMomentum:          form.momentumValidity,
           managementType:          form.managementType,
           candlePattern:           form.candlePattern,
+          indicatorState:          form.indicatorState  || null,
           setupFullyValid:         form.setupFullyValid,
           ruleBroken:              form.anyRuleBroken,
           breakevenApplied:        form.breakEvenApplied,

@@ -363,7 +363,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const psychology          = m.psychology                || {};
   const marketRegime        = m.marketRegime              || {};
   const setupTags           = m.setupTags                 || {};
-  const candlePatterns      = m.candlePatterns            || {};
+  const candlePatterns          = m.candlePatterns              || {};
+  const candleIndicatorTFMatrix = m.candleIndicatorTFMatrix     || {};
   const durationBreakdown   = m.durationBreakdown         || {};
   const sessionPhase        = m.sessionPhase              || {};
   const instrSessMatrix           = m.instrumentSessionMatrix          || {};
@@ -806,18 +807,37 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <DR label="MAE / MFE Ratio" value={maeMfe.avgMAEMFERatio!=null?`${maeMfe.avgMAEMFERatio.toFixed(3)}${maeMfe.avgMAEMFERatio<0.35?' · Good':maeMfe.avgMAEMFERatio<0.6?' · Fair':' · Poor'}`:'--'} vc={maeMfe.avgMAEMFERatio!=null?(maeMfe.avgMAEMFERatio<0.35?P.green:maeMfe.avgMAEMFERatio<0.6?P.amber:P.red):P.dim}/>
           </Panel>
 
-          {/* Candle Patterns */}
+          {/* Candle Pattern × Indicator × Timeframe */}
           <Panel title="Candle Pattern × Timeframe" accent={P.green} tag="PATTERNS · INDICATORS">
-            <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Candle Pattern</SubLabel>
-            {candleEntries.length>0
-              ? candleEntries.map((x,i)=>(
-                  <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
-                    <Mono size={9} color={P.muted}>{x.pat} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
-                    {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(x.wr)}>{x.wr}%</Num>}
+            <Scroll>
+              <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Pattern · Indicator · TF → Performance</SubLabel>
+              {Object.entries(candleIndicatorTFMatrix).length > 0
+                ? Object.entries(candleIndicatorTFMatrix).map(([key, d]: [string, any], i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:`1px solid ${P.line}` }}>
+                      <Mono size={9} color={P.muted} style={{ flex:1, paddingRight:8 }}>{key}</Mono>
+                      <Cond size={10} color={pColor(d.winRate??null)} weight={600} style={{ whiteSpace:'nowrap' }}>
+                        {d.winRate!=null ? `${Math.round(d.winRate)}% (${d.count}t)` : '--'}
+                      </Cond>
+                    </div>
+                  ))
+                : (
+                  <div>
+                    <Mono size={9} color={P.dim}>No combined data yet — fill Candle Pattern, Indicator State, and Entry TF on journal entries</Mono>
+                    {candleEntries.length > 0 && (
+                      <div style={{ marginTop:12 }}>
+                        <SubLabel>Candle Patterns (standalone)</SubLabel>
+                        {candleEntries.map((x,i)=>(
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
+                            <Mono size={9} color={P.muted}>{x.pat} <span style={{ color:P.dim }}>({x.ct}t)</span></Mono>
+                            {x.wr==null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(x.wr)}>{x.wr}%</Num>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))
-              : <Mono size={9} color={P.dim}>No candle pattern data</Mono>
-            }
+                )
+              }
+            </Scroll>
           </Panel>
 
           {/* Execution Metrics */}
