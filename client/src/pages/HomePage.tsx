@@ -151,7 +151,12 @@ export default function HomePage() {
   const calData = Array.from({ length: 35 }, () => (Math.random() - 0.45) * 900);
 
   const navItems = ['Features', 'Pricing', 'Reviews', 'Economic Calendar', 'Assets', 'Blog', 'TSC', 'Login', 'Signup'];
-  const navHref = (item: string) => item === 'TSC' ? '/tsc' : `#${item.toLowerCase().replace(' ', '-')}`;
+  const navHref = (item: string) => {
+    if (item === 'TSC') return '/tsc';
+    if (item === 'Blog') return '/blog';
+    if (item === 'Economic Calendar') return '/calendar';
+    return `#${item.toLowerCase().replace(' ', '-')}`;
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
