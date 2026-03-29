@@ -1193,7 +1193,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                       <SectionHeader icon="Layers" title="Classification & Quality"/>
                       <div className={g2}>
                         <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
-                          {lf("Strategy Version ID","strategyVersionId",undefined,"e.g., v2.1")}
+                          {lf("Strategy","strategyVersionId",undefined,"e.g., Supply & Demand, Breakout, VWAP Reversion…")}
                           {ls("Setup Tag","setupTag",["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"])}
                         </div>
                         <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
