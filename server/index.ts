@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { spawn, type ChildProcess } from "child_process";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
@@ -46,6 +48,9 @@ app.use((req, res, next) => {
     log('[Database] Warning: Database initialization had issues, proceeding anyway');
     log(String(dbInitError));
   }
+
+  // Start price daemon before routes so it has time to warm up
+  startPriceDaemon();
 
   const server = await registerRoutes(app);
 
@@ -125,19 +130,14 @@ app.use((req, res, next) => {
       .catch((err) => log(`[PriceCache] Warmup error: ${err}`));
   });
 
-  process.on('SIGTERM', () => {
-    log('SIGTERM signal received: closing HTTP server');
+  function shutdown(signal: string) {
+    log(`${signal} received: shutting down`);
+    daemonRestarting = true;
+    priceDaemon?.kill();
     scraperScheduler.stop();
-    server.close(() => {
-      log('HTTP server closed');
-    });
-  });
+    server.close(() => log("HTTP server closed"));
+  }
 
-  process.on('SIGINT', () => {
-    log('SIGINT signal received: closing HTTP server');
-    scraperScheduler.stop();
-    server.close(() => {
-      log('HTTP server closed');
-    });
-  });
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT",  () => shutdown("SIGINT"));
 })();

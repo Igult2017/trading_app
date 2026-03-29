@@ -50,8 +50,10 @@ function assetClass(symbol: string) {
   return ASSET_CLASS_MAP[symbol] ?? "stock";
 }
 
-/** Polls a single price every `intervalMs` (default 5 s). */
-export function useFastPrice(symbol: string, intervalMs = 5000): FastPriceData {
+/** Polls a single price every `intervalMs` (default 2 s).
+ *  The backend reads from the daemon cache — no external API call is made,
+ *  so a 2 s interval is safe and gives near-live updates. */
+export function useFastPrice(symbol: string, intervalMs = 2000): FastPriceData {
   const [price,     setPrice]     = useState<number | null>(null);
   const [prevPrice, setPrevPrice] = useState<number | null>(null);
   const [changePct, setChangePct] = useState<number | null>(null);
@@ -94,10 +96,11 @@ export function useFastPrice(symbol: string, intervalMs = 5000): FastPriceData {
   return { price, prevPrice, direction, changePercent: changePct, loading };
 }
 
-/** Polls prices for multiple symbols every `intervalMs`. */
+/** Polls prices for multiple symbols every `intervalMs` (default 2 s).
+ *  Backend reads from daemon cache — safe to poll frequently. */
 export function useFastBatchPrices(
   symbols: string[],
-  intervalMs = 5000
+  intervalMs = 2000
 ): Record<string, FastPriceData> {
   const [data, setData] = useState<Record<string, FastPriceData>>({});
   const prevRef = useRef<Record<string, number>>({});

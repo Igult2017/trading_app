@@ -1,133 +1,125 @@
+/**
+ * priceService.ts
+ * ───────────────
+ * Two separate concerns:
+ *
+ * 1. LIVE PRICES  →  read from price_daemon.py cache over HTTP (127.0.0.1:8765)
+ *    The daemon runs persistently alongside Node and writes to its cache via:
+ *      • Binance WebSocket (crypto, ms latency)
+ *      • yfinance rotating scheduler (forex/stocks/indices/commodities, 6 s/req)
+ *    The API layer NEVER triggers an external fetch — it only reads from cache.
+ *
+ * 2. CANDLE / OHLCV DATA  →  on-demand Python subprocess (price_service.py)
+ *    Candle requests are infrequent and require historical aggregation, so they
+ *    stay as separate subprocess calls with a 2-minute server-side cache.
+ */
+
 import { spawn } from 'child_process';
-import path from 'path';
+import path      from 'path';
 import { PYTHON_BIN } from './pythonBin';
 
+// ── Shared types ───────────────────────────────────────────────────────────────
+
 export interface CandleBar {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
+  time:   number;
+  open:   number;
+  high:   number;
+  low:    number;
+  close:  number;
   volume: number;
 }
 
 export interface CandleResult {
-  symbol: string;
+  symbol:    string;
   interval?: string;
-  period?: string;
-  candles: CandleBar[];
-  error?: string;
+  period?:   string;
+  candles:   CandleBar[];
+  error?:    string;
 }
 
-interface PriceRequest {
-  action: 'get_price' | 'get_multiple_prices' | 'get_candles' | 'ping';
-  symbol?: string;
-  assetClass?: 'stock' | 'forex' | 'commodity' | 'crypto';
-  symbols?: Array<{ symbol: string; assetClass: string }>;
-}
-
-interface PriceResult {
-  symbol: string;
-  assetClass?: string;
-  price?: number;
-  change?: number;
+export interface PriceResult {
+  symbol:        string;
+  assetClass?:   string;
+  price?:        number;
+  change?:       number;
   changePercent?: number;
-  high?: number;
-  low?: number;
-  open?: number;
+  high?:         number;
+  low?:          number;
+  open?:         number;
   previousClose?: number;
-  volume?: number;
-  marketCap?: number;
-  timestamp?: string;
-  source?: string;
-  error?: string;
+  volume?:       number;
+  marketCap?:    number;
+  timestamp?:    string;
+  source?:       string;
+  error?:        string;
 }
 
-const PYTHON_SCRIPT_PATH = path.join(process.cwd(), 'server', 'python', 'price_service.py');
+// ── 1. DAEMON CLIENT (live prices) ────────────────────────────────────────────
 
-async function callPythonService(request: PriceRequest): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT_PATH], {
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    
-    let stdout = '';
-    let stderr = '';
-    
-    pythonProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    pythonProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    
-    pythonProcess.on('close', (code) => {
-      if (code !== 0) {
-        console.error('Python price service error:', stderr);
-        reject(new Error(`Python process exited with code ${code}: ${stderr}`));
-        return;
-      }
-      
-      try {
-        const result = JSON.parse(stdout);
-        resolve(result);
-      } catch (e) {
-        reject(new Error(`Failed to parse Python output: ${stdout}`));
-      }
-    });
-    
-    pythonProcess.on('error', (err) => {
-      reject(new Error(`Failed to start Python process: ${err.message}`));
-    });
-    
-    // Send request to Python process
-    pythonProcess.stdin.write(JSON.stringify(request));
-    pythonProcess.stdin.end();
-  });
+const DAEMON_PORT = process.env.PRICE_DAEMON_PORT ?? '8765';
+const DAEMON_URL  = `http://127.0.0.1:${DAEMON_PORT}`;
+
+/** Read one symbol from the daemon cache. */
+export async function getPrice(
+  symbol:     string,
+  assetClass: string = 'stock'
+): Promise<PriceResult> {
+  const results = await getMultiplePrices([{ symbol, assetClass }]);
+  return results[0] ?? { symbol, assetClass, error: 'no result' };
 }
 
-export async function getPrice(symbol: string, assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock'): Promise<PriceResult> {
+/** Read a batch of symbols from the daemon cache (instant — no external call). */
+export async function getMultiplePrices(
+  symbols: Array<{ symbol: string; assetClass: string }>
+): Promise<PriceResult[]> {
   try {
-    const result = await callPythonService({
-      action: 'get_price',
-      symbol,
-      assetClass
+    const res = await fetch(DAEMON_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ symbols }),
+      // Node 18+ fetch — short timeout since this is localhost
+      signal:  AbortSignal.timeout(3000),
     });
-    return result;
-  } catch (error) {
-    console.error(`Error fetching price for ${symbol}:`, error);
-    return {
-      symbol,
-      assetClass,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
+    if (!res.ok) throw new Error(`Daemon HTTP ${res.status}`);
 
-export async function getMultiplePrices(symbols: Array<{ symbol: string; assetClass: string }>): Promise<PriceResult[]> {
-  try {
-    const result = await callPythonService({
-      action: 'get_multiple_prices',
-      symbols
+    const raw: Record<string, any> = await res.json();
+
+    return symbols.map(s => {
+      const d = raw[s.symbol];
+      if (!d) return { symbol: s.symbol, assetClass: s.assetClass, error: 'not yet in cache' };
+      return {
+        symbol:        s.symbol,
+        assetClass:    d.assetClass   ?? s.assetClass,
+        price:         d.price,
+        change:        d.change,
+        changePercent: d.changePercent,
+        high:          d.high,
+        low:           d.low,
+        previousClose: d.previousClose,
+        volume:        d.volume,
+        timestamp:     d.timestamp,
+        source:        d.source,
+      } satisfies PriceResult;
     });
-    return result;
-  } catch (error) {
-    console.error('Error fetching multiple prices:', error);
+  } catch (err) {
+    console.error('[priceService] Daemon read failed:', err);
     return symbols.map(s => ({
-      symbol: s.symbol,
+      symbol:     s.symbol,
       assetClass: s.assetClass,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error:      err instanceof Error ? err.message : String(err),
     }));
   }
 }
 
+/** Ping — true if the daemon HTTP server is reachable. */
 export async function pingPriceService(): Promise<boolean> {
   try {
-    const result = await callPythonService({ action: 'ping' });
-    return result.status === 'ok';
-  } catch (error) {
-    console.error('Price service ping failed:', error);
+    const res = await fetch(DAEMON_URL, {
+      method: 'GET',
+      signal: AbortSignal.timeout(2000),
+    });
+    return res.ok;
+  } catch {
     return false;
   }
 }
@@ -140,54 +132,39 @@ const CACHE_TTL = 30000; // 30 seconds — daily bars change slowly; prevents th
 const inflightFetches = new Map<string, Promise<PriceResult[]>>();
 
 export async function getCandleData(
-  symbol: string,
+  symbol:     string,
   assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock',
-  interval: string = '5m',
-  period: string = '1d'
+  interval:   string = '5m',
+  period:     string = '1d'
 ): Promise<CandleResult> {
   try {
-    const result = await callPythonService({ action: 'get_candles', symbol, assetClass, interval, period } as any);
-    return result;
-  } catch (error) {
-    return { symbol, candles: [], error: error instanceof Error ? error.message : 'Unknown error' };
+    return await callCandleSubprocess({
+      action: 'get_candles', symbol, assetClass, interval, period,
+    });
+  } catch (err) {
+    return {
+      symbol, candles: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
-// Candle cache (2-minute TTL — data doesn't change faster than this)
-const candleCache = new Map<string, { data: CandleResult; timestamp: number }>();
-const CANDLE_CACHE_TTL = 120000;
+// 2-minute cache — candle data doesn't change faster than this
+const candleCache = new Map<string, { data: CandleResult; ts: number }>();
+const CANDLE_TTL  = 120_000;
 
 export async function getCachedCandleData(
-  symbol: string,
+  symbol:     string,
   assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock',
-  interval: string = '5m',
-  period: string = '1d'
+  interval:   string = '5m',
+  period:     string = '1d'
 ): Promise<CandleResult> {
-  const key = `${symbol}-${assetClass}-${interval}-${period}`;
+  const key    = `${symbol}-${assetClass}-${interval}-${period}`;
   const cached = candleCache.get(key);
-  if (cached && Date.now() - cached.timestamp < CANDLE_CACHE_TTL) return cached.data;
-  const result = await getCandleData(symbol, assetClass, interval, period);
-  if (!result.error) candleCache.set(key, { data: result, timestamp: Date.now() });
-  return result;
-}
+  if (cached && Date.now() - cached.ts < CANDLE_TTL) return cached.data;
 
-export async function getCachedPrice(symbol: string, assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock'): Promise<PriceResult> {
-  const cacheKey = `${symbol}-${assetClass}`;
-  const cached = priceCache.get(cacheKey);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
-  }
-  
-  const result = await getPrice(symbol, assetClass);
-  
-  if (!result.error) {
-    priceCache.set(cacheKey, {
-      data: result,
-      timestamp: Date.now()
-    });
-  }
-  
+  const result = await getCandleData(symbol, assetClass, interval, period);
+  if (!result.error) candleCache.set(key, { data: result, ts: Date.now() });
   return result;
 }
 
