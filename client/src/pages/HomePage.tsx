@@ -389,77 +389,106 @@ export default function HomePage() {
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             <h2 style={{ ...oswald, fontSize: 36, textAlign: 'center', color: t.text, marginBottom: 12 }}>Simple, Transparent Pricing</h2>
             <p style={{ textAlign: 'center', color: t.textMuted, fontSize: 18, marginBottom: 56 }}>Start free. Upgrade when you're ready.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24, maxWidth: 900, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20, maxWidth: 1160, margin: '0 auto' }}>
 
-              {/* Weekly */}
-              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '36px 28px', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
+              {/* Free */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: t.textMuted, marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>WEEKLY</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: t.textMuted, marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>FREE</div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 48, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$7</span>
-                    <span style={{ fontSize: 14, color: t.textMuted, marginBottom: 8 }}>/week</span>
+                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$0</span>
+                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/forever</span>
                   </div>
-                  <p style={{ fontSize: 13, color: t.textMuted, marginTop: 8 }}>Perfect for trying out all features risk-free.</p>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>Core stats to get you started.</p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {['Full journal access', 'Performance analytics', 'Trade calendar', 'Strategy tracking'].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Check size={15} color="#3b82f6" strokeWidth={3} />
-                      <span style={{ fontSize: 13, color: t.textMuted }}>{f}</span>
+                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {['Total P&L', 'Win Rate', 'R Expectancy', 'Trades count', 'Profit Factor', 'Avg Trade', 'Link MT4 & MT5'].map(f => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <Check size={13} color="#64748b" strokeWidth={3} />
+                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
                     </div>
                   ))}
                 </div>
-                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '12px 0', borderRadius: 8, border: `1px solid ${t.cardBorder}`, color: t.text, fontWeight: 700, fontSize: 13, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#3b82f6'; (e.currentTarget as HTMLElement).style.color = '#3b82f6'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.cardBorder; (e.currentTarget as HTMLElement).style.color = t.text; }}>
+                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid ${t.cardBorder}`, color: t.textMuted, fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#475569'; (e.currentTarget as HTMLElement).style.color = t.text; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.cardBorder; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}>
+                  START FREE
+                </Link>
+              </div>
+
+              {/* Weekly */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#3b82f6', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>WEEKLY</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$7</span>
+                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/week</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>Try all features risk-free.</p>
+                </div>
+                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {['Everything in Free', 'Full journal access', 'Trade calendar', 'Detailed analytics', 'Edge building tools', 'Strategy audit'].map(f => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <Check size={13} color="#3b82f6" strokeWidth={3} />
+                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #3b82f6`, color: '#3b82f6', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.08)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                   GET STARTED
                 </Link>
               </div>
 
               {/* Monthly — Most Popular */}
-              <div style={{ background: 'linear-gradient(145deg,#1e3a5f,#0f172a)', border: '2px solid #3b82f6', borderRadius: 16, padding: '36px 28px', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative', boxShadow: '0 0 40px rgba(59,130,246,0.18)' }}>
+              <div style={{ background: 'linear-gradient(145deg,#1e3a5f,#0f172a)', border: '2px solid #3b82f6', borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative', boxShadow: '0 0 40px rgba(59,130,246,0.18)' }}>
                 <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 99, padding: '4px 16px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Montserrat',sans-serif" }}>MOST POPULAR</div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#60a5fa', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>MONTHLY</div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 48, fontWeight: 900, color: '#fff', lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$20</span>
-                    <span style={{ fontSize: 14, color: '#94a3b8', marginBottom: 8 }}>/month</span>
+                    <span style={{ fontSize: 44, fontWeight: 900, color: '#fff', lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$20</span>
+                    <span style={{ fontSize: 13, color: '#94a3b8', marginBottom: 7 }}>/month</span>
                   </div>
-                  <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 8 }}>The sweet spot for active traders.</p>
+                  <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>The sweet spot for active traders.</p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {['Full journal access', 'Performance analytics', 'Trade calendar', 'Strategy tracking', 'Priority support', 'Export reports'].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Check size={15} color="#60a5fa" strokeWidth={3} />
-                      <span style={{ fontSize: 13, color: '#94a3b8' }}>{f}</span>
+                <div style={{ width: '100%', height: 1, background: 'rgba(59,130,246,0.2)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {['Everything in Weekly', 'Priority support', 'Export reports', 'Performance comparisons', 'Multi-account tracking'].map(f => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <Check size={13} color="#60a5fa" strokeWidth={3} />
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>{f}</span>
                     </div>
                   ))}
                 </div>
-                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '12px 0', borderRadius: 8, background: 'linear-gradient(to right,#2563eb,#3b82f6)', color: '#fff', fontWeight: 800, fontSize: 13, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', border: 'none' }}>
+                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, background: 'linear-gradient(to right,#2563eb,#3b82f6)', color: '#fff', fontWeight: 800, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', border: 'none' }}>
                   GET STARTED
                 </Link>
               </div>
 
               {/* Yearly */}
-              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '36px 28px', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
                 <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(to right,#16a34a,#22c55e)', borderRadius: 99, padding: '4px 16px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Montserrat',sans-serif" }}>BEST VALUE</div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#22c55e', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>YEARLY</div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 48, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$180</span>
-                    <span style={{ fontSize: 14, color: t.textMuted, marginBottom: 8 }}>/year</span>
+                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$180</span>
+                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/year</span>
                   </div>
-                  <p style={{ fontSize: 13, color: '#22c55e', marginTop: 8, fontWeight: 600 }}>Save $60 vs monthly · $15/month</p>
+                  <p style={{ fontSize: 12, color: '#22c55e', marginTop: 8, fontWeight: 600 }}>Save $60 vs monthly · $15/mo</p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {['Full journal access', 'Performance analytics', 'Trade calendar', 'Strategy tracking', 'Priority support', 'Export reports', 'Early access to new features'].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Check size={15} color="#22c55e" strokeWidth={3} />
-                      <span style={{ fontSize: 13, color: t.textMuted }}>{f}</span>
+                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {['Everything in Monthly', 'Early access to new features', 'Annual performance review', 'Dedicated onboarding'].map(f => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <Check size={13} color="#22c55e" strokeWidth={3} />
+                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
                     </div>
                   ))}
                 </div>
-                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '12px 0', borderRadius: 8, border: `1px solid #22c55e`, color: '#22c55e', fontWeight: 700, fontSize: 13, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
+                <Link href="/journal" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #22c55e`, color: '#22c55e', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(34,197,94,0.08)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                   GET STARTED
