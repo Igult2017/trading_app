@@ -1461,8 +1461,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         {/* SIDEBAR desktop */}
         <div className="sidebar-panel side-scroll">
           <div style={{padding:"12px",borderBottom:"1px solid rgba(51,65,85,0.35)",background:"#07090f"}}>
-            <div style={{background:"rgba(10,13,20,0.9)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"16px",padding:"14px 16px",height:"94px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-              <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(59,130,246,0.06),transparent)",borderRadius:"16px",pointerEvents:"none"}}/>
+            <div style={{background:"rgba(10,13,20,0.9)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"4px",padding:"14px 16px",height:"94px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(59,130,246,0.06),transparent)",borderRadius:"4px",pointerEvents:"none"}}/>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>SESSION</span>
                 <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none",transition:"all 0.3s"}}/>
