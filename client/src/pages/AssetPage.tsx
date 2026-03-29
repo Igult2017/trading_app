@@ -267,8 +267,8 @@ export default function AssetPage() {
 
   // Fast ticking prices — sidebar + selected entry price (30s matches API cache TTL)
   const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
-  const tickerPrices   = useFastBatchPrices(sidebarSymbols, 30000);
-  const entryTick      = useFastPrice(selected, 30000);
+  const tickerPrices   = useFastBatchPrices(sidebarSymbols);  // 2s default
+  const entryTick      = useFastPrice(selected);              // 2s default
 
   const filtered = ALL_INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())

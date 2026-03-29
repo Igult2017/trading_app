@@ -1,8 +1,43 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { spawn, type ChildProcess } from "child_process";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { initializeDatabase } from "./db-init";
+import { PYTHON_BIN } from "./lib/pythonBin";
+
+// ── Price daemon ───────────────────────────────────────────────────────────────
+// Starts price_daemon.py as a persistent child process.
+// The daemon streams crypto via Binance WebSocket and polls forex/stocks/indices/
+// commodities via yfinance, writing everything to an in-memory cache served on
+// http://127.0.0.1:8765.  If it crashes it restarts automatically.
+
+let priceDaemon: ChildProcess | null = null;
+let daemonRestarting = false;
+
+function startPriceDaemon() {
+  const script = path.join(process.cwd(), "server", "python", "price_daemon.py");
+  priceDaemon = spawn(PYTHON_BIN, [script], {
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: false,
+  });
+
+  priceDaemon.stdout?.on("data", (d: Buffer) =>
+    process.stdout.write(d)
+  );
+  priceDaemon.stderr?.on("data", (d: Buffer) =>
+    process.stderr.write(d)
+  );
+
+  priceDaemon.on("exit", (code) => {
+    if (daemonRestarting) return;
+    log(`[price-daemon] exited (code ${code}) — restarting in 3 s`);
+    setTimeout(startPriceDaemon, 3000);
+  });
+
+  log("[price-daemon] started");
+}
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -46,6 +81,9 @@ app.use((req, res, next) => {
     log(String(dbInitError));
   }
 
+  // Start price daemon before routes so it has time to warm up
+  startPriceDaemon();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -81,19 +119,14 @@ app.use((req, res, next) => {
     scraperScheduler.start();
   });
 
-  process.on('SIGTERM', () => {
-    log('SIGTERM signal received: closing HTTP server');
+  function shutdown(signal: string) {
+    log(`${signal} received: shutting down`);
+    daemonRestarting = true;
+    priceDaemon?.kill();
     scraperScheduler.stop();
-    server.close(() => {
-      log('HTTP server closed');
-    });
-  });
+    server.close(() => log("HTTP server closed"));
+  }
 
-  process.on('SIGINT', () => {
-    log('SIGINT signal received: closing HTTP server');
-    scraperScheduler.stop();
-    server.close(() => {
-      log('HTTP server closed');
-    });
-  });
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT",  () => shutdown("SIGINT"));
 })();
