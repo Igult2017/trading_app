@@ -499,11 +499,14 @@ export default function AssetPage() {
           {/* ── Live Visualizer Chart ── */}
           <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, overflow: "hidden" }}>
             {/* Chart Header */}
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
               <div>
                 <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em", marginTop: 2 }}>
                   <LiveClock />
                 </div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.12em", color: "#c8d8ec", fontFamily: "monospace", position: "absolute", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
+                {selected}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="chart-btn">INSTRUMENTS</button>
@@ -635,20 +638,7 @@ export default function AssetPage() {
             </div>
 
             {/* Chart */}
-            <div style={{ position: "relative" }}>
-              <div style={{
-                position: "absolute", top: 10, left: 14, zIndex: 10,
-                pointerEvents: "none",
-              }}>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2d4a63", marginBottom: 2, fontFamily: "monospace" }}>
-                  ASSET
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: "0.1em", color: "#c8d8ec", fontFamily: "monospace", lineHeight: 1 }}>
-                  {selected}
-                </div>
-              </div>
-              <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
-            </div>
+            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
           </div>
         </div>
       </div>
