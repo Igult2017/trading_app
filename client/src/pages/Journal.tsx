@@ -125,33 +125,39 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
   return (
     <>
       {isMobile && open && <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)' }} />}
-      <aside style={sidebarStyle} data-testid="journal-sidebar"
+      <div
+        style={{ position: 'relative', flexShrink: 0, display: 'flex', height: '100%' }}
         onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}>
+        onMouseLeave={() => setHovered(false)}
+      >
+        <aside style={sidebarStyle} data-testid="journal-sidebar">
+          {isMobile && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 12px 0' }}>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(148,163,184,0.6)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
+            </div>
+          )}
+          <nav style={{ flex: 1, padding: '16px 12px 8px', overflowY: 'auto' }}>
+            {NAV_SECTIONS.map((group, gi) => (
+              <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
+                {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
+                {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
+                {group.items.map(item => (
+                  <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels}
+                    onClick={() => { setActiveNav(item.id); if (isMobile) onClose(); }} />
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Hover accent line — sits outside the aside so it is never clipped */}
         <div style={{
-          position: 'absolute', top: 0, right: 0, width: 3, height: '100%',
+          position: 'absolute', top: 0, right: 0, width: 5, height: '100%',
           background: hovered ? '#38bdf8' : 'transparent',
           transition: 'background 0.22s ease',
-          pointerEvents: 'none', zIndex: 10,
+          pointerEvents: 'none',
         }} />
-        {isMobile && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 12px 0' }}>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(148,163,184,0.6)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
-          </div>
-        )}
-        <nav style={{ flex: 1, padding: '16px 12px 8px', overflowY: 'auto' }}>
-          {NAV_SECTIONS.map((group, gi) => (
-            <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
-              {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
-              {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
-              {group.items.map(item => (
-                <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels}
-                  onClick={() => { setActiveNav(item.id); if (isMobile) onClose(); }} />
-              ))}
-            </div>
-          ))}
-        </nav>
-      </aside>
+      </div>
     </>
   );
 };
