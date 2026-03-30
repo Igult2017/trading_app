@@ -38,6 +38,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure all DB tables exist before accepting requests
+  const { initializeDatabase } = await import("./db-init");
+  await initializeDatabase();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
