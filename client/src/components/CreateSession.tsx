@@ -407,8 +407,11 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     },
     onSuccess: (deletedId: string) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', deletedId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', deletedId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drawdown/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics'] });
       if (onDeleteSession) onDeleteSession(deletedId);
     },
   });

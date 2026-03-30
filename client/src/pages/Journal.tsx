@@ -73,7 +73,6 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'create', label: 'Create Session', icon: SI.CreateSession },
   ]},
   { section: 'Account', items: [
-    { id: 'addaccount', label: 'Add Account', icon: SI.AddAccount },
     { id: 'accounts', label: 'Accounts', icon: SI.Accounts },
   ]},
   { section: null, items: [
@@ -719,14 +718,6 @@ export default function Journal() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  useEffect(() => {
-    if (isMobile) return;
-    if (activeNav === 'journal') {
-      setSidebarOpen(false);
-    } else {
-      setSidebarOpen(true);
-    }
-  }, [activeNav, isMobile]);
 
   return (
     <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>

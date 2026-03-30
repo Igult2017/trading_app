@@ -325,6 +325,14 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
 
   const trades: Trade[] = journalEntries.map(journalEntryToTrade);
 
+  function invalidateAll() {
+    queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/metrics/compute"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+  }
+
   const updateMutation = useMutation({
     mutationFn: async (updated: Trade) => {
       const body: Record<string, unknown> = {
@@ -340,7 +348,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       await apiRequest("PUT", `/api/journal/entries/${updated.id}`, body);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+      invalidateAll();
       setEditingTrade(null);
     },
   });
@@ -350,7 +358,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       await apiRequest("DELETE", `/api/journal/entries/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+      invalidateAll();
     },
   });
 

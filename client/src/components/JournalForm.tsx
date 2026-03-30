@@ -1051,9 +1051,11 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
-      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries', sessionId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute', sessionId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drawdown/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics'] });
       if (draftKey) localStorage.removeItem(draftKey);
       setSaved(true);
     } catch (err: any) {
