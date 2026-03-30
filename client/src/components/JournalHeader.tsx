@@ -124,11 +124,11 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
             <button
               onClick={onToggleSidebar}
               title="Toggle sidebar"
-              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text, flexShrink: 0, transition: 'background 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = dm ? '#172233' : '#e2e8f0'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#38bdf8', flexShrink: 0, transition: 'opacity 0.15s', boxShadow: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.75'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
-              <Menu size={18} />
+              <Menu size={18} strokeWidth={2.5} />
             </button>
           </div>
 
