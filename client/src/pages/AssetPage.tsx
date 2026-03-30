@@ -505,7 +505,7 @@ export default function AssetPage() {
                   <LiveClock />
                 </div>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.12em", color: "#c8d8ec", fontFamily: "monospace", position: "absolute", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#c8d8ec", fontFamily: "monospace", position: "absolute", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
                 {selected}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
