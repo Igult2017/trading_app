@@ -131,51 +131,6 @@ const CACHE_TTL = 30000; // 30 seconds — daily bars change slowly; prevents th
 // In-flight deduplication: if a fetch for a symbols key is already running, reuse the promise
 const inflightFetches = new Map<string, Promise<PriceResult[]>>();
 
-/** Spawn price_service.py, send a JSON request on stdin, return parsed JSON result. */
-function callCandleSubprocess(request: {
-  action:     string;
-  symbol:     string;
-  assetClass: string;
-  interval:   string;
-  period:     string;
-}): Promise<CandleResult> {
-  return new Promise((resolve, reject) => {
-    const scriptPath = path.join(
-      path.dirname(new URL(import.meta.url).pathname),
-      '..',
-      'python',
-      'price_service.py'
-    );
-
-    const child = spawn(PYTHON_BIN, [scriptPath], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
-
-    child.on('close', (code) => {
-      try {
-        const result = JSON.parse(stdout.trim());
-        if (result.error) {
-          resolve({ symbol: request.symbol, candles: [], error: result.error });
-        } else {
-          resolve(result as CandleResult);
-        }
-      } catch {
-        reject(new Error(stderr.trim() || `price_service.py exited with code ${code}`));
-      }
-    });
-
-    child.on('error', (err) => reject(err));
-
-    child.stdin.write(JSON.stringify(request));
-    child.stdin.end();
-  });
-}
 
 export async function getCandleData(
   symbol:     string,
