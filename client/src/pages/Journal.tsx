@@ -85,21 +85,21 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
   <button onClick={onClick} data-testid={`nav-${item.id}`} style={{
     width: '100%', display: 'flex', alignItems: 'center',
     justifyContent: showLabels ? 'space-between' : 'center',
-    padding: showLabels ? '14px 12px' : '12px', borderRadius: 8, marginBottom: 6,
-    background: isActive ? 'rgba(56,189,248,0.1)' : 'transparent',
-    border: isActive ? '1px solid rgba(56,189,248,0.25)' : '1px solid transparent',
-    cursor: 'pointer', transition: 'all 0.2s', fontFamily: "'Montserrat',sans-serif",
+    padding: showLabels ? '16px 14px' : '14px', borderRadius: 10, marginBottom: 4,
+    background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+    border: 'none',
+    cursor: 'pointer', transition: 'background 0.18s', fontFamily: "'Montserrat',sans-serif",
   }}
-    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
       <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex' }}><item.icon /></span>
-      {showLabels && <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.03em', color: isActive ? '#e2e8f0' : 'rgba(148,163,184,0.8)', whiteSpace: 'nowrap' }}>{item.label}</span>}
+      {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? '#f1f5f9' : 'rgba(148,163,184,0.75)', whiteSpace: 'nowrap' }}>{item.label}</span>}
     </div>
     {showLabels && (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         {item.badge && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
-        {item.arrow && <span style={{ color: 'rgba(100,116,139,0.6)', display: 'flex', marginLeft: 4 }}><SI.ChevronRight /></span>}
+        {item.arrow && <span style={{ color: 'rgba(100,116,139,0.5)', display: 'flex', marginLeft: 2 }}><SI.ChevronRight /></span>}
       </div>
     )}
   </button>
@@ -108,14 +108,14 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
 const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void }) => {
   const showLabels = isMobile || open;
   const sidebarStyle: React.CSSProperties = isMobile ? {
-    position: 'fixed', top: 0, left: open ? 0 : '-280px', bottom: 0, width: 260,
+    position: 'fixed', top: 0, left: open ? 0 : '-280px', bottom: 0, width: 220,
     zIndex: 50, transition: 'left 0.3s ease', background: '#07090f',
-    borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column',
+    display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
   } : {
-    width: open ? 185 : 72, minWidth: open ? 185 : 72, height: '100%',
+    width: open ? 220 : 72, minWidth: open ? 220 : 72, height: '100%',
     overflowY: 'auto', overflowX: 'hidden', background: '#07090f',
-    borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column',
+    display: 'flex', flexDirection: 'column',
     flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
     fontFamily: "'Montserrat',sans-serif",
   };
@@ -129,7 +129,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(148,163,184,0.6)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
           </div>
         )}
-        <nav style={{ flex: 1, padding: '12px 10px 4px', overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '16px 12px 8px', overflowY: 'auto' }}>
           {NAV_SECTIONS.map((group, gi) => (
             <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
               {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
