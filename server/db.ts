@@ -22,6 +22,18 @@ if (!process.env.DATABASE_URL) {
 }
 
 console.log('[Database] Connecting to PostgreSQL...');
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const isProduction = process.env.NODE_ENV === 'production';
+const connectionString = process.env.DATABASE_URL!;
+
+export const pool = new Pool({
+  connectionString,
+  ssl: isProduction
+    ? { rejectUnauthorized: false }
+    : connectionString.includes('sslmode=require')
+      ? { rejectUnauthorized: false }
+      : false,
+});
+
 export const db = drizzle(pool, { schema });
 console.log('[Database] Database pool initialized');

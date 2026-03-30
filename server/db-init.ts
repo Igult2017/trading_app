@@ -259,9 +259,9 @@ export async function initializeDatabase() {
         await db.execute(sql.raw(statement));
       } catch (err) {
         const error = err as any;
-        // Ignore "already exists" errors
         if (!error?.message?.includes('already exists') && !error?.message?.includes('duplicate')) {
-          console.warn(`[Database] Table creation warning: ${error?.message}`);
+          console.error(`[Database] Table creation FAILED: ${error?.message}`);
+          console.error(`[Database] Statement: ${statement.slice(0, 120)}...`);
         }
       }
     }
@@ -269,8 +269,8 @@ export async function initializeDatabase() {
     console.log('[Database] Schema initialization complete - all tables created');
     return true;
   } catch (error) {
-    console.error('[Database] Initialization error:', (error as any)?.message);
-    // Don't fail startup - proceed anyway
-    return true;
+    console.error('[Database] Fatal initialization error:', (error as any)?.message);
+    console.error('[Database] Full error:', error);
+    return false;
   }
 }
