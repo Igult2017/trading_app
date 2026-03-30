@@ -508,6 +508,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
         display: "flex", alignItems: isMobile ? "flex-start" : "center",
         flexDirection: isMobile ? "column" : "row",
         justifyContent: "space-between", gap: 10, marginTop: 12,
+        paddingLeft: 8, paddingRight: 8,
       }}>
         <div style={{ display: "flex", gap: isMobile ? 10 : 18, flexWrap: "wrap" as const }}>
           {[{ dot: GREEN, label: "PROFIT" }, { dot: RED, label: "LOSS" }, { dot: "#2A3348", label: "NO TRADE" }].map(({ dot, label }) => (
@@ -527,7 +528,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
       </div>
 
       {!isMobile && (
-        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: "#1C2A3A" }}>
+        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: "#1C2A3A", paddingRight: 8 }}>
           SEARCH: TYPE <span style={{ color: "#2A3A55" }}>MMM YYYY</span> OR <span style={{ color: "#2A3A55" }}>MM/YYYY</span> AND PRESS ENTER
         </div>
       )}
