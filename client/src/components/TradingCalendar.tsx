@@ -370,7 +370,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
         flexDirection: isMobile ? "column" : "row",
         justifyContent: "space-between", gap: 16, marginBottom: isMobile ? 12 : 24, flexWrap: "wrap",
       }}>
-        <div>
+        <div style={{ paddingLeft: 8 }}>
           <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348", marginBottom: 5 }}>PERFORMANCE OVERVIEW</div>
           <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em" }}>
             TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
