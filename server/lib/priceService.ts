@@ -172,19 +172,19 @@ export async function getCachedMultiplePrices(symbols: Array<{ symbol: string; a
   const now = Date.now();
   const results: PriceResult[] = [];
   const symbolsToFetch: Array<{ symbol: string; assetClass: string; index: number }> = [];
-  
+
   // Check cache for each symbol
   symbols.forEach((s, index) => {
     const cacheKey = `${s.symbol}-${s.assetClass}`;
     const cached = priceCache.get(cacheKey);
-    
+
     if (cached && now - cached.timestamp < CACHE_TTL) {
       results[index] = cached.data;
     } else {
       symbolsToFetch.push({ ...s, index });
     }
   });
-  
+
   // Fetch uncached symbols
   if (symbolsToFetch.length > 0) {
     // Build a stable key for this exact set of uncached symbols
@@ -200,11 +200,11 @@ export async function getCachedMultiplePrices(symbols: Array<{ symbol: string; a
     }
 
     const fetchedResults = await fetchPromise;
-    
+
     fetchedResults.forEach((result, i) => {
       const originalIndex = symbolsToFetch[i].index;
       results[originalIndex] = result;
-      
+
       if (!result.error) {
         const cacheKey = `${result.symbol}-${symbolsToFetch[i].assetClass}`;
         priceCache.set(cacheKey, {
@@ -214,6 +214,55 @@ export async function getCachedMultiplePrices(symbols: Array<{ symbol: string; a
       }
     });
   }
-  
+
   return results;
+}
+
+// ── 2. CANDLE SUBPROCESS ──────────────────────────────────────────────────────
+
+interface CandleRequest {
+  action:     string;
+  symbol:     string;
+  assetClass: string;
+  interval:   string;
+  period:     string;
+}
+
+/**
+ * Spawns price_service.py to fetch OHLCV candle data.
+ *
+ * Key behaviour: stdout is parsed first regardless of exit code.
+ * Python prints a valid JSON payload (possibly with an `error` field) before
+ * calling sys.exit(1) on partial failures — so we must attempt JSON.parse
+ * before treating the exit code as a hard failure.
+ */
+export function callCandleSubprocess(req: CandleRequest): Promise<CandleResult> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(process.cwd(), 'server', 'python', 'price_service.py');
+    const args       = [scriptPath, JSON.stringify(req)];
+    const proc       = spawn(PYTHON_BIN, args);
+
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    proc.on('error', (err: Error) => reject(err));
+
+    proc.on('close', (code: number | null) => {
+      // Always attempt to parse stdout first — Python emits valid JSON even
+      // when it calls sys.exit(1) (e.g. partial data with an error field).
+      if (stdout.trim()) {
+        try {
+          return resolve(JSON.parse(stdout));
+        } catch {
+          // stdout wasn't valid JSON — fall through to the error path
+        }
+      }
+      reject(new Error(
+        `price_service.py exited ${code ?? 'null'}` +
+        (stderr ? `: ${stderr.slice(0, 400)}` : '')
+      ));
+    });
+  });
 }
