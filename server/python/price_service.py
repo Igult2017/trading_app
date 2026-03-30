@@ -289,8 +289,20 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
             yf_symbol = INDEX_MAP.get(symbol.upper(), symbol)
 
         ticker = yf.Ticker(yf_symbol)
-        hist = ticker.history(period=period, interval=interval)
 
+        # Fetch extra history so indicators have enough candles to compute
+        # (EMA200 needs 200 bars min). We trim back to the requested period after.
+        _EXTRA = {
+            "1m": "5d", "2m": "5d", "5m": "5d", "15m": "60d",
+            "30m": "60d", "60m": "730d", "1h": "730d",
+            "1d": "max", "1wk": "max", "1mo": "max",
+        }
+        fetch_period = _EXTRA.get(interval, "5d")
+        hist = ticker.history(period=fetch_period, interval=interval)
+
+        if hist.empty:
+            # Try the original period as fallback
+            hist = ticker.history(period=period, interval=interval)
         if hist.empty:
             return {"symbol": symbol, "candles": [], "error": "No data returned"}
 
@@ -298,195 +310,273 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
         df = hist[["Open", "High", "Low", "Close", "Volume"]].copy()
         df.columns = ["open", "high", "low", "close", "volume"]
 
-        # ── Compute indicators with pandas-ta ────────────────────────────────
-        try:
-            import pandas_ta as ta
 
-            def _col(frame, prefix: str):
-                """Return first column whose name starts with prefix, or None."""
-                if frame is None or frame.empty:
-                    return None
-                matches = [c for c in frame.columns if c.upper().startswith(prefix.upper())]
-                return frame[matches[0]] if matches else None
+        # ── Compute indicators using `ta` library + manual numpy/pandas ────────
+        try:
+            import numpy as np
+            from ta.trend import (EMAIndicator, SMAIndicator, WMAIndicator,
+                                  MACD, PSARIndicator, ADXIndicator,
+                                  AroonIndicator, TRIXIndicator, DPOIndicator,
+                                  CCIIndicator)
+            from ta.momentum import (RSIIndicator, StochasticOscillator,
+                                     StochRSIIndicator, WilliamsRIndicator,
+                                     ROCIndicator, TSIIndicator,
+                                     UltimateOscillator, AwesomeOscillatorIndicator,
+                                     PercentagePriceOscillator)
+            from ta.volatility import (BollingerBands, DonchianChannel,
+                                       AverageTrueRange, UlcerIndex,
+                                       KeltnerChannel)
+            from ta.volume import (OnBalanceVolumeIndicator,
+                                   ChaikinMoneyFlowIndicator, MFIIndicator,
+                                   AccDistIndexIndicator,
+                                   VolumeWeightedAveragePrice,
+                                   VolumePriceTrendIndicator,
+                                   ForceIndexIndicator)
+
+            c = df["close"]; h = df["high"]; l = df["low"]; v = df["volume"]
 
             # ── TREND ──────────────────────────────────────────────────────
-            # EMA: 9, 21, 50, 100, 200  (standard EMA periods)
-            for length in [9, 21, 50, 100, 200]:
-                df[f"ema{length}"] = ta.ema(df["close"], length=length)
-            # SMA: 9, 20, 50, 100, 200  (SMA 20 is standard, not 21)
-            for length in [9, 20, 50, 100, 200]:
-                df[f"sma{length}"] = ta.sma(df["close"], length=length)
+            for n in [9, 21, 50, 100, 200]:
+                df[f"ema{n}"] = EMAIndicator(c, window=n, fillna=False).ema_indicator()
+            for n in [9, 20, 50, 100, 200]:
+                df[f"sma{n}"] = SMAIndicator(c, window=n, fillna=False).sma_indicator()
 
-            df["wma20"]  = ta.wma(df["close"],  length=20)
-            df["hma20"]  = ta.hma(df["close"],  length=20)
-            df["dema20"] = ta.dema(df["close"], length=20)
-            df["tema20"] = ta.tema(df["close"], length=20)
+            df["wma20"] = WMAIndicator(c, window=20, fillna=False).wma()
 
-            # Bollinger Bands — pandas-ta columns: BBL, BBM, BBU, BBB, BBP
-            bb = ta.bbands(df["close"], length=20, std=2)
-            if bb is not None and not bb.empty:
-                df["bb_upper"] = _col(bb, "BBU")
-                df["bb_lower"] = _col(bb, "BBL")
-                df["bb_mid"]   = _col(bb, "BBM")
-                df["bb_width"] = _col(bb, "BBB")
-                df["bb_pct"]   = _col(bb, "BBP")
+            # HMA = WMA(2*WMA(n/2) - WMA(n), sqrt(n))
+            try:
+                half = WMAIndicator(c, window=10, fillna=False).wma()
+                full = WMAIndicator(c, window=20, fillna=False).wma()
+                raw_hma = 2 * half - full
+                df["hma20"] = raw_hma.rolling(int(np.sqrt(20))).mean()
+            except Exception:
+                pass
 
-            # Keltner Channel — pandas-ta columns: KCLe (lower), KCBe (basis), KCUe (upper)
-            kc = ta.kc(df["high"], df["low"], df["close"], length=20)
-            if kc is not None and not kc.empty:
-                df["kc_lower"] = _col(kc, "KCL")
-                df["kc_mid"]   = _col(kc, "KCB")
-                df["kc_upper"] = _col(kc, "KCU")
+            # DEMA = 2*EMA - EMA(EMA)
+            try:
+                e1 = EMAIndicator(c, window=20, fillna=False).ema_indicator()
+                e2 = EMAIndicator(e1, window=20, fillna=False).ema_indicator()
+                df["dema20"] = 2 * e1 - e2
+            except Exception:
+                pass
 
-            # Donchian Channel — pandas-ta columns: DCL (lower), DCM (mid), DCU (upper)
-            dc = ta.donchian(df["high"], df["low"], lower_length=20, upper_length=20)
-            if dc is not None and not dc.empty:
-                df["dc_lower"] = _col(dc, "DCL")
-                df["dc_mid"]   = _col(dc, "DCM")
-                df["dc_upper"] = _col(dc, "DCU")
+            # TEMA = 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA))
+            try:
+                e1 = EMAIndicator(c, window=20, fillna=False).ema_indicator()
+                e2 = EMAIndicator(e1, window=20, fillna=False).ema_indicator()
+                e3 = EMAIndicator(e2, window=20, fillna=False).ema_indicator()
+                df["tema20"] = 3 * e1 - 3 * e2 + e3
+            except Exception:
+                pass
+
+            # Bollinger Bands
+            bb = BollingerBands(c, window=20, window_dev=2, fillna=False)
+            df["bb_upper"] = bb.bollinger_hband()
+            df["bb_lower"] = bb.bollinger_lband()
+            df["bb_mid"]   = bb.bollinger_mavg()
+            df["bb_width"] = bb.bollinger_wband()
+            df["bb_pct"]   = bb.bollinger_pband()
+
+            # Keltner Channel
+            kc = KeltnerChannel(h, l, c, window=20, fillna=False)
+            df["kc_upper"] = kc.keltner_channel_hband()
+            df["kc_lower"] = kc.keltner_channel_lband()
+            df["kc_mid"]   = kc.keltner_channel_mband()
+
+            # Donchian Channel
+            dc = DonchianChannel(h, l, c, window=20, fillna=False)
+            df["dc_upper"] = dc.donchian_channel_hband()
+            df["dc_lower"] = dc.donchian_channel_lband()
+            df["dc_mid"]   = dc.donchian_channel_mband()
 
             # VWAP
             try:
-                df["vwap"] = ta.vwap(df["high"], df["low"], df["close"], df["volume"])
+                df["vwap"] = VolumeWeightedAveragePrice(h, l, c, v, fillna=False).volume_weighted_average_price()
             except Exception:
                 pass
 
-            # Supertrend — pandas-ta columns: SUPERT_x_x (value), SUPERTd (dir), SUPERTl, SUPERTs
+            # Supertrend (manual)
             try:
-                st = ta.supertrend(df["high"], df["low"], df["close"], length=7, multiplier=3.0)
-                if st is not None and not st.empty:
-                    # Pick column that is SUPERT_ but NOT SUPERTd/l/s
-                    val_cols = [c for c in st.columns
-                                if c.upper().startswith("SUPERT_") and c.upper() not in
-                                [x.upper() for x in st.columns if any(x.upper().startswith(p) for p in ["SUPERTD","SUPERTL","SUPERTS"])]]
-                    if val_cols:
-                        df["supertrend"] = st[val_cols[0]]
+                atr14 = AverageTrueRange(h, l, c, window=14, fillna=False).average_true_range()
+                hl2   = (h + l) / 2
+                upper = hl2 + 3.0 * atr14
+                lower = hl2 - 3.0 * atr14
+                st    = pd.Series(np.nan, index=c.index)
+                trend = pd.Series(1,      index=c.index)
+                for i in range(1, len(c)):
+                    prev_upper = upper.iloc[i - 1] if not pd.isna(upper.iloc[i - 1]) else upper.iloc[i]
+                    prev_lower = lower.iloc[i - 1] if not pd.isna(lower.iloc[i - 1]) else lower.iloc[i]
+                    upper.iloc[i] = min(upper.iloc[i], prev_upper) if c.iloc[i - 1] > prev_upper else upper.iloc[i]
+                    lower.iloc[i] = max(lower.iloc[i], prev_lower) if c.iloc[i - 1] < prev_lower else lower.iloc[i]
+                    if trend.iloc[i - 1] == 1:
+                        trend.iloc[i] = -1 if c.iloc[i] < lower.iloc[i] else 1
+                    else:
+                        trend.iloc[i] = 1  if c.iloc[i] > upper.iloc[i] else -1
+                    st.iloc[i] = lower.iloc[i] if trend.iloc[i] == 1 else upper.iloc[i]
+                df["supertrend"] = st
             except Exception:
                 pass
 
-            # Parabolic SAR — pandas-ta columns: PSARl_x_x (long), PSARs_x_x (short)
+            # Parabolic SAR
             try:
-                psar_df = ta.psar(df["high"], df["low"], df["close"])
-                if psar_df is not None and not psar_df.empty:
-                    # Combine long + short into one series (whichever is not NaN)
-                    psar_l = _col(psar_df, "PSARl")
-                    psar_s = _col(psar_df, "PSARs")
-                    if psar_l is not None and psar_s is not None:
-                        df["psar"] = psar_l.combine_first(psar_s)
-                    elif psar_l is not None:
-                        df["psar"] = psar_l
+                psar_ind = PSARIndicator(h, l, c, step=0.02, max_step=0.2, fillna=False)
+                df["psar"] = psar_ind.psar()
             except Exception:
                 pass
 
             # ── MOMENTUM ───────────────────────────────────────────────────
-            df["rsi"]   = ta.rsi(df["close"],  length=14)
-            df["cci"]   = ta.cci(df["high"], df["low"], df["close"], length=20)
-            df["roc"]   = ta.roc(df["close"],  length=10)
-            df["mom"]   = ta.mom(df["close"],  length=10)
-            df["cmo"]   = ta.cmo(df["close"],  length=14)
-            df["willr"] = ta.willr(df["high"], df["low"], df["close"], length=14)
-            df["dpo"]   = ta.dpo(df["close"],  length=20)
+            df["rsi"]   = RSIIndicator(c, window=14, fillna=False).rsi()
+            df["willr"] = WilliamsRIndicator(h, l, c, lbp=14, fillna=False).williams_r()
+            df["roc"]   = ROCIndicator(c, window=10, fillna=False).roc()
 
+            # CCI
             try:
-                df["tsi"] = ta.tsi(df["close"])
-            except Exception:
-                pass
-            try:
-                df["uo"] = ta.uo(df["high"], df["low"], df["close"])
-            except Exception:
-                pass
-            try:
-                df["ao"] = ta.ao(df["high"], df["low"])
+                df["cci"] = CCIIndicator(h, l, c, window=20, fillna=False).cci()
             except Exception:
                 pass
 
-            # MACD — pandas-ta columns: MACD_f_s_sig, MACDh_f_s_sig, MACDs_f_s_sig
-            macd = ta.macd(df["close"], fast=12, slow=26, signal=9)
-            if macd is not None and not macd.empty:
-                df["macd"]        = _col(macd, "MACD_")
-                df["macd_hist"]   = _col(macd, "MACDh")
-                df["macd_signal"] = _col(macd, "MACDs")
-
-            # Stochastic — pandas-ta columns: STOCHk_k_d_s, STOCHd_k_d_s
-            stoch = ta.stoch(df["high"], df["low"], df["close"], k=14, d=3)
-            if stoch is not None and not stoch.empty:
-                df["stoch_k"] = _col(stoch, "STOCHk")
-                df["stoch_d"] = _col(stoch, "STOCHd")
-
-            # Stochastic RSI — pandas-ta columns: STOCHRSIk, STOCHRSId
+            # Momentum
             try:
-                srsi = ta.stochrsi(df["close"], length=14)
-                if srsi is not None and not srsi.empty:
-                    df["stochrsi_k"] = _col(srsi, "STOCHRSIk")
-                    df["stochrsi_d"] = _col(srsi, "STOCHRSId")
+                df["mom"] = c.diff(10)
             except Exception:
                 pass
 
-            # PPO — pandas-ta column: PPO_fast_slow_sig
+            # CMO (manual)
             try:
-                ppo = ta.ppo(df["close"], fast=12, slow=26)
-                if ppo is not None and not ppo.empty:
-                    df["ppo"] = _col(ppo, "PPO_")
+                diff = c.diff()
+                up   = diff.clip(lower=0).rolling(14).sum()
+                dn   = (-diff.clip(upper=0)).rolling(14).sum()
+                df["cmo"] = 100 * (up - dn) / (up + dn)
+            except Exception:
+                pass
+
+            # DPO
+            try:
+                df["dpo"] = DPOIndicator(c, window=20, fillna=False).dpo()
+            except Exception:
+                pass
+
+            # TSI
+            try:
+                df["tsi"] = TSIIndicator(c, window_slow=25, window_fast=13, fillna=False).tsi()
+            except Exception:
+                pass
+
+            # Ultimate Oscillator
+            try:
+                df["uo"] = UltimateOscillator(h, l, c, window1=7, window2=14, window3=28, fillna=False).ultimate_oscillator()
+            except Exception:
+                pass
+
+            # Awesome Oscillator
+            try:
+                df["ao"] = AwesomeOscillatorIndicator(h, l, window1=5, window2=34, fillna=False).awesome_oscillator()
+            except Exception:
+                pass
+
+            # MACD
+            macd_ind = MACD(c, window_fast=12, window_slow=26, window_sign=9, fillna=False)
+            df["macd"]        = macd_ind.macd()
+            df["macd_signal"] = macd_ind.macd_signal()
+            df["macd_hist"]   = macd_ind.macd_diff()
+
+            # Stochastic
+            stoch_ind = StochasticOscillator(h, l, c, window=14, smooth_window=3, fillna=False)
+            df["stoch_k"] = stoch_ind.stoch()
+            df["stoch_d"] = stoch_ind.stoch_signal()
+
+            # Stochastic RSI
+            try:
+                srsi_ind = StochRSIIndicator(c, window=14, smooth1=3, smooth2=3, fillna=False)
+                df["stochrsi_k"] = srsi_ind.stochrsi_k()
+                df["stochrsi_d"] = srsi_ind.stochrsi_d()
+            except Exception:
+                pass
+
+            # PPO
+            try:
+                ppo_ind = PercentagePriceOscillator(c, window_slow=26, window_fast=12, window_sign=9, fillna=False)
+                df["ppo"] = ppo_ind.ppo()
             except Exception:
                 pass
 
             # ── VOLUME ─────────────────────────────────────────────────────
-            df["obv"] = ta.obv(df["close"], df["volume"])
-            df["cmf"] = ta.cmf(df["high"], df["low"], df["close"], df["volume"], length=20)
-            df["mfi"] = ta.mfi(df["high"], df["low"], df["close"], df["volume"], length=14)
-            df["ad"]  = ta.ad(df["high"], df["low"], df["close"], df["volume"])
+            df["obv"] = OnBalanceVolumeIndicator(c, v, fillna=False).on_balance_volume()
+            df["cmf"] = ChaikinMoneyFlowIndicator(h, l, c, v, window=20, fillna=False).chaikin_money_flow()
+            df["mfi"] = MFIIndicator(h, l, c, v, window=14, fillna=False).money_flow_index()
+            df["ad"]  = AccDistIndexIndicator(h, l, c, v, fillna=False).acc_dist_index()
 
+            # PVT
             try:
-                df["pvt"] = ta.pvt(df["close"], df["volume"])
+                df["pvt"] = VolumePriceTrendIndicator(c, v, fillna=False).volume_price_trend()
             except Exception:
                 pass
 
+            # VWMA (manual)
             try:
-                df["vwma20"] = ta.vwma(df["close"], df["volume"], length=20)
+                df["vwma20"] = (c * v).rolling(20).sum() / v.rolling(20).sum()
             except Exception:
                 pass
 
+            # Elder Force Index
             try:
-                df["efi"] = ta.efi(df["close"], df["volume"], length=13)
+                df["efi"] = ForceIndexIndicator(c, v, window=13, fillna=False).force_index()
             except Exception:
                 pass
 
             # ── VOLATILITY / STRENGTH ──────────────────────────────────────
-            df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
-            df["tr"]  = ta.true_range(df["high"], df["low"], df["close"])
+            atr_ind = AverageTrueRange(h, l, c, window=14, fillna=False)
+            df["atr"] = atr_ind.average_true_range()
 
+            # True Range (manual)
             try:
-                df["ui"] = ta.ui(df["close"], length=14)
+                prev_c = c.shift(1)
+                df["tr"] = pd.concat([h - l, (h - prev_c).abs(), (l - prev_c).abs()], axis=1).max(axis=1)
             except Exception:
                 pass
 
-            # ADX + DI lines
-            adx = ta.adx(df["high"], df["low"], df["close"], length=14)
-            if adx is not None and not adx.empty:
-                acols = adx.columns.tolist()
-                df["adx"] = adx[acols[0]] if len(acols) > 0 else None
-                df["dip"] = adx[acols[1]] if len(acols) > 1 else None
-                df["dim"] = adx[acols[2]] if len(acols) > 2 else None
+            # Ulcer Index
+            try:
+                df["ui"] = UlcerIndex(c, window=14, fillna=False).ulcer_index()
+            except Exception:
+                pass
+
+            # BB Width and %B (already set above from BollingerBands)
+
+            # ADX + DI
+            adx_ind = ADXIndicator(h, l, c, window=14, fillna=False)
+            df["adx"] = adx_ind.adx()
+            df["dip"] = adx_ind.adx_pos()
+            df["dim"] = adx_ind.adx_neg()
 
             # Aroon
             try:
-                aroon = ta.aroon(df["high"], df["low"], length=14)
-                if aroon is not None and not aroon.empty:
-                    arcols = aroon.columns.tolist()
-                    df["aroon_dn"]  = aroon[arcols[0]] if len(arcols) > 0 else None
-                    df["aroon_up"]  = aroon[arcols[1]] if len(arcols) > 1 else None
-                    df["aroon_osc"] = aroon[arcols[2]] if len(arcols) > 2 else None
+                aroon_ind = AroonIndicator(h, l, window=14, fillna=False)
+                df["aroon_up"]  = aroon_ind.aroon_up()
+                df["aroon_dn"]  = aroon_ind.aroon_down()
+                df["aroon_osc"] = aroon_ind.aroon_indicator()
             except Exception:
                 pass
 
             # TRIX
             try:
-                df["trix"] = ta.trix(df["close"], length=18)
+                df["trix"] = TRIXIndicator(c, window=18, fillna=False).trix()
             except Exception:
                 pass
 
-        except ImportError:
-            pass  # pandas-ta not installed — candles returned without indicators
+        except Exception:
+            pass  # ta not available or error computing — candles returned without indicators
+
+        # ── Trim to requested period ──────────────────────────────────────────
+        # We fetched extra history for indicator warmup; now trim to what was asked.
+        _PERIOD_BARS = {
+            "1d": 390, "2d": 780, "5d": 1950, "7d": 2730,
+            "1mo": 500, "3mo": 1500, "6mo": 3000,
+            "1y": 6000, "2y": 12000, "5y": 30000, "max": len(df),
+        }
+        max_bars = _PERIOD_BARS.get(period, 500)
+        if len(df) > max_bars:
+            df = df.iloc[-max_bars:]
 
         # ── Build output ─────────────────────────────────────────────────────
         IND_COLS = [
