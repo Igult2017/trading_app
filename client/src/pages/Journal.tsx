@@ -156,7 +156,7 @@ const KPI_ICONS = {
 };
 
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
-  <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.05)', padding: 12, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
+  <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.05)', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
     <div style={{ background: stat.bg, padding: 6, borderRadius: 6, color: stat.color, display: 'flex' }}><stat.Icon /></div>
     <div style={{ textAlign: 'center' }}>
       <p style={{ fontSize: 9, color: 'rgba(148,163,184,0.7)', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
@@ -379,7 +379,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   };
 
   return (
-    <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-activity-calendar">
+    <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 8 }} data-testid="panel-activity-calendar">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
@@ -570,13 +570,13 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   }
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : windowWidth < 900 ? 3 : 6},1fr)`, gap: 8 }}>
+    <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : windowWidth < 900 ? 3 : 6},1fr)`, gap: 4 }}>
         {stats.map(s => <StatCard key={s.id} stat={s} />)}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 12 }}>
-        <div style={{ background: '#080d18', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 16, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
+      <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 6 }}>
+        <div style={{ background: '#080d18', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(56,189,248,0.1)', borderRadius: 8, color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}><Activity size={16} strokeWidth={3} /></div>
@@ -596,7 +596,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'rgba(56,189,248,0.04)', filter: 'blur(70px)', pointerEvents: 'none' }} />
         </div>
 
-        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 16 }} data-testid="panel-performance-mix">
+        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 8 }} data-testid="panel-performance-mix">
           <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
           {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
             <div key={m.label} style={{ marginBottom: 18 }}>
@@ -621,8 +621,8 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 12 }}>
-        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
+      <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 6 }}>
+        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
           <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
             <Activity size={14} strokeWidth={3} style={{ color: '#38bdf8', opacity: .3 }} />
