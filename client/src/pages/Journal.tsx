@@ -152,7 +152,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
 
         {/* Hover accent line — sits outside the aside so it is never clipped */}
         <div style={{
-          position: 'absolute', top: 0, right: 0, width: 5, height: '100%',
+          position: 'absolute', top: 20, right: 0, width: 5, height: 'calc(100% - 20px)',
           background: hovered ? '#38bdf8' : 'transparent',
           transition: 'background 0.22s ease',
           pointerEvents: 'none',
