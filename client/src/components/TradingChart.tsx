@@ -323,6 +323,9 @@ function computeVolumeProfile(candles: CandleBar[], buckets = 40): VPBucket[] {
   }));
 }
 
+// ── Client-side candle cache (persists across symbol switches) ────────────────
+const _candleCache = new Map<string, CandleBar[]>();
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function TradingChart({
   symbol,
@@ -434,9 +437,45 @@ export default function TradingChart({
     }
   }, [activeIndicators]);
 
+  // ── Helper: push candle data into all chart series ──────────────────────────
+  const applyCandles = useCallback((cs: CandleBar[]) => {
+    candlesRef.current = cs;
+    candleRef.current?.setData(
+      cs.map(c => ({
+        time: c.time as Time,
+        open: c.open, high: c.high, low: c.low, close: c.close,
+      })) as CandlestickData<Time>[]
+    );
+    seriesMap.current.forEach((seriesList, id) => {
+      const def = INDICATOR_DEFS.find(d => d.id === id);
+      if (!def || def.renderType === "vp") return;
+      def.series.forEach((sd, i) => {
+        const s = seriesList[i];
+        if (!s) return;
+        try {
+          if (sd.field === "volume") s.setData(volHistData(cs));
+          else if (sd.isHistogram)   s.setData(histData(cs, sd.field));
+          else                       s.setData(lineData(cs, sd.field));
+        } catch {}
+      });
+    });
+    setLastClose(cs[cs.length - 1].close);
+    setError(null);
+    setLoading(false);
+    requestAnimationFrame(drawVP);
+  }, [drawVP]);
+
   // ── Fetch + populate all series ─────────────────────────────────────────────
   const fetchAndDraw = useCallback(async () => {
-    const ac = getAssetClass(symbol);
+    const ac  = getAssetClass(symbol);
+    const key = `${symbol}-${interval}-${period}`;
+
+    // Serve from client cache immediately — no spinner, no blank chart
+    const cached = _candleCache.get(key);
+    if (cached?.length) {
+      applyCandles(cached);
+    }
+
     try {
       const res = await fetch(
         `/api/prices/${encodeURIComponent(symbol)}/candles` +
@@ -448,36 +487,8 @@ export default function TradingChart({
       if (!data.candles?.length) throw new Error("No candle data");
 
       const cs = data.candles;
-      candlesRef.current = cs;
-
-      // Update candle series
-      candleRef.current?.setData(
-        cs.map(c => ({
-          time: c.time as Time,
-          open: c.open, high: c.high, low: c.low, close: c.close,
-        })) as CandlestickData<Time>[]
-      );
-
-      // Update all active indicator series from new data
-      seriesMap.current.forEach((seriesList, id) => {
-        const def = INDICATOR_DEFS.find(d => d.id === id);
-        if (!def || def.renderType === "vp") return;
-        def.series.forEach((sd, i) => {
-          const s = seriesList[i];
-          if (!s) return;
-          try {
-            if (sd.field === "volume") s.setData(volHistData(cs));
-            else if (sd.isHistogram)   s.setData(histData(cs, sd.field));
-            else                       s.setData(lineData(cs, sd.field));
-          } catch (e) {
-            console.warn(`[TradingChart] setData failed for ${id}[${String(sd.field)}]:`, e);
-          }
-        });
-      });
-
-      setLastClose(cs[cs.length - 1].close);
-      setError(null);
-      setLoading(false);
+      _candleCache.set(key, cs);   // store in client cache
+      applyCandles(cs);
 
       // Re-draw VP after data update
       requestAnimationFrame(drawVP);
@@ -486,10 +497,12 @@ export default function TradingChart({
       setError(e instanceof Error ? e.message : "Failed to load chart");
       setLoading(false);
     }
-  }, [symbol, interval, period, drawVP]);
+  }, [symbol, interval, period, drawVP, applyCandles]);
 
   useEffect(() => {
-    setLoading(true);
+    // Only show spinner if we have no cached data for this symbol+TF
+    const key = `${symbol}-${interval}-${period}`;
+    if (!_candleCache.has(key)) setLoading(true);
     fetchAndDraw();
     const id = setInterval(fetchAndDraw, 30_000);
     return () => clearInterval(id);
