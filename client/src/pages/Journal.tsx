@@ -73,7 +73,6 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'create', label: 'Create Session', icon: SI.CreateSession },
   ]},
   { section: 'Account', items: [
-    { id: 'addaccount', label: 'Add Account', icon: SI.AddAccount },
     { id: 'accounts', label: 'Accounts', icon: SI.Accounts },
   ]},
   { section: null, items: [
