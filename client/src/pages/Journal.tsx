@@ -109,12 +109,12 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeN
   const showLabels = isMobile || open;
   const sidebarStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', top: 0, left: open ? 0 : '-280px', bottom: 0, width: 220,
-    zIndex: 50, transition: 'left 0.3s ease', background: '#07090f',
+    zIndex: 50, transition: 'left 0.3s ease', background: '#010409',
     display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
   } : {
     width: open ? 220 : 72, minWidth: open ? 220 : 72, height: '100%',
-    overflowY: 'auto', overflowX: 'hidden', background: '#07090f',
+    overflowY: 'auto', overflowX: 'hidden', background: '#010409',
     display: 'flex', flexDirection: 'column',
     flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
     fontFamily: "'Montserrat',sans-serif",
