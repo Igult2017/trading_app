@@ -3,18 +3,21 @@
 Price Daemon
 ────────────
 Persistent background process that:
-  • Streams 5 crypto pairs in real-time via Binance WebSocket (ms latency)
-  • Polls forex / indices / commodities / stocks via yfinance (1 req per 6 s)
-  • Applies market-hours gate — no requests for closed markets
+  • Polls ALL instruments (crypto, forex, indices, commodities, stocks) via
+    yfinance rotating scheduler (1 request per 6 s)
+  • Applies market-hours gate — no requests for closed non-crypto markets
+    (crypto is always active — 24/7 market)
   • Keeps a single in-memory cache as the source of truth
   • Exposes HTTP on 127.0.0.1:8765 so Node.js can read cache without ever
     triggering an external fetch
+
+Note: Binance WebSocket was removed — Replit IP ranges are geo-blocked by
+Binance (HTTP 451). yfinance serves crypto just as well from any server.
 
 price_service.py is left untouched — it continues to serve candle/OHLCV data
 via the existing subprocess mechanism.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -42,17 +45,23 @@ cache_lock = threading.Lock()
 
 # ── Instrument definitions ─────────────────────────────────────────────────────
 
-# Crypto: Binance stream name → our symbol
-CRYPTO_WS: dict[str, str] = {
-    "BTCUSDT": "BTC/USDT",
-    "ETHUSDT": "ETH/USDT",
-    "SOLUSDT": "SOL/USDT",
-    "XRPUSDT": "XRP/USDT",
-    "ADAUSDT": "ADA/USDT",
-}
-
-# Non-crypto scheduler: (our symbol, yahoo ticker, asset class)
+# All instruments polled via yfinance: (our symbol, yahoo ticker, asset class)
 SCHEDULER_INSTRUMENTS: list[tuple[str, str, str]] = [
+    # ── Crypto (24/7 — always active) ─────────────────────────────────────────
+    ("BTC/USDT",  "BTC-USD",  "crypto"),
+    ("ETH/USDT",  "ETH-USD",  "crypto"),
+    ("SOL/USDT",  "SOL-USD",  "crypto"),
+    ("XRP/USDT",  "XRP-USD",  "crypto"),
+    ("ADA/USDT",  "ADA-USD",  "crypto"),
+    ("BNB/USDT",  "BNB-USD",  "crypto"),
+    ("DOGE/USDT", "DOGE-USD", "crypto"),
+    ("AVAX/USDT", "AVAX-USD", "crypto"),
+    ("MATIC/USDT","MATIC-USD","crypto"),
+    ("LTC/USDT",  "LTC-USD",  "crypto"),
+    ("LINK/USDT", "LINK-USD", "crypto"),
+    ("DOT/USDT",  "DOT-USD",  "crypto"),
+    ("UNI/USDT",  "UNI-USD",  "crypto"),
+    ("ATOM/USDT", "ATOM-USD", "crypto"),
     # ── Forex ──────────────────────────────────────────────────────────────────
     ("EUR/USD", "EURUSD=X", "forex"),
     ("GBP/USD", "GBPUSD=X", "forex"),
@@ -60,21 +69,46 @@ SCHEDULER_INSTRUMENTS: list[tuple[str, str, str]] = [
     ("USD/CHF", "USDCHF=X", "forex"),
     ("AUD/USD", "AUDUSD=X", "forex"),
     ("USD/CAD", "USDCAD=X", "forex"),
+    ("NZD/USD", "NZDUSD=X", "forex"),
     ("EUR/GBP", "EURGBP=X", "forex"),
     ("EUR/JPY", "EURJPY=X", "forex"),
+    ("GBP/JPY", "GBPJPY=X", "forex"),
+    ("EUR/AUD", "EURAUD=X", "forex"),
+    ("EUR/CAD", "EURCAD=X", "forex"),
+    ("GBP/AUD", "GBPAUD=X", "forex"),
+    ("GBP/CAD", "GBPCAD=X", "forex"),
+    ("AUD/JPY", "AUDJPY=X", "forex"),
+    ("EUR/CHF", "EURCHF=X", "forex"),
+    ("GBP/CHF", "GBPCHF=X", "forex"),
+    ("AUD/CAD", "AUDCAD=X", "forex"),
+    ("AUD/CHF", "AUDCHF=X", "forex"),
+    ("NZD/JPY", "NZDJPY=X", "forex"),
     # ── US Indices ─────────────────────────────────────────────────────────────
-    ("US500",   "^GSPC",    "stock"),
-    ("US100",   "^NDX",     "stock"),
+    ("US500",      "^GSPC",  "stock"),
+    ("US100",      "^NDX",   "stock"),
+    ("US30",       "^DJI",   "stock"),
+    ("RUSSELL2000","^RUT",   "stock"),
+    ("VIX",        "^VIX",   "stock"),
     # ── Commodities ────────────────────────────────────────────────────────────
-    ("XAU/USD", "GC=F",     "commodity"),
-    ("XAG/USD", "SI=F",     "commodity"),
-    ("WTI",     "CL=F",     "commodity"),
+    ("XAU/USD", "GC=F",  "commodity"),
+    ("XAG/USD", "SI=F",  "commodity"),
+    ("WTI",     "CL=F",  "commodity"),
     # ── US Stocks ──────────────────────────────────────────────────────────────
-    ("GOOGL",   "GOOGL",    "stock"),
-    ("TSLA",    "TSLA",     "stock"),
-    ("AAPL",    "AAPL",     "stock"),
-    ("MSFT",    "MSFT",     "stock"),
-    ("NVDA",    "NVDA",     "stock"),
+    ("AAPL",  "AAPL",  "stock"),
+    ("MSFT",  "MSFT",  "stock"),
+    ("GOOGL", "GOOGL", "stock"),
+    ("AMZN",  "AMZN",  "stock"),
+    ("TSLA",  "TSLA",  "stock"),
+    ("NVDA",  "NVDA",  "stock"),
+    ("META",  "META",  "stock"),
+    ("NFLX",  "NFLX",  "stock"),
+    ("JPM",   "JPM",   "stock"),
+    ("BAC",   "BAC",   "stock"),
+    ("GS",    "GS",    "stock"),
+    ("AMD",   "AMD",   "stock"),
+    ("INTC",  "INTC",  "stock"),
+    ("DIS",   "DIS",   "stock"),
+    ("BABA",  "BABA",  "stock"),
 ]
 
 # ── Market hours ───────────────────────────────────────────────────────────────
@@ -105,11 +139,13 @@ def is_us_session_open() -> bool:
 
 def is_active(asset_class: str) -> bool:
     """Gate function: should we fetch this asset class right now?"""
+    if asset_class == "crypto":
+        return True   # 24/7 market — always active
     if asset_class == "forex":
         return is_forex_open()
     if asset_class in ("stock", "commodity"):
         return is_us_session_open()
-    return True  # crypto handled by WS
+    return True
 
 
 # ── yfinance price fetch ───────────────────────────────────────────────────────
@@ -146,13 +182,15 @@ def fetch_yfinance(symbol: str, ticker: str, asset_class: str) -> Optional[dict]
 def scheduler_loop() -> None:
     """Round-robin through active instruments, one fetch every 6 seconds."""
     idx = 0
-    log.info("yfinance scheduler started  (1 request / 6 s)")
+    log.info("yfinance scheduler started  (crypto + forex + stocks + commodities, 1 req / 6 s)")
     while True:
         active = [
             item for item in SCHEDULER_INSTRUMENTS
             if is_active(item[2])
         ]
 
+        # active always has at least crypto entries (24/7), so this branch is
+        # always taken; the else is a safety net only
         if active:
             sym, yticker, ac = active[idx % len(active)]
             data = fetch_yfinance(sym, yticker, ac)
@@ -162,63 +200,10 @@ def scheduler_loop() -> None:
                 log.info(f"  ↻  {sym:<16s} {data['price']}")
             idx += 1
         else:
-            log.info("All non-crypto markets closed — scheduler idle")
+            idx = 0
             idx = 0
 
         time.sleep(6)
-
-
-# ── Binance WebSocket ──────────────────────────────────────────────────────────
-
-async def _binance_stream() -> None:
-    try:
-        import websockets  # type: ignore
-    except ImportError:
-        log.error("'websockets' package missing — crypto streaming disabled. "
-                  "Run:  pip install websockets")
-        return
-
-    streams = "/".join(f"{k.lower()}@ticker" for k in CRYPTO_WS)
-    url     = f"wss://stream.binance.com:9443/stream?streams={streams}"
-    log.info("Connecting to Binance WebSocket …")
-
-    while True:
-        try:
-            async with websockets.connect(
-                url, ping_interval=20, open_timeout=15
-            ) as ws:
-                log.info("Binance WebSocket connected — streaming 5 pairs")
-                async for raw in ws:
-                    msg  = json.loads(raw)
-                    d    = msg.get("data", {})
-                    bsym = d.get("s", "")
-                    pair = CRYPTO_WS.get(bsym)
-                    if not pair:
-                        continue
-                    price    = float(d.get("c") or 0)
-                    chg      = float(d.get("p") or 0)
-                    chg_p    = float(d.get("P") or 0)
-                    with cache_lock:
-                        cache[pair] = {
-                            "symbol":        pair,
-                            "price":         price,
-                            "change":        round(chg,   8),
-                            "changePercent": round(chg_p, 4),
-                            "previousClose": round(price - chg, 8),
-                            "high":          float(d.get("h") or 0),
-                            "low":           float(d.get("l") or 0),
-                            "volume":        float(d.get("v") or 0),
-                            "timestamp":     datetime.now(timezone.utc).isoformat(),
-                            "source":        "binance_ws",
-                            "assetClass":    "crypto",
-                        }
-        except Exception as exc:
-            log.error(f"Binance WS error: {exc}  — reconnecting in 5 s")
-            await asyncio.sleep(5)
-
-
-def run_binance_thread() -> None:
-    asyncio.run(_binance_stream())
 
 
 # ── HTTP cache server ──────────────────────────────────────────────────────────
@@ -268,16 +253,11 @@ class CacheHandler(BaseHTTPRequestHandler):
 DAEMON_PORT = int(os.environ.get("PRICE_DAEMON_PORT", "8765"))
 
 if __name__ == "__main__":
-    # 1. yfinance scheduler
+    # 1. yfinance scheduler (crypto + forex + stocks + indices + commodities)
     threading.Thread(
         target=scheduler_loop, daemon=True, name="yf-scheduler"
     ).start()
 
-    # 2. Binance WebSocket (runs its own asyncio event loop)
-    threading.Thread(
-        target=run_binance_thread, daemon=True, name="binance-ws"
-    ).start()
-
-    # 3. HTTP cache server — blocks and keeps the process alive
+    # 2. HTTP cache server — blocks and keeps the process alive
     log.info(f"HTTP cache server  →  http://127.0.0.1:{DAEMON_PORT}")
     HTTPServer(("127.0.0.1", DAEMON_PORT), CacheHandler).serve_forever()
