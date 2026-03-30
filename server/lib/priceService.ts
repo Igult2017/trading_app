@@ -168,6 +168,15 @@ export async function getCachedCandleData(
   return result;
 }
 
+/** Cached single-symbol price lookup — wrapper around getCachedMultiplePrices. */
+export async function getCachedPrice(
+  symbol:     string,
+  assetClass: string = 'stock'
+): Promise<PriceResult> {
+  const results = await getCachedMultiplePrices([{ symbol, assetClass }]);
+  return results[0] ?? { symbol, assetClass, error: 'no result' };
+}
+
 export async function getCachedMultiplePrices(symbols: Array<{ symbol: string; assetClass: string }>): Promise<PriceResult[]> {
   const now = Date.now();
   const results: PriceResult[] = [];

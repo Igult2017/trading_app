@@ -1,11 +1,44 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
+import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { initializeDatabase } from "./db-init";
 import { getCachedMultiplePrices } from "./lib/priceService";
+import { PYTHON_BIN } from "./lib/pythonBin";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+// ── Price Daemon (Python) ────────────────────────────────────────────────────
+let priceDaemon: ChildProcess | null = null;
+let daemonRestarting = false;
+
+function startPriceDaemon() {
+  const daemonScript = path.join(__dirname, "python", "price_daemon.py");
+  log(`[PriceDaemon] Starting ${PYTHON_BIN} ${daemonScript}`);
+
+  priceDaemon = spawn(PYTHON_BIN, [daemonScript], {
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env },
+  });
+
+  priceDaemon.stdout?.on("data", (chunk: Buffer) => {
+    log(`[PriceDaemon] ${chunk.toString().trim()}`);
+  });
+  priceDaemon.stderr?.on("data", (chunk: Buffer) => {
+    log(`[PriceDaemon] ERR: ${chunk.toString().trim()}`);
+  });
+
+  priceDaemon.on("exit", (code, signal) => {
+    if (daemonRestarting) return;
+    log(`[PriceDaemon] Exited (code=${code}, signal=${signal}) — restarting in 5 s`);
+    setTimeout(() => { if (!daemonRestarting) startPriceDaemon(); }, 5000);
+  });
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
