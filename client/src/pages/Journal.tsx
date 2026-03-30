@@ -107,23 +107,35 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
 
 const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void }) => {
   const showLabels = isMobile || open;
+  const [hovered, setHovered] = useState(false);
+
+  const accentLine: React.CSSProperties = {
+    borderRight: hovered ? '2px solid #38bdf8' : '2px solid transparent',
+    boxShadow: hovered ? '2px 0 14px rgba(56,189,248,0.55), 1px 0 5px rgba(56,189,248,0.9)' : 'none',
+    transition: 'border-right 0.22s ease, box-shadow 0.22s ease',
+  };
+
   const sidebarStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', top: 0, left: open ? 0 : '-280px', bottom: 0, width: 220,
     zIndex: 50, transition: 'left 0.3s ease', background: '#010409',
     display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
+    ...accentLine,
   } : {
     width: open ? 220 : 72, minWidth: open ? 220 : 72, height: '100%',
     overflowY: 'auto', overflowX: 'hidden', background: '#010409',
     display: 'flex', flexDirection: 'column',
-    flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
+    flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease, border-right 0.22s ease, box-shadow 0.22s ease',
     fontFamily: "'Montserrat',sans-serif",
+    ...accentLine,
   };
 
   return (
     <>
       {isMobile && open && <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)' }} />}
-      <aside style={sidebarStyle} data-testid="journal-sidebar">
+      <aside style={sidebarStyle} data-testid="journal-sidebar"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}>
         {isMobile && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 12px 0' }}>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(148,163,184,0.6)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
