@@ -212,12 +212,10 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
   if (!queryEnabled || isLoading) return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-4" style={F}>
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 text-blue-400 animate-spin"/>
-          <span className="text-xs text-slate-500 tracking-widest uppercase font-semibold">Analysing your trades…</span>
-        </div>
-      )}
+      <div className="flex items-center justify-center gap-2">
+        <Loader2 className="w-4 h-4 text-blue-400 animate-spin"/>
+        <span className="text-xs text-slate-500 tracking-widest uppercase font-semibold">Analysing your trades…</span>
+      </div>
     </div>
   );
 
