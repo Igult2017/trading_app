@@ -725,11 +725,14 @@ def get_multiple_prices(symbols: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
 
 def main():
-    """Main entry point - reads JSON from stdin, outputs JSON to stdout"""
+    """Main entry point - reads JSON from sys.argv[1] or stdin, outputs JSON to stdout"""
     try:
-        # Read input from stdin
-        input_data = sys.stdin.read().strip()
-        
+        # Prefer command-line argument (Node.js passes JSON as argv[1])
+        if len(sys.argv) > 1:
+            input_data = sys.argv[1].strip()
+        else:
+            input_data = sys.stdin.read().strip()
+
         if not input_data:
             print(json.dumps({"error": "No input provided"}))
             sys.exit(1)
