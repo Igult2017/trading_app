@@ -219,14 +219,6 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-none border-2 border-slate-950 animate-pulse"/>
       </div>
       <div className="text-center space-y-4">
-        <p className="text-5xl font-black tracking-tight text-white leading-tight max-w-sm mx-auto">
-          Hi! I'm your<br/>
-          <span className="text-blue-400">Strategy</span><br/>
-          <span className="text-blue-400">Auditor.</span>
-        </p>
-        <p className="text-base text-slate-400 font-medium tracking-widest uppercase">
-          Welcome to the audit room
-        </p>
         {isLoading && (
           <div className="flex items-center justify-center gap-2 pt-2">
             <Loader2 className="w-4 h-4 text-blue-400 animate-spin"/>
