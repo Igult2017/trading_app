@@ -276,9 +276,24 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
           {
             num: "01", label: "Strategy Audit", sub: "Setup & rules review",
             icon: (color: string) => (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="8" cy="8" r="2.2"/>
-                <path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M12.6 3.4l-.85.85M4.25 11.75l-.85.85"/>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <circle cx="12" cy="2.5" r="1.2"/>
+                <circle cx="12" cy="21.5" r="1.2"/>
+                <circle cx="2.5" cy="12" r="1.2"/>
+                <circle cx="21.5" cy="12" r="1.2"/>
+                <circle cx="5.1" cy="5.1" r="1.2"/>
+                <circle cx="18.9" cy="18.9" r="1.2"/>
+                <circle cx="18.9" cy="5.1" r="1.2"/>
+                <circle cx="5.1" cy="18.9" r="1.2"/>
+                <line x1="12" y1="9" x2="12" y2="3.7"/>
+                <line x1="12" y1="15" x2="12" y2="20.3"/>
+                <line x1="9" y1="12" x2="3.7" y2="12"/>
+                <line x1="15" y1="12" x2="20.3" y2="12"/>
+                <line x1="9.88" y1="9.88" x2="6.02" y2="6.02"/>
+                <line x1="14.12" y1="14.12" x2="17.98" y2="17.98"/>
+                <line x1="14.12" y1="9.88" x2="17.98" y2="6.02"/>
+                <line x1="9.88" y1="14.12" x2="6.02" y2="17.98"/>
               </svg>
             ),
           },
