@@ -1,0 +1,123 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  PlusCircle,
+  Wallet,
+  Clock,
+  ChevronRight
+} from 'lucide-react';
+
+const App = () => {
+  const [sessionName, setSessionName] = useState('');
+  const [balance, setBalance] = useState('10000');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load Montserrat font dynamically
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }, []);
+
+  const handleCreateSession = (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setTimeout(() => setIsSubmitting(false), 1500);
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-[#05070a] text-slate-300 overflow-x-hidden relative" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {/* Background decorative blurs */}
+      <div className="fixed top-[-10%] right-[-5%] w-[50%] h-[50%] bg-indigo-600/10 blur-[140px] rounded-full pointer-events-none" />
+      <div className="fixed bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
+
+      {/* Centered Content Area - No Borders, Blocky Aesthetic */}
+      <main className="relative z-10 flex flex-col items-center justify-center min-h-screen py-8 px-6">
+        <div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700">
+          
+          {/* Create Session Section (Borders Removed) - Height Reduced */}
+          <div className="bg-[#0c111b]/40 backdrop-blur-2xl p-6 md:p-10 shadow-2xl">
+            
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="w-14 h-14 bg-indigo-600 flex items-center justify-center text-white mb-4 shadow-[4px_4px_0px_rgba(79,70,229,0.3)]">
+                <PlusCircle size={28} />
+              </div>
+              <h2 className="text-2xl font-black text-white tracking-tighter mb-1 uppercase">
+                Create New Session
+              </h2>
+              <p className="text-slate-400 text-[10px] font-semibold uppercase tracking-widest">
+                System Initialisation Required
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateSession} className="space-y-6">
+              {/* Session Name Input - Blocky style */}
+              <div className="group">
+                <label className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+                  <Clock size={10} className="text-indigo-500" />
+                  Session Identifier
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={sessionName}
+                    onChange={(e) => setSessionName(e.target.value)}
+                    placeholder="E.G. NASDAQ_SCALP_01"
+                    className="w-full bg-slate-900/80 border-0 rounded-none py-4 px-6 text-white font-bold placeholder:text-slate-700 focus:outline-none focus:bg-slate-800 transition-all duration-200"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
+                </div>
+              </div>
+
+              {/* Balance Input - Blocky style */}
+              <div className="group">
+                <label className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+                  <Wallet size={10} className="text-indigo-500" />
+                  Initial Liquidity
+                </label>
+                <div className="relative">
+                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-xl">$</div>
+                  <input
+                    type="number"
+                    value={balance}
+                    onChange={(e) => setBalance(e.target.value)}
+                    className="w-full bg-slate-900/80 border-0 rounded-none py-4 pl-12 pr-6 text-white font-black text-xl focus:outline-none focus:bg-slate-800 transition-all duration-200"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
+                </div>
+              </div>
+
+              {/* Submit Button - Heavy Blocky Style */}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full relative mt-2 py-5 font-black text-white transition-all duration-200 flex items-center justify-center gap-3 tracking-[0.15em] uppercase text-xs ${
+                  isSubmitting ? 'bg-indigo-900' : 'bg-indigo-600 hover:bg-indigo-500 active:translate-y-1 shadow-[0_6px_0_rgb(49,46,129)] hover:shadow-[0_3px_0_rgb(49,46,129)] active:shadow-none'
+                }`}
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Deploy Session
+                    <ChevronRight size={18} strokeWidth={3} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center gap-2">
+               <div className="text-[9px] font-bold text-slate-600 tracking-[0.3em] uppercase">Status: Ready</div>
+               <div className="h-1 w-16 bg-slate-800 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-indigo-500/50 animate-pulse" />
+               </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default App;

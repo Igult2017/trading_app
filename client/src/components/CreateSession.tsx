@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe } from 'lucide-react';
+import { Globe, PlusCircle, Wallet, Clock, ChevronRight } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
@@ -97,61 +97,98 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-md p-10">
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold" data-testid="text-create-session-title">Create New Session</h2>
-          <p className="text-sm text-slate-400">Start a new trading session to track your performance</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-create-session">
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Session Name</label>
-            <input
-              type="text"
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              placeholder="e.g., Morning Scalping Session"
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-md px-5 py-3.5 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-              required
-              data-testid="input-session-name"
-            />
+    <div className="w-full max-w-xl mx-auto" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="bg-[#0c111b]/40 backdrop-blur-2xl p-6 md:p-10 shadow-2xl">
+
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="w-14 h-14 bg-indigo-600 flex items-center justify-center text-white mb-4 shadow-[4px_4px_0px_rgba(79,70,229,0.3)]">
+            <PlusCircle size={28} />
           </div>
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Starting Balance</label>
+          <h2
+            className="text-2xl font-black text-white tracking-tighter mb-1 uppercase"
+            data-testid="text-create-session-title"
+          >
+            Create New Session
+          </h2>
+          <p className="text-slate-400 text-[10px] font-semibold uppercase tracking-widest">
+            System Initialisation Required
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-create-session">
+          <div className="group">
+            <label className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+              <Clock size={10} className="text-indigo-500" />
+              Session Identifier
+            </label>
             <div className="relative">
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+              <input
+                type="text"
+                required
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+                placeholder="E.G. NASDAQ_SCALP_01"
+                className="w-full bg-slate-900/80 border-0 rounded-none py-4 px-6 text-white font-bold placeholder:text-slate-700 focus:outline-none focus:bg-slate-800 transition-all duration-200"
+                data-testid="input-session-name"
+              />
+              <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
+            </div>
+          </div>
+
+          <div className="group">
+            <label className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+              <Wallet size={10} className="text-indigo-500" />
+              Initial Liquidity
+            </label>
+            <div className="relative">
+              <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-xl">$</div>
               <input
                 type="number"
                 value={startingBalance}
                 onChange={(e) => setStartingBalance(e.target.value)}
                 placeholder="10000"
-                className="w-full bg-slate-800/50 border border-slate-700 rounded-md pl-10 pr-5 py-3.5 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
                 min="0"
                 step="0.01"
-                required
+                className="w-full bg-slate-900/80 border-0 rounded-none py-4 pl-12 pr-6 text-white font-black text-xl focus:outline-none focus:bg-slate-800 transition-all duration-200"
                 data-testid="input-starting-balance"
               />
+              <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
             </div>
           </div>
 
-          {/* ✅ FIX: Show form-level errors from both client validation and server response */}
           {formError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3">
+            <div className="bg-red-500/10 border-l-2 border-red-500 px-4 py-3">
               <p className="text-xs font-semibold text-red-400" data-testid="text-form-error">{formError}</p>
             </div>
           )}
 
-          <div className="flex gap-4 pt-4">
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest px-6 py-4 rounded-md transition-all shadow-xl shadow-indigo-600/20 border border-indigo-500/50 disabled:opacity-50"
-              data-testid="button-create-session"
-            >
-              {createMutation.isPending ? 'Creating...' : 'Create Session'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className={`w-full relative mt-2 py-5 font-black text-white transition-all duration-200 flex items-center justify-center gap-3 tracking-[0.15em] uppercase text-xs ${
+              createMutation.isPending
+                ? 'bg-indigo-900'
+                : 'bg-indigo-600 hover:bg-indigo-500 active:translate-y-1 shadow-[0_6px_0_rgb(49,46,129)] hover:shadow-[0_3px_0_rgb(49,46,129)] active:shadow-none'
+            }`}
+            data-testid="button-create-session"
+          >
+            {createMutation.isPending ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                Deploy Session
+                <ChevronRight size={18} strokeWidth={3} />
+              </>
+            )}
+          </button>
         </form>
+
+        <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center gap-2">
+          <div className="text-[9px] font-bold text-slate-600 tracking-[0.3em] uppercase">Status: Ready</div>
+          <div className="h-1 w-16 bg-slate-800 relative overflow-hidden">
+            <div className="absolute inset-0 bg-indigo-500/50 animate-pulse" />
+          </div>
+        </div>
       </div>
     </div>
   );
