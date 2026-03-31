@@ -211,21 +211,13 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   // ── Loading / Error states ──────────────────────────────────────────────
 
   if (!queryEnabled || isLoading) return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-8" style={F}>
-      <div className="relative">
-        <div className="w-20 h-20 bg-blue-600 rounded-none flex items-center justify-center shadow-xl shadow-blue-900/50">
-          <Cpu className="w-10 h-10 text-white"/>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-4" style={F}>
+      {isLoading && (
+        <div className="flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 text-blue-400 animate-spin"/>
+          <span className="text-xs text-slate-500 tracking-widest uppercase font-semibold">Analysing your trades…</span>
         </div>
-        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-none border-2 border-slate-950 animate-pulse"/>
-      </div>
-      <div className="text-center space-y-4">
-        {isLoading && (
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <Loader2 className="w-4 h-4 text-blue-400 animate-spin"/>
-            <span className="text-xs text-slate-500 tracking-widest uppercase font-semibold">Analysing your trades…</span>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 
