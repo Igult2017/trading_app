@@ -203,9 +203,19 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 }) => {
   const [hov, setHov] = useState(false);
   const [deleteHov, setDeleteHov] = useState(false);
+
+  // Balance editing
   const [editingBal, setEditingBal] = useState(false);
   const [balInput, setBalInput] = useState('');
+  const [balSaved, setBalSaved] = useState(false);
   const balInputRef = useRef<HTMLInputElement>(null);
+
+  // Name editing
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [nameSaved, setNameSaved] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const visible = useVisible(index * 80 + 120);
   const pulse = usePulse();
   const { totalPnL, tradeCount, isLoading: balLoading } = useSessionBalance(session.id);
@@ -215,8 +225,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
   const dateStr = session.createdAt ? new Date(session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
-  const [balSaved, setBalSaved] = useState(false);
-
+  // Balance mutation
   const updateBalMutation = useMutation({
     mutationFn: (newBal: number) =>
       apiRequest('PUT', `/api/sessions/${session.id}`, { startingBalance: String(newBal) }),
@@ -234,32 +243,61 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
     setBalSaved(false);
     setTimeout(() => balInputRef.current?.select(), 0);
   };
-
   const commitEdit = () => {
     const parsed = parseFloat(balInput.replace(/[^0-9.]/g, ''));
     if (!isNaN(parsed) && parsed > 0 && parsed !== startBal) updateBalMutation.mutate(parsed);
     setEditingBal(false);
   };
-
   const cancelEdit = () => setEditingBal(false);
-
   const handleBalKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
     if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
     e.stopPropagation();
   };
 
+  // Name mutation
+  const updateNameMutation = useMutation({
+    mutationFn: (newName: string) =>
+      apiRequest('PUT', `/api/sessions/${session.id}`, { sessionName: newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 1500);
+    },
+  });
+
+  const startNameEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNameInput(session.sessionName);
+    setEditingName(true);
+    setNameSaved(false);
+    setTimeout(() => nameInputRef.current?.select(), 0);
+  };
+  const commitNameEdit = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed && trimmed !== session.sessionName) updateNameMutation.mutate(trimmed);
+    setEditingName(false);
+  };
+  const cancelNameEdit = () => setEditingName(false);
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitNameEdit(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelNameEdit(); }
+    e.stopPropagation();
+  };
+
   const pnlColor = !hasData ? '#555' : totalPnL === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
   const retColor = !hasData ? '#555' : returnPct === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
 
+  const isEditing = editingBal || editingName;
+
   return (
     <div
-      onClick={editingBal ? undefined : onSelect}
+      onClick={isEditing ? undefined : onSelect}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        background: '#080c10',
+        background: '#0c111b',
         border: `2px solid ${isActive ? '#2a2a2a' : hov ? '#2a2a2a' : '#1a1a1a'}`,
         cursor: 'pointer',
         position: 'relative',
@@ -275,21 +313,52 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 
       {/* Card top bar */}
       <div style={{
-        background: '#0c1018',
-        borderBottom: '2px solid #0f1923',
+        background: '#0d1220',
+        borderBottom: '2px solid #151e2e',
         padding: '14px 20px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 12,
       }}>
-        <div>
-          <div
-            data-testid={`text-session-name-${session.id}`}
-            style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7eb8f7' }}
-          >
-            {session.sessionName}
-          </div>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#444', textTransform: 'uppercase' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editingName ? (
+            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                ref={nameInputRef}
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                onKeyDown={handleNameKeyDown}
+                data-testid={`input-session-name-${session.id}`}
+                style={{
+                  fontSize: 12, fontWeight: 800, color: '#7eb8f7', background: 'transparent',
+                  border: 'none', borderBottom: '2px solid #60a5fa', outline: 'none',
+                  flex: 1, fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.1em',
+                  textTransform: 'uppercase', padding: '2px 0', minWidth: 0,
+                }}
+              />
+              <button onMouseDown={e => { e.preventDefault(); commitNameEdit(); }}
+                style={{ background: 'none', border: '1.5px solid #3dff8f', color: '#3dff8f', fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", flexShrink: 0 }}>✓</button>
+              <button onMouseDown={e => { e.preventDefault(); cancelNameEdit(); }}
+                style={{ background: 'none', border: '1.5px solid #444', color: '#888', fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", flexShrink: 0 }}>✗</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                data-testid={`text-session-name-${session.id}`}
+                style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7eb8f7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {session.sessionName}
+              </div>
+              <span
+                onClick={startNameEdit}
+                style={{ cursor: 'pointer', color: '#60a5fa', opacity: 0.7, fontSize: 8, letterSpacing: '0.1em', flexShrink: 0 }}
+                title="Edit name"
+              >✎ EDIT</span>
+              {nameSaved && <span style={{ color: '#3dff8f', fontSize: 8, letterSpacing: '0.1em', flexShrink: 0 }}>✓ SAVED</span>}
+            </div>
+          )}
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#444', textTransform: 'uppercase', marginTop: 2 }}>
             {dateStr}
           </div>
         </div>
@@ -297,7 +366,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
           <span style={{
             display: 'flex', alignItems: 'center', gap: 5,
             fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px',
+            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px', flexShrink: 0,
           }}>
             <span style={{
               width: 5, height: 5, borderRadius: '50%',
@@ -310,7 +379,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
         ) : (
           <span style={{
             fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px',
+            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px', flexShrink: 0,
           }}>
             {session.status?.toUpperCase() || 'ACTIVE'}
           </span>
@@ -343,24 +412,10 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                   padding: '2px 0',
                 }}
               />
-              <button
-                onMouseDown={e => { e.preventDefault(); commitEdit(); }}
-                style={{
-                  background: 'none', border: '1.5px solid #3dff8f', color: '#3dff8f',
-                  fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer',
-                  fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em',
-                  flexShrink: 0,
-                }}
-              >✓</button>
-              <button
-                onMouseDown={e => { e.preventDefault(); cancelEdit(); }}
-                style={{
-                  background: 'none', border: '1.5px solid #444', color: '#888',
-                  fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer',
-                  fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em',
-                  flexShrink: 0,
-                }}
-              >✗</button>
+              <button onMouseDown={e => { e.preventDefault(); commitEdit(); }}
+                style={{ background: 'none', border: '1.5px solid #3dff8f', color: '#3dff8f', fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em', flexShrink: 0 }}>✓</button>
+              <button onMouseDown={e => { e.preventDefault(); cancelEdit(); }}
+                style={{ background: 'none', border: '1.5px solid #444', color: '#888', fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em', flexShrink: 0 }}>✗</button>
             </div>
           </div>
         ) : (
@@ -398,7 +453,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       {/* Footer */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 20px', borderTop: '2px solid #0f1923', background: '#0c1018',
+        padding: '12px 20px', borderTop: '2px solid #151e2e', background: '#0d1220',
       }}>
         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#3a3a3a', textTransform: 'uppercase' }}>
           {tradeCount === 0 ? 'No trades yet' : `${tradeCount} trade${tradeCount === 1 ? '' : 's'} logged`}
