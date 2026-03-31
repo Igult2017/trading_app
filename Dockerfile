@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-venv \
     tesseract-ocr \
+    tesseract-ocr-eng \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
