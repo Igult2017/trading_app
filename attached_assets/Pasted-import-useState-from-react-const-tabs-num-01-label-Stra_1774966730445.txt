@@ -1,0 +1,165 @@
+import { useState } from "react";
+
+const tabs = [
+  {
+    num: "01",
+    label: "Strategy Audit",
+    sub: "Setup & rules review",
+    icon: (color) => (
+      // Gear / cog
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="8" cy="8" r="2.2" />
+        <path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M12.6 3.4l-.85.85M4.25 11.75l-.85.85" />
+      </svg>
+    ),
+  },
+  {
+    num: "02",
+    label: "Evidence & Proof",
+    sub: "Trade log & entries",
+    icon: (color) => (
+      // Database / cylinder
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        <ellipse cx="8" cy="4" rx="5" ry="1.8" />
+        <path d="M3 4v8c0 1 2.24 1.8 5 1.8s5-.8 5-1.8V4" />
+        <path d="M3 8c0 1 2.24 1.8 5 1.8S13 9 13 8" />
+      </svg>
+    ),
+  },
+  {
+    num: "03",
+    label: "Diagnostics",
+    sub: "Drawdown & mistakes",
+    icon: (color) => (
+      // Wrench
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13.2 2.8a3.2 3.2 0 0 0-4.4 4.4L2.8 13.2a1 1 0 0 0 1.4 1.4l6-5.8a3.2 3.2 0 0 0 3-6z" />
+        <path d="M11.5 2.5l.8 2.2-2.2-.8" />
+      </svg>
+    ),
+  },
+  {
+    num: "04",
+    label: "Action & Iteration",
+    sub: "Fixes & next cycle",
+    icon: (color) => (
+      // Circle plus
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="8" cy="8" r="6" />
+        <line x1="8" y1="5" x2="8" y2="11" />
+        <line x1="5" y1="8" x2="11" y2="8" />
+      </svg>
+    ),
+  },
+];
+
+const GREEN = "#2ee89a";
+const BLUE  = "#4f8ef7";
+const MUTED = "rgba(255,255,255,0.28)";
+
+const COLORS = {
+  done:   { num: "rgba(46,232,154,0.55)",  icon: GREEN, label: "rgba(255,255,255,0.38)", sub: "rgba(46,232,154,0.45)",  border: "rgba(46,232,154,0.28)",  bg: "rgba(46,232,154,0.06)"  },
+  active: { num: BLUE,                     icon: BLUE,  label: "#ffffff",                sub: "rgba(79,142,247,0.85)", border: "rgba(79,142,247,0.55)",  bg: "rgba(79,142,247,0.12)"  },
+  idle:   { num: "rgba(255,255,255,0.18)", icon: MUTED, label: "rgba(255,255,255,0.3)",  sub: "rgba(255,255,255,0.18)", border: "rgba(255,255,255,0.1)",  bg: "transparent"            },
+};
+
+export default function AuditHeader({ activeIndex = 3, onChange }) {
+  const [active, setActive] = useState(activeIndex);
+
+  const handleClick = (i) => {
+    setActive(i);
+    onChange?.(i);
+  };
+
+  return (
+    <div style={{
+      background: "#0b0f1a",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      fontFamily: "'Montserrat', sans-serif",
+      padding: "0 2rem",
+    }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        {tabs.map((tab, i) => {
+          const state = i < active ? "done" : i === active ? "active" : "idle";
+          const c = COLORS[state];
+          const isActive = state === "active";
+
+          return (
+            <button
+              key={i}
+              onClick={() => handleClick(i)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 13,
+                padding: i === 0 ? "17px 28px 17px 0" : "17px 28px",
+                cursor: "pointer",
+                position: "relative",
+                flex: 1,
+                background: "none",
+                border: "none",
+                borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                textAlign: "left",
+              }}
+            >
+              {isActive && (
+                <div style={{
+                  position: "absolute",
+                  bottom: 0, left: 0, right: 0,
+                  height: 2,
+                  background: BLUE,
+                  borderRadius: "2px 2px 0 0",
+                }} />
+              )}
+
+              <div style={{
+                width: 34, height: 34,
+                borderRadius: 8,
+                border: `1px solid ${c.border}`,
+                background: c.bg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                filter: isActive ? "drop-shadow(0 0 5px rgba(79,142,247,0.5))" : "none",
+              }}>
+                {tab.icon(c.icon)}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  color: c.num,
+                  letterSpacing: "0.14em",
+                  marginBottom: 3,
+                }}>
+                  {tab.num}
+                </span>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: c.label,
+                  whiteSpace: "nowrap",
+                }}>
+                  {tab.label}
+                </span>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 500,
+                  color: c.sub,
+                  letterSpacing: "0.04em",
+                  marginTop: 3,
+                }}>
+                  {tab.sub}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
