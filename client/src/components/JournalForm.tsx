@@ -1484,7 +1484,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                   <div>
                     <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                       <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
-                        GROWTH:
+                        EQUITY:
                       </span>
                       <span className="jb-num" style={{fontSize:"9px",color:growthColor,lineHeight:1}}>
                         {growthPct >= 0 ? '+' : ''}{growthPct.toFixed(1)}%
