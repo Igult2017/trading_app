@@ -1164,7 +1164,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
 
                 {step===1&&(
                   <div className="space-y-10">
-                    <InfoBox color="amber" icon="AlertCircle" title="Critical Protocol" text="Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution."/>
+                    <InfoBox color="blue" icon="AlertCircle" title="Critical Protocol" text="Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution."/>
                     <section className="space-y-6">
                       <SectionHeader icon="Lightbulb" title="Core Thesis"/>
                       {lf("Trade Thesis","thesis",4,"Example: Price broke key resistance at 1.0850...")}
