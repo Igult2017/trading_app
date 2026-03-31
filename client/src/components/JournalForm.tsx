@@ -1123,6 +1123,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                     position:'relative', display:'flex', flexDirection:'column', alignItems:'center',
                     padding:'14px 10px 13px',
                     border:`1px solid #252848`,
+                    borderRadius:'6px',
                     background:'#121526',
                     boxShadow: isActive ? `0 0 18px rgba(74,232,216,0.08)` : 'none',
                     cursor:'pointer', textAlign:'center', transition:'all 0.25s ease', overflow:'hidden',
