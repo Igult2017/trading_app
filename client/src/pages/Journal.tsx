@@ -56,12 +56,13 @@ interface NavGroup {
 const NAV_SECTIONS: NavGroup[] = [
   { section: null, items: [
     { id: 'dashboard', label: 'Dashboard', icon: SI.Dashboard },
-    { id: 'journal', label: 'Journal', icon: SI.Journal },
+    { id: 'accounts', label: 'Accounts', icon: SI.Accounts },
     { id: 'metrics', label: 'Metrics', icon: SI.Metrics },
     { id: 'tfmetrics', label: 'Context', icon: SI.TfMetrics },
     { id: 'calendar', label: 'Calendar', icon: SI.Calendar },
     { id: 'strategy', label: 'Audit', icon: SI.Strategy },
     { id: 'drawdown', label: 'Drawdown', icon: SI.Drawdown },
+    { id: 'journal', label: 'Journal', icon: SI.Journal },
     { id: 'vault', label: 'Trade Vault', icon: SI.Vault },
     { id: 'leaderboard', label: 'Leaderboard', icon: SI.Leaderboard },
     { id: 'sync', label: 'Sync Trade', icon: SI.Sync },
@@ -71,9 +72,6 @@ const NAV_SECTIONS: NavGroup[] = [
   { section: 'Live Trading', items: [
     { id: 'sessions', label: 'Sessions', icon: SI.Sessions, arrow: true },
     { id: 'create', label: 'Create Session', icon: SI.CreateSession },
-  ]},
-  { section: 'Account', items: [
-    { id: 'accounts', label: 'Accounts', icon: SI.Accounts },
   ]},
   { section: null, items: [
     { id: 'settings', label: 'Settings', icon: SI.Settings },
