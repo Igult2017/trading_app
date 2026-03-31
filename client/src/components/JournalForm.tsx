@@ -1112,42 +1112,46 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
               {STEPS.map(s=>{
                 const isActive=s.id===step, isDone=s.id<step;
-                const accentColor = isActive ? '#60a5fa' : isDone ? '#3b82f6' : '#334155';
+                const accent = isActive ? '#4AE8D8' : isDone ? '#4AE88A' : '#252848';
+                const accentFaint = isActive ? 'rgba(74,232,216,0.18)' : isDone ? 'rgba(74,232,138,0.12)' : 'rgba(37,40,72,0.5)';
+                const iconColor = isActive ? '#4AE8D8' : isDone ? '#4AE88A' : '#6A7299';
+                const labelColor = isActive ? '#D8DCF0' : isDone ? '#8A93B8' : '#6A7299';
+                const subColor = isActive ? 'rgba(74,232,216,0.65)' : isDone ? 'rgba(74,232,138,0.45)' : '#3a3f5c';
+                const cornerSize = 6;
                 return (
                   <button key={s.id} onClick={()=>setStep(s.id)} style={{
                     position:'relative', display:'flex', flexDirection:'column', alignItems:'center',
-                    padding:'16px 10px 14px', borderRadius:'4px', border:'1px solid',
-                    borderColor: isActive ? 'rgba(96,165,250,0.45)' : isDone ? 'rgba(59,130,246,0.2)' : 'rgba(51,65,85,0.5)',
-                    borderTop: `1px solid ${accentColor}${isActive?'88':isDone?'44':'33'}`,
-                    background: isActive
-                      ? 'linear-gradient(160deg,#0f1e35 0%,#080d17 100%)'
-                      : isDone
-                      ? 'linear-gradient(160deg,#0c1525 0%,#07090f 100%)'
-                      : 'linear-gradient(160deg,#0c111a 0%,#07090f 100%)',
-                    boxShadow: isActive
-                      ? '0 8px 32px rgba(59,130,246,0.2), inset 0 1px 0 rgba(96,165,250,0.1)'
-                      : '0 4px 16px rgba(0,0,0,0.4)',
-                    cursor:'pointer', textAlign:'center', transition:'all 0.3s ease', overflow:'hidden',
+                    padding:'14px 10px 13px',
+                    border:`1px solid #252848`,
+                    background:'#121526',
+                    boxShadow: isActive ? `0 0 18px rgba(74,232,216,0.08)` : 'none',
+                    cursor:'pointer', textAlign:'center', transition:'all 0.25s ease', overflow:'hidden',
+                    outline:'none',
                   }}>
-                    <div style={{
-                      position:'absolute', top:0, left:'50%', transform:'translateX(-50%)',
-                      width:48, height:1,
-                      background:`linear-gradient(90deg,transparent,${accentColor}${isActive?'99':isDone?'55':'33'},transparent)`,
-                    }}/>
+                    {/* top accent gradient line */}
+                    <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(to right,${accent},transparent)`}}/>
+                    {/* corner ticks — top-left */}
+                    <div style={{position:'absolute',top:0,left:0,width:cornerSize,height:cornerSize,borderTop:`1px solid ${accent}`,borderLeft:`1px solid ${accent}`}}/>
+                    {/* corner ticks — top-right */}
+                    <div style={{position:'absolute',top:0,right:0,width:cornerSize,height:cornerSize,borderTop:`1px solid ${accent}`,borderRight:`1px solid ${accent}`}}/>
+                    {/* corner ticks — bottom-left */}
+                    <div style={{position:'absolute',bottom:0,left:0,width:cornerSize,height:cornerSize,borderBottom:`1px solid #252848`,borderLeft:`1px solid #252848`}}/>
+                    {/* corner ticks — bottom-right */}
+                    <div style={{position:'absolute',bottom:0,right:0,width:cornerSize,height:cornerSize,borderBottom:`1px solid #252848`,borderRight:`1px solid #252848`}}/>
+
                     <div style={{
                       width:36, height:36, borderRadius:'50%', marginBottom:10,
-                      background:`radial-gradient(circle,${accentColor}${isActive?'25':isDone?'18':'10'} 0%,${accentColor}05 70%)`,
-                      border:`1px solid ${accentColor}${isActive?'44':isDone?'30':'20'}`,
+                      background:accentFaint,
+                      border:`1px solid ${accent}`,
                       display:'flex', alignItems:'center', justifyContent:'center',
-                      color: isActive ? '#60a5fa' : isDone ? '#3b82f6' : '#475569',
-                      boxShadow: isActive ? `0 0 16px rgba(96,165,250,0.25)` : 'none',
+                      color: iconColor,
+                      boxShadow: isActive ? `0 0 10px rgba(74,232,216,0.2)` : isDone ? `0 0 8px rgba(74,232,138,0.12)` : 'none',
                     }}>
                       <Icon name={s.icon} size={15}/>
                     </div>
-                    <p style={{fontSize:'10px',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase',color:isActive?'#e2e8f0':isDone?'#64748b':'#475569',margin:'0 0 3px',whiteSpace:'nowrap'}}>{s.label}</p>
-                    <p style={{fontSize:'8px',fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase',color:isActive?'rgba(96,165,250,0.7)':isDone?'rgba(59,130,246,0.4)':'#334155',margin:0}}>{s.sub}</p>
-                    {isDone&&<Icon name="CheckCircle2" size={11} style={{position:'absolute',top:10,right:10,color:'rgba(59,130,246,0.35)'}}/>}
-                    {isActive&&<div style={{position:'absolute',bottom:0,left:0,right:0,height:2,background:'linear-gradient(90deg,transparent,#60a5fa,transparent)'}}/>}
+                    <p style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',fontWeight:400,letterSpacing:'0.14em',textTransform:'uppercase',color:labelColor,margin:'0 0 3px',whiteSpace:'nowrap'}}>{s.label}</p>
+                    <p style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'8px',fontWeight:400,letterSpacing:'0.12em',textTransform:'uppercase',color:subColor,margin:0}}>{s.sub}</p>
+                    {isDone&&<Icon name="CheckCircle2" size={11} style={{position:'absolute',top:8,right:8,color:'rgba(74,232,138,0.4)'}}/>}
                   </button>
                 );
               })}

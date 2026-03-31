@@ -690,6 +690,7 @@ export default function Journal() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
+
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
     setActiveNav('dashboard');
