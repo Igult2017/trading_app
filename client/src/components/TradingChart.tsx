@@ -250,6 +250,26 @@ export const INDICATOR_DEFS: IndicatorDef[] = [
 
 export type IndicatorId = string;
 
+// ── Live WebSocket helpers ────────────────────────────────────────────────────
+// Converts "ETH/USDT" → "ethusdt" for Binance stream names.
+// Returns null for non-Binance-listable pairs (forex, stocks, etc.).
+function toBinanceSymbol(sym: string): string | null {
+  const s = sym.replace("/", "").toLowerCase();
+  if (
+    s.endsWith("usdt") || s.endsWith("usdc") ||
+    s.endsWith("btc")  || s.endsWith("eth")  ||
+    s.endsWith("bnb")
+  ) return s;
+  return null;
+}
+
+// Kraken OHLC interval in minutes
+const KRAKEN_INTERVALS: Record<string, number> = {
+  "1m": 1, "5m": 5, "15m": 15, "30m": 30,
+  "1h": 60, "4h": 240, "1d": 1440, "1w": 10080,
+};
+function toKrakenInterval(iv: string): number { return KRAKEN_INTERVALS[iv] ?? 5; }
+
 // ── Scale ID mapping ──────────────────────────────────────────────────────────
 // "vp" has no LW Charts series — handled by canvas
 const SCALE_ID: Record<Exclude<RenderType,"vp">, string> = {
@@ -341,9 +361,14 @@ export default function TradingChart({
   const seriesMap    = useRef<Map<string, ISeriesApi<any>[]>>(new Map());
   const candlesRef   = useRef<CandleBar[]>([]);
 
+  const wsRef              = useRef<WebSocket | null>(null);
+  const wsReconnectTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [lastClose, setLastClose] = useState<number | null>(null);
+  const [wsStatus,  setWsStatus]  = useState<"off" | "connecting" | "live" | "error">("off");
+  const [wsSource,  setWsSource]  = useState<"BINANCE" | "KRAKEN" | "">("");
 
   // ── Build chart once ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -508,6 +533,123 @@ export default function TradingChart({
     return () => clearInterval(id);
   }, [fetchAndDraw]);
 
+  // ── Live WebSocket — Binance → Kraken cascade (crypto only) ─────────────────
+  // Browser connects directly to the exchange (server is never in the path).
+  // Tries Binance first; if rejected (e.g. origin-block on dev domain) it falls
+  // back to Kraken which has no geo/origin restrictions.
+  useEffect(() => {
+    const ac   = getAssetClass(symbol);
+    const bsym = ac === "crypto" ? toBinanceSymbol(symbol) : null;
+    if (!bsym) { setWsStatus("off"); return; }
+
+    type Source = "binance" | "kraken";
+    let cancelled = false;
+    let source: Source = "binance";
+    let reconnectAttempts = 0;
+    let openedAt = 0;
+
+    const applyTick = (open: number, high: number, low: number, close: number,
+                       ts: number, vol: number, closed: boolean) => {
+      try { candleRef.current?.update({ time: ts as Time, open, high, low, close }); } catch {}
+      setLastClose(close);
+      if (closed) {
+        const arr = candlesRef.current;
+        const bar: CandleBar = { time: ts, open, high, low, close, volume: vol };
+        const idx = arr.findIndex(c => c.time === ts);
+        if (idx >= 0) arr[idx] = { ...arr[idx], ...bar };
+        else          arr.push(bar);
+        candlesRef.current = [...arr];
+      }
+    };
+
+    const handleBinanceMsg = (raw: string) => {
+      try {
+        const msg = JSON.parse(raw);
+        const k   = msg.k;
+        if (!k) return;
+        applyTick(
+          parseFloat(k.o), parseFloat(k.h), parseFloat(k.l), parseFloat(k.c),
+          Math.floor(k.t / 1000), parseFloat(k.v), !!k.x
+        );
+      } catch {}
+    };
+
+    const handleKrakenMsg = (raw: string) => {
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.channel !== "ohlc" || msg.type !== "update") return;
+        const d = msg.data?.[0];
+        if (!d) return;
+        applyTick(
+          parseFloat(d.open), parseFloat(d.high), parseFloat(d.low), parseFloat(d.close),
+          Math.floor(new Date(d.timestamp).getTime() / 1000),
+          parseFloat(d.volume ?? "0"),
+          !!d.confirm
+        );
+      } catch {}
+    };
+
+    const connect = () => {
+      if (cancelled) return;
+      setWsStatus("connecting");
+
+      const url = source === "binance"
+        ? `wss://stream.binance.com:9443/ws/${bsym}@kline_${interval}`
+        : `wss://ws.kraken.com/v2`;
+
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+      openedAt = Date.now();
+
+      ws.onopen = () => {
+        if (cancelled) { ws.close(); return; }
+        setWsStatus("live");
+        setWsSource(source === "binance" ? "BINANCE" : "KRAKEN");
+        reconnectAttempts = 0;
+        if (source === "kraken") {
+          ws.send(JSON.stringify({
+            method: "subscribe",
+            params: { channel: "ohlc", symbol: [symbol], interval: toKrakenInterval(interval) },
+          }));
+        }
+      };
+
+      ws.onmessage = (evt) => {
+        if (cancelled) return;
+        if (source === "binance") handleBinanceMsg(evt.data as string);
+        else                      handleKrakenMsg(evt.data as string);
+      };
+
+      ws.onerror = () => {};
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        const elapsed = Date.now() - openedAt;
+        // If Binance failed almost immediately, cascade to Kraken
+        if (source === "binance" && elapsed < 4000) {
+          source = "kraken";
+          reconnectAttempts = 0;
+          setTimeout(connect, 500);
+          return;
+        }
+        setWsStatus("error");
+        const delay = Math.min(2000 * Math.pow(2, reconnectAttempts), 30_000);
+        reconnectAttempts++;
+        wsReconnectTimer.current = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (wsReconnectTimer.current) clearTimeout(wsReconnectTimer.current);
+      wsRef.current?.close();
+      wsRef.current = null;
+      setWsStatus("off");
+    };
+  }, [symbol, interval]);
+
   // ── Sync canvas size with container ─────────────────────────────────────────
   useEffect(() => {
     const canvas    = vpCanvasRef.current;
@@ -634,6 +776,39 @@ export default function TradingChart({
           </span>
         )}
       </div>
+
+      {/* Live stream badge (top-right) */}
+      {wsStatus !== "off" && (
+        <div style={{
+          position: "absolute", top: 6, right: 8, zIndex: 10,
+          display: "flex", alignItems: "center", gap: 4,
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.1em",
+          pointerEvents: "none",
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: wsStatus === "live" ? "#22d3a5"
+                      : wsStatus === "connecting" ? "#f59e0b"
+                      : "#ef5350",
+            boxShadow: wsStatus === "live"
+              ? "0 0 6px #22d3a5"
+              : wsStatus === "connecting"
+              ? "0 0 4px #f59e0b"
+              : "none",
+          }} />
+          <span style={{
+            color: wsStatus === "live" ? "#22d3a5"
+                 : wsStatus === "connecting" ? "#f59e0b"
+                 : "#ef5350",
+          }}>
+            {wsStatus === "live"
+            ? `LIVE · ${wsSource}`
+            : wsStatus === "connecting"
+            ? "CONNECTING…"
+            : "WS ERR"}
+          </span>
+        </div>
+      )}
 
       {/* Chart container */}
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
