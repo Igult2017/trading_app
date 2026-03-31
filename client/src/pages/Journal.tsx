@@ -508,8 +508,9 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const metricsUrl = `/api/metrics/compute?sessionId=${sessionId}`;
   const entriesUrl = `/api/journal/entries?sessionId=${sessionId}`;
 
-  const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
+  const { data: metricsData } = useQuery<{ success: boolean; metrics: any }>({
     queryKey: ['/api/metrics/compute', sessionId],
+    enabled: !!sessionId,
     queryFn: async () => {
       const r = await fetch(metricsUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
@@ -517,8 +518,9 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
     },
   });
 
-  const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
+  const { data: entries = [] } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
+    enabled: !!sessionId,
     queryFn: async () => {
       const r = await fetch(entriesUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
