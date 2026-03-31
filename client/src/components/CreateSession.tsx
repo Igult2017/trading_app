@@ -105,7 +105,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
             <PlusCircle size={28} />
           </div>
           <h2
-            className="text-2xl font-black text-white tracking-tighter mb-1 uppercase"
+            className="text-base font-black text-white tracking-tighter mb-1 uppercase"
             data-testid="text-create-session-title"
           >
             Create New Session
@@ -128,7 +128,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
                 value={sessionName}
                 onChange={(e) => setSessionName(e.target.value)}
                 placeholder="E.G. NASDAQ_SCALP_01"
-                className="w-full bg-slate-900/80 border-0 rounded-none py-4 px-6 text-white font-bold placeholder:text-slate-700 focus:outline-none focus:bg-slate-800 transition-all duration-200"
+                className="w-full bg-slate-900/80 border-0 rounded-none py-4 px-6 text-sm text-white font-bold placeholder:text-slate-700 focus:outline-none focus:bg-slate-800 transition-all duration-200"
                 data-testid="input-session-name"
               />
               <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
@@ -141,7 +141,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
               Initial Liquidity
             </label>
             <div className="relative">
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-xl">$</div>
+              <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-sm">$</div>
               <input
                 type="number"
                 value={startingBalance}
@@ -149,7 +149,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
                 placeholder="10000"
                 min="0"
                 step="0.01"
-                className="w-full bg-slate-900/80 border-0 rounded-none py-4 pl-12 pr-6 text-white font-black text-xl focus:outline-none focus:bg-slate-800 transition-all duration-200"
+                className="w-full bg-slate-900/80 border-0 rounded-none py-4 pl-12 pr-6 text-sm text-white font-black focus:outline-none focus:bg-slate-800 transition-all duration-200"
                 data-testid="input-starting-balance"
               />
               <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
@@ -165,7 +165,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className={`w-full relative mt-2 py-5 font-black text-white transition-all duration-200 flex items-center justify-center gap-3 tracking-[0.15em] uppercase text-xs ${
+            className={`w-full relative mt-2 py-4 font-black text-white transition-all duration-200 flex items-center justify-center gap-3 tracking-[0.15em] uppercase text-[10px] ${
               createMutation.isPending
                 ? 'bg-indigo-900'
                 : 'bg-indigo-600 hover:bg-indigo-500 active:translate-y-1 shadow-[0_6px_0_rgb(49,46,129)] hover:shadow-[0_3px_0_rgb(49,46,129)] active:shadow-none'
@@ -177,7 +177,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
             ) : (
               <>
                 Deploy Session
-                <ChevronRight size={18} strokeWidth={3} />
+                <ChevronRight size={14} strokeWidth={3} />
               </>
             )}
           </button>
