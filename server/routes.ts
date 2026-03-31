@@ -25,6 +25,29 @@ import { signalMonitor } from "./services/signalMonitor";
 // ── FIX: import balance tracker ───────────────────────────────────────────────
 import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTracker";
 
+// ── Metrics in-memory cache ───────────────────────────────────────────────────
+// Avoids spawning a Python process on every request when data hasn't changed.
+interface MetricsCacheEntry {
+  result: Awaited<ReturnType<typeof computeMetrics>>;
+  entryCount: number;
+  cachedAt: number;
+}
+const metricsCache = new Map<string, MetricsCacheEntry>();
+const METRICS_CACHE_TTL_MS = 5 * 60 * 1000; // 5-minute safety TTL
+
+function metricsKey(userId?: string, sessionId?: string): string {
+  return `${userId ?? ""}:${sessionId ?? ""}`;
+}
+
+function invalidateMetricsCache(sessionId?: string, userId?: string): void {
+  if (sessionId || userId) {
+    metricsCache.delete(metricsKey(userId, sessionId));
+  } else {
+    metricsCache.clear();
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades", async (req, res) => {
     try {
@@ -270,6 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertJournalEntrySchema.parse(enriched);
       const entry = await storage.createJournalEntry(validatedData);
+      invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       res.status(201).json(entry);
     } catch (error) {
       console.error("[Routes] Create journal entry error:", error);
@@ -283,6 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!entry) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
+      invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       res.json(entry);
     } catch (error) {
       res.status(500).json({ error: "Failed to update journal entry" });
@@ -295,6 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
+      metricsCache.clear();
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete journal entry" });
@@ -306,6 +332,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.query.userId as string | undefined;
       const sessionId = req.query.sessionId as string | undefined;
       const entries = await storage.getJournalEntries(userId, sessionId);
+
+      const key = metricsKey(userId, sessionId);
+      const cached = metricsCache.get(key);
+      const now = Date.now();
+
+      if (
+        cached &&
+        cached.entryCount === entries.length &&
+        now - cached.cachedAt < METRICS_CACHE_TTL_MS
+      ) {
+        return res.json(cached.result);
+      }
+
       let startingBalance: number | undefined;
       if (sessionId) {
         const session = await storage.getSessionById(sessionId);
@@ -313,6 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const result = await computeMetrics(entries, startingBalance);
       if (result.success) {
+        metricsCache.set(key, { result, entryCount: entries.length, cachedAt: now });
         res.json(result);
       } else {
         res.status(500).json(result);
