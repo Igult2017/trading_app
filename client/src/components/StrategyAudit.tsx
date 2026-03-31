@@ -358,7 +358,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
       })()}
 
       {/* KPI stat cards — part of sticky header */}
-      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60"
+      <div className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60 mt-4"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
         <div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
