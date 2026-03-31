@@ -1109,7 +1109,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
             )}
 
 
-            <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"16px"}}>
+            <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"6px"}}>
               {STEPS.map(s=>{
                 const isActive=s.id===step, isDone=s.id<step;
                 const accent = isActive ? '#4AE8D8' : isDone ? '#4AE88A' : '#252848';
