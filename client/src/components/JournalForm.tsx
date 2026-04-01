@@ -1285,7 +1285,6 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {lf("Take Profit","takeProfit",undefined,"0.00","number")}
                         {lf("TP Distance (Pips)","takeProfitDistancePips",undefined,"0","number")}
                         {lf("Risk %","riskPercent",undefined,"1.0","number")}
-                        {lf("R:R","riskReward",undefined,"2.0","number")}
                         {ls("Order Type","orderType",["Market","Limit","Stop","Stop-Limit"])}
                         {ls("Outcome","outcome",["Win","Loss","BE"])}
                       </div>
