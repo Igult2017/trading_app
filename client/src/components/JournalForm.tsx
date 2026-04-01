@@ -213,7 +213,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
     const v = e.target.value;
     if (v === 'Other') {
       setOtherMode(true);
-      // don't call onChange here — wait for the user to type
+      onChange(field, ''); // clear so the text input shows an empty placeholder
     } else {
       setOtherMode(false);
       onChange(field, v);
@@ -558,6 +558,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // DB column is always populated. OCR-set riskReward is never overwritten.
   useEffect(() => {
     if (ocrFields.has("riskReward")) return;
+    if (manualEdits.current.has("riskReward")) return;
     if (!form.achievedRR) return;
     setForm(prev => ({ ...prev, riskReward: form.achievedRR }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -583,10 +584,13 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
     const dollarRisk = parseFloat(((currentBalance * risk) / 100).toFixed(2));
     const achievedRR = parseFloat(String(form.achievedRR || form.riskReward || "")) || 0;
 
-    const update: Record<string, string> = {
-      monetaryRisk: dollarRisk.toFixed(2),
-    };
-    if (achievedRR > 0) update.potentialReward = (dollarRisk * achievedRR).toFixed(2);
+    const update: Record<string, string> = {};
+
+    if (!manualEdits.current.has('monetaryRisk'))
+      update.monetaryRisk = dollarRisk.toFixed(2);
+
+    if (!manualEdits.current.has('potentialReward') && achievedRR > 0)
+      update.potentialReward = (dollarRisk * achievedRR).toFixed(2);
 
     const outcome = form.outcome as "Win" | "Loss" | "BE";
     if (form.outcome && ["Win", "Loss", "BE"].includes(outcome)) {
@@ -595,8 +599,10 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
         // R:R not yet entered — leave profitLoss blank until achievedRR is filled
       } else {
         const values = calcAllTradeValues(currentBalance, String(risk), String(achievedRR), outcome);
-        update.profitLoss     = values.profitLoss;
-        update.accountBalance = values.accountBalance;
+        if (!manualEdits.current.has('profitLoss'))
+          update.profitLoss = values.profitLoss;
+        if (!manualEdits.current.has('accountBalance'))
+          update.accountBalance = values.accountBalance;
       }
     }
 
@@ -611,6 +617,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // Skipped when OCR already provided openPLPoints for this field.
   useEffect(() => {
     if (ocrFields.has("pipsGainedLost")) return;
+    if (manualEdits.current.has("pipsGainedLost")) return;
     const outcome = form.outcome;
     if (!outcome || !["Win", "Loss", "BE"].includes(outcome)) return;
     if (outcome === "Win" && form.takeProfitDistancePips) {
@@ -631,6 +638,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // Only fires when OCR has not explicitly set actualTP from a screenshot 2 analysis.
   useEffect(() => {
     if (ocrFields.has("actualTP")) return;
+    if (manualEdits.current.has("actualTP")) return;
     const outcome = form.outcome;
     if (!outcome || !["Win", "Loss"].includes(outcome)) return;
     if (outcome === "Win" && form.plannedTP) {
@@ -678,7 +686,47 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  const set = (k: string,v: any) => setForm(p=>({...p,[k]:v}));
+  // ── Manual-edit protection ─────────────────────────────────────────────────
+  // Tracks which auto-computed fields the user has manually overridden.
+  // Auto-calc effects respect this and won't overwrite a protected field.
+  // When the user changes a "trigger" field (riskPercent, outcome, achievedRR…)
+  // the protection on its related computed fields is cleared so auto-calc fires
+  // fresh, matching the user's intent.
+  const manualEdits = useRef<Set<string>>(new Set());
+
+  const AUTO_COMPUTED = new Set([
+    'monetaryRisk', 'potentialReward', 'profitLoss', 'accountBalance',
+    'pipsGainedLost', 'actualTP', 'riskReward', 'tradeDuration',
+  ]);
+
+  // trigger field → computed fields whose manual override should be cleared
+  const TRIGGER_CLEAR: Record<string, string[]> = {
+    riskPercent:            ['monetaryRisk', 'potentialReward', 'profitLoss', 'accountBalance'],
+    outcome:                ['profitLoss', 'accountBalance', 'pipsGainedLost', 'actualTP'],
+    achievedRR:             ['potentialReward', 'profitLoss', 'accountBalance', 'riskReward'],
+    takeProfitDistancePips: ['pipsGainedLost'],
+    stopLossDistancePips:   ['pipsGainedLost'],
+    plannedTP:              ['actualTP'],
+    entryTime:              ['tradeDuration'],
+    exitTime:               ['tradeDuration'],
+  };
+
+  const set = (k: string, v: any) => {
+    // Changing a trigger field resets protection on its computed fields
+    if (TRIGGER_CLEAR[k]) {
+      TRIGGER_CLEAR[k].forEach(f => manualEdits.current.delete(f));
+    }
+    // Manually editing a computed field protects it from further auto-calc
+    if (AUTO_COMPUTED.has(k)) {
+      if (v !== '' && v != null) {
+        manualEdits.current.add(k);
+      } else {
+        // Clearing the field lifts the protection so auto-calc can refill it
+        manualEdits.current.delete(k);
+      }
+    }
+    setForm(p => ({ ...p, [k]: v }));
+  };
 
   const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
     <Field label={label} field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type} ocrFilled={ocrFields.has(field)}/>;
