@@ -80,10 +80,10 @@ export interface CandleBar {
 // The price scale occupies from `top` to `(1 − bottom)`.
 
 const SM = {
-  main: { top: 0.02, bottom: 0.35 },   // 2%  → 65%
-  vol:  { top: 0.67, bottom: 0.18 },   // 67% → 82%
-  osc:  { top: 0.84, bottom: 0.02 },   // 84% → 98%
-  str:  { top: 0.84, bottom: 0.02 },   // same zone as osc (user enables one at a time)
+  main: { top: 0.02, bottom: 0.38 },   // 2%  → 62%
+  vol:  { top: 0.64, bottom: 0.20 },   // 64% → 80%
+  osc:  { top: 0.82, bottom: 0.02 },   // 82% → 98%
+  str:  { top: 0.82, bottom: 0.02 },   // same zone as osc (user enables one at a time)
 };
 
 type RenderType = "overlay" | "osc" | "vol" | "str" | "vp";
@@ -91,6 +91,7 @@ type RenderType = "overlay" | "osc" | "vol" | "str" | "vp";
 interface SeriesDef {
   field: keyof CandleBar;
   color: string;
+  label?: string;          // shown in legend for multi-series indicators
   lineStyle?: number;
   lineWidth?: 1 | 2;
   isHistogram?: boolean;
@@ -169,19 +170,19 @@ export const INDICATOR_DEFS: IndicatorDef[] = [
     series:[{field:"rsi",   color:"#f59e0b",lineWidth:2}] },
   { id:"MACD",     label:"MACD",           category:"Momentum",  color:"#22d3a5", renderType:"osc",
     series:[
-      {field:"macd",       color:"#22d3a5",lineWidth:1},
-      {field:"macd_signal",color:"#f59e0b",lineWidth:1},
-      {field:"macd_hist",  color:"#4a6580",isHistogram:true},
+      {field:"macd",       color:"#22d3a5",lineWidth:1, label:"MACD"},
+      {field:"macd_signal",color:"#f59e0b",lineWidth:1, label:"Signal"},
+      {field:"macd_hist",  color:"#4a6580",isHistogram:true, label:"Hist"},
     ]},
   { id:"STOCH",    label:"Stochastic",     category:"Momentum",  color:"#60a5fa", renderType:"osc",
     series:[
-      {field:"stoch_k",color:"#60a5fa"},
-      {field:"stoch_d",color:"#f472b6"},
+      {field:"stoch_k",color:"#60a5fa", label:"%K"},
+      {field:"stoch_d",color:"#f472b6", label:"%D"},
     ]},
   { id:"STOCHRSI", label:"Stoch RSI",      category:"Momentum",  color:"#34d399", renderType:"osc",
     series:[
-      {field:"stochrsi_k",color:"#34d399"},
-      {field:"stochrsi_d",color:"#fb923c"},
+      {field:"stochrsi_k",color:"#34d399", label:"K"},
+      {field:"stochrsi_d",color:"#fb923c", label:"D"},
     ]},
   { id:"CCI",      label:"CCI 20",         category:"Momentum",  color:"#c084fc", renderType:"osc",
     series:[{field:"cci",   color:"#c084fc"}] },
@@ -236,15 +237,15 @@ export const INDICATOR_DEFS: IndicatorDef[] = [
     series:[{field:"bb_pct",   color:"#cbd5e1"}] },
   { id:"ADX",      label:"ADX 14",         category:"Volatility",color:"#e2e8f0", renderType:"str",
     series:[
-      {field:"adx",color:"#e2e8f0",lineWidth:2},
-      {field:"dip",color:"#22d3a5",lineWidth:1},
-      {field:"dim",color:"#f4617f",lineWidth:1},
+      {field:"adx",color:"#e2e8f0",lineWidth:2, label:"ADX"},
+      {field:"dip",color:"#22d3a5",lineWidth:1, label:"DI+"},
+      {field:"dim",color:"#f4617f",lineWidth:1, label:"DI−"},
     ]},
   { id:"AROON",    label:"Aroon 14",       category:"Volatility",color:"#7dd3fc", renderType:"str",
     series:[
-      {field:"aroon_up", color:"#22d3a5"},
-      {field:"aroon_dn", color:"#f4617f"},
-      {field:"aroon_osc",color:"#7dd3fc",lineStyle:LineStyle.Dashed},
+      {field:"aroon_up", color:"#22d3a5", label:"Up"},
+      {field:"aroon_dn", color:"#f4617f", label:"Dn"},
+      {field:"aroon_osc",color:"#7dd3fc", label:"Osc", lineStyle:LineStyle.Dashed},
     ]},
 ];
 
@@ -784,15 +785,33 @@ export default function TradingChart({
         display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
         fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", pointerEvents: "none",
       }}>
-        {activeDefs.map(d => (
-          <span key={d.id} style={{ color: d.color, display: "flex", alignItems: "center", gap: 3 }}>
-            <span style={{
-              display: "inline-block", width: 10, height: 2,
-              background: d.color, borderRadius: 1,
-            }} />
-            {d.label}
-          </span>
-        ))}
+        {activeDefs.map(d => {
+          const hasSubLabels = d.series.length > 1 && d.series.some(s => s.label);
+          if (hasSubLabels) {
+            return (
+              <span key={d.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                {d.series.map((sd, i) => (
+                  <span key={i} style={{ color: sd.color, display: "flex", alignItems: "center", gap: 3 }}>
+                    <span style={{
+                      display: "inline-block", width: 10, height: sd.lineWidth === 2 ? 2 : 1,
+                      background: sd.color, borderRadius: 1,
+                    }} />
+                    {i === 0 ? `${d.label} · ${sd.label}` : sd.label}
+                  </span>
+                ))}
+              </span>
+            );
+          }
+          return (
+            <span key={d.id} style={{ color: d.color, display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{
+                display: "inline-block", width: 10, height: 2,
+                background: d.color, borderRadius: 1,
+              }} />
+              {d.label}
+            </span>
+          );
+        })}
         {lastClose !== null && (
           <span style={{ color: "#22d3a5", marginLeft: 4 }}>
             {lastClose.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
