@@ -61,8 +61,9 @@ const Icon = ({ name, size=16, style, className }: any) => {
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 leading-relaxed font-normal not-italic" + " [font-family:'Inter',sans-serif]";
-const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 leading-relaxed font-normal not-italic" + " [font-family:'Inter',sans-serif]";
+const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 leading-relaxed font-normal not-italic";
+const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 leading-relaxed font-normal not-italic";
+const INTER = { fontFamily: "'Inter', sans-serif", fontWeight: 400, fontStyle: 'normal' } as const;
 const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
 
 const STEPS = [
@@ -187,8 +188,8 @@ const Field = ({ label, field, value, onChange, placeholder="", rows, type="text
         </label>
       )}
       {rows
-        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls} style={{ fontWeight: 400, fontStyle: 'normal' }}/>
-        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"} style={{ fontWeight: 400, fontStyle: 'normal' }}/>
+        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls} style={INTER}/>
+        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"} style={INTER}/>
       }
     </div>
   );
@@ -221,7 +222,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
   };
 
   const baseCls = ocrFilled
-    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-normal not-italic [font-family:'Inter',sans-serif]"
+    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-normal not-italic"
     : INPUT_CLS;
 
   return (
@@ -251,6 +252,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
             }}
             placeholder="Type custom value…"
             className={baseCls + " flex-1"}
+            style={INTER}
           />
           <button
             type="button"
@@ -264,7 +266,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
           <select
             value={selectValue}
             onChange={handleSelect}
-            style={{ fontWeight: 400, fontStyle: 'normal' }}
+            style={INTER}
             className={baseCls + " appearance-none cursor-pointer pr-10 block w-full"}>
             {[...options, 'Other'].map((o: string) => (
               <option key={o} value={o} className="bg-[#0a0d14]">{o}</option>
