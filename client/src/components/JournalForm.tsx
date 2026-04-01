@@ -652,7 +652,17 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.outcome, ocrFields]);
 
-  // ── Clipboard paste listener (Step 2 only) ──────────────────────────────
+  // ── Auto-compute tradeDuration from entryTime + exitTime ───────────────────
+  // Runs whenever either timestamp changes so manual entry doesn't require
+  // the user to also type the duration.
+  useEffect(() => {
+    if (manualEdits.current.has('tradeDuration')) return;
+    const computed = computeDuration(form.entryTime, form.exitTime);
+    if (computed) setForm(prev => ({ ...prev, tradeDuration: computed }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.entryTime, form.exitTime]);
+
+
   // Intercepts Ctrl+V anywhere on the page when no form field is focused.
   // • Image in clipboard → feeds into OCR pipeline (same as file upload)
   // • Text in clipboard  → feeds into text trade parser

@@ -461,10 +461,13 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         if td_raw is not None:
             import re as _re
             td_str = str(td_raw).strip()
+            d = _re.search(r"(\d+(?:\.\d+)?)\s*d", td_str)
             h = _re.search(r"(\d+(?:\.\d+)?)\s*h", td_str)
-            m = _re.search(r"(\d+(?:\.\d+)?)\s*m", td_str)
-            if h or m:
-                duration = float(h.group(1) if h else 0) * 60 + float(m.group(1) if m else 0)
+            m = _re.search(r"(\d+(?:\.\d+)?)\s*m(?!o)", td_str)  # "m" not "mo"
+            if d or h or m:
+                duration = (float(d.group(1) if d else 0) * 1440
+                          + float(h.group(1) if h else 0) * 60
+                          + float(m.group(1) if m else 0))
             else:
                 try:
                     duration = float(td_str)  # plain number → treat as minutes
