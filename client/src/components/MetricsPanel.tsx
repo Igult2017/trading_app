@@ -95,21 +95,16 @@ const DR = ({ label, value, vc }: { label:string; value:string; vc?:string }) =>
 );
 
 const Bar = ({ label, pct, sub }: { label:string; pct:number|null|undefined; sub?:string }) => {
-  const val = pct ?? 0;
+  const val = pct != null ? Math.round(pct) : null;
   return (
-    <div style={{ marginBottom:8 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:3 }}>
-        <Mono size={10} color={P.body}>{label}</Mono>
-        <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-          {sub && <Mono size={9} color={P.muted}>{sub}</Mono>}
-          {pct == null
-            ? <Mono size={9} color={P.dim}>--</Mono>
-            : <Num color={pColor(val)}>{Math.round(val)}<span style={{ fontSize:8, opacity:0.6 }}>%</span></Num>
-          }
-        </div>
-      </div>
-      <div style={{ height:2, background:P.line2 }}>
-        <div style={{ height:'100%', width:`${pct == null ? 0 : Math.min(100, val)}%`, background:pColor(val), opacity:0.85 }} />
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
+      <Mono size={10} color={P.body}>{label}</Mono>
+      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+        {sub && <Mono size={9} color={P.dim}>{sub}</Mono>}
+        {val == null
+          ? <Mono size={10} color={P.dim}>--</Mono>
+          : <Num color={pColor(val)} style={{ fontSize:10 }}>{val}<span style={{ fontSize:8, opacity:0.7 }}>%</span></Num>
+        }
       </div>
     </div>
   );
@@ -137,13 +132,16 @@ const BoolYN = ({ label, data }: { label:string; data:any }) => (
 );
 
 const Multi = ({ label, options }: { label?:string; options:{ label:string; pct:number|null|undefined }[] }) => (
-  <div style={{ marginBottom:6 }}>
-    {label && <Mono size={9} color={P.muted} style={{ display:'block', marginBottom:4 }}>{label}</Mono>}
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${options.length},1fr)`, gap:1, background:P.line }}>
+  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}`, gap:8 }}>
+    {label ? <Mono size={9} color={P.muted} style={{ flexShrink:0 }}>{label}</Mono> : <span/>}
+    <div style={{ display:'flex', gap:14 }}>
       {options.map((o,i) => (
-        <div key={i} style={{ background:P.bg2, padding:'5px 4px', textAlign:'center' }}>
-          <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:1 }}>{o.label}</Mono>
-          {o.pct == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(o.pct)}>{Math.round(o.pct)}%</Num>}
+        <div key={i} style={{ textAlign:'right' }}>
+          <Mono size={8} color={P.dim} style={{ display:'block' }}>{o.label}</Mono>
+          {o.pct == null
+            ? <Mono size={9} color={P.dim}>--</Mono>
+            : <Num color={pColor(o.pct)} style={{ fontSize:9 }}>{Math.round(o.pct)}%</Num>
+          }
         </div>
       ))}
     </div>
@@ -151,32 +149,30 @@ const Multi = ({ label, options }: { label?:string; options:{ label:string; pct:
 );
 
 const ScoreRow = ({ label, scores }: { label:string; scores:{ score:string; pct:number|null|undefined }[] }) => (
-  <div style={{ marginBottom:6 }}>
-    <Mono size={9} color={P.muted} style={{ display:'block', marginBottom:4 }}>{label}</Mono>
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${scores.length},1fr)`, gap:1, background:P.line }}>
+  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}`, gap:8 }}>
+    <Mono size={9} color={P.muted} style={{ flexShrink:0 }}>{label}</Mono>
+    <div style={{ display:'flex', gap:12 }}>
       {scores.map((s,i) => (
-        <div key={i} style={{ background:P.bg2, padding:'5px 3px', textAlign:'center' }}>
-          <Mono size={8} color={P.muted} style={{ display:'block' }}>{s.score}</Mono>
-          {s.pct == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(s.pct)}>{Math.round(s.pct)}%</Num>}
-          <div style={{ height:1, background:P.line2, marginTop:2 }}>
-            <div style={{ width:`${s.pct??0}%`, height:'100%', background:pColor(s.pct??0) }} />
-          </div>
+        <div key={i} style={{ textAlign:'right' }}>
+          <Mono size={8} color={P.dim} style={{ display:'block' }}>{s.score}</Mono>
+          {s.pct == null
+            ? <Mono size={9} color={P.dim}>--</Mono>
+            : <Num color={pColor(s.pct ?? 0)} style={{ fontSize:9 }}>{Math.round(s.pct ?? 0)}%</Num>
+          }
         </div>
       ))}
     </div>
   </div>
 );
 
-const SplitBar = ({ label, win, loss }: { label:string; win:number; loss:number }) => (
-  <div style={{ marginBottom:9 }}>
-    <Mono size={10} color={P.body} style={{ display:'block', marginBottom:3 }}>{label}</Mono>
-    <div style={{ height:2, display:'flex', gap:1 }}>
-      <div style={{ flex:win,  background:P.green, opacity:0.8 }} />
-      <div style={{ flex:loss, background:P.red,   opacity:0.8 }} />
-    </div>
-    <div style={{ display:'flex', justifyContent:'space-between', marginTop:2 }}>
-      <Mono size={7} color={P.green}>{win}% WIN</Mono>
-      <Mono size={7} color={loss>0?P.red:P.dim}>{loss}% LOSS</Mono>
+const SplitBar = ({ label, win, loss, count }: { label:string; win:number; loss:number; count?:number }) => (
+  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
+    <Mono size={10} color={P.body}>{label}</Mono>
+    <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+      {count != null && <Mono size={9} color={P.dim}>{count}T</Mono>}
+      <Num color={pColor(win)} style={{ fontSize:10 }}>{win}%</Num>
+      <Mono size={9} color={P.dim}>/</Mono>
+      <Num color={loss > 50 ? P.red : P.muted} style={{ fontSize:10 }}>{loss}%</Num>
     </div>
   </div>
 );
@@ -434,7 +430,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const exitEntries = Object.entries(exitAnalysis).map(([reason,d]: [string,any])     => ({ reason, pct: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const candleEntries = Object.entries(candlePatterns).map(([pat,d]: [string,any])    => ({ pat, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const orderEntries  = Object.entries(orderTypeBreakdown).map(([ot,d]: [string,any]) => ({ ot, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
-  const instrSessEntries      = Object.entries(instrSessMatrix).map(([k,d]: [string,any])         => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0) }));
+  const instrSessEntries      = Object.entries(instrSessMatrix).map(([k,d]: [string,any])         => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const instrPhaseMomEntries  = Object.entries(instrPhaseMomMatrix).map(([k,d]: [string,any])     => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const newsEntries = Object.entries(newsImpactBreakdown).map(([k,d]: [string,any])   => ({ k, wr: Math.round((d as any).winRate||0), r: (d as any).avgRR?.toFixed(2)||'--' }));
 
@@ -648,14 +644,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           <Panel title="Exit Causation" accent={P.red} tag="EXIT ANALYSIS">
             <Scroll>
               {(exitEntries.length>0 ? exitEntries : []).map((x,i)=>(
-                <div key={i} style={{ marginBottom:8 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:3 }}>
-                    <Mono size={9} color={P.muted}>{x.reason} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
-                    <Num color={pColor(x.pct)}>{x.pct}<span style={{ fontSize:8, opacity:0.6 }}>%</span></Num>
-                  </div>
-                  <div style={{ height:2, background:P.line2 }}>
-                    <div style={{ height:'100%', width:`${x.pct||1}%`, background:pColor(x.pct), opacity:0.85 }}/>
-                  </div>
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
+                  <Mono size={9} color={P.muted}>{x.reason} <span style={{ color:P.dim }}>({x.ct})</span></Mono>
+                  <Num color={pColor(x.pct)} style={{ fontSize:10 }}>{x.pct}<span style={{ fontSize:8, opacity:0.7 }}>%</span></Num>
                 </div>
               ))}
               {exitEntries.length===0 && <Mono size={9} color={P.dim}>No exit data yet</Mono>}
@@ -702,7 +693,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* ATF + Session + Instrument */}
           <Panel title="ATF + Session + Instrument" accent={P.green} tag="ASSET · TF · SESSION">
             {instrSessEntries.length>0
-              ? instrSessEntries.slice(0,8).map((x,i)=><SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>)
+              ? instrSessEntries.slice(0,8).map((x,i)=><SplitBar key={i} label={x.k} win={x.win} loss={x.loss} count={x.count}/>)
               : <Mono size={9} color={P.dim}>No combined data yet — ensure Analysis TF, Session, and Instrument are all filled</Mono>
             }
             {instrSessEntries.length>8 && (
@@ -778,30 +769,14 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <DR label="Worst MAE" value={maeMfe.worstMAE!=null?`${maeMfe.worstMAE.toFixed(2)} pips`:'--'} vc={P.red}/>
             <DR label="MAE > SL"  value={maeMfe.maeGtSLCount!=null?`${maeMfe.maeGtSLCount} trades`:'--'} vc={maeMfe.maeGtSLCount===0?P.green:P.red}/>
             {maeMfe.avgMAE!=null && (
-              <div style={{ margin:'6px 0 10px' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                  <Mono size={7} color={P.dim}>Avg MAE / Avg MFE ratio</Mono>
-                  <Mono size={7} color={P.red}>{maeMfe.avgMAEMFERatio!=null?`${(maeMfe.avgMAEMFERatio*100).toFixed(0)}%`:'--'}</Mono>
-                </div>
-                <div style={{ height:2, background:P.line2 }}>
-                  <div style={{ width:`${Math.min(100,(maeMfe.avgMAEMFERatio||0)*100)}%`, height:'100%', background:P.red, opacity:0.7 }}/>
-                </div>
-              </div>
+              <DR label="MAE / MFE ratio" value={maeMfe.avgMAEMFERatio!=null?`${(maeMfe.avgMAEMFERatio*100).toFixed(0)}%`:'--'} vc={P.red}/>
             )}
             <SubLabel>MFE — Favourable Excursion</SubLabel>
             <DR label="Avg MFE"  value={maeMfe.avgMFE !=null?`+${maeMfe.avgMFE.toFixed(2)} pips`:'--'}  vc={P.green}/>
             <DR label="Best MFE" value={maeMfe.bestMFE!=null?`+${maeMfe.bestMFE.toFixed(2)} pips`:'--'} vc={P.green}/>
             <DR label="Avg Capture Rate" value={maeMfe.avgMFECapture!=null?`${maeMfe.avgMFECapture.toFixed(1)}% of MFE`:'--'} vc={P.cyan}/>
             {maeMfe.avgMFECapture!=null && (
-              <div style={{ margin:'6px 0 10px' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                  <Mono size={7} color={P.dim}>Avg MFE captured</Mono>
-                  <Mono size={7} color={P.cyan}>{maeMfe.avgMFECapture.toFixed(1)}%</Mono>
-                </div>
-                <div style={{ height:2, background:P.line2 }}>
-                  <div style={{ width:`${maeMfe.avgMFECapture||0}%`, height:'100%', background:P.cyan, opacity:0.7 }}/>
-                </div>
-              </div>
+              <DR label="Avg MFE captured" value={`${maeMfe.avgMFECapture.toFixed(1)}%`} vc={P.cyan}/>
             )}
             <SubLabel>Entry Quality</SubLabel>
             <DR label="MAE / MFE Ratio" value={maeMfe.avgMAEMFERatio!=null?`${maeMfe.avgMAEMFERatio.toFixed(3)}${maeMfe.avgMAEMFERatio<0.35?' · Good':maeMfe.avgMAEMFERatio<0.6?' · Fair':' · Poor'}`:'--'} vc={maeMfe.avgMAEMFERatio!=null?(maeMfe.avgMAEMFERatio<0.35?P.green:maeMfe.avgMAEMFERatio<0.6?P.amber:P.red):P.dim}/>
@@ -869,7 +844,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Instrument × Phase × Momentum</SubLabel>
               {instrPhaseMomEntries.length>0
                 ? instrPhaseMomEntries.map((x,i)=>(
-                    <SplitBar key={i} label={x.k} win={x.win} loss={x.loss}/>
+                    <SplitBar key={i} label={x.k} win={x.win} loss={x.loss} count={x.count}/>
                   ))
                 : <Mono size={9} color={P.dim}>No combined data yet — ensure Instrument, Session Phase, and Momentum Validity are all filled</Mono>
               }
@@ -992,15 +967,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <DR label="Balance"    value={equityGrowth?.currentBalance?`$${equityGrowth.currentBalance.toLocaleString(undefined,{maximumFractionDigits:0})}`:'--'} vc={P.green}/>
             <DR label="Period"     value="THIS SESSION" vc={P.dim}/>
             {maxDD > 0 && (
-              <div style={{ marginTop:10 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                  <Mono size={8} color={P.dim}>DD USED</Mono>
-                  <Mono size={8} color={currentDD > 0 ? P.red : P.green}>{currentDDPct}%</Mono>
-                </div>
-                <div style={{ height:2, background:P.line2 }}>
-                  <div style={{ width:`${Math.min(100,parseFloat(currentDDPct))}%`, height:'100%', background:currentDD > 0 ? P.red : P.green }}/>
-                </div>
-              </div>
+              <DR label="DD Used" value={`${currentDDPct}%`} vc={currentDD > 0 ? P.red : P.green}/>
             )}
           </Panel>
 
