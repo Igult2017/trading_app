@@ -545,7 +545,9 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                   <td style={styles.td}>
                     <span style={{
                       ...styles.outcomeBadge,
-                      ...(trade.outcome === "WIN" ? styles.win : styles.loss),
+                      ...(trade.outcome === "WIN" ? styles.win
+                        : trade.outcome === "BE" ? styles.be
+                        : styles.loss),
                     }}>
                       {trade.outcome}
                     </span>
@@ -731,6 +733,11 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(255,77,109,0.08)",
     color: "#ff4d6d",
     borderColor: "rgba(255,77,109,0.2)",
+  },
+  be: {
+    background: "rgba(250,204,21,0.08)",
+    color: "#facc15",
+    borderColor: "rgba(250,204,21,0.2)",
   },
   pl: {
     fontFamily: "'Montserrat', sans-serif",

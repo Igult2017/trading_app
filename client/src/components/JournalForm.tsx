@@ -397,7 +397,8 @@ function SidebarContent({ trades }: any) {
     const totalWins = winAmts.reduce((a: number,b: number)=>a+b,0);
     const totalLoss = Math.abs(lossAmts.reduce((a: number,b: number)=>a+b,0));
     const profitFactor = totalLoss>0?(totalWins/totalLoss).toFixed(2):totalWins>0?"∞":"0";
-    const winrate = ((wins.length/trades.length)*100).toFixed(1);
+    const decidedTrades = wins.length + losses.length;
+    const winrate = decidedTrades>0?((wins.length/decidedTrades)*100).toFixed(1):"0.0";
     const commissions = trades.reduce((a: number,t: any)=>a+(parseFloat(t.commission)||0),0);
     const endBal   = parseFloat(trades[trades.length-1]?.accountBalance)||0;
     const startBal = endBal - netPnL;
@@ -405,7 +406,7 @@ function SidebarContent({ trades }: any) {
     for(const t of trades){runBal+=parseFloat(t.profitLoss)||0;if(runBal>peak)peak=runBal;const dd=peak-runBal;if(dd>maxDD)maxDD=dd;}
     const buys  = trades.filter((t: any)=>t.direction==="Long").length;
     const sells = trades.filter((t: any)=>t.direction==="Short").length;
-    const exp = ((wins.length/trades.length)*(totalWins/(wins.length||1))-(losses.length/trades.length)*(totalLoss/(losses.length||1))).toFixed(2);
+    const exp = decidedTrades>0?((wins.length/decidedTrades)*(totalWins/(wins.length||1))-(losses.length/decidedTrades)*(totalLoss/(losses.length||1))).toFixed(2):"0.00";
     return {netPnL,winrate,profitFactor,bestTrade,worstTrade,commissions,startBal,endBal,maxDD,buys,sells,total:trades.length,wins:wins.length,losses:losses.length,exp};
   },[trades]);
 
@@ -552,44 +553,56 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // ── FIX 1: live running balance from all existing session trades ──────────
   const { currentBalance, startingBalance } = useSessionBalance(sessionId);
 
-  // ── FIX 2: auto-calculate P&L + accountBalance whenever key fields change ─
-  // Runs when riskPercent, riskReward, outcome, or currentBalance changes.
-  // calcAllTradeValues is pure — safe to call on every keystroke.
-  // Only fires when all three inputs are present and outcome is valid.
+  // ── Sync riskReward from achievedRR when user enters it manually ─────────────
+  // achievedRR is the definitive R:R for wins. Syncs into riskReward so the
+  // DB column is always populated. OCR-set riskReward is never overwritten.
   useEffect(() => {
-    if (!currentBalance || !form.riskPercent || !form.riskReward || !form.outcome) return;
-    const outcome = form.outcome as "Win" | "Loss" | "BE";
-    if (!["Win", "Loss", "BE"].includes(outcome)) return;
-    const values = calcAllTradeValues(
-      currentBalance,
-      String(form.riskPercent),
-      String(form.riskReward),
-      outcome,
-    );
-    setForm(prev => ({
-      ...prev,
-      profitLoss:     values.profitLoss,
-      accountBalance: values.accountBalance,
-    }));
+    if (ocrFields.has("riskReward")) return;
+    if (!form.achievedRR) return;
+    setForm(prev => ({ ...prev, riskReward: form.achievedRR }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.riskPercent, form.riskReward, form.outcome, currentBalance]);
+  }, [form.achievedRR]);
 
-  // ── Monetary Risk + Potential Reward ───────────────────────────────────────
-  // monetaryRisk    = riskPercent % of current balance (no outcome needed)
-  // potentialReward = monetaryRisk × riskReward (the dollar gain if TP is hit)
+  // ── Unified monetary auto-calc ─────────────────────────────────────────────
+  // Fires on any change to riskPercent, achievedRR, outcome, or currentBalance.
+  //
+  // Always computes:
+  //   monetaryRisk    = currentBalance × riskPercent / 100
+  //   potentialReward = monetaryRisk × achievedRR  (when achievedRR > 0)
+  //
+  // When outcome is also set:
+  //   Win  → profitLoss = +monetaryRisk × achievedRR  (achievedRR required)
+  //   Loss → profitLoss = -monetaryRisk               (riskPercent only)
+  //   BE   → profitLoss = 0
+  //   accountBalance = currentBalance + profitLoss
   useEffect(() => {
     if (!currentBalance || !form.riskPercent) return;
     const risk = parseFloat(String(form.riskPercent));
     if (isNaN(risk) || risk <= 0) return;
+
     const dollarRisk = parseFloat(((currentBalance * risk) / 100).toFixed(2));
-    const rr = parseFloat(String(form.riskReward)) || 0;
-    setForm(prev => ({
-      ...prev,
-      monetaryRisk:    dollarRisk.toFixed(2),
-      ...(rr > 0 ? { potentialReward: (dollarRisk * rr).toFixed(2) } : {}),
-    }));
+    const achievedRR = parseFloat(String(form.achievedRR || form.riskReward || "")) || 0;
+
+    const update: Record<string, string> = {
+      monetaryRisk: dollarRisk.toFixed(2),
+    };
+    if (achievedRR > 0) update.potentialReward = (dollarRisk * achievedRR).toFixed(2);
+
+    const outcome = form.outcome as "Win" | "Loss" | "BE";
+    if (form.outcome && ["Win", "Loss", "BE"].includes(outcome)) {
+      // Win needs achievedRR; Loss and BE only need dollarRisk
+      if (outcome === "Win" && achievedRR <= 0) {
+        // R:R not yet entered — leave profitLoss blank until achievedRR is filled
+      } else {
+        const values = calcAllTradeValues(currentBalance, String(risk), String(achievedRR), outcome);
+        update.profitLoss     = values.profitLoss;
+        update.accountBalance = values.accountBalance;
+      }
+    }
+
+    setForm(prev => ({ ...prev, ...update }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.riskPercent, form.riskReward, currentBalance]);
+  }, [form.riskPercent, form.achievedRR, form.riskReward, form.outcome, currentBalance]);
 
   // ── Derive pipsGainedLost from planned TP/SL distance + outcome ────────────
   // Win  → takeProfitDistancePips (positive pips)
