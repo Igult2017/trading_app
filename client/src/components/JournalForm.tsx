@@ -397,7 +397,8 @@ function SidebarContent({ trades }: any) {
     const totalWins = winAmts.reduce((a: number,b: number)=>a+b,0);
     const totalLoss = Math.abs(lossAmts.reduce((a: number,b: number)=>a+b,0));
     const profitFactor = totalLoss>0?(totalWins/totalLoss).toFixed(2):totalWins>0?"∞":"0";
-    const winrate = ((wins.length/trades.length)*100).toFixed(1);
+    const decidedTrades = wins.length + losses.length;
+    const winrate = decidedTrades>0?((wins.length/decidedTrades)*100).toFixed(1):"0.0";
     const commissions = trades.reduce((a: number,t: any)=>a+(parseFloat(t.commission)||0),0);
     const endBal   = parseFloat(trades[trades.length-1]?.accountBalance)||0;
     const startBal = endBal - netPnL;
@@ -405,7 +406,7 @@ function SidebarContent({ trades }: any) {
     for(const t of trades){runBal+=parseFloat(t.profitLoss)||0;if(runBal>peak)peak=runBal;const dd=peak-runBal;if(dd>maxDD)maxDD=dd;}
     const buys  = trades.filter((t: any)=>t.direction==="Long").length;
     const sells = trades.filter((t: any)=>t.direction==="Short").length;
-    const exp = ((wins.length/trades.length)*(totalWins/(wins.length||1))-(losses.length/trades.length)*(totalLoss/(losses.length||1))).toFixed(2);
+    const exp = decidedTrades>0?((wins.length/decidedTrades)*(totalWins/(wins.length||1))-(losses.length/decidedTrades)*(totalLoss/(losses.length||1))).toFixed(2):"0.00";
     return {netPnL,winrate,profitFactor,bestTrade,worstTrade,commissions,startBal,endBal,maxDD,buys,sells,total:trades.length,wins:wins.length,losses:losses.length,exp};
   },[trades]);
 

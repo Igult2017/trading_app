@@ -153,7 +153,7 @@ def normalise_trades(raw_trades: list) -> list:
             t["outcome"] = t["outcome"].lower()
         t["pnl"] = t["profit_loss"]
         t["win"] = (True if t["outcome"] == "win"
-                    else False if t["outcome"] in ("loss","breakeven")
+                    else False if t["outcome"] == "loss"
                     else None)
         t["rr_float"] = _to_float(t.get("risk_reward"))
         if t["rr_float"] is None:

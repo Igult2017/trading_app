@@ -273,9 +273,11 @@ export default function TradeHistory() {
             <div
               key={trade.id}
               className={`p-4 rounded-md border ${
-                trade.outcome === 'win' 
-                  ? 'border-green-500/20 bg-green-500/5' 
-                  : 'border-red-500/20 bg-red-500/5'
+                trade.outcome === 'win'
+                  ? 'border-green-500/20 bg-green-500/5'
+                  : ['be', 'BE', 'breakeven', 'Break Even'].includes(trade.outcome)
+                    ? 'border-yellow-500/20 bg-yellow-500/5'
+                    : 'border-red-500/20 bg-red-500/5'
               } hover-elevate transition-colors`}
               data-testid={`card-journal-entry-${trade.id}`}
             >
@@ -367,11 +369,17 @@ export default function TradeHistory() {
                     <span className="font-mono font-medium">{trade.duration}</span>
                   </div>
                 </div>
-                <Badge 
-                  variant={trade.outcome === 'win' ? 'default' : 'destructive'}
+                <Badge
+                  variant={
+                    trade.outcome === 'win' ? 'default'
+                    : ['be', 'BE', 'breakeven', 'Break Even'].includes(trade.outcome) ? 'secondary'
+                    : 'destructive'
+                  }
                   className="text-xs"
                 >
-                  {trade.outcome === 'win' ? 'WIN' : 'LOSS'}
+                  {trade.outcome === 'win' ? 'WIN'
+                    : ['be', 'BE', 'breakeven', 'Break Even'].includes(trade.outcome) ? 'BE'
+                    : 'LOSS'}
                 </Badge>
               </div>
               
