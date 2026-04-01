@@ -1056,7 +1056,10 @@ def calc_trade_grades(ctx: SharedContext) -> Dict:
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
         if t.trade_grade:
-            groups[t.trade_grade].append(t)
+            # Normalize "A - Textbook" → "A", "B - Solid" → "B", plain "A" → "A"
+            letter = t.trade_grade.strip()[0].upper()
+            if letter in ("A", "B", "C", "D", "F"):
+                groups[letter].append(t)
     return {
         grade: {
             "count":   len(groups.get(grade, [])),
