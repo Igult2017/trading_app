@@ -346,6 +346,29 @@ function computeVolumeProfile(candles: CandleBar[], buckets = 40): VPBucket[] {
 // ── Client-side candle cache (persists across symbol switches) ────────────────
 const _candleCache = new Map<string, CandleBar[]>();
 
+/**
+ * Pre-warms _candleCache for a symbol in the background.
+ * Call this for adjacent/popular symbols so switching is instant.
+ */
+export async function prefetchCandles(
+  symbol:   string,
+  interval: string = "5m",
+  period:   string = "5d"
+): Promise<void> {
+  const ac  = symbol.endsWith("USDT") || symbol.endsWith("BTC") ? "crypto" : "stock";
+  const key = `${symbol}-${interval}-${period}`;
+  if (_candleCache.has(key)) return;           // already warm
+  try {
+    const res  = await fetch(
+      `/api/prices/${encodeURIComponent(symbol)}/candles` +
+      `?assetClass=${ac}&interval=${interval}&period=${period}`
+    );
+    if (!res.ok) return;
+    const data: { candles: CandleBar[] } = await res.json();
+    if (data.candles?.length) _candleCache.set(key, data.candles);
+  } catch { /* silently ignore — prefetch is best-effort */ }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function TradingChart({
   symbol,
