@@ -61,8 +61,8 @@ const Icon = ({ name, size=16, style, className }: any) => {
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 font-mono leading-relaxed font-normal not-italic";
-const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 font-mono leading-relaxed font-normal not-italic";
+const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 leading-relaxed font-normal not-italic" + " [font-family:'Inter',sans-serif]";
+const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 leading-relaxed font-normal not-italic" + " [font-family:'Inter',sans-serif]";
 const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
 
 const STEPS = [
@@ -221,7 +221,7 @@ const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) =
   };
 
   const baseCls = ocrFilled
-    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-mono font-normal not-italic"
+    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-normal not-italic [font-family:'Inter',sans-serif]"
     : INPUT_CLS;
 
   return (
