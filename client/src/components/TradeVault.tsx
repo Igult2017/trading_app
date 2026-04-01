@@ -73,7 +73,7 @@ function journalEntryToTrade(entry: JournalEntry): Trade {
   const manual = (entry.manualFields && typeof entry.manualFields === "object") ? entry.manualFields as Record<string, unknown> : {};
   const ai = (entry.aiExtracted && typeof entry.aiExtracted === "object") ? entry.aiExtracted as Record<string, unknown> : {};
 
-  const strategy = (manual.strategyVersionId as string) || (manual.strategy as string) || (ai.strategy as string) || "";
+  const strategy = (manual.setupTag as string) || (manual.strategyVersionId as string) || (manual.strategy as string) || (ai.strategy as string) || "";
   const pl = entry.profitLoss ? parseFloat(entry.profitLoss) : 0;
   const rr = entry.riskReward ? String(entry.riskReward) : "";
   const rawDir = (entry.direction || "").toLowerCase();
