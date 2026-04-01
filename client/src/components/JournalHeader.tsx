@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
+import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings, ChevronRight, LogOut, Flame } from 'lucide-react';
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -39,10 +39,109 @@ interface JournalHeaderProps {
   onToggleSidebar: () => void;
 }
 
+function ProfileDropdown({ dm }: { dm: boolean }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 'calc(100% + 10px)',
+      right: 0,
+      width: 240,
+      background: dm ? '#0d1520' : '#ffffff',
+      border: `1px solid ${dm ? '#1a2d45' : '#e2e8f0'}`,
+      borderRadius: 12,
+      boxShadow: dm ? '0 16px 48px rgba(0,0,0,0.6)' : '0 16px 48px rgba(0,0,0,0.15)',
+      padding: '16px 0 8px',
+      zIndex: 200,
+    }}>
+      {/* Hello */}
+      <div style={{ padding: '0 16px 14px', borderBottom: `1px solid ${dm ? '#1a2d45' : '#e2e8f0'}` }}>
+        <span style={{ fontSize: 14, color: dm ? '#94a3b8' : '#475569', fontFamily: "'Inter',sans-serif" }}>
+          Hello,{' '}
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#3b82f6', fontFamily: "'Inter',sans-serif" }}>
+          Trader
+        </span>
+      </div>
+
+      {/* Login Streak Card */}
+      <div style={{ padding: '12px 16px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: dm ? '#111c2d' : '#f1f5f9',
+          border: `1px solid ${dm ? '#1e3a5f' : '#e2e8f0'}`,
+          borderRadius: 10, padding: '10px 12px',
+          cursor: 'pointer', transition: 'background 0.15s',
+        }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dm ? '#162235' : '#e2e8f0'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = dm ? '#111c2d' : '#f1f5f9'; }}
+        >
+          <div style={{
+            width: 36, height: 36, borderRadius: 8,
+            background: 'linear-gradient(135deg,#1e3a5f,#2563eb)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Flame size={18} color="#60a5fa" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: dm ? '#4a6580' : '#94a3b8', fontFamily: "'Montserrat',sans-serif", textTransform: 'uppercase' }}>
+              Login Streak
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: dm ? '#c8d8e8' : '#0f172a', fontFamily: "'Inter',sans-serif", marginTop: 2 }}>
+              1 Days
+            </div>
+          </div>
+          <ChevronRight size={15} color={dm ? '#4a6580' : '#94a3b8'} />
+        </div>
+      </div>
+
+      {/* Menu Items */}
+      <div style={{ padding: '4px 0' }}>
+        {[
+          { icon: <Settings size={15} />, label: 'Account settings' },
+          { icon: <LogOut size={15} />, label: 'Logout' },
+        ].map(({ icon, label }) => (
+          <button key={label} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 16px', background: 'transparent', border: 'none',
+            cursor: 'pointer', color: dm ? '#94a3b8' : '#475569',
+            fontSize: 13, fontFamily: "'Inter',sans-serif", fontWeight: 500,
+            transition: 'background 0.15s, color 0.15s', textAlign: 'left',
+          }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = dm ? '#111c2d' : '#f1f5f9';
+              (e.currentTarget as HTMLElement).style.color = dm ? '#c8d8e8' : '#0f172a';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+              (e.currentTarget as HTMLElement).style.color = dm ? '#94a3b8' : '#475569';
+            }}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const dm = darkMode;
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileOpen]);
 
   const t = dm ? {
     navBg: 'rgba(8,12,16,0.97)',
@@ -150,9 +249,12 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
-            <button className="avatar-btn" title="Profile">
-              <UserCircle2 size={18} color="#60a5fa" />
-            </button>
+            <div ref={profileRef} style={{ position: 'relative' }}>
+              <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)}>
+                <UserCircle2 size={18} color="#60a5fa" />
+              </button>
+              {profileOpen && <ProfileDropdown dm={dm} />}
+            </div>
             <button className="settings-btn" title="Settings">
               <Settings size={15} />
             </button>

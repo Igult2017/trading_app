@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
-import TradingChart, { INDICATOR_DEFS, type IndicatorId } from "@/components/TradingChart";
+import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
 
@@ -219,14 +219,20 @@ export default function AssetPage() {
   const [search,   setSearch]     = useState("");
   const [alertSet, setAlertSet]   = useState(false);
   const [showIndicators, setShowIndicators] = useState(false);
-  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(
-    new Set<IndicatorId>(["EMA_9", "EMA_21", "VOL"])
-  );
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(() => {
+    try {
+      const saved = localStorage.getItem("asset-indicators");
+      if (saved) return new Set<IndicatorId>(JSON.parse(saved));
+    } catch {}
+    return new Set<IndicatorId>(["EMA_9", "EMA_21", "VOL"]);
+  });
   const indicatorBtnRef = useRef<HTMLDivElement>(null);
 
   // Timeframe state
   const [showTF, setShowTF] = useState(false);
-  const [activeTF, setActiveTF] = useState("5m");
+  const [activeTF, setActiveTF] = useState(() =>
+    localStorage.getItem("asset-tf") ?? "5m"
+  );
   const tfBtnRef = useRef<HTMLDivElement>(null);
 
   const TIMEFRAMES: { label: string; interval: string; period: string }[] = [
@@ -255,12 +261,41 @@ export default function AssetPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // ── Background prefetch: warm server + client cache for top crypto symbols ───
+  useEffect(() => {
+    const TOP_CRYPTO = ["BTC/USDT","ETH/USDT","SOL/USDT","XRP/USDT","BNB/USDT","DOGE/USDT"];
+    const tf = currentTF;
+    // Stagger requests so we don't hammer the server simultaneously
+    TOP_CRYPTO.forEach((sym, i) => {
+      setTimeout(() => prefetchCandles(sym, tf.interval, tf.period), i * 800);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  // When user switches symbol, prefetch the next few in the list ──────────────
+  useEffect(() => {
+    const allCrypto = ALL_INSTRUMENTS.filter(i => i.assetClass === "crypto").map(i => i.symbol);
+    const idx = allCrypto.indexOf(selected);
+    if (idx === -1) return;
+    const next = allCrypto.slice(idx + 1, idx + 4);
+    next.forEach((sym, i) => {
+      setTimeout(() => prefetchCandles(sym, currentTF.interval, currentTF.period), i * 600);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
   function toggleIndicator(id: IndicatorId) {
     setActiveIndicators(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      localStorage.setItem("asset-indicators", JSON.stringify([...next]));
       return next;
     });
+  }
+
+  function setTF(label: string) {
+    setActiveTF(label);
+    localStorage.setItem("asset-tf", label);
   }
 
   // Right sidebar resize
@@ -536,7 +571,7 @@ export default function AssetPage() {
                         return (
                           <button
                             key={tf.label}
-                            onClick={() => { setActiveTF(tf.label); setShowTF(false); }}
+                            onClick={() => { setTF(tf.label); setShowTF(false); }}
                             style={{
                               background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
                               border: `1px solid ${isActive ? "#22d3a5" : "#172233"}`,

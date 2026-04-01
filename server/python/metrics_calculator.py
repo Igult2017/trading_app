@@ -596,7 +596,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         energy_level=_score_to_level(g("energyLevel")),
         confidence_at_entry=_score_to_level(g("confidenceAtEntry")),
         rules_followed=_pct_to_level(g("rulesFollowed")),
-        strategy=cat("strategyVersionId") or cat("strategy"),
+        strategy=cat("setupTag") or cat("strategyVersionId") or cat("strategy"),
         risk_heat=cat("riskHeat"),
         mae=_coerce_float(g("mae")),
         mfe=_coerce_float(g("mfe")),
