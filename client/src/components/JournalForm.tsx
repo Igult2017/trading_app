@@ -553,44 +553,53 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
   // ── FIX 1: live running balance from all existing session trades ──────────
   const { currentBalance, startingBalance } = useSessionBalance(sessionId);
 
-  // ── FIX 2: auto-calculate P&L + accountBalance whenever key fields change ─
-  // Runs when riskPercent, riskReward, outcome, or currentBalance changes.
-  // calcAllTradeValues is pure — safe to call on every keystroke.
-  // Only fires when all three inputs are present and outcome is valid.
+  // ── Sync riskReward from achievedRR / plannedRR when user enters them manually ─
+  // This lets entering achievedRR or plannedRR drive the P&L auto-calc below.
+  // OCR-filled values already set riskReward directly, so this is only needed
+  // for manual entry.
   useEffect(() => {
-    if (!currentBalance || !form.riskPercent || !form.riskReward || !form.outcome) return;
-    const outcome = form.outcome as "Win" | "Loss" | "BE";
-    if (!["Win", "Loss", "BE"].includes(outcome)) return;
-    const values = calcAllTradeValues(
-      currentBalance,
-      String(form.riskPercent),
-      String(form.riskReward),
-      outcome,
-    );
-    setForm(prev => ({
-      ...prev,
-      profitLoss:     values.profitLoss,
-      accountBalance: values.accountBalance,
-    }));
+    if (ocrFields.has("riskReward")) return;            // OCR already set it — don't override
+    const rr = form.achievedRR || form.plannedRR;
+    if (!rr) return;
+    setForm(prev => ({ ...prev, riskReward: rr }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.riskPercent, form.riskReward, form.outcome, currentBalance]);
+  }, [form.achievedRR, form.plannedRR]);
 
-  // ── Monetary Risk + Potential Reward ───────────────────────────────────────
-  // monetaryRisk    = riskPercent % of current balance (no outcome needed)
-  // potentialReward = monetaryRisk × riskReward (the dollar gain if TP is hit)
+  // ── Unified monetary auto-calc ─────────────────────────────────────────────
+  // Fires on any change to riskPercent, riskReward, outcome, or currentBalance.
+  // Resolves R:R from riskReward → achievedRR → plannedRR (in priority order).
+  //
+  // Always computes:
+  //   monetaryRisk    = currentBalance × riskPercent / 100
+  //   potentialReward = monetaryRisk × rr  (when rr > 0)
+  //
+  // When outcome is also set:
+  //   profitLoss      = Win → +monetaryRisk × rr | Loss → -monetaryRisk | BE → 0
+  //   accountBalance  = currentBalance + profitLoss
   useEffect(() => {
     if (!currentBalance || !form.riskPercent) return;
     const risk = parseFloat(String(form.riskPercent));
     if (isNaN(risk) || risk <= 0) return;
-    const dollarRisk = parseFloat(((currentBalance * risk) / 100).toFixed(2));
-    const rr = parseFloat(String(form.riskReward)) || 0;
-    setForm(prev => ({
-      ...prev,
-      monetaryRisk:    dollarRisk.toFixed(2),
-      ...(rr > 0 ? { potentialReward: (dollarRisk * rr).toFixed(2) } : {}),
-    }));
+
+    const dollarRisk  = parseFloat(((currentBalance * risk) / 100).toFixed(2));
+    const rrRaw       = form.riskReward || form.achievedRR || form.plannedRR || "";
+    const rr          = parseFloat(String(rrRaw)) || 0;
+
+    const update: Record<string, string> = {
+      monetaryRisk: dollarRisk.toFixed(2),
+    };
+    if (rr > 0) update.potentialReward = (dollarRisk * rr).toFixed(2);
+
+    const outcome = form.outcome as "Win" | "Loss" | "BE";
+    if (form.outcome && ["Win", "Loss", "BE"].includes(outcome)) {
+      const values = calcAllTradeValues(currentBalance, String(risk), String(rr), outcome);
+      update.profitLoss     = values.profitLoss;
+      update.accountBalance = values.accountBalance;
+    }
+
+    setForm(prev => ({ ...prev, ...update }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.riskPercent, form.riskReward, currentBalance]);
+  }, [form.riskPercent, form.riskReward, form.achievedRR, form.plannedRR, form.outcome, currentBalance]);
 
   // ── Derive pipsGainedLost from planned TP/SL distance + outcome ────────────
   // Win  → takeProfitDistancePips (positive pips)
@@ -1276,6 +1285,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | null }
                         {lf("Take Profit","takeProfit",undefined,"0.00","number")}
                         {lf("TP Distance (Pips)","takeProfitDistancePips",undefined,"0","number")}
                         {lf("Risk %","riskPercent",undefined,"1.0","number")}
+                        {lf("R:R","riskReward",undefined,"2.0","number")}
                         {ls("Order Type","orderType",["Market","Limit","Stop","Stop-Limit"])}
                         {ls("Outcome","outcome",["Win","Loss","BE"])}
                       </div>
