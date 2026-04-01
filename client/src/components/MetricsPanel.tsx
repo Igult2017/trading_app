@@ -460,8 +460,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const catWR = (field: string, label: string): number|null => catBreakdown[field]?.[label]?.winRate ?? null;
 
   /* ── mgmt type options ── */
-  const mgmtOpts = ['Rule-Based','Discretionary','Hybrid'].map(l => ({
-    label: l==='Discretionary'?'Discret.':l,
+  const mgmtOpts = ['Rule-based','Discretionary','Hybrid'].map(l => ({
+    label: l==='Discretionary'?'Discret.': l==='Rule-based'?'Rule-Based':l,
     pct: catWR('managementType', l),
   }));
 
