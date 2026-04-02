@@ -25,7 +25,7 @@ interface CalendarEvent {
 
 interface RateEntry {
   nominal: number;
-  inflation: number;
+  inflation: number | null;
   bank: string;
   live: boolean;
 }
@@ -157,7 +157,7 @@ export default function EconomicCalendarPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-200">
                         {Object.entries(bankData).map(([ccy, data]) => {
-                          const realRate = data.nominal - data.inflation;
+                          const realRate = data.inflation != null ? data.nominal - data.inflation : null;
                           return (
                             <tr key={ccy} className="hover:bg-slate-50 transition-colors">
                               <td className="px-6 py-4">
@@ -167,9 +167,11 @@ export default function EconomicCalendarPage() {
                                 )}
                               </td>
                               <td className="px-6 py-4 text-xs font-bold text-slate-600 text-right">{data.nominal.toFixed(2)}%</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-600 text-right">{data.inflation.toFixed(2)}%</td>
-                              <td className={`px-6 py-4 text-sm font-black text-right ${realRate > 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
-                                {realRate.toFixed(2)}%
+                              <td className="px-6 py-4 text-xs font-bold text-slate-600 text-right">
+                                {data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}
+                              </td>
+                              <td className={`px-6 py-4 text-sm font-black text-right ${realRate == null ? 'text-slate-400' : realRate > 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
+                                {realRate != null ? `${realRate.toFixed(2)}%` : '—'}
                               </td>
                             </tr>
                           );
