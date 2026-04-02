@@ -24,6 +24,7 @@ import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts
 import { signalMonitor } from "./services/signalMonitor";
 // ── FIX: import balance tracker ───────────────────────────────────────────────
 import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTracker";
+import { getHomepageCalendar, getHomepageRates } from "./services/homepageCalendar";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
 // Avoids spawning a Python process on every request when data hasn't changed.
@@ -616,6 +617,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to delete event" });
     }
   });
+
+  // ── Homepage economic calendar (newskeeper scraper) ──────────────────────
+  app.get("/api/homepage/calendar", async (_req, res) => {
+    try {
+      const events = await getHomepageCalendar();
+      res.json(events);
+    } catch (error) {
+      console.error("[homepage/calendar]", error);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/homepage/rates", async (_req, res) => {
+    try {
+      const rates = await getHomepageRates();
+      res.json(rates);
+    } catch (error) {
+      console.error("[homepage/rates]", error);
+      res.json({});
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────
 
   app.get("/api/interest-rates", async (req, res) => {
     try {
