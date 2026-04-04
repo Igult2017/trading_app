@@ -26,6 +26,7 @@ console.log('[Database] Connecting to PostgreSQL...');
 const connectionString = process.env.DATABASE_URL!;
 
 function resolveSSL(): false | { rejectUnauthorized: boolean } {
+  // Explicitly disabled — never use SSL
   if (
     process.env.DB_SSL === 'false' ||
     connectionString.includes('sslmode=disable') ||
@@ -33,14 +34,16 @@ function resolveSSL(): false | { rejectUnauthorized: boolean } {
   ) {
     return false;
   }
+  // Explicitly enabled — use SSL without strict cert validation
   if (
-    connectionString.includes('sslmode=require') ||
-    connectionString.includes('sslmode=verify') ||
     process.env.DB_SSL === 'true' ||
-    process.env.NODE_ENV === 'production'
+    connectionString.includes('sslmode=require') ||
+    connectionString.includes('sslmode=verify-ca') ||
+    connectionString.includes('sslmode=verify-full')
   ) {
     return { rejectUnauthorized: false };
   }
+  // Default: no SSL — avoids breaking hosts that don't support it
   return false;
 }
 
