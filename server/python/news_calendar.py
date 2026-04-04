@@ -121,8 +121,43 @@ def scrape_calendar() -> list:
 # Central bank policy rate fetchers — all free, no API key                    #
 # --------------------------------------------------------------------------- #
 
+# FRED series IDs for each currency's official policy/benchmark rate
+_FRED_SERIES = {
+    'USD': 'FEDFUNDS',       # Federal Funds Rate (effective)
+    'EUR': 'ECBDFR',         # ECB Deposit Facility Rate
+    'GBP': 'BOEBR',          # Bank of England Base Rate
+    'CAD': 'IRSTCA01M156N',  # Canada overnight rate (OECD via FRED)
+    'JPY': 'IRSTJP01M156N',  # Japan overnight rate (OECD via FRED)
+    'CHF': 'IRSTCH01M156N',  # Switzerland overnight rate (OECD via FRED)
+    'NZD': 'IRSTNZ01M156N',  # New Zealand overnight rate (OECD via FRED)
+}
+
+
+def _fetch_fred_series(series_id: str) -> float | None:
+    """
+    Generic FRED public CSV fetcher — no API key required.
+    Works through Replit's network restrictions (confirmed).
+    """
+    try:
+        url = f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}'
+        r = requests.get(url, timeout=12)
+        lines = [l for l in r.text.strip().split('\n') if l and not l.startswith('DATE')]
+        if lines:
+            val = float(lines[-1].split(',')[1])
+            print(f'[news_calendar] FRED {series_id}: {val}%', file=sys.stderr)
+            return val
+    except Exception as e:
+        print(f'[news_calendar] FRED {series_id} failed: {e}', file=sys.stderr)
+    return None
+
+
+def _fetch_fred_rate() -> float | None:
+    """USD — FRED FEDFUNDS (Federal Funds Effective Rate)."""
+    return _fetch_fred_series('FEDFUNDS')
+
+
 def _fetch_ecb_rate() -> float | None:
-    """EUR — ECB Statistical Data Warehouse (SDW) REST API."""
+    """EUR — try ECB SDW API first, then FRED ECBDFR as backup."""
     try:
         url = (
             'https://data.api.ecb.europa.eu/service/data/'
@@ -135,25 +170,12 @@ def _fetch_ecb_rate() -> float | None:
         latest_key = max(obs.keys(), key=lambda x: int(x))
         return float(obs[latest_key][0])
     except Exception as e:
-        print(f'[news_calendar] ECB fetch failed: {e}', file=sys.stderr)
-        return None
-
-
-def _fetch_fred_rate() -> float | None:
-    """USD — FRED public CSV endpoint (no key needed)."""
-    try:
-        url = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=FEDFUNDS'
-        r = requests.get(url, timeout=10)
-        lines = [l for l in r.text.strip().split('\n') if l and not l.startswith('DATE')]
-        if lines:
-            return float(lines[-1].split(',')[1])
-    except Exception as e:
-        print(f'[news_calendar] FRED fetch failed: {e}', file=sys.stderr)
-    return None
+        print(f'[news_calendar] ECB primary failed ({e}), trying FRED…', file=sys.stderr)
+    return _fetch_fred_series('ECBDFR')
 
 
 def _fetch_boc_rate() -> float | None:
-    """CAD — Bank of Canada Valet API (no key)."""
+    """CAD — try Bank of Canada Valet API, then FRED IRSTCA01M156N."""
     try:
         url = (
             'https://www.bankofcanada.ca/valet/observations/'
@@ -170,8 +192,8 @@ def _fetch_boc_rate() -> float | None:
                     if v not in (None, ''):
                         return float(v)
     except Exception as e:
-        print(f'[news_calendar] BoC fetch failed: {e}', file=sys.stderr)
-    return None
+        print(f'[news_calendar] BoC primary failed ({e}), trying FRED…', file=sys.stderr)
+    return _fetch_fred_series('IRSTCA01M156N')
 
 
 def _fetch_rba_rate() -> float | None:
