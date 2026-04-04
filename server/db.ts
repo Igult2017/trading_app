@@ -23,16 +23,30 @@ if (!process.env.DATABASE_URL) {
 
 console.log('[Database] Connecting to PostgreSQL...');
 
-const isProduction = process.env.NODE_ENV === 'production';
 const connectionString = process.env.DATABASE_URL!;
+
+function resolveSSL(): false | { rejectUnauthorized: boolean } {
+  if (
+    process.env.DB_SSL === 'false' ||
+    connectionString.includes('sslmode=disable') ||
+    connectionString.includes('sslmode=no-ssl')
+  ) {
+    return false;
+  }
+  if (
+    connectionString.includes('sslmode=require') ||
+    connectionString.includes('sslmode=verify') ||
+    process.env.DB_SSL === 'true' ||
+    process.env.NODE_ENV === 'production'
+  ) {
+    return { rejectUnauthorized: false };
+  }
+  return false;
+}
 
 export const pool = new Pool({
   connectionString,
-  ssl: isProduction
-    ? { rejectUnauthorized: false }
-    : connectionString.includes('sslmode=require')
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: resolveSSL(),
 });
 
 export const db = drizzle(pool, { schema });
