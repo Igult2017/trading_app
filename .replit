@@ -9,7 +9,7 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["node", "dist/index.prod.js"]
+run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [[ports]]
 localPort = 5000
@@ -49,3 +49,4 @@ expertMode = true
 [userenv]
 
 [userenv.shared]
+PYTHON_BIN = "/home/runner/workspace/.pythonlibs/bin/python3"
