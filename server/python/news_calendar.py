@@ -349,29 +349,42 @@ def _fetch_wb_inflation(currency: str) -> float | None:
 # Orchestrator                                                                 #
 # --------------------------------------------------------------------------- #
 
+_FALLBACK_RATES = {
+    'USD': ('Federal Reserve',                4.33),
+    'EUR': ('European Central Bank',          2.15),
+    'GBP': ('Bank of England',               4.50),
+    'JPY': ('Bank of Japan',                  0.50),
+    'CAD': ('Bank of Canada',                 2.75),
+    'AUD': ('Reserve Bank of Australia',      4.10),
+    'CHF': ('Swiss National Bank',            0.25),
+    'NZD': ('Reserve Bank of New Zealand',    3.75),
+}
+
+
 def get_interest_rates() -> dict:
     """
     Fetch central bank policy rates from official free APIs.
-    Returns only currencies for which live data was retrieved.
-    No hardcoded values.
+    If a live API call fails, a recent fallback value is used and
+    the entry is marked live=False so the UI can indicate the data
+    may not be real-time.  All 8 major currencies are always returned.
     """
     rates: dict = {}
 
     def _add(currency: str, bank: str, nominal: float | None) -> None:
         if nominal is not None:
             rates[currency] = {
-                'bank':     bank,
-                'nominal':  nominal,
+                'bank':      bank,
+                'nominal':   nominal,
                 'inflation': None,
-                'live':     True,
+                'live':      True,
             }
 
-    # --- nominal rates ---
-    _add('EUR', 'European Central Bank',      _fetch_ecb_rate())
-    _add('USD', 'Federal Reserve',            _fetch_fred_rate())
-    _add('CAD', 'Bank of Canada',             _fetch_boc_rate())
-    _add('AUD', 'Reserve Bank of Australia',  _fetch_rba_rate())
-    _add('GBP', 'Bank of England',            _fetch_boe_rate())
+    # --- live nominal rates ---
+    _add('EUR', 'European Central Bank',     _fetch_ecb_rate())
+    _add('USD', 'Federal Reserve',           _fetch_fred_rate())
+    _add('CAD', 'Bank of Canada',            _fetch_boc_rate())
+    _add('AUD', 'Reserve Bank of Australia', _fetch_rba_rate())
+    _add('GBP', 'Bank of England',           _fetch_boe_rate())
 
     # BIS covers JPY, CHF, NZD (+ GBP & CNY as backup)
     still_needed = [c for c in ('JPY', 'CHF', 'NZD', 'CNY') if c not in rates]
@@ -385,15 +398,28 @@ def get_interest_rates() -> dict:
         'CNY': "People's Bank of China",
     }
     for ccy, rate in bis.items():
-        if ccy not in rates:   # don't overwrite a successfully fetched BoE rate
+        if ccy not in rates:
             _add(ccy, bank_names.get(ccy, ccy), rate)
+
+    # --- fallback for any currency that didn't come back live ---
+    for ccy, (bank, fallback_rate) in _FALLBACK_RATES.items():
+        if ccy not in rates:
+            print(f'[news_calendar] Using fallback rate for {ccy}: {fallback_rate}%', file=sys.stderr)
+            rates[ccy] = {
+                'bank':      bank,
+                'nominal':   fallback_rate,
+                'inflation': None,
+                'live':      False,
+            }
 
     # --- inflation (World Bank CPI YoY) ---
     for currency in list(rates.keys()):
         infl = _fetch_wb_inflation(currency)
-        rates[currency]['inflation'] = infl  # None if unavailable
+        rates[currency]['inflation'] = infl
 
-    print(f'[news_calendar] rates returned for: {list(rates.keys())}', file=sys.stderr)
+    live = [c for c, v in rates.items() if v['live']]
+    fallback = [c for c, v in rates.items() if not v['live']]
+    print(f'[news_calendar] rates live: {live}  fallback: {fallback}', file=sys.stderr)
     return rates
 
 
