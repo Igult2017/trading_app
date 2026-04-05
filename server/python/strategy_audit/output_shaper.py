@@ -24,47 +24,79 @@ def _verdict_to_confidence(verdict: str, pf: float, wr: float) -> float:
     boost = min(15.0, (wr - 50) * 0.3) + min(5.0, (pf - 1.0) * 2)
     return round(min(99.0, max(1.0, base + boost)), 1)
 
-_WIN_FACTOR_LABELS  = ["HTF Aligned", "Prime Session", "High Confluence", "Valid OB", "Good Psychology"]
-_LOSS_FACTOR_LABELS = ["No HTF Align","Off-Session",   "Low Confluence",  "Invalid OB","Poor Psychology"]
-
-def _build_correlations(win_fc, loss_fc):
+def _build_correlations(win_fc, loss_fc, condition_labels: list[str]):
+    """Build heatmap data using the real condition labels from the engine."""
     instruments = list(win_fc.keys()) or list(loss_fc.keys())
     instruments = instruments[:7]
-    def _pad(vals, n=5):
-        vals = [round(float(v), 1) for v in vals[:n]]
-        while len(vals) < n: vals.append(0.0)
+    n_conds = len(condition_labels)
+    def _pad(vals):
+        vals = [round(float(v), 1) for v in vals[:n_conds]]
+        while len(vals) < n_conds:
+            vals.append(0.0)
         return vals
     win_corr  = {i: _pad(win_fc.get(i,  [])) for i in instruments}
     loss_corr = {i: _pad(loss_fc.get(i, [])) for i in instruments}
-    return instruments, _WIN_FACTOR_LABELS, _LOSS_FACTOR_LABELS, win_corr, loss_corr
+    return instruments, condition_labels, condition_labels, win_corr, loss_corr
 
 def _regime_info(l3, l2, l1):
     rt = l3.get("regimeTransition", {})
     ea = l3.get("executionAsymmetry", {})
     ce = (l2.get("conditionalEdge") or {}).get("bySession", {})
-    best_session = max(ce, key=lambda k: ce[k].get("winRate", 0)) if ce else "London/NY Overlap"
-    regime = "Trending / Expansion Phases" if _safe(rt.get("trendingWinRate"),0) >= _safe(rt.get("rangingWinRate"),0) else "Ranging / Mean-Reversion"
+
+    # Best session from real data only — no hardcoded fallback
+    if ce:
+        best_session = max(ce, key=lambda k: ce[k].get("winRate", 0))
+        session_dep = f"Dominant in {best_session} ({round(ce[best_session].get('winRate',0),1)}% win rate)"
+    else:
+        session_dep = "Insufficient session data"
+
+    t_wr  = _safe(rt.get("trendingWinRate"), 0)
+    rng_wr = _safe(rt.get("rangingWinRate"), 0)
+    if t_wr == 0 and rng_wr == 0:
+        regime = "Insufficient regime data"
+    else:
+        regime = "Trending / Expansion Phases" if t_wr >= rng_wr else "Ranging / Mean-Reversion"
+
     drivers = l1.get("edgeDrivers", [])
-    entry_logic = (f"{drivers[0].get('factor','Confluence-filtered entry')} + Order Flow confirmation" if drivers else "Confluence-filtered entry")
+    if drivers:
+        top = drivers[0].get("factor", "")
+        entry_logic = f"{top} + confirmation — {drivers[0].get('lift', 0):+.1f}pp lift"
+    else:
+        entry_logic = "No significant entry driver identified yet"
+
     early_exit = _safe(ea.get("earlyExitRate"), 0)
-    exit_logic = "Trailing stop — premature exits detected, review TP discipline" if early_exit > 40 else "Volatility-adjusted trailing stops"
-    asym = _safe(ea.get("asymmetryScore"), 1.0)
-    scaling = "Good asymmetry — scalable with position sizing discipline" if asym >= 2.0 else "Review RR before scaling position sizes"
+    if early_exit == 0:
+        exit_logic = "Exit behaviour data not yet available"
+    elif early_exit > 40:
+        exit_logic = f"Premature exits detected ({early_exit:.0f}%) — review TP discipline"
+    else:
+        exit_logic = f"Exit discipline good — early exit rate {early_exit:.0f}%"
+
+    asym = _safe(ea.get("asymmetryScore"), 0)
+    if asym == 0:
+        scaling = "Execution asymmetry data not yet available"
+    elif asym >= 2.0:
+        scaling = f"Good asymmetry ({asym:.2f}×) — scalable with position sizing discipline"
+    else:
+        scaling = f"Low asymmetry ({asym:.2f}×) — review RR before scaling"
+
     n = (l1.get("edgeSummary") or {}).get("sampleSize", 0)
-    fwd = (f"Live data verified — {n} trades" if n >= 100
-           else f"Preliminary edge — {n} trades (need 100+ for full cert)" if n >= 30
-           else f"Insufficient sample ({n} trades) — paper trade first")
+    if n >= 100:
+        fwd = f"Live data verified — {n} trades"
+    elif n >= 30:
+        fwd = f"Preliminary edge — {n} trades (need 100+ for full certification)"
+    elif n > 0:
+        fwd = f"Insufficient sample ({n} trades) — paper trade first"
+    else:
+        fwd = "No trades recorded yet"
+
     return {
         "regime": regime, "entryLogic": entry_logic, "exitLogic": exit_logic,
-        "scalingProperties": scaling, "sessionDependency": f"Dominant in {best_session}",
+        "scalingProperties": scaling, "sessionDependency": session_dep,
         "behavioralFit": "Autonomous — verify rules adherence monthly",
         "forwardConfirmation": fwd,
     }
 
-def _mc_bars(score):
-    import random; random.seed(42)
-    spread = max(5, 100 - score) * 0.4
-    return [max(10, min(100, round(score + random.gauss(0, spread)))) for _ in range(16)]
 
 
 def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
@@ -138,7 +170,8 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     dec_mag = _r2(edec.get("decayMagnitude"), 0.0)
     dec_rec = edec.get("recommendation", "")
     # ── Derived ──
-    instruments, win_factors, loss_factors, win_corr, loss_corr = _build_correlations(win_fc, loss_fc)
+    condition_labels = l1.get("conditionLabels", [])
+    instruments, win_factors, loss_factors, win_corr, loss_corr = _build_correlations(win_fc, loss_fc, condition_labels)
     session_edge = cond_e.get("bySession", {})
     if len(session_edge) >= 2:
         ss = sorted(session_edge.items(), key=lambda x: x[1].get("winRate",0), reverse=True)
@@ -185,7 +218,7 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         "winCorrelations": win_corr, "lossCorrelations": loss_corr,
         "variance":      {"winRate":wr,"sampleSize":n,"winLossRatio":wl_r,"positiveSkew":pos_skew,"stdDev":std_dev,"skewness":skew},
         "drawdown":      {"maxPeakToValley":max_dd,"recovery":round(rec_f,1),"stagnation":round(t_in_dd,1),"calmarRatio":calmar,"ulcerIndex":ulcer},
-        "equityVariance":{"simulationConfidence":cons_sc,"varianceSkew":round(skew,2),"maxCluster":max(round(avg_cl),1),"bestMonth":_r2(eq_var.get("bestMonth"),0.0),"worstMonth":_r2(eq_var.get("worstMonth"),0.0),"mcBars":_mc_bars(cons_sc)},
+        "equityVariance":{"simulationConfidence":cons_sc,"varianceSkew":round(skew,2),"maxCluster":max(round(avg_cl),1),"bestMonth":_r2(eq_var.get("bestMonth"),0.0),"worstMonth":_r2(eq_var.get("worstMonth"),0.0),"mcBars":eq_var.get("mcBars",[])},
         "auditScope":    {"totalTrades":n,"statisticalSignificance":round(conf,1)},
         "tradeQuality":  {"aTrades":{"count":a_cnt,"profit":a_prof},"bTrades":{"count":b_cnt,"profit":b_prof},"cTrades":{"count":c_cnt,"profit":c_prof}},
         "conditionalEdge":{"liquidityGap":liq_gap,"nonQualified":non_qual},
