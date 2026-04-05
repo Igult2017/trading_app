@@ -238,9 +238,8 @@ def _fetch_rba_rate() -> float | None:
 
 
 def _fetch_boe_rate() -> float | None:
-    """GBP — Bank of England official chart API (no key)."""
+    """GBP — try Bank of England chart API, then FRED BOEBR as backup."""
     try:
-        # IUDBEDR = Bank of England Official Bank Rate
         url = (
             'https://api.bankofengland.co.uk/chart/series'
             '?seriesIds=IUDBEDR&startDate=2025-01-01'
@@ -253,8 +252,8 @@ def _fetch_boe_rate() -> float | None:
             if pts:
                 return float(pts[-1]['value'])
     except Exception as e:
-        print(f'[news_calendar] BoE fetch failed: {e}', file=sys.stderr)
-    return None
+        print(f'[news_calendar] BoE primary failed ({e}), trying FRED…', file=sys.stderr)
+    return _fetch_fred_series('BOEBR')
 
 
 # BIS country code -> currency mapping for WS_CBPOL dataset
@@ -423,7 +422,13 @@ def get_interest_rates() -> dict:
         if ccy not in rates:
             _add(ccy, bank_names.get(ccy, ccy), rate)
 
-    # --- fallback for any currency that didn't come back live ---
+    # --- FRED fallback for BIS currencies that are still missing ---
+    for ccy in ('JPY', 'CHF', 'NZD', 'CAD'):
+        if ccy not in rates and ccy in _FRED_SERIES:
+            fred_rate = _fetch_fred_series(_FRED_SERIES[ccy])
+            _add(ccy, bank_names.get(ccy, ccy), fred_rate)
+
+    # --- hardcoded fallback for any currency still missing ---
     for ccy, (bank, fallback_rate) in _FALLBACK_RATES.items():
         if ccy not in rates:
             print(f'[news_calendar] Using fallback rate for {ccy}: {fallback_rate}%', file=sys.stderr)
