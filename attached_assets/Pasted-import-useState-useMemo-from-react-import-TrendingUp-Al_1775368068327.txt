@@ -1,0 +1,672 @@
+import { useState, useMemo } from "react";
+import {
+  TrendingUp, AlertTriangle, Brain, Database, Activity,
+  Target, ShieldCheck, Zap, Search, PlusCircle, Clock,
+  Settings, Cpu
+} from "lucide-react";
+
+/* ─── Design tokens ─── */
+const T = {
+  bg:    "#0a0a0b",
+  bg2:   "#111113",
+  bg3:   "#18181c",
+  bg4:   "#1e1e24",
+  line:  "#2a2a32",
+  line2: "#3a3a44",
+  text:  "#e8e8ec",
+  muted: "#7a7a88",
+  dim:   "#4a4a58",
+  green: "#22c97a",
+  green2:"#16a35e",
+  red:   "#e84040",
+  red2:  "#b52e2e",
+  amber: "#e8a020",
+  blue:  "#4a8fff",
+  blue2: "#2c6fd4",
+};
+
+const FONT = "'Montserrat', sans-serif";
+const MONO_FONT = "'Share Tech Mono', monospace";
+
+/* ─── Raw data ─── */
+const DATA = {
+  instruments: ["EURUSD","GBPUSD","XAUUSD","USDJPY","AUDUSD","NZDUSD","USDCAD"],
+  winFactors:  ["ATR 1.2-1.8","LDN Open","RSI 40-60","Vol >2x","H1 Flip"],
+  lossFactors: ["ATR <0.5","Spread >2.5","News <15m","Consol","Low Liq"],
+  winCorr: {
+    EURUSD:[85,72,91,68,78], GBPUSD:[62,88,54,75,81], XAUUSD:[93,45,67,89,71],
+    USDJPY:[71,69,82,61,66], AUDUSD:[58,81,73,70,59], NZDUSD:[64,76,68,64,72], USDCAD:[77,58,79,82,68]
+  },
+  lossCorr: {
+    EURUSD:[72,89,48,81,65], GBPUSD:[68,92,52,76,71], XAUUSD:[45,67,38,88,79],
+    USDJPY:[81,78,61,72,58], AUDUSD:[76,85,55,69,82], NZDUSD:[69,81,49,74,77], USDCAD:[73,74,44,79,68]
+  },
+};
+
+/* ─── Tiny primitives ─── */
+const mono = { fontFamily: FONT, fontWeight: 700 };
+const num  = { fontFamily: MONO_FONT, fontWeight: 400 };
+
+function Badge({ children, color = T.muted, border = T.line2 }) {
+  return (
+    <span style={{
+      ...mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase",
+      padding: "3px 8px", border: `1px solid ${border}`, color, display: "inline-block"
+    }}>
+      {children}
+    </span>
+  );
+}
+
+function CellTitle({ children }) {
+  return (
+    <div style={{
+      ...mono, fontSize: 9, letterSpacing: ".2em", textTransform: "uppercase",
+      color: T.dim, marginBottom: 12, display: "flex", alignItems: "center", gap: 8
+    }}>
+      <span style={{ width: 12, height: 1, background: T.line2, display: "inline-block" }} />
+      {children}
+    </div>
+  );
+}
+
+function Cell({ children, style = {}, span = 1 }) {
+  return (
+    <div style={{
+      padding: "18px 20px",
+      borderRight: `1px solid ${T.line}`,
+      gridColumn: span > 1 ? `span ${span}` : undefined,
+      ...style
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function StatRow({ label, value, color = T.text, last = false }) {
+  return (
+    <div style={{
+      display: "flex", justifyContent: "space-between", alignItems: "baseline",
+      padding: "8px 0", borderBottom: last ? "none" : `1px solid ${T.line}`
+    }}>
+      <span style={{ fontSize: 12, color: T.muted, fontFamily: FONT }}>{label}</span>
+      <span style={{ ...num, fontSize: 13, color }}>{value}</span>
+    </div>
+  );
+}
+
+function Bar({ pct, color = T.blue }) {
+  return (
+    <div style={{ height: 2, background: T.line2, width: "100%", borderRadius: 1 }}>
+      <div style={{ height: 2, background: color, width: `${pct}%`, borderRadius: 1 }} />
+    </div>
+  );
+}
+
+function BigNum({ value, label, color = T.text }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ ...num, fontSize: 22, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ ...mono, fontSize: 9, letterSpacing: ".16em", color: T.dim, marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+function MiniGrid({ children, cols }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, marginTop: 8 }}>
+      {children}
+    </div>
+  );
+}
+
+function InfoBox({ children, borderColor = T.line }) {
+  return (
+    <div style={{ padding: 12, border: `1px solid ${borderColor}`, background: T.bg3, marginBottom: 8 }}>
+      {children}
+    </div>
+  );
+}
+
+function MiniStatBox({ label, value, color = T.text }) {
+  return (
+    <div style={{ padding: 8, border: `1px solid ${T.line}`, textAlign: "center" }}>
+      <div style={{ ...mono, fontSize: 10, color: T.dim }}>{label}</div>
+      <div style={{ ...num, fontSize: 14, color }}>{value}</div>
+    </div>
+  );
+}
+
+/* ─── Heatmap ─── */
+function Heatmap({ factors, corr, isWin }) {
+  const [hovered, setHovered] = useState(null);
+  const base = isWin ? "34,201,122" : "232,64,64";
+  return (
+    <div style={{ overflowX: "auto", paddingBottom: 8 }}>
+      <div style={{ width: "max-content" }}>
+        {/* header row */}
+        <div style={{ display: "flex", gap: 2, marginBottom: 2 }}>
+          <div style={{ width: 80 }} />
+          {factors.map((f, i) => (
+            <div key={i} style={{
+              width: 68, textAlign: "center", fontFamily: FONT, fontWeight: 700,
+              fontSize: 9, color: T.dim, letterSpacing: ".06em", padding: "4px 2px"
+            }}>{f}</div>
+          ))}
+        </div>
+        {/* data rows */}
+        {DATA.instruments.map((inst, ri) => (
+          <div key={inst} style={{ display: "flex", gap: 2, marginBottom: 2 }}>
+            <div style={{ width: 80, fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.muted, display: "flex", alignItems: "center", paddingLeft: 4 }}>{inst}</div>
+            {corr[inst].map((v, ci) => {
+              const alpha = (v / 100) * 0.85 + 0.1;
+              const isHov = hovered?.ri === ri && hovered?.ci === ci;
+              return (
+                <div
+                  key={ci}
+                  onMouseEnter={() => setHovered({ ri, ci, v, inst, factor: factors[ci] })}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{
+                    width: 68, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: `rgba(${base},${alpha})`,
+                    fontFamily: MONO_FONT, fontWeight: 400, fontSize: 10,
+                    color: "rgba(255,255,255,0.9)", cursor: "default",
+                    position: "relative", outline: isHov ? `1px solid ${T.line2}` : "none"
+                  }}
+                >
+                  {v}
+                  {isHov && (
+                    <div style={{
+                      position: "absolute", bottom: "110%", left: "50%", transform: "translateX(-50%)",
+                      background: T.bg2, border: `1px solid ${T.line2}`, padding: "6px 10px",
+                      whiteSpace: "nowrap", zIndex: 10, pointerEvents: "none"
+                    }}>
+                      <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.text }}>{inst}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 9, color: T.dim }}>{factors[ci]}</div>
+                      <div style={{ fontFamily: MONO_FONT, fontSize: 11, color: T.text, marginTop: 2 }}>{v}%</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Pages ─── */
+function Page1() {
+  return (
+    <div>
+      {/* Row 1: summary + monitor */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Executive Summary</CellTitle>
+          <p style={{ fontSize: 13, color: T.muted, lineHeight: 1.75, fontFamily: FONT, fontWeight: 400 }}>
+            Robust statistical edge confirmed during{" "}
+            <strong style={{ color: T.text, fontWeight: 700 }}>high-volatility London/NY overlap</strong> sessions.
+            Equity curve tightening observed with reduction in fat-tail risk events. System recommends shifting sizing
+            from linear to <strong style={{ color: T.text, fontWeight: 700 }}>volatility-weighted</strong> based on VIX thresholds above 18.
+          </p>
+          <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
+            <Badge color={T.green} border={T.green2}>Edge Confirmed</Badge>
+            <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.dim }}>95% confidence · 482 samples</span>
+          </div>
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Monitor Next</CellTitle>
+          {[
+            { label: "Correlated USD Strength", badge: "High Priority", color: T.amber, border: "#8a5a00" },
+            { label: "H4 Liquidity Gaps", badge: "Monitoring", color: T.muted, border: T.line2 },
+            { label: "Volatility Contraction", badge: "New", color: T.blue, border: T.blue2 },
+          ].map((item, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < 2 ? `1px solid ${T.line}` : "none" }}>
+              <span style={{ fontSize: 12, fontFamily: FONT, color: T.text }}>{item.label}</span>
+              <Badge color={item.color} border={item.border}>{item.badge}</Badge>
+            </div>
+          ))}
+        </Cell>
+      </div>
+
+      {/* Row 2: edge / risk / components */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Probabilistic Edge</CellTitle>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div>
+              <div style={{ ...num, fontSize: 22, color: T.green, lineHeight: 1 }}>62.4%</div>
+              <div style={{ ...mono, fontSize: 9, color: T.dim, marginTop: 4, letterSpacing: ".12em" }}>BASE RATE</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <StatRow label="Avg Win" value="1.82R" color={T.green} />
+              <StatRow label="Avg Loss" value="0.95R" color={T.red} />
+              <StatRow label="W/L Ratio" value="1.92" color={T.blue} last />
+            </div>
+          </div>
+        </Cell>
+        <Cell>
+          <CellTitle>Risk &amp; Failure</CellTitle>
+          <StatRow label="Max Loss Streak" value="6" color={T.red} />
+          <StatRow label="5-Loss Probability" value="14%" color={T.amber} />
+          <StatRow label="Time in Drawdown" value="31%" />
+          <StatRow label="Max Peak-to-Valley" value="8.4%" color={T.red} last />
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Edge Components</CellTitle>
+          {[
+            { label: "Win Rate", pct: 48, color: T.blue },
+            { label: "Risk-Reward", pct: 38, color: T.green },
+          ].map((item, i) => (
+            <div key={i} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ ...mono, fontSize: 10, color: T.muted }}>{item.label}</span>
+                <span style={{ ...num, fontSize: 10, color: item.color }}>{item.pct}%</span>
+              </div>
+              <Bar pct={item.pct} color={item.color} />
+            </div>
+          ))}
+          <div style={{ paddingTop: 12, borderTop: `1px solid ${T.line}` }}>
+            <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".12em" }}>EDGE DECAY — ROLLING</div>
+            <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+              <div>
+                <div style={{ ...mono, fontSize: 10, color: T.dim }}>Last 50</div>
+                <div style={{ ...num, fontSize: 14, color: T.blue }}>0.42R</div>
+              </div>
+              <div>
+                <div style={{ ...mono, fontSize: 10, color: T.dim }}>Last 200</div>
+                <div style={{ ...num, fontSize: 14, color: T.text }}>0.48R</div>
+              </div>
+            </div>
+          </div>
+        </Cell>
+      </div>
+
+      {/* Row 3: weaknesses + psychology */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Weaknesses &amp; Failure Conditions</CellTitle>
+          <div style={{ padding: 14, borderLeft: `2px solid ${T.red2}`, background: T.bg3 }}>
+            <div style={{ ...mono, fontSize: 10, color: T.red, letterSpacing: ".1em", marginBottom: 6 }}>LOW LIQUIDITY ENVIRONMENTS</div>
+            <p style={{ fontSize: 12, color: T.muted, lineHeight: 1.7, fontFamily: FONT, fontWeight: 400 }}>
+              Fails during bank holidays and pre-FOMC consolidation. AI recommends disabling auto-execution{" "}
+              <strong style={{ color: T.text, fontWeight: 700 }}>4 hours prior</strong> to red-folder news events.
+            </p>
+          </div>
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Psychology Impact</CellTitle>
+          <div style={{ display: "flex", gap: 12 }}>
+            {[
+              { value: "7.8", label: "STRESS SCORE", color: T.amber },
+              { value: "92%", label: "RULE ADHERENCE", color: T.green },
+            ].map((item, i) => (
+              <div key={i} style={{ flex: 1, padding: 12, border: `1px solid ${T.line}`, textAlign: "center", background: T.bg3 }}>
+                <div style={{ ...num, fontSize: 16, color: item.color }}>{item.value}</div>
+                <div style={{ ...mono, fontSize: 9, letterSpacing: ".14em", color: T.dim, marginTop: 4 }}>{item.label}</div>
+              </div>
+            ))}
+          </div>
+        </Cell>
+      </div>
+
+      {/* Row 4: logical verification */}
+      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.line}` }}>
+        <CellTitle>Logical Verification</CellTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+          {[
+            { key: "Regime", val: "High-Volatility Trending (Expansion Phases)" },
+            { key: "Entry Logic", val: "AI-detected liquidity gaps + Order Flow Imbalance" },
+            { key: "Exit Logic", val: "Dynamic volatility-adjusted trailing stops" },
+            { key: "Scaling", val: "Deep liquidity depth; scalable to institutional tiers" },
+            { key: "Session", val: "Dominant in New York & London overlaps" },
+            { key: "Forward Test", val: "6-month live walk-forward verified" },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: "flex", gap: 10, padding: "8px 0",
+              borderBottom: i < 4 ? `1px solid ${T.line}` : "none",
+              paddingLeft: i % 2 === 1 ? 20 : 0
+            }}>
+              <span style={{ ...mono, fontSize: 9, color: T.blue, minWidth: 100, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{item.key}</span>
+              <span style={{ fontSize: 12, color: T.muted, lineHeight: 1.5, fontFamily: FONT, fontWeight: 400 }}>{item.val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <VerdictBar />
+    </div>
+  );
+}
+
+function Page2() {
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Variance &amp; Distribution</CellTitle>
+          <StatRow label="Win Rate" value="62.4%" color={T.green} />
+          <StatRow label="Sample Size" value="458" color={T.blue} />
+          <StatRow label="Win / Loss Ratio" value="1.92" />
+          <div style={{ paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: T.muted, fontFamily: FONT }}>Positive Skew</span>
+            <Badge color={T.green} border={T.green2}>Verified</Badge>
+          </div>
+        </Cell>
+        <Cell>
+          <CellTitle>Drawdown Metrics</CellTitle>
+          <BigNum value="8.4%" label="MAX PEAK-TO-VALLEY" color={T.amber} />
+          <MiniGrid cols="1fr 1fr">
+            <MiniStatBox label="Recovery" value="12 days" />
+            <MiniStatBox label="Stagnation" value="31%" />
+          </MiniGrid>
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Monte Carlo (N=10K)</CellTitle>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 60 }}>
+            {[40,70,45,90,65,80,50,95,100,75,85,60,40,55,70,30,80,65,90,50].map((h, i) => (
+              <div key={i} style={{
+                flex: 1, minHeight: 4,
+                height: `${h}%`,
+                background: `rgba(74,143,255,${0.3 + h * 0.005})`,
+              }} />
+            ))}
+          </div>
+          <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".14em", textAlign: "center", marginTop: 8 }}>SIMULATION CONFIDENCE: <span style={{ fontFamily: MONO_FONT }}>89.2%</span></div>
+          <MiniGrid cols="1fr 1fr">
+            <MiniStatBox label="Var Skew" value="1.4" color={T.blue} />
+            <MiniStatBox label="Max Cluster" value="6" />
+          </MiniGrid>
+        </Cell>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Trade Quality Stratification</CellTitle>
+          {[
+            { grade: "A", color: T.green, count: 28, profit: "70% of profit", badge: "Primary", bc: T.green2 },
+            { grade: "B", color: T.blue, count: 46, profit: "24% of profit", badge: "Support", bc: T.blue2 },
+            { grade: "C", color: T.muted, count: 26, profit: "6% of profit", badge: "Low Edge", bc: T.line2 },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: 12,
+              border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 6
+            }}>
+              <div style={{ ...mono, fontSize: 22, color: item.color, width: 28 }}>{item.grade}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: T.dim, fontFamily: MONO_FONT }}>{item.count} trades</div>
+                <div style={{ fontSize: 13, color: item.color, fontFamily: MONO_FONT }}>{item.profit}</div>
+              </div>
+              <Badge color={item.color} border={item.bc}>{item.badge}</Badge>
+            </div>
+          ))}
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Conditional Edge Validation</CellTitle>
+          <InfoBox borderColor={T.blue2}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+              <span style={{ ...mono, fontSize: 10, color: T.blue, letterSpacing: ".1em" }}>LIQUIDITY-GAP ENTRIES</span>
+              <span style={{ ...num, fontSize: 14, color: T.green }}>1.05R</span>
+            </div>
+            <div style={{ ...mono, fontSize: 10, color: T.dim }}>120 qualifying samples</div>
+          </InfoBox>
+          <InfoBox>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+              <span style={{ ...mono, fontSize: 10, color: T.muted, letterSpacing: ".1em" }}>NON-QUALIFIED ENTRIES</span>
+              <span style={{ ...num, fontSize: 14, color: T.amber }}>0.50R</span>
+            </div>
+            <div style={{ ...mono, fontSize: 10, color: T.dim }}>338 samples</div>
+          </InfoBox>
+          <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".1em", marginTop: 10 }}>
+            EDGE TRANSFERABILITY: <span style={{ color: T.green, fontFamily: MONO_FONT }}>92%</span>
+          </div>
+        </Cell>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <div style={{ padding: "18px 20px", borderRight: `1px solid ${T.line}` }}>
+          <CellTitle>Correlation Heatmap — Win Factors</CellTitle>
+          <Heatmap factors={DATA.winFactors} corr={DATA.winCorr} isWin={true} />
+        </div>
+        <div style={{ padding: "18px 20px" }}>
+          <CellTitle>Correlation Heatmap — Decay Factors</CellTitle>
+          <Heatmap factors={DATA.lossFactors} corr={DATA.lossCorr} isWin={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Page3() {
+  const robRows = [
+    { label: "Rule Stability", pct: 94, color: T.blue },
+    { label: "Execution Adherence", pct: 98.5, color: T.green },
+    { label: "Monte Carlo Stability", pct: 89.2, color: T.amber },
+  ];
+  return (
+    <div>
+      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.line}` }}>
+        <CellTitle>Core Robustness</CellTitle>
+        {robRows.map((row, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
+            borderBottom: i < robRows.length - 1 ? `1px solid ${T.line}` : "none"
+          }}>
+            <span style={{ ...mono, fontSize: 10, letterSpacing: ".1em", color: T.muted, minWidth: 180 }}>{row.label.toUpperCase()}</span>
+            <div style={{ flex: 1, height: 1, background: T.line2 }}>
+              <div style={{ height: 1, background: row.color, width: `${row.pct}%` }} />
+            </div>
+            <span style={{ ...mono, fontSize: 11, color: row.color, minWidth: 44, textAlign: "right" }}>{row.pct}%</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Loss Cluster Severity</CellTitle>
+          <MiniGrid cols="1fr 1fr">
+            <div style={{ padding: 12, border: `1px solid ${T.line}`, textAlign: "center" }}>
+              <div style={{ ...mono, fontSize: 10, color: T.dim, marginBottom: 6 }}>Avg Length</div>
+              <div style={{ ...mono, fontSize: 28, color: T.red }}>2.4</div>
+            </div>
+            <div style={{ padding: 12, border: `1px solid ${T.line}`, textAlign: "center" }}>
+              <div style={{ ...mono, fontSize: 10, color: T.dim, marginBottom: 6 }}>Worst DD</div>
+              <div style={{ ...mono, fontSize: 28, color: T.amber }}>4.5%</div>
+            </div>
+          </MiniGrid>
+        </Cell>
+        <Cell>
+          <CellTitle>Execution Asymmetry</CellTitle>
+          <StatRow label="Slippage (Wins)" value="0.3 ticks" color={T.green} />
+          <StatRow label="Slippage (Losses)" value="0.6 ticks" color={T.red} last />
+          <div style={{ marginTop: 12, padding: 10, border: `1px solid ${T.line}`, background: T.bg3 }}>
+            <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".1em" }}>ADVERSE FILL RATIO</div>
+            <div style={{ ...mono, fontSize: 18, color: T.amber, marginTop: 4 }}>2.0×</div>
+          </div>
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Regime Transition</CellTitle>
+          <StatRow label="Avg Transition DD" value="3.2%" color={T.amber} />
+          <StatRow label="Recovery Trades" value="8" color={T.blue} />
+          <StatRow label="Capital at Peak" value="37%" />
+          <StatRow label="Automation Failure" value="1.8%" color={T.green} last />
+        </Cell>
+      </div>
+    </div>
+  );
+}
+
+function Page4() {
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>AI Policy Suggestions</CellTitle>
+          {[
+            { title: "Scale-In Protocol 2.0", body: "Add 50% position size after confirming 1:1 RR. Projected improvement:", highlight: "+14.2% profit" },
+            { title: "Volatility Ceiling Modification", body: "Reduce position sizing 30% when VIX remains above 35 for 3+ consecutive hours. Reduces tail risk exposure.", highlight: null },
+          ].map((item, i) => (
+            <div key={i} style={{ padding: 14, border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 10 }}>
+              <div style={{ ...mono, fontSize: 10, letterSpacing: ".1em", color: T.blue, marginBottom: 6 }}>{item.title.toUpperCase()}</div>
+              <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6, fontFamily: FONT, fontWeight: 400 }}>
+                {item.body} {item.highlight && <span style={{ color: T.green, fontWeight: 700 }}>{item.highlight}</span>}
+              </div>
+            </div>
+          ))}
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Audit-Enforced Guardrails</CellTitle>
+          {[
+            { label: "Max Daily Loss", value: "2.0%", badge: "Active", bc: T.green2, tc: T.green },
+            { label: "Correlation Limit", value: "0.75", badge: "Active", bc: T.green2, tc: T.green },
+            { label: "Volatility Ceiling", value: "VIX 35", badge: "Review", bc: "#8a5a00", tc: T.amber },
+            { label: "Max Open Pairs", value: "4", badge: "Active", bc: T.green2, tc: T.green },
+          ].map((item, i, arr) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${T.line}` : "none"
+            }}>
+              <div>
+                <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".1em" }}>{item.label.toUpperCase()}</div>
+                <div style={{ ...mono, fontSize: 14, color: T.text, marginTop: 2 }}>{item.value}</div>
+              </div>
+              <Badge color={item.tc} border={item.bc}>{item.badge}</Badge>
+            </div>
+          ))}
+        </Cell>
+      </div>
+
+      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.line}` }}>
+        <CellTitle>Recent Audit-Driven Changes</CellTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
+          <div style={{ padding: "10px 12px", borderLeft: `2px solid ${T.green}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: FONT }}>Trailing Stop Adjustment</div>
+            <div style={{ fontSize: 11, color: T.dim, marginTop: 2, fontFamily: FONT }}>Implemented 14 days ago · ROI improved +0.4%</div>
+          </div>
+          <div style={{ padding: "10px 12px", borderLeft: `2px solid ${T.line2}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.muted, fontFamily: FONT }}>Fixed TP Ratio</div>
+            <div style={{ fontSize: 11, color: T.dim, marginTop: 2, fontFamily: FONT }}>Deprecated Q3 · Replaced by dynamic exit</div>
+          </div>
+        </div>
+      </div>
+
+      <VerdictBar />
+    </div>
+  );
+}
+
+function VerdictBar() {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`
+    }}>
+      <div style={{ ...mono, fontSize: 11, letterSpacing: ".16em", color: T.green }}>
+        ✓ SYSTEM AUTHORIZED — ALL STRUCTURAL CHECKS PASSED
+      </div>
+      <div style={{ ...mono, fontSize: 10, color: T.dim }}>
+        Max DD 8.4% · Within tolerance · Next: Walk-Forward 30D
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main App ─── */
+const TABS = [
+  { id: 1, label: "Strategy" },
+  { id: 2, label: "Evidence" },
+  { id: 3, label: "Diagnostics" },
+  { id: 4, label: "Action" },
+];
+
+export default function App() {
+  const [active, setActive] = useState(1);
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Share+Tech+Mono&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: ${T.bg}; color: ${T.text}; font-family: ${FONT}; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: ${T.bg2}; }
+        ::-webkit-scrollbar-thumb { background: ${T.line2}; }
+      `}</style>
+
+      <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT }}>
+
+        {/* Topbar */}
+        <nav style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 20px", background: T.bg2, borderBottom: `1px solid ${T.line}`,
+          position: "sticky", top: 0, zIndex: 100, height: 52
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 28, height: 28, background: T.blue2, display: "flex",
+              alignItems: "center", justifyContent: "center"
+            }}>
+              <Cpu size={14} color="#fff" />
+            </div>
+            <div style={{ ...mono, fontSize: 11, letterSpacing: ".2em" }}>
+              AUDIT<span style={{ color: T.green }}>.</span>AI
+              <span style={{ color: T.dim, fontWeight: 400, marginLeft: 8 }}>— Alpha 4.6</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex" }}>
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActive(tab.id)}
+                style={{
+                  ...mono, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase",
+                  padding: "0 18px", height: 52, cursor: "pointer", background: "none",
+                  border: "none", borderBottom: `2px solid ${active === tab.id ? T.green : "transparent"}`,
+                  color: active === tab.id ? T.text : T.dim,
+                  transition: "all .15s"
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: "50%", background: T.green,
+              animation: "pulse 2s infinite"
+            }} />
+            <span style={{ ...mono, fontSize: 9, letterSpacing: ".12em", color: T.green }}>LIVE</span>
+          </div>
+        </nav>
+
+        {/* KPI strip */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", borderBottom: `1px solid ${T.line}` }}>
+          {[
+            { label: "Win Rate", value: "64.2%", sub: "+2.1% vs prior period", color: T.green },
+            { label: "Edge Factor", value: "2.14", sub: "R-multiple average", color: T.blue },
+            { label: "Risk Entropy", value: "Low", sub: "−0.2 delta", color: T.text },
+            { label: "AI Confidence", value: "92/100", sub: "System certified", color: T.amber },
+          ].map((kpi, i) => (
+            <div key={i} style={{ padding: "14px 20px", borderRight: i < 3 ? `1px solid ${T.line}` : "none" }}>
+              <div style={{ ...mono, fontSize: 9, letterSpacing: ".18em", color: T.dim, marginBottom: 6 }}>{kpi.label.toUpperCase()}</div>
+              <div style={{ ...num, fontSize: 16, color: kpi.color, lineHeight: 1 }}>{kpi.value}</div>
+              <div style={{ ...mono, fontSize: 10, color: T.muted, marginTop: 4 }}>{kpi.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Page content */}
+        <div>
+          {active === 1 && <Page1 />}
+          {active === 2 && <Page2 />}
+          {active === 3 && <Page3 />}
+          {active === 4 && <Page4 />}
+        </div>
+
+      </div>
+    </>
+  );
+}
