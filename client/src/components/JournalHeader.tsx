@@ -42,9 +42,9 @@ interface JournalHeaderProps {
 function ProfileDropdown({ dm }: { dm: boolean }) {
   return (
     <div style={{
-      position: 'absolute',
-      top: 'calc(100% + 10px)',
-      left: 0,
+      position: 'fixed',
+      top: 102,
+      right: 12,
       width: 280,
       background: dm ? '#0d1520' : '#ffffff',
       border: `1px solid ${dm ? '#1a2d45' : '#e2e8f0'}`,
