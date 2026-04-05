@@ -1,0 +1,100 @@
+2026-04-05 03:08:37.990 UTC [1719] FATAL:  role "tg_db" does not exist
+2026-04-05 03:08:43.129 UTC [1727] FATAL:  role "tg_db" does not exist
+2026-04-05 03:08:48.240 UTC [1736] FATAL:  role "tg_db" does not exist
+2026-04-05 03:08:53.372 UTC [1744] FATAL:  role "tg_db" does not exist
+2026-04-05 03:08:59.418 UTC [1752] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:06.069 UTC [1760] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:12.689 UTC [1767] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:17.649 UTC [1769] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:17.649 UTC [1769] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:18.082 UTC [1777] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:23.046 UTC [1778] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:23.046 UTC [1778] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:23.248 UTC [1786] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:29.170 UTC [1794] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:35.073 UTC [1802] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:40.637 UTC [1810] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:45.878 UTC [1819] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:49.593 UTC [1820] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.593 UTC [1820] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.655 UTC [1821] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.655 UTC [1821] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.698 UTC [1822] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.698 UTC [1822] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.735 UTC [1823] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.735 UTC [1823] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.768 UTC [1824] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.768 UTC [1824] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.794 UTC [1825] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.794 UTC [1825] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.815 UTC [1826] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.815 UTC [1826] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.836 UTC [1827] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.836 UTC [1827] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.853 UTC [1828] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.853 UTC [1828] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:49.869 UTC [1829] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:09:49.869 UTC [1829] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:09:50.938 UTC [1837] FATAL:  role "tg_db" does not exist
+2026-04-05 03:09:55.996 UTC [1845] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:02.209 UTC [1853] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:07.695 UTC [1860] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:12.803 UTC [1868] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:17.873 UTC [1877] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:22.929 UTC [1885] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:28.202 UTC [1893] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:33.286 UTC [1901] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:38.338 UTC [1909] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:43.417 UTC [1917] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:45.086 UTC [1918] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:10:45.086 UTC [1918] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:10:48.474 UTC [1928] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:53.531 UTC [1936] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:58.737 UTC [1944] FATAL:  role "tg_db" does not exist
+2026-04-05 03:10:59.830 UTC [1945] FATAL:  password authentication failed for user "tg_db"
+2026-04-05 03:10:59.830 UTC [1945] DETAIL:  Role "tg_db" does not exist.
+	Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-04-05 03:11:03.852 UTC [1954] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:08.915 UTC [1962] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:14.008 UTC [1970] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:19.113 UTC [1979] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:24.181 UTC [1987] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:29.335 UTC [1994] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:34.401 UTC [2002] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:39.459 UTC [2010] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:44.514 UTC [2018] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:49.567 UTC [2027] FATAL:  role "tg_db" does not exist
+2026-04-05 03:11:54.632 UTC [2035] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:00.028 UTC [2043] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:05.362 UTC [2051] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:10.426 UTC [2059] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:15.532 UTC [2067] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:20.595 UTC [2076] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:25.654 UTC [2084] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:31.116 UTC [2092] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:36.241 UTC [2100] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:41.305 UTC [2107] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:46.402 UTC [2116] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:51.461 UTC [2124] FATAL:  role "tg_db" does not exist
+2026-04-05 03:12:56.526 UTC [2132] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:01.906 UTC [2140] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:06.983 UTC [2148] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:12.080 UTC [2156] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:17.151 UTC [2165] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:22.270 UTC [2173] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:27.335 UTC [2182] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:32.398 UTC [2190] FATAL:  role "tg_db" does not exist
+2026-04-05 03:13:37.454 UTC [2198] FATAL:  role "tg_db" does not exist
