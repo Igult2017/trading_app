@@ -62,8 +62,6 @@ const Corner = ({ size=6, color=P.dim, pos }: { size?:number; color?:string; pos
 ───────────────────────────────────────────────────────────────────── */
 const Panel = ({ title, accent=P.green, tag, children, style={} as React.CSSProperties }: any) => (
   <div style={{ background:P.bg2, border:`1px solid ${P.line2}`, position:'relative', ...style }}>
-    <Corner pos="tl" color={accent}/><Corner pos="tr" color={accent}/>
-    <Corner pos="bl" color={P.line2}/><Corner pos="br" color={P.line2}/>
     <div style={{ borderBottom:`1px solid ${P.line2}`, padding:'7px 12px', background:P.bg3, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ width:2, height:12, background:accent, flexShrink:0 }} />
