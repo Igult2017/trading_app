@@ -151,29 +151,58 @@ def is_active(asset_class: str) -> bool:
 # ── yfinance price fetch ───────────────────────────────────────────────────────
 
 def fetch_yfinance(symbol: str, ticker: str, asset_class: str) -> Optional[dict]:
+    t = yf.Ticker(ticker)
+
+    # ── Primary path: fast_info (low-latency, single HTTP call) ──────────────
     try:
-        fi    = yf.Ticker(ticker).fast_info
+        fi    = t.fast_info
         price = fi.last_price
-        if price is None:
+        if price is not None:
+            prev  = fi.previous_close or price
+            chg   = price - prev
+            chg_p = (chg / prev * 100) if prev else 0.0
+            return {
+                "symbol":        symbol,
+                "price":         round(float(price), 8),
+                "change":        round(float(chg),   8),
+                "changePercent": round(float(chg_p), 4),
+                "previousClose": round(float(prev),  8),
+                "high":          round(float(fi.day_high or price), 8),
+                "low":           round(float(fi.day_low  or price), 8),
+                "volume":        float(fi.three_month_average_volume or 0),
+                "timestamp":     datetime.now(timezone.utc).isoformat(),
+                "source":        "yfinance",
+                "assetClass":    asset_class,
+            }
+    except Exception as exc:
+        log.debug(f"fast_info failed [{symbol}]: {exc} — trying history fallback")
+
+    # ── Fallback: recent history bars (always works, slightly slower) ─────────
+    try:
+        hist = t.history(period="2d", interval="5m")
+        if hist.empty:
+            hist = t.history(period="5d", interval="1d")
+        if hist.empty:
             return None
-        prev  = fi.previous_close or price
+        price = float(hist["Close"].iloc[-1])
+        prev  = float(hist["Close"].iloc[0])
         chg   = price - prev
         chg_p = (chg / prev * 100) if prev else 0.0
         return {
             "symbol":        symbol,
-            "price":         round(float(price), 8),
-            "change":        round(float(chg),   8),
-            "changePercent": round(float(chg_p), 4),
-            "previousClose": round(float(prev),  8),
-            "high":          round(float(fi.day_high or price), 8),
-            "low":           round(float(fi.day_low  or price), 8),
-            "volume":        float(fi.three_month_average_volume or 0),
+            "price":         round(price, 8),
+            "change":        round(chg,   8),
+            "changePercent": round(chg_p, 4),
+            "previousClose": round(prev,  8),
+            "high":          round(float(hist["High"].iloc[-1]),  8),
+            "low":           round(float(hist["Low"].iloc[-1]),   8),
+            "volume":        float(hist["Volume"].iloc[-1]) if "Volume" in hist.columns else 0,
             "timestamp":     datetime.now(timezone.utc).isoformat(),
-            "source":        "yfinance",
+            "source":        "yfinance-hist",
             "assetClass":    asset_class,
         }
     except Exception as exc:
-        log.warning(f"yfinance  [{symbol}]  {exc}")
+        log.warning(f"yfinance [{symbol}] both paths failed: {exc}")
         return None
 
 
@@ -200,7 +229,6 @@ def scheduler_loop() -> None:
                 log.info(f"  ↻  {sym:<16s} {data['price']}")
             idx += 1
         else:
-            idx = 0
             idx = 0
 
         time.sleep(6)

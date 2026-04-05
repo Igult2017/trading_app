@@ -282,12 +282,12 @@ function Page1({ d }: { d: AuditData }) {
   const fiveLossProb = d.riskMetrics?.fiveLossProbability ?? 0;
   const timeDD = d.riskMetrics?.timeInDrawdown ?? 0;
   const maxPV = d.drawdown?.maxPeakToValley ?? 0;
-  const wrContrib = d.edgeComponents?.winRateContribution ?? 48;
-  const rrContrib = d.edgeComponents?.riskRewardContribution ?? 38;
+  const wrContrib = d.edgeComponents?.winRateContribution ?? 0;
+  const rrContrib = d.edgeComponents?.riskRewardContribution ?? 0;
   const last50 = d.edgeDecay?.last50 ?? 0;
   const last200 = d.edgeDecay?.last200 ?? 0;
   const weakness = d.weaknesses?.[0];
-  const weaknessFactor = weakness?.factor ?? "Low Liquidity Environments";
+  const weaknessFactor = weakness?.factor ?? "";
   const psychScore = d.psychologyScore ?? 0;
   const disciplineScore = d.disciplineScore ?? 0;
   const lv = d.logicalVerification ?? {};
@@ -391,14 +391,18 @@ function Page1({ d }: { d: AuditData }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
         <Cell>
           <CellTitle>Weaknesses &amp; Failure Conditions</CellTitle>
-          <div style={{ padding: 14, borderLeft: `2px solid ${T.red2}`, background: T.bg3 }}>
-            <div style={{ ...mono, fontSize: 10, color: T.red, letterSpacing: ".1em", marginBottom: 6 }}>{weaknessFactor.toUpperCase()}</div>
-            <p style={{ fontSize: 12, color: T.muted, lineHeight: 1.7, fontFamily: FONT, fontWeight: 400 }}>
-              {d.weaknesses?.[0]
-                ? `Win rate drops significantly when ${weaknessFactor.toLowerCase()} is present (impact: ${(weakness?.impact ?? 0).toFixed(1)}pp). AI recommends avoiding entries under these conditions.`
-                : "Fails during bank holidays and pre-FOMC consolidation. AI recommends disabling auto-execution 4 hours prior to red-folder news events."}
-            </p>
-          </div>
+          {weakness ? (
+            <div style={{ padding: 14, borderLeft: `2px solid ${T.red2}`, background: T.bg3 }}>
+              <div style={{ ...mono, fontSize: 10, color: T.red, letterSpacing: ".1em", marginBottom: 6 }}>{weaknessFactor.toUpperCase()}</div>
+              <p style={{ fontSize: 12, color: T.muted, lineHeight: 1.7, fontFamily: FONT, fontWeight: 400 }}>
+                Win rate drops to {(weakness.winRateWithFactor ?? 0).toFixed(1)}% when {weaknessFactor.toLowerCase()} is present (−{(weakness.impact ?? 0).toFixed(1)}pp impact). Avoid entries under these conditions.
+              </p>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: FONT, fontWeight: 400 }}>
+              No failure conditions detected yet — add more trades to surface weaknesses.
+            </div>
+          )}
         </Cell>
         <Cell style={{ borderRight: "none" }}>
           <CellTitle>Psychology Impact</CellTitle>
@@ -444,7 +448,7 @@ function Page2({ d }: { d: AuditData }) {
   const eq = d.equityVariance ?? { simulationConfidence: 0, varianceSkew: 0, maxCluster: 0, bestMonth: 0, worstMonth: 0, mcBars: [] };
   const tq = d.tradeQuality ?? { aTrades: { count: 0, profit: 0 }, bTrades: { count: 0, profit: 0 }, cTrades: { count: 0, profit: 0 } };
   const ce = d.conditionalEdge ?? { liquidityGap: { label: "Liquidity-Gap Entries", rMultiple: 0, samples: 0, winRate: 0 }, nonQualified: { label: "Non-Qualified Entries", rMultiple: 0, samples: 0, winRate: 0 } };
-  const bars = eq.mcBars?.length ? eq.mcBars : [40,70,45,90,65,80,50,95,100,75,85,60,40,55,70,30,80,65,90,50];
+  const bars = eq.mcBars ?? [];
 
   const instruments = d.instruments?.length ? d.instruments : [];
   const winFactors = d.winFactors?.length ? d.winFactors : [];
@@ -474,14 +478,20 @@ function Page2({ d }: { d: AuditData }) {
           </MiniGrid>
         </Cell>
         <Cell style={{ borderRight: "none" }}>
-          <CellTitle>Monte Carlo (N=10K)</CellTitle>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 60 }}>
-            {bars.slice(0, 20).map((h, i) => (
-              <div key={i} style={{ flex: 1, minHeight: 4, height: `${h}%`, background: `rgba(74,143,255,${0.3 + h * 0.005})` }} />
-            ))}
-          </div>
+          <CellTitle>Monthly P&amp;L Distribution</CellTitle>
+          {bars.length > 0 ? (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 60 }}>
+              {bars.map((h, i) => (
+                <div key={i} style={{ flex: 1, minHeight: 4, height: `${Math.abs(h)}%`, background: h >= 0 ? `rgba(34,201,122,${0.3 + Math.abs(h) * 0.005})` : `rgba(232,64,64,${0.3 + Math.abs(h) * 0.005})` }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: T.dim, fontFamily: FONT }}>
+              Not enough monthly data yet
+            </div>
+          )}
           <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".14em", textAlign: "center", marginTop: 8 }}>
-            SIMULATION CONFIDENCE: <span style={{ fontFamily: MONO }}>{eq.simulationConfidence.toFixed(1)}%</span>
+            CONSISTENCY SCORE: <span style={{ fontFamily: MONO }}>{eq.simulationConfidence.toFixed(1)}%</span>
           </div>
           <MiniGrid cols="1fr 1fr">
             <MiniStatBox label="Var Skew" value={eq.varianceSkew.toFixed(1)} color={T.blue} />
@@ -738,7 +748,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   const kpis = [
     { label: "Win Rate", value: `${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, sub: `+${((d.auditSummary?.winRate ?? 50) - 50).toFixed(1)}pp vs breakeven`, color: T.green },
     { label: "Edge Factor", value: (d.edgeVerdict?.profitFactor ?? 0).toFixed(2), sub: "Profit factor", color: T.blue },
-    { label: "Risk Entropy", value: `${(d.automationRisk?.score ?? 0).toFixed(2)}%`, sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: T.text },
+    { label: "Risk Entropy", value: d.auditSummary?.riskEntropy ?? "—", sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: (d.auditSummary?.riskEntropy === "Low" ? T.green : d.auditSummary?.riskEntropy === "High" ? T.red : T.amber) },
     { label: "AI Confidence", value: `${(d.auditSummary?.aiConfidence ?? 0).toFixed(0)}/100`, sub: `Grade ${d.auditSummary?.grade ?? "—"}`, color: T.amber },
   ];
 

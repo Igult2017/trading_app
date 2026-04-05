@@ -205,6 +205,7 @@ def _monthly_equity_variance(trades: list[dict]) -> dict:
         return {
             "bestMonth": 0.0, "worstMonth": 0.0,
             "monthlyStdDev": 0.0, "consistencyScore": 0.0,
+            "mcBars": [],
         }
 
     values = list(monthly.values())
@@ -217,11 +218,17 @@ def _monthly_equity_variance(trades: list[dict]) -> dict:
     else:
         consistency = 0.0
 
+    # Real distribution bars: normalize each monthly P&L to 0-100 scale
+    # relative to the absolute peak value so bars reflect actual outcomes.
+    peak = max(abs(v) for v in values) or 1.0
+    mc_bars = [max(0, min(100, round((v / peak) * 100))) for v in values]
+
     return {
         "bestMonth":        round(max(values), 2),
         "worstMonth":       round(min(values), 2),
         "monthlyStdDev":    round(std_monthly, 2),
         "consistencyScore": consistency,
+        "mcBars":           mc_bars,
     }
 
 
