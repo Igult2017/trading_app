@@ -843,7 +843,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
       if (!validAssetClasses.includes(assetClass)) return res.status(400).json({ error: "Invalid asset class" });
       const priceData = await getCachedPrice(req.params.symbol, assetClass as any);
-      if (priceData.error) return res.status(404).json({ error: priceData.error });
+      if (priceData.error) {
+        const status = priceData.error.includes('not yet in cache') ? 404 : 503;
+        return res.status(status).json({ error: priceData.error });
+      }
       res.json(priceData);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch price" });

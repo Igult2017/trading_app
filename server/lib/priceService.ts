@@ -102,13 +102,50 @@ export async function getMultiplePrices(
       } satisfies PriceResult;
     });
   } catch (err) {
-    console.error('[priceService] Daemon read failed:', err);
-    return symbols.map(s => ({
-      symbol:     s.symbol,
-      assetClass: s.assetClass,
-      error:      err instanceof Error ? err.message : String(err),
-    }));
+    // Daemon unreachable — fall back to price_service.py subprocess per symbol
+    console.error('[priceService] Daemon unavailable, falling back to subprocess');
+    return Promise.all(symbols.map(s => getPriceViaSubprocess(s.symbol, s.assetClass)));
   }
+}
+
+/** Fallback: fetch a live price via price_service.py subprocess when daemon is down. */
+export function getPriceViaSubprocess(
+  symbol:     string,
+  assetClass: string = 'stock'
+): Promise<PriceResult> {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), 'server', 'python', 'price_service.py');
+    const req        = JSON.stringify({ action: 'get_price', symbol, assetClass });
+    const proc       = spawn(PYTHON_BIN, [scriptPath, req]);
+
+    let stdout = '';
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+    proc.on('error', (err: Error) => resolve({ symbol, assetClass, error: err.message }));
+    proc.on('close', () => {
+      if (stdout.trim()) {
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve({
+            symbol,
+            assetClass:    parsed.assetClass    ?? assetClass,
+            price:         parsed.price,
+            change:        parsed.change,
+            changePercent: parsed.changePercent,
+            high:          parsed.high,
+            low:           parsed.low,
+            open:          parsed.open,
+            previousClose: parsed.previousClose,
+            volume:        parsed.volume,
+            timestamp:     parsed.timestamp,
+            source:        parsed.source ?? 'subprocess',
+            error:         parsed.error,
+          });
+          return;
+        } catch { /* fall through */ }
+      }
+      resolve({ symbol, assetClass, error: 'price_service.py returned no data' });
+    });
+  });
 }
 
 /** Ping — true if the daemon HTTP server is reachable. */
