@@ -6,11 +6,21 @@ import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { initializeDatabase } from "./db-init";
-import { getCachedMultiplePrices } from "./lib/priceService";
+import { getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 import { PYTHON_BIN } from "./lib/pythonBin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+
+/** Poll the price daemon until it responds, then resolve. */
+async function waitForDaemon(maxWaitMs = 30_000, intervalMs = 500): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    if (await pingPriceService()) return;
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  log('[PriceDaemon] Did not become ready within timeout — warmup skipped');
+}
 
 // ── Price Daemon (Python) ────────────────────────────────────────────────────
 let priceDaemon: ChildProcess | null = null;
@@ -120,7 +130,7 @@ app.use((req, res, next) => {
     
     scraperScheduler.start();
 
-    // Pre-warm price cache in the background so the sidebar is ready on first page load
+    // Wait for the price daemon to be ready, then pre-warm the cache
     const WARMUP_SYMBOLS: Array<{ symbol: string; assetClass: string }> = [
       // Crypto
       { symbol: "BTC/USDT", assetClass: "crypto" }, { symbol: "ETH/USDT", assetClass: "crypto" },
@@ -158,8 +168,10 @@ app.use((req, res, next) => {
       { symbol: "DIS", assetClass: "stock" }, { symbol: "BAC", assetClass: "stock" },
       { symbol: "META", assetClass: "stock" },
     ];
-    getCachedMultiplePrices(WARMUP_SYMBOLS)
-      .then(() => log("[PriceCache] Warmup complete — sidebar prices ready"))
+    waitForDaemon().then(() => {
+      log('[PriceDaemon] Ready — starting price cache warmup');
+      return getCachedMultiplePrices(WARMUP_SYMBOLS);
+    }).then(() => log("[PriceCache] Warmup complete — sidebar prices ready"))
       .catch((err) => log(`[PriceCache] Warmup error: ${err}`));
   });
 
