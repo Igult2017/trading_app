@@ -1087,7 +1087,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | number
   const setStepData: Record<string, (v: any) => void> = { step1: setS1, step2: setS2, step3: setS3, step4: setS4 };
 
   return (
-    <div className="tj-root" style={{ height: "100%", minHeight: "100vh" }}>
+    <div className="tj-root" style={{ minHeight: "100%" }}>
       <style dangerouslySetInnerHTML={{ __html: TJ_CSS }} />
       <div className="tj-page">
         {/* ── Form column ── */}
