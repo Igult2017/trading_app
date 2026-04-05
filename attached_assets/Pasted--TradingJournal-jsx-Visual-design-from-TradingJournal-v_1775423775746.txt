@@ -1,0 +1,888 @@
+/**
+ * TradingJournal.jsx
+ *
+ * Visual design from TradingJournal v1 (dark terminal aesthetic)
+ * Content structure from JournalForm v2 (all fields, sections, steps)
+ *
+ * Usage:
+ *   import TradingJournal from './TradingJournal';
+ *   <TradingJournal onSave={(data) => console.log(data)} trades={[]} />
+ *
+ * Props:
+ *   onSave(data)  — called when user clicks Save Entry
+ *   trades        — optional array of past trade objects to seed sidebar stats
+ *
+ * Add to index.html for best typography:
+ *   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;700&display=swap" rel="stylesheet">
+ */
+
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+
+// ─── CSS ──────────────────────────────────────────────────────────────────────
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;700&display=swap');
+
+  .tj-root *, .tj-root *::before, .tj-root *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .tj-root {
+    --c-bg:        #0d0f0e;
+    --c-bg1:       #111413;
+    --c-bg2:       #181c1a;
+    --c-bg3:       #1e2320;
+    --c-border:    rgba(255,255,255,0.07);
+    --c-border2:   rgba(255,255,255,0.12);
+    --c-text:      #e8ede9;
+    --c-muted:     #8a9e8d;
+    --c-hint:      #4d5e50;
+    --c-accent:    #3ddc84;
+    --c-accent2:   #2bb870;
+    --c-accent3:   #1a7a47;
+    --c-warn:      #f0a500;
+    --c-danger:    #e85454;
+    --c-info:      #4da6ff;
+    --radius:      6px;
+    --radius-lg:   10px;
+    --font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+    --font-display:'Syne', sans-serif;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--c-text);
+    background: var(--c-bg);
+    line-height: 1.5;
+  }
+
+  /* PAGE LAYOUT */
+  .tj-page { display: flex; align-items: stretch; width: 100%; min-height: 100vh; }
+
+  /* LEFT FORM COLUMN */
+  .tj-shell { flex: 1; min-width: 0; padding-bottom: 4rem; border-right: 1px solid var(--c-border); display: flex; flex-direction: column; }
+
+  /* Progress */
+  .tj-progress-bar { height: 2px; background: var(--c-bg3); flex-shrink: 0; }
+  .tj-progress-fill { height: 2px; background: linear-gradient(90deg, var(--c-accent3), var(--c-accent)); transition: width 0.4s cubic-bezier(.4,0,.2,1); }
+
+  /* Tabs */
+  .tj-tabs { display: flex; border-bottom: 1px solid var(--c-border); padding: 0 1.5rem; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+  .tj-tabs::-webkit-scrollbar { display: none; }
+  .tj-tab { display: flex; align-items: center; gap: 7px; padding: 12px 14px 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: var(--c-hint); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 0.15s; user-select: none; background: none; border-top: none; border-left: none; border-right: none; font-family: var(--font-mono); }
+  .tj-tab:hover { color: var(--c-muted); }
+  .tj-tab.active { color: var(--c-accent); border-bottom-color: var(--c-accent); }
+  .tj-tab-num { width: 18px; height: 18px; border-radius: 50%; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; background: var(--c-bg3); color: var(--c-hint); flex-shrink: 0; transition: all 0.15s; }
+  .tj-tab.active .tj-tab-num { background: var(--c-accent); color: #000; }
+  .tj-tab.done .tj-tab-num { background: var(--c-accent3); color: var(--c-accent); }
+
+  /* Form body */
+  .tj-body { padding: 1.75rem 1.5rem 0; flex: 1; }
+
+  /* Section */
+  .tj-section { margin-bottom: 2rem; }
+  .tj-section-label { font-size: 9px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--c-accent); padding-bottom: 8px; border-bottom: 1px solid var(--c-border); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .tj-section-label::before { content: ''; display: block; width: 3px; height: 10px; background: var(--c-accent); border-radius: 2px; }
+
+  /* Grid */
+  .tj-grid { display: grid; gap: 12px; }
+  .tj-g2 { grid-template-columns: 1fr 1fr; }
+  .tj-g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .tj-g4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  /* Fields */
+  .tj-field { display: flex; flex-direction: column; gap: 5px; }
+  .tj-label { font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-muted); }
+  .tj-sub { font-size: 10px; color: var(--c-hint); margin-top: -3px; }
+
+  /* Inputs */
+  .tj-input, .tj-select, .tj-textarea { background: var(--c-bg2); border: 1px solid var(--c-border2); border-radius: var(--radius); padding: 8px 11px; font-size: 12px; font-family: var(--font-mono); color: var(--c-text); width: 100%; outline: none; transition: border-color 0.15s, background 0.15s; appearance: none; -webkit-appearance: none; }
+  .tj-input::placeholder, .tj-textarea::placeholder { color: var(--c-hint); }
+  .tj-input:focus, .tj-select:focus, .tj-textarea:focus { border-color: var(--c-accent); background: var(--c-bg3); }
+  .tj-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234d5e50' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; cursor: pointer; }
+  .tj-textarea { resize: vertical; min-height: 70px; line-height: 1.6; }
+
+  /* Radio */
+  .tj-radio-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tj-radio { padding: 5px 13px; border: 1px solid var(--c-border2); border-radius: var(--radius); font-size: 11px; font-weight: 500; cursor: pointer; color: var(--c-muted); background: var(--c-bg2); transition: all 0.12s; user-select: none; font-family: var(--font-mono); }
+  .tj-radio:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .tj-radio.sel { background: var(--c-accent); border-color: var(--c-accent); color: #000; font-weight: 600; }
+
+  /* Check */
+  .tj-check-wrap { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--c-border2); border-radius: var(--radius); background: var(--c-bg2); cursor: pointer; transition: border-color 0.12s; }
+  .tj-check-wrap:hover { border-color: var(--c-accent); }
+  .tj-check-wrap input[type=checkbox] { width: 14px; height: 14px; margin-top: 1px; flex-shrink: 0; accent-color: var(--c-accent); cursor: pointer; }
+  .tj-check-label { font-size: 11px; color: var(--c-muted); line-height: 1.4; }
+
+  /* Score dots */
+  .tj-score-grid { display: flex; flex-direction: column; gap: 10px; }
+  .tj-score-row { display: flex; align-items: center; gap: 12px; }
+  .tj-score-name { font-size: 11px; color: var(--c-muted); min-width: 160px; flex-shrink: 0; }
+  .tj-dots { display: flex; gap: 6px; }
+  .tj-dot { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--c-border2); cursor: pointer; background: var(--c-bg2); transition: all 0.1s; }
+  .tj-dot:hover { border-color: var(--c-accent); }
+  .tj-dot.lit { background: var(--c-accent); border-color: var(--c-accent); }
+
+  /* Slider */
+  .tj-slider-row { display: flex; align-items: center; gap: 10px; }
+  .tj-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 3px; background: var(--c-bg3); border-radius: 2px; outline: none; cursor: pointer; }
+  .tj-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--c-accent); cursor: pointer; border: 2px solid var(--c-bg); box-shadow: 0 0 0 2px var(--c-accent3); }
+  .tj-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--c-accent); cursor: pointer; border: 2px solid var(--c-bg); }
+  .tj-slider-val { min-width: 40px; font-size: 13px; font-weight: 600; color: var(--c-accent); text-align: right; }
+
+  /* Upload */
+  .tj-upload { border: 1px dashed var(--c-border2); border-radius: var(--radius-lg); padding: 20px 16px; text-align: center; cursor: pointer; color: var(--c-hint); font-size: 11px; background: var(--c-bg2); transition: border-color 0.15s, background 0.15s; position: relative; min-height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .tj-upload:hover { border-color: var(--c-accent); background: var(--c-bg3); color: var(--c-accent); }
+  .tj-upload input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .tj-upload-icon { font-size: 22px; margin-bottom: 2px; }
+  .tj-upload-thumb { max-width: 100%; max-height: 140px; object-fit: contain; border-radius: 4px; margin-top: 6px; }
+  .tj-upload-name { font-size: 10px; color: var(--c-accent); margin-top: 4px; }
+
+  /* Info strip */
+  .tj-strip { background: rgba(61,220,132,0.06); border: 1px solid rgba(61,220,132,0.15); border-radius: var(--radius); padding: 8px 12px; font-size: 11px; color: var(--c-muted); margin-bottom: 14px; }
+  .tj-strip.warn { background: rgba(240,165,0,0.06); border-color: rgba(240,165,0,0.2); }
+  .tj-strip.danger { background: rgba(232,84,84,0.06); border-color: rgba(232,84,84,0.2); }
+
+  /* Info box */
+  .tj-infobox { display: flex; gap: 12px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--c-border2); background: var(--c-bg2); margin-bottom: 10px; }
+  .tj-infobox-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .tj-infobox-title { font-size: 9px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 3px; }
+  .tj-infobox-text { font-size: 11px; color: var(--c-muted); line-height: 1.5; }
+
+  /* Nav */
+  .tj-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-top: 1px solid var(--c-border); margin-top: 1.5rem; background: var(--c-bg); flex-shrink: 0; }
+  .tj-btn { padding: 9px 22px; border-radius: var(--radius); font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--c-border2); background: var(--c-bg2); color: var(--c-muted); transition: all 0.12s; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .tj-btn:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-bg3); }
+  .tj-btn.primary { background: var(--c-accent); border-color: var(--c-accent); color: #000; }
+  .tj-btn.primary:hover { background: var(--c-accent2); border-color: var(--c-accent2); }
+  .tj-btn-row { display: flex; gap: 8px; }
+
+  /* ═══════════════════════
+     RIGHT SIDEBAR
+  ═══════════════════════ */
+  .tj-sidebar {
+    width: 290px;
+    flex-shrink: 0;
+    background: var(--c-bg1);
+    padding: 1rem 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-bg3) transparent;
+    font-size: 11px;
+  }
+  .tj-sidebar::-webkit-scrollbar { width: 3px; }
+  .tj-sidebar::-webkit-scrollbar-thumb { background: var(--c-bg3); border-radius: 2px; }
+
+  .sb-eyebrow { font-size: 8px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 8px; }
+  .sb-growth-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .sb-growth-label { font-size: 10px; color: var(--c-hint); }
+  .sb-growth-val { font-size: 11px; font-weight: 600; font-family: var(--font-mono); color: var(--c-accent); letter-spacing: 0.04em; }
+  .sb-growth-val.neg { color: var(--c-danger); }
+  .sb-growth-val.zero { color: var(--c-muted); }
+
+  .sb-card { background: var(--c-bg2); border: 1px solid var(--c-border); border-radius: var(--radius-lg); padding: 10px 12px; margin-bottom: 8px; }
+  .sb-card-label { font-size: 7px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 4px; }
+  .sb-pnl { font-size: 14px; font-weight: 600; font-family: var(--font-mono); line-height: 1; margin-bottom: 8px; color: var(--c-text); }
+  .sb-pnl.pos { color: var(--c-accent); }
+  .sb-pnl.neg { color: var(--c-danger); }
+
+  .sb-bal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 7px; }
+  .sb-bal { background: var(--c-bg3); border-radius: var(--radius); padding: 6px 8px; }
+  .sb-bal-label { font-size: 7px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 2px; }
+  .sb-bal-val { font-size: 10px; font-weight: 600; font-family: var(--font-mono); color: var(--c-text); }
+
+  .sb-fee-row { display: flex; justify-content: space-between; padding-top: 7px; border-top: 1px solid var(--c-border); font-size: 10px; }
+  .sb-fee-label { color: var(--c-hint); }
+  .sb-fee-val { color: var(--c-danger); font-weight: 600; font-family: var(--font-mono); }
+
+  .sb-sec { margin-top: 8px; }
+  .sb-sec-title { font-size: 8px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--c-hint); padding-bottom: 6px; border-bottom: 1px solid var(--c-border); margin-bottom: 2px; }
+  .sb-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--c-border); }
+  .sb-row:last-child { border-bottom: none; }
+  .sb-row-label { font-size: 10px; color: var(--c-muted); }
+  .sb-row-val { font-size: 10px; font-weight: 600; font-family: var(--font-mono); color: var(--c-text); }
+  .sb-row-val.pos { color: var(--c-accent); }
+  .sb-row-val.neg { color: var(--c-danger); }
+  .sb-row-val.dim { color: var(--c-hint); }
+
+  .sb-divider { height: 1px; background: var(--c-border); margin: 10px 0; }
+
+  .sb-wr { margin-top: 8px; }
+  .sb-wr-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .sb-wr-label { font-size: 8px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-hint); }
+  .sb-wr-sub { font-size: 9px; color: var(--c-hint); }
+  .sb-wr-num { font-size: 14px; font-weight: 600; font-family: var(--font-mono); color: var(--c-accent); line-height: 1; }
+  .sb-wr-num.zero { color: var(--c-hint); }
+  .sb-bar-bg { height: 3px; background: var(--c-bg3); border-radius: 2px; overflow: hidden; margin: 5px 0 8px; }
+  .sb-bar-fill { height: 3px; background: var(--c-accent); border-radius: 2px; transition: width 0.6s ease; }
+
+  .sb-wl-row { display: flex; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+  .sb-wl-item { display: flex; align-items: center; gap: 6px; }
+  .sb-wl-lbl { font-size: 10px; color: var(--c-muted); }
+  .sb-wl-num { font-size: 10px; font-weight: 600; font-family: var(--font-mono); }
+  .sb-wl-num.w { color: var(--c-accent); }
+  .sb-wl-num.l { color: var(--c-danger); }
+
+  .sb-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+  .sb-met { background: var(--c-bg2); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 7px 8px; }
+  .sb-met-label { font-size: 7px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 2px; }
+  .sb-met-val { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: var(--c-text); }
+  .sb-met-val.pos { color: var(--c-accent); }
+
+  .sb-empty { margin-top: 16px; text-align: center; padding: 20px 10px; background: var(--c-bg2); border: 1px dashed var(--c-border2); border-radius: var(--radius-lg); }
+  .sb-empty-icon { font-size: 18px; color: var(--c-hint); margin-bottom: 6px; }
+  .sb-empty-title { font-size: 11px; font-weight: 600; color: var(--c-muted); margin-bottom: 3px; }
+  .sb-empty-sub { font-size: 10px; color: var(--c-hint); line-height: 1.5; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .tj-page { flex-direction: column-reverse; }
+    .tj-sidebar { width: 100%; position: static; max-height: none; border-bottom: 1px solid var(--c-border); }
+    .tj-shell { border-right: none; }
+  }
+  @media (max-width: 720px) {
+    .tj-g3, .tj-g4 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 540px) {
+    .tj-body { padding: 1.25rem 1rem 0; }
+    .tj-tabs { padding: 0 1rem; }
+    .tj-nav { padding: 1rem; }
+    .tj-g2, .tj-g3, .tj-g4 { grid-template-columns: 1fr; }
+  }
+`;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const SETUP_TAGS = ['Breakout','Reversal','Continuation','Range Bound','Trend Following','Momentum','Pullback'];
+const EMOTIONS_LIST = ['Calm','Anxious','FOMO','Confident','Fearful','Neutral'];
+const POST_EMOTIONS = ['Neutral','Relieved','Euphoric','Frustrated','Regretful','Calm','Anxious'];
+
+// ─── Stats computation ────────────────────────────────────────────────────────
+function computeStats(trades) {
+  if (!trades.length) return null;
+  const wins   = trades.filter(t => t.outcome === 'Win');
+  const losses = trades.filter(t => t.outcome === 'Loss');
+  const pnls   = trades.map(t => parseFloat(t.profitLoss) || 0);
+  const netPnL = pnls.reduce((a, b) => a + b, 0);
+  const winAmts  = wins.map(t => parseFloat(t.profitLoss) || 0);
+  const lossAmts = losses.map(t => parseFloat(t.profitLoss) || 0);
+  const bestTrade  = pnls.length ? Math.max(...pnls) : 0;
+  const worstTrade = pnls.length ? Math.min(...pnls) : 0;
+  const grossWin  = winAmts.reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(lossAmts.reduce((a, b) => a + b, 0));
+  const profitFactor = grossLoss > 0 ? (grossWin / grossLoss).toFixed(2) : grossWin > 0 ? '∞' : '0';
+  const decided  = wins.length + losses.length;
+  const winRate  = decided > 0 ? (wins.length / decided) * 100 : 0;
+  const commissions = trades.reduce((a, t) => a + (parseFloat(t.commission) || 0), 0);
+  const endBal   = parseFloat(trades[trades.length - 1]?.accountBalance) || 0;
+  const startBal = endBal - netPnL;
+  const growth   = startBal > 0 ? ((netPnL / startBal) * 100) : 0;
+  const avgWin   = wins.length ? grossWin / wins.length : 0;
+  const avgLoss  = losses.length ? grossLoss / losses.length : 0;
+  const expectancy = decided > 0
+    ? ((wins.length / decided) * avgWin - (losses.length / decided) * avgLoss).toFixed(2)
+    : '0.00';
+  const rrTrades = trades.filter(t => t.achievedRR);
+  const avgRR    = rrTrades.length
+    ? (rrTrades.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTrades.length).toFixed(2)
+    : '0';
+  return {
+    netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
+    bestTrade, worstTrade, profitFactor, commissions, startBal, endBal, growth,
+    avgRR, expectancy,
+    buys:  trades.filter(t => t.direction === 'Long').length,
+    sells: trades.filter(t => t.direction === 'Short').length,
+  };
+}
+
+const fmtUsd = n => (n >= 0 ? '+' : '-') + '$' + Math.abs(n).toFixed(2);
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ trades }) {
+  const stats   = useMemo(() => computeStats(trades), [trades]);
+  const has     = trades.length > 0;
+  const pnlCls  = stats ? (stats.netPnL > 0 ? 'pos' : stats.netPnL < 0 ? 'neg' : '') : '';
+  const grwCls  = stats ? (stats.growth > 0 ? '' : stats.growth < 0 ? 'neg' : 'zero') : 'zero';
+
+  return (
+    <div className="tj-sidebar">
+      <div className="sb-eyebrow">Session</div>
+
+      <div className="sb-growth-row">
+        <span className="sb-growth-label">Portfolio growth</span>
+        <span className={`sb-growth-val ${grwCls}`}>
+          {stats ? (stats.growth >= 0 ? '+' : '') + stats.growth.toFixed(1) + '%' : '+0.0%'}
+        </span>
+      </div>
+
+      <div className="sb-card">
+        <div className="sb-card-label">Net P&amp;L</div>
+        <div className={`sb-pnl ${pnlCls}`}>{stats ? fmtUsd(stats.netPnL) : '$0.00'}</div>
+        <div className="sb-bal-grid">
+          <div className="sb-bal"><div className="sb-bal-label">Start balance</div><div className="sb-bal-val">${stats ? stats.startBal.toFixed(2) : '0.00'}</div></div>
+          <div className="sb-bal"><div className="sb-bal-label">End balance</div><div className="sb-bal-val">${stats ? stats.endBal.toFixed(2) : '0.00'}</div></div>
+        </div>
+        <div className="sb-fee-row">
+          <span className="sb-fee-label">Commissions &amp; fees</span>
+          <span className="sb-fee-val">{stats ? '-$' + stats.commissions.toFixed(2) : '$0.00'}</span>
+        </div>
+      </div>
+
+      <div className="sb-sec">
+        <div className="sb-sec-title">Trading stats</div>
+        <div className="sb-row"><span className="sb-row-label">Buys</span><span className="sb-row-val">{has ? stats.buys : 0}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Sells</span><span className="sb-row-val">{has ? stats.sells : 0}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Total trades</span><span className="sb-row-val">{has ? stats.total : 0}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Best trade</span><span className={`sb-row-val ${has && stats.bestTrade > 0 ? 'pos' : ''}`}>{has ? fmtUsd(stats.bestTrade) : '$0.00'}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Worst trade</span><span className={`sb-row-val ${has && stats.worstTrade < 0 ? 'neg' : ''}`}>{has ? fmtUsd(stats.worstTrade) : '$0.00'}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Avg hold time</span><span className="sb-row-val dim">—</span></div>
+        <div className="sb-row"><span className="sb-row-label">Max drawdown</span><span className="sb-row-val dim">$0.00</span></div>
+      </div>
+
+      <div className="sb-divider" />
+
+      <div className="sb-wr">
+        <div className="sb-wr-header">
+          <span className="sb-wr-label">Win rate</span>
+          <span className="sb-wr-sub">{has ? `${stats.wins} of ${stats.total} trades` : '0 of 0 trades'}</span>
+        </div>
+        <div className={`sb-wr-num ${!has ? 'zero' : ''}`}>{has ? Math.round(stats.winRate) + '%' : '0%'}</div>
+        <div className="sb-bar-bg"><div className="sb-bar-fill" style={{ width: has ? stats.winRate + '%' : '0%' }} /></div>
+      </div>
+
+      <div className="sb-wl-row">
+        <div className="sb-wl-item"><span className="sb-wl-lbl">Wins</span><span className="sb-wl-num w">{String(has ? stats.wins : 0).padStart(2, '0')}</span></div>
+        <div className="sb-wl-item"><span className="sb-wl-lbl">Losses</span><span className="sb-wl-num l">{String(has ? stats.losses : 0).padStart(2, '0')}</span></div>
+      </div>
+
+      <div className="sb-metrics">
+        <div className="sb-met"><div className="sb-met-label">Profit factor</div><div className={`sb-met-val ${has && parseFloat(stats.profitFactor) > 1 ? 'pos' : ''}`}>{has ? stats.profitFactor : '0'}</div></div>
+        <div className="sb-met"><div className="sb-met-label">Expectancy</div><div className={`sb-met-val ${has && parseFloat(stats.expectancy) > 0 ? 'pos' : ''}`}>{has ? stats.expectancy : '0'}</div></div>
+        <div className="sb-met"><div className="sb-met-label">Avg R:R</div><div className={`sb-met-val ${has && parseFloat(stats.avgRR) > 0 ? 'pos' : ''}`}>{has ? stats.avgRR : '0'}</div></div>
+        <div className="sb-met"><div className="sb-met-label">W / L ratio</div><div className="sb-met-val">{has ? stats.wins + '/' + stats.losses : '0/0'}</div></div>
+      </div>
+
+      {!has && (
+        <div className="sb-empty">
+          <div className="sb-empty-icon">◈</div>
+          <div className="sb-empty-title">No trades yet</div>
+          <div className="sb-empty-sub">Log a trade to see stats</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Form primitives ──────────────────────────────────────────────────────────
+const Inj = ({ css }) => <style dangerouslySetInnerHTML={{ __html: css }} />;
+
+function Field({ label, sub, children }) {
+  return <div className="tj-field"><div className="tj-label">{label}</div>{sub && <div className="tj-sub">{sub}</div>}{children}</div>;
+}
+
+function Inp({ label, sub, type = 'text', placeholder, value, onChange }) {
+  return (
+    <Field label={label} sub={sub}>
+      <input className="tj-input" type={type} placeholder={placeholder || ''} value={value || ''} onChange={e => onChange(e.target.value)} />
+    </Field>
+  );
+}
+
+function Sel({ label, sub, options, value, onChange }) {
+  return (
+    <Field label={label} sub={sub}>
+      <select className="tj-select" value={value || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">— select —</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </Field>
+  );
+}
+
+function Txt({ label, value, onChange, placeholder, rows = 3 }) {
+  return (
+    <Field label={label}>
+      <textarea className="tj-textarea" rows={rows} placeholder={placeholder || ''} value={value || ''} onChange={e => onChange(e.target.value)} />
+    </Field>
+  );
+}
+
+function Radio({ label, options, value, onChange }) {
+  return (
+    <Field label={label}>
+      <div className="tj-radio-group">
+        {options.map(o => (
+          <div key={o} className={`tj-radio${value === o ? ' sel' : ''}`} onClick={() => onChange(o)}>{o}</div>
+        ))}
+      </div>
+    </Field>
+  );
+}
+
+function Check({ label, field, value, onChange }) {
+  return (
+    <label className="tj-check-wrap">
+      <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} />
+      <span className="tj-check-label">{label}</span>
+    </label>
+  );
+}
+
+function Dots({ name, value = 0, onChange, max = 5 }) {
+  return (
+    <div className="tj-score-row">
+      <div className="tj-score-name">{name}</div>
+      <div className="tj-dots">
+        {Array.from({ length: max }).map((_, i) => (
+          <div key={i} className={`tj-dot${i < value ? ' lit' : ''}`} onClick={() => onChange(i + 1)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Slider({ label, min = 1, max = 5, step = 1, value, onChange, suffix = '' }) {
+  return (
+    <Field label={label}>
+      <div className="tj-slider-row">
+        <input className="tj-slider" type="range" min={min} max={max} step={step} value={value || min} onChange={e => onChange(Number(e.target.value))} />
+        <div className="tj-slider-val">{value || min}{suffix}</div>
+      </div>
+    </Field>
+  );
+}
+
+function Upload({ label, value, onChange }) {
+  const handleFile = e => {
+    const f = e.target.files[0];
+    if (f) onChange({ file: f, url: URL.createObjectURL(f), name: f.name });
+  };
+  return (
+    <Field label={label}>
+      <div className="tj-upload">
+        <input type="file" accept="image/*" onChange={handleFile} />
+        {!value
+          ? <><div className="tj-upload-icon">↑</div><div>Click to upload screenshot</div></>
+          : <><img className="tj-upload-thumb" src={value.url} alt="" /><div className="tj-upload-name">{value.name}</div></>
+        }
+      </div>
+    </Field>
+  );
+}
+
+function InfoBox({ text, type = 'default' }) {
+  return <div className={`tj-strip${type === 'warn' ? ' warn' : type === 'danger' ? ' danger' : ''}`}>{text}</div>;
+}
+
+// ─── Step 1 — Decision ────────────────────────────────────────────────────────
+function Step1({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Core Thesis</div>
+        <InfoBox text="Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution." />
+        <div className="tj-grid" style={{ gap: 12 }}>
+          <Txt label="Trade Thesis" value={d.thesis} onChange={f('thesis')} placeholder="If you can't articulate your edge in 2–3 sentences, you don't have one…" rows={3} />
+          <div className="tj-grid tj-g2">
+            <Txt label="Entry Trigger" value={d.trigger} onChange={f('trigger')} placeholder="What specifically triggered entry?" rows={2} />
+            <Txt label="Invalidation Logic" value={d.invalidationLogic} onChange={f('invalidationLogic')} placeholder="What would make this setup invalid?" rows={2} />
+          </div>
+          <Txt label="Expected Behavior" value={d.expectedBehavior} onChange={f('expectedBehavior')} placeholder="How do you expect price to move?" rows={2} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Pre-Entry State Check</div>
+        <div className="tj-grid tj-g2">
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <Slider label="Energy Level" min={1} max={5} value={d.energyLevel} onChange={f('energyLevel')} suffix="/5" />
+            <Slider label="Focus Level" min={1} max={5} value={d.focusLevel} onChange={f('focusLevel')} suffix="/5" />
+            <Slider label="Confidence at Entry" min={1} max={5} value={d.confidenceAtEntry} onChange={f('confidenceAtEntry')} suffix="/5" />
+            <Radio label="External Distraction" options={['No', 'Yes']} value={d.externalDistraction} onChange={f('externalDistraction')} />
+          </div>
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <Inp label="Open Trades Count" type="number" placeholder="0" value={d.openTradesCount} onChange={f('openTradesCount')} />
+            <Inp label="Total Risk Open (%)" type="number" placeholder="2.5" value={d.totalRiskOpen} onChange={f('totalRiskOpen')} />
+            <Radio label="Correlated Exposure" options={['No', 'Yes']} value={d.correlatedExposure} onChange={f('correlatedExposure')} />
+          </div>
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Classification &amp; Quality</div>
+        <div className="tj-grid tj-g2">
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <Inp label="Strategy" placeholder="e.g., Supply & Demand, Breakout…" value={d.strategyVersionId} onChange={f('strategyVersionId')} />
+            <Sel label="Setup Tag" options={SETUP_TAGS} value={d.setupTag} onChange={f('setupTag')} />
+          </div>
+          <Sel label="Trade Grade" options={['A - Textbook', 'B - Solid', 'C - Acceptable', 'D - Marginal', 'F - Poor']} value={d.tradeGrade} onChange={f('tradeGrade')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Rule Governance</div>
+        <div className="tj-grid tj-g2">
+          <Radio label="Setup Fully Valid" options={['Yes', 'No', 'Partial']} value={d.setupFullyValid} onChange={f('setupFullyValid')} />
+          <Radio label="Any Rule Broken?" options={['No', 'Yes']} value={d.anyRuleBroken} onChange={f('anyRuleBroken')} />
+          {d.anyRuleBroken === 'Yes' && (
+            <Inp label="Which Rule?" placeholder="e.g., Risk > 2%" value={d.ruleBroken} onChange={f('ruleBroken')} />
+          )}
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Impulse Control Check</div>
+        <InfoBox text="⚠ If ANY box below is checked — stop and reconsider before executing." type="warn" />
+        <div className="tj-grid tj-g2">
+          <Check label="Entering due to FOMO" value={d.impulseCheckFOMO} onChange={f('impulseCheckFOMO')} />
+          <Check label="Revenge trading after a loss" value={d.impulseCheckRevenge} onChange={f('impulseCheckRevenge')} />
+          <Check label="Trading out of boredom" value={d.impulseCheckBored} onChange={f('impulseCheckBored')} />
+          <Check label="Emotionally compromised" value={d.impulseCheckEmotional} onChange={f('impulseCheckEmotional')} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Step 2 — Execution ───────────────────────────────────────────────────────
+function Step2({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Trade Screenshots</div>
+        <div className="tj-grid tj-g2">
+          <Upload label="Entry / Setup Screenshot" value={d.screenshot} onChange={f('screenshot')} />
+          <Upload label="Exit Chart Screenshot" value={d.exitScreenshot} onChange={f('exitScreenshot')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Position Details</div>
+        <div className="tj-grid tj-g4">
+          <Inp label="Instrument" placeholder="EURUSD" value={d.instrument} onChange={f('instrument')} />
+          <Sel label="Pair Category" options={['Major', 'Minor', 'Exotic', 'Index', 'Crypto', 'Commodity']} value={d.pairCategory} onChange={f('pairCategory')} />
+          <Radio label="Direction" options={['Long', 'Short']} value={d.direction} onChange={f('direction')} />
+          <Inp label="Lot Size" type="number" placeholder="0.01" value={d.lotSize} onChange={f('lotSize')} />
+          <Inp label="Entry Price" type="number" placeholder="0.00" value={d.entryPrice} onChange={f('entryPrice')} />
+          <Inp label="Stop Loss" type="number" placeholder="0.00" value={d.stopLoss} onChange={f('stopLoss')} />
+          <Inp label="SL Distance (Pips)" type="number" placeholder="0" value={d.stopLossDistancePips} onChange={f('stopLossDistancePips')} />
+          <Inp label="Take Profit" type="number" placeholder="0.00" value={d.takeProfit} onChange={f('takeProfit')} />
+          <Inp label="TP Distance (Pips)" type="number" placeholder="0" value={d.takeProfitDistancePips} onChange={f('takeProfitDistancePips')} />
+          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPercent} onChange={f('riskPercent')} />
+          <Sel label="Order Type" options={['Market', 'Limit', 'Stop', 'Stop-Limit']} value={d.orderType} onChange={f('orderType')} />
+          <Radio label="Outcome" options={['Win', 'Loss', 'BE']} value={d.outcome} onChange={f('outcome')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Timing &amp; Duration</div>
+        <div className="tj-grid tj-g4">
+          <Inp label="Entry Time" type="datetime-local" value={d.entryTime} onChange={f('entryTime')} />
+          <Inp label="Exit Time" type="datetime-local" value={d.exitTime} onChange={f('exitTime')} />
+          <Sel label="Day of Week" options={['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']} value={d.dayOfWeek} onChange={f('dayOfWeek')} />
+          <Inp label="Trade Duration" placeholder="2h 30m" value={d.tradeDuration} onChange={f('tradeDuration')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Timeframe Analysis</div>
+        <div className="tj-grid tj-g3">
+          <Sel label="Entry TF" options={['1M', '3M', '5M', '15M', '30MIN']} value={d.entryTF} onChange={f('entryTF')} />
+          <Sel label="Analysis TF" options={['15M', '30MIN', '1HR', '2HR', '4HR']} value={d.analysisTF} onChange={f('analysisTF')} />
+          <Sel label="Context TF" options={['1W', '1D', '4HR']} value={d.contextTF} onChange={f('contextTF')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Entry &amp; Trade Management</div>
+        <div className="tj-grid tj-g3">
+          <Sel label="Entry Method" options={['Market', 'Limit', 'Stop']} value={d.entryMethod} onChange={f('entryMethod')} />
+          <Inp label="Exit Strategy" placeholder="Describe exit approach" value={d.exitStrategy} onChange={f('exitStrategy')} />
+          <Sel label="Management Type" options={['Rule-based', 'Discretionary', 'Hybrid']} value={d.managementType} onChange={f('managementType')} />
+          <Sel label="Risk Heat" options={['Low', 'Medium', 'High']} value={d.riskHeat} onChange={f('riskHeat')} />
+          <Inp label="Spread at Entry (Pips)" type="number" placeholder="1.2" value={d.spreadAtEntry} onChange={f('spreadAtEntry')} />
+          <Inp label="Strategy Version" placeholder="v2.3" value={d.strategyVersionId} onChange={f('strategyVersionId')} />
+        </div>
+        <div className="tj-grid tj-g2" style={{ marginTop: 10 }}>
+          <Check label="Break-Even Applied" value={d.breakEvenApplied} onChange={f('breakEvenApplied')} />
+          <Check label="Trailing Stop Applied" value={d.trailingStopApplied} onChange={f('trailingStopApplied')} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Step 3 — Context ─────────────────────────────────────────────────────────
+function Step3({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  const SCORES = [
+    ['marketAlignment', 'Market Alignment'],
+    ['setupClarity', 'Setup Clarity'],
+    ['entryPrecision', 'Entry Precision'],
+    ['confluence', 'Confluence'],
+    ['timingQuality', 'Timing Quality'],
+    ['signalValidation', 'Signal Validation'],
+  ];
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Market Environment</div>
+        <div className="tj-grid tj-g4">
+          <Sel label="Market Regime" options={['Bullish', 'Bearish', 'Ranging']} value={d.marketRegime} onChange={f('marketRegime')} />
+          <Sel label="Trend Direction" options={['Bullish', 'Bearish', 'Sideways']} value={d.trendDirection} onChange={f('trendDirection')} />
+          <Sel label="Volatility" options={['Low', 'Normal', 'High']} value={d.volatilityState} onChange={f('volatilityState')} />
+          <Sel label="Liquidity" options={['Low', 'Normal', 'High']} value={d.liquidity} onChange={f('liquidity')} />
+          <Sel label="News Environment" options={['Clear', 'Minor', 'Major']} value={d.newsEnvironment} onChange={f('newsEnvironment')} />
+          <Sel label="Session" options={['London', 'New York', 'Tokyo', 'Sydney', 'Overlap']} value={d.sessionName} onChange={f('sessionName')} />
+          <Sel label="Session Phase" options={['Open', 'Mid', 'Close']} value={d.sessionPhase} onChange={f('sessionPhase')} />
+          <Inp label="ATR at Entry" type="number" placeholder="0.0045" value={d.atrAtEntry} onChange={f('atrAtEntry')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Higher Timeframe Context</div>
+        <div className="tj-grid tj-g2" style={{ marginBottom: 12 }}>
+          <Radio label="HTF Bias" options={['Bull', 'Bear', 'Range']} value={d.htfBias} onChange={f('htfBias')} />
+          <Radio label="HTF Key Level Present" options={['Yes', 'No']} value={d.htfKeyLevelPresent} onChange={f('htfKeyLevelPresent')} />
+          <Radio label="Trend Alignment" options={['Yes', 'No']} value={d.trendAlignment} onChange={f('trendAlignment')} />
+          <Radio label="MTF Alignment" options={['Yes', 'No']} value={d.multitimeframeAlignment} onChange={f('multitimeframeAlignment')} />
+        </div>
+        <div className="tj-grid" style={{ gap: 10 }}>
+          <Txt label="Higher TF Context" value={d.higherTFContext} onChange={f('higherTFContext')} placeholder="Weekly / Daily bias and key levels…" rows={2} />
+          <Txt label="Analysis TF Context" value={d.analysisTFContext} onChange={f('analysisTFContext')} placeholder="4H / 1H structure overview…" rows={2} />
+          <Txt label="Entry TF Context" value={d.entryTFContext} onChange={f('entryTFContext')} placeholder="15M / 5M entry setup details…" rows={2} />
+          <Txt label="Other Confluences" value={d.otherConfluences} onChange={f('otherConfluences')} placeholder="Additional confluences…" rows={2} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Technical Signals</div>
+        <div className="tj-grid tj-g2">
+          <Inp label="Timing Context" placeholder="Impulse, Correction, Ranging…" value={d.timingContext} onChange={f('timingContext')} />
+          <Inp label="Candle Pattern" placeholder="e.g., Engulfing, Pin Bar" value={d.candlePattern} onChange={f('candlePattern')} />
+          <Txt label="Primary Signals" value={d.primarySignals} onChange={f('primarySignals')} placeholder="Main confirmation signals" rows={2} />
+          <Txt label="Secondary Signals" value={d.secondarySignals} onChange={f('secondarySignals')} placeholder="Supporting confluences" rows={2} />
+        </div>
+        <Inp label="Indicator State" placeholder="e.g., RSI 62, MACD bullish cross, above 50 EMA…" value={d.indicatorState} onChange={f('indicatorState')} />
+        <div style={{ marginTop: 10 }}>
+          <Txt label="Liquidity Targets" value={d.liquidityTargets} onChange={f('liquidityTargets')} placeholder="Major liquidity pools, stop hunts…" rows={2} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Key Level Analysis</div>
+        <div className="tj-grid tj-g2">
+          <Radio label="Key Level Respect" options={['Yes', 'No', 'Partial']} value={d.keyLevelRespect} onChange={f('keyLevelRespect')} />
+          <Sel label="Key Level Type" options={['Support', 'Resistance', 'Pivot', 'Fib Level']} value={d.keyLevelType} onChange={f('keyLevelType')} />
+          <Radio label="Momentum Validity" options={['Strong', 'Moderate', 'Weak']} value={d.momentumValidity} onChange={f('momentumValidity')} />
+          <Radio label="Target Logic Clarity" options={['High', 'Medium', 'Low']} value={d.targetLogicClarity} onChange={f('targetLogicClarity')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Setup Quality Scores (1–5)</div>
+        <div className="tj-score-grid">
+          {SCORES.map(([k, name]) => (
+            <Dots key={k} name={name} value={d[k]} onChange={v => f(k)(v)} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Step 4 — Review ──────────────────────────────────────────────────────────
+function Step4({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Exit Causation</div>
+        <Sel label="Primary Exit Reason" options={['Target Hit', 'Stop Hit', 'Time Exit', 'Structure Change', 'News', 'Emotional Exit']} value={d.primaryExitReason} onChange={f('primaryExitReason')} />
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Performance Data</div>
+        <div className="tj-grid tj-g4">
+          <Inp label="Pips / Points Gained-Lost" type="number" placeholder="0" value={d.pipsGainedLost} onChange={f('pipsGainedLost')} />
+          <Inp label="P&L Amount ($)" type="number" placeholder="0.00" value={d.profitLoss} onChange={f('profitLoss')} />
+          <Inp label="Account Balance" type="number" placeholder="0.00" value={d.accountBalance} onChange={f('accountBalance')} />
+          <Inp label="Commission / Fees" type="number" placeholder="3.50" value={d.commission} onChange={f('commission')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Planning vs Execution</div>
+        <div className="tj-grid tj-g3">
+          <Inp label="Planned Entry" type="number" placeholder="0.00" value={d.plannedEntry} onChange={f('plannedEntry')} />
+          <Inp label="Planned SL" type="number" placeholder="0.00" value={d.plannedSL} onChange={f('plannedSL')} />
+          <Inp label="Planned TP" type="number" placeholder="0.00" value={d.plannedTP} onChange={f('plannedTP')} />
+          <Inp label="Actual Entry" type="number" placeholder="0.00" value={d.actualEntry} onChange={f('actualEntry')} />
+          <Inp label="Actual SL" type="number" placeholder="0.00" value={d.actualSL} onChange={f('actualSL')} />
+          <Inp label="Actual TP" type="number" placeholder="0.00" value={d.actualTP} onChange={f('actualTP')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Trade Metrics</div>
+        <div className="tj-grid tj-g3">
+          <Inp label="MAE (Max Adverse Excursion)" placeholder="-15 pts" value={d.mae} onChange={f('mae')} />
+          <Inp label="MFE (Max Favorable Excursion)" placeholder="+45 pts" value={d.mfe} onChange={f('mfe')} />
+          <Inp label="Monetary Risk ($)" type="number" placeholder="0.00" value={d.monetaryRisk} onChange={f('monetaryRisk')} />
+          <Inp label="Potential Reward ($)" type="number" placeholder="0.00" value={d.potentialReward} onChange={f('potentialReward')} />
+          <Inp label="Planned R:R" placeholder="1:2" value={d.plannedRR} onChange={f('plannedRR')} />
+          <Inp label="Achieved R:R" placeholder="1:1.5" value={d.achievedRR} onChange={f('achievedRR')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Psychological State</div>
+        <div className="tj-grid tj-g3">
+          <Sel label="Emotional State" options={EMOTIONS_LIST} value={d.emotionalState} onChange={f('emotionalState')} />
+          <Sel label="Focus / Stress" options={['Low', 'Medium', 'High']} value={d.focusStressLevel} onChange={f('focusStressLevel')} />
+          <Inp label="Rules Followed %" type="number" placeholder="100" value={d.rulesFollowed} onChange={f('rulesFollowed')} />
+          <Slider label="Confidence Level" min={1} max={5} value={d.confidenceLevel} onChange={f('confidenceLevel')} suffix="/5" />
+          <Sel label="Post-Trade Emotion" options={POST_EMOTIONS} value={d.postTradeEmotion} onChange={f('postTradeEmotion')} />
+          <Inp label="Consecutive Trade Count" type="number" placeholder="3" value={d.consecutiveTradeCount} onChange={f('consecutiveTradeCount')} />
+        </div>
+        <div className="tj-grid tj-g2" style={{ marginTop: 10 }}>
+          <Check label="Worth repeating this setup" value={d.worthRepeating} onChange={f('worthRepeating')} />
+          <Check label="Recency bias (influenced by last trade)" value={d.recencyBiasFlag} onChange={f('recencyBiasFlag')} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Trade Debrief</div>
+        <div className="tj-grid" style={{ gap: 12 }}>
+          <Txt label="What Worked" value={d.whatWorked} onChange={f('whatWorked')} placeholder="Describe what went well in this trade…" />
+          <Txt label="What Failed" value={d.whatFailed} onChange={f('whatFailed')} placeholder="Describe what went wrong or could be improved…" />
+          <Txt label="Future Adjustments" value={d.adjustments} onChange={f('adjustments')} placeholder="What would you do differently next time?" />
+          <Txt label="Additional Notes" rows={4} value={d.notes} onChange={f('notes')} placeholder="Any additional observations, ideas, market context, or lessons learned…" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Initial state ────────────────────────────────────────────────────────────
+const INIT = {
+  step1: {
+    thesis: '', trigger: '', invalidationLogic: '', expectedBehavior: '',
+    energyLevel: 3, focusLevel: 3, confidenceAtEntry: 3,
+    externalDistraction: 'No', openTradesCount: '', totalRiskOpen: '', correlatedExposure: 'No',
+    strategyVersionId: '', setupTag: 'Breakout', tradeGrade: 'A - Textbook',
+    setupFullyValid: 'Yes', anyRuleBroken: 'No', ruleBroken: '',
+    impulseCheckFOMO: false, impulseCheckRevenge: false, impulseCheckBored: false, impulseCheckEmotional: false,
+  },
+  step2: {
+    screenshot: null, exitScreenshot: null,
+    instrument: '', pairCategory: 'Major', direction: 'Long', lotSize: '',
+    entryPrice: '', stopLoss: '', stopLossDistancePips: '', takeProfit: '', takeProfitDistancePips: '',
+    riskPercent: '', orderType: 'Market', outcome: '',
+    entryTime: '', exitTime: '', dayOfWeek: 'Monday', tradeDuration: '',
+    entryTF: '5M', analysisTF: '1HR', contextTF: '1D',
+    entryMethod: 'Market', exitStrategy: '', managementType: 'Rule-based',
+    riskHeat: 'Low', spreadAtEntry: '', breakEvenApplied: false, trailingStopApplied: false,
+  },
+  step3: {
+    marketRegime: 'Bullish', trendDirection: 'Bullish', volatilityState: 'Normal',
+    liquidity: 'Normal', newsEnvironment: 'Clear', sessionName: 'London',
+    sessionPhase: 'Open', atrAtEntry: '',
+    htfBias: 'Bull', htfKeyLevelPresent: 'Yes', trendAlignment: 'Yes', multitimeframeAlignment: 'Yes',
+    higherTFContext: '', analysisTFContext: '', entryTFContext: '', otherConfluences: '',
+    timingContext: '', candlePattern: '', primarySignals: '', secondarySignals: '',
+    indicatorState: '', liquidityTargets: '',
+    keyLevelRespect: 'Yes', keyLevelType: 'Support', momentumValidity: 'Strong', targetLogicClarity: 'High',
+    marketAlignment: 3, setupClarity: 3, entryPrecision: 3, confluence: 3, timingQuality: 3, signalValidation: 3,
+  },
+  step4: {
+    primaryExitReason: 'Target Hit',
+    pipsGainedLost: '', profitLoss: '', accountBalance: '', commission: '',
+    plannedEntry: '', plannedSL: '', plannedTP: '',
+    actualEntry: '', actualSL: '', actualTP: '',
+    mae: '', mfe: '', monetaryRisk: '', potentialReward: '', plannedRR: '', achievedRR: '',
+    emotionalState: 'Calm', focusStressLevel: 'Low', rulesFollowed: 100,
+    confidenceLevel: 3, postTradeEmotion: 'Neutral', consecutiveTradeCount: '',
+    worthRepeating: true, recencyBiasFlag: false,
+    whatWorked: '', whatFailed: '', adjustments: '', notes: '',
+  },
+};
+
+const STEPS = [
+  { n: 1, label: 'Decision',  key: 'step1', Component: Step1 },
+  { n: 2, label: 'Execution', key: 'step2', Component: Step2 },
+  { n: 3, label: 'Context',   key: 'step3', Component: Step3 },
+  { n: 4, label: 'Review',    key: 'step4', Component: Step4 },
+];
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+export default function TradingJournal({ onSave, trades: initialTrades = [] }) {
+  const [step, setStep]       = useState(1);
+  const [data, setData]       = useState(INIT);
+  const [savedTrades, setSavedTrades] = useState(initialTrades);
+
+  const setStepData = useCallback(key => val => setData(prev => ({ ...prev, [key]: val })), []);
+
+  const handleSave = () => {
+    const entry = {
+      ...data.step1, ...data.step2, ...data.step3, ...data.step4,
+      timestamp: new Date().toISOString(),
+    };
+    setSavedTrades(prev => [...prev, entry]);
+    if (onSave) onSave(data);
+    setData(INIT);
+    setStep(1);
+  };
+
+  const cur = STEPS[step - 1];
+
+  return (
+    <div className="tj-root">
+      <Inj css={CSS} />
+      <div className="tj-page">
+
+        {/* ─── Form ─── */}
+        <div className="tj-shell">
+          <div className="tj-progress-bar">
+            <div className="tj-progress-fill" style={{ width: `${(step / STEPS.length) * 100}%` }} />
+          </div>
+
+          <div className="tj-tabs">
+            {STEPS.map(s => (
+              <button
+                key={s.n}
+                className={`tj-tab${step === s.n ? ' active' : ''}${step > s.n ? ' done' : ''}`}
+                onClick={() => setStep(s.n)}
+              >
+                <span className="tj-tab-num">{step > s.n ? '✓' : s.n}</span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="tj-body">
+            <cur.Component d={data[cur.key]} set={setStepData(cur.key)} />
+          </div>
+
+          <div className="tj-nav">
+            {step > 1
+              ? <button className="tj-btn" onClick={() => setStep(s => s - 1)}>← Previous</button>
+              : <div />
+            }
+            <div className="tj-btn-row">
+              {step < STEPS.length
+                ? <button className="tj-btn primary" onClick={() => setStep(s => s + 1)}>Next →</button>
+                : <button className="tj-btn primary" onClick={handleSave}>✓ Save Entry</button>
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Sidebar ─── */}
+        <Sidebar trades={savedTrades} />
+      </div>
+    </div>
+  );
+}

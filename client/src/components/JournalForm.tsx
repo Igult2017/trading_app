@@ -1,319 +1,484 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useSessionBalance } from "@/hooks/useSessionBalance";
-import { calcAllTradeValues } from "@/lib/tradeCalculations";
 
-// ── Inline SVG Icons ───────────────────────────────────────────────────────
-const Ic = ({ d, size=16, style, className, strokeWidth=2 }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
-    strokeLinejoin="round" style={style} className={className}>
-    {Array.isArray(d) ? d.map((p: string,i: number)=><path key={i} d={p}/>) : <path d={d}/>}
-  </svg>
-);
+// ── Scoped CSS (all rules prefixed with .tj-root) ────────────────────────────
+const TJ_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;700&display=swap');
 
-const ICONS: Record<string, any> = {
-  ChevronRight: "M9 18l6-6-6-6",
-  ChevronLeft:  "M15 18l-6-6 6-6",
-  AlertCircle:  ["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 8v4","M12 16h.01"],
-  Zap:          "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
-  ShieldCheck:  ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z","M9 12l2 2 4-4"],
-  Activity:     "M22 12h-4l-3 9L9 3l-3 9H2",
-  Globe2:       ["M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z","M2 12h20","M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"],
-  CheckCircle2: ["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M9 12l2 2 4-4"],
-  Camera:       ["M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z","M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"],
-  Target:       ["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z","M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
-  Brain:        ["M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-4.66z","M14.5 2a2.5 2.5 0 0 1 1.44 4.66 2.5 2.5 0 0 1 1.32 4.24 3 3 0 0 1-.34 5.58 2.5 2.5 0 0 1-2.96 3.08A2.5 2.5 0 0 1 12 19.5v-15A2.5 2.5 0 0 1 14.5 2z"],
-  Crosshair:    ["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M22 12h-4","M6 12H2","M12 6V2","M12 22v-4"],
-  Microscope:   ["M6 18h8","M3 22h18","M14 22a7 7 0 1 0 0-14h-1","M9 14h2","M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2z","M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"],
-  Shield:       "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
-  Battery:      ["M17 7H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z","M22 11v2"],
-  Briefcase:    ["M20 7H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z","M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"],
-  Layers:       ["M12 2L2 7l10 5 10-5-10-5z","M2 17l10 5 10-5","M2 12l10 5 10-5"],
-  LayoutGrid:   ["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"],
-  Award:        ["M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14z","M8.21 13.89L7 23l5-3 5 3-1.21-9.12"],
-  Flame:        "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z",
-  Eye:          ["M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z","M12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
-  Lightbulb:    ["M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5","M9 18h6","M10 22h4"],
-  Clock:        ["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 6v6l4 2"],
-  Gauge:        ["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z","M22 12A10 10 0 1 1 2 12"],
-  Boxes:        ["M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42z","M7 16.5l-4.74-2.85","M7 16.5l5-3","M7 16.5V19","M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3z","M17 16.5l-5-3","M17 16.5l4.74-2.85","M17 16.5V19"],
-  Layers3:      ["M12 2L2 7l10 5 10-5-10-5z","M2 12l10 5 10-5","M2 17l10 5 10-5"],
-  TrendingUp:   "M23 6l-9.5 9.5-5-5L1 18",
-  BrainCircuit: ["M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z","M9 13a4.5 4.5 0 0 0 3-4","M6.003 5.125A3 3 0 0 0 6.401 6.5","M3.477 10.896a4 4 0 0 1 .585-.396","M6 18a4 4 0 0 1-1.967-.516","M12 13h4","M12 18h6a2 2 0 0 1 2 2v1","M12 8h8","M16 8V5a2 2 0 0 1 2-2","M16 13v-1a2 2 0 0 1 2-2h2"],
-  DoorOpen:     ["M13 4h3a2 2 0 0 1 2 2v14","M2 20h3","M13 20h9","M10 12v.01","M13 4L2 20h11V4z"],
-  RefreshCcw:   ["M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8","M3 3v5h5","M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16","M16 16h5v5"],
-  Trash2:       ["M3 6h18","M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6","M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2","M10 11v6","M14 11v6"],
-  Save:         ["M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z","M17 21v-8H7v8","M7 3v5h8"],
-  ArrowRight:   "M5 12h14M12 5l7 7-7 7",
-  BarChart2:    ["M18 20V10","M12 20V4","M6 20v-6"],
-  DollarSign:   ["M12 1v22","M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"],
-  Focus:        ["M8 3H5a2 2 0 0 0-2 2v3","M21 8V5a2 2 0 0 0-2-2h-3","M3 16v3a2 2 0 0 0 2 2h3","M16 21h3a2 2 0 0 0 2-2v-3"],
-  X:            "M18 6L6 18M6 6l12 12",
-  Sparkles:     ["M12 3l1.88 5.76L19.5 9l-4.94 3.8L16.31 18 12 14.9 7.69 18l1.75-5.2L4.5 9l5.62-.24z"],
-};
+  .tj-root *, .tj-root *::before, .tj-root *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-const Icon = ({ name, size=16, style, className }: any) => {
-  const d = ICONS[name];
-  if (!d) return null;
-  return <Ic d={d} size={size} style={style} className={className}/>;
-};
+  .tj-root {
+    --c-bg:        #0d0f0e;
+    --c-bg1:       #111413;
+    --c-bg2:       #181c1a;
+    --c-bg3:       #1e2320;
+    --c-border:    rgba(255,255,255,0.07);
+    --c-border2:   rgba(255,255,255,0.12);
+    --c-text:      #e8ede9;
+    --c-muted:     #8a9e8d;
+    --c-hint:      #4d5e50;
+    --c-accent:    #3ddc84;
+    --c-accent2:   #2bb870;
+    --c-accent3:   #1a7a47;
+    --c-warn:      #f0a500;
+    --c-danger:    #e85454;
+    --c-info:      #4da6ff;
+    --radius:      6px;
+    --radius-lg:   10px;
+    --font-mono:   'JetBrains Mono', 'Fira Code', monospace !important;
+    --font-display:'Syne', sans-serif;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    font-size: 13px;
+    color: var(--c-text);
+    background: var(--c-bg);
+    line-height: 1.5;
+  }
 
-// ── Constants ─────────────────────────────────────────────────────────────
-const INPUT_CLS = "w-full bg-slate-950/40 border border-slate-800/80 rounded-xl px-5 py-4 text-[13px] text-slate-200 placeholder-slate-700 resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all duration-300 leading-relaxed font-normal not-italic";
-const INPUT_OCR_CLS = "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 placeholder-slate-700 resize-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all duration-300 leading-relaxed font-normal not-italic";
-const INTER = { fontFamily: "'Inter', sans-serif", fontWeight: 400, fontStyle: 'normal' } as const;
-const LABEL_CLS = "block text-[10px] font-bold tracking-[0.2em] text-slate-500 mb-3 uppercase px-1";
+  .tj-root.tj-root * { font-family: 'JetBrains Mono', 'Fira Code', monospace !important; }
 
-const STEPS = [
-  { id:1, label:"DECISION",  sub:"THESIS & LOGIC",  icon:"Brain" },
-  { id:2, label:"EXECUTION", sub:"CORE DATA",        icon:"Crosshair" },
-  { id:3, label:"CONTEXT",   sub:"MARKET STATE",     icon:"Globe2" },
-  { id:4, label:"REVIEW",    sub:"PERFORMANCE",      icon:"CheckCircle2" },
-];
+  .tj-page { display: flex; align-items: stretch; width: 100%; min-height: 100%; }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-function normaliseTF(tf: string | null | undefined): string | null {
-  if (!tf) return null;
-  const map: Record<string, string> = {
-    "1M":"1M","3M":"3M","5M":"5M","15M":"15M",
-    "20M":"15M",
-    "30M":"30MIN",
-    "1H":"1HR","2H":"2HR","4H":"4HR",
-    "6H":"4HR","8H":"4HR","12H":"4HR",
-    "1D":"1D","1W":"1W",
+  .tj-shell { flex: 1; min-width: 0; padding-bottom: 4rem; border-right: 1px solid var(--c-border); display: flex; flex-direction: column; }
+
+  .tj-progress-bar { height: 2px; background: var(--c-bg3); flex-shrink: 0; }
+  .tj-progress-fill { height: 2px; background: linear-gradient(90deg, var(--c-accent3), var(--c-accent)); transition: width 0.4s cubic-bezier(.4,0,.2,1); }
+
+  .tj-tabs { display: flex; border-bottom: 1px solid var(--c-border); padding: 0 1.5rem; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+  .tj-tabs::-webkit-scrollbar { display: none; }
+  .tj-tab { display: flex; align-items: center; gap: 7px; padding: 12px 14px 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: var(--c-hint); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 0.15s; user-select: none; background: none; border-top: none; border-left: none; border-right: none; }
+  .tj-tab:hover { color: var(--c-muted); }
+  .tj-tab.active { color: var(--c-accent); border-bottom-color: var(--c-accent); }
+  .tj-tab-num { width: 18px; height: 18px; border-radius: 50%; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; background: var(--c-bg3); color: var(--c-hint); flex-shrink: 0; transition: all 0.15s; }
+  .tj-tab.active .tj-tab-num { background: var(--c-accent); color: #000; }
+  .tj-tab.done .tj-tab-num { background: var(--c-accent3); color: var(--c-accent); }
+
+  .tj-body { padding: 1.75rem 1.5rem 0; flex: 1; overflow-y: auto; }
+
+  .tj-section { margin-bottom: 2rem; }
+  .tj-section-label { font-size: 9px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--c-accent); padding-bottom: 8px; border-bottom: 1px solid var(--c-border); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .tj-section-label::before { content: ''; display: block; width: 3px; height: 10px; background: var(--c-accent); border-radius: 2px; }
+
+  .tj-grid { display: grid; gap: 12px; }
+  .tj-g2 { grid-template-columns: 1fr 1fr; }
+  .tj-g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .tj-g4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .tj-field { display: flex; flex-direction: column; gap: 5px; }
+  .tj-label { font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-muted); }
+  .tj-sub { font-size: 10px; color: var(--c-hint); margin-top: -3px; }
+
+  .tj-input, .tj-select, .tj-textarea { background: var(--c-bg2); border: 1px solid var(--c-border2); border-radius: var(--radius); padding: 8px 11px; font-size: 12px; color: var(--c-text); width: 100%; outline: none; transition: border-color 0.15s, background 0.15s; appearance: none; -webkit-appearance: none; }
+  .tj-input::placeholder, .tj-textarea::placeholder { color: var(--c-hint); }
+  .tj-input:focus, .tj-select:focus, .tj-textarea:focus { border-color: var(--c-accent); background: var(--c-bg3); }
+  .tj-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234d5e50' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; cursor: pointer; }
+  .tj-textarea { resize: vertical; min-height: 70px; line-height: 1.6; }
+
+  .tj-radio-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tj-radio { padding: 5px 13px; border: 1px solid var(--c-border2); border-radius: var(--radius); font-size: 11px; font-weight: 500; cursor: pointer; color: var(--c-muted); background: var(--c-bg2); transition: all 0.12s; user-select: none; }
+  .tj-radio:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .tj-radio.sel { background: var(--c-accent); border-color: var(--c-accent); color: #000; font-weight: 600; }
+
+  .tj-check-wrap { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--c-border2); border-radius: var(--radius); background: var(--c-bg2); cursor: pointer; transition: border-color 0.12s; }
+  .tj-check-wrap:hover { border-color: var(--c-accent); }
+  .tj-check-wrap input[type=checkbox] { width: 14px; height: 14px; margin-top: 1px; flex-shrink: 0; accent-color: var(--c-accent); cursor: pointer; }
+  .tj-check-label { font-size: 11px; color: var(--c-muted); line-height: 1.4; }
+
+  .tj-score-grid { display: flex; flex-direction: column; gap: 10px; }
+  .tj-score-row { display: flex; align-items: center; gap: 12px; }
+  .tj-score-name { font-size: 11px; color: var(--c-muted); min-width: 160px; flex-shrink: 0; }
+  .tj-dots { display: flex; gap: 6px; }
+  .tj-dot { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--c-border2); cursor: pointer; background: var(--c-bg2); transition: all 0.1s; }
+  .tj-dot:hover { border-color: var(--c-accent); }
+  .tj-dot.lit { background: var(--c-accent); border-color: var(--c-accent); }
+
+  .tj-slider-row { display: flex; align-items: center; gap: 10px; }
+  .tj-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 3px; background: var(--c-bg3); border-radius: 2px; outline: none; cursor: pointer; }
+  .tj-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--c-accent); cursor: pointer; border: 2px solid var(--c-bg); box-shadow: 0 0 0 2px var(--c-accent3); }
+  .tj-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--c-accent); cursor: pointer; border: 2px solid var(--c-bg); }
+  .tj-slider-val { min-width: 40px; font-size: 13px; font-weight: 600; color: var(--c-accent); text-align: right; }
+
+  .tj-upload { border: 1px dashed var(--c-border2); border-radius: var(--radius-lg); padding: 20px 16px; text-align: center; cursor: pointer; color: var(--c-hint); font-size: 11px; background: var(--c-bg2); transition: border-color 0.15s, background 0.15s; position: relative; min-height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .tj-upload:hover { border-color: var(--c-accent); background: var(--c-bg3); color: var(--c-accent); }
+  .tj-upload input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .tj-upload-icon { font-size: 22px; margin-bottom: 2px; }
+  .tj-upload-thumb { max-width: 100%; max-height: 180px; object-fit: contain; border-radius: 4px; margin-top: 6px; }
+  .tj-upload-name { font-size: 10px; color: var(--c-accent); margin-top: 4px; }
+  .tj-upload-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .tj-upload-btn { padding: 4px 10px; border-radius: var(--radius); font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid var(--c-border2); background: var(--c-bg3); color: var(--c-muted); transition: all 0.12s; }
+  .tj-upload-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .tj-upload-btn.danger:hover { border-color: var(--c-danger); color: var(--c-danger); }
+
+  .tj-strip { background: rgba(61,220,132,0.06); border: 1px solid rgba(61,220,132,0.15); border-radius: var(--radius); padding: 8px 12px; font-size: 11px; color: var(--c-muted); margin-bottom: 14px; }
+  .tj-strip.warn { background: rgba(240,165,0,0.06); border-color: rgba(240,165,0,0.2); color: var(--c-warn); }
+  .tj-strip.danger { background: rgba(232,84,84,0.06); border-color: rgba(232,84,84,0.2); color: var(--c-danger); }
+  .tj-strip.info { background: rgba(77,166,255,0.06); border-color: rgba(77,166,255,0.2); color: var(--c-info); }
+
+  .tj-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-top: 1px solid var(--c-border); margin-top: 1.5rem; background: var(--c-bg); flex-shrink: 0; }
+  .tj-btn { padding: 9px 22px; border-radius: var(--radius); font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--c-border2); background: var(--c-bg2); color: var(--c-muted); transition: all 0.12s; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tj-btn:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-bg3); }
+  .tj-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .tj-btn.primary { background: var(--c-accent); border-color: var(--c-accent); color: #000; }
+  .tj-btn.primary:hover { background: var(--c-accent2); border-color: var(--c-accent2); }
+  .tj-btn.primary:disabled { opacity: 0.5; }
+  .tj-btn-row { display: flex; gap: 8px; }
+
+  .tj-other-wrap { display: flex; gap: 6px; }
+  .tj-other-back { padding: 8px 11px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 1px solid var(--c-border2); background: var(--c-bg3); color: var(--c-muted); transition: all 0.12s; }
+  .tj-other-back:hover { border-color: var(--c-accent); color: var(--c-accent); }
+
+  .tj-sidebar {
+    width: 290px;
+    flex-shrink: 0;
+    background: var(--c-bg1);
+    padding: 1rem 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-bg3) transparent;
+    font-size: 11px;
+  }
+  .tj-sidebar::-webkit-scrollbar { width: 3px; }
+  .tj-sidebar::-webkit-scrollbar-thumb { background: var(--c-bg3); border-radius: 2px; }
+
+  .sb-eyebrow { font-size: 8px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 8px; }
+  .sb-growth-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .sb-growth-label { font-size: 10px; color: var(--c-hint); }
+  .sb-growth-val { font-size: 11px; font-weight: 600; color: var(--c-accent); letter-spacing: 0.04em; }
+  .sb-growth-val.neg { color: var(--c-danger); }
+  .sb-growth-val.zero { color: var(--c-muted); }
+
+  .sb-card { background: var(--c-bg2); border: 1px solid var(--c-border); border-radius: var(--radius-lg); padding: 10px 12px; margin-bottom: 8px; }
+  .sb-card-label { font-size: 7px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 4px; }
+  .sb-pnl { font-size: 14px; font-weight: 600; line-height: 1; margin-bottom: 8px; color: var(--c-text); }
+  .sb-pnl.pos { color: var(--c-accent); }
+  .sb-pnl.neg { color: var(--c-danger); }
+
+  .sb-bal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 7px; }
+  .sb-bal { background: var(--c-bg3); border-radius: var(--radius); padding: 6px 8px; }
+  .sb-bal-label { font-size: 7px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 2px; }
+  .sb-bal-val { font-size: 10px; font-weight: 600; color: var(--c-text); }
+
+  .sb-fee-row { display: flex; justify-content: space-between; padding-top: 7px; border-top: 1px solid var(--c-border); font-size: 10px; }
+  .sb-fee-label { color: var(--c-hint); }
+  .sb-fee-val { color: var(--c-danger); font-weight: 600; }
+
+  .sb-sec { margin-top: 8px; }
+  .sb-sec-title { font-size: 8px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--c-hint); padding-bottom: 6px; border-bottom: 1px solid var(--c-border); margin-bottom: 2px; }
+  .sb-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--c-border); }
+  .sb-row:last-child { border-bottom: none; }
+  .sb-row-label { font-size: 10px; color: var(--c-muted); }
+  .sb-row-val { font-size: 10px; font-weight: 600; color: var(--c-text); }
+  .sb-row-val.pos { color: var(--c-accent); }
+  .sb-row-val.neg { color: var(--c-danger); }
+  .sb-row-val.dim { color: var(--c-hint); }
+
+  .sb-divider { height: 1px; background: var(--c-border); margin: 10px 0; }
+
+  .sb-wr { margin-top: 8px; }
+  .sb-wr-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .sb-wr-label { font-size: 8px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-hint); }
+  .sb-wr-sub { font-size: 9px; color: var(--c-hint); }
+  .sb-wr-num { font-size: 14px; font-weight: 600; color: var(--c-accent); line-height: 1; }
+  .sb-wr-num.zero { color: var(--c-hint); }
+  .sb-bar-bg { height: 3px; background: var(--c-bg3); border-radius: 2px; overflow: hidden; margin: 5px 0 8px; }
+  .sb-bar-fill { height: 3px; background: var(--c-accent); border-radius: 2px; transition: width 0.6s ease; }
+
+  .sb-wl-row { display: flex; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+  .sb-wl-item { display: flex; align-items: center; gap: 6px; }
+  .sb-wl-lbl { font-size: 10px; color: var(--c-muted); }
+  .sb-wl-num { font-size: 10px; font-weight: 600; }
+  .sb-wl-num.w { color: var(--c-accent); }
+  .sb-wl-num.l { color: var(--c-danger); }
+
+  .sb-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+  .sb-met { background: var(--c-bg2); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 7px 8px; }
+  .sb-met-label { font-size: 7px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 2px; }
+  .sb-met-val { font-size: 13px; font-weight: 600; color: var(--c-text); }
+  .sb-met-val.pos { color: var(--c-accent); }
+
+  .sb-empty { margin-top: 16px; text-align: center; padding: 20px 10px; background: var(--c-bg2); border: 1px dashed var(--c-border2); border-radius: var(--radius-lg); }
+  .sb-empty-icon { font-size: 18px; color: var(--c-hint); margin-bottom: 6px; }
+  .sb-empty-title { font-size: 11px; font-weight: 600; color: var(--c-muted); margin-bottom: 3px; }
+  .sb-empty-sub { font-size: 10px; color: var(--c-hint); line-height: 1.5; }
+
+  .tj-ocr-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 20px; background: rgba(61,220,132,0.12); border: 1px solid rgba(61,220,132,0.25); font-size: 9px; font-weight: 600; color: var(--c-accent); letter-spacing: 0.1em; margin-left: 6px; }
+
+  .tj-analyzing { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius); border: 1px solid rgba(61,220,132,0.25); background: rgba(61,220,132,0.05); color: var(--c-accent); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; margin-top: 8px; }
+
+  @media (max-width: 900px) {
+    .tj-page { flex-direction: column-reverse; }
+    .tj-sidebar { width: 100%; position: static; max-height: none; border-bottom: 1px solid var(--c-border); }
+    .tj-shell { border-right: none; }
+  }
+  @media (max-width: 720px) {
+    .tj-g3, .tj-g4 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 540px) {
+    .tj-body { padding: 1.25rem 1rem 0; }
+    .tj-tabs { padding: 0 1rem; }
+    .tj-nav { padding: 1rem; }
+    .tj-g2, .tj-g3, .tj-g4 { grid-template-columns: 1fr; }
+  }
+`;
+
+// ── Sidebar stats ─────────────────────────────────────────────────────────────
+function computeStats(trades: any[]) {
+  if (!trades.length) return null;
+  const wins   = trades.filter(t => t.outcome === "Win");
+  const losses = trades.filter(t => t.outcome === "Loss");
+  const pnls   = trades.map(t => parseFloat(t.profitLoss) || 0);
+  const netPnL = pnls.reduce((a, b) => a + b, 0);
+  const winAmts  = wins.map(t => parseFloat(t.profitLoss) || 0);
+  const lossAmts = losses.map(t => parseFloat(t.profitLoss) || 0);
+  const grossWin  = winAmts.reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(lossAmts.reduce((a, b) => a + b, 0));
+  const profitFactor = grossLoss > 0 ? (grossWin / grossLoss).toFixed(2) : grossWin > 0 ? "∞" : "0";
+  const decided  = wins.length + losses.length;
+  const winRate  = decided > 0 ? (wins.length / decided) * 100 : 0;
+  const commissions = trades.reduce((a, t) => a + (parseFloat(t.commission) || 0), 0);
+  const endBal   = parseFloat(trades[trades.length - 1]?.accountBalance) || 0;
+  const startBal = endBal - netPnL;
+  const growth   = startBal > 0 ? (netPnL / startBal) * 100 : 0;
+  const avgWin   = wins.length ? grossWin / wins.length : 0;
+  const avgLoss  = losses.length ? grossLoss / losses.length : 0;
+  const expectancy = decided > 0
+    ? ((wins.length / decided) * avgWin - (losses.length / decided) * avgLoss).toFixed(2)
+    : "0.00";
+  const rrTrades = trades.filter(t => t.achievedRR);
+  const avgRR    = rrTrades.length
+    ? (rrTrades.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTrades.length).toFixed(2)
+    : "0";
+  return {
+    netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
+    profitFactor, commissions, startBal, endBal, growth, avgRR, expectancy,
+    buys:  trades.filter(t => t.direction === "Long").length,
+    sells: trades.filter(t => t.direction === "Short").length,
   };
-  return map[tf.toUpperCase()] ?? tf;
 }
 
-function normaliseSession(s: string | null | undefined): string | null {
-  if (!s) return null;
-  return s.includes("/") ? "Overlap" : s;
-}
+const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2);
 
-const INIT: Record<string, any> = {
-  screenshot:null, screenshotTimestamp:"", instrument:"", direction:"Long",
-  lotSize:"", entryPrice:"", stopLoss:"", stopLossDistancePips:"",
-  takeProfit:"", takeProfitDistancePips:"", entryTime:"", exitTime:"",
-  tradeDuration:"", dayOfWeek:"Monday", outcome:"Win", profitLoss:"",
-  accountBalance:"", orderType:"Market", riskPercent:"", riskReward:"", entryTF:"5M",
-  analysisTF:"1HR", contextTF:"1D", marketRegime:"Bullish",
-  trendDirection:"Bullish", volatilityState:"Normal", liquidity:"High",
-  newsEnvironment:"Clear", entryTimeUTC:"", sessionPhase:"Open",
-  sessionName:"London", timingContext:"Impulse", candlePattern:"",
-  indicatorState:"", marketAlignment:3, setupClarity:3, entryPrecision:3,
-  confluence:3, timingQuality:3, signalValidation:3, primarySignals:"", secondarySignals:"",
-  keyLevelRespect:"Yes", keyLevelType:"Support", momentumValidity:"Strong",
-  targetLogicClarity:"High", plannedEntry:"", plannedSL:"", plannedTP:"",
-  actualEntry:"", actualSL:"", actualTP:"", pipsGainedLost:"", mae:"",
-  mfe:"", monetaryRisk:"", potentialReward:"", plannedRR:"", achievedRR:"",
-  riskHeat:"Low", entryMethod:"Market", exitStrategy:"", breakEvenApplied:false,
-  trailingStopApplied:false, managementType:"Rule-based", confidenceLevel:3,
-  emotionalState:"Calm", focusStressLevel:"Low", rulesFollowed:100,
-  worthRepeating:true, whatWorked:"", whatFailed:"", adjustments:"", notes:"",
-  thesis:"", trigger:"", invalidationLogic:"", setupTag:"Breakout",
-  expectedBehavior:"", tradeGrade:"A - Textbook", liquidityTargets:"",
-  impulseCheckFOMO:false, impulseCheckRevenge:false, impulseCheckBored:false,
-  impulseCheckEmotional:false, primaryExitReason:"Target Hit", htfBias:"Bull",
-  htfKeyLevelPresent:"Yes", trendAlignment:"Yes", analysisTFContext:"",
-  higherTFContext:"", entryTFContext:"", otherConfluences:"",
-  multitimeframeAlignment:"Yes", openTradesCount:"", totalRiskOpen:"",
-  correlatedExposure:"No", energyLevel:3, focusLevel:3,
-  externalDistraction:"No", confidenceAtEntry:3, setupFullyValid:"Yes",
-  anyRuleBroken:"No", ruleBroken:"", strategyVersionId:"", spreadAtEntry:"",
-  atrAtEntry:"", exitScreenshot:null, pairCategory:"Major",
-  consecutiveTradeCount:"", commission:"", postTradeEmotion:"Neutral",
-  recencyBiasFlag:false,
-  openingPrice:"", closingPrice:"",
-  stopLossUSD:"", takeProfitUSD:"",
-  runUpPoints:"", runUpUSD:"",
-  drawdownPoints:"", drawdownUSD:"",
-  contractSize:"", units:"",
-  ocrConfidence:"", ocrValidation:"",
-};
-
-type OcrFilledSet = Set<string>;
-
-// ── UI Primitives ─────────────────────────────────────────────────────────
-const InfoBox = ({ color, icon, title, text }: any) => {
-  const themes: Record<string, string> = {
-    amber:  "border-amber-500/20  bg-amber-500/5  text-amber-400",
-    blue:   "border-blue-500/20   bg-blue-500/5   text-blue-400",
-    green:  "border-emerald-500/20 bg-emerald-500/5 text-emerald-400",
-    rose:   "border-rose-500/20   bg-rose-500/5   text-rose-400",
-    violet: "border-violet-500/20 bg-violet-500/5 text-violet-400",
-  };
+function Sidebar({ trades }: { trades: any[] }) {
+  const stats  = useMemo(() => computeStats(trades), [trades]);
+  const has    = trades.length > 0;
+  const pnlCls = stats ? (stats.netPnL > 0 ? "pos" : stats.netPnL < 0 ? "neg" : "") : "";
+  const grwCls = stats ? (stats.growth > 0 ? "" : stats.growth < 0 ? "neg" : "zero") : "zero";
   return (
-    <div className={`flex gap-4 p-5 rounded-xl border ${themes[color]||themes.blue}`}>
-      <div className="flex-shrink-0 mt-0.5"><Icon name={icon} size={20}/></div>
-      <div>
-        <p className="text-[10px] font-black tracking-[0.2em] uppercase mb-1.5 opacity-90">{title}</p>
-        <p className="text-xs leading-relaxed text-slate-400 font-medium italic">{text}</p>
+    <div className="tj-sidebar">
+      <div className="sb-eyebrow">Session</div>
+      <div className="sb-growth-row">
+        <span className="sb-growth-label">Portfolio growth</span>
+        <span className={`sb-growth-val ${grwCls}`}>
+          {stats ? (stats.growth >= 0 ? "+" : "") + stats.growth.toFixed(1) + "%" : "+0.0%"}
+        </span>
       </div>
-    </div>
-  );
-};
-
-const KeyLevelIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="1" y="8" width="3" height="7" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-    <rect x="6" y="4" width="3" height="11" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-    <rect x="11" y="1" width="3" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-    <circle cx="11.5" cy="12.5" r="3" fill="#1e293b" stroke="#ec4899" strokeWidth="1.1"/>
-    <path d="M10 12.5l1 1 1.5-1.5" stroke="#ec4899" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const SectionHeader = ({ icon, title, customIcon }: any) => (
-  <div className="flex items-center gap-4 mb-6">
-    <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 flex-shrink-0">
-      {customIcon ? customIcon : <Icon name={icon} size={16}/>}
-    </div>
-    <div className="h-px flex-1 bg-gradient-to-r from-slate-700/50 to-transparent"/>
-    <h2 className="text-[11px] font-black tracking-[0.3em] text-slate-500 uppercase italic whitespace-nowrap">{title}</h2>
-  </div>
-);
-
-const Field = ({ label, field, value, onChange, placeholder="", rows, type="text", ocrFilled=false }: any) => {
-  const cls = ocrFilled ? INPUT_OCR_CLS : INPUT_CLS;
-  return (
-    <div>
-      {label && (
-        <label className={LABEL_CLS}>
-          {label}
-          {ocrFilled && (
-            <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
-          )}
-        </label>
+      <div className="sb-card">
+        <div className="sb-card-label">Net P&amp;L</div>
+        <div className={`sb-pnl ${pnlCls}`}>{stats ? fmtUsd(stats.netPnL) : "$0.00"}</div>
+        <div className="sb-bal-grid">
+          <div className="sb-bal"><div className="sb-bal-label">Start balance</div><div className="sb-bal-val">${stats ? stats.startBal.toFixed(2) : "0.00"}</div></div>
+          <div className="sb-bal"><div className="sb-bal-label">End balance</div><div className="sb-bal-val">${stats ? stats.endBal.toFixed(2) : "0.00"}</div></div>
+        </div>
+        <div className="sb-fee-row">
+          <span className="sb-fee-label">Commissions &amp; fees</span>
+          <span className="sb-fee-val">{stats ? "-$" + stats.commissions.toFixed(2) : "$0.00"}</span>
+        </div>
+      </div>
+      <div className="sb-sec">
+        <div className="sb-sec-title">Trading stats</div>
+        <div className="sb-row"><span className="sb-row-label">Buys</span><span className="sb-row-val">{has ? stats!.buys : 0}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Sells</span><span className="sb-row-val">{has ? stats!.sells : 0}</span></div>
+        <div className="sb-row"><span className="sb-row-label">Total trades</span><span className="sb-row-val">{has ? stats!.total : 0}</span></div>
+      </div>
+      <div className="sb-divider" />
+      <div className="sb-wr">
+        <div className="sb-wr-header">
+          <span className="sb-wr-label">Win rate</span>
+          <span className="sb-wr-sub">{has ? `${stats!.wins} of ${stats!.total}` : "0 of 0"}</span>
+        </div>
+        <div className={`sb-wr-num ${!has ? "zero" : ""}`}>{has ? Math.round(stats!.winRate) + "%" : "0%"}</div>
+        <div className="sb-bar-bg"><div className="sb-bar-fill" style={{ width: has ? stats!.winRate + "%" : "0%" }} /></div>
+      </div>
+      <div className="sb-wl-row">
+        <div className="sb-wl-item"><span className="sb-wl-lbl">Wins</span><span className="sb-wl-num w">{String(has ? stats!.wins : 0).padStart(2, "0")}</span></div>
+        <div className="sb-wl-item"><span className="sb-wl-lbl">Losses</span><span className="sb-wl-num l">{String(has ? stats!.losses : 0).padStart(2, "0")}</span></div>
+      </div>
+      <div className="sb-metrics">
+        <div className="sb-met"><div className="sb-met-label">Profit factor</div><div className={`sb-met-val ${has && parseFloat(stats!.profitFactor as string) > 1 ? "pos" : ""}`}>{has ? stats!.profitFactor : "0"}</div></div>
+        <div className="sb-met"><div className="sb-met-label">Expectancy</div><div className={`sb-met-val ${has && parseFloat(stats!.expectancy) > 0 ? "pos" : ""}`}>{has ? stats!.expectancy : "0"}</div></div>
+        <div className="sb-met"><div className="sb-met-label">Avg R:R</div><div className={`sb-met-val ${has && parseFloat(stats!.avgRR) > 0 ? "pos" : ""}`}>{has ? stats!.avgRR : "0"}</div></div>
+        <div className="sb-met"><div className="sb-met-label">W / L</div><div className="sb-met-val">{has ? stats!.wins + "/" + stats!.losses : "0/0"}</div></div>
+      </div>
+      {!has && (
+        <div className="sb-empty">
+          <div className="sb-empty-icon">◈</div>
+          <div className="sb-empty-title">No trades yet</div>
+          <div className="sb-empty-sub">Log a trade to see stats</div>
+        </div>
       )}
-      {rows
-        ? <textarea rows={rows} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls} style={INTER}/>
-        : <input type={type} placeholder={placeholder} value={value??""} onChange={(e: any)=>onChange(field,e.target.value)} className={cls+" block"} style={INTER}/>
-      }
     </div>
   );
-};
+}
 
-const Sel = ({ label, field, value, onChange, options, ocrFilled=false }: any) => {
-  const notInOpts = value != null && value !== '' && !options.includes(value);
-  const [otherMode, setOtherMode] = useState(notInOpts);
+// ── Form primitives ───────────────────────────────────────────────────────────
+function Field({ label, sub, children, ocrFilled }: any) {
+  return (
+    <div className="tj-field">
+      <div className="tj-label">
+        {label}
+        {ocrFilled && <span className="tj-ocr-badge">✦ OCR</span>}
+      </div>
+      {sub && <div className="tj-sub">{sub}</div>}
+      {children}
+    </div>
+  );
+}
+
+function Inp({ label, sub, type = "text", placeholder, value, onChange, ocrFilled }: any) {
+  return (
+    <Field label={label} sub={sub} ocrFilled={ocrFilled}>
+      <input
+        className="tj-input"
+        type={type}
+        placeholder={placeholder || ""}
+        value={value ?? ""}
+        onChange={e => onChange(e.target.value)}
+      />
+    </Field>
+  );
+}
+
+function Sel({ label, sub, options, value, onChange, ocrFilled }: any) {
+  const notInList = value != null && value !== "" && !options.includes(value);
+  const [otherMode, setOtherMode] = useState(notInList);
 
   useEffect(() => {
-    if (value != null && value !== '' && !options.includes(value)) {
+    if (value != null && value !== "" && !options.includes(value)) {
       setOtherMode(true);
     } else if (options.includes(value)) {
       setOtherMode(false);
     }
-  }, [value, JSON.stringify(options)]);
+  }, [value, options.join(",")]);
 
-  const showOtherInput = otherMode || notInOpts;
-  const selectValue = showOtherInput ? 'Other' : (options.includes(value) ? value : options[0]);
+  const isOther = otherMode || notInList;
+  const selectVal = isOther ? "Other" : (options.includes(value) ? value : "");
 
   const handleSelect = (e: any) => {
     const v = e.target.value;
-    if (v === 'Other') {
-      setOtherMode(true);
-      onChange(field, ''); // clear so the text input shows an empty placeholder
-    } else {
-      setOtherMode(false);
-      onChange(field, v);
-    }
+    if (v === "Other") { setOtherMode(true); onChange(""); }
+    else { setOtherMode(false); onChange(v); }
   };
 
-  const baseCls = ocrFilled
-    ? "w-full bg-slate-950/40 border border-emerald-700/50 rounded-xl px-5 py-4 text-[13px] text-emerald-300 font-normal not-italic"
-    : INPUT_CLS;
-
   return (
-    <div>
-      {label && (
-        <label className={LABEL_CLS}>
-          {label}
-          {ocrFilled && (
-            <span title="Auto-filled by OCR" style={{ marginLeft:6, fontSize:9, color:"#34d399", letterSpacing:"0.15em", fontStyle:"normal" }}>✦ OCR</span>
-          )}
-        </label>
-      )}
-      {showOtherInput ? (
-        <div className="flex gap-2">
+    <Field label={label} sub={sub} ocrFilled={ocrFilled}>
+      {isOther ? (
+        <div className="tj-other-wrap">
           <input
             autoFocus
             type="text"
-            value={value || ''}
-            onChange={(e: any) => {
-              const v = e.target.value;
-              if (!v) {
-                setOtherMode(false);
-                onChange(field, options[0]);
-              } else {
-                onChange(field, v);
-              }
-            }}
+            className="tj-input"
+            style={{ flex: 1 }}
+            value={value || ""}
             placeholder="Type custom value…"
-            className={baseCls + " flex-1"}
-            style={INTER}
+            onChange={e => {
+              const v = e.target.value;
+              if (!v) { setOtherMode(false); onChange(options[0] || ""); }
+              else onChange(v);
+            }}
           />
-          <button
-            type="button"
-            onClick={() => { setOtherMode(false); onChange(field, options[0]); }}
-            className="px-3 py-2 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 text-xs"
-            title="Back to list"
-          >↩</button>
+          <button type="button" className="tj-other-back" title="Back to list"
+            onClick={() => { setOtherMode(false); onChange(options[0] || ""); }}>↩</button>
         </div>
       ) : (
-        <div className="relative">
-          <select
-            value={selectValue}
-            onChange={handleSelect}
-            style={INTER}
-            className={baseCls + " appearance-none cursor-pointer pr-10 block w-full"}>
-            {[...options, 'Other'].map((o: string) => (
-              <option key={o} value={o} className="bg-[#0a0d14]">{o}</option>
-            ))}
-          </select>
-          <Icon name="ChevronRight" size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none rotate-90"/>
-        </div>
+        <select
+          className="tj-select"
+          value={selectVal}
+          onChange={handleSelect}
+        >
+          <option value="">— select —</option>
+          {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+          <option value="Other">Other…</option>
+        </select>
       )}
+    </Field>
+  );
+}
+
+function Txt({ label, value, onChange, placeholder, rows = 3 }: any) {
+  return (
+    <Field label={label}>
+      <textarea className="tj-textarea" rows={rows} placeholder={placeholder || ""} value={value ?? ""} onChange={e => onChange(e.target.value)} />
+    </Field>
+  );
+}
+
+function Radio({ label, options, value, onChange }: any) {
+  return (
+    <Field label={label}>
+      <div className="tj-radio-group">
+        {options.map((o: string) => (
+          <div key={o} className={`tj-radio${value === o ? " sel" : ""}`} onClick={() => onChange(o)}>{o}</div>
+        ))}
+      </div>
+    </Field>
+  );
+}
+
+function Check({ label, value, onChange }: any) {
+  return (
+    <label className="tj-check-wrap">
+      <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} />
+      <span className="tj-check-label">{label}</span>
+    </label>
+  );
+}
+
+function Dots({ name, value = 0, onChange, max = 5 }: any) {
+  return (
+    <div className="tj-score-row">
+      <div className="tj-score-name">{name}</div>
+      <div className="tj-dots">
+        {Array.from({ length: max }).map((_, i) => (
+          <div key={i} className={`tj-dot${i < value ? " lit" : ""}`} onClick={() => onChange(i + 1)} />
+        ))}
+      </div>
     </div>
   );
-};
+}
 
-const Score = ({ label, field, value, onChange }: any) => (
-  <div className="flex items-center justify-between gap-3 flex-wrap py-1">
-    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">{label}</label>
-    <div className="flex gap-1.5">
-      {[1,2,3,4,5].map(n=>(
-        <button key={n} onClick={()=>onChange(field,n)}
-          className={`w-8 h-8 rounded-lg text-[11px] font-black font-mono border transition-all
-            ${value===n?"bg-blue-600 border-blue-500 text-white shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-            :"bg-slate-950/40 border-slate-800/80 text-slate-600 hover:border-blue-500/40"}`}>
-          {n}
-        </button>
-      ))}
-    </div>
-  </div>
-);
+function TjSlider({ label, min = 1, max = 5, step = 1, value, onChange, suffix = "" }: any) {
+  return (
+    <Field label={label}>
+      <div className="tj-slider-row">
+        <input className="tj-slider" type="range" min={min} max={max} step={step} value={value ?? min} onChange={e => onChange(Number(e.target.value))} />
+        <div className="tj-slider-val">{value ?? min}{suffix}</div>
+      </div>
+    </Field>
+  );
+}
 
-const Check = ({ label, field, value, onChange }: any) => (
-  <label className="flex items-start gap-3 p-4 rounded-xl border border-slate-800/80 bg-slate-950/40 cursor-pointer hover:border-blue-500/20 transition-all">
-    <input type="checkbox" checked={!!value} onChange={(e: any)=>onChange(field,e.target.checked)} className="w-4 h-4 mt-0.5 flex-shrink-0 rounded border-2 border-slate-700 bg-slate-900 cursor-pointer"/>
-    <span className="text-[12px] italic font-normal text-slate-400 leading-snug">{label}</span>
-  </label>
-);
-
-const Upload = ({ field, inputId, value, onChange, label, sublabel, onPasteText }: any) => {
+function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: any) {
   const editRef = useRef<HTMLDivElement>(null);
+
+  const handleFile = (e: any) => {
+    const f = e.target.files[0];
+    if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
+  };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
-    if (editRef.current) editRef.current.textContent = ""; // keep overlay empty
+    if (editRef.current) editRef.current.textContent = "";
     const items = Array.from(e.clipboardData?.items ?? []);
-    const imgItem = items.find(i => i.type.startsWith("image/"));
-    if (imgItem) {
-      const file = imgItem.getAsFile();
-      if (file) { const r = new FileReader(); r.onloadend = () => onChange(field, r.result); r.readAsDataURL(file); }
+    const img = items.find(i => i.type.startsWith("image/"));
+    if (img) {
+      const f = img.getAsFile();
+      if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
       return;
     }
     const text = e.clipboardData?.getData("text/plain") ?? "";
@@ -321,1352 +486,674 @@ const Upload = ({ field, inputId, value, onChange, label, sublabel, onPasteText 
   };
 
   return (
-    <div className={`relative rounded border transition-all overflow-hidden ${value?"border-blue-500/30":"border-dashed border-slate-800/80 hover:border-blue-500/30"} bg-slate-950/20`}>
-      <input type="file" className="hidden" id={inputId} accept="image/*" onChange={(e: any)=>{
-        const f=e.target.files[0];
-        if(f){const r=new FileReader();r.onloadend=()=>onChange(field,r.result);r.readAsDataURL(f);}
-      }}/>
-      {/* Invisible contenteditable overlay — makes "Paste" appear in the browser right-click menu.
-          Only active when no image is loaded. Left-click is forwarded to the file input. */}
-      {!value && (
-        <div
-          ref={editRef}
-          contentEditable
-          suppressContentEditableWarning
-          data-paste-overlay
-          onPaste={handlePaste}
-          onClick={() => document.getElementById(inputId)?.click()}
-          onKeyDown={(e) => { if (!e.ctrlKey && !e.metaKey) e.preventDefault(); }}
-          style={{ position:"absolute", inset:0, zIndex:10, opacity:0, outline:"none", cursor:"pointer" }}
-        />
-      )}
-      {value?(
-        <div className="relative group/img">
-          <img src={value} alt="chart" className="w-full h-auto max-h-80 object-contain"/>
-          <div className="absolute inset-0 bg-[#05070a]/80 backdrop-blur-sm opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center gap-3">
-            <label htmlFor={inputId} className="p-3 bg-blue-600 rounded-xl cursor-pointer hover:bg-blue-500 transition-all"><Icon name="RefreshCcw" size={20} className="text-white"/></label>
-            <button onClick={()=>onChange(field,null)} className="p-3 bg-rose-600 rounded-xl hover:bg-rose-500 transition-all"><Icon name="Trash2" size={20} className="text-white"/></button>
+    <Field label={label}>
+      <div className="tj-upload" style={value ? { border: "1px solid rgba(61,220,132,0.3)", padding: 0, minHeight: 0 } : {}}>
+        {!value && (
+          <div
+            ref={editRef}
+            contentEditable
+            suppressContentEditableWarning
+            onPaste={handlePaste}
+            onClick={() => document.getElementById(inputId)?.click()}
+            onKeyDown={e => { if (!e.ctrlKey && !e.metaKey) e.preventDefault(); }}
+            style={{ position: "absolute", inset: 0, zIndex: 10, opacity: 0, outline: "none", cursor: "pointer" }}
+          />
+        )}
+        <input type="file" id={inputId} accept="image/*" onChange={handleFile} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }} />
+        {value ? (
+          <div style={{ padding: 8, width: "100%" }}>
+            <img className="tj-upload-thumb" src={value} alt="chart" style={{ width: "100%" }} />
+            <div className="tj-upload-actions">
+              <label htmlFor={inputId} className="tj-upload-btn" style={{ cursor: "pointer" }}>↺ Replace</label>
+              <button type="button" className="tj-upload-btn danger" onClick={() => onChange(null)}>✕ Remove</button>
+            </div>
           </div>
-        </div>
-      ):(
-        <label htmlFor={inputId} className="flex flex-col items-center justify-center p-10 cursor-pointer group">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center mb-4 group-hover:border-blue-500/40 transition-all">
-            <Icon name="Camera" size={24} className="text-slate-700 group-hover:text-blue-500/60 transition-colors"/>
-          </div>
-          <span className="text-[13px] font-semibold text-slate-500 mb-1 text-center">{label}</span>
-          <span className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-700 text-center">{sublabel}</span>
-        </label>
-      )}
-    </div>
-  );
-};
-
-const NavButtons = ({ step, onPrev, onNext }: any) => (
-  <div className="flex items-center justify-between mt-12 pt-8 border-t border-slate-900">
-    <button onClick={onPrev} disabled={step===1}
-      className="group flex items-center gap-3 px-6 py-3 rounded-xl text-[11px] font-black tracking-widest text-slate-500 border border-slate-800 hover:border-slate-600 hover:text-slate-200 transition-all disabled:opacity-20">
-      <Icon name="ChevronLeft" size={16}/>PREV
-    </button>
-    <div className="hidden sm:flex gap-1.5">
-      {[1,2,3,4].map(n=>(
-        <div key={n} className={`h-1.5 rounded-full transition-all duration-500 ${step===n?"bg-blue-500 w-5":"bg-slate-800 w-1.5"}`}/>
-      ))}
-    </div>
-    <button onClick={onNext} className="group flex items-center gap-3 px-8 py-3 rounded-xl text-[11px] font-black tracking-widest text-white transition-all hover:scale-[1.02] active:scale-95" style={{background:"linear-gradient(135deg,#3b82f6,#1d4ed8)"}}>
-      {step===4?<><Icon name="Save" size={16}/>SAVE</>:<>NEXT<Icon name="ChevronRight" size={16}/></>}
-    </button>
-  </div>
-);
-
-const StatRow = ({ label, value, valueColor }: any) => (
-  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(51,65,85,0.3)"}}>
-    <span style={{fontSize:"11px",color:"#64748b"}}>{label}</span>
-    <span className="jb-num" style={{fontSize:"9px",color:valueColor||"#e2e8f0"}}>{value}</span>
-  </div>
-);
-
-
-function SidebarContent({ trades }: any) {
-  const stats = useMemo(() => {
-    if (!trades.length) return null;
-    const wins   = trades.filter((t: any)=>t.outcome==="Win");
-    const losses = trades.filter((t: any)=>t.outcome==="Loss");
-    const netPnL = trades.map((t: any)=>parseFloat(t.profitLoss)||0).reduce((a: number,b: number)=>a+b,0);
-    const winAmts  = wins.map((t: any)=>parseFloat(t.profitLoss)||0).filter((v: number)=>v>0);
-    const lossAmts = losses.map((t: any)=>parseFloat(t.profitLoss)||0).filter((v: number)=>v<0);
-    const bestTrade  = winAmts.length  ? Math.max(...winAmts)  : 0;
-    const worstTrade = lossAmts.length ? Math.min(...lossAmts) : 0;
-    const totalWins = winAmts.reduce((a: number,b: number)=>a+b,0);
-    const totalLoss = Math.abs(lossAmts.reduce((a: number,b: number)=>a+b,0));
-    const profitFactor = totalLoss>0?(totalWins/totalLoss).toFixed(2):totalWins>0?"∞":"0";
-    const decidedTrades = wins.length + losses.length;
-    const winrate = decidedTrades>0?((wins.length/decidedTrades)*100).toFixed(1):"0.0";
-    const commissions = trades.reduce((a: number,t: any)=>a+(parseFloat(t.commission)||0),0);
-    const endBal   = parseFloat(trades[trades.length-1]?.accountBalance)||0;
-    const startBal = endBal - netPnL;
-    let peak=startBal,maxDD=0,runBal=startBal;
-    for(const t of trades){runBal+=parseFloat(t.profitLoss)||0;if(runBal>peak)peak=runBal;const dd=peak-runBal;if(dd>maxDD)maxDD=dd;}
-    const buys  = trades.filter((t: any)=>t.direction==="Long").length;
-    const sells = trades.filter((t: any)=>t.direction==="Short").length;
-    const exp = decidedTrades>0?((wins.length/decidedTrades)*(totalWins/(wins.length||1))-(losses.length/decidedTrades)*(totalLoss/(losses.length||1))).toFixed(2):"0.00";
-    return {netPnL,winrate,profitFactor,bestTrade,worstTrade,commissions,startBal,endBal,maxDD,buys,sells,total:trades.length,wins:wins.length,losses:losses.length,exp};
-  },[trades]);
-
-  const fmt = (n: number) => { const abs=Math.abs(n||0); return (n<0?"-$":"$")+abs.toFixed(2); };
-  const pnlColor = !stats?"#e2e8f0":stats.netPnL>0?"#34d399":stats.netPnL<0?"#f87171":"#e2e8f0";
-  const pnlPct = stats&&stats.startBal>0?((stats.netPnL/stats.startBal)*100).toFixed(2):"0.00";
-
-  return (
-    <div style={{padding:"12px 16px 24px",display:"flex",flexDirection:"column",gap:"8px",width:"100%",boxSizing:"border-box"}}>
-      <div style={{background:"rgba(10,13,20,0.8)",border:"1px solid rgba(51,65,85,0.5)",borderRadius:"4px",padding:"12px 14px"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
-          <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>NET P&L</span>
-          <Icon name="ArrowRight" size={12} style={{color:"#334155"}}/>
-        </div>
-        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?fmt(stats.netPnL):"0"}</span>
-          <span className="jb-num" style={{fontSize:"9px",color:pnlColor}}>{stats?(stats.netPnL>=0?"+":"")+pnlPct+"%":"0%"}</span>
-        </div>
+        ) : (
+          <>
+            <div className="tj-upload-icon">↑</div>
+            <div>Click or paste to upload screenshot</div>
+            {analyzing && <div style={{ color: "var(--c-accent)", fontSize: 10, marginTop: 4 }}>Analyzing…</div>}
+          </>
+        )}
       </div>
-      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"10px 14px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
-          <span style={{fontSize:"10px",color:"#475569"}}>Start Balance</span>
-          <span style={{fontSize:"10px",color:"#475569"}}>End Balance</span>
-        </div>
-        <div style={{display:"flex",justifyContent:"space-between"}}>
-          <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.startBal):"$0.00"}</span>
-          <span className="jb-num" style={{fontSize:"9px",color:"#cbd5e1"}}>{stats?fmt(stats.endBal):"$0.00"}</span>
-        </div>
-      </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"9px 14px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-          <Icon name="DollarSign" size={12} style={{color:"#475569"}}/>
-          <span style={{fontSize:"11px",color:"#475569"}}>Commissions & Fees</span>
-        </div>
-        <span className="jb-num" style={{fontSize:"9px",color:"#94a3b8"}}>{stats?fmt(stats.commissions):"$0.00"}</span>
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"2px 0"}}>
-        <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
-        <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
-          <Icon name="BarChart2" size={10} style={{color:"#334155"}}/>
-          <span style={{fontSize:"8px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#334155"}}>Trading Stats</span>
-        </div>
-        <div style={{flex:1,height:"1px",background:"rgba(51,65,85,0.5)"}}/>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
-        {[
-          {label:"Buys",  val:stats?stats.buys:0,  color:"#60a5fa"},
-          {label:"Sells", val:stats?stats.sells:0, color:"#a78bfa"},
-          {label:"Total", val:stats?stats.total:0, color:"#e2e8f0"},
-        ].map(({label,val,color})=>(
-          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"9px 4px",textAlign:"center"}}>
-            <p style={{fontSize:"9px",color:"#475569",marginBottom:"3px"}}>{label}</p>
-            <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
-          </div>
-        ))}
-      </div>
-      <div style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"2px 14px"}}>
-        <StatRow label="Best Trade"    value={stats?fmt(stats.bestTrade):"$0.00"}  valueColor="#34d399"/>
-        <StatRow label="Worst Trade"   value={stats?fmt(stats.worstTrade):"$0.00"} valueColor={stats&&stats.worstTrade<0?"#f87171":"#94a3b8"}/>
-        <StatRow label="Avg Hold Time" value="—" valueColor="#475569"/>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0"}}>
-          <span style={{fontSize:"11px",color:"#64748b"}}>Max Drawdown</span>
-          <span className="jb-num" style={{fontSize:"9px",color:stats&&stats.maxDD>0?"#f87171":"#94a3b8"}}>{stats?fmt(stats.maxDD):"$0.00"}</span>
-        </div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
-        {[
-          {label:"Winrate",       val:stats?stats.winrate+"%":"0%", color:!stats?"#475569":parseFloat(stats?.winrate)>=50?"#34d399":"#f87171"},
-          {label:"Profit Factor", val:stats?stats.profitFactor:"0", color:!stats?"#475569":parseFloat(stats?.profitFactor)>=1.5?"#34d399":parseFloat(stats?.profitFactor)>=1?"#fbbf24":"#f87171"},
-          {label:"Expectancy",    val:stats?stats.exp:"0",          color:!stats?"#475569":parseFloat(stats?.exp)>0?"#34d399":"#f87171"},
-        ].map(({label,val,color})=>(
-          <div key={label} style={{background:"rgba(10,13,20,0.6)",border:"1px solid rgba(51,65,85,0.4)",borderRadius:"4px",padding:"10px 4px",textAlign:"center"}}>
-            <p style={{fontSize:"9px",color:"#475569",marginBottom:"5px"}}>{label}</p>
-            <p className="jb-num" style={{fontSize:"9px",color}}>{val}</p>
-          </div>
-        ))}
-      </div>
-      {!trades.length&&(
-        <div style={{borderRadius:"4px",border:"1px dashed rgba(51,65,85,0.3)",padding:"20px",textAlign:"center",marginTop:"4px"}}>
-          <Icon name="Activity" size={20} style={{color:"#1e293b",margin:"0 auto 6px",display:"block"}}/>
-          <p style={{fontSize:"10px",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#1e293b"}}>No trades yet</p>
-          <p style={{fontSize:"10px",color:"#0f172a",marginTop:"3px"}}>Log a trade to see stats</p>
-        </div>
-      )}
-    </div>
+    </Field>
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────
-export default function JournalForm({ sessionId }: { sessionId?: string | null }) {
-  const [step,setStep]               = useState(1);
-  const [form,setForm]               = useState<Record<string,any>>(INIT);
-  const [saved,setSaved]             = useState(false);
-  const [draftRestored,setDraftRestored] = useState(false);
-  const { data: trades = [] } = useQuery<any[]>({
-    queryKey: ['/api/journal/entries', sessionId],
-    queryFn: async () => {
-      const r = await fetch(`/api/journal/entries?sessionId=${sessionId}`);
-      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
-      const data: any[] = await r.json();
-      return [...data].reverse(); // reverse to chronological (oldest first)
-    },
-    enabled: !!sessionId,
+function Strip({ text, type = "default" }: any) {
+  return <div className={`tj-strip${type === "warn" ? " warn" : type === "danger" ? " danger" : type === "info" ? " info" : ""}`}>{text}</div>;
+}
+
+// ── Step 1 — Decision ─────────────────────────────────────────────────────────
+function Step1({ d, set }: any) {
+  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Core Thesis</div>
+        <Strip text="Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution." />
+        <div className="tj-grid" style={{ gap: 12 }}>
+          <Txt label="Trade Thesis" value={d.thesis} onChange={f("thesis")} placeholder="If you can't articulate your edge in 2–3 sentences, you don't have one…" rows={3} />
+          <div className="tj-grid tj-g2">
+            <Txt label="Entry Trigger" value={d.trigger} onChange={f("trigger")} placeholder="What specifically triggered entry?" rows={2} />
+            <Txt label="Invalidation Logic" value={d.invalidationLogic} onChange={f("invalidationLogic")} placeholder="What would make this setup invalid?" rows={2} />
+          </div>
+          <Txt label="Expected Behavior" value={d.expectedBehavior} onChange={f("expectedBehavior")} placeholder="How do you expect price to move?" rows={2} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Pre-Entry State Check</div>
+        <div className="tj-grid tj-g2">
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <TjSlider label="Energy Level" min={1} max={5} value={d.energyLevel} onChange={f("energyLevel")} suffix="/5" />
+            <TjSlider label="Focus Level" min={1} max={5} value={d.focusLevel} onChange={f("focusLevel")} suffix="/5" />
+            <TjSlider label="Confidence at Entry" min={1} max={5} value={d.confidenceAtEntry} onChange={f("confidenceAtEntry")} suffix="/5" />
+            <Radio label="External Distraction" options={["No", "Yes"]} value={d.externalDistraction} onChange={f("externalDistraction")} />
+          </div>
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <Inp label="Open Trades Count" type="number" placeholder="0" value={d.openTradesCount} onChange={f("openTradesCount")} />
+            <Inp label="Total Risk Open (%)" type="number" placeholder="2.5" value={d.totalRiskOpen} onChange={f("totalRiskOpen")} />
+            <Radio label="Correlated Exposure" options={["No", "Yes"]} value={d.correlatedExposure} onChange={f("correlatedExposure")} />
+          </div>
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Classification &amp; Quality</div>
+        <div className="tj-grid tj-g2">
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <Inp label="Strategy" placeholder="e.g., Supply & Demand, Breakout…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
+            <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
+          </div>
+          <Sel label="Trade Grade" options={["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"]} value={d.tradeGrade} onChange={f("tradeGrade")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Rule Governance</div>
+        <div className="tj-grid tj-g2">
+          <Radio label="Setup Fully Valid" options={["Yes", "No", "Partial"]} value={d.setupFullyValid} onChange={f("setupFullyValid")} />
+          <Radio label="Any Rule Broken?" options={["No", "Yes"]} value={d.anyRuleBroken} onChange={f("anyRuleBroken")} />
+          {d.anyRuleBroken === "Yes" && (
+            <Inp label="Which Rule?" placeholder="e.g., Risk > 2%" value={d.ruleBroken} onChange={f("ruleBroken")} />
+          )}
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Impulse Control Check</div>
+        <Strip text="⚠ If ANY box below is checked — stop and reconsider before executing." type="warn" />
+        <div className="tj-grid tj-g2">
+          <Check label="Entering due to FOMO" value={d.impulseCheckFOMO} onChange={f("impulseCheckFOMO")} />
+          <Check label="Revenge trading after a loss" value={d.impulseCheckRevenge} onChange={f("impulseCheckRevenge")} />
+          <Check label="Trading out of boredom" value={d.impulseCheckBored} onChange={f("impulseCheckBored")} />
+          <Check label="Emotionally compromised" value={d.impulseCheckEmotional} onChange={f("impulseCheckEmotional")} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Step 2 — Execution ────────────────────────────────────────────────────────
+function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields }: any) {
+  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Trade Screenshots</div>
+        <div className="tj-grid tj-g2">
+          <UploadBox
+            label="Entry / Setup Screenshot"
+            inputId="tj-up-entry"
+            value={d.screenshot}
+            onChange={(v: any) => onScreenshotUpload("screenshot", v)}
+            onPasteText={(t: string) => onScreenshotUpload("screenshot-text", t)}
+            analyzing={analyzing}
+          />
+          <UploadBox
+            label="Exit Chart Screenshot"
+            inputId="tj-up-exit"
+            value={d.exitScreenshot}
+            onChange={(v: any) => onScreenshotUpload("exitScreenshot", v)}
+            onPasteText={(t: string) => onScreenshotUpload("exitScreenshot-text", t)}
+            analyzing={false}
+          />
+        </div>
+        {d.ocrConfidence && !analyzing && (
+          <div className="tj-strip info" style={{ marginTop: 8, marginBottom: 0 }}>
+            ✦ OCR complete · {ocrFields?.size ?? 0} fields extracted{d.ocrConfidence !== "text input" ? ` · confidence: ${d.ocrConfidence}` : ""}
+          </div>
+        )}
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Position Details</div>
+        <div className="tj-grid tj-g4">
+          <Inp label="Instrument" placeholder="EURUSD" value={d.instrument} onChange={f("instrument")} ocrFilled={ocrFields?.has("instrument")} />
+          <Sel label="Pair Category" options={["Major","Minor","Exotic","Index","Crypto","Commodity"]} value={d.pairCategory} onChange={f("pairCategory")} />
+          <Radio label="Direction" options={["Long","Short"]} value={d.direction} onChange={f("direction")} />
+          <Inp label="Lot Size" type="number" placeholder="0.01" value={d.lotSize} onChange={f("lotSize")} ocrFilled={ocrFields?.has("lotSize")} />
+          <Inp label="Entry Price" type="number" placeholder="0.00" value={d.entryPrice} onChange={f("entryPrice")} ocrFilled={ocrFields?.has("entryPrice")} />
+          <Inp label="Stop Loss" type="number" placeholder="0.00" value={d.stopLoss} onChange={f("stopLoss")} ocrFilled={ocrFields?.has("stopLoss")} />
+          <Inp label="SL Distance (Pips)" type="number" placeholder="0" value={d.stopLossDistancePips} onChange={f("stopLossDistancePips")} ocrFilled={ocrFields?.has("stopLossDistancePips")} />
+          <Inp label="Take Profit" type="number" placeholder="0.00" value={d.takeProfit} onChange={f("takeProfit")} ocrFilled={ocrFields?.has("takeProfit")} />
+          <Inp label="TP Distance (Pips)" type="number" placeholder="0" value={d.takeProfitDistancePips} onChange={f("takeProfitDistancePips")} ocrFilled={ocrFields?.has("takeProfitDistancePips")} />
+          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPercent} onChange={f("riskPercent")} />
+          <Sel label="Order Type" options={["Market","Limit","Stop","Stop-Limit"]} value={d.orderType} onChange={f("orderType")} />
+          <Radio label="Outcome" options={["Win","Loss","BE"]} value={d.outcome} onChange={f("outcome")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Timing &amp; Duration</div>
+        <div className="tj-grid tj-g4">
+          <Inp label="Entry Time" type="datetime-local" value={d.entryTime} onChange={f("entryTime")} ocrFilled={ocrFields?.has("entryTime")} />
+          <Inp label="Exit Time" type="datetime-local" value={d.exitTime} onChange={f("exitTime")} ocrFilled={ocrFields?.has("exitTime")} />
+          <Sel label="Day of Week" options={["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]} value={d.dayOfWeek} onChange={f("dayOfWeek")} />
+          <Inp label="Trade Duration" placeholder="2h 30m" value={d.tradeDuration} onChange={f("tradeDuration")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Timeframe Analysis</div>
+        <div className="tj-grid tj-g3">
+          <Sel label="Entry TF" options={["1M","3M","5M","15M","30MIN"]} value={d.entryTF} onChange={f("entryTF")} />
+          <Sel label="Analysis TF" options={["15M","30MIN","1HR","2HR","4HR"]} value={d.analysisTF} onChange={f("analysisTF")} />
+          <Sel label="Context TF" options={["1W","1D","4HR"]} value={d.contextTF} onChange={f("contextTF")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Entry &amp; Trade Management</div>
+        <div className="tj-grid tj-g3">
+          <Sel label="Entry Method" options={["Market","Limit","Stop"]} value={d.entryMethod} onChange={f("entryMethod")} />
+          <Inp label="Exit Strategy" placeholder="Describe exit approach" value={d.exitStrategy} onChange={f("exitStrategy")} />
+          <Sel label="Management Type" options={["Rule-based","Discretionary","Hybrid"]} value={d.managementType} onChange={f("managementType")} />
+          <Sel label="Risk Heat" options={["Low","Medium","High"]} value={d.riskHeat} onChange={f("riskHeat")} />
+          <Inp label="Spread at Entry (Pips)" type="number" placeholder="1.2" value={d.spreadAtEntry} onChange={f("spreadAtEntry")} />
+          <Inp label="Strategy Version" placeholder="v2.3" value={d.strategyVersionId2} onChange={f("strategyVersionId2")} />
+        </div>
+        <div className="tj-grid tj-g2" style={{ marginTop: 10 }}>
+          <Check label="Break-Even Applied" value={d.breakEvenApplied} onChange={f("breakEvenApplied")} />
+          <Check label="Trailing Stop Applied" value={d.trailingStopApplied} onChange={f("trailingStopApplied")} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Step 3 — Context ──────────────────────────────────────────────────────────
+function Step3({ d, set }: any) {
+  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  const SCORES: [string, string][] = [
+    ["marketAlignment","Market Alignment"],
+    ["setupClarity","Setup Clarity"],
+    ["entryPrecision","Entry Precision"],
+    ["confluence","Confluence"],
+    ["timingQuality","Timing Quality"],
+    ["signalValidation","Signal Validation"],
+  ];
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Market Environment</div>
+        <div className="tj-grid tj-g4">
+          <Sel label="Market Regime" options={["Bullish","Bearish","Ranging"]} value={d.marketRegime} onChange={f("marketRegime")} />
+          <Sel label="Trend Direction" options={["Bullish","Bearish","Sideways"]} value={d.trendDirection} onChange={f("trendDirection")} />
+          <Sel label="Volatility" options={["Low","Normal","High"]} value={d.volatilityState} onChange={f("volatilityState")} />
+          <Sel label="Liquidity" options={["Low","Normal","High"]} value={d.liquidity} onChange={f("liquidity")} />
+          <Sel label="News Environment" options={["Clear","Minor","Major"]} value={d.newsEnvironment} onChange={f("newsEnvironment")} />
+          <Sel label="Session" options={["London","New York","Tokyo","Sydney","Overlap"]} value={d.sessionName} onChange={f("sessionName")} />
+          <Sel label="Session Phase" options={["Open","Mid","Close"]} value={d.sessionPhase} onChange={f("sessionPhase")} />
+          <Inp label="ATR at Entry" type="number" placeholder="0.0045" value={d.atrAtEntry} onChange={f("atrAtEntry")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Higher Timeframe Context</div>
+        <div className="tj-grid tj-g2" style={{ marginBottom: 12 }}>
+          <Radio label="HTF Bias" options={["Bull","Bear","Range"]} value={d.htfBias} onChange={f("htfBias")} />
+          <Radio label="HTF Key Level Present" options={["Yes","No"]} value={d.htfKeyLevelPresent} onChange={f("htfKeyLevelPresent")} />
+          <Radio label="Trend Alignment" options={["Yes","No"]} value={d.trendAlignment} onChange={f("trendAlignment")} />
+          <Radio label="MTF Alignment" options={["Yes","No"]} value={d.multitimeframeAlignment} onChange={f("multitimeframeAlignment")} />
+        </div>
+        <div className="tj-grid" style={{ gap: 10 }}>
+          <Txt label="Higher TF Context" value={d.higherTFContext} onChange={f("higherTFContext")} placeholder="Weekly / Daily bias and key levels…" rows={2} />
+          <Txt label="Analysis TF Context" value={d.analysisTFContext} onChange={f("analysisTFContext")} placeholder="4H / 1H structure overview…" rows={2} />
+          <Txt label="Entry TF Context" value={d.entryTFContext} onChange={f("entryTFContext")} placeholder="15M / 5M entry setup details…" rows={2} />
+          <Txt label="Other Confluences" value={d.otherConfluences} onChange={f("otherConfluences")} placeholder="Additional confluences…" rows={2} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Technical Signals</div>
+        <div className="tj-grid tj-g2">
+          <Inp label="Timing Context" placeholder="Impulse, Correction, Ranging…" value={d.timingContext} onChange={f("timingContext")} />
+          <Inp label="Candle Pattern" placeholder="e.g., Engulfing, Pin Bar" value={d.candlePattern} onChange={f("candlePattern")} />
+          <Txt label="Primary Signals" value={d.primarySignals} onChange={f("primarySignals")} placeholder="Main confirmation signals" rows={2} />
+          <Txt label="Secondary Signals" value={d.secondarySignals} onChange={f("secondarySignals")} placeholder="Supporting confluences" rows={2} />
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <Inp label="Indicator State" placeholder="e.g., RSI 62, MACD bullish cross, above 50 EMA…" value={d.indicatorState} onChange={f("indicatorState")} />
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <Txt label="Liquidity Targets" value={d.liquidityTargets} onChange={f("liquidityTargets")} placeholder="Major liquidity pools, stop hunts…" rows={2} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Key Level Analysis</div>
+        <div className="tj-grid tj-g2">
+          <Radio label="Key Level Respect" options={["Yes","No","Partial"]} value={d.keyLevelRespect} onChange={f("keyLevelRespect")} />
+          <Sel label="Key Level Type" options={["Support","Resistance","Pivot","Fib Level"]} value={d.keyLevelType} onChange={f("keyLevelType")} />
+          <Radio label="Momentum Validity" options={["Strong","Moderate","Weak"]} value={d.momentumValidity} onChange={f("momentumValidity")} />
+          <Radio label="Target Logic Clarity" options={["High","Medium","Low"]} value={d.targetLogicClarity} onChange={f("targetLogicClarity")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Setup Quality Scores (1–5)</div>
+        <div className="tj-score-grid">
+          {SCORES.map(([k, name]) => (
+            <Dots key={k} name={name} value={d[k]} onChange={(v: number) => f(k)(v)} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Step 4 — Review ───────────────────────────────────────────────────────────
+function Step4({ d, set }: any) {
+  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  return (
+    <>
+      <div className="tj-section">
+        <div className="tj-section-label">Exit Causation</div>
+        <Sel label="Primary Exit Reason" options={["Target Hit","Stop Hit","Time Exit","Structure Change","News","Emotional Exit"]} value={d.primaryExitReason} onChange={f("primaryExitReason")} />
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Performance Data</div>
+        <div className="tj-grid tj-g4">
+          <Inp label="Pips / Points" type="number" placeholder="0" value={d.pipsGainedLost} onChange={f("pipsGainedLost")} />
+          <Inp label="P&L Amount ($)" type="number" placeholder="0.00" value={d.profitLoss} onChange={f("profitLoss")} />
+          <Inp label="Account Balance" type="number" placeholder="0.00" value={d.accountBalance} onChange={f("accountBalance")} />
+          <Inp label="Commission / Fees" type="number" placeholder="3.50" value={d.commission} onChange={f("commission")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Planning vs Execution</div>
+        <div className="tj-grid tj-g3">
+          <Inp label="Planned Entry" type="number" placeholder="0.00" value={d.plannedEntry} onChange={f("plannedEntry")} />
+          <Inp label="Planned SL" type="number" placeholder="0.00" value={d.plannedSL} onChange={f("plannedSL")} />
+          <Inp label="Planned TP" type="number" placeholder="0.00" value={d.plannedTP} onChange={f("plannedTP")} />
+          <Inp label="Actual Entry" type="number" placeholder="0.00" value={d.actualEntry} onChange={f("actualEntry")} />
+          <Inp label="Actual SL" type="number" placeholder="0.00" value={d.actualSL} onChange={f("actualSL")} />
+          <Inp label="Actual TP" type="number" placeholder="0.00" value={d.actualTP} onChange={f("actualTP")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Trade Metrics</div>
+        <div className="tj-grid tj-g3">
+          <Inp label="MAE (Max Adverse Excursion)" placeholder="-15 pts" value={d.mae} onChange={f("mae")} />
+          <Inp label="MFE (Max Favorable Excursion)" placeholder="+45 pts" value={d.mfe} onChange={f("mfe")} />
+          <Inp label="Monetary Risk ($)" type="number" placeholder="0.00" value={d.monetaryRisk} onChange={f("monetaryRisk")} />
+          <Inp label="Potential Reward ($)" type="number" placeholder="0.00" value={d.potentialReward} onChange={f("potentialReward")} />
+          <Inp label="Planned R:R" placeholder="1:2" value={d.plannedRR} onChange={f("plannedRR")} />
+          <Inp label="Achieved R:R" placeholder="1:1.5" value={d.achievedRR} onChange={f("achievedRR")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Psychological State</div>
+        <div className="tj-grid tj-g3">
+          <Sel label="Emotional State" options={["Calm","Anxious","FOMO","Confident","Fearful","Neutral"]} value={d.emotionalState} onChange={f("emotionalState")} />
+          <Sel label="Focus / Stress" options={["Low","Medium","High"]} value={d.focusStressLevel} onChange={f("focusStressLevel")} />
+          <Inp label="Rules Followed %" type="number" placeholder="100" value={d.rulesFollowed} onChange={f("rulesFollowed")} />
+          <TjSlider label="Confidence Level" min={1} max={5} value={d.confidenceLevel} onChange={f("confidenceLevel")} suffix="/5" />
+          <Sel label="Post-Trade Emotion" options={["Neutral","Relieved","Euphoric","Frustrated","Regretful","Calm","Anxious"]} value={d.postTradeEmotion} onChange={f("postTradeEmotion")} />
+          <Inp label="Consecutive Trade Count" type="number" placeholder="3" value={d.consecutiveTradeCount} onChange={f("consecutiveTradeCount")} />
+        </div>
+        <div className="tj-grid tj-g2" style={{ marginTop: 10 }}>
+          <Check label="Worth repeating this setup" value={d.worthRepeating} onChange={f("worthRepeating")} />
+          <Check label="Recency bias (influenced by last trade)" value={d.recencyBiasFlag} onChange={f("recencyBiasFlag")} />
+        </div>
+      </div>
+
+      <div className="tj-section">
+        <div className="tj-section-label">Trade Debrief</div>
+        <div className="tj-grid" style={{ gap: 12 }}>
+          <Txt label="What Worked" value={d.whatWorked} onChange={f("whatWorked")} placeholder="Describe what went well in this trade…" />
+          <Txt label="What Failed" value={d.whatFailed} onChange={f("whatFailed")} placeholder="Describe what went wrong or could be improved…" />
+          <Txt label="Future Adjustments" value={d.adjustments} onChange={f("adjustments")} placeholder="What would you do differently next time?" />
+          <Txt label="Additional Notes" rows={4} value={d.notes} onChange={f("notes")} placeholder="Any additional observations, ideas, market context, or lessons learned…" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Initial state ─────────────────────────────────────────────────────────────
+const INIT_STEP1 = {
+  thesis: "", trigger: "", invalidationLogic: "", expectedBehavior: "",
+  energyLevel: 3, focusLevel: 3, confidenceAtEntry: 3,
+  externalDistraction: "No", openTradesCount: "", totalRiskOpen: "", correlatedExposure: "No",
+  strategyVersionId: "", setupTag: "Breakout", tradeGrade: "A - Textbook",
+  setupFullyValid: "Yes", anyRuleBroken: "No", ruleBroken: "",
+  impulseCheckFOMO: false, impulseCheckRevenge: false, impulseCheckBored: false, impulseCheckEmotional: false,
+};
+const INIT_STEP2 = {
+  screenshot: null, exitScreenshot: null,
+  instrument: "", pairCategory: "Major", direction: "Long", lotSize: "",
+  entryPrice: "", stopLoss: "", stopLossDistancePips: "", takeProfit: "", takeProfitDistancePips: "",
+  riskPercent: "", orderType: "Market", outcome: "Win",
+  entryTime: "", exitTime: "", dayOfWeek: "Monday", tradeDuration: "",
+  entryTF: "5M", analysisTF: "1HR", contextTF: "1D",
+  entryMethod: "Market", exitStrategy: "", managementType: "Rule-based",
+  riskHeat: "Low", spreadAtEntry: "", strategyVersionId2: "", breakEvenApplied: false, trailingStopApplied: false,
+  ocrConfidence: "", ocrValidation: "",
+};
+const INIT_STEP3 = {
+  marketRegime: "Bullish", trendDirection: "Bullish", volatilityState: "Normal",
+  liquidity: "Normal", newsEnvironment: "Clear", sessionName: "London",
+  sessionPhase: "Open", atrAtEntry: "",
+  htfBias: "Bull", htfKeyLevelPresent: "Yes", trendAlignment: "Yes", multitimeframeAlignment: "Yes",
+  higherTFContext: "", analysisTFContext: "", entryTFContext: "", otherConfluences: "",
+  timingContext: "", candlePattern: "", primarySignals: "", secondarySignals: "",
+  indicatorState: "", liquidityTargets: "",
+  keyLevelRespect: "Yes", keyLevelType: "Support", momentumValidity: "Strong", targetLogicClarity: "High",
+  marketAlignment: 3, setupClarity: 3, entryPrecision: 3, confluence: 3, timingQuality: 3, signalValidation: 3,
+};
+const INIT_STEP4 = {
+  primaryExitReason: "Target Hit",
+  pipsGainedLost: "", profitLoss: "", accountBalance: "", commission: "",
+  plannedEntry: "", plannedSL: "", plannedTP: "",
+  actualEntry: "", actualSL: "", actualTP: "",
+  mae: "", mfe: "", monetaryRisk: "", potentialReward: "", plannedRR: "", achievedRR: "",
+  emotionalState: "Calm", focusStressLevel: "Low", rulesFollowed: 100,
+  confidenceLevel: 3, postTradeEmotion: "Neutral", consecutiveTradeCount: "",
+  worthRepeating: true, recencyBiasFlag: false,
+  whatWorked: "", whatFailed: "", adjustments: "", notes: "",
+};
+
+const STEPS_DEF = [
+  { n: 1, label: "Decision",  key: "step1", Component: Step1 },
+  { n: 2, label: "Execution", key: "step2", Component: Step2 },
+  { n: 3, label: "Context",   key: "step3", Component: Step3 },
+  { n: 4, label: "Review",    key: "step4", Component: Step4 },
+];
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function JournalForm({ sessionId }: { sessionId?: string | number | null }) {
+  const [step, setStep] = useState(1);
+  const [s1, setS1] = useState({ ...INIT_STEP1 });
+  const [s2, setS2] = useState({ ...INIT_STEP2 });
+  const [s3, setS3] = useState({ ...INIT_STEP3 });
+  const [s4, setS4] = useState({ ...INIT_STEP4 });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [ocrFields, setOcrFields] = useState<Set<string>>(new Set());
+
+  const { data: tradesData } = useQuery<any[]>({
+    queryKey: ["/api/journal/entries"],
+    select: (d: any) => (Array.isArray(d) ? d : d?.entries ?? []),
   });
-  const [sidebarOpen,setSidebarOpen] = useState(false);
-  const [analyzing,setAnalyzing]     = useState(false);
-  const [analyzeError,setAnalyzeError] = useState<string|null>(null);
-  const [saving,setSaving]           = useState(false);
-  const [ocrFields,setOcrFields]     = useState<OcrFilledSet>(new Set());
+  const trades = tradesData ?? [];
 
-  // ── Draft auto-save ────────────────────────────────────────────────────────
-  const draftKey = sessionId ? `journal_draft_${sessionId}` : null;
-
-  // Restore draft on mount
-  useEffect(() => {
-    if (!draftKey) return;
-    try {
-      const raw = localStorage.getItem(draftKey);
-      if (!raw) return;
-      const { form: savedForm, step: savedStep } = JSON.parse(raw);
-      // Skip binary screenshot fields — too large for localStorage
-      const { screenshot, exitScreenshot, ...rest } = savedForm ?? {};
-      const hasData = Object.entries(rest).some(([k, v]) => v !== INIT[k] && v !== '' && v !== null);
-      if (!hasData) return;
-      setForm(prev => ({ ...prev, ...rest }));
-      setStep(savedStep ?? 1);
-      setDraftRestored(true);
-    } catch (_) {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey]);
-
-  // Auto-save draft on every form / step change (debounced 600ms)
-  useEffect(() => {
-    if (!draftKey) return;
-    const timer = setTimeout(() => {
-      try {
-        const { screenshot, exitScreenshot, ...rest } = form;
-        localStorage.setItem(draftKey, JSON.stringify({ form: rest, step }));
-      } catch (_) {}
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [form, step, draftKey]);
-
-  // ── FIX 1: live running balance from all existing session trades ──────────
-  const { currentBalance, startingBalance } = useSessionBalance(sessionId);
-
-  // ── Sync riskReward from achievedRR when user enters it manually ─────────────
-  // achievedRR is the definitive R:R for wins. Syncs into riskReward so the
-  // DB column is always populated. OCR-set riskReward is never overwritten.
-  useEffect(() => {
-    if (ocrFields.has("riskReward")) return;
-    if (manualEdits.current.has("riskReward")) return;
-    if (!form.achievedRR) return;
-    setForm(prev => ({ ...prev, riskReward: form.achievedRR }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.achievedRR]);
-
-  // ── Unified monetary auto-calc ─────────────────────────────────────────────
-  // Fires on any change to riskPercent, achievedRR, outcome, or currentBalance.
-  //
-  // Always computes:
-  //   monetaryRisk    = currentBalance × riskPercent / 100
-  //   potentialReward = monetaryRisk × achievedRR  (when achievedRR > 0)
-  //
-  // When outcome is also set:
-  //   Win  → profitLoss = +monetaryRisk × achievedRR  (achievedRR required)
-  //   Loss → profitLoss = -monetaryRisk               (riskPercent only)
-  //   BE   → profitLoss = 0
-  //   accountBalance = currentBalance + profitLoss
-  useEffect(() => {
-    if (!currentBalance || !form.riskPercent) return;
-    const risk = parseFloat(String(form.riskPercent));
-    if (isNaN(risk) || risk <= 0) return;
-
-    const dollarRisk = parseFloat(((currentBalance * risk) / 100).toFixed(2));
-    const achievedRR = parseFloat(String(form.achievedRR || form.riskReward || "")) || 0;
-
-    const update: Record<string, string> = {};
-
-    if (!manualEdits.current.has('monetaryRisk'))
-      update.monetaryRisk = dollarRisk.toFixed(2);
-
-    if (!manualEdits.current.has('potentialReward') && achievedRR > 0)
-      update.potentialReward = (dollarRisk * achievedRR).toFixed(2);
-
-    const outcome = form.outcome as "Win" | "Loss" | "BE";
-    if (form.outcome && ["Win", "Loss", "BE"].includes(outcome)) {
-      // Win needs achievedRR; Loss and BE only need dollarRisk
-      if (outcome === "Win" && achievedRR <= 0) {
-        // R:R not yet entered — leave profitLoss blank until achievedRR is filled
-      } else {
-        const values = calcAllTradeValues(currentBalance, String(risk), String(achievedRR), outcome);
-        if (!manualEdits.current.has('profitLoss'))
-          update.profitLoss = values.profitLoss;
-        if (!manualEdits.current.has('accountBalance'))
-          update.accountBalance = values.accountBalance;
-      }
-    }
-
-    setForm(prev => ({ ...prev, ...update }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.riskPercent, form.achievedRR, form.riskReward, form.outcome, currentBalance]);
-
-  // ── Derive pipsGainedLost from planned TP/SL distance + outcome ────────────
-  // Win  → takeProfitDistancePips (positive pips)
-  // Loss → stopLossDistancePips   (negative pips — SL was hit)
-  // BE   → 0
-  // Skipped when OCR already provided openPLPoints for this field.
-  useEffect(() => {
-    if (ocrFields.has("pipsGainedLost")) return;
-    if (manualEdits.current.has("pipsGainedLost")) return;
-    const outcome = form.outcome;
-    if (!outcome || !["Win", "Loss", "BE"].includes(outcome)) return;
-    if (outcome === "Win" && form.takeProfitDistancePips) {
-      const v = parseFloat(form.takeProfitDistancePips);
-      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, pipsGainedLost: String(v) }));
-    } else if (outcome === "Loss" && form.stopLossDistancePips) {
-      const v = parseFloat(form.stopLossDistancePips);
-      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, pipsGainedLost: String(-v) }));
-    } else if (outcome === "BE") {
-      setForm(prev => ({ ...prev, pipsGainedLost: "0" }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.outcome, form.takeProfitDistancePips, form.stopLossDistancePips, ocrFields]);
-
-  // ── Auto-update actualTP when outcome is changed manually ──────────────────
-  // Win  → mirror plannedTP price
-  // Loss → negative SL pips (SL was hit instead of TP)
-  // Only fires when OCR has not explicitly set actualTP from a screenshot 2 analysis.
-  useEffect(() => {
-    if (ocrFields.has("actualTP")) return;
-    if (manualEdits.current.has("actualTP")) return;
-    const outcome = form.outcome;
-    if (!outcome || !["Win", "Loss"].includes(outcome)) return;
-    if (outcome === "Win" && form.plannedTP) {
-      setForm(prev => ({ ...prev, actualTP: prev.plannedTP }));
-    } else if (outcome === "Loss" && form.stopLossDistancePips) {
-      const v = parseFloat(form.stopLossDistancePips);
-      if (!isNaN(v) && v > 0) setForm(prev => ({ ...prev, actualTP: String(-v) }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.outcome, ocrFields]);
-
-  // ── Auto-compute tradeDuration from entryTime + exitTime ───────────────────
-  // Runs whenever either timestamp changes so manual entry doesn't require
-  // the user to also type the duration.
-  useEffect(() => {
-    if (manualEdits.current.has('tradeDuration')) return;
-    const computed = computeDuration(form.entryTime, form.exitTime);
-    if (computed) setForm(prev => ({ ...prev, tradeDuration: computed }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.entryTime, form.exitTime]);
-
-
-  // Intercepts Ctrl+V anywhere on the page when no form field is focused.
-  // • Image in clipboard → feeds into OCR pipeline (same as file upload)
-  // • Text in clipboard  → feeds into text trade parser
-  useEffect(() => {
-    if (step !== 2) return;
-    const handler = (e: ClipboardEvent) => {
-      const active = document.activeElement as HTMLElement | null;
-      // Let normal paste work inside real form fields.
-      // Skip the guard for our own invisible overlay (data-paste-overlay attribute).
-      const isRealInput = active && (
-        active.tagName === "INPUT" ||
-        active.tagName === "TEXTAREA" ||
-        (active.isContentEditable && !active.hasAttribute("data-paste-overlay"))
-      );
-      if (isRealInput) return;
-
-      const items = Array.from(e.clipboardData?.items ?? []);
-      const imgItem = items.find(i => i.type.startsWith("image/"));
-      if (imgItem) {
-        const file = imgItem.getAsFile();
-        if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => handleScreenshotUpload("screenshot", reader.result);
-          reader.readAsDataURL(file);
-        }
-        return;
-      }
-      const text = e.clipboardData?.getData("text/plain") ?? "";
-      if (text.trim()) analyzeText(text, "screenshot");
-    };
-    document.addEventListener("paste", handler);
-    return () => document.removeEventListener("paste", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
-  // ── Manual-edit protection ─────────────────────────────────────────────────
-  // Tracks which auto-computed fields the user has manually overridden.
-  // Auto-calc effects respect this and won't overwrite a protected field.
-  // When the user changes a "trigger" field (riskPercent, outcome, achievedRR…)
-  // the protection on its related computed fields is cleared so auto-calc fires
-  // fresh, matching the user's intent.
-  const manualEdits = useRef<Set<string>>(new Set());
-
-  const AUTO_COMPUTED = new Set([
-    'monetaryRisk', 'potentialReward', 'profitLoss', 'accountBalance',
-    'pipsGainedLost', 'actualTP', 'riskReward', 'tradeDuration',
-  ]);
-
-  // trigger field → computed fields whose manual override should be cleared
-  const TRIGGER_CLEAR: Record<string, string[]> = {
-    riskPercent:            ['monetaryRisk', 'potentialReward', 'profitLoss', 'accountBalance'],
-    outcome:                ['profitLoss', 'accountBalance', 'pipsGainedLost', 'actualTP'],
-    achievedRR:             ['potentialReward', 'profitLoss', 'accountBalance', 'riskReward'],
-    takeProfitDistancePips: ['pipsGainedLost'],
-    stopLossDistancePips:   ['pipsGainedLost'],
-    plannedTP:              ['actualTP'],
-    entryTime:              ['tradeDuration'],
-    exitTime:               ['tradeDuration'],
-  };
-
-  const set = (k: string, v: any) => {
-    // Changing a trigger field resets protection on its computed fields
-    if (TRIGGER_CLEAR[k]) {
-      TRIGGER_CLEAR[k].forEach(f => manualEdits.current.delete(f));
-    }
-    // Manually editing a computed field protects it from further auto-calc
-    if (AUTO_COMPUTED.has(k)) {
-      if (v !== '' && v != null) {
-        manualEdits.current.add(k);
-      } else {
-        // Clearing the field lifts the protection so auto-calc can refill it
-        manualEdits.current.delete(k);
-      }
-    }
-    setForm(p => ({ ...p, [k]: v }));
-  };
-
-  const lf  = (label: string,field: string,rows?: number,placeholder?: string,type?: string) =>
-    <Field label={label} field={field} value={form[field]} onChange={set} rows={rows} placeholder={placeholder} type={type} ocrFilled={ocrFields.has(field)}/>;
-  const ls  = (label: string,field: string,options: string[]) =>
-    <Sel label={label} field={field} value={form[field]} onChange={set} options={options} ocrFilled={ocrFields.has(field)}/>;
-  const sc  = (label: string,field: string) => <Score label={label} field={field} value={form[field]} onChange={set}/>;
-  const ck  = (label: string,field: string) => <Check label={label} field={field} value={form[field]} onChange={set}/>;
-
-  const g2="grid grid-cols-1 sm:grid-cols-2 gap-4";
-  const g3="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
-  const g4="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
-
-  const normaliseDatetime = (val: string | null | undefined): string => {
-    if (!val) return "";
-    const s = String(val).trim();
-    // Convert "2025-01-14 08:00" → "2025-01-14T08:00" for datetime-local inputs
-    return s.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}).*$/, "$1T$2");
-  };
-
-  const computeDuration = (entryStr: string, exitStr: string): string | null => {
-    if (!entryStr || !exitStr) return null;
-    try {
-      const entry = new Date(entryStr);
-      const exit = new Date(exitStr);
-      if (isNaN(entry.getTime()) || isNaN(exit.getTime())) return null;
-      const diffMs = exit.getTime() - entry.getTime();
-      if (diffMs <= 0) return null;
-      const totalMins = Math.floor(diffMs / 60000);
-      const hours = Math.floor(totalMins / 60);
-      const mins = totalMins % 60;
-      const days = Math.floor(hours / 24);
-      if (days > 0) return `${days}d ${hours % 24}h`;
-      if (hours > 0) return `${hours}h ${mins}m`;
-      return `${mins}m`;
-    } catch { return null; }
-  };
-
-  // ── Shared field-mapping helper ─────────────────────────────────────────
-  // Used by both OCR (analyzeScreenshot) and text-paste (analyzeText).
-  // Accepts the { success, fields, ... } response from either endpoint.
-  const applyParsedFields = (data: any, screenshotField: string) => {
-    const f = data.fields;
-    const newOcrFields = new Set<string>();
-
-    const mark = (field: string) => newOcrFields.add(field);
-    const maybe = (field: string, val: any) => {
-      if (val != null && val !== "") { mark(field); return String(val); }
-      return undefined;
-    };
-
-    setForm(prev => {
-      const u = { ...prev };
-
-      if (f.instrument)   { u.instrument   = f.instrument;   mark("instrument"); }
-      if (f.pairCategory) { u.pairCategory = f.pairCategory; mark("pairCategory"); }
-      else if (f.instrument) {
-        const sym = String(f.instrument).toUpperCase();
-        if      (/BTC|ETH|BNB|XRP|SOL|ADA|DOGE|USDT/.test(sym)) u.pairCategory = "Crypto";
-        else if (/XAU|XAG|GOLD|SILVER|OIL|WTI/.test(sym))        u.pairCategory = "Commodity";
-        else if (/US30|SPX|NAS|DAX|FTSE|CAC|NDX|IDX/.test(sym))  u.pairCategory = "Index";
-        else if (/EURUSD|GBPUSD|USDJPY|USDCHF|AUDUSD|NZDUSD|USDCAD/.test(sym)) u.pairCategory = "Major";
-        else u.pairCategory = "Minor";
-        mark("pairCategory");
-      }
-
-      if (f.direction) { u.direction = f.direction; mark("direction"); }
-
-      const ep = maybe("entryPrice", f.entryPrice);
-      const op = maybe("openingPrice", f.openingPrice);
-      // openingPrice (from SL axis) is the entry price — use it as fallback when entryPrice absent
-      const resolvedEntry = ep || op;
-      if (resolvedEntry) { u.entryPrice = resolvedEntry; u.plannedEntry = resolvedEntry; u.actualEntry = resolvedEntry; mark("entryPrice"); }
-      if (op) u.openingPrice = op;
-
-      const cp = maybe("closingPrice", f.closingPrice);
-      const tp = maybe("takeProfit", f.takeProfit);
-      // closingPrice (from TP axis) is the take profit price — use it as fallback when takeProfit absent
-      const resolvedTP = tp || cp;
-      if (cp) u.closingPrice = cp;
-
-      if (screenshotField === "screenshot") {
-        // ── Screenshot 1 (setup): planned TP only ──────────────────────
-        if (resolvedTP) {
-          u.takeProfit = resolvedTP;
-          u.plannedTP  = resolvedTP;
-          mark("takeProfit"); mark("plannedTP");
-        }
-      } else {
-        // ── Screenshot 2 (exit): actual TP, outcome-aware ──────────────
-        // Win/BE → actualTP = TP price extracted from exit screenshot
-        // Loss   → actualTP = negative SL distance in pips (SL was hit)
-        if (resolvedTP) { u.takeProfit = resolvedTP; mark("takeProfit"); }
-        const exitOutcome = (u.outcome || "").toLowerCase();
-        if (exitOutcome === "loss") {
-          const slPipsStr = u.stopLossDistancePips;
-          if (slPipsStr) {
-            u.actualTP = String(-Math.abs(parseFloat(slPipsStr)));
-            mark("actualTP");
+  const handleScreenshotUpload = useCallback(async (field: string, value: any) => {
+    if (field === "screenshot" || field === "exitScreenshot") {
+      setS2(prev => ({ ...prev, [field]: value }));
+      if (value && typeof value === "string" && value.startsWith("data:image")) {
+        setAnalyzing(true);
+        try {
+          const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
+          if (res?.fields) {
+            const filled = new Set<string>(Object.keys(res.fields));
+            setOcrFields(prev => new Set([...prev, ...filled]));
+            setS2(prev => ({ ...prev, ...res.fields, ocrConfidence: res.confidence ?? "high", ocrValidation: res.validation ?? "" }));
+            if (res.fields.instrument) setS2(prev => ({ ...prev, instrument: res.fields.instrument }));
           }
-        } else if (resolvedTP) {
-          u.actualTP = resolvedTP;
-          mark("actualTP");
+        } catch {
+          // OCR failed silently — user can fill manually
+        } finally {
+          setAnalyzing(false);
         }
       }
-
-      const sl = maybe("stopLoss", f.stopLoss);
-      if (sl) { u.stopLoss = sl; u.plannedSL = sl; u.actualSL = sl; mark("stopLoss"); mark("plannedSL"); mark("actualSL"); }
-
-      // Points → pips conversion.
-      // The OCR Python already outputs pre-computed pips (stopLossPips / takeProfitPips)
-      // using correct per-instrument factors. Prefer those. Only fall back to the
-      // frontend ÷10 formula when the pre-computed values are absent.
-      const INDEX_RE = /index|idx|us30|nas|spx|dax|ftse|cac|dow|usa500|spx500|nas100|usa30/i;
-      const isIndex  = INDEX_RE.test(String(u.instrument ?? "")) || u.pairCategory === "Index";
-      const pipFactor = isIndex ? 1 : 10;
-      const ptsToPips = (pts: any) => String(Math.round(parseFloat(String(pts)) / pipFactor * 10) / 10);
-
-      // SL pips — prefer pre-computed value, fall back to points conversion
-      const slPts = f.stopLossPoints ?? f.plannedSLPoints;
-      const tpPts = f.takeProfitPoints ?? f.plannedTPPoints;
-      if (f.stopLossPips != null) { u.stopLossDistancePips = String(f.stopLossPips); mark("stopLossDistancePips"); }
-      else if (slPts != null)     { u.stopLossDistancePips = ptsToPips(slPts);        mark("stopLossDistancePips"); }
-
-      // TP pips — same priority
-      if (f.takeProfitPips != null) { u.takeProfitDistancePips = String(f.takeProfitPips); mark("takeProfitDistancePips"); }
-      else if (tpPts != null)       { u.takeProfitDistancePips = ptsToPips(tpPts);          mark("takeProfitDistancePips"); }
-
-      if (f.stopLossUSD  != null) { u.stopLossUSD   = String(f.stopLossUSD);  mark("stopLossUSD"); }
-      if (f.takeProfitUSD!= null) { u.takeProfitUSD = String(f.takeProfitUSD); mark("takeProfitUSD"); }
-
-      if (f.lotSize      != null) { u.lotSize      = String(f.lotSize);      mark("lotSize"); }
-      if (f.units        != null) { u.units        = String(f.units);        mark("units"); }
-      if (f.contractSize != null) { u.contractSize = String(f.contractSize); mark("contractSize"); }
-
-      if (screenshotField === "screenshot") {
-        // Screenshot 1 (setup): planned R:R
-        const rrVal = f.riskReward ?? f.plannedRR;
-        if (rrVal != null) {
-          u.riskReward = String(rrVal);
-          u.plannedRR  = String(rrVal);
-          mark("riskReward"); mark("plannedRR");
+    } else if (field === "screenshot-text" || field === "exitScreenshot-text") {
+      const actualField = field === "screenshot-text" ? "screenshot" : "exitScreenshot";
+      setAnalyzing(true);
+      try {
+        const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { text: value, field: actualField });
+        if (res?.fields) {
+          const filled = new Set<string>(Object.keys(res.fields));
+          setOcrFields(prev => new Set([...prev, ...filled]));
+          setS2(prev => ({ ...prev, ...res.fields, ocrConfidence: "text input", ocrValidation: res.validation ?? "" }));
         }
-      } else {
-        // Screenshot 2 (exit): achieved R:R only — don't overwrite plannedRR
-        const rrVal = f.riskReward ?? f.achievedRR;
-        if (rrVal != null) { u.achievedRR = String(rrVal); mark("achievedRR"); }
+      } catch {
+        // silent
+      } finally {
+        setAnalyzing(false);
       }
-
-      if (f.outcome != null) { u.outcome = f.outcome; mark("outcome"); }
-
-      if (f.openPLUSD != null)    { u.profitLoss    = String(f.openPLUSD);    mark("profitLoss"); }
-      // pipsGainedLost: openPLPoints are in JForex points → convert to pips
-      if (f.openPLPoints != null) { u.pipsGainedLost = ptsToPips(f.openPLPoints); mark("pipsGainedLost"); }
-
-      if (f.runUpPoints != null) {
-        u.mfe = `${f.runUpPoints} pts${f.runUpUSD != null ? ` ($${f.runUpUSD})` : ""}`;
-        mark("mfe");
-      }
-      if (f.drawdownPoints != null) {
-        u.mae = `${f.drawdownPoints} pts${f.drawdownUSD != null ? ` ($${f.drawdownUSD})` : ""}`;
-        mark("mae");
-      }
-
-      if (screenshotField === "screenshot") {
-        // Entry screenshot: grab whichever time field the OCR populated (it often stores the
-        // replay-bar ISO timestamp as exitTime, not entryTime)
-        const entryT = normaliseDatetime(f.entryTime || f.exitTime);
-        if (entryT) { u.entryTime = entryT; mark("entryTime"); }
-      } else {
-        // Exit screenshot: exitTime is the close time; entryTime fills in only if still blank
-        if (f.exitTime) { u.exitTime = normaliseDatetime(f.exitTime); mark("exitTime"); }
-        if (f.entryTime && (!u.entryTime || u.entryTime === "")) {
-          u.entryTime = normaliseDatetime(f.entryTime); mark("entryTime");
-        }
-      }
-
-      const computed = computeDuration(u.entryTime, u.exitTime);
-      if (computed) { u.tradeDuration = computed; mark("tradeDuration"); }
-      else if (f.tradeDuration) { u.tradeDuration = f.tradeDuration; mark("tradeDuration"); }
-
-      if (f.dayOfWeek)    { u.dayOfWeek     = f.dayOfWeek;     mark("dayOfWeek"); }
-
-      if (f.sessionName)  { u.sessionName  = normaliseSession(f.sessionName);  mark("sessionName"); }
-      if (f.sessionPhase) { u.sessionPhase = f.sessionPhase; mark("sessionPhase"); }
-
-      // Show confidence for OCR; for text paste show field count instead
-      u.ocrConfidence = data.confidence || (data.method === "text" ? "text input" : "");
-      u.ocrValidation = data.validation?.summary || "";
-
-      return u;
-    });
-
-    setOcrFields(prev => new Set([...prev, ...newOcrFields]));
-  };
-
-  const analyzeScreenshot = async (base64Image: string, screenshotField: string) => {
-    setAnalyzing(true);
-    setAnalyzeError(null);
-    try {
-      const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: base64Image });
-      const data = await res.json();
-      if (data.success && data.fields) {
-        applyParsedFields(data, screenshotField);
-      } else {
-        setAnalyzeError(data.error || "OCR analysis failed");
-      }
-    } catch (err: any) {
-      let msg: string = err.message || "Failed to analyze screenshot";
-      const jsonMatch = msg.match(/^\d+: (\{.*\})$/s);
-      if (jsonMatch) {
-        try { msg = JSON.parse(jsonMatch[1]).error || msg; } catch {}
-      } else if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token")) {
-        msg = "Server error — please try again";
-      }
-      setAnalyzeError(msg);
-    } finally {
-      setAnalyzing(false);
     }
-  };
+  }, []);
 
-  const analyzeText = async (text: string, screenshotField: string) => {
-    if (!text.trim()) return;
-    setAnalyzing(true);
-    setAnalyzeError(null);
-    try {
-      const res = await apiRequest("POST", "/api/journal/analyze-text", { text });
-      const data = await res.json();
-      if (data.success && data.fields) {
-        applyParsedFields(data, screenshotField);
-      } else {
-        setAnalyzeError(data.error || "Could not parse trade text — check the format");
-      }
-    } catch (err: any) {
-      let msg: string = err.message || "Text parse failed";
-      const jsonMatch = msg.match(/^\d+: (\{.*\})$/s);
-      if (jsonMatch) {
-        try { msg = JSON.parse(jsonMatch[1]).error || msg; } catch {}
-      } else if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token")) {
-        msg = "Server error — please try again";
-      }
-      setAnalyzeError(msg);
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handleScreenshotUpload = (field: string, value: any) => {
-    set(field, value);
-    if (value && typeof value === "string" && (field === "screenshot" || field === "exitScreenshot")) {
-      analyzeScreenshot(value, field);
-    }
-  };
-
-  // ── API save ─────────────────────────────────────────────────────────────
-  const saveJournalEntry = async () => {
-    if (!sessionId) {
-      setAnalyzeError("Please select or create a session before saving a trade.");
-      return;
-    }
+  const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
-      const payload: Record<string,any> = {
-        instrument:           form.instrument           || null,
-        pairCategory:         form.pairCategory         || null,
-        direction:            form.direction             || null,
-        orderType:            form.orderType             || null,
-        entryPrice:           form.entryPrice            || null,
-        stopLoss:             form.stopLoss              || null,
-        takeProfit:           form.takeProfit            || null,
-        stopLossDistance:     form.stopLossDistancePips  || null,
-        takeProfitDistance:   form.takeProfitDistancePips|| null,
-        lotSize:              form.lotSize               || null,
-        riskReward:           form.riskReward            || null,
-        riskPercent:          form.riskPercent           || null,
-        spreadAtEntry:        form.spreadAtEntry         || null,
-        entryTime:            form.entryTime             || null,
-        exitTime:             form.exitTime              || null,
-        dayOfWeek:            form.dayOfWeek             || null,
-        tradeDuration:        form.tradeDuration         || null,
-        entryTF:              form.entryTF               || null,
-        analysisTF:           form.analysisTF            || null,
-        contextTF:            form.contextTF             || null,
-        outcome:              form.outcome               || null,
-        profitLoss:           form.profitLoss !== "" ? form.profitLoss : null,
-        pipsGainedLost:       form.pipsGainedLost !== "" ? form.pipsGainedLost : null,
-        accountBalance:       form.accountBalance !== "" ? form.accountBalance : null,
-        commission:           form.commission            || null,
-        mae:                  form.mae                   || null,
-        mfe:                  form.mfe                   || null,
-        plannedRR:            form.plannedRR             || null,
-        achievedRR:           form.achievedRR            || null,
-        monetaryRisk:         form.monetaryRisk          || null,
-        potentialReward:      form.potentialReward       || null,
-        primaryExitReason:    form.primaryExitReason     || null,
-        sessionName:          form.sessionName           || null,
-        sessionPhase:         form.sessionPhase          || null,
-        entryTimeUTC:         form.entryTimeUTC          || null,
-        sessionId:            sessionId                  || null,
-        timingContext:        form.timingContext          || null,
+      const payload: Record<string, any> = {
+        instrument:           s2.instrument           || null,
+        pairCategory:         s2.pairCategory         || null,
+        direction:            s2.direction             || null,
+        orderType:            s2.orderType             || null,
+        entryPrice:           s2.entryPrice            || null,
+        stopLoss:             s2.stopLoss              || null,
+        takeProfit:           s2.takeProfit            || null,
+        stopLossDistance:     s2.stopLossDistancePips  || null,
+        takeProfitDistance:   s2.takeProfitDistancePips|| null,
+        lotSize:              s2.lotSize               || null,
+        riskPercent:          s2.riskPercent           || null,
+        spreadAtEntry:        s2.spreadAtEntry         || null,
+        entryTime:            s2.entryTime             || null,
+        exitTime:             s2.exitTime              || null,
+        dayOfWeek:            s2.dayOfWeek             || null,
+        tradeDuration:        s2.tradeDuration         || null,
+        entryTF:              s2.entryTF               || null,
+        analysisTF:           s2.analysisTF            || null,
+        contextTF:            s2.contextTF             || null,
+        outcome:              s2.outcome               || null,
+        profitLoss:           s4.profitLoss !== "" ? s4.profitLoss : null,
+        pipsGainedLost:       s4.pipsGainedLost !== "" ? s4.pipsGainedLost : null,
+        accountBalance:       s4.accountBalance !== "" ? s4.accountBalance : null,
+        commission:           s4.commission            || null,
+        mae:                  s4.mae                   || null,
+        mfe:                  s4.mfe                   || null,
+        plannedRR:            s4.plannedRR             || null,
+        achievedRR:           s4.achievedRR            || null,
+        monetaryRisk:         s4.monetaryRisk          || null,
+        potentialReward:      s4.potentialReward       || null,
+        primaryExitReason:    s4.primaryExitReason     || null,
+        sessionName:          s3.sessionName           || null,
+        sessionPhase:         s3.sessionPhase          || null,
+        sessionId:            sessionId                || null,
+        timingContext:        s3.timingContext          || null,
         aiExtracted: {
-          method:          "ocr_v8_jforex",
-          ocrConfidence:   form.ocrConfidence,
-          ocrValidation:   form.ocrValidation,
-          openingPrice:    form.openingPrice    || null,
-          closingPrice:    form.closingPrice    || null,
-          stopLossUSD:     form.stopLossUSD     || null,
-          takeProfitUSD:   form.takeProfitUSD   || null,
-          runUpPoints:     form.runUpPoints     || null,
-          runUpUSD:        form.runUpUSD        || null,
-          drawdownPoints:  form.drawdownPoints  || null,
-          drawdownUSD:     form.drawdownUSD     || null,
-          contractSize:    form.contractSize    || null,
-          units:           form.units           || null,
+          method: "ocr_v8_jforex",
+          ocrConfidence: s2.ocrConfidence,
+          ocrValidation: s2.ocrValidation,
           ocrFilledFields: Array.from(ocrFields),
         },
         manualFields: {
-          thesis:                  form.thesis,
-          trigger:                 form.trigger,
-          invalidationLogic:       form.invalidationLogic,
-          expectedBehavior:        form.expectedBehavior,
-          setupTag:                form.setupTag,
-          tradeGrade:              form.tradeGrade,
-          marketRegime:            form.marketRegime,
-          trendDirection:          form.trendDirection,
-          volatilityState:         form.volatilityState,
-          liquidity:               form.liquidity,
-          newsEnvironment:         form.newsEnvironment,
-          htfBias:                 form.htfBias,
-          emotionalState:          form.emotionalState,
-          focusStressLevel:        form.focusStressLevel,
-          postTradeEmotion:        form.postTradeEmotion,
-          rulesFollowed:           form.rulesFollowed,
-          confidenceLevel:         form.confidenceLevel,
-          worthRepeating:          form.worthRepeating,
-          whatWorked:              form.whatWorked,
-          whatFailed:              form.whatFailed,
-          adjustments:             form.adjustments,
-          notes:                   form.notes,
-          energyLevel:             form.energyLevel,
-          focusLevel:              form.focusLevel,
-          marketAlignment:         form.marketAlignment,
-          setupClarity:            form.setupClarity,
-          entryPrecision:          form.entryPrecision,
-          confluence:              form.confluence,
-          timingQuality:           form.timingQuality,
-          signalValidation:        form.signalValidation,
-          plannedEntry:            form.plannedEntry   || null,
-          plannedSL:               form.plannedSL      || null,
-          plannedTP:               form.plannedTP      || null,
-          actualEntry:             form.actualEntry    || null,
-          actualSL:                form.actualSL       || null,
-          actualTP:                form.actualTP       || null,
-          confidenceAtEntry:       form.confidenceAtEntry,
-          openingPrice:            form.openingPrice,
-          closingPrice:            form.closingPrice,
-          trendAlignment:          form.trendAlignment,
-          mtfAlignment:            form.multitimeframeAlignment,
-          htfKeyLevelPresent:      form.htfKeyLevelPresent,
-          keyLevelRespected:       form.keyLevelRespect,
-          keyLevelType:            form.keyLevelType,
-          targetLogic:             form.targetLogicClarity,
-          strongMomentum:          form.momentumValidity,
-          managementType:          form.managementType,
-          candlePattern:           form.candlePattern,
-          indicatorState:          form.indicatorState  || null,
-          setupFullyValid:         form.setupFullyValid,
-          ruleBroken:              form.anyRuleBroken,
-          breakevenApplied:        form.breakEvenApplied,
-          fomoTrade:               form.impulseCheckFOMO,
-          revengeTrade:            form.impulseCheckRevenge,
-          boredomTrade:            form.impulseCheckBored,
-          emotionalTrade:          form.impulseCheckEmotional,
-          externalDistraction:     form.externalDistraction,
-          strategyVersionId:       form.strategyVersionId,
-          riskHeat:                form.riskHeat,
-          trailingStopApplied:     form.trailingStopApplied,
-          exitStrategy:            form.exitStrategy,
-          openTradesCount:         form.openTradesCount,
-          totalRiskOpen:           form.totalRiskOpen,
-          correlatedExposure:      form.correlatedExposure,
-          primarySignals:          form.primarySignals,
-          secondarySignals:        form.secondarySignals,
+          thesis:                s1.thesis,
+          trigger:               s1.trigger,
+          invalidationLogic:     s1.invalidationLogic,
+          expectedBehavior:      s1.expectedBehavior,
+          setupTag:              s1.setupTag,
+          tradeGrade:            s1.tradeGrade,
+          marketRegime:          s3.marketRegime,
+          trendDirection:        s3.trendDirection,
+          volatilityState:       s3.volatilityState,
+          liquidity:             s3.liquidity,
+          newsEnvironment:       s3.newsEnvironment,
+          htfBias:               s3.htfBias,
+          emotionalState:        s4.emotionalState,
+          focusStressLevel:      s4.focusStressLevel,
+          postTradeEmotion:      s4.postTradeEmotion,
+          rulesFollowed:         s4.rulesFollowed,
+          confidenceLevel:       s4.confidenceLevel,
+          worthRepeating:        s4.worthRepeating,
+          whatWorked:            s4.whatWorked,
+          whatFailed:            s4.whatFailed,
+          adjustments:           s4.adjustments,
+          notes:                 s4.notes,
+          energyLevel:           s1.energyLevel,
+          focusLevel:            s1.focusLevel,
+          marketAlignment:       s3.marketAlignment,
+          setupClarity:          s3.setupClarity,
+          entryPrecision:        s3.entryPrecision,
+          confluence:            s3.confluence,
+          timingQuality:         s3.timingQuality,
+          signalValidation:      s3.signalValidation,
+          plannedEntry:          s4.plannedEntry         || null,
+          plannedSL:             s4.plannedSL            || null,
+          plannedTP:             s4.plannedTP            || null,
+          actualEntry:           s4.actualEntry          || null,
+          actualSL:              s4.actualSL             || null,
+          actualTP:              s4.actualTP             || null,
+          confidenceAtEntry:     s1.confidenceAtEntry,
+          trendAlignment:        s3.trendAlignment,
+          mtfAlignment:          s3.multitimeframeAlignment,
+          htfKeyLevelPresent:    s3.htfKeyLevelPresent,
+          keyLevelRespected:     s3.keyLevelRespect,
+          keyLevelType:          s3.keyLevelType,
+          targetLogic:           s3.targetLogicClarity,
+          strongMomentum:        s3.momentumValidity,
+          managementType:        s2.managementType,
+          candlePattern:         s3.candlePattern,
+          indicatorState:        s3.indicatorState       || null,
+          setupFullyValid:       s1.setupFullyValid,
+          ruleBroken:            s1.anyRuleBroken,
+          breakevenApplied:      s2.breakEvenApplied,
+          fomoTrade:             s1.impulseCheckFOMO,
+          revengeTrade:          s1.impulseCheckRevenge,
+          boredomTrade:          s1.impulseCheckBored,
+          emotionalTrade:        s1.impulseCheckEmotional,
+          externalDistraction:   s1.externalDistraction,
+          strategyVersionId:     s1.strategyVersionId,
+          riskHeat:              s2.riskHeat,
+          trailingStopApplied:   s2.trailingStopApplied,
+          exitStrategy:          s2.exitStrategy,
+          openTradesCount:       s1.openTradesCount,
+          totalRiskOpen:         s1.totalRiskOpen,
+          correlatedExposure:    s1.correlatedExposure,
+          primarySignals:        s3.primarySignals,
+          secondarySignals:      s3.secondarySignals,
+          liquidityTargets:      s3.liquidityTargets,
+          higherTFContext:       s3.higherTFContext,
+          analysisTFContext:     s3.analysisTFContext,
+          entryTFContext:        s3.entryTFContext,
+          otherConfluences:      s3.otherConfluences,
+          consecutiveTradeCount: s4.consecutiveTradeCount,
+          recencyBiasFlag:       s4.recencyBiasFlag,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
-      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/drawdown/compute'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/analytics'] });
-      if (draftKey) localStorage.removeItem(draftKey);
+      queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics/compute"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
       setSaved(true);
+      setS1({ ...INIT_STEP1 });
+      setS2({ ...INIT_STEP2 });
+      setS3({ ...INIT_STEP3 });
+      setS4({ ...INIT_STEP4 });
+      setOcrFields(new Set());
+      setStep(1);
     } catch (err: any) {
-      setAnalyzeError(err.message || "Failed to save entry");
+      setSaveError(err.message || "Failed to save entry");
     } finally {
       setSaving(false);
     }
   };
 
+  const stepData: Record<string, any> = { step1: s1, step2: s2, step3: s3, step4: s4 };
+  const setStepData: Record<string, (v: any) => void> = { step1: setS1, step2: setS2, step3: setS3, step4: setS4 };
+
   return (
-    <>
-      <style>{`
-        .form-scroll::-webkit-scrollbar,.side-scroll::-webkit-scrollbar{display:none}
-        .form-scroll,.side-scroll{-ms-overflow-style:none;scrollbar-width:none}
-        .sidebar-panel{position:relative;z-index:1;width:22vw;min-width:240px;flex-shrink:0;border-left:1px solid rgba(51,65,85,0.35);background:#07090f;display:flex;flex-direction:column;overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;padding-left:8px;padding-right:12px}
-        .sidebar-panel::-webkit-scrollbar{display:none}
-        @media(max-width:899px){.sidebar-panel{display:none}.sidebar-fab{display:flex!important}}
-        .sidebar-drawer{position:fixed;inset:0;z-index:100;display:flex}
-        .sidebar-drawer-backdrop{flex:1;background:rgba(5,7,10,0.7);backdrop-filter:blur(4px)}
-        .sidebar-drawer-panel{width:min(320px,88vw);background:#07090f;border-left:1px solid rgba(51,65,85,0.35);overflow-y:auto;-ms-overflow-style:none;scrollbar-width:none;display:flex;flex-direction:column;animation:slideIn 0.22s ease}
-        .sidebar-drawer-panel::-webkit-scrollbar{display:none}
-        @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
-        @media(max-width:479px){.steps-grid{grid-template-columns:1fr 1fr!important}}
-        .jb-num{font-family:'JetBrains Mono',monospace!important;font-weight:400!important;font-style:normal!important;letter-spacing:0.05em!important;font-variant-numeric:tabular-nums!important;}
-      `}</style>
-
-      <div style={{display:"flex",height:"100%",overflow:"hidden",background:"#05070a",color:"#cbd5e1",fontFamily:"sans-serif",position:"relative"}}>
-        <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
-          <div style={{position:"absolute",top:"-10%",left:"-10%",width:"40%",height:"40%",background:"rgba(30,58,138,0.08)",filter:"blur(120px)",borderRadius:"50%"}}/>
-          <div style={{position:"absolute",bottom:"-10%",right:"-10%",width:"40%",height:"40%",background:"rgba(120,53,15,0.04)",filter:"blur(120px)",borderRadius:"50%"}}/>
-        </div>
-
-        {/* FORM */}
-        <div className="form-scroll" style={{position:"relative",zIndex:1,flex:1,overflowY:"auto",minWidth:0}}>
-          <div style={{padding:"2px 8px 12px 8px"}}>
-
-            {analyzeError&&(
-              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"12px 16px",borderRadius:"4px",border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#f87171"}}>
-                <Icon name="AlertCircle" size={16}/>
-                <span style={{fontSize:"12px",fontWeight:600,flex:1}}>{analyzeError}</span>
-                <button onClick={()=>setAnalyzeError(null)}><Icon name="X" size={14}/></button>
-              </div>
-            )}
-
-            {draftRestored&&(
-              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"11px 16px",borderRadius:"4px",border:"1px solid rgba(59,130,246,0.25)",background:"rgba(59,130,246,0.06)",color:"#93c5fd"}}>
-                <Icon name="RefreshCcw" size={14} style={{flexShrink:0}}/>
-                <span style={{fontSize:"11px",fontWeight:600,flex:1,letterSpacing:"0.01em"}}>Draft restored — pick up where you left off.</span>
-                <button onClick={()=>{setForm(INIT);setStep(1);setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(147,197,253,0.5)",display:"flex",padding:2}} title="Discard draft"><Icon name="X" size={13}/></button>
-              </div>
-            )}
-
-
-            <div className="steps-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"6px"}}>
-              {STEPS.map(s=>{
-                const isActive=s.id===step, isDone=s.id<step;
-                const accent = isActive ? '#4AE8D8' : isDone ? '#4AE88A' : '#252848';
-                const accentFaint = isActive ? 'rgba(74,232,216,0.18)' : isDone ? 'rgba(74,232,138,0.12)' : 'rgba(37,40,72,0.5)';
-                const iconColor = isActive ? '#4AE8D8' : isDone ? '#4AE88A' : '#6A7299';
-                const labelColor = isActive ? '#D8DCF0' : isDone ? '#8A93B8' : '#6A7299';
-                const subColor = isActive ? 'rgba(74,232,216,0.65)' : isDone ? 'rgba(74,232,138,0.45)' : '#3a3f5c';
-                const cornerSize = 6;
-                return (
-                  <button key={s.id} onClick={()=>setStep(s.id)} style={{
-                    position:'relative', display:'flex', flexDirection:'column', alignItems:'center',
-                    padding:'14px 10px 13px',
-                    border:`1px solid #252848`,
-                    borderRadius:'6px',
-                    background:'#121526',
-                    boxShadow: isActive ? `0 0 18px rgba(74,232,216,0.08)` : 'none',
-                    cursor:'pointer', textAlign:'center', transition:'all 0.25s ease', overflow:'hidden',
-                    outline:'none',
-                  }}>
-                    {/* top accent gradient line */}
-                    <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(to right,${accent},transparent)`}}/>
-                    {/* corner ticks — top-left */}
-                    <div style={{position:'absolute',top:0,left:0,width:cornerSize,height:cornerSize,borderTop:`1px solid ${accent}`,borderLeft:`1px solid ${accent}`}}/>
-                    {/* corner ticks — top-right */}
-                    <div style={{position:'absolute',top:0,right:0,width:cornerSize,height:cornerSize,borderTop:`1px solid ${accent}`,borderRight:`1px solid ${accent}`}}/>
-                    {/* corner ticks — bottom-left */}
-                    <div style={{position:'absolute',bottom:0,left:0,width:cornerSize,height:cornerSize,borderBottom:`1px solid #252848`,borderLeft:`1px solid #252848`}}/>
-                    {/* corner ticks — bottom-right */}
-                    <div style={{position:'absolute',bottom:0,right:0,width:cornerSize,height:cornerSize,borderBottom:`1px solid #252848`,borderRight:`1px solid #252848`}}/>
-
-                    <div style={{
-                      width:36, height:36, borderRadius:'50%', marginBottom:10,
-                      background:accentFaint,
-                      border:`1px solid ${accent}`,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      color: iconColor,
-                      boxShadow: isActive ? `0 0 10px rgba(74,232,216,0.2)` : isDone ? `0 0 8px rgba(74,232,138,0.12)` : 'none',
-                    }}>
-                      <Icon name={s.icon} size={15}/>
-                    </div>
-                    <p style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',fontWeight:400,letterSpacing:'0.14em',textTransform:'uppercase',color:labelColor,margin:'0 0 3px',whiteSpace:'nowrap'}}>{s.label}</p>
-                    <p style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'8px',fontWeight:400,letterSpacing:'0.12em',textTransform:'uppercase',color:subColor,margin:0}}>{s.sub}</p>
-                    {isDone&&<Icon name="CheckCircle2" size={11} style={{position:'absolute',top:8,right:8,color:'rgba(74,232,138,0.4)'}}/>}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="relative">
-              <div className="absolute -inset-0.5 bg-gradient-to-b from-slate-700/20 to-transparent rounded blur opacity-20"/>
-              <div className="relative bg-[#0a0d14] border border-slate-800/80 rounded p-5 sm:p-8 shadow-2xl">
-
-                {step===1&&(
-                  <div className="space-y-10">
-                    <InfoBox color="blue" icon="AlertCircle" title="Critical Protocol" text="Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution."/>
-                    <section className="space-y-6">
-                      <SectionHeader icon="Lightbulb" title="Core Thesis"/>
-                      {lf("Trade Thesis","thesis",4,"Example: Price broke key resistance at 1.0850...")}
-                      <div className={g2}>
-                        <InfoBox color="blue"  icon="CheckCircle2" title="Objective" text="Clarity of thought. If you can't articulate your edge in 2-3 sentences, you don't have one."/>
-                        <InfoBox color="green" icon="Zap"    title="Edge"      text="Defines your systematic advantage. Separates disciplined entries from random impulse trades."/>
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Zap" title="Execution Trigger"/>
-                      {lf("Entry Trigger","trigger",3,"Example: 15M engulfing candle close above 1.0850...")}
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Shield" title="Defensive Overlay"/>
-                      {lf("Invalidation Logic","invalidationLogic",3,"Example: If price closes below 1.0830...")}
-                      {lf("Expected Behavior","expectedBehavior",3,"Example: Expect immediate bullish momentum...")}
-                    </section>
-                    <section className="space-y-6">
-                      <SectionHeader icon="Battery" title="Pre-Entry State Check"/>
-                      <div className={g2}>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
-                          {sc("Energy Level","energyLevel")}{sc("Focus Level","focusLevel")}{sc("Confidence at Entry","confidenceAtEntry")}
-                          {ls("External Distraction","externalDistraction",["No","Yes"])}
-                        </div>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
-                          {lf("Open Trades Count","openTradesCount",undefined,"0","number")}
-                          {lf("Total Risk Open (%)","totalRiskOpen",undefined,"2.5","number")}
-                          {ls("Correlated Exposure","correlatedExposure",["No","Yes"])}
-                        </div>
-                      </div>
-                    </section>
-                    <section className="space-y-6">
-                      <SectionHeader icon="Layers" title="Classification & Quality"/>
-                      <div className={g2}>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
-                          {lf("Strategy","strategyVersionId",undefined,"e.g., Supply & Demand, Breakout, VWAP Reversion…")}
-                          {ls("Setup Tag","setupTag",["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"])}
-                        </div>
-                        <div className="space-y-4 bg-slate-950/40 border border-slate-800/80 rounded p-5">
-                          {ls("Trade Grade","tradeGrade",["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"])}
-                        </div>
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="ShieldCheck" title="Rule Governance"/>
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
-                        <div className={g2}>
-                          {ls("Setup Fully Valid","setupFullyValid",["Yes","No"])}
-                          {ls("Any Rule Broken?","anyRuleBroken",["No","Yes"])}
-                        </div>
-                        {form.anyRuleBroken==="Yes"&&lf("Rule Broken","ruleBroken",undefined,"e.g., Risk > 2%")}
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Brain" title="Impulse Control Check"/>
-                      <InfoBox color="amber" icon="Flame" title="Red Flags" text="If ANY box below is checked — stop and reconsider before executing."/>
-                      <div className={g2}>
-                        {ck("Entering due to FOMO","impulseCheckFOMO")}
-                        {ck("Revenge trading after a loss","impulseCheckRevenge")}
-                        {ck("Trading out of boredom","impulseCheckBored")}
-                        {ck("Emotionally compromised","impulseCheckEmotional")}
-                      </div>
-                    </section>
-                    <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={()=>setStep(s=>s+1)}/>
-                  </div>
-                )}
-
-                {step===2&&(
-                  <div className="space-y-10">
-                    <section className="space-y-4">
-                      <SectionHeader icon="Camera" title="Trade Setup Screenshot"/>
-                      <Upload field="screenshot" inputId="up-entry" value={form.screenshot} onChange={handleScreenshotUpload} label="Upload trade setup screenshot" sublabel="PNG · JPG · JForex replay-mode" onPasteText={(t:string)=>analyzeText(t,"screenshot")}/>
-                      {analyzing&&(
-                        <div style={{display:"flex",alignItems:"center",gap:"10px",marginTop:"8px",padding:"10px 14px",borderRadius:"4px",border:"1px solid rgba(52,211,153,0.3)",background:"rgba(52,211,153,0.05)",color:"#34d399"}}>
-                          <Icon name="Activity" size={14}/>
-                          <span style={{fontSize:"11px",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>Analyzing… extracting fields</span>
-                        </div>
-                      )}
-                      {form.ocrConfidence && !analyzing && (
-                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"6px",padding:"8px 14px",borderRadius:"4px",border:"1px solid rgba(52,211,153,0.2)",background:"rgba(52,211,153,0.04)"}}>
-                          <Icon name="CheckCircle2" size={12} style={{color:"#34d399"}}/>
-                          <span style={{fontSize:"10px",color:"#34d399",fontStyle:"italic"}}>
-                            {form.ocrConfidence === "text input" ? "Text parsed" : "OCR complete"} · {ocrFields.size} fields extracted{form.ocrConfidence !== "text input" ? ` · confidence: ${form.ocrConfidence}` : ""}
-                          </span>
-                          {form.ocrValidation && (
-                            <span style={{fontSize:"9px",color:"#64748b",marginLeft:"auto",fontStyle:"italic"}}>{form.ocrValidation}</span>
-                          )}
-                        </div>
-                      )}
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionHeader icon="Camera" title="Exit Chart Screenshot"/>
-                      <InfoBox color="green" icon="Activity" title="Post-Trade Evidence" text="Upload the outcome screenshot — OCR will extract Closed P/L, achieved RR, and drawdown."/>
-                      <Upload field="exitScreenshot" inputId="up-exit" value={form.exitScreenshot} onChange={handleScreenshotUpload} label="Upload exit chart" sublabel="Outcome screenshot · Win/Loss detection" onPasteText={(t:string)=>analyzeText(t,"exitScreenshot")}/>
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionHeader icon="Crosshair" title="Position Details"/>
-                      <div className={g4}>
-                        {lf("Instrument","instrument",undefined,"EURUSD")}
-                        {ls("Pair Category","pairCategory",["Major","Minor","Exotic","Index","Crypto","Commodity"])}
-                        {ls("Direction","direction",["Long","Short"])}
-                        {lf("Lot Size","lotSize",undefined,"0.01")}
-                        {lf("Entry Price","entryPrice",undefined,"0.00","number")}
-                        {lf("Stop Loss","stopLoss",undefined,"0.00","number")}
-                        {lf("SL Distance (Pips)","stopLossDistancePips",undefined,"0","number")}
-                        {lf("Take Profit","takeProfit",undefined,"0.00","number")}
-                        {lf("TP Distance (Pips)","takeProfitDistancePips",undefined,"0","number")}
-                        {lf("Risk %","riskPercent",undefined,"1.0","number")}
-                        {ls("Order Type","orderType",["Market","Limit","Stop","Stop-Limit"])}
-                        {ls("Outcome","outcome",["Win","Loss","BE"])}
-                      </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionHeader icon="Clock" title="Timing & Duration"/>
-                      <div className={g4}>
-                        {lf("Entry Time","entryTime",undefined,"","datetime-local")}
-                        {lf("Exit Time","exitTime",undefined,"","datetime-local")}
-                        {ls("Day of Week","dayOfWeek",["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"])}
-                        {lf("Trade Duration","tradeDuration",undefined,"2h 30m")}
-                      </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionHeader icon="LayoutGrid" title="Timeframe Analysis"/>
-                      <div className={g3}>
-                        {ls("Entry TF","entryTF",["1M","3M","5M","15M"])}
-                        {ls("Analysis TF","analysisTF",["15M","30MIN","1HR","2HR","4HR"])}
-                        {ls("Context TF","contextTF",["1W","1D","4HR"])}
-                      </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionHeader icon="Zap" title="Entry & Management"/>
-                      <div className={g3}>
-                        {ls("Entry Method","entryMethod",["Market","Limit","Stop"])}
-                        {lf("Exit Strategy","exitStrategy",undefined,"Describe exit approach")}
-                        {ls("Management Type","managementType",["Rule-based","Discretionary","Hybrid"])}
-                        {ls("Risk Heat","riskHeat",["Low","Medium","High"])}
-                        {ck("Break-Even Applied","breakEvenApplied")}
-                        {ck("Trailing Stop Applied","trailingStopApplied")}
-                      </div>
-                    </section>
-                    <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={()=>setStep(s=>s+1)}/>
-                  </div>
-                )}
-
-                {step===3&&(
-                  <div className="space-y-10">
-                    <section className="space-y-4">
-                      <SectionHeader icon="Boxes" title="Market Environment"/>
-                      <div className={g4}>
-                        {ls("Market Regime","marketRegime",["Bullish","Bearish","Ranging"])}
-                        {ls("Trend Direction","trendDirection",["Bullish","Bearish","Sideways"])}
-                        {ls("Volatility","volatilityState",["Low","Normal","High"])}
-                        {ls("Liquidity","liquidity",["Low","Normal","High"])}
-                        {ls("News Environment","newsEnvironment",["Clear","Minor","Major"])}
-                        {ls("Session Phase","sessionPhase",["Open","Mid","Close"])}
-                        {lf("ATR at Entry","atrAtEntry",undefined,"0.0045","number")}
-                        {ls("Session","sessionName",["London","New York","Tokyo","Sydney","Overlap"])}
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Layers3" title="Timeframe Context"/>
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
-                        <div className={g2}>
-                          {ls("HTF Bias","htfBias",["Bull","Bear","Range"])}
-                          {ls("HTF Key Level Present","htfKeyLevelPresent",["Yes","No"])}
-                          {ls("Trend Alignment","trendAlignment",["Yes","No"])}
-                          {ls("MTF Alignment","multitimeframeAlignment",["Yes","No"])}
-                        </div>
-                        {lf("Higher TF Context","higherTFContext",2,"Higher timeframe analysis...")}
-                        {lf("Analysis TF Context","analysisTFContext",2,"Analysis timeframe context...")}
-                        {lf("Entry TF Context","entryTFContext",2,"Entry timeframe context...")}
-                        {lf("Other Confluences","otherConfluences",2,"Additional confluences...")}
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Target" title="Liquidity & Bias"/>
-                      {lf("Liquidity Targets","liquidityTargets",3,"Major liquidity pools, stop hunts...")}
-                    </section>
-                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <SectionHeader icon="Gauge" title="Setup Quality Scores"/>
-                        <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-4">
-                          {sc("Market Alignment","marketAlignment")}{sc("Setup Clarity","setupClarity")}
-                          {sc("Entry Precision","entryPrecision")}{sc("Confluence","confluence")}{sc("Timing Quality","timingQuality")}{sc("Signal Validation","signalValidation")}
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <SectionHeader icon="Activity" title="Technical Signals"/>
-                        <div className="space-y-4">
-                          {lf("Timing Context","timingContext",undefined,"e.g. Impulse, Correction, Ranging…")}
-                          {lf("Candle Pattern","candlePattern",undefined,"e.g., Engulfing")}
-                          {lf("Indicator State","indicatorState",undefined,"e.g., RSI 70")}
-                        </div>
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader customIcon={<KeyLevelIcon/>} title="Signals & Key Level Analysis"/>
-                      <div className="grid grid-cols-2 gap-4">
-                        {lf("Primary Signals","primarySignals",2,"Main confirmations")}
-                        {lf("Secondary Signals","secondarySignals",2,"Supporting factors")}
-                        {ls("Key Level Respect","keyLevelRespect",["Yes","No","Partial"])}
-                        {ls("Key Level Type","keyLevelType",["Support","Resistance","Pivot","Fib Level"])}
-                        {ls("Momentum Validity","momentumValidity",["Strong","Moderate","Weak"])}
-                        {ls("Target Logic Clarity","targetLogicClarity",["High","Medium","Low"])}
-                      </div>
-                    </section>
-                    <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={()=>setStep(s=>s+1)}/>
-                  </div>
-                )}
-
-                {step===4&&(
-                  <div className="space-y-10">
-                    <section className="space-y-4">
-                      <SectionHeader icon="DoorOpen" title="Exit Causation"/>
-                      {ls("Primary Exit Reason","primaryExitReason",["Target Hit","Stop Hit","Time Exit","Structure Change","News","Emotional Exit"])}
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="TrendingUp" title="Performance Data"/>
-                      <div className={g4}>
-                        {lf("Pips / Points Gained-Lost","pipsGainedLost",undefined,"0","number")}
-                        {lf("P&L Amount ($)","profitLoss",undefined,"0.00","number")}
-                        {lf("Account Balance","accountBalance",undefined,"0.00","number")}
-                        {lf("Commission / Fees","commission",undefined,"3.50","number")}
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Target" title="Planning vs Execution"/>
-                      <div className={g3}>
-                        {lf("Planned Entry","plannedEntry",undefined,"0.00","number")}
-                        {lf("Planned SL","plannedSL",undefined,"0.00","number")}
-                        {lf("Planned TP","plannedTP",undefined,"0.00","number")}
-                        {lf("Actual Entry","actualEntry",undefined,"0.00","number")}
-                        {lf("Actual SL","actualSL",undefined,"0.00","number")}
-                        {lf("Actual TP","actualTP",undefined,"0.00","number")}
-                      </div>
-                    </section>
-                    <section className="space-y-4">
-                      <SectionHeader icon="Activity" title="Trade Metrics"/>
-                      <div className={g3}>
-                        {lf("MAE (Max Adverse Excursion)","mae",undefined,"-15 pts")}
-                        {lf("MFE (Max Favorable Excursion)","mfe",undefined,"+45 pts")}
-                        {lf("Monetary Risk ($)","monetaryRisk",undefined,"0.00","number")}
-                        {lf("Potential Reward ($)","potentialReward",undefined,"0.00","number")}
-                        {lf("Planned R:R","plannedRR",undefined,"1:2")}
-                        {lf("Achieved R:R","achievedRR",undefined,"1:1.5")}
-                      </div>
-                    </section>
-                    <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="lg:col-span-2 space-y-8">
-                        <div className="space-y-4">
-                          <SectionHeader icon="BrainCircuit" title="Psychological State"/>
-                          <div className={g3}>
-                            {ls("Emotional State","emotionalState",["Calm","Anxious","FOMO","Confident","Fearful","Neutral"])}
-                            {ls("Focus / Stress","focusStressLevel",["Low","Medium","High"])}
-                            {lf("Rules Followed %","rulesFollowed",undefined,"100","number")}
-                            {lf("Confidence (1–5)","confidenceLevel",undefined,"3","number")}
-                            {ls("Post-Trade Emotion","postTradeEmotion",["Neutral","Relieved","Euphoric","Frustrated","Regretful","Calm","Anxious"])}
-                            {ck("Recency bias (influenced by last trade)","recencyBiasFlag")}
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <SectionHeader icon="CheckCircle2" title="Trade Assessment"/>
-                          <div className="space-y-4">
-                            {ck("Worth Repeating This Setup","worthRepeating")}
-                            {lf("Additional Notes","notes",3,"Any other observations...")}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <SectionHeader icon="Microscope" title="Trade Reflections"/>
-                        <div className="bg-slate-950/40 border border-slate-800/80 rounded p-5 space-y-5">
-                          <div>
-                            <p className="text-[10px] font-black tracking-[0.2em] uppercase text-emerald-500/80 mb-3">What Worked</p>
-                            <textarea rows={3} className={INPUT_CLS} placeholder="What did you execute well?" value={form.whatWorked} onChange={(e: any)=>set("whatWorked",e.target.value)}/>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black tracking-[0.2em] uppercase text-rose-500/80 mb-3">What Failed</p>
-                            <textarea rows={3} className={INPUT_CLS} placeholder="What went wrong?" value={form.whatFailed} onChange={(e: any)=>set("whatFailed",e.target.value)}/>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black tracking-[0.2em] uppercase text-blue-500/80 mb-3">Future Adjustments</p>
-                            <textarea rows={3} className={INPUT_CLS} placeholder="What will you change next time?" value={form.adjustments} onChange={(e: any)=>set("adjustments",e.target.value)}/>
-                          </div>
-                        </div>
-                      </div>
-                    </section>
-                    <NavButtons step={step} onPrev={()=>setStep(s=>s-1)} onNext={saveJournalEntry}/>
-                  </div>
-                )}
-
-              </div>
-            </div>
+    <div className="tj-root" style={{ height: "100%", minHeight: "100vh" }}>
+      <style dangerouslySetInnerHTML={{ __html: TJ_CSS }} />
+      <div className="tj-page">
+        {/* ── Form column ── */}
+        <div className="tj-shell">
+          <div className="tj-progress-bar">
+            <div className="tj-progress-fill" style={{ width: `${(step / STEPS_DEF.length) * 100}%` }} />
           </div>
-        </div>
 
-        {/* SIDEBAR desktop */}
-        <div className="sidebar-panel side-scroll">
-          <div style={{padding:"12px",borderBottom:"1px solid rgba(51,65,85,0.35)",background:"#07090f"}}>
-            <div style={{background:"rgba(10,13,20,0.9)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"4px",padding:"14px 16px",height:"94px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-              <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(59,130,246,0.06),transparent)",borderRadius:"4px",pointerEvents:"none"}}/>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <span style={{fontSize:"9px",fontWeight:900,letterSpacing:"0.25em",textTransform:"uppercase",color:"#475569"}}>SESSION</span>
-                <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none",transition:"all 0.3s"}}/>
-              </div>
-              {(() => {
-                const netPnL = trades.reduce((a: number, t: any) => a + (parseFloat(t.profitLoss) || 0), 0);
-                const growthPct = startingBalance > 0 ? (netPnL / startingBalance) * 100 : 0;
-                const growthColor = growthPct > 0 ? '#34d399' : growthPct < 0 ? '#f87171' : '#e2e8f0';
-                const barWidth = Math.min(Math.abs(growthPct), 100);
-                const barColor = growthPct >= 0 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
-                return (
-                  <div>
-                    <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                      <span style={{fontSize:"10px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#475569"}}>
-                        EQUITY:
-                      </span>
-                      <span className="jb-num" style={{fontSize:"9px",color:growthColor,lineHeight:1}}>
-                        {growthPct >= 0 ? '+' : ''}{growthPct.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div style={{marginTop:"4px",height:"2px",borderRadius:"2px",background:"rgba(51,65,85,0.4)",overflow:"hidden"}}>
-                      <div style={{height:"100%",borderRadius:"2px",background:barColor,width:`${barWidth}%`,transition:"width 0.4s ease"}}/>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-          <SidebarContent trades={trades}/>
-        </div>
-
-        {/* FAB mobile */}
-        <button className="sidebar-fab" onClick={()=>setSidebarOpen(true)}
-          style={{display:"none",position:"fixed",bottom:"24px",right:"20px",zIndex:50,alignItems:"center",gap:"8px",padding:"12px 18px",borderRadius:"16px",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",border:"none",cursor:"pointer",boxShadow:"0 8px 32px rgba(59,130,246,0.35)",color:"#fff",fontSize:"11px",fontWeight:900,letterSpacing:"0.15em"}}>
-          <Icon name="BarChart2" size={16}/>
-          STATS
-          {trades.length>0&&<span style={{background:"rgba(255,255,255,0.2)",borderRadius:"8px",padding:"2px 7px",fontSize:"10px",fontWeight:900}}>{trades.length}</span>}
-        </button>
-
-        {/* Mobile drawer */}
-        {sidebarOpen&&(
-          <div className="sidebar-drawer">
-            <div className="sidebar-drawer-backdrop" onClick={()=>setSidebarOpen(false)}/>
-            <div className="sidebar-drawer-panel side-scroll">
-              <div style={{padding:"16px",borderBottom:"1px solid rgba(51,65,85,0.35)",background:"#07090f",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:2}}>
-                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                  <Icon name="BarChart2" size={16} style={{color:"#3b82f6"}}/>
-                  <span style={{fontSize:"11px",fontWeight:900,letterSpacing:"0.2em",textTransform:"uppercase",color:"#cbd5e1"}}>Session Stats</span>
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                    <div style={{width:"6px",height:"6px",borderRadius:"50%",background:trades.length>0?"#34d399":"#1e3a5f",boxShadow:trades.length>0?"0 0 6px #34d399":"none"}}/>
-                    <span className="jb-num" style={{fontSize:"12px",color:"#e2e8f0"}}>{trades.length} {trades.length===1?"trade":"trades"}</span>
-                  </div>
-                  <button onClick={()=>setSidebarOpen(false)} style={{padding:"6px",borderRadius:"10px",background:"rgba(51,65,85,0.3)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer",color:"#94a3b8",display:"flex"}}>
-                    <Icon name="X" size={14}/>
-                  </button>
-                </div>
-              </div>
-              <SidebarContent trades={trades}/>
-            </div>
-          </div>
-        )}
-
-        {/* Save modal */}
-        {saved&&(
-          <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px",background:"rgba(2,4,8,0.88)",backdropFilter:"blur(12px)"}}>
-            <div style={{
-              background:"linear-gradient(160deg,#0d1117 0%,#0a0f1a 100%)",
-              border:"1px solid rgba(52,211,153,0.18)",
-              borderRadius:"24px",
-              padding:"48px 40px 40px",
-              maxWidth:"360px",
-              width:"100%",
-              textAlign:"center",
-              boxShadow:"0 0 0 1px rgba(52,211,153,0.06), 0 32px 64px rgba(0,0,0,0.6), 0 0 80px rgba(52,211,153,0.04)",
-              position:"relative",
-              overflow:"hidden"
-            }}>
-              <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:"180px",height:"1px",background:"linear-gradient(90deg,transparent,rgba(52,211,153,0.5),transparent)"}}/>
-              <div style={{
-                width:"88px",height:"88px",borderRadius:"50%",
-                background:"radial-gradient(circle at 40% 35%,rgba(52,211,153,0.15),rgba(16,185,129,0.04))",
-                border:"1px solid rgba(52,211,153,0.25)",
-                boxShadow:"0 0 32px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.15)",
-                display:"flex",alignItems:"center",justifyContent:"center",
-                margin:"0 auto 28px"
-              }}>
-                <Icon name="Check" size={38} style={{color:"#34d399",strokeWidth:2.5}}/>
-              </div>
-              <h3 style={{fontSize:"22px",fontWeight:700,color:"#f1f5f9",letterSpacing:"-0.02em",marginBottom:"10px",lineHeight:1.2}}>Trade Logged</h3>
-              <p style={{fontSize:"13px",color:"#475569",lineHeight:1.7,marginBottom:"36px"}}>
-                Your trade has been saved successfully.
-              </p>
-              <div style={{height:"1px",background:"linear-gradient(90deg,transparent,rgba(51,65,85,0.4),transparent)",marginBottom:"28px"}}/>
+          <div className="tj-tabs">
+            {STEPS_DEF.map(s => (
               <button
-                onClick={()=>{setForm(INIT);setStep(1);setSaved(false);setOcrFields(new Set());setDraftRestored(false);if(draftKey)localStorage.removeItem(draftKey);}}
-                style={{
-                  width:"100%",padding:"14px 32px",borderRadius:"12px",
-                  fontSize:"12px",fontWeight:700,letterSpacing:"0.08em",
-                  color:"#fff",border:"none",cursor:"pointer",
-                  background:"linear-gradient(135deg,#10b981,#059669)",
-                  boxShadow:"0 4px 24px rgba(16,185,129,0.25), 0 1px 0 rgba(255,255,255,0.08) inset",
-                  transition:"opacity 0.15s"
-                }}
-                onMouseEnter={e=>(e.currentTarget.style.opacity="0.88")}
-                onMouseLeave={e=>(e.currentTarget.style.opacity="1")}
+                key={s.n}
+                className={`tj-tab${step === s.n ? " active" : ""}${step > s.n ? " done" : ""}`}
+                onClick={() => setStep(s.n)}
               >
-                Continue Trading
+                <span className="tj-tab-num">{step > s.n ? "✓" : s.n}</span>
+                {s.label}
               </button>
+            ))}
+          </div>
+
+          <div className="tj-body">
+            {saved && (
+              <div className="tj-strip" style={{ marginBottom: 16 }}>
+                ✓ Trade saved successfully! Form has been reset.
+              </div>
+            )}
+            {saveError && (
+              <div className="tj-strip danger" style={{ marginBottom: 16 }}>
+                ✕ {saveError}
+              </div>
+            )}
+
+            {step === 1 && <Step1 d={s1} set={setS1} />}
+            {step === 2 && (
+              <Step2
+                d={s2}
+                set={setS2}
+                onScreenshotUpload={handleScreenshotUpload}
+                analyzing={analyzing}
+                ocrFields={ocrFields}
+              />
+            )}
+            {step === 3 && <Step3 d={s3} set={setS3} />}
+            {step === 4 && <Step4 d={s4} set={setS4} />}
+          </div>
+
+          <div className="tj-nav">
+            {step > 1
+              ? <button className="tj-btn" onClick={() => { setStep(s => s - 1); setSaved(false); }}>← Previous</button>
+              : <div />
+            }
+            <div className="tj-btn-row">
+              {step < STEPS_DEF.length
+                ? <button className="tj-btn primary" onClick={() => { setStep(s => s + 1); setSaved(false); }}>Next →</button>
+                : <button className="tj-btn primary" onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving…" : "✓ Save Entry"}
+                  </button>
+              }
             </div>
           </div>
-        )}
+        </div>
 
-        {saving&&(
-          <div style={{position:"fixed",inset:0,zIndex:199,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(5,7,10,0.6)",backdropFilter:"blur(4px)"}}>
-            <div style={{background:"#0a0d14",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"1.5rem",padding:"32px 40px",textAlign:"center"}}>
-              <Icon name="Activity" size={28} style={{color:"#3b82f6",margin:"0 auto 12px",display:"block"}}/>
-              <p style={{fontSize:"11px",fontWeight:900,letterSpacing:"0.2em",color:"#cbd5e1",textTransform:"uppercase"}}>Saving trade…</p>
-            </div>
-          </div>
-        )}
-
+        {/* ── Sidebar ── */}
+        <Sidebar trades={trades} />
       </div>
-    </>
+    </div>
   );
 }
