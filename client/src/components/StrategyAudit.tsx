@@ -738,7 +738,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   const kpis = [
     { label: "Win Rate", value: `${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, sub: `+${((d.auditSummary?.winRate ?? 50) - 50).toFixed(1)}pp vs breakeven`, color: T.green },
     { label: "Edge Factor", value: (d.edgeVerdict?.profitFactor ?? 0).toFixed(2), sub: "Profit factor", color: T.blue },
-    { label: "Risk Entropy", value: d.auditSummary?.riskEntropy ?? "—", sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: T.text },
+    { label: "Risk Entropy", value: `${(d.automationRisk?.score ?? 0).toFixed(2)}%`, sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: T.text },
     { label: "AI Confidence", value: `${(d.auditSummary?.aiConfidence ?? 0).toFixed(0)}/100`, sub: `Grade ${d.auditSummary?.grade ?? "—"}`, color: T.amber },
   ];
 
