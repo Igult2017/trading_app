@@ -51,9 +51,13 @@ function getImportanceColor(imp: string) {
   }
 }
 
+const IMPACT_LEVELS = ['All', 'High', 'Medium', 'Low'] as const;
+
 export default function EconomicCalendarPage() {
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [ccyFilter, setCcyFilter] = useState('All');
+  const [impactFilter, setImpactFilter] = useState('All');
   const [darkMode, setDarkMode] = useState(true);
   const [location] = useLocation();
 
@@ -76,13 +80,17 @@ export default function EconomicCalendarPage() {
       .finally(() => setLoadingRates(false));
   }, []);
 
+  const availableCurrencies = ['All', ...Array.from(new Set(events.map(e => e.currency))).filter(Boolean).sort()];
+
   const filteredEvents = events.filter(event => {
     if (filter === 'Rate Differentials') return false;
     const matchesCategory = filter === 'All' || event.category === filter;
     const matchesSearch =
       event.event.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.currency.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesCcy = ccyFilter === 'All' || event.currency === ccyFilter;
+    const matchesImpact = impactFilter === 'All' || event.importance === impactFilter;
+    return matchesCategory && matchesSearch && matchesCcy && matchesImpact;
   });
 
   const loading = loadingEvents || loadingRates;
@@ -113,15 +121,63 @@ export default function EconomicCalendarPage() {
             </div>
           </div>
 
-          {/* Search input (shown when not on Rate Differentials tab) */}
+          {/* Search + CCY + Impact filters (hidden on Rate Differentials tab) */}
           {filter !== 'Rate Differentials' && (
-            <input
-              type="text"
-              placeholder="Search events or currency..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-400 outline-none focus:border-indigo-400"
-            />
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="Search events or currency..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="flex-1 border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-400 outline-none focus:border-indigo-400"
+              />
+
+              {/* CCY dropdown */}
+              <div className="relative">
+                <select
+                  value={ccyFilter}
+                  onChange={e => setCcyFilter(e.target.value)}
+                  className="appearance-none border border-slate-300 bg-white px-4 py-2 pr-8 text-[10px] font-black uppercase tracking-widest text-slate-700 outline-none focus:border-indigo-400 cursor-pointer w-full sm:w-auto"
+                >
+                  {availableCurrencies.map(ccy => (
+                    <option key={ccy} value={ccy}>{ccy === 'All' ? 'All CCY' : ccy}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                  <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Impact dropdown */}
+              <div className="relative">
+                <select
+                  value={impactFilter}
+                  onChange={e => setImpactFilter(e.target.value)}
+                  className="appearance-none border border-slate-300 bg-white px-4 py-2 pr-8 text-[10px] font-black uppercase tracking-widest text-slate-700 outline-none focus:border-indigo-400 cursor-pointer w-full sm:w-auto"
+                >
+                  {IMPACT_LEVELS.map(level => (
+                    <option key={level} value={level}>{level === 'All' ? 'All Impact' : `${level} Impact`}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                  <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Clear filters button — only shown when a filter is active */}
+              {(ccyFilter !== 'All' || impactFilter !== 'All' || searchQuery) && (
+                <button
+                  onClick={() => { setCcyFilter('All'); setImpactFilter('All'); setSearchQuery(''); }}
+                  className="border border-slate-300 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors whitespace-nowrap"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           )}
 
           {/* Loading state */}
