@@ -45,7 +45,7 @@ function ProfileDropdown({ dm }: { dm: boolean }) {
       position: 'absolute',
       top: 'calc(100% + 10px)',
       left: 0,
-      width: 240,
+      width: 280,
       background: dm ? '#0d1520' : '#ffffff',
       border: `1px solid ${dm ? '#1a2d45' : '#e2e8f0'}`,
       borderRadius: 12,
