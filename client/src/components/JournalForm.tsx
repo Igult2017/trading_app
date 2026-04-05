@@ -18,9 +18,9 @@ const TJ_CSS = `
     --c-text:      #e8ede9;
     --c-muted:     #8a9e8d;
     --c-hint:      #4d5e50;
-    --c-accent:    #3ddc84;
-    --c-accent2:   #2bb870;
-    --c-accent3:   #1a7a47;
+    --c-accent:    #3b82f6;
+    --c-accent2:   #2563eb;
+    --c-accent3:   #1e3a5f;
     --c-warn:      #f0a500;
     --c-danger:    #e85454;
     --c-info:      #4da6ff;
