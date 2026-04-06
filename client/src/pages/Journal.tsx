@@ -508,7 +508,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   const metricsUrl = `/api/metrics/compute?sessionId=${sessionId}`;
   const entriesUrl = `/api/journal/entries?sessionId=${sessionId}`;
 
-  const { data: metricsData } = useQuery<{ success: boolean; metrics: any }>({
+  const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
     queryKey: ['/api/metrics/compute', sessionId],
     enabled: !!sessionId,
     queryFn: async () => {
@@ -518,7 +518,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
     },
   });
 
-  const { data: entries = [] } = useQuery<any[]>({
+  const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
     enabled: !!sessionId,
     queryFn: async () => {
