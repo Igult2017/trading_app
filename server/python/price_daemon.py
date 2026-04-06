@@ -40,7 +40,49 @@ logging.basicConfig(
 log = logging.getLogger("price_daemon")
 
 # ── Shared cache ───────────────────────────────────────────────────────────────
-cache: dict[str, dict] = {}
+# Simple TTL cache — no external dependency required.
+# Entries expire after 30 s; reads beyond that return None (treated as cache
+# miss by callers). maxsize=200 covers all known instruments.
+_CACHE_TTL = 30  # seconds
+_CACHE_MAX  = 200
+
+class _TTLCache:
+    """Minimal TTL + max-size cache (LRU eviction on overflow)."""
+    def __init__(self, maxsize: int, ttl: float) -> None:
+        self._maxsize = maxsize
+        self._ttl     = ttl
+        self._store: dict[str, tuple[dict, float]] = {}  # key → (value, expire_at)
+
+    def __setitem__(self, key: str, value: dict) -> None:
+        # Evict expired entries first; if still full, drop oldest by insertion order
+        now = time.monotonic()
+        self._store = {k: v for k, v in self._store.items() if v[1] > now}
+        if len(self._store) >= self._maxsize:
+            oldest = next(iter(self._store))
+            del self._store[oldest]
+        self._store[key] = (value, now + self._ttl)
+
+    def __getitem__(self, key: str) -> dict:
+        entry = self._store.get(key)
+        if entry is None or time.monotonic() > entry[1]:
+            raise KeyError(key)
+        return entry[0]
+
+    def get(self, key: str, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: str) -> bool:
+        return self.get(key) is not None
+
+    def __len__(self) -> int:
+        now = time.monotonic()
+        return sum(1 for _, exp in self._store.values() if exp > now)
+
+
+cache: _TTLCache = _TTLCache(maxsize=_CACHE_MAX, ttl=_CACHE_TTL)
 cache_lock = threading.Lock()
 
 # ── Instrument definitions ─────────────────────────────────────────────────────
