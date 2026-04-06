@@ -64,6 +64,23 @@ function invalidateCalendarCache(sessionId?: string, userId?: string): void {
     calendarCache.clear();
   }
 }
+
+// ── Drawdown in-memory cache ──────────────────────────────────────────────────
+interface DrawdownCacheEntry {
+  result: Awaited<ReturnType<typeof computeDrawdown>>;
+  entryCount: number;
+  cachedAt: number;
+}
+const drawdownCache = new Map<string, DrawdownCacheEntry>();
+const DRAWDOWN_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function invalidateDrawdownCache(sessionId?: string, userId?: string): void {
+  if (sessionId || userId) {
+    drawdownCache.delete(metricsKey(userId, sessionId));
+  } else {
+    drawdownCache.clear();
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -313,6 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entry = await storage.createJournalEntry(validatedData);
       invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateCalendarCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
+      invalidateDrawdownCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       res.status(201).json(entry);
     } catch (error) {
       console.error("[Routes] Create journal entry error:", error);
@@ -328,6 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateCalendarCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
+      invalidateDrawdownCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       res.json(entry);
     } catch (error) {
       res.status(500).json({ error: "Failed to update journal entry" });
@@ -342,6 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       metricsCache.clear();
       calendarCache.clear();
+      drawdownCache.clear();
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete journal entry" });
@@ -415,6 +435,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.query.userId as string | undefined;
       const sessionId = req.query.sessionId as string | undefined;
       const entries = await storage.getJournalEntries(userId, sessionId);
+
+      const cacheKey = metricsKey(userId, sessionId);
+      const cached = drawdownCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && cached.entryCount === entries.length && now - cached.cachedAt < DRAWDOWN_CACHE_TTL_MS) {
+        return res.json(cached.result);
+      }
+
       let startingBalance: number | undefined;
       if (sessionId) {
         const session = await storage.getSessionById(sessionId);
@@ -422,6 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const result = await computeDrawdown(entries, startingBalance);
       if (result.success) {
+        drawdownCache.set(cacheKey, { result, entryCount: entries.length, cachedAt: now });
         res.json(result);
       } else {
         res.status(500).json(result);

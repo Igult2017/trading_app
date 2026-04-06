@@ -103,6 +103,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const { data: result, isLoading, isError } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       const r = await fetch(`/api/drawdown/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
