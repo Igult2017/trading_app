@@ -2,7 +2,7 @@
 ai_engine/core.py
 Mode orchestrator — the single entry point for all three AI modes.
 Runs the appropriate pipelines, serialises findings, and delegates
-natural-language synthesis to claude_client.
+natural-language synthesis to llm_client.
 """
 from __future__ import annotations
 import dataclasses
@@ -16,7 +16,7 @@ from .patterns  import analyze_patterns
 from .proof     import combo_to_finding, top_findings, filter_sufficient
 from .strategy  import build_strategy
 from .query_router import route_query
-from .claude_client import call_claude
+from .llm_client import call_llm
 
 
 # ── Serialisation ─────────────────────────────────────────────────────────────
@@ -153,7 +153,7 @@ def run(mode: str, trades: list[dict], question: str = "") -> dict:
             "notes_summary":    _serialise(notes),
             "patterns":         _serialise(patterns),
         }
-        narrative = call_claude("analysis", payload)
+        narrative = call_llm("analysis", payload)
         result    = _serialise(verdict)
         result["headline"] = narrative
         return result
@@ -167,7 +167,7 @@ def run(mode: str, trades: list[dict], question: str = "") -> dict:
             "baseline_win_rate": round(baseline_wr, 4),
             "notes_coverage":    notes.coverage_pct,
         }
-        answer = call_claude("qa", payload, question=question)
+        answer = call_llm("qa", payload, question=question)
         return {"mode": "qa", "question": question, "answer": answer}
 
     # ── Strategy mode ─────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ def run(mode: str, trades: list[dict], question: str = "") -> dict:
             "baseline_win_rate": round(baseline_wr, 4),
             "strategy":          _serialise(strategy),
         }
-        narrative = call_claude("strategy", payload)
+        narrative = call_llm("strategy", payload)
         result    = _serialise(strategy)
         result["narrative"] = narrative
         return result
