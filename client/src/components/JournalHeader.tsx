@@ -40,110 +40,89 @@ interface JournalHeaderProps {
 }
 
 function ProfileDropdown({ dm }: { dm: boolean }) {
-  const bg = dm ? '#0d1520' : '#ffffff';
   const border = dm ? '#1a2d45' : '#e2e8f0';
-  const muted = dm ? '#4a6580' : '#94a3b8';
-  const text = dm ? '#c8d8e8' : '#0f172a';
+  const muted  = dm ? '#4a6580' : '#94a3b8';
+  const text   = dm ? '#c8d8e8' : '#0f172a';
+  const rowBg  = dm ? '#111c2d' : '#f1f5f9';
 
   return (
     <div style={{
-      position: 'fixed', top: 102, right: 12, width: 290,
-      background: bg, border: `1px solid ${border}`,
-      borderRadius: 14, boxShadow: dm ? '0 24px 64px rgba(0,0,0,0.75)' : '0 16px 48px rgba(0,0,0,0.15)',
+      position: 'fixed', top: 92, right: 12, width: 290,
+      background: dm ? '#0d1520' : '#ffffff',
+      border: `1px solid ${border}`, borderRadius: 14,
+      boxShadow: dm ? '0 24px 64px rgba(0,0,0,0.75)' : '0 16px 48px rgba(0,0,0,0.15)',
       overflow: 'hidden', zIndex: 200,
     }}>
 
-      {/* ── Logout strip at very top ── */}
-      <button style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-        padding: '11px 16px',
-        background: dm ? 'rgba(239,68,68,0.07)' : 'rgba(239,68,68,0.05)',
-        border: 'none', borderBottom: `1px solid ${dm ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.15)'}`,
-        cursor: 'pointer', transition: 'background 0.15s',
-      }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = dm ? 'rgba(239,68,68,0.07)' : 'rgba(239,68,68,0.05)'; }}
-      >
-        <div style={{
-          width: 28, height: 28, borderRadius: 7,
-          background: 'rgba(239,68,68,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <Power size={14} color="#ef4444" strokeWidth={2.2} />
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          Sign Out
-        </span>
-      </button>
-
-      {/* ── User header ── */}
+      {/* ── Hello / user header ── */}
       <div style={{
         padding: '14px 16px 12px',
-        background: dm ? 'linear-gradient(135deg,#0f1e35 0%,#111c2d 100%)' : 'linear-gradient(135deg,#f8fafc,#f1f5f9)',
+        background: dm ? 'linear-gradient(135deg,#0f1e35,#111c2d)' : 'linear-gradient(135deg,#f8fafc,#f1f5f9)',
         borderBottom: `1px solid ${border}`,
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <div style={{
-          width: 44, height: 44, borderRadius: '50%',
+          width: 42, height: 42, borderRadius: '50%',
           background: 'linear-gradient(135deg,#1e3a5f,#3b82f6)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, fontSize: 17, fontWeight: 800, color: '#fff',
-          fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.02em',
-          boxShadow: '0 0 0 3px rgba(59,130,246,0.25)',
+          flexShrink: 0, fontSize: 16, fontWeight: 800, color: '#fff',
+          fontFamily: "'Montserrat',sans-serif",
+          boxShadow: '0 0 0 3px rgba(59,130,246,0.2)',
         }}>T</div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: text, fontFamily: "'Montserrat',sans-serif" }}>Trader</div>
+          <div style={{ fontSize: 13, color: dm ? '#94a3b8' : '#475569', fontFamily: "'Inter',sans-serif" }}>
+            Hello, <span style={{ fontWeight: 700, color: '#3b82f6' }}>Trader</span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
-            <Shield size={10} color="#3b82f6" />
-            <span style={{ fontSize: 10, fontWeight: 600, color: '#3b82f6', fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Premium</span>
+            <Shield size={9} color="#3b82f6" />
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#3b82f6', fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.08em', textTransform: 'uppercase' }}>Premium</span>
           </div>
         </div>
       </div>
 
       {/* ── Login Streak ── */}
-      <div style={{ padding: '10px 12px 6px' }}>
+      <div style={{ padding: '12px 12px 6px' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
-          background: dm ? '#111c2d' : '#f1f5f9',
-          border: `1px solid ${dm ? '#1e3a5f' : '#e2e8f0'}`,
-          borderRadius: 10, padding: '10px 12px',
-          cursor: 'pointer', transition: 'background 0.15s',
+          background: rowBg, border: `1px solid ${dm ? '#1e3a5f' : '#e2e8f0'}`,
+          borderRadius: 10, padding: '10px 12px', cursor: 'pointer', transition: 'background 0.15s',
         }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dm ? '#162235' : '#e2e8f0'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = dm ? '#111c2d' : '#f1f5f9'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = rowBg; }}
         >
-          <div style={{
-            width: 34, height: 34, borderRadius: 8,
-            background: 'linear-gradient(135deg,#1e3a5f,#2563eb)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <Flame size={16} color="#60a5fa" />
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg,#1e3a5f,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Flame size={18} color="#60a5fa" />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: muted, fontFamily: "'Montserrat',sans-serif", textTransform: 'uppercase' }}>Login Streak</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: text, fontFamily: "'Inter',sans-serif", marginTop: 2 }}>1 Days</div>
           </div>
-          <ChevronRight size={14} color={muted} />
+          <ChevronRight size={15} color={muted} />
         </div>
       </div>
 
-      {/* ── Account Settings ── */}
-      <div style={{ padding: '2px 6px 8px' }}>
-        <button style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '9px 10px', background: 'transparent', border: 'none', borderRadius: 8,
-          cursor: 'pointer', color: dm ? '#94a3b8' : '#475569',
-          fontSize: 13, fontFamily: "'Inter',sans-serif", fontWeight: 500,
-          transition: 'background 0.15s, color 0.15s', textAlign: 'left',
-        }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dm ? '#111c2d' : '#f1f5f9'; (e.currentTarget as HTMLElement).style.color = text; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = dm ? '#94a3b8' : '#475569'; }}
-        >
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: dm ? '#111c2d' : '#f1f5f9', border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Settings size={13} color={muted} />
-          </div>
-          Account Settings
-        </button>
+      {/* ── Menu items ── */}
+      <div style={{ padding: '4px 6px 6px' }}>
+        {[
+          { icon: <Settings size={14} color={muted} />, label: 'Account settings', red: false },
+          { icon: <Power   size={14} color="#ef4444" strokeWidth={2.2} />, label: 'Logout', red: true },
+        ].map(({ icon, label, red }) => (
+          <button key={label} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '9px 10px', background: 'transparent', border: 'none', borderRadius: 8,
+            cursor: 'pointer', color: red ? '#ef4444' : (dm ? '#94a3b8' : '#475569'),
+            fontSize: 13, fontFamily: "'Inter',sans-serif", fontWeight: red ? 600 : 500,
+            transition: 'background 0.15s', textAlign: 'left',
+          }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = red ? 'rgba(239,68,68,0.08)' : rowBg; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: red ? 'rgba(239,68,68,0.08)' : rowBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {icon}
+            </div>
+            {label}
+          </button>
+        ))}
       </div>
 
     </div>
