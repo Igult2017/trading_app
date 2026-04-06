@@ -3,6 +3,26 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
+/**
+ * If an entry has entryTime + exitTime but no tradeDuration, compute and
+ * store it as a plain minute string (e.g. "90"). This ensures the metrics
+ * calculator always has duration data available from the DB without relying
+ * on the user manually typing it.
+ */
+function deriveTradeDuration<T extends { entryTime?: string | null; exitTime?: string | null; tradeDuration?: string | null }>(entry: T): T {
+  if (!entry.tradeDuration && entry.entryTime && entry.exitTime) {
+    try {
+      const diffMs = new Date(entry.exitTime).getTime() - new Date(entry.entryTime).getTime();
+      if (diffMs > 0) {
+        return { ...entry, tradeDuration: String(Math.round(diffMs / 60_000)) };
+      }
+    } catch {
+      // unparseable timestamps — leave tradeDuration as-is
+    }
+  }
+  return entry;
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -442,7 +462,7 @@ export class DbStorage implements IStorage {
 
   async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
     try {
-      const result = await db.insert(journalEntries).values(entry).returning();
+      const result = await db.insert(journalEntries).values(deriveTradeDuration(entry)).returning();
       return result[0];
     } catch (error) {
       console.error('[Storage] Error creating journal entry:', error);
@@ -452,7 +472,7 @@ export class DbStorage implements IStorage {
 
   async updateJournalEntry(id: string, entry: Partial<InsertJournalEntry>): Promise<JournalEntry | undefined> {
     try {
-      const result = await db.update(journalEntries).set(entry).where(eq(journalEntries.id, id)).returning();
+      const result = await db.update(journalEntries).set(deriveTradeDuration(entry)).where(eq(journalEntries.id, id)).returning();
       return result[0];
     } catch (error) {
       console.error('[Storage] Error updating journal entry:', error);
