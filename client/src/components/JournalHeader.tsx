@@ -214,7 +214,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
         }
       `}</style>
 
-      <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 500 }}>
         <TickerTape />
         <nav style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
