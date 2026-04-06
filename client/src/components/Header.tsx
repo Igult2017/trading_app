@@ -54,7 +54,7 @@ const navItems = [
   { label: "HOME",              icon: "⌂", href: "/" },
   { label: "JOURNAL",           icon: "▤", href: "/journal" },
   { label: "ECONOMIC CALENDAR", icon: "▦", href: "/calendar" },
-  { label: "ASSETS",            icon: "◈", href: "/major-pairs" },
+  { label: "ASSETS",            icon: "◈", href: "/assets" },
   { label: "TSC",               icon: "◉", href: "/stats" },
   { label: "BLOG",              icon: "≡", href: "/blog" },
 ];
