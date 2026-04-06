@@ -689,6 +689,297 @@ function Page4({ d }: { d: AuditData }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Page5 — AI Analysis
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface AIAnalysisData {
+  success: boolean;
+  trader_archetype?: string;
+  health_score?: string;
+  headline?: string;
+  win_profile?: { label: string; conditions: string[]; probability: string } | null;
+  loss_profile?: { label: string; conditions: string[]; probability: string } | null;
+  findings?: Array<{ finding: string; sample_size: number; win_rate: number; baseline_wr: number; deviation: number; confidence: string }>;
+  pre_trade_checklist?: string[];
+  risk_alert?: string | null;
+  error?: string;
+}
+
+interface AIStrategyData {
+  success: boolean;
+  name?: string;
+  entry_conditions?: Array<{ label: string; win_rate: number; sample_size: number; confidence: string }>;
+  avoid_conditions?: Array<{ label: string; win_rate: number; sample_size: number; confidence: string }>;
+  risk_rules?: Record<string, string>;
+  projected_edge?: { finding: string; win_rate: number; sample_size: number; confidence: string } | null;
+  data_warnings?: string[];
+  narrative?: string;
+  error?: string;
+}
+
+const CONF_COLOR: Record<string, string> = {
+  HIGH:         T.green,
+  MEDIUM:       T.amber,
+  LOW:          "#f97316",
+  INSUFFICIENT: T.muted,
+};
+
+function ConfBadge({ level }: { level: string }) {
+  const color = CONF_COLOR[level] ?? T.muted;
+  return (
+    <span style={{ ...mono, fontSize: 8, letterSpacing: ".12em", padding: "2px 7px", border: `1px solid ${color}`, color, flexShrink: 0 }}>
+      {level}
+    </span>
+  );
+}
+
+function AILoadingState({ label }: { label: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 14 }}>
+      <Loader2 style={{ width: 20, height: 20, color: T.blue, animation: "spin 1s linear infinite" }} />
+      <span style={{ ...mono, fontSize: 10, letterSpacing: ".18em", color: T.muted, textTransform: "uppercase" }}>{label}</span>
+    </div>
+  );
+}
+
+function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 16 }}>
+      <WifiOff style={{ width: 32, height: 32, color: T.red }} />
+      <p style={{ fontSize: 12, color: T.muted, maxWidth: 360, textAlign: "center", fontFamily: FONT, fontWeight: 400 }}>{msg}</p>
+      <button onClick={retry} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: T.blue2, color: T.text, border: "none", cursor: "pointer", ...mono, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase" }}>
+        <RefreshCw style={{ width: 12, height: 12 }} /> Retry
+      </button>
+    </div>
+  );
+}
+
+function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
+  const params = new URLSearchParams();
+  if (sessionId) params.set("sessionId", sessionId);
+  if (userId)    params.set("userId",    userId);
+
+  const { data, isLoading, isError, refetch } = useQuery<AIAnalysisData>({
+    queryKey:  ["aiAnalysis", sessionId, userId],
+    queryFn:   () => fetch(`/api/ai/analysis?${params}`).then(r => r.json()),
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  if (isLoading) return <AILoadingState label="Running AI analysis…" />;
+  if (isError || !data?.success) return <AIErrorState msg={data?.error ?? "AI analysis failed"} retry={refetch} />;
+
+  const findings  = data.findings ?? [];
+  const checklist = data.pre_trade_checklist ?? [];
+
+  return (
+    <div style={{ padding: "0 0 40px" }}>
+
+      {/* Health strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Trader Archetype</CellTitle>
+          <div style={{ ...mono, fontSize: 13, color: T.blue }}>{data.trader_archetype ?? "—"}</div>
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Health Score</CellTitle>
+          <div style={{ ...mono, fontSize: 13, color: data.health_score === "Advanced" ? T.green : data.health_score === "Consistent" ? T.amber : T.muted }}>
+            {data.health_score ?? "—"}
+          </div>
+        </Cell>
+      </div>
+
+      {/* Headline narrative */}
+      {data.headline && (
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
+          <CellTitle>AI Verdict</CellTitle>
+          <p style={{ fontFamily: FONT, fontSize: 13, color: T.text, lineHeight: 1.75, fontWeight: 400, whiteSpace: "pre-wrap" }}>
+            {data.headline}
+          </p>
+        </div>
+      )}
+
+      {/* Win / Loss profiles */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        {[data.win_profile, data.loss_profile].map((profile, i) => {
+          const isWin = i === 0;
+          const accent = isWin ? T.green : T.red;
+          return (
+            <Cell key={i} style={{ borderRight: i === 0 ? `1px solid ${T.line}` : "none", borderLeft: `3px solid ${accent}` }}>
+              <CellTitle>{isWin ? "Win Profile" : "Loss Profile"}</CellTitle>
+              {profile ? (
+                <>
+                  {profile.conditions.map((c, ci) => (
+                    <div key={ci} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: accent, flexShrink: 0, display: "inline-block" }} />
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400 }}>{c}</span>
+                    </div>
+                  ))}
+                  <div style={{ ...mono, fontSize: 10, color: T.muted, marginTop: 8 }}>{profile.probability}</div>
+                </>
+              ) : (
+                <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>Insufficient data</div>
+              )}
+            </Cell>
+          );
+        })}
+      </div>
+
+      {/* Findings */}
+      {findings.length > 0 && (
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.line}` }}>
+          <CellTitle>Proofed Findings</CellTitle>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {findings.map((f, i) => {
+              const isEdge = f.deviation >= 0;
+              const accent = isEdge ? T.green : T.red;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: T.bg3, border: `1px solid ${T.line}`, borderLeft: `3px solid ${accent}`, gap: 12 }}>
+                  <span style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400, flex: 1 }}>{f.finding}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                    <span style={{ ...num, fontSize: 12, color: accent }}>{(f.win_rate * 100).toFixed(0)}%</span>
+                    <span style={{ ...mono, fontSize: 10, color: T.dim }}>{f.sample_size}t</span>
+                    <ConfBadge level={f.confidence} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Checklist + Risk alert */}
+      <div style={{ display: "grid", gridTemplateColumns: checklist.length && data.risk_alert ? "1fr 1fr" : "1fr", borderBottom: `1px solid ${T.line}` }}>
+        {checklist.length > 0 && (
+          <Cell style={{ borderRight: data.risk_alert ? `1px solid ${T.line}` : "none" }}>
+            <CellTitle>Pre-Trade Checklist</CellTitle>
+            {checklist.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                <span style={{ color: T.green, fontSize: 12, lineHeight: 1.6 }}>✓</span>
+                <span style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400, lineHeight: 1.6 }}>{item}</span>
+              </div>
+            ))}
+          </Cell>
+        )}
+        {data.risk_alert && (
+          <Cell style={{ borderRight: "none", background: "rgba(232,64,64,0.04)" }}>
+            <CellTitle>Risk Alert</CellTitle>
+            <p style={{ fontFamily: FONT, fontSize: 12, color: T.red, lineHeight: 1.7, fontWeight: 400 }}>{data.risk_alert}</p>
+          </Cell>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page6 — AI Strategy
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
+  const params = new URLSearchParams();
+  if (sessionId) params.set("sessionId", sessionId);
+  if (userId)    params.set("userId",    userId);
+
+  const { data, isLoading, isError, refetch } = useQuery<AIStrategyData>({
+    queryKey:  ["aiStrategy", sessionId, userId],
+    queryFn:   () => fetch(`/api/ai/strategy?${params}`).then(r => r.json()),
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  if (isLoading) return <AILoadingState label="Building AI strategy…" />;
+  if (isError || !data?.success) return <AIErrorState msg={data?.error ?? "AI strategy failed"} retry={refetch} />;
+
+  const entries = data.entry_conditions ?? [];
+  const avoids  = data.avoid_conditions ?? [];
+  const rules   = data.risk_rules ?? {};
+  const warns   = data.data_warnings ?? [];
+
+  function ConditionRow({ label, wr, n, conf, isEntry }: { label: string; wr: number; n: number; conf: string; isEntry: boolean }) {
+    const pct = (wr * 100).toFixed(0);
+    const accent = isEntry ? T.green : T.red;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${T.line}` }}>
+        <div style={{ flex: 1, fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400 }}>{label}</div>
+        <div style={{ width: 80 }}>
+          <Bar pct={wr * 100} color={accent} />
+        </div>
+        <span style={{ ...num, fontSize: 13, color: accent, width: 36, textAlign: "right" }}>{pct}%</span>
+        <span style={{ ...mono, fontSize: 10, color: T.dim, width: 30, textAlign: "right" }}>{n}t</span>
+        <ConfBadge level={conf} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "0 0 40px" }}>
+
+      {/* Entry / Avoid side by side */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Entry Conditions</CellTitle>
+          {entries.length === 0
+            ? <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>No qualifying conditions found</div>
+            : entries.map((c, i) => <ConditionRow key={i} label={c.label} wr={c.win_rate} n={c.sample_size} conf={c.confidence} isEntry={true} />)
+          }
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Avoid</CellTitle>
+          {avoids.length === 0
+            ? <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>No drain conditions identified</div>
+            : avoids.map((c, i) => <ConditionRow key={i} label={c.label} wr={c.win_rate} n={c.sample_size} conf={c.confidence} isEntry={false} />)
+          }
+        </Cell>
+      </div>
+
+      {/* Risk rules + projected edge */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+        <Cell>
+          <CellTitle>Risk Rules</CellTitle>
+          {Object.entries(rules).map(([k, v], i) => (
+            <StatRow key={i} label={k.replace(/_/g, " ")} value={v} last={i === Object.entries(rules).length - 1} />
+          ))}
+        </Cell>
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle>Projected Edge</CellTitle>
+          {data.projected_edge ? (
+            <>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400, marginBottom: 10 }}>{data.projected_edge.finding}</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <MiniStatBox label="Win Rate" value={`${(data.projected_edge.win_rate * 100).toFixed(0)}%`} color={T.green} />
+                <MiniStatBox label="Trades" value={data.projected_edge.sample_size} />
+                <MiniStatBox label="Confidence" value={data.projected_edge.confidence} color={CONF_COLOR[data.projected_edge.confidence]} />
+              </div>
+            </>
+          ) : (
+            <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>Insufficient aligned trades</div>
+          )}
+        </Cell>
+      </div>
+
+      {/* AI narrative */}
+      {data.narrative && (
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
+          <CellTitle>Strategy Brief</CellTitle>
+          <p style={{ fontFamily: FONT, fontSize: 13, color: T.text, lineHeight: 1.75, fontWeight: 400, whiteSpace: "pre-wrap" }}>{data.narrative}</p>
+        </div>
+      )}
+
+      {/* Data warnings */}
+      {warns.length > 0 && (
+        <div style={{ padding: "16px 24px" }}>
+          <CellTitle>Data Warnings</CellTitle>
+          {warns.map((w, i) => (
+            <div key={i} style={{ fontFamily: FONT, fontSize: 12, color: T.amber, lineHeight: 1.6, marginBottom: 6 }}>{w}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -742,6 +1033,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
     { id: 2, label: "Evidence" },
     { id: 3, label: "Diagnostics" },
     { id: 4, label: "Action" },
+    { id: 5, label: "AI Analysis" },
+    { id: 6, label: "AI Strategy" },
   ];
 
   const kpis = [
@@ -811,6 +1104,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
           {active === 2 && <Page2 d={d} />}
           {active === 3 && <Page3 d={d} />}
           {active === 4 && <Page4 d={d} />}
+          {active === 5 && <Page5 sessionId={sessionId} userId={userId} />}
+          {active === 6 && <Page6 sessionId={sessionId} userId={userId} />}
         </div>
 
       </div>
