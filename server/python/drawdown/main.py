@@ -12,9 +12,8 @@ from drawdown.core import compute_drawdown
 
 
 def main():
-    raw = sys.stdin.read()
     try:
-        payload = json.loads(raw)
+        payload = json.load(sys.stdin)
     except json.JSONDecodeError as e:
         print(json.dumps({"success": False, "error": f"Invalid JSON input: {e}"}))
         sys.exit(1)

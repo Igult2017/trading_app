@@ -374,17 +374,21 @@ class DataFetcher:
         
         mtf = MultiTimeframeData()
         
+        # (tf_name, yf_period, yf_interval, max_candles)
+        # max_candles caps each list after any aggregation so we don't hold
+        # thousands of Candle objects per symbol × 62 symbols in memory.
+        # m1 is the worst offender: "1d" at 1-min = up to 1 440 raw bars.
         timeframe_configs = [
-            ("d1", "1mo", "1d"),
-            ("h4", "1mo", "1h"),
-            ("h1", "5d", "1h"),
-            ("m30", "5d", "30m"),
-            ("m15", "5d", "15m"),
-            ("m5", "1d", "5m"),
-            ("m1", "1d", "1m"),
+            ("d1",  "1mo", "1d",  100),
+            ("h4",  "1mo", "1h",  200),   # raw 1h bars aggregated → h4 first
+            ("h1",  "5d",  "1h",  120),
+            ("m30", "5d",  "30m", 200),
+            ("m15", "5d",  "15m", 200),
+            ("m5",  "1d",  "5m",  200),
+            ("m1",  "1d",  "1m",  300),   # was up to 1 440 bars – now capped
         ]
-        
-        for tf_name, period, interval in timeframe_configs:
+
+        for tf_name, period, interval, max_candles in timeframe_configs:
             try:
                 hist = ticker.history(period=period, interval=interval)
                 if not hist.empty:
@@ -399,15 +403,17 @@ class DataFetcher:
                             volume=float(row.get("Volume", 0))
                         )
                         candles.append(candle)
-                    
+
                     if tf_name == "h4":
                         candles = self._aggregate_to_h4(candles)
                     elif tf_name == "h2":
                         candles = self._aggregate_to_h2(candles)
                     elif tf_name == "m3":
                         candles = self._aggregate_to_m3(candles)
-                    
-                    setattr(mtf, tf_name, candles)
+
+                    # Keep only the most-recent bars; older history is not
+                    # needed for signal detection and wastes memory.
+                    setattr(mtf, tf_name, candles[-max_candles:])
             except Exception as e:
                 logger.warning(f"Failed to fetch {tf_name} for {symbol}: {e}")
         
