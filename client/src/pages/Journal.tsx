@@ -770,7 +770,7 @@ export default function Journal() {
               <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
             )
           ) : activeNav === 'strategy' ? (
-            <StrategyAudit />
+            <StrategyAudit sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'vault' ? (
             activeSessionId ? <TradeVault sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'calendar' ? (
@@ -784,7 +784,7 @@ export default function Journal() {
           ) : activeNav === 'drawdown' ? (
             activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'fsdai' ? (
-            <TraderAI />
+            <TraderAI sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'leaderboard' ? (
             <Leaderboard />
           ) : activeNav === 'sync' ? (

@@ -28,7 +28,7 @@ const F = "'Montserrat', sans-serif";
 
 interface Message { role: "user" | "model"; content: string; }
 
-export default function TraderAI() {
+export default function TraderAI({ sessionId }: { sessionId?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export default function TraderAI() {
     const res = await fetch("/api/trader-ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: msgs }),
+      body: JSON.stringify({ messages: msgs, sessionId }),
     });
     if (!res.ok) throw new Error(`${res.status}`);
     const data = await res.json();

@@ -15,10 +15,21 @@ import json
 MODEL = "gemini-2.5-pro"
 
 
+def _api_key() -> str:
+    """Resolve the Gemini API key — accepts either env var name."""
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+    if not key:
+        raise RuntimeError(
+            "Gemini API key not found. Set GEMINI_API_KEY or GOOGLE_API_KEY "
+            "in your environment before starting the server."
+        )
+    return key
+
+
 def _client():
     """Lazy import so the rest of the engine works without google-genai installed."""
     from google import genai  # type: ignore
-    return genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+    return genai.Client(api_key=_api_key())
 
 
 # ── System instruction ────────────────────────────────────────────────────────

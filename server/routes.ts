@@ -9,7 +9,7 @@ import { computeCalendar } from "./services/calendarCalculator";
 import { computeDrawdown } from "./services/drawdownCalculator";
 import { computeTFMetrics, computeTFMatrix } from "./services/tfMetricsCalculator";
 import { computeStrategyAudit } from "./services/strategyAuditCalculator";
-import { computeAIAnalysis, computeAIStrategy } from "./services/aiEngineCalculator";
+import { computeAIAnalysis, computeAIStrategy, computeAIQuery } from "./services/aiEngineCalculator";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -908,7 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/gemini/status", async (req, res) => {
     try {
       const isConfigured = isGeminiConfigured();
-      if (!isConfigured) return res.json({ configured: false, connected: false, message: "GOOGLE_API_KEY not configured" });
+      if (!isConfigured) return res.json({ configured: false, connected: false, message: "GEMINI_API_KEY (or GOOGLE_API_KEY) not configured" });
       const connectionTest = await testGeminiConnection();
       res.json({ configured: true, connected: connectionTest.success, message: connectionTest.message });
     } catch (error) {
@@ -929,38 +929,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/trader-ai/chat", async (req, res) => {
     try {
-      const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
-      if (!messages || !Array.isArray(messages)) {
+      const { messages, sessionId } = req.body as {
+        messages: Array<{ role: string; content: string }>;
+        sessionId?: string;
+      };
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "messages array required" });
       }
 
-      const SYSTEM_PROMPT = `You are an elite trading coach and performance analyst connected directly to the trader's TradeLog journal database. You have full access to all their trade entries.
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+      if (!apiKey) {
+        return res.status(503).json({ error: "GEMINI_API_KEY is not configured on this server." });
+      }
 
-Your role is to:
-- Query and analyse the trader's data to give sharp, specific, actionable insights.
-- Point out weaknesses without sugarcoating.
-- Reference specific data points and statistics.
-- Keep responses focused, structured, and professional. Use markdown tables or lists for data.
+      // Fetch the trader's real trade data for this session
+      const trades = await storage.getJournalEntries(undefined, sessionId || undefined);
 
-Always respond as if you have already retrieved the relevant data from the database.`;
+      const question = messages[messages.length - 1].content;
 
-      const { GoogleGenAI } = await import("@google/genai");
-      const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
+      if (trades.length === 0) {
+        // No trades yet — answer honestly without data
+        return res.json({
+          reply: "No trades found for this session yet. Record some trades first and I'll be able to give you data-driven analysis.",
+        });
+      }
 
-      const history = messages.slice(0, -1).map(m => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
-      }));
-      const lastMsg = messages[messages.length - 1];
+      // Route through the Python AI engine (QA mode) — grounded in real data
+      const result = await computeAIQuery(trades, question);
 
-      const chat = genai.chats.create({
-        model: "gemini-2.0-flash",
-        config: { systemInstruction: SYSTEM_PROMPT, maxOutputTokens: 1000 },
-        history,
-      });
-      const result = await chat.sendMessage({ message: lastMsg.content });
-      const text = result.text ?? "";
-      return res.json({ reply: text });
+      if (!result.success) {
+        console.error("[TraderAI] AI engine error:", result.error);
+        return res.status(500).json({ error: result.error || "AI engine failed" });
+      }
+
+      return res.json({ reply: result.answer ?? "" });
     } catch (err: any) {
       console.error("[TraderAI] Error:", err.message);
       return res.status(500).json({ error: err.message || "AI request failed" });
