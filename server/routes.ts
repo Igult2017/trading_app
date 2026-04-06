@@ -9,6 +9,7 @@ import { computeCalendar } from "./services/calendarCalculator";
 import { computeDrawdown } from "./services/drawdownCalculator";
 import { computeTFMetrics, computeTFMatrix } from "./services/tfMetricsCalculator";
 import { computeStrategyAudit } from "./services/strategyAuditCalculator";
+import { computeAIAnalysis, computeAIStrategy } from "./services/aiEngineCalculator";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -519,6 +520,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[Routes] Strategy audit computation error:", error);
       res.status(500).json({ success: false, error: "Strategy audit computation failed" });
+    }
+  });
+
+  // ── AI Engine — Analysis ────────────────────────────────────────────────────
+  app.get("/api/ai/analysis", async (req, res) => {
+    try {
+      const userId    = req.query.userId    as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries   = await storage.getJournalEntries(userId, sessionId);
+      const result    = await computeAIAnalysis(entries);
+      res.json(result);
+    } catch (error) {
+      console.error("[Routes] AI analysis error:", error);
+      res.status(500).json({ success: false, error: "AI analysis failed" });
+    }
+  });
+
+  // ── AI Engine — Strategy ────────────────────────────────────────────────────
+  app.get("/api/ai/strategy", async (req, res) => {
+    try {
+      const userId    = req.query.userId    as string | undefined;
+      const sessionId = req.query.sessionId as string | undefined;
+      const entries   = await storage.getJournalEntries(userId, sessionId);
+      const result    = await computeAIStrategy(entries);
+      res.json(result);
+    } catch (error) {
+      console.error("[Routes] AI strategy error:", error);
+      res.status(500).json({ success: false, error: "AI strategy failed" });
     }
   });
 
