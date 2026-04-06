@@ -127,6 +127,19 @@ function remapJournalEntry(raw: Record<string, any>): Record<string, any> {
     out.tradeDate = out.openedAt ?? out.createdAt ?? null;
   }
 
+  // Auto-compute tradeDuration in minutes from timestamps when not already set.
+  // Python parses a plain numeric string as minutes, which maps directly to duration buckets.
+  if (!out.tradeDuration && out.openedAt && out.closedAt) {
+    try {
+      const diffMs = new Date(out.closedAt).getTime() - new Date(out.openedAt).getTime();
+      if (diffMs > 0) {
+        out.tradeDuration = String(Math.round(diffMs / 60000));
+      }
+    } catch {
+      // leave tradeDuration unset if dates are unparseable
+    }
+  }
+
   return out;
 }
 

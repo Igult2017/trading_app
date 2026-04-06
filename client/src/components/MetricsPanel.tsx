@@ -195,22 +195,59 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve:any[]; equityG
   const [view, setView] = useState<'DAILY'|'WEEKLY'|'MONTHLY'>('WEEKLY');
   const H=160; const W=600;
 
+  const groupedPoints = (() => {
+    if (!equityCurve || equityCurve.length === 0) return [];
+    if (view === 'DAILY') return equityCurve.map((e:any) => {
+      const d = e.date ? new Date(e.date) : null;
+      const label = (d && !isNaN(d.getTime()))
+        ? d.toLocaleString('default', { month: 'short', day: 'numeric' })
+        : `#${e.tradeNumber}`;
+      return { ...e, _label: label };
+    });
+    const buckets = new Map<string, any>();
+    for (const e of equityCurve) {
+      const d = e.date ? new Date(e.date) : null;
+      let key: string;
+      let label: string;
+      if (!d || isNaN(d.getTime())) {
+        key = `t${e.tradeNumber}`;
+        label = `#${e.tradeNumber}`;
+      } else if (view === 'WEEKLY') {
+        const jan1 = new Date(d.getFullYear(), 0, 1);
+        const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+        key = `${d.getFullYear()}-W${week}`;
+        label = `W${week}`;
+      } else {
+        key = `${d.getFullYear()}-${d.getMonth()}`;
+        label = d.toLocaleString('default', { month: 'short' });
+      }
+      buckets.set(key, { ...e, _label: label });
+    }
+    return Array.from(buckets.values());
+  })();
+
   const buildPts = (): [number,number][] => {
-    if (!equityCurve||equityCurve.length===0) return [[0,H/2],[W,H/2]];
-    const vals=equityCurve.map((e:any)=>e.cumulativePL);
+    if (groupedPoints.length === 0) return [[0,H/2],[W,H/2]];
+    const vals=groupedPoints.map((e:any)=>e.cumulativePL);
     const minV=Math.min(...vals); const maxV=Math.max(...vals); const range=maxV-minV||1;
-    return equityCurve.map((e:any,i:number) => {
-      const x=equityCurve.length>1?(i/(equityCurve.length-1))*W:W/2;
+    return groupedPoints.map((e:any,i:number) => {
+      const x=groupedPoints.length>1?(i/(groupedPoints.length-1))*W:W/2;
       const y=H-((e.cumulativePL-minV)/range)*H*0.85-H*0.075;
       return [x, Math.max(0,Math.min(H,y))];
     });
   };
   const pts=buildPts();
-  const path=pts.reduce((a,[x,y],i)=>{ if(i===0)return `M${x},${y}`; const[px,py]=pts[i-1];const cx=px+(x-px)/2; return `${a} C${cx},${py} ${cx},${y} ${x},${y}`; },'');
+  const path=pts.reduce((a:string,[x,y]:[number,number],i:number)=>{ if(i===0)return `M${x},${y}`; const[px,py]=pts[i-1];const cx=px+(x-px)/2; return `${a} C${cx},${py} ${cx},${y} ${x},${y}`; },'');
   const fill=`${path} L${pts[pts.length-1][0]},${H} L0,${H} Z`;
   const last=pts[pts.length-1];
-  const labs=(()=>{ if(!equityCurve||equityCurve.length===0)return['--']; const step=Math.max(1,Math.floor(equityCurve.length/5)); return equityCurve.filter((_:any,i:number)=>i%step===0||i===equityCurve.length-1).map((e:any)=>`#${e.tradeNumber}`); })();
-  const yLabels=(()=>{ if(!equityCurve||equityCurve.length===0)return['--','--','--','--']; const vals=equityCurve.map((e:any)=>e.cumulativePL); const maxV=Math.max(...vals);const minV=Math.min(...vals);const range=maxV-minV||1; return[maxV,maxV-range*0.33,maxV-range*0.66,minV].map(v=>v>=1000||v<=-1000?`${(v/1000).toFixed(1)}k`:`${Math.round(v)}`); })();
+  const labs=(()=>{
+    if (groupedPoints.length === 0) return ['--'];
+    const step=Math.max(1,Math.floor(groupedPoints.length/5));
+    return groupedPoints
+      .filter((_:any,i:number)=>i%step===0||i===groupedPoints.length-1)
+      .map((e:any)=>e._label ?? `#${e.tradeNumber}`);
+  })();
+  const yLabels=(()=>{ if(groupedPoints.length===0)return['--','--','--','--']; const vals=groupedPoints.map((e:any)=>e.cumulativePL); const maxV=Math.max(...vals);const minV=Math.min(...vals);const range=maxV-minV||1; return[maxV,maxV-range*0.33,maxV-range*0.66,minV].map(v=>v>=1000||v<=-1000?`${(v/1000).toFixed(1)}k`:`${Math.round(v)}`); })();
   const balance=equityGrowth?.currentBalance??0; const startBal=equityGrowth?.startingBalance??0; const retPct=equityGrowth?.totalReturnPct??0; const totalPL=equityGrowth?.totalPL??0; const isPos=totalPL>=0;
   const fmtBal=(v:number)=>v?`$${v.toLocaleString(undefined,{maximumFractionDigits:0})}`:'--';
 
@@ -276,7 +313,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     ? `/api/metrics/compute?sessionId=${sessionId}`
     : '/api/metrics/compute';
 
-  const { data:metricsData, isLoading, isError } = useQuery<{ success:boolean; metrics:any }>({
+  const { data:metricsData, isLoading, isFetching, isError } = useQuery<{ success:boolean; metrics:any }>({
     queryKey:['/api/metrics/compute', sessionId],
     queryFn: async () => {
       const r = await fetch(queryUrl);
@@ -284,6 +321,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
       return r.json();
     },
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
   });
 
   /* ── CSS ── */
@@ -484,6 +523,14 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   return (
     <div className="mp-root">
       <style>{css}</style>
+
+      {/* ── SYNC INDICATOR ── */}
+      {isFetching && !isLoading && (
+        <div style={{ display:'flex', alignItems:'center', gap:6, padding:'3px 20px', background:P.bg, borderBottom:`1px solid ${P.line}` }}>
+          <div style={{ width:5, height:5, borderRadius:'50%', background:P.cyan, animation:'mp-spin 1s linear infinite', flexShrink:0 }}/>
+          <Mono size={8} color={P.dim} style={{ letterSpacing:'0.14em' }}>SYNCING LATEST DATA…</Mono>
+        </div>
+      )}
 
       {/* ── KPI STRIP ── */}
       <div className="mp-kpi">

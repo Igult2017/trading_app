@@ -100,9 +100,11 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const [activeFreqView,   setActiveFreqView]   = useState('attr');
   const [activeStructView, setActiveStructView] = useState('context');
 
-  const { data: result, isLoading, isError } = useQuery<any>({
+  const { data: result, isLoading, isFetching, isError } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
     queryFn: async () => {
       const r = await fetch(`/api/drawdown/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
@@ -240,6 +242,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
         .dd-card-dark { background:#080a0e; border:1px solid rgba(255,255,255,0.04); }
         .dd-divider   { border-color:rgba(255,255,255,0.04); }
         .jm, .jm *    { font-family:'JetBrains Mono',monospace !important; }
+        @keyframes ddPulse { from { opacity:0.3; } to { opacity:1; } }
       `}</style>
 
       <div className="max-w-[1400px] mx-auto">
@@ -247,7 +250,15 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
         {/* ── HEADER ─────────────────────────────────────────────── */}
         <div className="mb-8 pb-6 border-b dd-divider flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.3em] text-slate-600 mb-2" style={{ fontWeight: 500 }}>Drawdown Intelligence</p>
+            <div className="flex items-center gap-3 mb-2">
+              <p className="text-[9px] uppercase tracking-[0.3em] text-slate-600" style={{ fontWeight: 500 }}>Drawdown Intelligence</p>
+              {isFetching && !isLoading && (
+                <div className="flex items-center gap-1">
+                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981', animation: 'ddPulse 1s ease infinite alternate' }} />
+                  <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', color: '#10b981', opacity: 0.7 }}>SYNCING</span>
+                </div>
+              )}
+            </div>
             <h1 className="text-2xl text-white leading-none" style={{ fontWeight: 800 }}>Where Are You Losing?</h1>
           </div>
           <div className="flex flex-wrap gap-8">
