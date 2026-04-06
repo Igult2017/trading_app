@@ -92,8 +92,8 @@ app.use((req, res, next) => {
     log(String(dbInitError));
   }
 
-  // Start price daemon before routes so it has time to warm up
-  startPriceDaemon();
+  // DISABLED — Assets panel coming soon; uncomment to re-enable price daemon
+  // startPriceDaemon();
 
   const server = await registerRoutes(app);
 

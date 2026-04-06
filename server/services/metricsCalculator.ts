@@ -114,12 +114,12 @@ function remapJournalEntry(raw: Record<string, any>): Record<string, any> {
     out.tpDistance = out.takeProfitDistance;
   }
 
-  // Timestamps
+  // Timestamps — normalise every known alias into openedAt / closedAt
   if (out.openedAt == null) {
-    out.openedAt = out.entryTime ?? out.entryTimeUTC ?? null;
+    out.openedAt = out.entryTime ?? out.entryTimeUTC ?? out.entry_time ?? out.entry_time_utc ?? null;
   }
   if (out.closedAt == null) {
-    out.closedAt = out.exitTime ?? null;
+    out.closedAt = out.exitTime ?? out.exit_time ?? null;
   }
 
   // Trade date fallback: use createdAt if nothing else is available
@@ -127,16 +127,21 @@ function remapJournalEntry(raw: Record<string, any>): Record<string, any> {
     out.tradeDate = out.openedAt ?? out.createdAt ?? null;
   }
 
-  // Auto-compute tradeDuration in minutes from timestamps when not already set.
-  // Python parses a plain numeric string as minutes, which maps directly to duration buckets.
-  if (!out.tradeDuration && out.openedAt && out.closedAt) {
-    try {
-      const diffMs = new Date(out.closedAt).getTime() - new Date(out.openedAt).getTime();
-      if (diffMs > 0) {
-        out.tradeDuration = String(Math.round(diffMs / 60000));
+  // Derive tradeDuration (minutes as a plain string) from any available
+  // timestamp pair.  New entries have it stored by storage.ts already;
+  // this covers older rows that were saved without it.
+  if (!out.tradeDuration) {
+    const entry = out.openedAt ?? out.entryTime ?? out.entryTimeUTC ?? out.entry_time ?? null;
+    const exit  = out.closedAt ?? out.exitTime  ?? out.exit_time  ?? null;
+    if (entry && exit) {
+      try {
+        const diffMs = new Date(exit).getTime() - new Date(entry).getTime();
+        if (diffMs > 0) {
+          out.tradeDuration = String(Math.round(diffMs / 60_000));
+        }
+      } catch {
+        // leave tradeDuration unset if dates are unparseable
       }
-    } catch {
-      // leave tradeDuration unset if dates are unparseable
     }
   }
 

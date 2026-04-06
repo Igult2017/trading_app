@@ -344,6 +344,7 @@ def _coerce_datetime(value: Any) -> Optional[datetime]:
             return None
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z",
                     "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
+                    "%Y-%m-%dT%H:%M:%S",       # ISO with seconds, no tz (common DB format)
                     "%Y-%m-%dT%H:%M",          # datetime-local input (no seconds)
                     "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
                     "%d/%m/%Y %H:%M", "%d/%m/%Y"):

@@ -47,15 +47,7 @@ const Num = ({ children, size=9, color=P.green, style={} as React.CSSProperties 
 /* ─────────────────────────────────────────────────────────────────────
    DECORATIVE CORNERS
 ───────────────────────────────────────────────────────────────────── */
-const Corner = ({ size=6, color=P.dim, pos }: { size?:number; color?:string; pos:'tl'|'tr'|'bl'|'br' }) => {
-  const borders: Record<string,React.CSSProperties> = {
-    tl:{ top:0, left:0,    borderTop:`1px solid ${color}`, borderLeft:`1px solid ${color}` },
-    tr:{ top:0, right:0,   borderTop:`1px solid ${color}`, borderRight:`1px solid ${color}` },
-    bl:{ bottom:0, left:0, borderBottom:`1px solid ${color}`, borderLeft:`1px solid ${color}` },
-    br:{ bottom:0, right:0,borderBottom:`1px solid ${color}`, borderRight:`1px solid ${color}` },
-  };
-  return <div style={{ position:'absolute', width:size, height:size, ...borders[pos] }} />;
-};
+const Corner = (_props: { size?:number; color?:string; pos:'tl'|'tr'|'bl'|'br' }) => null;
 
 /* ─────────────────────────────────────────────────────────────────────
    PANEL
