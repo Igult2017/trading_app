@@ -56,10 +56,14 @@ def compute_tf_metrics(trades: list, starting_balance: float) -> dict:
     # 1. Group all trades by their entry timeframe
     groups = group_by_timeframe(trades)
 
-    # 2. For each TF group, compute and merge all sub-module outputs
+    # 2. For each TF group, compute and merge all sub-module outputs.
+    #    Pop each group out of the dict as we go so its trade list is eligible
+    #    for GC immediately after processing rather than staying alive for the
+    #    full loop duration (important when trades × TFs is large).
     by_tf: dict[str, dict] = {}
 
-    for tf, group in groups.items():
+    for tf in list(groups.keys()):
+        group = groups.pop(tf)
         stats      = compute_per_tf_stats(group)
         breakdowns = compute_breakdowns(group)
         equity     = compute_equity_curve(group, sb)

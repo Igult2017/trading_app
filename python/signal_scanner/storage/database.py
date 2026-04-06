@@ -163,8 +163,16 @@ class SignalStorage:
                 """
                 params.append(limit)
                 
-                rows = await conn.fetch(query, *params)
-                return [dict(row) for row in rows]
+                # Use a server-side cursor so asyncpg fetches rows in batches
+                # rather than loading the entire result set into one buffer.
+                # This halves peak memory — Records are converted and released
+                # one batch at a time instead of keeping Records + dicts alive
+                # simultaneously.
+                results: list[dict] = []
+                async with conn.transaction():
+                    async for record in conn.cursor(query, *params):
+                        results.append(dict(record))
+                return results
                 
         except Exception as e:
             logger.error(f"Failed to get signals: {e}")

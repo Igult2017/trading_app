@@ -309,6 +309,10 @@ def get_candles(symbol: str, asset_class: str = "stock", interval: str = "5m", p
         import pandas as pd
         df = hist[["Open", "High", "Low", "Close", "Volume"]].copy()
         df.columns = ["open", "high", "low", "close", "volume"]
+        # Trim to last 500 rows before computing indicators — most indicators
+        # (including EMA-200) only need ~200 bars of warmup; keeping 500 gives
+        # a safe buffer while avoiding loading years of history into memory.
+        df = df.tail(500)
 
 
         # ── Compute indicators using `ta` library + manual numpy/pandas ────────
@@ -654,7 +658,7 @@ def get_multiple_prices(symbols: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         # Individual price calls use 5-min bars for more current data.
         data = yf.download(
             unique_yf,
-            period="5d",
+            period="2d",
             interval="1d",
             progress=False,
             threads=True,
