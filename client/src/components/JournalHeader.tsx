@@ -51,7 +51,7 @@ function ProfileDropdown({ dm }: { dm: boolean }) {
       background: dm ? '#0d1520' : '#ffffff',
       border: `1px solid ${border}`, borderRadius: 14,
       boxShadow: dm ? '0 24px 64px rgba(0,0,0,0.75)' : '0 16px 48px rgba(0,0,0,0.15)',
-      overflow: 'hidden', zIndex: 200,
+      overflow: 'hidden', zIndex: 9999,
     }}>
 
       {/* ── Hello / user header ── */}
