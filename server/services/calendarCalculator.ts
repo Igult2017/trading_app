@@ -15,10 +15,24 @@ export async function computeCalendar(trades: any[]): Promise<CalendarResult> {
 
     const child = spawn(PYTHON_BIN, [scriptPath], {
       env: { ...process.env },
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const settle = (result: CalendarResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      settle({ success: false, error: "Calendar computation timed out (15s)" });
+    }, 15000);
 
     child.stdin.write(JSON.stringify(trades));
     child.stdin.end();
@@ -29,29 +43,23 @@ export async function computeCalendar(trades: any[]): Promise<CalendarResult> {
     child.on("close", (code) => {
       if (stdout.trim()) {
         try {
-          const result = JSON.parse(stdout.trim());
-          resolve(result);
+          settle(JSON.parse(stdout.trim()));
           return;
         } catch (e) {
-          console.error("[CalendarCalculator] Parse error:", stdout);
+          console.error("[CalendarCalculator] Parse error:", stdout.slice(0, 200));
         }
       }
       if (code !== 0 || stderr.trim()) {
         console.error("[CalendarCalculator] Python error:", stderr);
-        resolve({ success: false, error: stderr || "Calendar computation failed" });
+        settle({ success: false, error: stderr || "Calendar computation failed" });
         return;
       }
-      resolve({ success: false, error: "No output from calendar computation" });
+      settle({ success: false, error: "No output from calendar computation" });
     });
 
     child.on("error", (err) => {
       console.error("[CalendarCalculator] Spawn error:", err);
-      resolve({ success: false, error: err.message });
+      settle({ success: false, error: err.message });
     });
-
-    setTimeout(() => {
-      try { child.kill(); } catch {}
-      resolve({ success: false, error: "Calendar computation timed out (15s)" });
-    }, 15000);
   });
 }

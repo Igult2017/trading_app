@@ -321,6 +321,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
       return r.json();
     },
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
   });
 
   /* ── CSS ── */
