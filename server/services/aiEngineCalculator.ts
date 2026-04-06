@@ -129,3 +129,18 @@ export async function computeAIStrategy(trades: any[]): Promise<AIStrategyResult
     "strategy"
   );
 }
+
+export interface AIQueryResult {
+  success: boolean;
+  mode: string;
+  question?: string;
+  answer?: string;
+  error?: string;
+}
+
+export async function computeAIQuery(trades: any[], question: string): Promise<AIQueryResult> {
+  return spawnAIEngine<AIQueryResult>(
+    { mode: "qa", trades, question },
+    "qa"
+  );
+}

@@ -782,7 +782,7 @@ export default function Journal() {
           ) : activeNav === 'drawdown' ? (
             activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'fsdai' ? (
-            <TraderAI />
+            <TraderAI sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'leaderboard' ? (
             <Leaderboard />
           ) : activeNav === 'sync' ? (
