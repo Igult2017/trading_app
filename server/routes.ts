@@ -870,46 +870,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/prices/status", async (req, res) => {
-    try {
-      const isOnline = await pingPriceService();
-      res.json({ status: isOnline ? "online" : "offline" });
-    } catch (error) {
-      res.json({ status: "offline" });
-    }
-  });
-
-  // DISABLED — Assets panel is coming soon. Re-enable by restoring the original handler.
-  app.get("/api/prices/:symbol/candles", (_req, res) => {
-    res.status(503).json({ error: "Assets panel is currently disabled." });
-  });
-
-  app.get("/api/prices/:symbol", async (req, res) => {
-    try {
-      const assetClass = (req.query.assetClass as string) || "stock";
-      const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
-      if (!validAssetClasses.includes(assetClass)) return res.status(400).json({ error: "Invalid asset class" });
-      const priceData = await getCachedPrice(req.params.symbol, assetClass as any);
-      if (priceData.error) {
-        const status = priceData.error.includes('not yet in cache') ? 404 : 503;
-        return res.status(status).json({ error: priceData.error });
-      }
-      res.json(priceData);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch price" });
-    }
-  });
-
-  app.post("/api/prices/batch", async (req, res) => {
-    try {
-      const { symbols } = req.body;
-      if (!Array.isArray(symbols) || symbols.length === 0) return res.status(400).json({ error: "Symbols array is required" });
-      if (symbols.length > 100) return res.status(400).json({ error: "Maximum 100 symbols per request" });
-      res.json(await getCachedMultiplePrices(symbols));
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch prices" });
-    }
-  });
+  // DISABLED — Assets panel coming soon. To re-enable, restore all four handlers below.
+  app.get("/api/prices/status",          (_req, res) => res.status(503).json({ error: "Assets panel is currently disabled." }));
+  app.get("/api/prices/:symbol/candles", (_req, res) => res.status(503).json({ error: "Assets panel is currently disabled." }));
+  app.get("/api/prices/:symbol",         (_req, res) => res.status(503).json({ error: "Assets panel is currently disabled." }));
+  app.post("/api/prices/batch",          (_req, res) => res.status(503).json({ error: "Assets panel is currently disabled." }));
 
   app.get("/api/gemini/status", async (req, res) => {
     try {
