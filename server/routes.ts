@@ -879,20 +879,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/prices/:symbol/candles", async (req, res) => {
-    try {
-      const { symbol } = req.params;
-      const assetClass = (req.query.assetClass as string) || "stock";
-      const interval = (req.query.interval as string) || "5m";
-      const period = (req.query.period as string) || "5d";
-      const validAssetClasses = ["stock", "forex", "commodity", "crypto"];
-      if (!validAssetClasses.includes(assetClass)) return res.status(400).json({ error: "Invalid asset class" });
-      const data = await getCachedCandleData(symbol, assetClass as any, interval, period);
-      if (data.error) return res.status(404).json({ error: data.error });
-      res.json(data);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch candle data" });
-    }
+  // DISABLED — Assets panel is coming soon. Re-enable by restoring the original handler.
+  app.get("/api/prices/:symbol/candles", (_req, res) => {
+    res.status(503).json({ error: "Assets panel is currently disabled." });
   });
 
   app.get("/api/prices/:symbol", async (req, res) => {

@@ -169,25 +169,18 @@ const CACHE_TTL = 30000; // 30 seconds — daily bars change slowly; prevents th
 const inflightFetches = new Map<string, Promise<PriceResult[]>>();
 
 
+// DISABLED — Assets panel is coming soon.
+// To re-enable: restore the original getCandleData / getCachedCandleData bodies
+// and un-stub the /api/prices/:symbol/candles route in routes.ts.
 export async function getCandleData(
-  symbol:     string,
-  assetClass: 'stock' | 'forex' | 'commodity' | 'crypto' = 'stock',
-  interval:   string = '5m',
-  period:     string = '1d'
+  symbol: string,
+  _assetClass?: string,
+  _interval?:   string,
+  _period?:     string
 ): Promise<CandleResult> {
-  try {
-    return await callCandleSubprocess({
-      action: 'get_candles', symbol, assetClass, interval, period,
-    });
-  } catch (err) {
-    return {
-      symbol, candles: [],
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
+  return { symbol, candles: [], error: "Assets panel is currently disabled." };
 }
 
-// 2-minute cache — candle data doesn't change faster than this
 const candleCache = new Map<string, { data: CandleResult; ts: number }>();
 const CANDLE_TTL  = 120_000;
 
@@ -197,13 +190,7 @@ export async function getCachedCandleData(
   interval:   string = '5m',
   period:     string = '1d'
 ): Promise<CandleResult> {
-  const key    = `${symbol}-${assetClass}-${interval}-${period}`;
-  const cached = candleCache.get(key);
-  if (cached && Date.now() - cached.ts < CANDLE_TTL) return cached.data;
-
-  const result = await getCandleData(symbol, assetClass, interval, period);
-  if (!result.error) candleCache.set(key, { data: result, ts: Date.now() });
-  return result;
+  return getCandleData(symbol, assetClass, interval, period);
 }
 
 /** Cached single-symbol price lookup — wrapper around getCachedMultiplePrices. */
