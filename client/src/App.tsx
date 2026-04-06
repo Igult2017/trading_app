@@ -18,6 +18,39 @@ import Join from "@/pages/Join";
 import Blog from "@/pages/Blog";
 import Journal from "@/pages/Journal";
 // import AssetPage from "@/pages/AssetPage";  // DISABLED — re-enable when ready
+function AssetComingSoon() {
+  return (
+    <div style={{
+      minHeight: "100vh", display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      background: "#080c10", gap: 16, padding: "0 24px",
+    }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: "50%",
+        border: "2px solid #22d3a5",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 28, color: "#22d3a5",
+        boxShadow: "0 0 24px rgba(34,211,165,0.2)",
+      }}>◈</div>
+      <h1 style={{
+        color: "#c8d8e8", fontFamily: "'Montserrat', sans-serif",
+        fontSize: 28, fontWeight: 700, letterSpacing: "0.08em",
+        margin: 0, textAlign: "center",
+      }}>ASSETS PANEL</h1>
+      <p style={{
+        color: "#22d3a5", fontFamily: "'Montserrat', sans-serif",
+        fontSize: 13, fontWeight: 600, letterSpacing: "0.2em",
+        margin: 0, textTransform: "uppercase",
+      }}>Coming Soon</p>
+      <p style={{
+        color: "#4a6580", fontFamily: "'Montserrat', sans-serif",
+        fontSize: 12, textAlign: "center", maxWidth: 340, margin: 0,
+      }}>
+        This section is currently under maintenance. Check back shortly.
+      </p>
+    </div>
+  );
+}
 import TscPage from "@/pages/TscPage";
 import BlogPage from "@/pages/BlogPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
@@ -59,7 +92,7 @@ export default function App() {
           <Route path="/blog" component={BlogPage} />
           <Route path="/calendar" component={EconomicCalendarPage} />
           <Route path="/journal" component={Journal} />
-          {/* <Route path="/assets" component={AssetPage} /> */}{/* DISABLED */}
+          <Route path="/assets" component={AssetComingSoon} />{/* swap AssetComingSoon → AssetPage to re-enable */}
           <Route>{() => <InnerPages />}</Route>
         </Switch>
         <Toaster />
