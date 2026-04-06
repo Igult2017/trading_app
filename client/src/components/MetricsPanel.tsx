@@ -313,7 +313,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     ? `/api/metrics/compute?sessionId=${sessionId}`
     : '/api/metrics/compute';
 
-  const { data:metricsData, isLoading, isError } = useQuery<{ success:boolean; metrics:any }>({
+  const { data:metricsData, isLoading, isFetching, isError } = useQuery<{ success:boolean; metrics:any }>({
     queryKey:['/api/metrics/compute', sessionId],
     queryFn: async () => {
       const r = await fetch(queryUrl);
@@ -322,6 +322,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     },
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
   });
 
   /* ── CSS ── */
@@ -522,6 +523,14 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   return (
     <div className="mp-root">
       <style>{css}</style>
+
+      {/* ── SYNC INDICATOR ── */}
+      {isFetching && !isLoading && (
+        <div style={{ display:'flex', alignItems:'center', gap:6, padding:'3px 20px', background:P.bg, borderBottom:`1px solid ${P.line}` }}>
+          <div style={{ width:5, height:5, borderRadius:'50%', background:P.cyan, animation:'mp-spin 1s linear infinite', flexShrink:0 }}/>
+          <Mono size={8} color={P.dim} style={{ letterSpacing:'0.14em' }}>SYNCING LATEST DATA…</Mono>
+        </div>
+      )}
 
       {/* ── KPI STRIP ── */}
       <div className="mp-kpi">

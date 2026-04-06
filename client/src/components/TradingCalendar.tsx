@@ -267,7 +267,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const isMobile = width < 480;
   const isTablet = width >= 480 && width < 768;
 
-  const { data: calendarResult, isLoading, isError } = useQuery<{
+  const { data: calendarResult, isLoading, isFetching, isError } = useQuery<{
     success: boolean;
     calendarData: Record<string, MonthData>;
     availableMonths: string[];
@@ -275,6 +275,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     queryKey: ['/api/calendar/compute', sessionId],
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
     queryFn: async () => {
       const r = await fetch(`/api/calendar/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
@@ -372,7 +373,15 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
         justifyContent: "space-between", gap: 16, marginBottom: isMobile ? 12 : 24, flexWrap: "wrap",
       }}>
         <div style={{ paddingLeft: 8 }}>
-          <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348", marginBottom: 5 }}>PERFORMANCE OVERVIEW</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348" }}>PERFORMANCE OVERVIEW</div>
+            {isFetching && !isLoading && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 4, height: 4, borderRadius: "50%", background: GREEN, animation: "dotBlink 1s ease infinite" }} />
+                <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: "0.2em", color: GREEN, opacity: 0.7 }}>SYNCING</span>
+              </div>
+            )}
+          </div>
           <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em" }}>
             TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
           </div>

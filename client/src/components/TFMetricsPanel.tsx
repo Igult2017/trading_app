@@ -476,7 +476,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
     ? `/api/tf-metrics/matrix?sessionId=${sessionId}`
     : null;
 
-  const { data: matrixData, isLoading } = useQuery<{ success: boolean; rows?: TFRow[] }>({
+  const { data: matrixData, isLoading, isFetching } = useQuery<{ success: boolean; rows?: TFRow[] }>({
     queryKey: ['/api/tf-metrics/matrix', sessionId],
     queryFn: async () => {
       const res = await fetch(matrixUrl!);
@@ -485,6 +485,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
     },
     enabled: !!matrixUrl,
     staleTime: 60_000,
+    gcTime:   30 * 60 * 1000,
   });
 
   const allRows: TFRow[] = matrixData?.rows ?? [];
@@ -536,7 +537,13 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
           )}
         </div>
         <div style={{ display:'flex',alignItems:'stretch',justifyContent:'space-between',padding:isMobile?'0 16px':'0 28px',height:42 }}>
-          <nav style={{ display:'flex',alignItems:'stretch' }}>
+          <nav style={{ display:'flex',alignItems:'stretch',gap:0 }}>
+            {isFetching && !isLoading && (
+              <div style={{ display:'flex',alignItems:'center',gap:5,paddingRight:16,marginRight:4,borderRight:`1px solid rgba(100,160,255,0.09)` }}>
+                <div style={{ width:4,height:4,borderRadius:'50%',background:C.accent,animation:'fi 1s ease infinite alternate' }}/>
+                <span style={{ fontFamily:MONO,fontSize:8,fontWeight:700,color:C.accent,letterSpacing:'0.18em',opacity:0.7 }}>SYNCING</span>
+              </div>
+            )}
             {[{n:1,label:'Full Matrix',sub:`${allRows.length} scenarios`},{n:2,label:'Best Performers',sub:'WR ≥ 78%'}].map(tab=>{
               const active=page===tab.n;
               return (
