@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
 import JournalForm from '@/components/JournalForm';
@@ -684,6 +684,30 @@ export default function Journal() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Prefetch all heavy panels in the background whenever a session becomes active.
+  // By the time the user navigates to any panel the data is already cached — no spinner.
+  useEffect(() => {
+    if (!activeSessionId) return;
+    const sid = activeSessionId;
+    const STALE = 2 * 60 * 1000;
+
+    const endpoints: { queryKey: unknown[]; url: string; staleTime: number }[] = [
+      { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}`,    staleTime: STALE },
+      { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}`,   staleTime: STALE },
+      { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}`,   staleTime: STALE },
+      { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}`,  staleTime: 60_000 },
+    ];
+
+    for (const { queryKey, url, staleTime } of endpoints) {
+      queryClient.prefetchQuery({
+        queryKey,
+        queryFn: () => fetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+        staleTime,
+      });
+    }
+  }, [activeSessionId, queryClient]);
 
   const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
 
