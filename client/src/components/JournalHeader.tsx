@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings, ChevronRight, Power, Flame, Shield } from 'lucide-react';
 
@@ -39,14 +40,14 @@ interface JournalHeaderProps {
   onToggleSidebar: () => void;
 }
 
-function ProfileDropdown({ dm }: { dm: boolean }) {
+function ProfileDropdown({ dm, dropdownRef }: { dm: boolean; dropdownRef: RefObject<HTMLDivElement> }) {
   const border = dm ? '#1a2d45' : '#e2e8f0';
   const muted  = dm ? '#4a6580' : '#94a3b8';
   const text   = dm ? '#c8d8e8' : '#0f172a';
   const rowBg  = dm ? '#111c2d' : '#f1f5f9';
 
-  return (
-    <div style={{
+  return createPortal(
+    <div ref={dropdownRef} style={{
       position: 'fixed', top: 92, right: 12, width: 290,
       background: dm ? '#0d1520' : '#ffffff',
       border: `1px solid ${border}`, borderRadius: 14,
@@ -125,7 +126,8 @@ function ProfileDropdown({ dm }: { dm: boolean }) {
         ))}
       </div>
 
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -134,14 +136,15 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   const [darkMode, setDarkMode] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const dm = darkMode;
 
   useEffect(() => {
     if (!profileOpen) return;
     const handler = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
+      const inButton   = profileRef.current?.contains(e.target as Node);
+      const inDropdown = dropdownRef.current?.contains(e.target as Node);
+      if (!inButton && !inDropdown) setProfileOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -257,7 +260,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
               <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)}>
                 <UserCircle2 size={18} color="#60a5fa" />
               </button>
-              {profileOpen && <ProfileDropdown dm={dm} />}
+              {profileOpen && <ProfileDropdown dm={dm} dropdownRef={dropdownRef} />}
             </div>
             <button className="settings-btn" title="Settings">
               <Settings size={15} />
