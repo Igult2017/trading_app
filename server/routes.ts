@@ -10,6 +10,7 @@ import { computeDrawdown } from "./services/drawdownCalculator";
 import { computeTFMetrics, computeTFMatrix } from "./services/tfMetricsCalculator";
 import { computeStrategyAudit } from "./services/strategyAuditCalculator";
 import { computeAIAnalysis, computeAIStrategy, computeAIQuery } from "./services/aiEngineCalculator";
+import { remapJournalEntry } from "./lib/remapJournalEntry";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
 import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
@@ -529,7 +530,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId    = req.query.userId    as string | undefined;
       const sessionId = req.query.sessionId as string | undefined;
       const entries   = await storage.getJournalEntries(userId, sessionId);
-      const result    = await computeAIAnalysis(entries);
+      const remapped  = entries.map((e) => remapJournalEntry(e as Record<string, any>));
+
+      // Fetch rich metrics from the existing calculator and pass alongside trades
+      let metricsContext: Record<string, any> | undefined;
+      try {
+        const m = await computeMetrics(remapped);
+        if (m.success && m.metrics) metricsContext = m.metrics;
+      } catch { /* non-fatal — AI works without metrics context */ }
+
+      const result = await computeAIAnalysis(remapped, metricsContext);
       res.json(result);
     } catch (error) {
       console.error("[Routes] AI analysis error:", error);
@@ -543,7 +553,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId    = req.query.userId    as string | undefined;
       const sessionId = req.query.sessionId as string | undefined;
       const entries   = await storage.getJournalEntries(userId, sessionId);
-      const result    = await computeAIStrategy(entries);
+      const remapped  = entries.map((e) => remapJournalEntry(e as Record<string, any>));
+
+      let metricsContext: Record<string, any> | undefined;
+      try {
+        const m = await computeMetrics(remapped);
+        if (m.success && m.metrics) metricsContext = m.metrics;
+      } catch { /* non-fatal */ }
+
+      const result = await computeAIStrategy(remapped, metricsContext);
       res.json(result);
     } catch (error) {
       console.error("[Routes] AI strategy error:", error);
@@ -942,13 +960,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "GEMINI_API_KEY is not configured on this server." });
       }
 
-      // Fetch the trader's real trade data for this session
-      const trades = await storage.getJournalEntries(undefined, sessionId || undefined);
+      // Fetch and remap trade data for this session
+      const rawTrades = await storage.getJournalEntries(undefined, sessionId || undefined);
+      const trades    = rawTrades.map((e) => remapJournalEntry(e as Record<string, any>));
 
       const question = messages[messages.length - 1].content;
 
       if (trades.length === 0) {
-        // No trades yet — answer honestly without data
         return res.json({
           reply: "No trades found for this session yet. Record some trades first and I'll be able to give you data-driven analysis.",
         });

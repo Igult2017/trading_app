@@ -124,3 +124,15 @@ class AIVerdict:
     pre_trade_checklist:   list[str]
     risk_alert:            Optional[str]
     answer:                Optional[str]   # populated in qa mode only
+
+
+# ── Tilt detection output ─────────────────────────────────────────────────────
+
+@dataclass
+class TiltResult:
+    detected:            bool
+    post_loss_win_rate:  Optional[float]   # WR in trades following N consecutive losses
+    baseline_win_rate:   float
+    deviation:           Optional[float]   # post_loss_wr - baseline_wr
+    sample_size:         int               # number of post-tilt trades measured
+    consecutive_losses:  int               # N used for detection

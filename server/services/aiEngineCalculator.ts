@@ -116,18 +116,22 @@ function spawnAIEngine<T extends { error?: string }>(
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function computeAIAnalysis(trades: any[]): Promise<AIAnalysisResult> {
-  return spawnAIEngine<AIAnalysisResult>(
-    { mode: "analysis", trades },
-    "analysis"
-  );
+export async function computeAIAnalysis(
+  trades: any[],
+  metricsContext?: Record<string, any>,
+): Promise<AIAnalysisResult> {
+  const payload: Record<string, any> = { mode: "analysis", trades };
+  if (metricsContext) payload.metrics_context = metricsContext;
+  return spawnAIEngine<AIAnalysisResult>(payload, "analysis");
 }
 
-export async function computeAIStrategy(trades: any[]): Promise<AIStrategyResult> {
-  return spawnAIEngine<AIStrategyResult>(
-    { mode: "strategy", trades },
-    "strategy"
-  );
+export async function computeAIStrategy(
+  trades: any[],
+  metricsContext?: Record<string, any>,
+): Promise<AIStrategyResult> {
+  const payload: Record<string, any> = { mode: "strategy", trades };
+  if (metricsContext) payload.metrics_context = metricsContext;
+  return spawnAIEngine<AIStrategyResult>(payload, "strategy");
 }
 
 export interface AIQueryResult {

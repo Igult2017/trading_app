@@ -47,20 +47,130 @@ SYSTEM_INSTRUCTION = (
 )
 
 
-# ── Prompt builders ───────────────────────────────────────────────────────────
+# ── Plain-English prompt builders ─────────────────────────────────────────────
+
+def _fmt_finding(f: dict) -> str:
+    conf  = f.get("confidence", "?")
+    wr    = f.get("win_rate", 0)
+    n     = f.get("sample_size", 0)
+    dev   = f.get("deviation", 0)
+    label = f.get("finding", "Unknown")
+    sign  = "+" if dev >= 0 else ""
+    return (
+        f"  • {label}\n"
+        f"    Win rate: {wr:.1%} | Sample: {n} trades | "
+        f"vs baseline: {sign}{dev:.1%} | Confidence: {conf}"
+    )
+
+
+def _fmt_condition(c: dict) -> str:
+    wr   = c.get("win_rate", 0)
+    n    = c.get("sample_size", 0)
+    conf = c.get("confidence", "?")
+    lbl  = c.get("label", "Unknown")
+    return f"  • {lbl}: {wr:.1%} WR, {n} trades ({conf})"
+
 
 def _build_analysis_prompt(payload: dict) -> str:
-    return (
-        "You are analysing a trader's full history. "
-        "Below are pre-computed findings from their trade data. "
-        "Write a cohesive performance report covering:\n"
-        "- Overall health and trader archetype\n"
-        "- Their strongest and weakest edges (backed by evidence)\n"
-        "- Behavioural patterns (emotions, FOMO, revenge trades)\n"
-        "- A pre-trade checklist derived from their winning trades\n"
-        "- One clear risk alert if any drain pattern is severe\n\n"
-        f"DATA:\n{json.dumps(payload, indent=2)}"
-    )
+    n        = payload.get("total_trades", "?")
+    wr       = payload.get("baseline_win_rate", "?")
+    arch     = payload.get("trader_archetype", "Unknown")
+    health   = payload.get("health_score", "Unknown")
+    coverage = payload.get("notes_coverage", "?")
+    alert    = payload.get("risk_alert")
+    checklist = payload.get("pre_trade_checklist") or []
+
+    edges  = payload.get("key_edges",  []) or []
+    drains = payload.get("key_drains", []) or []
+
+    emotions = payload.get("emotion_summary") or []
+    beh_flags = payload.get("behavioral_notes") or {}
+
+    metrics = payload.get("metrics_context") or {}
+    dq      = payload.get("data_quality") or {}
+
+    lines: list[str] = [
+        "TRADER PERFORMANCE BRIEF",
+        "=" * 50,
+        f"Total trades : {n}",
+        f"Win rate     : {wr}",
+        f"Archetype    : {arch}",
+        f"Health score : {health}",
+        "",
+    ]
+
+    if edges:
+        lines.append("TOP EDGES (statistically confirmed, MEDIUM+ confidence):")
+        for f in edges:
+            lines.append(_fmt_finding(f) if isinstance(f, dict) else f"  • {f}")
+        lines.append("")
+
+    if drains:
+        lines.append("TOP DRAINS (patterns that hurt performance):")
+        for f in drains:
+            lines.append(_fmt_finding(f) if isinstance(f, dict) else f"  • {f}")
+        lines.append("")
+
+    if emotions:
+        lines.append("EMOTION CORRELATIONS:")
+        for e in emotions:
+            if isinstance(e, dict):
+                lines.append(
+                    f"  • {e.get('emotion', '?')}: {e.get('win_rate', 0):.1%} WR "
+                    f"across {e.get('count', 0)} trades "
+                    f"({e.get('pct_of_total', 0):.0f}% of sessions)"
+                )
+        lines.append("")
+
+    if beh_flags:
+        lines.append("BEHAVIORAL FLAGS:")
+        for name, pf in beh_flags.items():
+            if isinstance(pf, dict):
+                lines.append(
+                    f"  • {pf.get('finding', name)}: "
+                    f"{pf.get('win_rate', 0):.1%} WR, "
+                    f"{pf.get('sample_size', 0)} trades"
+                )
+        lines.append("")
+
+    if metrics:
+        lines.append("PRE-COMPUTED METRICS:")
+        for k, v in metrics.items():
+            lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    if alert:
+        lines.append(f"RISK ALERT: {alert}")
+        lines.append("")
+
+    if checklist:
+        lines.append("PRE-TRADE CHECKLIST (derived from winning patterns):")
+        for item in checklist:
+            lines.append(f"  ✓ {item}")
+        lines.append("")
+
+    if dq:
+        llm_n = dq.get("llm_findings", 0)
+        ui_n  = dq.get("ui_only_findings", 0)
+        lines.append(
+            f"DATA QUALITY: {n} trades | "
+            f"{llm_n} high-confidence findings | "
+            f"{ui_n} preliminary (LOW) findings not included above | "
+            f"Notes coverage: {coverage}"
+        )
+
+    lines += [
+        "",
+        "Write a cohesive performance report covering:",
+        "- Overall health and trader archetype (cite the numbers above)",
+        "- Their strongest and weakest edges (evidence-based, with sample sizes)",
+        "- Behavioural patterns (emotions, FOMO, revenge, tilt if detected)",
+        "- A pre-trade checklist derived from their winning patterns",
+        "- One clear risk alert if any drain pattern is severe",
+        "Do not invent patterns. Speak only about what the data shows.",
+    ]
+
+    return "\n".join(lines)
 
 
 def _build_qa_prompt(question: str, local_answer: str, payload: dict) -> str:
@@ -80,15 +190,86 @@ def _build_qa_prompt(question: str, local_answer: str, payload: dict) -> str:
 
 
 def _build_strategy_prompt(payload: dict) -> str:
-    return (
-        "Based on the strategy analysis below, write a concise trading strategy brief:\n"
-        "- Entry conditions (with win rates and sample sizes)\n"
-        "- Conditions to avoid (with loss rates)\n"
-        "- Risk rules\n"
-        "- Any data warnings\n\n"
-        "Do not add conditions not present in the data.\n\n"
-        f"STRATEGY DATA:\n{json.dumps(payload, indent=2)}"
-    )
+    n       = payload.get("total_trades", "?")
+    wr      = payload.get("baseline_win_rate", "?")
+    strat   = payload.get("strategy") or {}
+    metrics = payload.get("metrics_context") or {}
+
+    entry_conds = strat.get("entry_conditions") or []
+    avoid_conds = strat.get("avoid_conditions") or []
+    risk_rules  = strat.get("risk_rules") or {}
+    edge        = strat.get("projected_edge")
+    warnings    = strat.get("data_warnings") or []
+
+    lines: list[str] = [
+        "STRATEGY CONDITIONS BRIEF",
+        "=" * 50,
+        f"Total trades : {n}",
+        f"Baseline WR  : {wr}",
+        "",
+    ]
+
+    if entry_conds:
+        lines.append(
+            "CONFIRMED ENTRY CONDITIONS "
+            "(≥55% WR, ≥5% above baseline, min 5 trades):"
+        )
+        for c in entry_conds:
+            lines.append(_fmt_condition(c) if isinstance(c, dict) else f"  • {c}")
+        lines.append("")
+    else:
+        lines.append(
+            "ENTRY CONDITIONS: Insufficient data. "
+            "No condition meets the 55% WR threshold with ≥5 trades.\n"
+        )
+
+    if avoid_conds:
+        lines.append(
+            "CONDITIONS TO AVOID "
+            "(≤45% WR, ≥5% below baseline, min 5 trades):"
+        )
+        for c in avoid_conds:
+            lines.append(_fmt_condition(c) if isinstance(c, dict) else f"  • {c}")
+        lines.append("")
+
+    if risk_rules:
+        lines.append("RISK PARAMETERS:")
+        for k, v in risk_rules.items():
+            lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    if edge and isinstance(edge, dict):
+        ew  = edge.get("win_rate", 0)
+        en  = edge.get("sample_size", 0)
+        conf = edge.get("confidence", "?")
+        lines.append(
+            f"PROJECTED EDGE when all entry conditions align: "
+            f"{ew:.1%} WR across {en} qualifying trades ({conf})"
+        )
+        lines.append("")
+
+    if metrics:
+        lines.append("SUPPORTING METRICS:")
+        for k, v in metrics.items():
+            lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    if warnings:
+        lines.append("DATA WARNINGS:")
+        for w in warnings:
+            lines.append(f"  ⚠ {w}")
+        lines.append("")
+
+    lines += [
+        "Write a concise strategy brief covering:",
+        "- Entry conditions with their supporting statistics",
+        "- Conditions to avoid and why",
+        "- Risk management rules",
+        "- Honest assessment of data quality and sample size limitations",
+        "Do not add conditions not present in the data above.",
+    ]
+
+    return "\n".join(lines)
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
+import { remapJournalEntry } from "../lib/remapJournalEntry";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -44,108 +45,6 @@ export interface MetricsResult {
 interface PythonPayload {
   trades: any[];
   startingBalance?: number;
-}
-
-// ── Field remapper ────────────────────────────────────────────────────────────
-
-/**
- * remapJournalEntry
- * ─────────────────
- * The journalEntries table uses column names that differ from the camelCase
- * API keys the Python engine was originally designed for.  This function adds
- * the canonical aliases so Python can resolve every field regardless of which
- * shape arrives.
- *
- * We ADD aliases rather than replacing keys so the original column names are
- * also preserved — Python's _get_field() will find whichever one is present.
- *
- * Mappings applied:
- *   profitLoss        → pnl
- *   riskReward        → rrRatio
- *   entryTF           → timeframe
- *   analysisTF        → analysisTimeframe
- *   contextTF         → contextTimeframe
- *   sessionName       → session  (when no "session" key exists)
- *   primaryExitReason → exitReason
- *   stopLossDistance  → slDistance
- *   takeProfitDistance→ tpDistance
- *   entryTime         → openedAt  (when no "openedAt" key exists)
- *   exitTime          → closedAt  (when no "closedAt" key exists)
- */
-function remapJournalEntry(raw: Record<string, any>): Record<string, any> {
-  const out = { ...raw };
-
-  // P&L
-  if (out.pnl == null && out.profitLoss != null) {
-    out.pnl = out.profitLoss;
-  }
-
-  // R:R
-  if (out.rrRatio == null && out.riskReward != null) {
-    out.rrRatio = out.riskReward;
-  }
-
-  // Timeframes
-  if (out.timeframe == null && out.entryTF != null) {
-    out.timeframe = out.entryTF;
-  }
-  if (out.analysisTimeframe == null && out.analysisTF != null) {
-    out.analysisTimeframe = out.analysisTF;
-  }
-  if (out.contextTimeframe == null && out.contextTF != null) {
-    out.contextTimeframe = out.contextTF;
-  }
-
-  // Session
-  if (out.session == null && out.sessionName != null) {
-    out.session = out.sessionName;
-  }
-
-  // Exit reason
-  if (out.exitReason == null && out.primaryExitReason != null) {
-    out.exitReason = out.primaryExitReason;
-  }
-
-  // SL / TP distances
-  if (out.slDistance == null && out.stopLossDistance != null) {
-    out.slDistance = out.stopLossDistance;
-  }
-  if (out.tpDistance == null && out.takeProfitDistance != null) {
-    out.tpDistance = out.takeProfitDistance;
-  }
-
-  // Timestamps — normalise every known alias into openedAt / closedAt
-  if (out.openedAt == null) {
-    out.openedAt = out.entryTime ?? out.entryTimeUTC ?? out.entry_time ?? out.entry_time_utc ?? null;
-  }
-  if (out.closedAt == null) {
-    out.closedAt = out.exitTime ?? out.exit_time ?? null;
-  }
-
-  // Trade date fallback: use createdAt if nothing else is available
-  if (out.tradeDate == null) {
-    out.tradeDate = out.openedAt ?? out.createdAt ?? null;
-  }
-
-  // Derive tradeDuration (minutes as a plain string) from any available
-  // timestamp pair.  New entries have it stored by storage.ts already;
-  // this covers older rows that were saved without it.
-  if (!out.tradeDuration) {
-    const entry = out.openedAt ?? out.entryTime ?? out.entryTimeUTC ?? out.entry_time ?? null;
-    const exit  = out.closedAt ?? out.exitTime  ?? out.exit_time  ?? null;
-    if (entry && exit) {
-      try {
-        const diffMs = new Date(exit).getTime() - new Date(entry).getTime();
-        if (diffMs > 0) {
-          out.tradeDuration = String(Math.round(diffMs / 60_000));
-        }
-      } catch {
-        // leave tradeDuration unset if dates are unparseable
-      }
-    }
-  }
-
-  return out;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
