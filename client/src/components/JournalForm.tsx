@@ -947,6 +947,14 @@ export default function JournalForm({ sessionId }: { sessionId?: string | number
     setSaving(true);
     setSaveError(null);
     try {
+      // Parse achievedRR "1:2.5" or "2.5" into a decimal for the riskReward DB column
+      const parseRR = (s: string): string | null => {
+        if (!s) return null;
+        const parts = s.split(":");
+        const val = parseFloat(parts[parts.length - 1]);
+        return isNaN(val) ? null : String(val);
+      };
+
       const payload: Record<string, any> = {
         instrument:           s2.instrument           || null,
         pairCategory:         s2.pairCategory         || null,
@@ -979,6 +987,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | number
         monetaryRisk:         s4.monetaryRisk          || null,
         potentialReward:      s4.potentialReward       || null,
         primaryExitReason:    s4.primaryExitReason     || null,
+        riskReward:           parseRR(s4.achievedRR),
         sessionName:          s3.sessionName           || null,
         sessionPhase:         s3.sessionPhase          || null,
         sessionId:            sessionId                || null,
@@ -1038,7 +1047,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | number
           candlePattern:         s3.candlePattern,
           indicatorState:        s3.indicatorState       || null,
           setupFullyValid:       s1.setupFullyValid,
-          ruleBroken:            s1.anyRuleBroken,
+          anyRuleBroken:         s1.anyRuleBroken,
+          ruleBroken:            s1.ruleBroken          || null,
           breakevenApplied:      s2.breakEvenApplied,
           fomoTrade:             s1.impulseCheckFOMO,
           revengeTrade:          s1.impulseCheckRevenge,
@@ -1061,6 +1071,8 @@ export default function JournalForm({ sessionId }: { sessionId?: string | number
           otherConfluences:      s3.otherConfluences,
           consecutiveTradeCount: s4.consecutiveTradeCount,
           recencyBiasFlag:       s4.recencyBiasFlag,
+          atrAtEntry:            s3.atrAtEntry          || null,
+          strategyVersion:       s2.strategyVersionId2  || null,
         },
       };
       await apiRequest("POST", "/api/journal/entries", payload);
