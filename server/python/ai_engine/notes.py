@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 
 from ._models import (
     Confidence, NotesSummary, KeywordStat, EmotionStat, ProofedFinding,
-    MIN_TRADES_LOW,
+    SessionEmotionFinding, MIN_TRADES_LOW,
 )
 from ._utils import (
     extract_manual, is_win, is_loss, win_rate as global_win_rate,
@@ -245,6 +245,45 @@ def analyze_notes(trades: list[dict]) -> NotesSummary:
                 confidence=confidence_level(n),
             )
 
+    # ── Session phase × emotion matrix ───────────────────────────────────────
+    # Dedicated cross-tab of (sessionPhase, emotionalState) — surfaces the
+    # specific mood+timing combinations that predict performance.
+    sp_em_buckets: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for t in trades:
+        m       = extract_manual(t)
+        phase   = coerce_str(t.get("sessionPhase")).strip().lower()
+        emotion = coerce_str(m.get(EMOTION_FIELD)).strip().lower()
+        if phase and emotion:
+            sp_em_buckets[(phase, emotion)].append(t)
+
+    session_emotion_matrix: list = []
+    for (phase, emotion), group in sp_em_buckets.items():
+        n = len(group)
+        if not is_sufficient(n):
+            continue
+        wr  = global_win_rate(group)
+        dev = wr - baseline_wr
+        conf = confidence_level(n)
+        sign = "+" if dev >= 0 else ""
+        session_emotion_matrix.append(
+            SessionEmotionFinding(
+                session_phase=phase,
+                emotion=emotion,
+                win_rate=round(wr, 4),
+                baseline_wr=round(baseline_wr, 4),
+                deviation=round(dev, 4),
+                sample_size=n,
+                confidence=conf,
+                label=(
+                    f"{phase.title()} + {emotion.title()}: "
+                    f"{wr:.0%} WR across {n} trades "
+                    f"({sign}{dev:.0%} vs baseline, {conf})"
+                ),
+            )
+        )
+    # Sort: best combinations first
+    session_emotion_matrix.sort(key=lambda x: x.win_rate, reverse=True)
+
     return NotesSummary(
         coverage_pct=coverage_pct,
         blind_spot_loss_pct=blind_loss_pct,
@@ -253,4 +292,5 @@ def analyze_notes(trades: list[dict]) -> NotesSummary:
         red_flags=red_flags,
         emotion_correlation=emotion_stats,
         behavioral_flags=behavioral_flags,
+        session_emotion_matrix=session_emotion_matrix,
     )

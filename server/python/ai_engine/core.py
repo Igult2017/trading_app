@@ -230,6 +230,12 @@ def run(
 
         # Build the LLM payload — filtered, no duplicate patterns blob
         metrics_clean = _format_metrics_context(metrics_context) if metrics_context else {}
+
+        # Session-phase × emotion: top 3 best and worst combinations
+        se_matrix    = notes.session_emotion_matrix
+        se_top_good  = [x.label for x in se_matrix[:3]]
+        se_top_bad   = [x.label for x in reversed(se_matrix) if x.deviation < 0][:3]
+
         llm_payload = {
             "total_trades":      n,
             "baseline_win_rate": f"{baseline_wr:.1%}",
@@ -246,6 +252,12 @@ def run(
             "risk_alert":        risk_alert,
             "pre_trade_checklist": checklist,
             "tilt":              _serialise(tilt) if tilt.detected else None,
+            # Dedicated session-phase + emotion narrative
+            "session_emotion": {
+                "best_combinations":  se_top_good,
+                "worst_combinations": se_top_bad,
+                "total_combinations": len(se_matrix),
+            } if se_matrix else None,
         }
         if metrics_clean:
             llm_payload["metrics_context"] = metrics_clean
