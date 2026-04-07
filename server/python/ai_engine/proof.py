@@ -3,10 +3,39 @@ ai_engine/proof.py
 Confidence and sample-size gating layer.
 Nothing surfaces unless it passes the golden rule:
   every finding must be backed by real data, not inference.
+
+Also provides a z-test gate for proportion significance (MEDIUM+ only).
 """
 from __future__ import annotations
+import math
 from ._models import ProofedFinding, Confidence, VariableCombo
 from ._utils import confidence_level, is_sufficient, win_rate as global_win_rate
+
+
+# ── Z-test for proportions ────────────────────────────────────────────────────
+
+def _z_score(p_hat: float, p0: float, n: int) -> float:
+    """One-sample proportion z-score (p_hat vs null hypothesis p0)."""
+    if n == 0 or p0 <= 0 or p0 >= 1:
+        return 0.0
+    se = math.sqrt(p0 * (1.0 - p0) / n)
+    return (p_hat - p0) / se if se > 0 else 0.0
+
+
+def is_statistically_significant(
+    win_rate: float,
+    baseline_wr: float,
+    n: int,
+    z_threshold: float = 1.645,   # p < 0.05 one-tailed
+) -> bool:
+    """
+    Return True if the deviation from baseline is statistically significant.
+    Applied as an additional gate for MEDIUM+ confidence findings before
+    they are sent to the LLM for narration.
+    LOW confidence findings bypass this (already labelled "preliminary").
+    """
+    z = abs(_z_score(win_rate, baseline_wr, n))
+    return z >= z_threshold
 
 
 # ── Trade-level finding builder ───────────────────────────────────────────────
@@ -62,6 +91,42 @@ def filter_sufficient(findings: list[ProofedFinding | None]) -> list[ProofedFind
     return [f for f in findings if f is not None and f.confidence != "INSUFFICIENT"]
 
 
+def filter_for_llm(findings: list[ProofedFinding]) -> list[ProofedFinding]:
+    """
+    Return only findings suitable for LLM narration:
+      - Confidence MEDIUM or HIGH
+      - Passes the z-test for statistical significance
+    LOW findings are returned separately (shown in UI only, not narrated).
+    """
+    result = []
+    for f in findings:
+        if f.confidence == "LOW":
+            continue
+        if not is_statistically_significant(f.win_rate, f.baseline_wr, f.sample_size):
+            continue
+        result.append(f)
+    return result
+
+
+def split_by_confidence(
+    findings: list[ProofedFinding],
+) -> tuple[list[ProofedFinding], list[ProofedFinding]]:
+    """
+    Returns (llm_findings, ui_only_findings).
+    llm_findings: MEDIUM+ and statistically significant — sent to Gemini.
+    ui_only_findings: LOW confidence or not significant — shown in UI but not narrated.
+    """
+    llm, ui_only = [], []
+    for f in findings:
+        if f.confidence == "LOW" or not is_statistically_significant(
+            f.win_rate, f.baseline_wr, f.sample_size
+        ):
+            ui_only.append(f)
+        else:
+            llm.append(f)
+    return llm, ui_only
+
+
 def top_findings(
     findings: list[ProofedFinding],
     n: int = 5,
@@ -87,7 +152,7 @@ def data_warnings(findings: list[ProofedFinding]) -> list[str]:
     for f in findings:
         if f.confidence == "LOW":
             warnings.append(
-                f"⚠ '{f.finding}' is based on only {f.sample_size} trades — "
+                f"'{f.finding}' is based on only {f.sample_size} trades — "
                 "treat as preliminary, not proven."
             )
     return warnings

@@ -17,19 +17,72 @@ from ._utils import (
     confidence_level, is_sufficient, safe_div, coerce_bool, coerce_str,
 )
 
-# ── Vocabulary ────────────────────────────────────────────────────────────────
+# ── Fixed seed vocabulary ─────────────────────────────────────────────────────
 
-WIN_WORDS: frozenset[str] = frozenset({
+_SEED_WIN_WORDS: frozenset[str] = frozenset({
     "waited", "confirmed", "clear", "planned", "patient", "aligned",
     "disciplined", "structured", "calm", "selective", "prepared",
     "systematic", "controlled", "methodical", "confident", "objective",
 })
 
-LOSS_WORDS: frozenset[str] = frozenset({
+_SEED_LOSS_WORDS: frozenset[str] = frozenset({
     "forced", "fomo", "felt", "hope", "quick", "rush", "revenge",
     "impulsive", "chased", "overtraded", "emotional", "random",
     "ignored", "deviated", "bored", "anxious", "frustrated", "fear",
 })
+
+# Stop words to exclude from dynamic vocabulary
+_STOP_WORDS: frozenset[str] = frozenset({
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to",
+    "for", "of", "with", "by", "from", "as", "is", "was", "are",
+    "were", "be", "been", "being", "have", "has", "had", "do",
+    "does", "did", "will", "would", "could", "should", "may", "might",
+    "i", "my", "me", "we", "it", "this", "that", "there", "then",
+    "so", "no", "not", "very", "too", "just", "also", "like",
+    "price", "trade", "entry", "exit", "market", "stop", "target",
+    "candle", "level", "zone", "time", "set", "up", "down", "put",
+    "got", "get", "went", "go", "came", "come",
+})
+
+
+def _build_dynamic_vocabulary(
+    word_wins: "Counter[str]",
+    word_losses: "Counter[str]",
+    min_occurrences: int = 3,
+    top_n: int = 30,
+) -> tuple[frozenset[str], frozenset[str]]:
+    """
+    Compute dynamic vocabulary from this trader's own notes.
+    Words that appear disproportionately more in wins become "win words",
+    and vice versa for losses.
+
+    Returns (dynamic_win_words, dynamic_loss_words) as frozensets.
+    """
+    all_words = set(word_wins.keys()) | set(word_losses.keys())
+    win_biased:  list[tuple[float, str]] = []
+    loss_biased: list[tuple[float, str]] = []
+
+    for word in all_words:
+        if word in _STOP_WORDS or len(word) < 4:
+            continue
+        n_win  = word_wins[word]
+        n_loss = word_losses[word]
+        total  = n_win + n_loss
+        if total < min_occurrences:
+            continue
+        wr = n_win / total
+        # Bias score: how far from 50/50
+        if wr >= 0.65:
+            win_biased.append((wr, word))
+        elif wr <= 0.35:
+            loss_biased.append((wr, word))
+
+    win_biased.sort(reverse=True)
+    loss_biased.sort()
+
+    dyn_win  = frozenset(w for _, w in win_biased[:top_n])
+    dyn_loss = frozenset(w for _, w in loss_biased[:top_n])
+    return dyn_win, dyn_loss
 
 RED_FLAG_PHRASES: list[str] = [
     "feels right", "just this once", "should work", "gut feeling",
@@ -115,6 +168,13 @@ def analyze_notes(trades: list[dict]) -> NotesSummary:
             word_wins.update(tokens)
         elif is_loss(t):
             word_losses.update(tokens)
+
+    # Build dynamic vocabulary from this trader's own notes
+    dyn_win_words, dyn_loss_words = _build_dynamic_vocabulary(word_wins, word_losses)
+
+    # Merge seed + dynamic vocabularies
+    WIN_WORDS  = _SEED_WIN_WORDS  | dyn_win_words
+    LOSS_WORDS = _SEED_LOSS_WORDS | dyn_loss_words
 
     def _build_stats(vocab: frozenset[str]) -> list[KeywordStat]:
         stats: list[KeywordStat] = []
