@@ -139,6 +139,19 @@ def _build_analysis_prompt(payload: dict) -> str:
             lines.append(f"  {k}: {v}")
         lines.append("")
 
+    se = payload.get("session_emotion")
+    if se and (se.get("best_combinations") or se.get("worst_combinations")):
+        lines.append("SESSION PHASE × EMOTION ANALYSIS:")
+        if se.get("best_combinations"):
+            lines.append("  Highest-performance combinations:")
+            for item in se["best_combinations"]:
+                lines.append(f"    ✓ {item}")
+        if se.get("worst_combinations"):
+            lines.append("  Lowest-performance combinations:")
+            for item in se["worst_combinations"]:
+                lines.append(f"    ✗ {item}")
+        lines.append("")
+
     if alert:
         lines.append(f"RISK ALERT: {alert}")
         lines.append("")
@@ -164,6 +177,7 @@ def _build_analysis_prompt(payload: dict) -> str:
         "Write a cohesive performance report covering:",
         "- Overall health and trader archetype (cite the numbers above)",
         "- Their strongest and weakest edges (evidence-based, with sample sizes)",
+        "- Session phase × emotion findings: which mood+timing combos produce best/worst results",
         "- Behavioural patterns (emotions, FOMO, revenge, tilt if detected)",
         "- A pre-trade checklist derived from their winning patterns",
         "- One clear risk alert if any drain pattern is severe",

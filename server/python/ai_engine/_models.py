@@ -51,14 +51,28 @@ class EmotionStat:
 
 
 @dataclass
+class SessionEmotionFinding:
+    """Win-rate outcome for a specific (session_phase, emotion) combination."""
+    session_phase:  str
+    emotion:        str
+    win_rate:       float
+    baseline_wr:    float
+    deviation:      float   # win_rate - baseline_wr
+    sample_size:    int
+    confidence:     Confidence
+    label:          str     # human-readable e.g. "London Open + Calm: 74% WR (18 trades)"
+
+
+@dataclass
 class NotesSummary:
-    coverage_pct:        float                        # % of trades with any written notes
-    blind_spot_loss_pct: float                        # % of no-note trades that were losses
-    win_keywords:        list[KeywordStat]            # words that appear more in winning trades
-    loss_keywords:       list[KeywordStat]            # words that appear more in losing trades
-    red_flags:           list[KeywordStat]            # phrases that correlate strongly with losses
-    emotion_correlation: list[EmotionStat]
-    behavioral_flags:    dict[str, ProofedFinding]    # fomo, revenge, rule_broken, etc.
+    coverage_pct:           float                        # % of trades with any written notes
+    blind_spot_loss_pct:    float                        # % of no-note trades that were losses
+    win_keywords:           list[KeywordStat]            # words that appear more in winning trades
+    loss_keywords:          list[KeywordStat]            # words that appear more in losing trades
+    red_flags:              list[KeywordStat]            # phrases that correlate strongly with losses
+    emotion_correlation:    list[EmotionStat]
+    behavioral_flags:       dict[str, ProofedFinding]    # fomo, revenge, rule_broken, etc.
+    session_emotion_matrix: list[SessionEmotionFinding]  # dedicated sessionPhase × emotion analysis
 
 
 # ── Pattern pipeline output ───────────────────────────────────────────────────
