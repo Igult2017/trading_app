@@ -24,19 +24,20 @@ def _verdict_to_confidence(verdict: str, pf: float, wr: float) -> float:
     boost = min(15.0, (wr - 50) * 0.3) + min(5.0, (pf - 1.0) * 2)
     return round(min(99.0, max(1.0, base + boost)), 1)
 
-def _build_correlations(win_fc, loss_fc, condition_labels: list[str]):
-    """Build heatmap data using the real condition labels from the engine."""
-    instruments = list(win_fc.keys()) or list(loss_fc.keys())
+def _build_correlations(win_fc, loss_fc, win_labels: list[str], decay_labels: list[str]):
+    """Build heatmap data using separate win and decay factor labels."""
+    instruments = list(win_fc.keys() | loss_fc.keys())
     instruments = instruments[:7]
-    n_conds = len(condition_labels)
-    def _pad(vals):
-        vals = [round(float(v), 1) for v in vals[:n_conds]]
-        while len(vals) < n_conds:
+
+    def _pad(vals, n):
+        vals = [round(float(v), 1) for v in vals[:n]]
+        while len(vals) < n:
             vals.append(0.0)
         return vals
-    win_corr  = {i: _pad(win_fc.get(i,  [])) for i in instruments}
-    loss_corr = {i: _pad(loss_fc.get(i, [])) for i in instruments}
-    return instruments, condition_labels, condition_labels, win_corr, loss_corr
+
+    win_corr  = {i: _pad(win_fc.get(i,  []), len(win_labels))   for i in instruments}
+    loss_corr = {i: _pad(loss_fc.get(i, []), len(decay_labels)) for i in instruments}
+    return instruments, win_labels, decay_labels, win_corr, loss_corr
 
 def _regime_info(l3, l2, l1):
     rt = l3.get("regimeTransition", {})
@@ -170,8 +171,11 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     dec_mag = _r2(edec.get("decayMagnitude"), 0.0)
     dec_rec = edec.get("recommendation", "")
     # ── Derived ──
-    condition_labels = l1.get("conditionLabels", [])
-    instruments, win_factors, loss_factors, win_corr, loss_corr = _build_correlations(win_fc, loss_fc, condition_labels)
+    win_labels   = l1.get("winConditionLabels",   l1.get("conditionLabels", []))
+    decay_labels = l1.get("decayConditionLabels", l1.get("conditionLabels", []))
+    instruments, win_factors, loss_factors, win_corr, loss_corr = _build_correlations(
+        win_fc, loss_fc, win_labels, decay_labels
+    )
     session_edge = cond_e.get("bySession", {})
     if len(session_edge) >= 2:
         ss = sorted(session_edge.items(), key=lambda x: x[1].get("winRate",0), reverse=True)
