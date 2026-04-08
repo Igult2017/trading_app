@@ -312,25 +312,29 @@ def _grade_narrative(
     max_dd  = (level2.get("drawdown") or {}).get("maxDrawdown", 0)
     verdict = summary.get("edgeVerdict", "Unconfirmed")
 
-    grade_descriptions = {
-        "A": "excellent",
-        "B": "strong",
-        "C": "developing",
-        "D": "weak",
-        "F": "no identifiable",
+    grade_phrases = {
+        "A":   "an excellent edge",
+        "B":   "a strong edge",
+        "C":   "a developing edge",
+        "D":   "a weak edge",
+        "F":   "no identifiable edge",
+        "N/A": "an unconfirmed edge (insufficient sample)",
     }
-    desc = grade_descriptions.get(grade, "unknown")
+    edge_phrase = grade_phrases.get(grade, "an unconfirmed edge")
+    pf_str = "∞" if pf is not None and pf >= 999 else f"{pf:.2f}"
 
     return (
-        f"Across {n} trades, this strategy shows a {desc} edge with a "
-        f"{wr:.1f}% win rate and profit factor of {pf:.2f}. "
+        f"Across {n} trades, this strategy shows {edge_phrase} with a "
+        f"{wr:.1f}% win rate and profit factor of {pf_str}. "
         f"The edge verdict is '{verdict}'. "
-        f"Maximum drawdown reached {max_dd:.1f}%. "
+        f"Maximum drawdown reached {abs(max_dd):.1f}%. "
         + (
             "The strategy demonstrates consistent profitability across multiple conditions."
             if grade in ("A", "B")
             else "Further refinement is needed before increasing position sizing."
             if grade == "C"
+            else "Keep logging trades — more data is needed to confirm or reject this edge."
+            if grade == "N/A"
             else "Significant improvement in setup selection and risk management is required."
         )
     )
