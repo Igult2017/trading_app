@@ -23,10 +23,11 @@ from ._utils import (
 
 # ── Loss cluster detection ────────────────────────────────────────────────────
 
-def _detect_loss_clusters(trades: list[dict]) -> dict:
+def _detect_loss_clusters(trades: list[dict], starting_balance: float) -> dict:
     """
-    A cluster = 3+ consecutive losses within any 5-trade sliding window.
-    Returns: clusterDates, avgClusterSize, clusterFrequency (per 100 trades)
+    A cluster = 3+ consecutive losses.
+    Returns: clusterDates, avgClusterSize, clusterFrequency (per 100 trades), worstDD (%)
+    worstDD = largest cumulative loss during any single cluster as % of starting_balance.
     """
     # Sort by date
     dated = sorted(
@@ -38,13 +39,40 @@ def _detect_loss_clusters(trades: list[dict]) -> dict:
     )
 
     if len(dated) < 3:
-        return {"clusterDates": [], "avgClusterSize": 0.0, "clusterFrequency": 0.0}
+        return {"clusterDates": [], "avgClusterSize": 0.0, "clusterFrequency": 0.0, "worstDD": None}
 
     cluster_dates: list[str] = []
     cluster_sizes: list[int] = []
+    cluster_drawdowns: list[float] = []
     in_cluster = False
     cluster_start_idx = 0
     consecutive_losses = 0
+
+    def _record_cluster(start_idx: int, end_idx_exclusive: int) -> None:
+        """Record a completed cluster [start_idx, end_idx_exclusive)."""
+        size = consecutive_losses
+        cluster_sizes.append(size)
+
+        # Worst drawdown: sum of PnL losses in the cluster as % of starting balance
+        cluster_trades = dated[start_idx:end_idx_exclusive]
+        cluster_pnl = sum(t["pnl"] for t in cluster_trades if t.get("pnl") is not None)
+        if starting_balance > 0 and cluster_pnl < 0:
+            cluster_drawdowns.append(abs(cluster_pnl) / starting_balance * 100)
+
+        start_dt = (
+            dated[start_idx].get("exit_dt") or
+            dated[start_idx].get("created_dt")
+        )
+        end_dt = (
+            dated[end_idx_exclusive - 1].get("exit_dt") or
+            dated[end_idx_exclusive - 1].get("created_dt")
+        )
+        if start_dt and end_dt:
+            cluster_dates.append(
+                f"{start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')}"
+            )
+        elif start_dt:
+            cluster_dates.append(start_dt.strftime("%Y-%m-%d"))
 
     for i, t in enumerate(dated):
         if t.get("win") is False:
@@ -57,49 +85,22 @@ def _detect_loss_clusters(trades: list[dict]) -> dict:
                 consecutive_losses += 1
         else:
             if in_cluster:
-                # Cluster ended
-                size = consecutive_losses
-                cluster_sizes.append(size)
-
-                start_dt = (
-                    dated[cluster_start_idx].get("exit_dt") or
-                    dated[cluster_start_idx].get("created_dt")
-                )
-                end_dt = (
-                    dated[i - 1].get("exit_dt") or
-                    dated[i - 1].get("created_dt")
-                )
-                if start_dt and end_dt:
-                    cluster_dates.append(
-                        f"{start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')}"
-                    )
-                elif start_dt:
-                    cluster_dates.append(start_dt.strftime("%Y-%m-%d"))
-
+                _record_cluster(cluster_start_idx, i)
             in_cluster = False
             consecutive_losses = 0
 
     # Handle cluster that runs to the end
     if in_cluster and consecutive_losses >= 3:
-        cluster_sizes.append(consecutive_losses)
-        start_dt = (
-            dated[cluster_start_idx].get("exit_dt") or
-            dated[cluster_start_idx].get("created_dt")
-        )
-        end_dt = (
-            dated[-1].get("exit_dt") or
-            dated[-1].get("created_dt")
-        )
-        if start_dt and end_dt:
-            cluster_dates.append(
-                f"{start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')}"
-            )
+        _record_cluster(cluster_start_idx, len(dated))
 
     n = len(dated)
+    worst_dd = round(max(cluster_drawdowns), 2) if cluster_drawdowns else None
+
     return {
         "clusterDates":     cluster_dates,
         "avgClusterSize":   round(safe_mean(cluster_sizes), 1) if cluster_sizes else 0.0,
         "clusterFrequency": round(len(cluster_dates) / n * 100, 2) if n > 0 else 0.0,
+        "worstDD":          worst_dd,
     }
 
 
@@ -316,17 +317,17 @@ def _automation_risk(
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def compute_level3(trades: list[dict]) -> dict:
+def compute_level3(trades: list[dict], starting_balance: float = 10_000.0) -> dict:
     """
     Compute Level 3 — diagnostics and failure pattern detection.
-    Input:  normalised trades list
+    Input:  normalised trades list, starting_balance for drawdown % calculations
     Output: dict matching StrategyAuditResult.level3
     """
     ok, msg = check_minimum_sample(trades, min_trades=5)
     if not ok:
         return _empty_level3(msg)
 
-    cluster_data = _detect_loss_clusters(trades)
+    cluster_data = _detect_loss_clusters(trades, starting_balance)
     capital_data = _capital_heat(trades)
 
     return {
@@ -340,7 +341,7 @@ def compute_level3(trades: list[dict]) -> dict:
 
 def _empty_level3(reason: str = "") -> dict:
     return {
-        "lossCluster":        {"clusterDates": [], "avgClusterSize": 0.0, "clusterFrequency": 0.0},
+        "lossCluster":        {"clusterDates": [], "avgClusterSize": 0.0, "clusterFrequency": 0.0, "worstDD": None},
         "executionAsymmetry": {},
         "regimeTransition":   {},
         "capitalHeat":        {"avgRiskPerTrade": 0.0, "maxRiskPerTrade": 0.0,

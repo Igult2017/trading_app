@@ -139,9 +139,10 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     rt      = l3.get("regimeTransition", {})
     ch      = l3.get("capitalHeat", {})
     ar      = l3.get("automationRisk", {})
-    cl_freq = _r2(lc.get("clusterFrequency"), 0.0)
-    avg_cl  = _r2(lc.get("avgClusterSize"), 0.0)
-    cl_dates= lc.get("clusterDates", [])
+    cl_freq  = _r2(lc.get("clusterFrequency"), 0.0)
+    avg_cl   = _r2(lc.get("avgClusterSize"), 0.0)
+    cl_dates = lc.get("clusterDates", [])
+    worst_dd = round(lc["worstDD"], 2) if lc.get("worstDD") is not None else None
     aw_rr   = _r2(ea.get("avgWinRR"), 0.0)
     al_rr   = _r2(ea.get("avgLossRR"), 0.0)
     asym_sc = _r2(ea.get("asymmetryScore"), 0.0)
@@ -238,7 +239,7 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         "probabilisticEdge":{"baseRate":wr,"kelly":round(kelly,2),"avgWin":aw_rr if aw_rr>0 else es.get("avgWin"),"avgLoss":al_rr if al_rr>0 else es.get("avgLoss")},
         "riskMetrics":   {"maxLossStreak":max_ls,"fiveLossProbability":fl_prob,"timeInDrawdown":t_in_dd},
         "edgeComponents":{"winRateContribution":wr_con,"riskRewardContribution":rr_con},
-        "lossCluster":   {"avgLength":avg_cl,"worstDD":None,"clusterFrequency":cl_freq,"clusterDates":cl_dates},
+        "lossCluster":   {"avgLength":avg_cl,"worstDD":worst_dd,"clusterFrequency":cl_freq,"clusterDates":cl_dates},
         "executionAsymmetry":{"avgWinRR":aw_rr,"avgLossRR":al_rr,"asymmetryScore":asym_sc,"slippageWins":None,"slippageLosses":None,"earlyExitRate":e_exit,"lateEntryRate":l_entry},
         "regimeTransition":{"trendingWinRate":t_wr,"rangingWinRate":rng_wr,"breakoutWinRate":brk_wr,"regimeDetectionAccuracy":r_acc,"avgTransitionDD":None,"recoveryTrades":None},
         "capitalHeat":   {"avgRiskPerTrade":avg_rsk,"maxRiskPerTrade":max_rsk,"riskConsistencyScore":rsk_con,"correlatedExposure":corr_ex,"peakEquityAtRisk":None,"timeAtPeak":None},
