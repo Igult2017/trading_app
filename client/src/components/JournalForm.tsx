@@ -939,7 +939,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       if (value && typeof value === "string" && value.startsWith("data:image")) {
         setAnalyzing(true);
         try {
-          const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
+          const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
+          const res = await raw.json();
           if (res?.fields) {
             const filled = new Set<string>(Object.keys(res.fields));
             setOcrFields(prev => new Set([...prev, ...filled]));
@@ -953,10 +954,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         }
       }
     } else if (field === "screenshot-text" || field === "exitScreenshot-text") {
-      const actualField = field === "screenshot-text" ? "screenshot" : "exitScreenshot";
       setAnalyzing(true);
       try {
-        const res = await apiRequest("POST", "/api/journal/analyze-screenshot", { text: value, field: actualField });
+        const raw = await apiRequest("POST", "/api/journal/analyze-text", { text: value });
+        const res = await raw.json();
         if (res?.fields) {
           const filled = new Set<string>(Object.keys(res.fields));
           setOcrFields(prev => new Set([...prev, ...filled]));
