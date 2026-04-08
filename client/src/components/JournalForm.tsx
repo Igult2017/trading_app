@@ -228,7 +228,7 @@ const TJ_CSS = `
 `;
 
 // ── Sidebar stats ─────────────────────────────────────────────────────────────
-function computeStats(trades: any[]) {
+function computeStats(trades: any[], startingBalance?: number) {
   if (!trades.length) return null;
   const wins   = trades.filter(t => t.outcome === "Win");
   const losses = trades.filter(t => t.outcome === "Loss");
@@ -239,11 +239,13 @@ function computeStats(trades: any[]) {
   const grossWin  = winAmts.reduce((a, b) => a + b, 0);
   const grossLoss = Math.abs(lossAmts.reduce((a, b) => a + b, 0));
   const profitFactor = grossLoss > 0 ? (grossWin / grossLoss).toFixed(2) : grossWin > 0 ? "∞" : "0";
+  // Win rate: all trades as denominator (matches TradeVault — BE trades count)
+  const winRate  = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
   const decided  = wins.length + losses.length;
-  const winRate  = decided > 0 ? (wins.length / decided) * 100 : 0;
   const commissions = trades.reduce((a, t) => a + (parseFloat(t.commission) || 0), 0);
+  // Use session starting balance if provided; otherwise fall back to last trade accountBalance
   const endBal   = parseFloat(trades[trades.length - 1]?.accountBalance) || 0;
-  const startBal = endBal - netPnL;
+  const startBal = startingBalance && startingBalance > 0 ? startingBalance : Math.max(endBal - netPnL, 0);
   const growth   = startBal > 0 ? (netPnL / startBal) * 100 : 0;
   const avgWin   = wins.length ? grossWin / wins.length : 0;
   const avgLoss  = losses.length ? grossLoss / losses.length : 0;
@@ -264,8 +266,8 @@ function computeStats(trades: any[]) {
 
 const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2);
 
-function Sidebar({ trades }: { trades: any[] }) {
-  const stats  = useMemo(() => computeStats(trades), [trades]);
+function Sidebar({ trades, startingBalance }: { trades: any[]; startingBalance?: number }) {
+  const stats  = useMemo(() => computeStats(trades, startingBalance), [trades, startingBalance]);
   const has    = trades.length > 0;
   const pnlCls = stats ? (stats.netPnL > 0 ? "pos" : stats.netPnL < 0 ? "neg" : "") : "";
   const grwCls = stats ? (stats.growth > 0 ? "" : stats.growth < 0 ? "neg" : "zero") : "zero";
@@ -888,7 +890,7 @@ const STEPS_DEF = [
 ];
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function JournalForm({ sessionId }: { sessionId?: string | number | null }) {
+export default function JournalForm({ sessionId, startingBalance }: { sessionId?: string | number | null; startingBalance?: number }) {
   const [step, setStep] = useState(1);
   const [s1, setS1] = useState({ ...INIT_STEP1 });
   const [s2, setS2] = useState({ ...INIT_STEP2 });
@@ -1164,7 +1166,7 @@ export default function JournalForm({ sessionId }: { sessionId?: string | number
         </div>
 
         {/* ── Sidebar ── */}
-        <Sidebar trades={trades} />
+        <Sidebar trades={trades} startingBalance={startingBalance} />
       </div>
     </div>
   );

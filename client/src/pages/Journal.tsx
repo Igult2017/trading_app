@@ -765,7 +765,7 @@ export default function Journal() {
             activeSessionId ? <MetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
           ) : activeNav === 'journal' ? (
             activeSessionId ? (
-              <JournalForm sessionId={activeSessionId} />
+              <JournalForm sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
             ) : (
               <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
             )
