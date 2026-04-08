@@ -240,9 +240,8 @@ function computeStats(trades: any[], startingBalance?: number) {
   const grossWin  = winAmts.reduce((a, b) => a + b, 0);
   const grossLoss = Math.abs(lossAmts.reduce((a, b) => a + b, 0));
   const profitFactor = grossLoss > 0 ? (grossWin / grossLoss).toFixed(2) : grossWin > 0 ? "∞" : "0";
-  // Win rate: all trades as denominator (matches TradeVault — BE trades count)
-  const winRate  = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
   const decided  = wins.length + losses.length;
+  const winRate  = decided > 0 ? (wins.length / decided) * 100 : 0;
   const commissions = trades.reduce((a, t) => a + (parseFloat(t.commission) || 0), 0);
   // Use session starting balance if provided; otherwise fall back to last trade accountBalance
   const lastAccountBal = parseFloat(trades[trades.length - 1]?.accountBalance) || 0;
@@ -304,7 +303,7 @@ function Sidebar({ trades, startingBalance }: { trades: any[]; startingBalance?:
       <div className="sb-wr">
         <div className="sb-wr-header">
           <span className="sb-wr-label">Win rate</span>
-          <span className="sb-wr-sub">{has ? `${stats!.wins} of ${stats!.total}${stats!.breakevens > 0 ? ` (${stats!.breakevens} BE)` : ""}` : "0 of 0"}</span>
+          <span className="sb-wr-sub">{has ? `${stats!.wins} of ${stats!.wins + stats!.losses}${stats!.breakevens > 0 ? ` (${stats!.breakevens} BE)` : ""}` : "0 of 0"}</span>
         </div>
         <div className={`sb-wr-num ${!has ? "zero" : ""}`}>{has ? Math.round(stats!.winRate) + "%" : "0%"}</div>
         <div className="sb-bar-bg"><div className="sb-bar-fill" style={{ width: has ? stats!.winRate + "%" : "0%" }} /></div>
