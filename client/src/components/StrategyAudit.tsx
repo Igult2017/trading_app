@@ -44,7 +44,7 @@ interface AuditData {
   probabilisticEdge: { baseRate: number; kelly: number; avgWin: number; avgLoss: number };
   riskMetrics: { maxLossStreak: number; fiveLossProbability: number; timeInDrawdown: number };
   edgeComponents: { winRateContribution: number; riskRewardContribution: number };
-  lossCluster: { avgLength: number; worstDD: number; clusterFrequency: number; clusterDates: string[] };
+  lossCluster: { avgLength: number; worstDD: number | null; clusterFrequency: number; clusterDates: string[] };
   executionAsymmetry: {
     avgWinRR: number; avgLossRR: number; asymmetryScore: number;
     slippageWins: number; slippageLosses: number; earlyExitRate: number; lateEntryRate: number;
@@ -473,7 +473,7 @@ function Page2({ d }: { d: AuditData }) {
           <CellTitle>Drawdown Metrics</CellTitle>
           <BigNum value={`${dd.maxPeakToValley.toFixed(1)}%`} label="MAX PEAK-TO-VALLEY" color={T.amber} />
           <MiniGrid cols="1fr 1fr">
-            <MiniStatBox label="Recovery" value={`${dd.recovery} days`} />
+            <MiniStatBox label="Recovery Factor" value={`${dd.recovery.toFixed(2)}×`} />
             <MiniStatBox label="Stagnation" value={`${dd.stagnation.toFixed(0)}%`} />
           </MiniGrid>
         </Cell>
@@ -599,7 +599,7 @@ function Page3({ d }: { d: AuditData }) {
             </div>
             <div style={{ padding: 12, border: `1px solid ${T.line}`, textAlign: "center" }}>
               <div style={{ ...mono, fontSize: 10, color: T.dim, marginBottom: 6 }}>Worst DD</div>
-              <div style={{ ...mono, fontSize: 28, color: T.amber }}>{lc.worstDD.toFixed(1)}%</div>
+              <div style={{ ...mono, fontSize: 28, color: T.amber }}>{lc.worstDD != null ? `${lc.worstDD.toFixed(1)}%` : "—"}</div>
             </div>
           </MiniGrid>
         </Cell>

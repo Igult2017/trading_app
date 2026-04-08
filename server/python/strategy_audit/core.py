@@ -17,7 +17,7 @@ def compute_strategy_audit(trades: list, starting_balance: float) -> dict:
     sb = float(starting_balance) if starting_balance else 10_000.0
     level1 = compute_level1(normalised)
     level2 = compute_level2(normalised, sb)
-    level3 = compute_level3(normalised)
+    level3 = compute_level3(normalised, sb)
     level4 = compute_level4(normalised, level1, level2, level3)
 
     # Shape output to match frontend mock-data schema exactly
