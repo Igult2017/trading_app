@@ -1102,7 +1102,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     setS2(prev => ({ ...prev, ...s2Up, ocrConfidence: confidence, ocrValidation: "" }));
     setS3(prev => ({ ...prev, ...s3Up }));
     setS4(prev => ({ ...prev, ...s4Up }));
-    setOcrFields(prev => new Set([...prev, ...filled]));
+    setOcrFields(prev => new Set([...Array.from(prev), ...Array.from(filled)]));
   }, []);
 
   const handleScreenshotUpload = useCallback(async (field: string, value: any) => {
