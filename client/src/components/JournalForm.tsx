@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useSessionBalance } from "@/hooks/useSessionBalance";
+import { calcDollarRisk, calcPnL } from "@/lib/tradeCalculations";
 
 // ── Scoped CSS (all rules prefixed with .tj-root) ────────────────────────────
 const TJ_CSS = `
@@ -623,8 +625,14 @@ function Step1({ d, set }: any) {
 }
 
 // ── Step 2 — Execution ────────────────────────────────────────────────────────
-function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields }: any) {
+function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalance }: any) {
   const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+
+  // Live monetary risk preview derived from current balance + user-entered risk %
+  const riskPct = parseFloat(d.riskPercent);
+  const monetaryRiskPreview = currentBalance > 0 && riskPct > 0
+    ? ((currentBalance * riskPct) / 100).toFixed(2)
+    : null;
   return (
     <>
       <div className="tj-section">
@@ -670,6 +678,17 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields }: any) {
           <Sel label="Order Type" options={["Market","Limit","Stop","Stop-Limit"]} value={d.orderType} onChange={f("orderType")} />
           <Radio label="Outcome" options={["Win","Loss","BE"]} value={d.outcome} onChange={f("outcome")} />
         </div>
+        {currentBalance > 0 && (
+          <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(61,220,132,0.06)", borderRadius: 6, border: "1px solid rgba(61,220,132,0.15)", fontSize: 11, color: "var(--c-muted)", display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <span>Session balance: <strong style={{ color: "var(--c-accent)" }}>${currentBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+            {monetaryRiskPreview && (
+              <span>Risk amount: <strong style={{ color: "#f59e0b" }}>${monetaryRiskPreview}</strong> · P&amp;L and balance auto-update on Step 4</span>
+            )}
+            {!d.riskPercent && (
+              <span style={{ fontStyle: "italic" }}>Enter Risk % above to auto-calculate monetary risk, P&amp;L and account balance</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="tj-section">
@@ -932,6 +951,62 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     select: (d: any) => (Array.isArray(d) ? d : d?.entries ?? []),
   });
   const trades = tradesData ?? [];
+
+  // Live running balance for this session (starting balance + previous trade P&Ls)
+  const { currentBalance } = useSessionBalance(sessionId != null ? String(sessionId) : null);
+
+  // Parse "1:8.07", "8.07", "1:2" → 8.07
+  const parseRR = (v: string): number => {
+    if (!v) return 0;
+    const parts = v.split(":");
+    const n = parseFloat(parts[parts.length - 1]);
+    return isNaN(n) ? 0 : n;
+  };
+
+  // ── Auto-calculate monetary fields whenever risk% or key values change ──────
+  useEffect(() => {
+    const riskPct = parseFloat(s2.riskPercent);
+    if (!riskPct || riskPct <= 0 || !currentBalance || currentBalance <= 0) return;
+
+    const monetaryRisk  = calcDollarRisk(currentBalance, riskPct);
+    const achievedRRNum = parseRR(s4.achievedRR);
+    const plannedRRNum  = parseRR(s4.plannedRR);
+    const outcome       = s2.outcome as "Win" | "Loss" | "BE";
+
+    const s4Updates: Record<string, string> = {
+      monetaryRisk: monetaryRisk.toFixed(2),
+    };
+
+    // Potential reward always from planned RR × monetary risk
+    if (plannedRRNum > 0) {
+      s4Updates.potentialReward = (monetaryRisk * plannedRRNum).toFixed(2);
+    }
+
+    // Actual P&L:  Win → achievedRR × risk,  Loss → −risk,  BE → 0
+    let profitLoss: number | null = null;
+    if (outcome === "Loss") {
+      profitLoss = -monetaryRisk;
+    } else if (outcome === "BE") {
+      profitLoss = 0;
+    } else if (outcome === "Win" && achievedRRNum > 0) {
+      profitLoss = monetaryRisk * achievedRRNum;
+    }
+
+    if (profitLoss !== null) {
+      s4Updates.profitLoss    = profitLoss.toFixed(2);
+      s4Updates.accountBalance = (currentBalance + profitLoss).toFixed(2);
+    }
+
+    // Pips for a Loss = negative SL distance (stop was hit)
+    if (outcome === "Loss" && s2.stopLossDistancePips) {
+      const slPips = parseFloat(s2.stopLossDistancePips);
+      if (!isNaN(slPips) && slPips > 0) {
+        s4Updates.pipsGainedLost = String(-Math.abs(slPips));
+      }
+    }
+
+    setS4(prev => ({ ...prev, ...s4Updates }));
+  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, currentBalance]);
 
   // Format a numeric RR value as "1:X" string
   const fmtRR = (v: any): string | null => {
@@ -1261,6 +1336,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 onScreenshotUpload={handleScreenshotUpload}
                 analyzing={analyzing}
                 ocrFields={ocrFields}
+                currentBalance={currentBalance}
               />
             )}
             {step === 3 && <Step3 d={s3} set={setS3} />}
