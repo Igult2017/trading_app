@@ -24,19 +24,20 @@ def _verdict_to_confidence(verdict: str, pf: float, wr: float) -> float:
     boost = min(15.0, (wr - 50) * 0.3) + min(5.0, (pf - 1.0) * 2)
     return round(min(99.0, max(1.0, base + boost)), 1)
 
-def _build_correlations(win_fc, loss_fc, condition_labels: list[str]):
-    """Build heatmap data using the real condition labels from the engine."""
-    instruments = list(win_fc.keys()) or list(loss_fc.keys())
+def _build_correlations(win_fc, loss_fc, win_labels: list[str], decay_labels: list[str]):
+    """Build heatmap data using separate win and decay factor labels."""
+    instruments = list(win_fc.keys() | loss_fc.keys())
     instruments = instruments[:7]
-    n_conds = len(condition_labels)
-    def _pad(vals):
-        vals = [round(float(v), 1) for v in vals[:n_conds]]
-        while len(vals) < n_conds:
+
+    def _pad(vals, n):
+        vals = [round(float(v), 1) for v in vals[:n]]
+        while len(vals) < n:
             vals.append(0.0)
         return vals
-    win_corr  = {i: _pad(win_fc.get(i,  [])) for i in instruments}
-    loss_corr = {i: _pad(loss_fc.get(i, [])) for i in instruments}
-    return instruments, condition_labels, condition_labels, win_corr, loss_corr
+
+    win_corr  = {i: _pad(win_fc.get(i,  []), len(win_labels))   for i in instruments}
+    loss_corr = {i: _pad(loss_fc.get(i, []), len(decay_labels)) for i in instruments}
+    return instruments, win_labels, decay_labels, win_corr, loss_corr
 
 def _regime_info(l3, l2, l1):
     rt = l3.get("regimeTransition", {})
@@ -170,8 +171,11 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     dec_mag = _r2(edec.get("decayMagnitude"), 0.0)
     dec_rec = edec.get("recommendation", "")
     # ── Derived ──
-    condition_labels = l1.get("conditionLabels", [])
-    instruments, win_factors, loss_factors, win_corr, loss_corr = _build_correlations(win_fc, loss_fc, condition_labels)
+    win_labels   = l1.get("winConditionLabels",   l1.get("conditionLabels", []))
+    decay_labels = l1.get("decayConditionLabels", l1.get("conditionLabels", []))
+    instruments, win_factors, loss_factors, win_corr, loss_corr = _build_correlations(
+        win_fc, loss_fc, win_labels, decay_labels
+    )
     session_edge = cond_e.get("bySession", {})
     if len(session_edge) >= 2:
         ss = sorted(session_edge.items(), key=lambda x: x[1].get("winRate",0), reverse=True)
@@ -182,21 +186,28 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         liq_gap  = {"label":"Qualified",   "rMultiple":0.0,"samples":0,"winRate":0.0}
         non_qual = {"label":"Unqualified", "rMultiple":0.0,"samples":0,"winRate":0.0}
         edge_trf = 0.0
-    high_wr = _safe(tq.get("highQualityWinRate"), None)
-    low_wr  = _safe(tq.get("lowQualityWinRate"),  None)
-    a_prof  = round(float(high_wr),1) if high_wr is not None else round(wr*1.15,1)
-    c_prof  = round(float(low_wr), 1) if low_wr  is not None else round(wr*0.60,1)
-    b_prof  = round((a_prof+c_prof)/2,1)
-    a_cnt   = max(1,round(n*0.25)); b_cnt=max(1,round(n*0.45)); c_cnt=max(1,n-a_cnt-b_cnt)
-    max_ls  = max(3,round(avg_cl)) if avg_cl>0 else 0
+    # Trade quality — real counts and win rates from level2
+    high_wr  = tq.get("highQualityWinRate")   # None if < 5 samples
+    mid_wr   = tq.get("midQualityWinRate")
+    low_wr   = tq.get("lowQualityWinRate")
+    a_cnt    = int(tq.get("highQualityCount", 0))
+    b_cnt    = int(tq.get("midQualityCount",  0))
+    c_cnt    = int(tq.get("lowQualityCount",  0))
+    a_prof   = round(float(high_wr), 1) if high_wr is not None else None
+    b_prof   = round(float(mid_wr),  1) if mid_wr  is not None else None
+    c_prof   = round(float(low_wr),  1) if low_wr  is not None else None
+
+    max_ls  = round(avg_cl) if avg_cl > 0 else 0
     lp      = 1.0-(wr/100.0)
-    fl_prob = round(lp**5*100,1)
+    fl_prob = round(lp**5*100,1)   # binomial P(5 consecutive losses) — mathematically exact
     avg_dd_abs = abs(_pct(dd.get("avgDrawdown"),0.0))
     t_in_dd = round(min(99.0,avg_dd_abs/max(max_dd,0.01)*100),1) if max_dd>0 else 0.0
-    wr_con  = round(min(70,max(30,wr*0.7)),1)
-    rr_con  = round(min(70,max(20,(pf-1)*25)),1)
-    l50r    = round(exp_val*(1-dec_mag/100) if dec_det else exp_val,2)
-    l200r   = round(exp_val,2)
+    # Edge component contributions: win rate share and RR quality share
+    wr_con  = round(min(100, wr), 1)
+    rr_con  = round(min(100, (pf-1)/pf*100), 1) if pf and pf > 1 else 0.0
+    # Last-50 / last-200 expectancy from actual trade slices (not estimated)
+    l50r    = edec.get("last50Expectancy")
+    l200r   = edec.get("last200Expectancy")
     r_stab  = round(min(100,max(0,rsk_con)),1)
     e_adh   = round(min(100,max(0,100-e_exit)),1)
     a_lbl   = "LOW RISK" if a_score<30 else "MEDIUM RISK" if a_score<60 else "HIGH RISK"
@@ -224,17 +235,17 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         "conditionalEdge":{"liquidityGap":liq_gap,"nonQualified":non_qual},
         "edgeTransferability": round(edge_trf,1),
         "coreRobustness":{"ruleStability":r_stab,"executionAdherence":e_adh,"monteCarloStability":round(cons_sc,1)},
-        "probabilisticEdge":{"baseRate":wr,"kelly":round(kelly,2),"avgWin":aw_rr if aw_rr>0 else round(exp_val*2,2),"avgLoss":al_rr if al_rr>0 else round(abs(exp_val),2)},
+        "probabilisticEdge":{"baseRate":wr,"kelly":round(kelly,2),"avgWin":aw_rr if aw_rr>0 else es.get("avgWin"),"avgLoss":al_rr if al_rr>0 else es.get("avgLoss")},
         "riskMetrics":   {"maxLossStreak":max_ls,"fiveLossProbability":fl_prob,"timeInDrawdown":t_in_dd},
         "edgeComponents":{"winRateContribution":wr_con,"riskRewardContribution":rr_con},
-        "lossCluster":   {"avgLength":avg_cl,"worstDD":round(max_dd*0.6,1),"clusterFrequency":cl_freq,"clusterDates":cl_dates},
-        "executionAsymmetry":{"avgWinRR":aw_rr,"avgLossRR":al_rr,"asymmetryScore":asym_sc,"slippageWins":round(e_exit*0.05,2),"slippageLosses":round(e_exit*0.10,2),"earlyExitRate":e_exit,"lateEntryRate":l_entry},
-        "regimeTransition":{"trendingWinRate":t_wr,"rangingWinRate":rng_wr,"breakoutWinRate":brk_wr,"regimeDetectionAccuracy":r_acc,"avgTransitionDD":round(max_dd*0.35,1),"recoveryTrades":max(3,round(avg_cl*3))},
-        "capitalHeat":   {"avgRiskPerTrade":avg_rsk,"maxRiskPerTrade":max_rsk,"riskConsistencyScore":rsk_con,"correlatedExposure":corr_ex,"peakEquityAtRisk":round(max_rsk*3,1),"timeAtPeak":round(t_in_dd*0.7,1)},
+        "lossCluster":   {"avgLength":avg_cl,"worstDD":None,"clusterFrequency":cl_freq,"clusterDates":cl_dates},
+        "executionAsymmetry":{"avgWinRR":aw_rr,"avgLossRR":al_rr,"asymmetryScore":asym_sc,"slippageWins":None,"slippageLosses":None,"earlyExitRate":e_exit,"lateEntryRate":l_entry},
+        "regimeTransition":{"trendingWinRate":t_wr,"rangingWinRate":rng_wr,"breakoutWinRate":brk_wr,"regimeDetectionAccuracy":r_acc,"avgTransitionDD":None,"recoveryTrades":None},
+        "capitalHeat":   {"avgRiskPerTrade":avg_rsk,"maxRiskPerTrade":max_rsk,"riskConsistencyScore":rsk_con,"correlatedExposure":corr_ex,"peakEquityAtRisk":None,"timeAtPeak":None},
         "automationRisk":{"score":a_score,"issues":a_issues,"label":a_lbl},
         "psychologyScore": round(psych,1),
         "disciplineScore": round(disc,1),
-        "edgeDecay":     {"last50":l50r,"last200":l200r,"detected":dec_det,"magnitude":dec_mag,"recommendation":dec_rec,"trend":"↘ DECLINING" if dec_det else "↗ STABLE"},
+        "edgeDecay":     {"last50":l50r if l50r is not None else None,"last200":l200r if l200r is not None else None,"detected":dec_det,"magnitude":dec_mag,"recommendation":dec_rec,"trend":"↘ DECLINING" if dec_det else "↗ STABLE"},
         "aiPolicySuggestions":[{"rule":p.get("rule",""),"rationale":p.get("rationale",""),"expectedImpact":p.get("expectedImpact","")} for p in pols],
         "guardrails":    [{"label":g.get("condition",""),"value":"","action":g.get("action",""),"status":"Active"} for g in grails],
         "finalVerdict":  {"grade":grade,"summary":summary,"strengths":strens,"weaknesses":wkns,"nextActions":nxact,"authorized":grade in("A","B")},

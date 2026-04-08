@@ -170,7 +170,7 @@ def _calmar_ratio(
         span_days = (dates[-1] - dates[0]).days
         years = max(span_days / 365.25, 1 / 12)  # at least 1 month
     else:
-        years = 0.25  # assume ~3 months if no date data
+        return 0.0  # cannot compute Calmar without date data
 
     annualised_return = net_pnl_pct / years
     return round(annualised_return / abs(max_dd_pct), 3)
@@ -261,13 +261,20 @@ def _trade_quality(trades: list[dict]) -> dict:
     low_quality  = [t for t in trades
                     if t.get("confluence_score") is not None
                     and float(t["confluence_score"]) <  40]
+    mid_quality  = [t for t in trades
+                    if t.get("confluence_score") is not None
+                    and 40 <= float(t["confluence_score"]) < 70]
 
     return {
         "avgConfluenceScore":     round(safe_mean(conf_scores), 1),
         "avgEntryQuality":        round(safe_mean(entry_quals), 1),
         "avgPlanningVsExecution": round(safe_mean(plan_exec), 1),
         "highQualityWinRate":     round(win_rate(high_quality), 1) if len(high_quality) >= 5 else None,
+        "highQualityCount":       len(high_quality),
         "lowQualityWinRate":      round(win_rate(low_quality), 1)  if len(low_quality)  >= 5 else None,
+        "lowQualityCount":        len(low_quality),
+        "midQualityWinRate":      round(win_rate(mid_quality), 1)  if len(mid_quality)  >= 5 else None,
+        "midQualityCount":        len(mid_quality),
     }
 
 

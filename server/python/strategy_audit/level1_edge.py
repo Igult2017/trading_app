@@ -9,7 +9,7 @@ type exactly so no frontend changes are needed.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import Any
 
 from datetime import datetime, timezone as _tz
@@ -39,79 +39,141 @@ _MIN_CONDITION_TRADES = 5   # relaxed from 10 to work with smaller datasets
 _MIN_LIFT_PP          = 5.0  # minimum lift in percentage points to call a driver
 
 
-# ── Condition predicates ──────────────────────────────────────────────────────
+# ── Scannable fields for dynamic factor discovery ─────────────────────────────
 
-def _conditions() -> list[tuple[str, Any]]:
+_FREQ_THRESHOLD = 0.50   # factor must appear in >50% of wins or losses
+_MAX_FACTORS    = 8      # max columns per heatmap
+
+
+def _val(t: dict, key: str) -> str | None:
+    """Return a clean string value or None."""
+    v = t.get(key)
+    if v is None or v == "" or v == "Unknown":
+        return None
+    return str(v).strip()
+
+
+def _bool_label(t: dict, key: str) -> str | None:
+    """Convert a boolean field to 'Yes'/'No' or None if missing."""
+    v = t.get(key)
+    if v is True:  return "Yes"
+    if v is False: return "No"
+    if isinstance(v, str):
+        if v.lower() in ("true", "yes", "1"):  return "Yes"
+        if v.lower() in ("false", "no", "0"): return "No"
+    return None
+
+
+def _confluence_bucket(t: dict) -> str | None:
+    v = t.get("confluence_score")
+    if v is None:
+        return None
+    try:
+        f = float(v)
+        return "High (≥4)" if f >= 4 else "Low (<4)"
+    except (TypeError, ValueError):
+        return None
+
+
+def _scannable_fields() -> list[tuple[str, Any]]:
     """
-    Each entry: (label, predicate_fn(trade) -> bool | None)
-    Returns None when the condition cannot be evaluated (field missing).
+    Each entry: (column_label_prefix, getter(trade) -> str | None)
+    getter returns the discrete value for this trade, or None if not available.
     """
-    def _htf_bias(t):
-        v = t.get("htf_bias")
-        if v is None: return None
-        return str(v).lower() in ("with_trend", "with trend", "bullish", "bearish_short",
-                                   "long", "buy", "aligned")
-
-    def _high_confluence(t):
-        v = t.get("confluence_score")
-        if v is None: return None
-        try: return float(v) >= 70
-        except: return None
-
-    def _confirmed_entry(t):
-        v = t.get("entry_type")
-        if v is None: return None
-        return str(v).lower() in ("confirmed", "confirmation", "valid")
-
-    def _ob_valid(t):
-        v = t.get("ob_valid")
-        if v is None: return None
-        if isinstance(v, bool): return v
-        return str(v).lower() in ("true", "yes", "1")
-
-    def _choch_valid(t):
-        v = t.get("choch_valid")
-        if v is None: return None
-        if isinstance(v, bool): return v
-        return str(v).lower() in ("true", "yes", "1")
-
-    def _prime_session(t):
-        label = (t.get("session_label") or "").lower()
-        if not label or label == "unknown":
-            return None  # session unknown — cannot evaluate
-        return "london" in label or "new york" in label or "overlap" in label
-
-    def _good_psychology(t):
-        v = t.get("psychology_score")
-        if v is None: return None
-        try: return float(v) >= 80
-        except: return None
-
-    def _good_risk_sizing(t):
-        v = t.get("risk_percent")
-        if v is None: return None
-        try:
-            rp = float(v)
-            return 0.5 <= rp <= 1.5
-        except: return None
-
     return [
-        ("HTF bias aligned",         _htf_bias),
-        ("High confluence (≥70)",    _high_confluence),
-        ("Confirmed entry type",      _confirmed_entry),
-        ("Valid order block",         _ob_valid),
-        ("Valid CHoCH",               _choch_valid),
-        ("Prime session",             _prime_session),
-        ("Psychology score ≥80",      _good_psychology),
-        ("Risk 0.5–1.5%",            _good_risk_sizing),
+        ("Session",           lambda t: _val(t, "session_label")),
+        ("Phase",             lambda t: _val(t, "session_phase")),
+        ("Direction",         lambda t: _val(t, "direction")),
+        ("Day",               lambda t: _val(t, "day_of_week")),
+        ("HTF Bias",          lambda t: _val(t, "htf_bias")),
+        ("Confluence",        _confluence_bucket),
+        ("Emotional State",   lambda t: _val(t, "emotional_state")),
+        ("Focus",             lambda t: _val(t, "focus_level")),
+        ("Confidence",        lambda t: _val(t, "confidence_level")),
+        ("Energy",            lambda t: _val(t, "energy_level")),
+        ("Confidence@Entry",  lambda t: _val(t, "confidence_at_entry")),
+        ("Rules Followed",    lambda t: _val(t, "rules_followed")),
+        ("Risk Heat",         lambda t: _val(t, "risk_heat")),
+        ("Trade Grade",       lambda t: _val(t, "trade_grade")),
+        ("Setup Tag",         lambda t: _val(t, "setup_tag")),
+        ("Market Regime",     lambda t: _val(t, "market_regime")),
+        ("Volatility",        lambda t: _val(t, "volatility_state")),
+        ("Order Type",        lambda t: _val(t, "order_type")),
+        ("News",              lambda t: _val(t, "news_environment")),
+        ("Candle Pattern",    lambda t: _val(t, "candle_pattern")),
+        ("Management",        lambda t: _val(t, "management_type")),
+        ("Post-Trade Feel",   lambda t: _val(t, "post_trade_emotion")),
+        ("Setup Valid",       lambda t: _bool_label(t, "setup_fully_valid")),
+        ("MTF Aligned",       lambda t: _bool_label(t, "mtf_alignment")),
+        ("Trend Aligned",     lambda t: _bool_label(t, "trend_alignment")),
+        ("HTF Level Present", lambda t: _bool_label(t, "htf_key_level")),
+        ("Key Level Respect", lambda t: _bool_label(t, "key_level_respected")),
+        ("FOMO Trade",        lambda t: _bool_label(t, "fomo_trade")),
+        ("Revenge Trade",     lambda t: _bool_label(t, "revenge_trade")),
+        ("Emotional Trade",   lambda t: _bool_label(t, "emotional_trade")),
     ]
+
+
+def _discover_factors(
+    wins: list[dict],
+    losses: list[dict],
+    threshold: float = _FREQ_THRESHOLD,
+    max_factors: int = _MAX_FACTORS,
+) -> tuple[list[tuple[str, Any]], list[tuple[str, Any]]]:
+    """
+    Discover win factors (appear in >50% of wins) and decay factors
+    (appear in >50% of losses).
+
+    Returns:
+        win_factors  — list of (label, predicate) for heatmap columns
+        decay_factors — list of (label, predicate) for heatmap columns
+    """
+    n_wins   = len(wins)
+    n_losses = len(losses)
+
+    win_candidates:   list[tuple[str, Any, float]] = []
+    decay_candidates: list[tuple[str, Any, float]] = []
+    win_seen:   set[str] = set()
+    decay_seen: set[str] = set()
+
+    for prefix, getter in _scannable_fields():
+        win_counts   = Counter(getter(t) for t in wins   if getter(t) is not None)
+        loss_counts  = Counter(getter(t) for t in losses if getter(t) is not None)
+
+        for val in (set(win_counts) | set(loss_counts)):
+            label     = f"{prefix}: {val}"
+            win_freq  = win_counts.get(val, 0)  / n_wins   if n_wins   else 0.0
+            loss_freq = loss_counts.get(val, 0) / n_losses if n_losses else 0.0
+
+            predicate = (lambda g, v: lambda t: g(t) == v)(getter, val)
+
+            if win_freq > threshold and label not in win_seen:
+                win_seen.add(label)
+                win_candidates.append((label, predicate, win_freq))
+
+            if loss_freq > threshold and label not in decay_seen:
+                decay_seen.add(label)
+                decay_candidates.append((label, predicate, loss_freq))
+
+    win_candidates.sort(key=lambda x: x[2], reverse=True)
+    decay_candidates.sort(key=lambda x: x[2], reverse=True)
+
+    return (
+        [(l, p) for l, p, _ in win_candidates[:max_factors]],
+        [(l, p) for l, p, _ in decay_candidates[:max_factors]],
+    )
 
 
 # ── Edge drivers ──────────────────────────────────────────────────────────────
 
-def _compute_edge_drivers(trades: list[dict]) -> tuple[list[dict], list[dict], list[str]]:
+def _compute_edge_drivers(
+    trades: list[dict],
+    win_factors: list[tuple[str, Any]],
+    decay_factors: list[tuple[str, Any]],
+) -> tuple[list[dict], list[dict], list[str]]:
     """
     Returns (edge_drivers, weaknesses, monitor_items).
+    Uses dynamically discovered win/decay factors.
     """
     drivers: list[dict] = []
     weaknesses: list[dict] = []
@@ -119,20 +181,13 @@ def _compute_edge_drivers(trades: list[dict]) -> tuple[list[dict], list[dict], l
 
     overall_wr = win_rate(trades)
 
-    for label, predicate in _conditions():
-        with_factor = []
-        without_factor = []
+    # Drivers come from win factors; weaknesses from decay factors
+    all_conditions = win_factors + decay_factors
 
-        for t in trades:
-            result = predicate(t)
-            if result is None:
-                continue
-            if result:
-                with_factor.append(t)
-            else:
-                without_factor.append(t)
+    for label, predicate in all_conditions:
+        with_factor    = [t for t in trades if predicate(t) is True]
+        without_factor = [t for t in trades if predicate(t) is False]
 
-        # Not enough data to evaluate this condition
         if len(with_factor) < _MIN_CONDITION_TRADES:
             continue
 
@@ -168,50 +223,61 @@ def _compute_edge_drivers(trades: list[dict]) -> tuple[list[dict], list[dict], l
 
 def _build_correlation_matrices(
     trades: list[dict],
-    condition_labels: list[str],
-    conditions_map: dict[str, Any],
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, list[str], list[str]]:
     """
-    Build per-instrument correlation scores for each condition.
+    Discover win/decay factors from trade data (>50% frequency threshold),
+    then build per-instrument win-rate scores for each discovered factor.
 
-    win_factor_correlation[instrument] = [score_per_condition, ...]
-      score = P(condition_present AND win) / P(condition_present) * 100
-    loss_factor_correlation[instrument] = same but for losses
+    Returns:
+        win_corr   — {instrument: [win_rate_% per win_factor]}
+        loss_corr  — {instrument: [win_rate_% per decay_factor]}
+        win_labels — column labels for the win heatmap
+        decay_labels — column labels for the decay heatmap
     """
-    # Group trades by instrument
+    all_wins   = [t for t in trades if t.get("win") is True]
+    all_losses = [t for t in trades if t.get("win") is False]
+
+    win_factors, decay_factors = _discover_factors(all_wins, all_losses)
+
+    win_labels   = [label for label, _ in win_factors]
+    decay_labels = [label for label, _ in decay_factors]
+
     by_instrument: dict[str, list[dict]] = defaultdict(list)
     for t in trades:
         instr = t.get("instrument") or "Unknown"
         by_instrument[instr].append(t)
 
-    win_corr: dict[str, list[float]] = {}
+    win_corr:  dict[str, list[float]] = {}
     loss_corr: dict[str, list[float]] = {}
 
     for instr, itrades in by_instrument.items():
         if len(itrades) < _MIN_CONDITION_TRADES:
             continue
 
-        win_scores: list[float] = []
-        loss_scores: list[float] = []
-
-        for label, predicate in _conditions():
+        # Win heatmap: for each win factor, what % of that instrument's trades
+        # with this factor were wins?
+        w_scores: list[float] = []
+        for _, predicate in win_factors:
             present = [t for t in itrades if predicate(t) is True]
             if not present:
-                win_scores.append(0.0)
-                loss_scores.append(0.0)
-                continue
+                w_scores.append(0.0)
+            else:
+                wins_with = sum(1 for t in present if t.get("win") is True)
+                w_scores.append(round(wins_with / len(present) * 100, 1))
+        win_corr[instr] = w_scores
 
-            wins_with   = sum(1 for t in present if t.get("win") is True)
-            losses_with = sum(1 for t in present if t.get("win") is False)
-            total_with  = len(present)
+        # Decay heatmap: for each decay factor, what % were losses?
+        d_scores: list[float] = []
+        for _, predicate in decay_factors:
+            present = [t for t in itrades if predicate(t) is True]
+            if not present:
+                d_scores.append(0.0)
+            else:
+                losses_with = sum(1 for t in present if t.get("win") is False)
+                d_scores.append(round(losses_with / len(present) * 100, 1))
+        loss_corr[instr] = d_scores
 
-            win_scores.append(round(wins_with / total_with * 100, 1))
-            loss_scores.append(round(losses_with / total_with * 100, 1))
-
-        win_corr[instr]  = win_scores
-        loss_corr[instr] = loss_scores
-
-    return win_corr, loss_corr
+    return win_corr, loss_corr, win_labels, decay_labels
 
 
 # ── Psychology & discipline scores ───────────────────────────────────────────
@@ -347,16 +413,25 @@ def compute_level1(trades: list[dict]) -> dict:
 
     verdict = _edge_verdict(pf, wr, n)
 
-    edge_drivers, weaknesses, monitor_items = _compute_edge_drivers(trades)
+    win_corr, loss_corr, win_labels, decay_labels = _build_correlation_matrices(trades)
 
-    condition_labels = [label for label, _ in _conditions()]
-    win_corr, loss_corr = _build_correlation_matrices(
-        trades, condition_labels, _conditions()
+    # Rebuild factor predicates for edge-driver computation
+    all_wins   = [t for t in trades if t.get("win") is True]
+    all_losses = [t for t in trades if t.get("win") is False]
+    win_factors, decay_factors = _discover_factors(all_wins, all_losses)
+
+    edge_drivers, weaknesses, monitor_items = _compute_edge_drivers(
+        trades, win_factors, decay_factors
     )
 
     psych_score, disc_score = _psychology_discipline(trades)
     kelly       = _kelly_edge(trades)
     persistence = _edge_persistence(trades)
+
+    wins_pnl  = [t["pnl"] for t in trades if t.get("win") is True  and t.get("pnl") is not None]
+    losses_pnl= [t["pnl"] for t in trades if t.get("win") is False and t.get("pnl") is not None]
+    avg_win_dollar  = round(safe_mean(wins_pnl),  2) if wins_pnl  else None
+    avg_loss_dollar = round(abs(safe_mean(losses_pnl)), 2) if losses_pnl else None
 
     return {
         "edgeSummary": {
@@ -365,8 +440,12 @@ def compute_level1(trades: list[dict]) -> dict:
             "expectancy":     round(exp, 2),
             "sampleSize":     n,
             "edgeVerdict":    verdict,
+            "avgWin":         avg_win_dollar,
+            "avgLoss":        avg_loss_dollar,
         },
-        "conditionLabels":       condition_labels,
+        "conditionLabels":       win_labels,   # legacy key — kept for compatibility
+        "winConditionLabels":    win_labels,
+        "decayConditionLabels":  decay_labels,
         "edgeDrivers":           edge_drivers,
         "monitorItems":          monitor_items,
         "weaknesses":            weaknesses,

@@ -230,8 +230,9 @@ const TJ_CSS = `
 // ── Sidebar stats ─────────────────────────────────────────────────────────────
 function computeStats(trades: any[], startingBalance?: number) {
   if (!trades.length) return null;
-  const wins   = trades.filter(t => t.outcome === "Win");
-  const losses = trades.filter(t => t.outcome === "Loss");
+  const wins       = trades.filter(t => t.outcome === "Win");
+  const losses     = trades.filter(t => t.outcome === "Loss");
+  const breakevens = trades.filter(t => t.outcome === "BE");
   const pnls   = trades.map(t => parseFloat(t.profitLoss) || 0);
   const netPnL = pnls.reduce((a, b) => a + b, 0);
   const winAmts  = wins.map(t => parseFloat(t.profitLoss) || 0);
@@ -244,8 +245,9 @@ function computeStats(trades: any[], startingBalance?: number) {
   const decided  = wins.length + losses.length;
   const commissions = trades.reduce((a, t) => a + (parseFloat(t.commission) || 0), 0);
   // Use session starting balance if provided; otherwise fall back to last trade accountBalance
-  const endBal   = parseFloat(trades[trades.length - 1]?.accountBalance) || 0;
-  const startBal = startingBalance && startingBalance > 0 ? startingBalance : Math.max(endBal - netPnL, 0);
+  const lastAccountBal = parseFloat(trades[trades.length - 1]?.accountBalance) || 0;
+  const startBal = startingBalance && startingBalance > 0 ? startingBalance : Math.max(lastAccountBal - netPnL, 0);
+  const endBal   = startBal > 0 ? startBal + netPnL : lastAccountBal;
   const growth   = startBal > 0 ? (netPnL / startBal) * 100 : 0;
   const avgWin   = wins.length ? grossWin / wins.length : 0;
   const avgLoss  = losses.length ? grossLoss / losses.length : 0;
@@ -257,7 +259,7 @@ function computeStats(trades: any[], startingBalance?: number) {
     ? (rrTrades.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTrades.length).toFixed(2)
     : "0";
   return {
-    netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
+    netPnL, winRate, wins: wins.length, losses: losses.length, breakevens: breakevens.length, total: trades.length,
     profitFactor, commissions, startBal, endBal, growth, avgRR, expectancy,
     buys:  trades.filter(t => t.direction === "Long").length,
     sells: trades.filter(t => t.direction === "Short").length,
@@ -302,7 +304,7 @@ function Sidebar({ trades, startingBalance }: { trades: any[]; startingBalance?:
       <div className="sb-wr">
         <div className="sb-wr-header">
           <span className="sb-wr-label">Win rate</span>
-          <span className="sb-wr-sub">{has ? `${stats!.wins} of ${stats!.total}` : "0 of 0"}</span>
+          <span className="sb-wr-sub">{has ? `${stats!.wins} of ${stats!.total}${stats!.breakevens > 0 ? ` (${stats!.breakevens} BE)` : ""}` : "0 of 0"}</span>
         </div>
         <div className={`sb-wr-num ${!has ? "zero" : ""}`}>{has ? Math.round(stats!.winRate) + "%" : "0%"}</div>
         <div className="sb-bar-bg"><div className="sb-bar-fill" style={{ width: has ? stats!.winRate + "%" : "0%" }} /></div>
@@ -310,6 +312,9 @@ function Sidebar({ trades, startingBalance }: { trades: any[]; startingBalance?:
       <div className="sb-wl-row">
         <div className="sb-wl-item"><span className="sb-wl-lbl">Wins</span><span className="sb-wl-num w">{String(has ? stats!.wins : 0).padStart(2, "0")}</span></div>
         <div className="sb-wl-item"><span className="sb-wl-lbl">Losses</span><span className="sb-wl-num l">{String(has ? stats!.losses : 0).padStart(2, "0")}</span></div>
+        {has && stats!.breakevens > 0 && (
+          <div className="sb-wl-item"><span className="sb-wl-lbl">Breakeven</span><span className="sb-wl-num" style={{ color: '#8A93B8' }}>{String(stats!.breakevens).padStart(2, "0")}</span></div>
+        )}
       </div>
       <div className="sb-metrics">
         <div className="sb-met"><div className="sb-met-label">Profit factor</div><div className={`sb-met-val ${has && parseFloat(stats!.profitFactor as string) > 1 ? "pos" : ""}`}>{has ? stats!.profitFactor : "0"}</div></div>
@@ -473,19 +478,39 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
     if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (editRef.current) editRef.current.textContent = "";
-    const items = Array.from(e.clipboardData?.items ?? []);
-    const img = items.find(i => i.type.startsWith("image/"));
+  const applyPaste = useCallback((e: ClipboardEvent | React.ClipboardEvent<HTMLDivElement>) => {
+    const items = Array.from((e as any).clipboardData?.items ?? []);
+    const img = (items as DataTransferItem[]).find(i => i.type.startsWith("image/"));
     if (img) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (editRef.current) editRef.current.textContent = "";
       const f = img.getAsFile();
       if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
-      return;
+      return true;
     }
-    const text = e.clipboardData?.getData("text/plain") ?? "";
-    if (text.trim() && onPasteText) onPasteText(text);
-  };
+    const text = (e as any).clipboardData?.getData("text/plain") ?? "";
+    if (text.trim() && onPasteText) { onPasteText(text); return true; }
+    return false;
+  }, [onChange, onPasteText]);
+
+  // Global paste listener — fires even when this box isn't focused.
+  // Uses stopImmediatePropagation so only the first empty UploadBox handles each paste.
+  useEffect(() => {
+    if (value) return;
+    const handleDocPaste = (e: ClipboardEvent) => {
+      // Don't intercept paste inside real text inputs / textareas
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body && active !== editRef.current) {
+        const tag = active.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (active.isContentEditable) return;
+      }
+      applyPaste(e);
+    };
+    document.addEventListener("paste", handleDocPaste);
+    return () => document.removeEventListener("paste", handleDocPaste);
+  }, [value, applyPaste]);
 
   return (
     <Field label={label}>
@@ -495,7 +520,7 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
             ref={editRef}
             contentEditable
             suppressContentEditableWarning
-            onPaste={handlePaste}
+            onPaste={applyPaste as any}
             onClick={() => document.getElementById(inputId)?.click()}
             onKeyDown={e => { if (!e.ctrlKey && !e.metaKey) e.preventDefault(); }}
             style={{ position: "absolute", inset: 0, zIndex: 10, opacity: 0, outline: "none", cursor: "pointer" }}

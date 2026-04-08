@@ -178,13 +178,61 @@ def normalise_trades(raw_trades: list) -> list:
             t["session_label"] = "London/NY Overlap"
         else:
             t["session_label"] = t["session_name"] or "Unknown"
-        for extra_key in ["htf_bias","confluence_score","entry_type","ob_valid",
-                           "choch_valid","psychology_score","rules_adherence",
-                           "setup_tags","regime","entry_deviation","tp_hit"]:
-            if extra_key not in t or t.get(extra_key) is None:
-                val = _extract_jsonb(t, "manual_fields", extra_key)
-                if val is None:
-                    val = _extract_jsonb(t, "ai_extracted", extra_key)
-                t[extra_key] = val
+        # Extract fields from manualFields / aiExtracted blobs.
+        # Each entry: (dest_key, [camelCase and snake_case aliases to try in order])
+        _BLOB_FIELDS: list[tuple[str, list[str]]] = [
+            ("htf_bias",          ["htfBias",           "htf_bias"]),
+            ("confluence_score",  ["confluence",        "confluenceScore",  "confluence_score"]),
+            ("emotional_state",   ["emotionalState",    "emotional_state"]),
+            ("focus_level",       ["focusLevel",        "focusStressLevel", "focus_level"]),
+            ("confidence_level",  ["confidenceLevel",   "confidence_level"]),
+            ("energy_level",      ["energyLevel",       "energy_level"]),
+            ("rules_followed",    ["rulesFollowed",     "rules_followed"]),
+            ("rules_adherence",   ["rulesFollowed",     "rulesAdherence",   "rules_adherence"]),
+            ("risk_heat",         ["riskHeat",          "risk_heat"]),
+            ("trade_grade",       ["tradeGrade",        "trade_grade"]),
+            ("setup_tag",         ["setupTag",          "setup_tag"]),
+            ("market_regime",     ["marketRegime",      "market_regime"]),
+            ("volatility_state",  ["volatilityState",   "volatility_state"]),
+            ("setup_fully_valid", ["setupFullyValid",   "setup_fully_valid"]),
+            ("mtf_alignment",     ["mtfAlignment",      "mtf_alignment"]),
+            ("trend_alignment",   ["trendAlignment",    "trend_alignment"]),
+            ("htf_key_level",     ["htfKeyLevelPresent","htf_key_level_present"]),
+            ("key_level_respected",["keyLevelRespected","key_level_respected"]),
+            ("fomo_trade",        ["fomoTrade",         "fomo_trade"]),
+            ("revenge_trade",     ["revengeTrade",      "revenge_trade"]),
+            ("boredom_trade",     ["boredomTrade",      "boredom_trade"]),
+            ("emotional_trade",   ["emotionalTrade",    "emotional_trade"]),
+            ("management_type",   ["managementType",    "management_type"]),
+            ("candle_pattern",    ["candlePattern",     "candle_pattern"]),
+            ("news_environment",  ["newsEnvironment",   "newsImpact", "news_environment"]),
+            ("post_trade_emotion",["postTradeEmotion",  "post_trade_emotion"]),
+            ("confidence_at_entry",["confidenceAtEntry","confidence_at_entry"]),
+            # legacy keys still referenced elsewhere
+            ("entry_type",        ["entryType",         "entry_type"]),
+            ("ob_valid",          ["obValid",           "ob_valid"]),
+            ("choch_valid",       ["chochValid",        "choch_valid"]),
+            ("psychology_score",  ["psychologyScore",   "psychology_score"]),
+            ("setup_tags",        ["setupTags",         "setup_tags"]),
+            ("regime",            ["regime"]),
+            ("entry_deviation",   ["entryDeviation",    "entry_deviation"]),
+            ("tp_hit",            ["tpHit",             "tp_hit"]),
+        ]
+        for dest, aliases in _BLOB_FIELDS:
+            if t.get(dest) is not None:
+                continue
+            val = None
+            for blob_key in ("manual_fields", "ai_extracted"):
+                blob = t.get(blob_key)
+                if not isinstance(blob, dict):
+                    continue
+                for alias in aliases:
+                    v = blob.get(alias)
+                    if v is not None:
+                        val = v
+                        break
+                if val is not None:
+                    break
+            t[dest] = val
         result.append(t)
     return result
