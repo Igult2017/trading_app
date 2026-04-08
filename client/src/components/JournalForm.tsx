@@ -478,19 +478,39 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
     if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (editRef.current) editRef.current.textContent = "";
-    const items = Array.from(e.clipboardData?.items ?? []);
-    const img = items.find(i => i.type.startsWith("image/"));
+  const applyPaste = useCallback((e: ClipboardEvent | React.ClipboardEvent<HTMLDivElement>) => {
+    const items = Array.from((e as any).clipboardData?.items ?? []);
+    const img = (items as DataTransferItem[]).find(i => i.type.startsWith("image/"));
     if (img) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (editRef.current) editRef.current.textContent = "";
       const f = img.getAsFile();
       if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
-      return;
+      return true;
     }
-    const text = e.clipboardData?.getData("text/plain") ?? "";
-    if (text.trim() && onPasteText) onPasteText(text);
-  };
+    const text = (e as any).clipboardData?.getData("text/plain") ?? "";
+    if (text.trim() && onPasteText) { onPasteText(text); return true; }
+    return false;
+  }, [onChange, onPasteText]);
+
+  // Global paste listener — fires even when this box isn't focused.
+  // Uses stopImmediatePropagation so only the first empty UploadBox handles each paste.
+  useEffect(() => {
+    if (value) return;
+    const handleDocPaste = (e: ClipboardEvent) => {
+      // Don't intercept paste inside real text inputs / textareas
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body && active !== editRef.current) {
+        const tag = active.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (active.isContentEditable) return;
+      }
+      applyPaste(e);
+    };
+    document.addEventListener("paste", handleDocPaste);
+    return () => document.removeEventListener("paste", handleDocPaste);
+  }, [value, applyPaste]);
 
   return (
     <Field label={label}>
@@ -500,7 +520,7 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
             ref={editRef}
             contentEditable
             suppressContentEditableWarning
-            onPaste={handlePaste}
+            onPaste={applyPaste as any}
             onClick={() => document.getElementById(inputId)?.click()}
             onKeyDown={e => { if (!e.ctrlKey && !e.metaKey) e.preventDefault(); }}
             style={{ position: "absolute", inset: 0, zIndex: 10, opacity: 0, outline: "none", cursor: "pointer" }}
