@@ -933,6 +933,103 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   });
   const trades = tradesData ?? [];
 
+  // Format a numeric RR value as "1:X" string
+  const fmtRR = (v: any): string | null => {
+    if (v == null) return null;
+    const n = typeof v === "number" ? v : parseFloat(String(v));
+    if (isNaN(n)) return String(v);
+    return `1:${n}`;
+  };
+
+  // Distribute parsed fields across s2, s3 and s4 with proper key mapping
+  // and derive calculated fields (pips, planned/actual prices, MAE/MFE, RR).
+  const applyAnalyzedFields = useCallback((fields: Record<string, any>, confidence: string) => {
+    const s2Up: Record<string, any> = {};
+    const s3Up: Record<string, any> = {};
+    const s4Up: Record<string, any> = {};
+    const filled = new Set<string>();
+
+    const set2 = (k: string, v: any) => { if (v != null && v !== "") { s2Up[k] = v; filled.add(k); } };
+    const set3 = (k: string, v: any) => { if (v != null && v !== "") { s3Up[k] = v; filled.add(k); } };
+    const set4 = (k: string, v: any) => { if (v != null && v !== "") { s4Up[k] = v; filled.add(k); } };
+
+    // ── Step 2: Execution details ──────────────────────────────────────────
+    set2("instrument",            fields.instrument);
+    set2("direction",             fields.direction);
+    set2("lotSize",               fields.lotSize != null ? String(fields.lotSize) : null);
+    set2("entryPrice",            fields.entryPrice != null ? String(fields.entryPrice) : null);
+    set2("stopLoss",              fields.stopLoss != null ? String(fields.stopLoss) : null);
+    set2("takeProfit",            fields.takeProfit != null ? String(fields.takeProfit) : null);
+    set2("stopLossDistancePips",  fields.stopLossPips != null ? String(fields.stopLossPips) : null);
+    set2("takeProfitDistancePips",fields.takeProfitPips != null ? String(fields.takeProfitPips) : null);
+    set2("outcome",               fields.outcome);
+    set2("entryTime",             fields.entryTime);
+    set2("exitTime",              fields.exitTime);
+    set2("dayOfWeek",             fields.dayOfWeek);
+    set2("tradeDuration",         fields.tradeDuration != null ? String(fields.tradeDuration) : null);
+
+    // ── Step 3: Session / context ──────────────────────────────────────────
+    if (fields.sessionName) {
+      // Map free-text session names to the closest dropdown value
+      const sn = String(fields.sessionName).toLowerCase();
+      if (/london/.test(sn) && /new.?york|us/.test(sn))   set3("sessionName", "Overlap");
+      else if (/london/.test(sn))                          set3("sessionName", "London");
+      else if (/new.?york|us|ny/.test(sn))                 set3("sessionName", "New York");
+      else if (/tokyo|asian|asia/.test(sn))                 set3("sessionName", "Tokyo");
+      else if (/sydney|aus/.test(sn))                       set3("sessionName", "Sydney");
+      else if (/overlap/.test(sn))                          set3("sessionName", "Overlap");
+    }
+    if (fields.sessionPhase) {
+      const sp = String(fields.sessionPhase).toLowerCase();
+      if (/open|early|start/.test(sp))    set3("sessionPhase", "Open");
+      else if (/mid|middle/.test(sp))     set3("sessionPhase", "Mid");
+      else if (/close|late|end/.test(sp)) set3("sessionPhase", "Close");
+    }
+
+    // ── Step 4: Performance data ───────────────────────────────────────────
+    // Planning vs Execution prices
+    set4("plannedEntry", fields.entryPrice != null ? String(fields.entryPrice) : null);
+    set4("plannedSL",    fields.stopLoss   != null ? String(fields.stopLoss)   : null);
+    set4("plannedTP",    fields.takeProfit != null ? String(fields.takeProfit) : null);
+    set4("actualEntry",  fields.entryPrice != null ? String(fields.entryPrice) : null);
+    set4("actualSL",     fields.stopLoss   != null ? String(fields.stopLoss)   : null);
+    set4("actualTP",     fields.closingPrice != null ? String(fields.closingPrice) : (fields.takeProfit != null ? String(fields.takeProfit) : null));
+
+    // MAE / MFE
+    if (fields.drawdownPoints != null) set4("mae", `${fields.drawdownPoints} pts`);
+    if (fields.runUpPoints    != null) set4("mfe", `${fields.runUpPoints} pts`);
+
+    // RR — formatted as "1:X"
+    if (fields.plannedRR  != null) set4("plannedRR",  fmtRR(fields.plannedRR));
+    if (fields.achievedRR != null) set4("achievedRR", fmtRR(fields.achievedRR));
+
+    // Pips / Points: outcome-driven
+    // - Loss  → negative SL distance
+    // - Win / Open → open P/L if available, else closed P/L, else actual TP pips
+    const isLoss    = fields.outcome === "Loss";
+    const slPips    = fields.stopLossPips ?? fields.plannedSLPips;
+    const openPL    = fields.openPLPoints;
+    const closedPL  = fields.closedPLPips;
+    const actualTP  = fields.actualTPPips;
+
+    let pips: string | null = null;
+    if (isLoss && slPips != null) {
+      pips = String(-Math.abs(slPips));
+    } else if (openPL != null && openPL !== 0) {
+      pips = String(openPL);
+    } else if (closedPL != null && closedPL !== 0) {
+      pips = String(closedPL);
+    } else if (actualTP != null) {
+      pips = String(actualTP);
+    }
+    if (pips != null) set4("pipsGainedLost", pips);
+
+    setS2(prev => ({ ...prev, ...s2Up, ocrConfidence: confidence, ocrValidation: "" }));
+    setS3(prev => ({ ...prev, ...s3Up }));
+    setS4(prev => ({ ...prev, ...s4Up }));
+    setOcrFields(prev => new Set([...prev, ...filled]));
+  }, []);
+
   const handleScreenshotUpload = useCallback(async (field: string, value: any) => {
     if (field === "screenshot" || field === "exitScreenshot") {
       setS2(prev => ({ ...prev, [field]: value }));
@@ -942,10 +1039,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
           const res = await raw.json();
           if (res?.fields) {
-            const filled = new Set<string>(Object.keys(res.fields));
-            setOcrFields(prev => new Set([...prev, ...filled]));
-            setS2(prev => ({ ...prev, ...res.fields, ocrConfidence: res.confidence ?? "high", ocrValidation: res.validation ?? "" }));
-            if (res.fields.instrument) setS2(prev => ({ ...prev, instrument: res.fields.instrument }));
+            applyAnalyzedFields(res.fields, res.confidence ?? "high");
           }
         } catch {
           // OCR failed silently — user can fill manually
@@ -959,9 +1053,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         const raw = await apiRequest("POST", "/api/journal/analyze-text", { text: value });
         const res = await raw.json();
         if (res?.fields) {
-          const filled = new Set<string>(Object.keys(res.fields));
-          setOcrFields(prev => new Set([...prev, ...filled]));
-          setS2(prev => ({ ...prev, ...res.fields, ocrConfidence: "text input", ocrValidation: res.validation ?? "" }));
+          applyAnalyzedFields(res.fields, "text input");
         }
       } catch {
         // silent
@@ -969,7 +1061,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         setAnalyzing(false);
       }
     }
-  }, []);
+  }, [applyAnalyzedFields]);
 
   const handleSave = async () => {
     setSaving(true);

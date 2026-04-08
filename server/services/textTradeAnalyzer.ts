@@ -15,6 +15,8 @@ function num(raw: string | undefined): number | null {
   if (!raw) return null;
   // Strip currency symbols, commas, trailing units (pips, pts, R, x, %)
   const cleaned = raw.replace(/[$€£,]/g, "").replace(/\s*(pips?|pts?|r|x|%)\s*$/i, "").trim();
+  // parseFloat naturally stops at the first non-numeric char so parenthetical
+  // notes like "(3.1 points)" are safely ignored
   const n = parseFloat(cleaned);
   return isNaN(n) ? null : n;
 }
@@ -36,7 +38,7 @@ function direction(raw: string | undefined): string | null {
 function outcome(raw: string | undefined): string | null {
   if (!raw) return null;
   const v = raw.trim().toLowerCase();
-  if (/win|profit|tp.?hit/.test(v)) return "Win";
+  if (/win|profit|tp.?hit|open.*profit/.test(v)) return "Win";
   if (/loss|sl.?hit|stopped/.test(v)) return "Loss";
   if (/be|break.?even/.test(v)) return "BE";
   return null;
@@ -50,8 +52,22 @@ function bool(raw: string | undefined): boolean | null {
   return null;
 }
 
+/**
+ * Normalise a datetime string to datetime-local format (YYYY-MM-DDTHH:mm).
+ * Handles "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DDTHH:mm:ss", "N/A" etc.
+ */
+function normDatetime(raw: string | null): string | null {
+  if (!raw) return null;
+  if (/n\/?a/i.test(raw.trim())) return null;
+  // "2018-02-07 04:10:00" or "2018-02-07T04:10:00"
+  const m = raw.match(/(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/);
+  if (m) return `${m[1]}T${m[2]}`;
+  return null;
+}
+
 // ── Label → field map ──────────────────────────────────────────────────────
 // Each entry: [regex that matches the label, field name in the fields dict]
+// ORDER MATTERS — more-specific patterns must come before generic ones.
 
 const LABEL_MAP: [RegExp, string][] = [
   // Trade identification
@@ -61,12 +77,12 @@ const LABEL_MAP: [RegExp, string][] = [
   [/entry.?price/i,                              "entryPrice"],
   [/opening.?price|open.?price/i,                "openingPrice"],
   [/closing.?price|close.?price/i,               "closingPrice"],
-  // SL — price first, then pips variants
+  // SL — specific variants before generic
   [/stop.?loss.?price|sl.?price/i,               "stopLoss"],
   [/actual.?sl.?pips?|actual.?stop.?loss.?pips?/i, "actualSLPips"],
   [/planned.?sl.?pips?|planned.?stop.?loss.?pips?/i, "plannedSLPips"],
   [/stop.?loss.?pips?|sl.?pips?|sl.?dist/i,     "stopLossPips"],
-  // TP — price first, then pips variants
+  // TP — specific variants before generic
   [/take.?profit.?price|tp.?price/i,             "takeProfit"],
   [/actual.?tp.?pips?|actual.?take.?profit.?pips?/i, "actualTPPips"],
   [/planned.?tp.?pips?|planned.?take.?profit.?pips?/i, "plannedTPPips"],
@@ -75,19 +91,19 @@ const LABEL_MAP: [RegExp, string][] = [
   [/lot.?size|lots?$/i,                          "lotSize"],
   [/units?$/i,                                   "units"],
   [/contract.?size/i,                            "contractSize"],
-  // P&L
+  // P&L — open vs closed kept separate
   [/closed.?p[\s\/]?l|closed.?pnl/i,            "closedPLPips"],
   [/open.?p[\s\/]?l|open.?pnl/i,                "openPLPoints"],
   [/drawdown|mae/i,                              "drawdownPoints"],
   [/run.?up|mfe/i,                               "runUpPoints"],
-  // Risk & Reward
+  // Risk & Reward — specific before generic
   [/price.?excursion|excursion.?r/i,             "priceExcursionR"],
   [/achieved.?rr|actual.?rr/i,                   "achievedRR"],
   [/planned.?rr/i,                               "plannedRR"],
   [/risk.?reward|r[\s:]?r|rr$/i,                "riskReward"],
   // Outcome
   [/outcome|result|trade.?result/i,              "outcome"],
-  [/trade.?open|still.?open|open.?trade/i,       "tradeIsOpen"],
+  [/trade.?open|still.?open|open.?trade|whether.*open/i, "tradeIsOpen"],
   // Time & Session
   [/entry.?time|entry.?date/i,                   "entryTime"],
   [/exit.?time|exit.?date|close.?time/i,         "exitTime"],
@@ -100,8 +116,7 @@ const LABEL_MAP: [RegExp, string][] = [
 // ── Core parser ────────────────────────────────────────────────────────────
 
 function extractValue(line: string): string | undefined {
-  // Matches: "Label: value", "Label = value", "Label  value"
-  // Strip leading bullet chars and section headers (lines with no value part)
+  // Matches: "Label: value", "Label = value"
   const stripped = line.replace(/^[\s•\-*▸►·]+/, "").trim();
   const m = stripped.match(/^[^:=]+[:=]\s*(.+)$/);
   if (m) return m[1].trim();
@@ -122,7 +137,8 @@ export function parseTradeText(text: string): {
     stopLoss: null, stopLossPips: null, plannedSLPips: null, actualSLPips: null,
     takeProfit: null, takeProfitPips: null, plannedTPPips: null, actualTPPips: null,
     lotSize: null, units: null, contractSize: null,
-    openPLPoints: null, drawdownPoints: null, runUpPoints: null,
+    openPLPoints: null, closedPLPips: null,
+    drawdownPoints: null, runUpPoints: null,
     riskReward: null, plannedRR: null, achievedRR: null, priceExcursionR: null,
     outcome: null, tradeIsOpen: null,
     entryTime: null, exitTime: null, tradeDuration: null,
@@ -141,7 +157,6 @@ export function parseTradeText(text: string): {
     if (!trimmed || trimmed.length < 3) continue;
 
     for (const [pattern, fieldName] of LABEL_MAP) {
-      // Check if this line's label part matches the pattern
       const labelPart = trimmed.split(/[:=]/)[0].trim();
       if (!pattern.test(labelPart)) continue;
 
@@ -152,6 +167,7 @@ export function parseTradeText(text: string): {
         case "direction":       fields.direction       = direction(raw) ?? str(raw); break;
         case "outcome":         fields.outcome         = outcome(raw);               break;
         case "tradeIsOpen":     fields.tradeIsOpen     = bool(raw);                  break;
+        case "closedPLPips":    fields.closedPLPips    = num(raw);                   break;
         case "instrument":
         case "pairCategory":
         case "tradeDuration":
@@ -160,12 +176,15 @@ export function parseTradeText(text: string): {
         case "sessionPhase":
         case "entryTime":
         case "exitTime":        fields[fieldName]      = str(raw);                   break;
-        case "closedPLPips":    fields.openPLPoints    = num(raw);                   break;
         default:                fields[fieldName]      = num(raw) ?? str(raw);       break;
       }
       break; // matched — move to next line
     }
   }
+
+  // Normalise datetime strings to datetime-local format
+  fields.entryTime = normDatetime(fields.entryTime);
+  fields.exitTime  = normDatetime(fields.exitTime);
 
   // Propagate plannedSLPips → stopLossPips if stopLossPips missing
   if (fields.stopLossPips === null && fields.plannedSLPips !== null)
@@ -175,6 +194,8 @@ export function parseTradeText(text: string): {
   // plannedRR fallback
   if (fields.plannedRR === null && fields.riskReward !== null)
     fields.plannedRR = fields.riskReward;
+  // tradeIsOpenFlag
+  if (fields.tradeIsOpen === true) fields.tradeIsOpenFlag = true;
 
   const fieldCount = Object.values(fields).filter(v => v !== null && v !== false).length;
 
