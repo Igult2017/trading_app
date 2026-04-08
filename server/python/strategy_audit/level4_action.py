@@ -72,7 +72,7 @@ def _generate_policy_suggestions(
                     f"{best_session} has a {best_wr:.0f}% win rate vs "
                     f"{worst_wr:.0f}% in {worst_session} — a {spread:.0f}pp gap."
                 ),
-                "expectedImpact": f"+{spread * 0.4:.0f}% estimated win rate improvement",
+                "expectedImpact": f"Eliminate {worst_session} session — focus on {best_session} only",
             })
 
     # ── 2. Confluence quality floor ──────────────────────────────────────────
@@ -114,7 +114,7 @@ def _generate_policy_suggestions(
                 f"{early_exit:.0f}% of wins were closed before reaching Take Profit. "
                 "Premature exits suppress the average win size and reduce profit factor."
             ),
-            "expectedImpact": f"Estimated +{early_exit * 0.1:.1f}% improvement in profit factor",
+            "expectedImpact": "Stop closing trades before TP — let winners run fully",
         })
 
     # ── 5. Risk sizing discipline ────────────────────────────────────────────
@@ -201,11 +201,19 @@ def _detect_edge_decay(trades: list[dict]) -> dict:
     Decay is detected when latest 30d win rate is >10pp below peak AND
     the decline spans ≥60 days.
     """
+    # Compute actual last-N expectancy from sorted trades
+    def _slice_expectancy(sorted_trades: list, n: int):
+        sl = sorted_trades[-n:] if len(sorted_trades) >= n else sorted_trades
+        pnls = [t["pnl"] for t in sl if t.get("pnl") is not None]
+        return round(safe_mean(pnls), 2) if pnls else None
+
     no_decay = {
-        "detected":       False,
-        "decayStartDate": None,
-        "decayMagnitude": 0.0,
-        "recommendation": "No edge decay detected — performance is stable.",
+        "detected":         False,
+        "decayStartDate":   None,
+        "decayMagnitude":   0.0,
+        "recommendation":   "No edge decay detected — performance is stable.",
+        "last50Expectancy": None,
+        "last200Expectancy":None,
     }
 
     # Need trades with valid dates
@@ -215,6 +223,10 @@ def _detect_edge_decay(trades: list[dict]) -> dict:
         )],
         key=lambda t: t.get("exit_dt") or t.get("entry_dt") or t.get("created_dt")
     )
+
+    # Always attach real sliced expectancy regardless of decay detection
+    no_decay["last50Expectancy"]  = _slice_expectancy(dated, 50)
+    no_decay["last200Expectancy"] = _slice_expectancy(dated, 200)
 
     if len(dated) < 20:
         return {**no_decay, "recommendation": "Insufficient data to assess edge decay (need 20+ dated trades)."}
@@ -257,14 +269,16 @@ def _detect_edge_decay(trades: list[dict]) -> dict:
 
     if decay_mag > 10 and span_days >= 60:
         return {
-            "detected":       True,
-            "decayStartDate": peak_date.strftime("%Y-%m-%d"),
-            "decayMagnitude": round(decay_mag, 1),
-            "recommendation": (
+            "detected":          True,
+            "decayStartDate":    peak_date.strftime("%Y-%m-%d"),
+            "decayMagnitude":    round(decay_mag, 1),
+            "recommendation":    (
                 f"Win rate peaked at {peak_wr:.0f}% on {peak_date.strftime('%b %d, %Y')} "
                 f"and has declined by {decay_mag:.0f}pp over {span_days} days to {latest_wr:.0f}%. "
                 "Review strategy against current market regime and recent trade selection criteria."
             ),
+            "last50Expectancy":  _slice_expectancy(dated, 50),
+            "last200Expectancy": _slice_expectancy(dated, 200),
         }
 
     return no_decay

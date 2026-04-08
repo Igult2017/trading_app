@@ -428,6 +428,11 @@ def compute_level1(trades: list[dict]) -> dict:
     kelly       = _kelly_edge(trades)
     persistence = _edge_persistence(trades)
 
+    wins_pnl  = [t["pnl"] for t in trades if t.get("win") is True  and t.get("pnl") is not None]
+    losses_pnl= [t["pnl"] for t in trades if t.get("win") is False and t.get("pnl") is not None]
+    avg_win_dollar  = round(safe_mean(wins_pnl),  2) if wins_pnl  else None
+    avg_loss_dollar = round(abs(safe_mean(losses_pnl)), 2) if losses_pnl else None
+
     return {
         "edgeSummary": {
             "overallWinRate": round(wr, 2),
@@ -435,6 +440,8 @@ def compute_level1(trades: list[dict]) -> dict:
             "expectancy":     round(exp, 2),
             "sampleSize":     n,
             "edgeVerdict":    verdict,
+            "avgWin":         avg_win_dollar,
+            "avgLoss":        avg_loss_dollar,
         },
         "conditionLabels":       win_labels,   # legacy key — kept for compatibility
         "winConditionLabels":    win_labels,
