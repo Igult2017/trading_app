@@ -1041,7 +1041,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
     { label: "Win Rate", value: `${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, sub: `+${((d.auditSummary?.winRate ?? 50) - 50).toFixed(1)}pp vs breakeven`, color: T.green },
     { label: "Edge Factor", value: (d.edgeVerdict?.profitFactor ?? 0) >= 999 ? "∞" : (d.edgeVerdict?.profitFactor ?? 0).toFixed(2), sub: "Profit factor", color: T.blue },
     { label: "Risk Entropy", value: `${(d.automationRisk?.score ?? 0).toFixed(2)}%`, sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: ((d.automationRisk?.score ?? 0) < 30 ? T.green : (d.automationRisk?.score ?? 0) < 60 ? T.amber : T.red) },
-    { label: "AI Confidence", value: `${(d.auditSummary?.aiConfidence ?? 0).toFixed(0)}/100`, sub: `Grade ${d.auditSummary?.grade ?? "—"}`, color: T.amber },
+    { label: "AI Confidence", value: "0/100", sub: "No AI connected", color: T.dim },
   ];
 
   return (
