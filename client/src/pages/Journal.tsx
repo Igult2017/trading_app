@@ -46,6 +46,7 @@ interface NavItem {
   icon: () => JSX.Element;
   badge?: string;
   arrow?: boolean;
+  disabled?: boolean;
 }
 
 interface NavGroup {
@@ -71,21 +72,28 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
   ]},
   { section: null, items: [
-    { id: 'settings', label: 'Settings', icon: SI.Settings },
+    { id: 'settings', label: 'Settings', icon: SI.Settings, disabled: true },
   ]},
 ];
 
 const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => (
-  <button onClick={onClick} data-testid={`nav-${item.id}`} style={{
-    width: '100%', display: 'flex', alignItems: 'center',
-    justifyContent: showLabels ? 'space-between' : 'center',
-    padding: showLabels ? '16px 14px' : '14px', borderRadius: 10, marginBottom: 4,
-    background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-    border: 'none',
-    cursor: 'pointer', transition: 'background 0.18s', fontFamily: "'Montserrat',sans-serif",
-  }}
-    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+  <button
+    onClick={item.disabled ? undefined : onClick}
+    data-testid={`nav-${item.id}`}
+    disabled={item.disabled}
+    style={{
+      width: '100%', display: 'flex', alignItems: 'center',
+      justifyContent: showLabels ? 'space-between' : 'center',
+      padding: showLabels ? '16px 14px' : '14px', borderRadius: 10, marginBottom: 4,
+      background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+      border: 'none',
+      cursor: item.disabled ? 'not-allowed' : 'pointer',
+      transition: 'background 0.18s', fontFamily: "'Montserrat',sans-serif",
+      opacity: item.disabled ? 0.35 : 1,
+      pointerEvents: item.disabled ? 'none' : undefined,
+    }}
+    onMouseEnter={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+    onMouseLeave={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'transparent'; }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
       <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: !showLabels ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.2s ease' }}><item.icon /></span>
       {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? '#f1f5f9' : 'rgba(148,163,184,0.75)', whiteSpace: 'nowrap' }}>{item.label}</span>}
