@@ -18,7 +18,7 @@ const RESOURCES = [
   { label: 'FREE TRADING JOURNAL', href: '/journal' },
   { label: 'SESSION CLOCK (TSC)', href: '/tsc' },
   { label: 'ECONOMIC CALENDAR', href: '/calendar' },
-  { label: 'TRADERS BLOCK', href: '/blog' },
+  { label: 'TRADERS BLOG', href: '/blog' },
   { label: 'COPIER', href: '#' },
 ];
 
