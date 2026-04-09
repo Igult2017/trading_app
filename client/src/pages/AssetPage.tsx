@@ -512,7 +512,7 @@ export default function AssetPage() {
                 <line x1="14" y1="58" x2="54" y2="10" stroke="#5b4fcf" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
               </svg>
               <span style={{
-                fontSize: 16, fontWeight: 800, color: "#ffffff",
+                fontSize: 8, fontWeight: 800, color: "#ffffff",
                 position: "relative", letterSpacing: "0.02em",
               }}>{data.probability}%</span>
             </div>
@@ -520,7 +520,7 @@ export default function AssetPage() {
             {/* Text */}
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: 20, fontWeight: 800, color: "#ffffff",
+                fontSize: 10, fontWeight: 800, color: "#ffffff",
                 letterSpacing: "0.05em", marginBottom: 5,
               }}>
                 PROBABILITY: {data.probability}%
