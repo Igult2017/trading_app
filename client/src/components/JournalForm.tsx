@@ -114,6 +114,48 @@ const TJ_CSS = `
   .tj-strip.danger { background: rgba(232,84,84,0.06); border-color: rgba(232,84,84,0.2); color: var(--c-danger); }
   .tj-strip.info { background: rgba(77,166,255,0.06); border-color: rgba(77,166,255,0.2); color: var(--c-info); }
 
+  /* ── Success overlay ── */
+  .tj-success-overlay { position: absolute; inset: 0; background: var(--c-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; padding: 2rem; animation: tj-fade-in 0.3s ease; }
+  @keyframes tj-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .tj-success-icon-wrap { width: 72px; height: 72px; border-radius: 50%; border: 2px solid rgba(61,220,132,0.35); background: rgba(61,220,132,0.06); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; position: relative; }
+  .tj-success-icon-wrap::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 1px solid rgba(61,220,132,0.1); }
+  .tj-success-check { font-size: 32px; color: #3ddc84; }
+
+  .tj-success-title { font-size: 18px; font-weight: 700; color: var(--c-text); letter-spacing: -0.01em; margin-bottom: 4px; text-align: center; }
+  .tj-success-sub { font-size: 11px; color: var(--c-hint); margin-bottom: 2rem; text-align: center; letter-spacing: 0.04em; }
+
+  .tj-success-card { width: 100%; max-width: 420px; background: var(--c-bg2); border: 1px solid var(--c-border2); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1.5rem; }
+  .tj-success-card-header { padding: 14px 16px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; }
+  .tj-success-instrument { font-size: 16px; font-weight: 700; color: var(--c-text); letter-spacing: 0.02em; }
+  .tj-success-dir { font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; }
+  .tj-success-dir.long { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+  .tj-success-dir.short { background: rgba(232,84,84,0.12); color: #f87171; border: 1px solid rgba(232,84,84,0.2); }
+
+  .tj-success-pnl-row { padding: 18px 16px; display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--c-border); }
+  .tj-success-pnl { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .tj-success-pnl.pos { color: #3ddc84; }
+  .tj-success-pnl.neg { color: var(--c-danger); }
+  .tj-success-pnl.be  { color: var(--c-warn); }
+  .tj-success-pnl-label { font-size: 10px; color: var(--c-hint); letter-spacing: 0.06em; }
+
+  .tj-success-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .tj-success-cell { padding: 11px 16px; border-bottom: 1px solid var(--c-border); }
+  .tj-success-cell:nth-child(odd) { border-right: 1px solid var(--c-border); }
+  .tj-success-cell-label { font-size: 8px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 3px; }
+  .tj-success-cell-val { font-size: 12px; font-weight: 600; color: var(--c-text); }
+  .tj-success-outcome { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .tj-success-outcome.win  { color: #3ddc84; }
+  .tj-success-outcome.loss { color: var(--c-danger); }
+  .tj-success-outcome.be   { color: var(--c-warn); }
+
+  .tj-success-actions { display: flex; gap: 10px; width: 100%; max-width: 420px; }
+  .tj-success-btn { flex: 1; padding: 11px 20px; border-radius: var(--radius); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.15s; text-align: center; }
+  .tj-success-btn.primary { background: var(--c-accent); border: 1px solid var(--c-accent); color: #000; }
+  .tj-success-btn.primary:hover { background: var(--c-accent2); border-color: var(--c-accent2); }
+  .tj-success-btn.ghost { background: transparent; border: 1px solid var(--c-border2); color: var(--c-muted); }
+  .tj-success-btn.ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
+
   .tj-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-top: 1px solid var(--c-border); margin-top: 1.5rem; background: var(--c-bg); flex-shrink: 0; }
   .tj-btn { padding: 9px 22px; border-radius: var(--radius); font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--c-border2); background: var(--c-bg2); color: var(--c-muted); transition: all 0.12s; letter-spacing: 0.06em; text-transform: uppercase; }
   .tj-btn:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-bg3); }
@@ -922,6 +964,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [s4, setS4] = useState({ ...INIT_STEP4 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedTrade, setSavedTrade] = useState<{
+    instrument: string; direction: string; outcome: string;
+    profitLoss: string; pips: string; grade: string; session: string; tf: string; category: string;
+  } | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrFields, setOcrFields] = useState<Set<string>>(new Set());
@@ -1107,6 +1153,17 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      setSavedTrade({
+        instrument: s2.instrument || "—",
+        direction:  s2.direction  || "Long",
+        outcome:    s2.outcome    || "Win",
+        profitLoss: s4.profitLoss,
+        pips:       s4.pipsGainedLost,
+        grade:      s1.tradeGrade || "—",
+        session:    s3.sessionName || "—",
+        tf:         s2.entryTF    || "—",
+        category:   s2.pairCategory || "—",
+      });
       setSaved(true);
       setS1({ ...INIT_STEP1 });
       setS2({ ...INIT_STEP2 });
@@ -1129,7 +1186,92 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       <style dangerouslySetInnerHTML={{ __html: TJ_CSS }} />
       <div className="tj-page">
         {/* ── Form column ── */}
-        <div className="tj-shell">
+        <div className="tj-shell" style={{ position: "relative" }}>
+          {/* ── Success overlay ── */}
+          {saved && savedTrade && (() => {
+            const pnlNum   = parseFloat(savedTrade.profitLoss);
+            const pipsNum  = parseFloat(savedTrade.pips);
+            const hasPnl   = savedTrade.profitLoss !== "" && !isNaN(pnlNum);
+            const hasPips  = savedTrade.pips !== "" && !isNaN(pipsNum);
+            const isWin    = savedTrade.outcome === "Win";
+            const isLoss   = savedTrade.outcome === "Loss";
+            const pnlCls   = isWin ? "pos" : isLoss ? "neg" : "be";
+            const outCls   = isWin ? "win" : isLoss ? "loss" : "be";
+            const dirCls   = savedTrade.direction === "Long" ? "long" : "short";
+            const pnlStr   = hasPnl
+              ? `${pnlNum >= 0 ? "+" : ""}$${Math.abs(pnlNum).toFixed(2)}`
+              : savedTrade.outcome === "Win" ? "Win" : savedTrade.outcome === "Loss" ? "Loss" : "BE";
+            return (
+              <div className="tj-success-overlay">
+                <div className="tj-success-icon-wrap">
+                  <span className="tj-success-check">✓</span>
+                </div>
+                <div className="tj-success-title">Trade Logged</div>
+                <div className="tj-success-sub">Entry recorded · form has been reset</div>
+
+                <div className="tj-success-card">
+                  <div className="tj-success-card-header">
+                    <span className="tj-success-instrument">{savedTrade.instrument}</span>
+                    <span className={`tj-success-dir ${dirCls}`}>{savedTrade.direction}</span>
+                  </div>
+
+                  <div className="tj-success-pnl-row">
+                    <span className={`tj-success-pnl ${pnlCls}`}>{pnlStr}</span>
+                    {hasPips && (
+                      <span className="tj-success-pnl-label">
+                        {pipsNum >= 0 ? "+" : ""}{pipsNum.toFixed(1)} pips
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="tj-success-grid">
+                    <div className="tj-success-cell">
+                      <div className="tj-success-cell-label">Outcome</div>
+                      <div className={`tj-success-outcome ${outCls}`}>{savedTrade.outcome}</div>
+                    </div>
+                    <div className="tj-success-cell">
+                      <div className="tj-success-cell-label">Grade</div>
+                      <div className="tj-success-cell-val">{savedTrade.grade}</div>
+                    </div>
+                    <div className="tj-success-cell">
+                      <div className="tj-success-cell-label">Session</div>
+                      <div className="tj-success-cell-val">{savedTrade.session}</div>
+                    </div>
+                    <div className="tj-success-cell">
+                      <div className="tj-success-cell-label">Timeframe</div>
+                      <div className="tj-success-cell-val">{savedTrade.tf}</div>
+                    </div>
+                    <div className="tj-success-cell" style={{ borderBottom: "none" }}>
+                      <div className="tj-success-cell-label">Category</div>
+                      <div className="tj-success-cell-val">{savedTrade.category}</div>
+                    </div>
+                    <div className="tj-success-cell" style={{ borderBottom: "none" }}>
+                      <div className="tj-success-cell-label">Entries</div>
+                      <div className="tj-success-cell-val" style={{ color: "var(--c-hint)" }}>
+                        +1 logged
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tj-success-actions">
+                  <button
+                    className="tj-success-btn primary"
+                    onClick={() => { setSaved(false); setSavedTrade(null); }}
+                  >
+                    + Log Another Trade
+                  </button>
+                  <button
+                    className="tj-success-btn ghost"
+                    onClick={() => { setSaved(false); setSavedTrade(null); }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="tj-progress-bar">
             <div className="tj-progress-fill" style={{ width: `${(step / STEPS_DEF.length) * 100}%` }} />
           </div>
@@ -1148,11 +1290,6 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           </div>
 
           <div className="tj-body">
-            {saved && (
-              <div className="tj-strip" style={{ marginBottom: 16 }}>
-                ✓ Trade saved successfully! Form has been reset.
-              </div>
-            )}
             {saveError && (
               <div className="tj-strip danger" style={{ marginBottom: 16 }}>
                 ✕ {saveError}
