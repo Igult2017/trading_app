@@ -106,7 +106,7 @@ export default function HomeFooter() {
           <div>
             <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', color: '#c8d8e8', marginBottom: 16, marginTop: 0 }}>STAY UPDATED</h4>
             <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 11, color: '#4a6580', letterSpacing: '0.04em', lineHeight: 1.7, marginBottom: 20 }}>
-              GET INTRADAY ZONE ALERTS AND MACRO UPDATES DIRECTLY TO YOUR INBOX.
+              Get Data backed Strategies with real edge directly into your email
             </p>
             <div style={{ display: 'flex' }}>
               <input type="email" placeholder="EMAIL ADDRESS"
