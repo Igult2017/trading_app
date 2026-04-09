@@ -34,7 +34,7 @@ interface AuditData {
   drawdown: { maxPeakToValley: number; recovery: number; stagnation: number; calmarRatio: number; ulcerIndex: number };
   equityVariance: { simulationConfidence: number; varianceSkew: number; maxCluster: number; bestMonth: number; worstMonth: number; mcBars: number[] };
   auditScope: { totalTrades: number; statisticalSignificance: number };
-  tradeQuality: { aTrades: { count: number; profit: number }; bTrades: { count: number; profit: number }; cTrades: { count: number; profit: number } };
+  tradeQuality: { aTrades: { count: number; profit: number | null }; bTrades: { count: number; profit: number | null }; cTrades: { count: number; profit: number | null } };
   conditionalEdge: {
     liquidityGap: { label: string; rMultiple: number; samples: number; winRate: number };
     nonQualified: { label: string; rMultiple: number; samples: number; winRate: number };
@@ -47,15 +47,15 @@ interface AuditData {
   lossCluster: { avgLength: number; worstDD: number | null; clusterFrequency: number; clusterDates: string[] };
   executionAsymmetry: {
     avgWinRR: number; avgLossRR: number; asymmetryScore: number;
-    slippageWins: number; slippageLosses: number; earlyExitRate: number; lateEntryRate: number;
+    slippageWins: number | null; slippageLosses: number | null; earlyExitRate: number; lateEntryRate: number;
   };
   regimeTransition: {
     trendingWinRate: number; rangingWinRate: number; breakoutWinRate: number;
-    regimeDetectionAccuracy: number; avgTransitionDD: number; recoveryTrades: number;
+    regimeDetectionAccuracy: number; avgTransitionDD: number | null; recoveryTrades: number | null;
   };
   capitalHeat: {
     avgRiskPerTrade: number; maxRiskPerTrade: number; riskConsistencyScore: number;
-    correlatedExposure: string[]; peakEquityAtRisk: number; timeAtPeak: number;
+    correlatedExposure: string[]; peakEquityAtRisk: number | null; timeAtPeak: number | null;
   };
   automationRisk: { score: number; issues: string[]; label: string };
   psychologyScore: number;
@@ -504,9 +504,9 @@ function Page2({ d }: { d: AuditData }) {
         <Cell>
           <CellTitle>Trade Quality Stratification</CellTitle>
           {[
-            { grade: "A", color: T.green, count: tq.aTrades.count, profit: `${tq.aTrades.profit.toFixed(0)}% of profit`, badge: "Primary", bc: T.green2 },
-            { grade: "B", color: T.blue, count: tq.bTrades.count, profit: `${tq.bTrades.profit.toFixed(0)}% of profit`, badge: "Support", bc: T.blue2 },
-            { grade: "C", color: T.muted, count: tq.cTrades.count, profit: `${tq.cTrades.profit.toFixed(0)}% of profit`, badge: "Low Edge", bc: T.line2 },
+            { grade: "A", color: T.green, count: tq.aTrades.count, profit: tq.aTrades.profit != null ? `${tq.aTrades.profit.toFixed(0)}% win rate` : "—", badge: "Primary", bc: T.green2 },
+            { grade: "B", color: T.blue, count: tq.bTrades.count, profit: tq.bTrades.profit != null ? `${tq.bTrades.profit.toFixed(0)}% win rate` : "—", badge: "Support", bc: T.blue2 },
+            { grade: "C", color: T.muted, count: tq.cTrades.count, profit: tq.cTrades.profit != null ? `${tq.cTrades.profit.toFixed(0)}% win rate` : "—", badge: "Low Edge", bc: T.line2 },
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 6 }}>
               <div style={{ ...mono, fontSize: 22, color: item.color, width: 28 }}>{item.grade}</div>
@@ -605,8 +605,8 @@ function Page3({ d }: { d: AuditData }) {
         </Cell>
         <Cell>
           <CellTitle>Execution Asymmetry</CellTitle>
-          <StatRow label="Slippage (Wins)" value={`${ea.slippageWins.toFixed(1)} ticks`} color={T.green} />
-          <StatRow label="Slippage (Losses)" value={`${ea.slippageLosses.toFixed(1)} ticks`} color={T.red} last />
+          <StatRow label="Slippage (Wins)" value={ea.slippageWins != null ? `${ea.slippageWins.toFixed(1)} ticks` : "—"} color={T.green} />
+          <StatRow label="Slippage (Losses)" value={ea.slippageLosses != null ? `${ea.slippageLosses.toFixed(1)} ticks` : "—"} color={T.red} last />
           <div style={{ marginTop: 12, padding: 10, border: `1px solid ${T.line}`, background: T.bg3 }}>
             <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".1em" }}>ADVERSE FILL RATIO</div>
             <div style={{ ...mono, fontSize: 18, color: T.amber, marginTop: 4 }}>{adverseRatio}×</div>
@@ -614,9 +614,9 @@ function Page3({ d }: { d: AuditData }) {
         </Cell>
         <Cell style={{ borderRight: "none" }}>
           <CellTitle>Regime Transition</CellTitle>
-          <StatRow label="Avg Transition DD" value={`${rt.avgTransitionDD.toFixed(1)}%`} color={T.amber} />
-          <StatRow label="Recovery Trades" value={rt.recoveryTrades} color={T.blue} />
-          <StatRow label="Capital at Peak" value={`${ch.peakEquityAtRisk.toFixed(0)}%`} />
+          <StatRow label="Avg Transition DD" value={rt.avgTransitionDD != null ? `${rt.avgTransitionDD.toFixed(1)}%` : "—"} color={T.amber} />
+          <StatRow label="Recovery Trades" value={rt.recoveryTrades ?? "—"} color={T.blue} />
+          <StatRow label="Capital at Peak" value={ch.peakEquityAtRisk != null ? `${ch.peakEquityAtRisk.toFixed(0)}%` : "—"} />
           <StatRow label="Automation Risk" value={`${ar.score.toFixed(0)}/100`} color={ar.score < 30 ? T.green : ar.score < 60 ? T.amber : T.red} last />
         </Cell>
       </div>
@@ -767,7 +767,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   });
 
   if (isLoading) return <AILoadingState label="Running AI analysis…" />;
-  if (isError || !data?.success) return <AIErrorState msg={data?.error ?? "AI analysis failed"} retry={refetch} />;
+  if (isError || !data?.success || data?.error) return <AIErrorState msg={data?.error ?? "AI analysis failed"} retry={refetch} />;
 
   const findings  = data.findings ?? [];
   const checklist = data.pre_trade_checklist ?? [];
@@ -889,7 +889,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   });
 
   if (isLoading) return <AILoadingState label="Building AI strategy…" />;
-  if (isError || !data?.success) return <AIErrorState msg={data?.error ?? "AI strategy failed"} retry={refetch} />;
+  if (isError || !data?.success || data?.error) return <AIErrorState msg={data?.error ?? "AI strategy failed"} retry={refetch} />;
 
   const entries = data.entry_conditions ?? [];
   const avoids  = data.avoid_conditions ?? [];
@@ -1041,7 +1041,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
     { label: "Win Rate", value: `${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, sub: `+${((d.auditSummary?.winRate ?? 50) - 50).toFixed(1)}pp vs breakeven`, color: T.green },
     { label: "Edge Factor", value: (d.edgeVerdict?.profitFactor ?? 0) >= 999 ? "∞" : (d.edgeVerdict?.profitFactor ?? 0).toFixed(2), sub: "Profit factor", color: T.blue },
     { label: "Risk Entropy", value: `${(d.automationRisk?.score ?? 0).toFixed(2)}%`, sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: ((d.automationRisk?.score ?? 0) < 30 ? T.green : (d.automationRisk?.score ?? 0) < 60 ? T.amber : T.red) },
-    { label: "AI Confidence", value: `${(d.auditSummary?.aiConfidence ?? 0).toFixed(0)}/100`, sub: `Grade ${d.auditSummary?.grade ?? "—"}`, color: T.amber },
+    { label: "AI Confidence", value: "0/100", sub: "No AI connected", color: T.dim },
   ];
 
   return (

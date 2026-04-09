@@ -1,23 +1,67 @@
-<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="64" height="64" rx="12" fill="#0F172A"/>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ringGrad" x1="1" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#1a56db"/>
+      <stop offset="100%" stop-color="#3b9edd"/>
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="journalBot" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="journalMid" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#6ee7b7"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="journalTop" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#a7f3d0"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#00000022"/>
+    </filter>
+  </defs>
 
-  <!-- Subtle grid lines -->
-  <line x1="8" y1="20" x2="56" y2="20" stroke="#1e293b" stroke-width="1"/>
-  <line x1="8" y1="34" x2="56" y2="34" stroke="#1e293b" stroke-width="1"/>
-  <line x1="8" y1="48" x2="56" y2="48" stroke="#1e293b" stroke-width="1"/>
+  <!-- White rounded-rect background -->
+  <rect width="512" height="512" rx="96" fill="white"/>
 
-  <!-- Upward trend line -->
+  <!-- Blue circle ring -->
+  <circle cx="256" cy="260" r="196" fill="none"
+          stroke="url(#ringGrad)" stroke-width="30" filter="url(#soft)"/>
+
+  <!-- Blue upward chart line -->
   <polyline
-    points="8,50 18,40 28,44 40,26 54,12"
+    points="88,374 146,294 184,324 234,196 286,234 354,112"
     fill="none"
-    stroke="#22c55e"
-    stroke-width="3.5"
+    stroke="#1d6fd8"
+    stroke-width="22"
     stroke-linecap="round"
     stroke-linejoin="round"
+    filter="url(#soft)"
   />
 
-  <!-- Glowing dot at the tip (latest price) -->
-  <circle cx="54" cy="12" r="5" fill="#22c55e" opacity="0.25"/>
-  <circle cx="54" cy="12" r="3" fill="#22c55e"/>
+  <!-- Teal/green diagonal arrow -->
+  <!-- shaft -->
+  <line x1="200" y1="316" x2="366" y2="132"
+        stroke="url(#arrowGrad)" stroke-width="28" stroke-linecap="round"
+        filter="url(#soft)"/>
+  <!-- arrowhead (triangle pointing upper-right) -->
+  <polygon points="336,94 410,104 400,178" fill="url(#arrowGrad)" filter="url(#soft)"/>
+
+  <!-- Journal / notebook icon (3 stacked pages) -->
+  <!-- bottom page (darker) -->
+  <rect x="186" y="362" width="138" height="82" rx="10" fill="url(#journalBot)"/>
+  <!-- middle page -->
+  <rect x="186" y="348" width="138" height="82" rx="10" fill="url(#journalMid)"/>
+  <!-- top page -->
+  <rect x="186" y="334" width="138" height="82" rx="10" fill="url(#journalTop)"/>
+  <!-- journal divider line (spine) -->
+  <rect x="186" y="352" width="138" height="6" rx="0" fill="#065f46" opacity="0.35"/>
+  <!-- text lines on top page -->
+  <rect x="202" y="368" width="106" height="7" rx="3.5" fill="#065f46" opacity="0.45"/>
+  <rect x="202" y="384" width="106" height="7" rx="3.5" fill="#065f46" opacity="0.45"/>
+  <rect x="202" y="400" width="72"  height="7" rx="3.5" fill="#065f46" opacity="0.45"/>
 </svg>
