@@ -18,8 +18,8 @@ const RESOURCES = [
   { label: 'FREE TRADING JOURNAL', href: '/journal' },
   { label: 'SESSION CLOCK (TSC)', href: '/tsc' },
   { label: 'ECONOMIC CALENDAR', href: '/calendar' },
-  { label: 'STRATEGY BLOG', href: '/blog' },
-  { label: 'BACKTESTING DATA', href: '#' },
+  { label: 'TRADERS BLOCK', href: '/blog' },
+  { label: 'COPIER', href: '#' },
 ];
 
 const LEGAL = ['PRIVACY POLICY', 'TERMS OF SERVICE', 'CONTACT'];
