@@ -17,7 +17,7 @@ import Cryptocurrency from "@/pages/Cryptocurrency";
 import Join from "@/pages/Join";
 import Blog from "@/pages/Blog";
 import Journal from "@/pages/Journal";
-import AssetsPage from "@/pages/AssetsPage";
+import AssetPage from "@/pages/AssetPage";
 import TscPage from "@/pages/TscPage";
 import BlogPage from "@/pages/BlogPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
@@ -59,7 +59,7 @@ export default function App() {
           <Route path="/blog" component={BlogPage} />
           <Route path="/calendar" component={EconomicCalendarPage} />
           <Route path="/journal" component={Journal} />
-          <Route path="/assets" component={AssetsPage} />
+          <Route path="/assets" component={AssetPage} />
           <Route>{() => <InnerPages />}</Route>
         </Switch>
         <Toaster />
