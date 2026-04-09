@@ -1381,7 +1381,8 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
 
 
 def calc_statistics(ctx: SharedContext) -> Dict:
-    if ctx.total < MIN_SAMPLE:
+    # t-test requires at least 2 trades (ddof=1 → variance undefined for n=1)
+    if ctx.total < 2:
         return {}
     pnl = ctx.pnl_arr
     t_stat, p_val = scipy_stats.ttest_1samp(pnl, 0)

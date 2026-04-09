@@ -63,9 +63,23 @@ function buildPayload(trades: any[], startingBalance?: number): PythonPayload {
 }
 
 function tryParseJSON(raw: string): MetricsResult | null {
+  // First try parsing the whole output as-is
   try {
     return JSON.parse(raw.trim()) as MetricsResult;
   } catch {
+    // scipy (and other Python libs) can print RuntimeWarnings to stdout,
+    // corrupting the JSON. Extract the JSON object by finding the outermost
+    // { ... } block so stray warning lines before/after are ignored.
+    const start = raw.indexOf("{");
+    const end   = raw.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
+      try {
+        const extracted = raw.slice(start, end + 1);
+        return JSON.parse(extracted) as MetricsResult;
+      } catch {
+        // fall through to error log
+      }
+    }
     console.error(
       "[MetricsCalculator] JSON parse error. First 300 chars of stdout:",
       raw.slice(0, 300)
