@@ -1,70 +1,52 @@
-# FSD Journal — Trading Journal & Signal Analysis Platform
+# FSD Journal
 
-## Overview
-A professional-grade trading journal and signal analysis platform for forex, cryptocurrency, and commodity traders. Features real-time market data, AI-driven signal validation, automated trade journaling with OCR, and advanced performance analytics.
+A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders.
 
 ## Architecture
 
-### Stack
-- **Frontend**: React 18 + Vite + Tailwind CSS + Radix UI + TanStack Query
-- **Backend**: Node.js + Express + TypeScript (tsx for dev)
-- **Database**: PostgreSQL via Drizzle ORM (Replit built-in DB)
-- **Python**: Sub-process scripts for advanced analytics (metrics_calculator.py, price_daemon.py)
-- **Charts**: lightweight-charts for technical analysis views
-- **Auth**: Passport.js (local strategy) + express-session
-
-### Project Structure
-```
-client/          React frontend (Vite)
-  src/
-    components/  UI components (trading charts, metrics panels, forms)
-    pages/       Dashboard, Journal, Analytics, Economic Calendar
-server/          Express backend (TypeScript)
-  routes.ts      All API endpoints
-  db.ts          PostgreSQL connection (Drizzle ORM)
-  db-init.ts     Schema initialization
-  services/      OCR, signal detection, sentiment analysis, Python bridges
-  python/        Python scripts (metrics_calculator.py, price_daemon.py)
-  scrapers/      Economic calendar, interest rate scrapers
-  strategies/    Trading strategies (Smart Money Concepts)
-  lib/           Shared utilities (priceService, pythonBin, etc.)
-shared/          Shared schema (schema.ts) used by both client and server
-python/          Root-level signal scanner utility
-```
-
-### Key Files
-- `shared/schema.ts` — Database schema and Zod validation (source of truth)
-- `server/routes.ts` — All API routes
-- `server/db.ts` — Database connection
-- `server/index.ts` — App entry point (dev)
-- `server/index.prod.ts` — App entry point (prod)
-- `client/src/main.tsx` — React entry point
-- `vite.config.ts` — Vite configuration
+**Full-stack application:**
+- **Frontend**: React 18 + TypeScript + Vite, Tailwind CSS, Radix UI, TanStack Query, Wouter routing
+- **Backend**: Node.js + Express, TypeScript (tsx in dev), Drizzle ORM
+- **Database**: PostgreSQL (Replit built-in), managed with Drizzle Kit
+- **Python Services**: Flask-based internal services for OCR, analytics, price daemon
 
 ## Running the App
 
-### Development
-```
-npm run dev
-```
-Runs on port 5000 (Express serves both API and Vite dev server).
+The app starts with `npm run dev` which runs `tsx server/index.ts`.
 
-### Production Build
-```
-npm run build
-npm start
-```
+- Server listens on port 5000 (set via `PORT` env var)
+- In development, Vite middleware is mounted on the Express server for HMR
+- In production, built static files are served from `server/public`
 
-### Database
-```
-npm run db:push   # Push schema changes to database
-```
+## Key Files
+
+| Path | Description |
+|------|-------------|
+| `server/index.ts` | Main Express server entry point |
+| `server/routes.ts` | All API route definitions |
+| `server/db.ts` | Database connection (Drizzle + pg) |
+| `server/db-init.ts` | Schema initialization on startup |
+| `shared/schema.ts` | Drizzle ORM schema definitions |
+| `client/src/main.tsx` | React app entry point |
+| `client/src/App.tsx` | Routing and layout |
+| `server/python/price_daemon.py` | Python price service (optional) |
 
 ## Environment Variables
-- `DATABASE_URL` — PostgreSQL connection string (auto-set by Replit)
-- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` — DB credentials
-- `GEMINI_API_KEY` — Google Gemini AI (for signal validation/OCR)
-- `TELEGRAM_BOT_TOKEN` — Telegram bot for notifications
 
-## Workflow
-- **Start application**: `npm run dev` — runs on port 5000 (webview)
+- `DATABASE_URL` - PostgreSQL connection string (set by Replit database integration)
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - Individual DB credentials
+- `PORT` - Server port (default 5000)
+- `PYTHON_BIN` - Path to Python executable
+- `GOOGLE_GEMINI_API_KEY` / `GEMINI_API_KEY` - For AI signal analysis (optional)
+- `TELEGRAM_BOT_TOKEN` - For Telegram notifications (optional)
+
+## Database
+
+Uses Replit's built-in PostgreSQL. Tables are auto-created on startup via `server/db-init.ts`.
+
+To push schema changes: `npm run db:push`
+
+## Deployment
+
+Build: `npm run build` (builds Vite frontend + bundles server with esbuild)
+Run: `node dist/index.js`
