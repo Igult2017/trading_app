@@ -12,7 +12,6 @@ const MARKETS = [
   { label: 'US INDICES (NAS/SPX)', href: '#' },
   { label: 'COMMODITIES (GOLD/OIL)', href: '#' },
   { label: 'CRYPTOCURRENCY', href: '#' },
-  { label: 'INSTITUTIONAL ORDER FLOW', href: '#' },
 ];
 
 const RESOURCES = [
