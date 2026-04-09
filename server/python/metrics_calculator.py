@@ -420,14 +420,17 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
     raw_id  = g("id")
 
     # ── FIX: accept profitLoss (journalEntries) as well as pnl ──────────────
-    raw_pnl = _coerce_float(g("pnl")) 
+    raw_pnl = _coerce_float(g("pnl"))
     if raw_pnl is None:
         raw_pnl = _coerce_float(g("profitLoss"))
     if raw_pnl is None:
         raw_pnl = _coerce_float(raw.get("profit_loss"))
-
-    if raw_id is None or raw_pnl is None:
+    # Default to 0 when pnl is missing so the trade is still counted.
+    # Only drop the trade if it has no id at all (truly unidentifiable).
+    if raw_id is None:
         return None
+    if raw_pnl is None:
+        raw_pnl = 0.0
 
     # ── Timestamps ──────────────────────────────────────────────────────────
     # journalEntries uses entryTime / entryTimeUTC; original schema uses openedAt

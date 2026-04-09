@@ -560,7 +560,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
   ];
 
   const chartData = equityCurve.length > 0
-    ? equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))
+    ? [{ label: 'Start', pnl: 0 }, ...equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))]
     : [{ label: 'Start', pnl: 0 }];
 
   const recentTrades = [...entries].slice(0, 6).map((e: any) => ({
@@ -610,7 +610,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
             )}
           </div>
           <div style={{ height: 220, width: '100%' }}>
-            {chartData.length > 1 ? <NeonLineChart data={chartData} /> : (
+            {equityCurve.length > 0 ? <NeonLineChart data={chartData} /> : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No equity data yet</div>
             )}
           </div>
