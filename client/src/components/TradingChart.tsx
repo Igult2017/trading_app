@@ -2,18 +2,21 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   createChart,
   CandlestickSeries,
+  BarSeries,
   LineSeries,
+  AreaSeries,
   HistogramSeries,
   ColorType,
   CrosshairMode,
   LineStyle,
   type IChartApi,
   type ISeriesApi,
-  type CandlestickData,
   type LineData,
   type HistogramData,
   type Time,
 } from "lightweight-charts";
+
+export type ChartType = "candle" | "ha" | "bar" | "line" | "area";
 
 // ── Asset-class map ───────────────────────────────────────────────────────────
 const ASSET_CLASS_MAP: Record<string, "stock" | "forex" | "commodity" | "crypto"> = {
@@ -287,6 +290,7 @@ export interface Props {
   period?: string;
   height?: number;
   activeIndicators: Set<IndicatorId>;
+  chartType?: ChartType;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -344,6 +348,67 @@ function computeVolumeProfile(candles: CandleBar[], buckets = 40): VPBucket[] {
   }));
 }
 
+// ── Heikin-Ashi transform ─────────────────────────────────────────────────────
+function computeHA(candles: CandleBar[]): CandleBar[] {
+  const ha: CandleBar[] = [];
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const haClose = (c.open + c.high + c.low + c.close) / 4;
+    const haOpen  = i === 0
+      ? (c.open + c.close) / 2
+      : (ha[i - 1].open + ha[i - 1].close) / 2;
+    ha.push({
+      ...c,
+      open:  haOpen,
+      high:  Math.max(c.high, haOpen, haClose),
+      low:   Math.min(c.low,  haOpen, haClose),
+      close: haClose,
+    });
+  }
+  return ha;
+}
+
+// ── Main-series factory ───────────────────────────────────────────────────────
+function buildMainSeries(chart: IChartApi, type: ChartType): ISeriesApi<any> {
+  switch (type) {
+    case "bar":
+      return chart.addSeries(BarSeries, { upColor: "#26a69a", downColor: "#ef5350" });
+    case "line":
+      return chart.addSeries(LineSeries, {
+        color: "#3b82f6", lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+      });
+    case "area":
+      return chart.addSeries(AreaSeries, {
+        topColor: "rgba(59,130,246,0.28)", bottomColor: "rgba(59,130,246,0.0)",
+        lineColor: "#3b82f6", lineWidth: 2, priceLineVisible: false,
+      });
+    default: // candle | ha — both use CandlestickSeries
+      return chart.addSeries(CandlestickSeries, {
+        upColor: "#26a69a", downColor: "#ef5350",
+        borderVisible: false,
+        wickUpColor: "#26a69a", wickDownColor: "#ef5350",
+      });
+  }
+}
+
+// ── Apply data to main series (handles all chart types) ───────────────────────
+function applyMainData(series: ISeriesApi<any>, candles: CandleBar[], type: ChartType) {
+  if (!series || !candles.length) return;
+  try {
+    if (type === "line" || type === "area") {
+      series.setData(candles.map(c => ({ time: c.time as Time, value: c.close })));
+    } else if (type === "ha") {
+      series.setData(computeHA(candles).map(c => ({
+        time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close,
+      })));
+    } else {
+      series.setData(candles.map(c => ({
+        time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close,
+      })));
+    }
+  } catch {}
+}
+
 // ── Client-side candle cache (persists across symbol switches) ────────────────
 const _candleCache = new Map<string, CandleBar[]>();
 
@@ -377,11 +442,14 @@ export default function TradingChart({
   period   = "1d",
   height   = 320,
   activeIndicators,
+  chartType = "candle",
 }: Props) {
+  const chartTypeRef = useRef<ChartType>(chartType);
+  chartTypeRef.current = chartType;
   const containerRef = useRef<HTMLDivElement>(null);
   const vpCanvasRef  = useRef<HTMLCanvasElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
-  const candleRef    = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const candleRef    = useRef<ISeriesApi<any> | null>(null);
   const seriesMap    = useRef<Map<string, ISeriesApi<any>[]>>(new Map());
   const candlesRef   = useRef<CandleBar[]>([]);
 
@@ -424,13 +492,7 @@ export default function TradingChart({
       timeScale: { borderColor: "#0f1923", timeVisible: true, secondsVisible: false },
     });
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor:       "#26a69a",
-      downColor:     "#ef5350",
-      borderVisible: false,
-      wickUpColor:   "#26a69a",
-      wickDownColor: "#ef5350",
-    });
+    const candleSeries = buildMainSeries(chart, chartTypeRef.current);
 
     chartRef.current  = chart;
     candleRef.current = candleSeries;
@@ -450,6 +512,24 @@ export default function TradingChart({
       seriesMap.current.clear();
     };
   }, [height]);
+
+  // ── Swap main series when chartType changes ──────────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    // Remove current main series
+    if (candleRef.current) {
+      try { chart.removeSeries(candleRef.current); } catch {}
+      candleRef.current = null;
+    }
+    // Create a new one of the right type
+    const newSeries = buildMainSeries(chart, chartType);
+    candleRef.current = newSeries;
+    // Re-populate if we already have candle data
+    if (candlesRef.current.length > 0) {
+      applyMainData(newSeries, candlesRef.current, chartType);
+    }
+  }, [chartType]);
 
   // ── Draw Volume Profile on canvas ───────────────────────────────────────────
   const drawVP = useCallback(() => {
@@ -489,12 +569,7 @@ export default function TradingChart({
   // ── Helper: push candle data into all chart series ──────────────────────────
   const applyCandles = useCallback((cs: CandleBar[]) => {
     candlesRef.current = cs;
-    candleRef.current?.setData(
-      cs.map(c => ({
-        time: c.time as Time,
-        open: c.open, high: c.high, low: c.low, close: c.close,
-      })) as CandlestickData<Time>[]
-    );
+    if (candleRef.current) applyMainData(candleRef.current, cs, chartTypeRef.current);
     seriesMap.current.forEach((seriesList, id) => {
       const def = INDICATOR_DEFS.find(d => d.id === id);
       if (!def || def.renderType === "vp") return;
@@ -574,7 +649,29 @@ export default function TradingChart({
 
     const applyTick = (open: number, high: number, low: number, close: number,
                        ts: number, vol: number, closed: boolean) => {
-      try { candleRef.current?.update({ time: ts as Time, open, high, low, close }); } catch {}
+      try {
+        const type = chartTypeRef.current;
+        if (type === "line" || type === "area") {
+          candleRef.current?.update({ time: ts as Time, value: close } as any);
+        } else if (type === "ha") {
+          const arr = candlesRef.current;
+          if (arr.length > 0) {
+            const last   = arr[arr.length - 1];
+            const haClose = (last.open + Math.max(last.high, high) + Math.min(last.low, low) + close) / 4;
+            const haOpen  = arr.length > 1
+              ? (arr[arr.length - 2].open + arr[arr.length - 2].close) / 2
+              : (last.open + last.close) / 2;
+            candleRef.current?.update({
+              time: ts as Time, open: haOpen,
+              high: Math.max(Math.max(last.high, high), haOpen, haClose),
+              low:  Math.min(Math.min(last.low,  low),  haOpen, haClose),
+              close: haClose,
+            } as any);
+          }
+        } else {
+          candleRef.current?.update({ time: ts as Time, open, high, low, close } as any);
+        }
+      } catch {}
       setLastClose(close);
       if (closed) {
         const arr = candlesRef.current;

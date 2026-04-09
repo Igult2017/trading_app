@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
-import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId } from "@/components/TradingChart";
+import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId, type ChartType } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
 
@@ -246,6 +246,22 @@ export default function AssetPage() {
     { label: "1W",  interval: "1wk", period: "2y"  },
   ];
   const currentTF = TIMEFRAMES.find(t => t.label === activeTF) ?? TIMEFRAMES[1];
+
+  // Chart type state
+  const [chartType, setChartType] = useState<ChartType>(() =>
+    (localStorage.getItem("asset-chart-type") as ChartType | null) ?? "candle"
+  );
+  const setAndSaveChartType = (t: ChartType) => {
+    setChartType(t);
+    localStorage.setItem("asset-chart-type", t);
+  };
+  const CHART_TYPES: { id: ChartType; label: string }[] = [
+    { id: "candle", label: "CANDLE" },
+    { id: "ha",     label: "HA" },
+    { id: "bar",    label: "BAR" },
+    { id: "line",   label: "LINE" },
+    { id: "area",   label: "AREA" },
+  ];
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -549,6 +565,30 @@ export default function AssetPage() {
                   <Bell size={11} />
                   ALERT
                 </button>
+                {/* Chart Type switcher */}
+                <div style={{ display: "flex", gap: 2, background: "#080c10", border: "1px solid #0f1923", borderRadius: 4, padding: 2 }}>
+                  {CHART_TYPES.map(ct => {
+                    const active = ct.id === chartType;
+                    return (
+                      <button
+                        key={ct.id}
+                        onClick={() => setAndSaveChartType(ct.id)}
+                        style={{
+                          background: active ? "rgba(59,130,246,0.18)" : "transparent",
+                          border: `1px solid ${active ? "#3b82f6" : "transparent"}`,
+                          borderRadius: 3, color: active ? "#60a5fa" : "#2d4a63",
+                          fontSize: 9, fontWeight: 800, letterSpacing: "0.07em",
+                          padding: "4px 7px", cursor: "pointer", transition: "all 0.12s",
+                        }}
+                        onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#4a6580"; }}
+                        onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#2d4a63"; }}
+                      >
+                        {ct.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div ref={tfBtnRef} style={{ position: "relative" }}>
                   <button
                     className="chart-btn"
@@ -673,7 +713,7 @@ export default function AssetPage() {
             </div>
 
             {/* Chart */}
-            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} />
+            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} chartType={chartType} />
           </div>
         </div>
       </div>
