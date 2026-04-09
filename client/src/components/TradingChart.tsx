@@ -590,6 +590,8 @@ export default function TradingChart({
   }, [drawVP]);
 
   // ── Fetch + populate all series ─────────────────────────────────────────────
+  // DISABLED — chart data fetching turned off temporarily
+  /*
   const fetchAndDraw = useCallback(async () => {
     const ac  = getAssetClass(symbol);
     const key = `${symbol}-${interval}-${period}`;
@@ -631,11 +633,11 @@ export default function TradingChart({
     const id = setInterval(fetchAndDraw, 30_000);
     return () => clearInterval(id);
   }, [fetchAndDraw]);
+  */
 
   // ── Live WebSocket — Binance → Kraken cascade (crypto only) ─────────────────
-  // Browser connects directly to the exchange (server is never in the path).
-  // Tries Binance first; if rejected (e.g. origin-block on dev domain) it falls
-  // back to Kraken which has no geo/origin restrictions.
+  // DISABLED — WebSocket streaming turned off temporarily
+  /*
   useEffect(() => {
     const ac   = getAssetClass(symbol);
     const bsym = ac === "crypto" ? toBinanceSymbol(symbol) : null;
@@ -770,6 +772,7 @@ export default function TradingChart({
       setWsStatus("off");
     };
   }, [symbol, interval]);
+  */
 
   // ── Sync canvas size with container ─────────────────────────────────────────
   useEffect(() => {
