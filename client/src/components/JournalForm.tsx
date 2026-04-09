@@ -491,7 +491,12 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
       return true;
     }
     const text = (e as any).clipboardData?.getData("text/plain") ?? "";
-    if (text.trim() && onPasteText) { onPasteText(text); return true; }
+    if (text.trim() && onPasteText) {
+      onPasteText(text);
+      // Release focus so the contentEditable overlay doesn't trap keyboard input
+      if (editRef.current) editRef.current.blur();
+      return true;
+    }
     return false;
   }, [onChange, onPasteText]);
 
@@ -554,7 +559,7 @@ function Strip({ text, type = "default" }: any) {
 
 // ── Step 1 — Decision ─────────────────────────────────────────────────────────
 function Step1({ d, set }: any) {
-  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   return (
     <>
       <div className="tj-section">
@@ -625,7 +630,7 @@ function Step1({ d, set }: any) {
 
 // ── Step 2 — Execution ────────────────────────────────────────────────────────
 function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalance }: any) {
-  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
 
   // Live monetary risk preview derived from current balance + user-entered risk %
   const riskPct = parseFloat(d.riskPercent);
@@ -730,7 +735,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
 
 // ── Step 3 — Context ──────────────────────────────────────────────────────────
 function Step3({ d, set }: any) {
-  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   const SCORES: [string, string][] = [
     ["marketAlignment","Market Alignment"],
     ["setupClarity","Setup Clarity"],
@@ -811,7 +816,7 @@ function Step3({ d, set }: any) {
 
 // ── Step 4 — Review ───────────────────────────────────────────────────────────
 function Step4({ d, set }: any) {
-  const f = (k: string) => (v: any) => set({ ...d, [k]: v });
+  const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   return (
     <>
       <div className="tj-section">
