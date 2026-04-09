@@ -550,45 +550,48 @@ export default function AssetPage() {
           {/* ── Live Visualizer Chart ── */}
           <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, overflow: "hidden" }}>
             {/* Chart Header */}
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
-              <div>
-                <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em", marginTop: 2 }}>
-                  <LiveClock />
-                </div>
+            {/* ── Row 1: symbol + clock + alert ── */}
+            <div style={{ padding: "10px 16px 8px", borderBottom: "1px solid #0a1520", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em" }}>
+                <LiveClock />
               </div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#c8d8ec", fontFamily: "monospace", position: "absolute", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#c8d8ec", fontFamily: "monospace" }}>
                 {selected}
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="chart-btn">INSTRUMENTS</button>
-                <button className="chart-btn-alert">
-                  <Bell size={11} />
-                  ALERT
-                </button>
-                {/* Chart Type switcher */}
-                <div style={{ display: "flex", gap: 2, background: "#080c10", border: "1px solid #0f1923", borderRadius: 4, padding: 2 }}>
-                  {CHART_TYPES.map(ct => {
-                    const active = ct.id === chartType;
-                    return (
-                      <button
-                        key={ct.id}
-                        onClick={() => setAndSaveChartType(ct.id)}
-                        style={{
-                          background: active ? "rgba(59,130,246,0.18)" : "transparent",
-                          border: `1px solid ${active ? "#3b82f6" : "transparent"}`,
-                          borderRadius: 3, color: active ? "#60a5fa" : "#2d4a63",
-                          fontSize: 9, fontWeight: 800, letterSpacing: "0.07em",
-                          padding: "4px 7px", cursor: "pointer", transition: "all 0.12s",
-                        }}
-                        onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#4a6580"; }}
-                        onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#2d4a63"; }}
-                      >
-                        {ct.label}
-                      </button>
-                    );
-                  })}
-                </div>
+              <button className="chart-btn-alert" style={{ flexShrink: 0 }}>
+                <Bell size={11} />
+                ALERT
+              </button>
+            </div>
 
+            {/* ── Row 2: chart controls toolbar ── */}
+            <div style={{ padding: "6px 16px", borderBottom: "1px solid #0f1923", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              {/* Left: chart type pills */}
+              <div style={{ display: "flex", gap: 2, background: "#080c10", border: "1px solid #0f1923", borderRadius: 4, padding: 2, flexShrink: 0 }}>
+                {CHART_TYPES.map(ct => {
+                  const active = ct.id === chartType;
+                  return (
+                    <button
+                      key={ct.id}
+                      onClick={() => setAndSaveChartType(ct.id)}
+                      style={{
+                        background: active ? "rgba(59,130,246,0.18)" : "transparent",
+                        border: `1px solid ${active ? "#3b82f6" : "transparent"}`,
+                        borderRadius: 3, color: active ? "#60a5fa" : "#2d4a63",
+                        fontSize: 9, fontWeight: 800, letterSpacing: "0.07em",
+                        padding: "4px 8px", cursor: "pointer", transition: "all 0.12s",
+                      }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#4a6580"; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#2d4a63"; }}
+                    >
+                      {ct.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Right: TF + Indicators */}
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 <div ref={tfBtnRef} style={{ position: "relative" }}>
                   <button
                     className="chart-btn"
