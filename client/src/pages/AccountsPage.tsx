@@ -1,4 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
+import { Wrench, RefreshCw, Share2, Pencil, Trash2 } from "lucide-react";
 
 const platformList = [
   {
@@ -263,11 +264,11 @@ export default function AccountsPage({ openModal = false }: AccountsPageProps) {
                   <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.lastSync}</td>
                   <td style={{ ...s.td, padding: isMobile ? "8px" : "14px 16px" }}>
                     <div style={{ ...s.actions, gap: isMobile ? 2 : 6 }}>
-                      <button style={{ ...s.actionBtn, fontSize: isMobile ? 12 : 15 }} title="Settings">🔧</button>
-                      <button style={{ ...s.actionBtn, fontSize: isMobile ? 12 : 15 }} title="Refresh">↻</button>
-                      <button style={{ ...s.actionBtn, fontSize: isMobile ? 12 : 15 }} title="Share">⬆</button>
-                      <button style={{ ...s.actionBtn, color: "#38bdf8", fontSize: isMobile ? 12 : 15 }} title="Edit">✏</button>
-                      <button style={{ ...s.actionBtn, color: "#ef4444", fontSize: isMobile ? 12 : 15 }} title="Delete">🗑</button>
+                      <button style={s.actionBtn} title="Settings"><Wrench size={isMobile ? 13 : 15} color="#f59e0b" /></button>
+                      <button style={s.actionBtn} title="Refresh"><RefreshCw size={isMobile ? 13 : 15} color="#94a3b8" /></button>
+                      <button style={s.actionBtn} title="Share"><Share2 size={isMobile ? 13 : 15} color="#94a3b8" /></button>
+                      <button style={s.actionBtn} title="Edit"><Pencil size={isMobile ? 13 : 15} color="#38bdf8" /></button>
+                      <button style={s.actionBtn} title="Delete"><Trash2 size={isMobile ? 13 : 15} color="#ef4444" /></button>
                     </div>
                   </td>
                 </tr>
