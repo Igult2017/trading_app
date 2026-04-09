@@ -468,7 +468,7 @@ def _empty_level1(reason: str = "") -> dict:
             "edgeVerdict":    "Unconfirmed",
             "note":           reason,
         },
-        "conditionLabels":       [label for label, _ in _conditions()],
+        "conditionLabels":       [label for label, _ in _scannable_fields()],
         "edgeDrivers":           [],
         "monitorItems":          [reason] if reason else [],
         "weaknesses":            [],
