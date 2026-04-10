@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
 
 const CircleDownloadIcon = ({ success }: { success: boolean }) => (
@@ -302,6 +303,7 @@ function downloadCSV(trades: Trade[]) {
 
 export default function TradeVault({ sessionId, startingBalance: sessionStartingBalance }: { sessionId?: string | null; startingBalance?: number }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [exported, setExported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -311,6 +313,18 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (!target.closest(".delete-btn")) {
+        setConfirmDeleteId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [confirmDeleteId]);
 
   const queryUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '/api/journal/entries';
   const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
@@ -484,15 +498,29 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           border: none;
           cursor: pointer;
           color: #3a4560;
-          transition: color 0.2s, transform 0.2s;
+          transition: color 0.2s, transform 0.2s, background 0.2s;
           font-size: 16px;
           padding: 6px;
           border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
+          gap: 4px;
         }
-        .delete-btn:hover { color: #ff4d6d; transform: scale(1.15); background: rgba(255,77,109,0.1); }
+        .delete-btn:hover { color: #ff4d6d; transform: scale(1.1); background: rgba(255,77,109,0.1); }
+        .delete-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .delete-btn--confirm {
+          color: #ff4d6d !important;
+          background: rgba(255,77,109,0.15) !important;
+          border: 1px solid rgba(255,77,109,0.35) !important;
+          padding: 5px 8px !important;
+          animation: pulse-red 0.6s ease-in-out infinite alternate;
+        }
+        .delete-btn--confirm:hover { background: rgba(255,77,109,0.28) !important; transform: none !important; }
+        @keyframes pulse-red {
+          from { box-shadow: 0 0 0 0 rgba(255,77,109,0.0); }
+          to   { box-shadow: 0 0 6px 2px rgba(255,77,109,0.25); }
+        }
       `}</style>
 
       {vaultHeader(`Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
@@ -562,21 +590,38 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                   </td>
                   <td style={styles.td}>
                     <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <button className="edit-btn" onClick={() => setEditingTrade(trade)} title="Edit trade" data-testid={`button-edit-${trade.id}`}>
-                        &#x270E;
-                      </button>
                       <button
-                        className="delete-btn"
-                        onClick={() => {
-                          if (confirm("Delete this trade?")) {
-                            deleteMutation.mutate(trade.id);
-                          }
-                        }}
-                        title="Delete trade"
-                        data-testid={`button-delete-${trade.id}`}
+                        className="edit-btn"
+                        onClick={() => { setConfirmDeleteId(null); setEditingTrade(trade); }}
+                        title="Edit trade"
+                        data-testid={`button-edit-${trade.id}`}
                       >
-                        &#x2715;
+                        <Pencil size={14} />
                       </button>
+                      {confirmDeleteId === trade.id ? (
+                        <button
+                          className="delete-btn delete-btn--confirm"
+                          onClick={() => {
+                            deleteMutation.mutate(trade.id);
+                            setConfirmDeleteId(null);
+                          }}
+                          title="Confirm delete"
+                          data-testid={`button-confirm-delete-${trade.id}`}
+                        >
+                          <Trash2 size={14} />
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1 }}>DELETE?</span>
+                        </button>
+                      ) : (
+                        <button
+                          className="delete-btn"
+                          onClick={() => setConfirmDeleteId(trade.id)}
+                          title="Delete trade"
+                          data-testid={`button-delete-${trade.id}`}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
