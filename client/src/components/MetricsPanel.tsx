@@ -123,10 +123,10 @@ const BoolYN = ({ label, data }: { label:string; data:any }) => (
 
 const Multi = ({ label, options }: { label?:string; options:{ label:string; pct:number|null|undefined }[] }) => (
   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}`, gap:8 }}>
-    {label ? <Mono size={9} color={P.muted} style={{ flexShrink:0 }}>{label}</Mono> : <span/>}
-    <div style={{ display:'flex', gap:14 }}>
+    {label ? <Mono size={9} color={P.muted} style={{ flexShrink:1, whiteSpace:'normal', wordBreak:'break-word' }}>{label}</Mono> : <span/>}
+    <div style={{ display:'flex', gap:14, flexShrink:0 }}>
       {options.map((o,i) => (
-        <div key={i} style={{ textAlign:'right' }}>
+        <div key={i} style={{ textAlign:'right', minWidth:30 }}>
           <Mono size={8} color={P.dim} style={{ display:'block' }}>{o.label}</Mono>
           {o.pct == null
             ? <Mono size={9} color={P.dim}>--</Mono>
