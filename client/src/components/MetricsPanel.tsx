@@ -107,11 +107,11 @@ const YN = ({ label, yes, no }: { label:string; yes:number|null|undefined; no:nu
     </div>
     <div style={{ width:52, padding:'3px 5px', borderRight:`1px solid ${P.line}`, textAlign:'center' }}>
       <Mono size={7} color={P.dim} style={{ display:'block', marginBottom:1 }}>YES</Mono>
-      {yes == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(yes)}>{Math.round(yes)}%</Num>}
+      {yes == null ? <Mono size={7} color={P.dim}>--</Mono> : <Num color={pColor(yes)} style={{ fontSize:7 }}>{Math.round(yes)}%</Num>}
     </div>
     <div style={{ width:52, padding:'3px 5px', textAlign:'center' }}>
       <Mono size={7} color={P.dim} style={{ display:'block', marginBottom:1 }}>NO</Mono>
-      {no == null ? <Mono size={9} color={P.dim}>--</Mono> : <Num color={pColor(no)}>{Math.round(no)}%</Num>}
+      {no == null ? <Mono size={7} color={P.dim}>--</Mono> : <Num color={pColor(no)} style={{ fontSize:7 }}>{Math.round(no)}%</Num>}
     </div>
   </div>
 );
@@ -129,8 +129,8 @@ const Multi = ({ label, options }: { label?:string; options:{ label:string; pct:
         <div key={i} style={{ textAlign:'right', minWidth:30 }}>
           <Mono size={8} color={P.dim} style={{ display:'block' }}>{o.label}</Mono>
           {o.pct == null
-            ? <Mono size={9} color={P.dim}>--</Mono>
-            : <Num color={pColor(o.pct)} style={{ fontSize:9 }}>{Math.round(o.pct)}%</Num>
+            ? <Mono size={8} color={P.dim}>--</Mono>
+            : <Num color={pColor(o.pct)} style={{ fontSize:8 }}>{Math.round(o.pct)}%</Num>
           }
         </div>
       ))}
@@ -146,8 +146,8 @@ const ScoreRow = ({ label, scores }: { label:string; scores:{ score:string; pct:
         <div key={i} style={{ textAlign:'right' }}>
           <Mono size={8} color={P.dim} style={{ display:'block' }}>{s.score}</Mono>
           {s.pct == null
-            ? <Mono size={9} color={P.dim}>--</Mono>
-            : <Num color={pColor(s.pct ?? 0)} style={{ fontSize:9 }}>{Math.round(s.pct ?? 0)}%</Num>
+            ? <Mono size={8} color={P.dim}>--</Mono>
+            : <Num color={pColor(s.pct ?? 0)} style={{ fontSize:8 }}>{Math.round(s.pct ?? 0)}%</Num>
           }
         </div>
       ))}
@@ -583,7 +583,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                   {[['YES', boolImpacts.breakevenApplied?.yes?.winRate, P.green],['NO', boolImpacts.breakevenApplied?.no?.winRate, P.red]] .map(([l,v,c]:any,i)=>(
                     <div key={i} style={{ background:P.bg2, padding:'5px 4px', textAlign:'center' }}>
                       <Mono size={7} color={P.dim} style={{ display:'block' }}>{l}</Mono>
-                      {v==null?<Mono size={9} color={P.dim}>--</Mono>:<Num color={c}>{Math.round(v)}%</Num>}
+                      {v==null?<Mono size={7} color={P.dim}>--</Mono>:<Num color={c} style={{ fontSize:7 }}>{Math.round(v)}%</Num>}
                     </div>
                   ))}
                 </div>
