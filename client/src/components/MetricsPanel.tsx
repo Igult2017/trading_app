@@ -432,7 +432,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const losses       = core.losses       || 0;
   const avgWin       = core.avgWin       || 0;
   const avgLoss      = core.avgLoss      || 0;
-  const rulesAdh     = riskMetrics.rulesAdherence || 0;
+  const netGrowthPct = equityGrowth?.totalReturnPct ?? null;
   const maxDD        = streaks.maxDrawdown        || 0;
   const currentDD    = streaks.currentDrawdown    || 0;
   const isPos        = totalPL >= 0;
@@ -533,7 +533,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           { l:'Trades',          v:`${totalTrades}`,        s:'this period',           cls:'mp-kpi-neu' },
           { l:'Profit Factor',   v:pfDisplay,               s:'gross ratio',           cls:profitFactor>=1?'mp-kpi-pos':'mp-kpi-neg' },
           { l:'Avg R:R',         v:`1:${avgRR.toFixed(1)}`, s:'achieved',              cls:'mp-kpi-neu' },
-          { l:'Rules Adherence', v:fmtPct(rulesAdh),        s:'followed',              cls:rulesAdh>=80?'mp-kpi-pos':'mp-kpi-neg' },
+          { l:'Net Growth',       v:netGrowthPct!=null?`${netGrowthPct>=0?'+':''}${netGrowthPct.toFixed(1)}%`:'--', s:'account growth', cls:netGrowthPct==null?'mp-kpi-neu':netGrowthPct>=0?'mp-kpi-pos':'mp-kpi-neg' },
         ].map((k,i)=>(
           <div key={i} className={`mp-kpi-cell ${k.cls}`} data-testid={`metric-kpi-${i}`}>
             <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:6, letterSpacing:'0.16em' }}>{k.l}</Mono>

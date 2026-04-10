@@ -418,7 +418,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         <VaultCell label="NET P/L"  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
         <VaultCell label="WIN RATE" value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
         <VaultCell label="TRADES"   value={String(trades.length)} color="#f0f4ff" isMobile={isMobile} />
-        <VaultCell label="GROWTH"   value={`${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`} color="#a78bfa" isMobile={isMobile} />
+        <VaultCell label="NET GROWTH" value={`${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`} color="#a78bfa" isMobile={isMobile} />
         <VaultCell label="DAYS"     value={String(days)}     color="#f0f4ff" isMobile={isMobile} />
         <div
           onClick={trades.length > 0 ? handleExport : undefined}
