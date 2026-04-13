@@ -284,8 +284,8 @@ function Page1({ d }: { d: AuditData }) {
   const maxPV = d.drawdown?.maxPeakToValley ?? 0;
   const wrContrib = d.edgeComponents?.winRateContribution ?? 0;
   const rrContrib = d.edgeComponents?.riskRewardContribution ?? 0;
-  const last50 = d.edgeDecay?.last50 ?? 0;
-  const last200 = d.edgeDecay?.last200 ?? 0;
+  const last50: number | null = d.edgeDecay?.last50 ?? null;
+  const last200: number | null = d.edgeDecay?.last200 ?? null;
   const weakness = d.weaknesses?.[0];
   const weaknessFactor = weakness?.factor ?? "";
   const psychScore = d.psychologyScore ?? 0;
@@ -376,11 +376,17 @@ function Page1({ d }: { d: AuditData }) {
             <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
               <div>
                 <div style={{ ...mono, fontSize: 10, color: T.dim }}>Last 50</div>
-                <div style={{ ...num, fontSize: 14, color: T.blue }}>{last50.toFixed(2)}R</div>
+                {last50 == null
+                  ? <div style={{ ...num, fontSize: 14, color: T.dim }}>—</div>
+                  : <div style={{ ...num, fontSize: 14, color: last50 >= 0 ? T.blue : T.red }}>{last50 >= 0 ? "+" : ""}{last50.toFixed(2)}R</div>
+                }
               </div>
               <div>
                 <div style={{ ...mono, fontSize: 10, color: T.dim }}>Last 200</div>
-                <div style={{ ...num, fontSize: 14, color: T.text }}>{last200.toFixed(2)}R</div>
+                {last200 == null
+                  ? <div style={{ ...num, fontSize: 12, color: T.dim }}>Need 200+ trades</div>
+                  : <div style={{ ...num, fontSize: 14, color: last200 >= 0 ? T.text : T.red }}>{last200 >= 0 ? "+" : ""}{last200.toFixed(2)}R</div>
+                }
               </div>
             </div>
           </div>

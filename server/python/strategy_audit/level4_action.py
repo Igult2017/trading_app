@@ -201,11 +201,23 @@ def _detect_edge_decay(trades: list[dict]) -> dict:
     Decay is detected when latest 30d win rate is >10pp below peak AND
     the decline spans ≥60 days.
     """
-    # Compute actual last-N expectancy from sorted trades
+    # Compute actual last-N expectancy in R-multiples from sorted trades.
+    # Win  → +rr_float (the R-multiple achieved on that trade)
+    # Loss → -1.0      (you always lose exactly 1R on a losing trade)
+    # BE   → 0.0
     def _slice_expectancy(sorted_trades: list, n: int):
         sl = sorted_trades[-n:] if len(sorted_trades) >= n else sorted_trades
-        pnls = [t["pnl"] for t in sl if t.get("pnl") is not None]
-        return round(safe_mean(pnls), 2) if pnls else None
+        r_values: list[float] = []
+        for t in sl:
+            outcome = t.get("outcome") or ""
+            if outcome == "win":
+                rr = t.get("rr_float")
+                r_values.append(float(rr) if rr is not None else 1.0)
+            elif outcome == "loss":
+                r_values.append(-1.0)
+            elif outcome in ("breakeven", "be"):
+                r_values.append(0.0)
+        return round(safe_mean(r_values), 2) if r_values else None
 
     no_decay = {
         "detected":         False,
@@ -224,9 +236,10 @@ def _detect_edge_decay(trades: list[dict]) -> dict:
         key=lambda t: t.get("exit_dt") or t.get("entry_dt") or t.get("created_dt")
     )
 
-    # Always attach real sliced expectancy regardless of decay detection
-    no_decay["last50Expectancy"]  = _slice_expectancy(dated, 50)
-    no_decay["last200Expectancy"] = _slice_expectancy(dated, 200)
+    # Always attach real sliced expectancy regardless of decay detection.
+    # Only compute last200 when there are genuinely >=200 distinct trades.
+    no_decay["last50Expectancy"]  = _slice_expectancy(dated, 50) if len(dated) >= 10 else None
+    no_decay["last200Expectancy"] = _slice_expectancy(dated, 200) if len(dated) >= 200 else None
 
     if len(dated) < 20:
         return {**no_decay, "recommendation": "Insufficient data to assess edge decay (need 20+ dated trades)."}
@@ -277,8 +290,8 @@ def _detect_edge_decay(trades: list[dict]) -> dict:
                 f"and has declined by {decay_mag:.0f}pp over {span_days} days to {latest_wr:.0f}%. "
                 "Review strategy against current market regime and recent trade selection criteria."
             ),
-            "last50Expectancy":  _slice_expectancy(dated, 50),
-            "last200Expectancy": _slice_expectancy(dated, 200),
+            "last50Expectancy":  _slice_expectancy(dated, 50) if len(dated) >= 10 else None,
+            "last200Expectancy": _slice_expectancy(dated, 200) if len(dated) >= 200 else None,
         }
 
     return no_decay
