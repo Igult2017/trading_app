@@ -498,12 +498,21 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   ];
 
   /* ── setup freq annualised ── */
+  const fmtFreq = (v: number|undefined): string => {
+    if (v == null || isNaN(v)) return '--';
+    if (v === 0) return '0';
+    if (v >= 10)  return v.toFixed(1);
+    if (v >= 1)   return v.toFixed(2);
+    if (v >= 0.1) return v.toFixed(2);
+    if (v > 0)    return v.toFixed(3);
+    return '0';
+  };
   const setupFreqRows = Object.entries(setupFreqAnnualised).map(([name,d]: [string,any]) => ({
     n: name,
-    d: d.perDay?.toFixed(1)||'--',
-    w: d.perWeek?.toFixed(1)||'--',
-    mo: d.perMonth?.toFixed(1)||'--',
-    y: d.perYear?.toFixed(0)||'--',
+    d: fmtFreq(d.perDay),
+    w: fmtFreq(d.perWeek),
+    mo: fmtFreq(d.perMonth),
+    y: fmtFreq(d.perYear),
     wr: `${Math.round(setupTags[name]?.winRate||0)}%`,
     pc: (setupTags[name]?.winRate||0)>=60?P.green:P.amber,
     best: '--',

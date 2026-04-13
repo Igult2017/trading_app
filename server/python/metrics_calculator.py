@@ -1360,24 +1360,44 @@ def calc_rr_analysis(ctx: SharedContext) -> Dict:
 def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
     if ctx.total == 0:
         return {}
-    dates = [t.trade_date for t in ctx.trades if t.trade_date is not None]
-    if not dates:
+    all_dates = [t.trade_date for t in ctx.trades if t.trade_date is not None]
+    if not all_dates:
         return {}
-    days = max(1, (max(dates) - min(dates)).days + 1)
-    groups: Dict[str, int] = defaultdict(int)
+    global_days = max(1, (max(all_dates) - min(all_dates)).days + 1)
+
+    # Group trades by setup type, preserving their dates
+    groups: Dict[str, list] = defaultdict(list)
     for t in ctx.trades:
-        if t.setup_type:
-            groups[t.setup_type] += 1
-    return {
-        setup: {
+        if t.setup_type and t.trade_date is not None:
+            groups[t.setup_type].append(t.trade_date)
+    # Also count setups without dates
+    no_date_counts: Dict[str, int] = defaultdict(int)
+    for t in ctx.trades:
+        if t.setup_type and t.trade_date is None:
+            no_date_counts[t.setup_type] += 1
+
+    all_setups = set(groups.keys()) | set(no_date_counts.keys())
+    result = {}
+    for setup in sorted(all_setups):
+        setup_dates = groups.get(setup, [])
+        no_date_count = no_date_counts.get(setup, 0)
+        count = len(setup_dates) + no_date_count
+        if count == 0:
+            continue
+        if len(setup_dates) >= 2:
+            # Use the date span of this specific setup's trades
+            span = max(1, (max(setup_dates) - min(setup_dates)).days + 1)
+        else:
+            # Single-trade setup or no date info — fall back to global span
+            span = global_days
+        result[setup] = {
             "count":    count,
-            "perDay":   round(count / days, 3),
-            "perWeek":  round(count / days * 7,   3),
-            "perMonth": round(count / days * 30,  3),
-            "perYear":  round(count / days * 365, 3),
+            "perDay":   round(count / span, 4),
+            "perWeek":  round(count / span * 7,   4),
+            "perMonth": round(count / span * 30,  4),
+            "perYear":  round(count / span * 365, 4),
         }
-        for setup, count in sorted(groups.items())
-    }
+    return result
 
 
 def calc_statistics(ctx: SharedContext) -> Dict:
