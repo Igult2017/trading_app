@@ -1,7 +1,8 @@
 """
 drawdown/structural.py
-SMC context and execution entry structural diagnostics.
-Two tabs: context (WHY context was wrong) and entry (WHY execution was poor).
+Trade structural diagnostics — two tabs: Context and Entry.
+All groups are built exclusively from actual trade data.
+Labels with zero matching trades are never shown.
 """
 from __future__ import annotations
 from collections import defaultdict
@@ -20,11 +21,13 @@ def _bool_field(t: dict, key: str) -> bool | None:
 
 def _build_item(label: str, group_trades: list, all_trades: list) -> dict:
     """
-    Build one diagnostic item dict matching frontend shape:
-    { label, avgDdPct, total, losses, lossRate, barWidthPct }
-    avgDdPct computed from losing trades' pnl_pct (negative).
+    Build one diagnostic item.
+    Returns None when the group is empty (no trades) so callers can filter.
     """
-    total  = len(group_trades)
+    total = len(group_trades)
+    if total == 0:
+        return None  # caller must filter
+
     losses = sum(1 for t in group_trades if get_outcome(t) == "loss")
     loss_pcts = [
         p for t in group_trades
@@ -32,7 +35,7 @@ def _build_item(label: str, group_trades: list, all_trades: list) -> dict:
         for p in [get_pnl_pct(t)]
         if p is not None
     ]
-    avg_dd   = round(safe_mean(loss_pcts), 2) if loss_pcts else 0.0
+    avg_dd    = round(safe_mean(loss_pcts), 2) if loss_pcts else 0.0
     loss_rate = round(losses / total * 100, 1) if total > 0 else 0.0
 
     return {
@@ -41,43 +44,54 @@ def _build_item(label: str, group_trades: list, all_trades: list) -> dict:
         "total":       total,
         "losses":      losses,
         "lossRate":    loss_rate,
-        "barWidthPct": loss_rate,   # frontend uses this for progress bar width
+        "barWidthPct": loss_rate,
     }
+
+
+def _section(title: str, raw_items: list) -> dict | None:
+    """
+    Build a section dict, filtering out empty items.
+    Returns None when no items have data (so the whole section is skipped).
+    """
+    items = [i for i in raw_items if i is not None]
+    if not items:
+        return None
+    return {"title": title, "items": items}
 
 
 def compute_structural(trades: list) -> dict:
     """
-    Compute SMC context and execution entry structural diagnostics.
-    All groups always present — zeros when no matching trades.
+    Compute trade structural diagnostics.
+    Only groups with at least one matching trade are included.
+    Sections with no matching groups are omitted entirely.
     """
-    if not trades:
-        return {
-            "context": _empty_context(),
-            "entry":   _empty_entry(),
-        }
+    empty = {"context": [], "entry": []}
 
-    # ── Pre-classify trades into groups ──────────────────────────────────────
+    if not trades:
+        return empty
+
     groups: dict[str, list] = defaultdict(list)
 
     for t in trades:
-        outcome    = get_outcome(t)
-        ob_valid   = _bool_field(t, "ob_valid")
-        choch_valid = _bool_field(t, "choch_valid")
-        fvg_trap   = _bool_field(t, "fvg_trap")
-        htf_bias   = str(
+        outcome      = get_outcome(t)
+        ob_valid     = _bool_field(t, "ob_valid")
+        choch_valid  = _bool_field(t, "choch_valid")
+        fvg_trap     = _bool_field(t, "fvg_trap")
+
+        htf_bias = _s(
             t.get("htfBias") or t.get("htf_bias") or
             blob_field(t, "htf_bias") or blob_field(t, "htfBias") or ""
-        ).lower().strip()
-        entry_type = str(
+        )
+        entry_type = _s(
             t.get("entryType") or t.get("entry_type") or
             blob_field(t, "entry_type") or blob_field(t, "entryType") or ""
-        ).lower().strip()
-        sl_placement = str(
+        )
+        sl_placement = _s(
             t.get("slPlacement") or t.get("sl_placement") or
             blob_field(t, "sl_placement") or blob_field(t, "slPlacement") or ""
-        ).lower().strip()
+        )
 
-        # Context groups
+        # ── SMC / context groups ───────────────────────────────────────────
         if ob_valid is False:
             groups["htf_ob_failed"].append(t)
         if ob_valid is True or htf_bias in ("with_trend", "with trend", "aligned", "bullish", "long", "buy"):
@@ -91,104 +105,111 @@ def compute_structural(trades: list) -> dict:
         if htf_bias in ("with_trend", "with trend", "aligned", "bullish", "long", "buy"):
             groups["with_trend"].append(t)
 
-        # Entry groups
+        # ── Entry execution groups ─────────────────────────────────────────
         if entry_type in ("premature", "early", "pre_confirm", "pre-confirm"):
-            groups["premature_bos"].append(t)
+            groups["premature_entry"].append(t)
         if entry_type in ("confirmed", "confirm", "valid"):
             groups["confirmed_entry"].append(t)
         if "inducement" in entry_type or "induced" in entry_type:
             groups["inducement"].append(t)
 
-        # SL placement groups
+        # ── Entry reason (generic — any trading style) ─────────────────────
+        reason = _s(
+            t.get("entryReason") or t.get("entry_reason") or
+            blob_field(t, "entryReason") or blob_field(t, "entry_reason") or ""
+        )
+        if reason:
+            groups[f"reason_{reason[:40]}"].append(t)
+
+        # ── SL placement ───────────────────────────────────────────────────
         if sl_placement:
             groups[f"sl_{sl_placement}"].append(t)
-        elif get_outcome(t) == "loss":
-            # Derive from pips gained/lost relative to stop loss distance
+        elif outcome == "loss":
             sld = t.get("stopLossDistance") or t.get("stop_loss_distance")
             if sld is not None:
                 groups["sl_above_below_wick"].append(t)
             else:
                 groups["sl_inside_structure"].append(t)
 
+        # ── Psychology / discipline ────────────────────────────────────────
+        tags_raw = (
+            t.get("tags") or blob_field(t, "tags") or
+            blob_field(t, "psychology") or []
+        )
+        if isinstance(tags_raw, str):
+            tags_raw = [tags_raw]
+        combined = " ".join(str(x).lower() for x in (tags_raw or []))
+        if "revenge" in combined:
+            groups["psych_revenge"].append(t)
+        if "fomo" in combined:
+            groups["psych_fomo"].append(t)
+        if "oversize" in combined:
+            groups["psych_oversize"].append(t)
+        if any(x in combined for x in ("calm", "disciplined", "patient")):
+            groups["psych_disciplined"].append(t)
+
     def g(key: str) -> list:
         return groups.get(key, [])
 
-    # ── Context tab ───────────────────────────────────────────────────────────
-    context = [
-        {
-            "title": "CTF Validity",
-            "items": [
-                _build_item("HTF Orderblock Failed",  g("htf_ob_failed"),       trades),
-                _build_item("HTF Swing Alignment",    g("htf_swing_alignment"), trades),
-            ],
-        },
-        {
-            "title": "ATF Validity",
-            "items": [
-                _build_item("Fake-out CHOCH ID",     g("fake_choch"), trades),
-                _build_item("Unmitigated FVG Trap",  g("fvg_trap"),   trades),
-            ],
-        },
-        {
-            "title": "HTF Bias",
-            "items": [
-                _build_item("Counter-Trend Entry", g("counter_trend"), trades),
-                _build_item("With-Trend Entry",    g("with_trend"),    trades),
-            ],
-        },
-    ]
+    def bi(label: str, key: str) -> dict | None:
+        return _build_item(label, g(key), trades)
 
-    # ── Entry tab ─────────────────────────────────────────────────────────────
-    # SL placement — build dynamically from what's in the data
+    # ── Context tab ────────────────────────────────────────────────────────
+    # Only build sections that contain at least one non-empty item.
+
+    context_sections_raw = [
+        _section("Orderblock / Structure", [
+            bi("HTF Orderblock Failed",   "htf_ob_failed"),
+            bi("HTF Swing Alignment",     "htf_swing_alignment"),
+        ]),
+        _section("Confirmation", [
+            bi("Fake-out CHoCH",          "fake_choch"),
+            bi("Unmitigated FVG Trap",    "fvg_trap"),
+        ]),
+        _section("Trend Bias", [
+            bi("Counter-Trend Entry",     "counter_trend"),
+            bi("With-Trend Entry",        "with_trend"),
+        ]),
+        _section("Psychology", [
+            bi("Revenge Trade",           "psych_revenge"),
+            bi("FOMO Trigger",            "psych_fomo"),
+            bi("Oversized Position",      "psych_oversize"),
+            bi("Disciplined Execution",   "psych_disciplined"),
+        ]),
+    ]
+    context = [s for s in context_sections_raw if s is not None]
+
+    # ── Entry tab ──────────────────────────────────────────────────────────
+    # SL placement: prefer explicit sl_ groups, fall back to derived groups.
     sl_items_raw = [
-        (k[3:].replace("_", " ").title(), v)    # strip "sl_" prefix
+        _build_item(k[3:].replace("_", " ").title(), v, trades)
         for k, v in groups.items()
         if k.startswith("sl_") and v
     ]
     if not sl_items_raw:
-        # Fallback: split losses by whether stop_loss_distance is present
         sl_items_raw = [
-            ("SL Above/Below Wick",  g("sl_above_below_wick")),
-            ("SL Inside Structure",  g("sl_inside_structure")),
+            bi("SL Above/Below Wick",  "sl_above_below_wick"),
+            bi("SL Inside Structure",  "sl_inside_structure"),
         ]
+    sl_items_raw = [i for i in sl_items_raw if i is not None]
 
-    entry = [
-        {
-            "title": "ETF Execution",
-            "items": [
-                _build_item("Premature BOS Execution", g("premature_bos"), trades),
-                _build_item("Inducement Failure",      g("inducement"),    trades),
-            ],
-        },
-        {
-            "title": "Entry Timing",
-            "items": [
-                _build_item("Early Entry (Pre-confirm)", g("premature_bos"),    trades),
-                _build_item("Confirmed Entry",           g("confirmed_entry"), trades),
-            ],
-        },
-        {
-            "title": "Risk Placement",
-            "items": [_build_item(label, grp, trades) for label, grp in sl_items_raw[:2]],
-        },
+    # Entry reason: generic groups (any trading style)
+    reason_items = [
+        _build_item(k[7:].replace("_", " ").title(), v, trades)
+        for k, v in sorted(groups.items())
+        if k.startswith("reason_") and v
     ]
+    reason_items = [i for i in reason_items if i is not None]
+
+    entry_sections_raw = [
+        _section("Execution Timing", [
+            bi("Early / Pre-confirm Entry", "premature_entry"),
+            bi("Confirmed Entry",           "confirmed_entry"),
+            bi("Inducement Failure",        "inducement"),
+        ]),
+        _section("Entry Reason", reason_items) if reason_items else None,
+        _section("Risk Placement", sl_items_raw) if sl_items_raw else None,
+    ]
+    entry = [s for s in entry_sections_raw if s is not None]
 
     return {"context": context, "entry": entry}
-
-
-def _empty_context() -> list:
-    def _z(label): return {"label": label, "avgDdPct": 0.0, "total": 0, "losses": 0, "lossRate": 0.0, "barWidthPct": 0.0}
-    return [
-        {"title": "CTF Validity", "items": [_z("HTF Orderblock Failed"), _z("HTF Swing Alignment")]},
-        {"title": "ATF Validity", "items": [_z("Fake-out CHOCH ID"), _z("Unmitigated FVG Trap")]},
-        {"title": "HTF Bias",     "items": [_z("Counter-Trend Entry"), _z("With-Trend Entry")]},
-    ]
-
-
-def _empty_entry() -> list:
-    def _z(label): return {"label": label, "avgDdPct": 0.0, "total": 0, "losses": 0, "lossRate": 0.0, "barWidthPct": 0.0}
-    return [
-        {"title": "ETF Execution", "items": [_z("Premature BOS Execution"), _z("Inducement Failure")]},
-        {"title": "Entry Timing",  "items": [_z("Early Entry (Pre-confirm)"), _z("Confirmed Entry")]},
-        {"title": "Risk Placement","items": [_z("SL Above/Below Wick"), _z("SL Inside Structure")]},
-    ]
