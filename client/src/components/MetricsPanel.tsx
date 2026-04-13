@@ -159,7 +159,7 @@ const SplitBar = ({ label, win, loss, count }: { label:string; win:number; loss:
   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
     <Mono size={10} color={P.body}>{label}</Mono>
     <div style={{ display:'flex', gap:5, alignItems:'center' }}>
-      {count != null && <Mono size={9} color={P.dim}>{count}T</Mono>}
+      {count != null && <Mono size={9} color={P.dim}>({count})</Mono>}
       <Num color={pColor(win)} style={{ fontSize:10 }}>{win}%</Num>
       <Mono size={9} color={P.dim}>/</Mono>
       <Num color={loss > 50 ? P.red : P.muted} style={{ fontSize:10 }}>{loss}%</Num>
