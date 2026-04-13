@@ -255,15 +255,32 @@ def _trade_quality(trades: list[dict]) -> dict:
             try: plan_exec.append(float(pe))
             except: pass
 
-    high_quality = [t for t in trades
-                    if t.get("confluence_score") is not None
-                    and float(t["confluence_score"]) >= 70]
-    low_quality  = [t for t in trades
-                    if t.get("confluence_score") is not None
-                    and float(t["confluence_score"]) <  40]
-    mid_quality  = [t for t in trades
-                    if t.get("confluence_score") is not None
-                    and 40 <= float(t["confluence_score"]) < 70]
+    # Primary bucketing: use explicit trade_grade field (A / B / C) set by the user.
+    # The field may be stored as "A", "A - Textbook", "a", etc. — match on first char.
+    # Fallback: bucket by confluence_score thresholds for trades without a grade.
+    def _grade(t: dict) -> str | None:
+        raw = t.get("trade_grade")
+        if raw is not None:
+            first = str(raw).strip().upper()[:1]
+            if first in ("A", "B", "C"):
+                return first
+        # Fallback — confluence score
+        cs = t.get("confluence_score")
+        if cs is not None:
+            try:
+                v = float(cs)
+                if v >= 70:
+                    return "A"
+                if v >= 40:
+                    return "B"
+                return "C"
+            except (TypeError, ValueError):
+                pass
+        return None
+
+    high_quality = [t for t in trades if _grade(t) == "A"]
+    mid_quality  = [t for t in trades if _grade(t) == "B"]
+    low_quality  = [t for t in trades if _grade(t) == "C"]
 
     return {
         "avgConfluenceScore":     round(safe_mean(conf_scores), 1),
@@ -294,10 +311,15 @@ def _conditional_edge(trades: list[dict]) -> dict:
     for session, st in by_session.items():
         if len(st) < 3:
             continue
+        rr_values = [t["rr_float"] for t in st if t.get("rr_float") is not None and t["rr_float"] > 0]
+        pf_raw = profit_factor(st)
+        # Cap profit_factor at 20 to avoid the 999 sentinel when there are no losses
+        pf_capped = min(round(pf_raw, 3), 20.0)
         session_edge[session] = {
             "trades":       len(st),
             "winRate":      round(win_rate(st), 1),
-            "profitFactor": round(profit_factor(st), 3),
+            "profitFactor": pf_capped,
+            "avgRR":        round(safe_mean(rr_values), 2) if rr_values else None,
         }
 
     # By setup tag (from manual_fields.setup_tags array)

@@ -178,10 +178,18 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         win_fc, loss_fc, win_labels, decay_labels
     )
     session_edge = cond_e.get("bySession", {})
+    def _session_r(sess_data: dict) -> float:
+        """Use avgRR when available; fall back to profitFactor (already capped at 20)."""
+        avg_rr = sess_data.get("avgRR")
+        if avg_rr is not None and avg_rr > 0:
+            return round(float(avg_rr), 2)
+        pf = sess_data.get("profitFactor", 0.0)
+        return round(float(pf), 2)
+
     if len(session_edge) >= 2:
         ss = sorted(session_edge.items(), key=lambda x: x[1].get("winRate",0), reverse=True)
-        liq_gap  = {"label": ss[0][0],  "rMultiple": round(ss[0][1].get("profitFactor",0.0),2), "samples": ss[0][1].get("trades",0),  "winRate": round(ss[0][1].get("winRate",0.0),1)}
-        non_qual = {"label": ss[-1][0], "rMultiple": round(ss[-1][1].get("profitFactor",0.0),2),"samples": ss[-1][1].get("trades",0), "winRate": round(ss[-1][1].get("winRate",0.0),1)}
+        liq_gap  = {"label": ss[0][0],  "rMultiple": _session_r(ss[0][1]),  "samples": ss[0][1].get("trades",0),  "winRate": round(ss[0][1].get("winRate",0.0),1)}
+        non_qual = {"label": ss[-1][0], "rMultiple": _session_r(ss[-1][1]), "samples": ss[-1][1].get("trades",0), "winRate": round(ss[-1][1].get("winRate",0.0),1)}
         edge_trf = round((liq_gap["winRate"]-non_qual["winRate"])/max(liq_gap["winRate"],1)*100,1)
     else:
         liq_gap  = {"label":"Qualified",   "rMultiple":0.0,"samples":0,"winRate":0.0}
