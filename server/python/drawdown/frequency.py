@@ -9,7 +9,7 @@ from ._utils import (
     blob_field, _s
 )
 
-_MIN_GROUP = 5   # minimum trades to include a group
+_MIN_GROUP = 2   # minimum trades to include a group
 
 
 def _rate(losses: int, total: int) -> float:
