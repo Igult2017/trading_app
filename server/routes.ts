@@ -987,6 +987,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // COPY TRADING API
+  // All routes under /api/copy — shares the existing PostgreSQL database.
+  // The Python microservices (FastAPI on port 8001) consume the same tables.
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ── Accounts ─────────────────────────────────────────────────────────────────
+  app.get("/api/copy/accounts", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const accounts = await storage.getCopyAccounts(userId);
+      const safe = accounts.map(({ passwordEnc: _, ...a }) => a);
+      return res.json(safe);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/copy/accounts/:id", async (req, res) => {
+    try {
+      const account = await storage.getCopyAccountById(req.params.id);
+      if (!account) return res.status(404).json({ error: "Account not found" });
+      const { passwordEnc: _, ...safe } = account;
+      return res.json(safe);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/copy/accounts", async (req, res) => {
+    try {
+      const { nickname, platform, brokerServer, loginId, password, role, symbolPrefix, symbolSuffix, userId } = req.body;
+      if (!loginId || !password || !role || !platform) return res.status(400).json({ error: "Missing required fields: loginId, password, role, platform" });
+      // Base64 placeholder — the Python bridge replaces this with AES-256 on first connect
+      const passwordEnc = Buffer.from(password).toString("base64");
+      const account = await storage.createCopyAccount({ nickname: nickname || loginId, platform, brokerServer, loginId, passwordEnc, role, symbolPrefix, symbolSuffix, userId, isActive: true });
+      const { passwordEnc: _, ...safe } = account;
+      return res.status(201).json(safe);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.put("/api/copy/accounts/:id", async (req, res) => {
+    try {
+      const { password, ...rest } = req.body;
+      const updates: any = { ...rest };
+      if (password) updates.passwordEnc = Buffer.from(password).toString("base64");
+      const updated = await storage.updateCopyAccount(req.params.id, updates);
+      if (!updated) return res.status(404).json({ error: "Account not found" });
+      const { passwordEnc: _, ...safe } = updated;
+      return res.json(safe);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/copy/accounts/:id", async (req, res) => {
+    try {
+      return res.json({ success: await storage.deleteCopyAccount(req.params.id) });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Masters ───────────────────────────────────────────────────────────────────
+  app.get("/api/copy/masters", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      return res.json(await storage.getCopyMasters(userId));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/copy/masters/:id", async (req, res) => {
+    try {
+      const master = await storage.getCopyMasterById(req.params.id);
+      if (!master) return res.status(404).json({ error: "Master not found" });
+      return res.json(master);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/copy/masters", async (req, res) => {
+    try {
+      return res.status(201).json(await storage.createCopyMaster(req.body));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.put("/api/copy/masters/:id", async (req, res) => {
+    try {
+      const updated = await storage.updateCopyMaster(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Master not found" });
+      return res.json(updated);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/copy/masters/:id", async (req, res) => {
+    try {
+      return res.json({ success: await storage.deleteCopyMaster(req.params.id) });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Telegram source ───────────────────────────────────────────────────────────
+  app.get("/api/copy/masters/:masterId/telegram", async (req, res) => {
+    try {
+      const src = await storage.getTelegramSource(req.params.masterId);
+      if (!src) return res.status(404).json({ error: "No Telegram source configured" });
+      const { apiHashEnc: _, ...safe } = src as any;
+      return res.json(safe);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.put("/api/copy/masters/:masterId/telegram", async (req, res) => {
+    try {
+      const src = await storage.upsertTelegramSource({ ...req.body, masterId: req.params.masterId });
+      const { apiHashEnc: _, ...safe } = src as any;
+      return res.json(safe);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Followers ─────────────────────────────────────────────────────────────────
+  app.get("/api/copy/followers", async (req, res) => {
+    try {
+      const { userId, masterId } = req.query as { userId?: string; masterId?: string };
+      return res.json(await storage.getCopyFollowers(userId, masterId));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/copy/followers/:id", async (req, res) => {
+    try {
+      const follower = await storage.getCopyFollowerById(req.params.id);
+      if (!follower) return res.status(404).json({ error: "Follower not found" });
+      return res.json(follower);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/copy/followers", async (req, res) => {
+    try {
+      return res.status(201).json(await storage.createCopyFollower(req.body));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.put("/api/copy/followers/:id", async (req, res) => {
+    try {
+      const updated = await storage.updateCopyFollower(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Follower not found" });
+      return res.json(updated);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.delete("/api/copy/followers/:id", async (req, res) => {
+    try {
+      return res.json({ success: await storage.deleteCopyFollower(req.params.id) });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Deploy — persists full wizard config and queues the bridge start ──────────
+  app.post("/api/copy/deploy", async (req, res) => {
+    try {
+      const { role, accountConfig, masterConfig, followerConfig, telegramConfig, userId } = req.body;
+      if (!role) return res.status(400).json({ error: "role is required" });
+
+      // 1. Save broker account
+      const ac = accountConfig || {};
+      const account = await storage.createCopyAccount({
+        nickname:     ac.nickname || ac.loginId || "My Account",
+        platform:     ac.platform || "MT5",
+        brokerServer: ac.brokerServer,
+        loginId:      ac.loginId || "unknown",
+        passwordEnc:  ac.password ? Buffer.from(ac.password).toString("base64") : "",
+        role:         role === "provider" ? "master" : "follower",
+        symbolPrefix: ac.symbolPrefix,
+        symbolSuffix: ac.symbolSuffix,
+        userId,
+        isActive:     true,
+      });
+
+      let masterRecord: any = null;
+      let followerRecord: any = null;
+
+      // 2. Master record for provider / self / telegram roles
+      if (["provider", "self", "telegram"].includes(role)) {
+        masterRecord = await storage.createCopyMaster({
+          userId,
+          accountId:       account.id,
+          sourceType:      role === "telegram" ? "telegram" : "mt5",
+          strategyName:    masterConfig?.strategyName,
+          description:     masterConfig?.description,
+          tradingStyle:    masterConfig?.tradingStyle,
+          primaryMarket:   masterConfig?.primaryMarket,
+          isPublic:        masterConfig?.isPublic ?? true,
+          requireApproval: masterConfig?.requireApproval ?? false,
+          showOpenTrades:  masterConfig?.showOpenTrades ?? true,
+          isActive:        true,
+        });
+        if (role === "telegram" && telegramConfig) {
+          await storage.upsertTelegramSource({ ...telegramConfig, masterId: masterRecord.id });
+        }
+      }
+
+      // 3. Follower record for follower / self roles
+      if (["follower", "self"].includes(role)) {
+        const fc = followerConfig || {};
+        followerRecord = await storage.createCopyFollower({
+          userId,
+          accountId:       account.id,
+          masterId:        fc.masterId || masterRecord?.id,
+          lotMode:         fc.lotMode || "mult",
+          lotMultiplier:   fc.lotMultiplier || "1.0",
+          fixedLot:        fc.fixedLot,
+          riskPercent:     fc.riskPercent || "1.0",
+          direction:       fc.direction || "same",
+          symbolWhitelist: fc.symbolWhitelist,
+          symbolBlacklist: fc.symbolBlacklist,
+          maxOpenTrades:   fc.maxOpenTrades || 10,
+          tradeDelaySec:   fc.tradeDelaySec || 0,
+          pauseInactive:   fc.pauseInactive ?? true,
+          pauseOnDD:       fc.pauseOnDD ?? true,
+          maxDdPercent:    fc.maxDdPercent,
+          maxDailyLoss:    fc.maxDailyLoss,
+          isActive:        true,
+          riskAccepted:    fc.riskAccepted ?? false,
+          deployedAt:      new Date(),
+        });
+      }
+
+      return res.status(201).json({
+        success:  true,
+        role,
+        account:  { id: account.id },
+        master:   masterRecord   ? { id: masterRecord.id }   : null,
+        follower: followerRecord ? { id: followerRecord.id } : null,
+        message:  "Configuration saved. Start the Python bridge service to begin copying.",
+      });
+    } catch (err: any) {
+      console.error("[CopyTrade] Deploy error:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Trade history & execution logs ────────────────────────────────────────────
+  app.get("/api/copy/trades/master/:masterId", async (req, res) => {
+    try {
+      return res.json(await storage.getCopyMasterTrades(req.params.masterId, parseInt(req.query.limit as string) || 100));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/copy/trades/follower/:followerId", async (req, res) => {
+    try {
+      return res.json(await storage.getCopyFollowerTrades(req.params.followerId, parseInt(req.query.limit as string) || 100));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/copy/logs/:followerId", async (req, res) => {
+    try {
+      return res.json(await storage.getCopyExecutionLogs(req.params.followerId, parseInt(req.query.limit as string) || 200));
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

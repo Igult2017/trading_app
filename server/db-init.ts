@@ -252,6 +252,153 @@ export async function initializeDatabase() {
         last_updated TIMESTAMP DEFAULT NOW(),
         created_at TIMESTAMP DEFAULT NOW()
       )`,
+
+      // ── Copy Trading Tables ──────────────────────────────────────────────
+
+      // MT5 / broker account credentials (encrypted at rest)
+      `CREATE TABLE IF NOT EXISTS copy_accounts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR REFERENCES users(id),
+        nickname TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        broker_server TEXT,
+        login_id TEXT NOT NULL,
+        password_enc TEXT NOT NULL,
+        role TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        symbol_prefix TEXT,
+        symbol_suffix TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      // Signal provider / master account profiles
+      `CREATE TABLE IF NOT EXISTS copy_masters (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR REFERENCES users(id),
+        account_id VARCHAR REFERENCES copy_accounts(id),
+        source_type TEXT NOT NULL,
+        strategy_name TEXT,
+        description TEXT,
+        trading_style TEXT,
+        primary_market TEXT,
+        is_public BOOLEAN DEFAULT true,
+        require_approval BOOLEAN DEFAULT false,
+        show_open_trades BOOLEAN DEFAULT true,
+        is_active BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      // Telegram signal source configuration
+      `CREATE TABLE IF NOT EXISTS telegram_signal_sources (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        master_id VARCHAR REFERENCES copy_masters(id),
+        bot_token_enc TEXT,
+        phone_number TEXT,
+        api_id TEXT,
+        api_hash_enc TEXT,
+        channel_name TEXT,
+        channel_type TEXT,
+        multi_channel BOOLEAN DEFAULT false,
+        filter_sender TEXT,
+        entry_keyword TEXT,
+        sl_keyword TEXT,
+        tp_keyword TEXT,
+        symbol_keyword TEXT,
+        execute_no_sl BOOLEAN DEFAULT false,
+        execute_no_tp BOOLEAN DEFAULT true,
+        use_first_tp_only BOOLEAN DEFAULT true,
+        auto_update BOOLEAN DEFAULT false,
+        is_active BOOLEAN DEFAULT false,
+        session_file TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      // Follower account copy settings per master subscription
+      `CREATE TABLE IF NOT EXISTS copy_followers (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR REFERENCES users(id),
+        account_id VARCHAR REFERENCES copy_accounts(id),
+        master_id VARCHAR REFERENCES copy_masters(id),
+        lot_mode TEXT NOT NULL DEFAULT 'mult',
+        lot_multiplier DECIMAL(6, 2) DEFAULT 1.0,
+        fixed_lot DECIMAL(8, 2),
+        risk_percent DECIMAL(5, 2) DEFAULT 1.0,
+        direction TEXT DEFAULT 'same',
+        symbol_whitelist TEXT[],
+        symbol_blacklist TEXT[],
+        max_open_trades INTEGER DEFAULT 10,
+        trade_delay_sec INTEGER DEFAULT 0,
+        pause_inactive BOOLEAN DEFAULT true,
+        pause_on_dd BOOLEAN DEFAULT true,
+        session_filter BOOLEAN DEFAULT false,
+        active_sessions TEXT[],
+        max_dd_percent DECIMAL(5, 2),
+        max_daily_loss DECIMAL(10, 2),
+        notif_disconnect BOOLEAN DEFAULT true,
+        notif_exec_fail BOOLEAN DEFAULT true,
+        notif_dd_warn BOOLEAN DEFAULT true,
+        notif_daily_warn BOOLEAN DEFAULT true,
+        is_active BOOLEAN DEFAULT false,
+        risk_accepted BOOLEAN DEFAULT false,
+        deployed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      // Normalised master trade events (one row per signal)
+      `CREATE TABLE IF NOT EXISTS copy_trades_master (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        master_id VARCHAR REFERENCES copy_masters(id),
+        external_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        action TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        volume DECIMAL(10, 2),
+        entry_price DECIMAL(12, 5),
+        stop_loss DECIMAL(12, 5),
+        take_profit DECIMAL(12, 5),
+        closed_price DECIMAL(12, 5),
+        raw_payload JSONB,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      // Follower execution records mapped to each master trade
+      `CREATE TABLE IF NOT EXISTS copy_trades_follower (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        master_trade_id VARCHAR REFERENCES copy_trades_master(id),
+        follower_id VARCHAR REFERENCES copy_followers(id),
+        external_id TEXT,
+        symbol TEXT NOT NULL,
+        action TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        volume DECIMAL(10, 2),
+        entry_price DECIMAL(12, 5),
+        stop_loss DECIMAL(12, 5),
+        take_profit DECIMAL(12, 5),
+        closed_price DECIMAL(12, 5),
+        status TEXT DEFAULT 'pending',
+        error_message TEXT,
+        retry_count INTEGER DEFAULT 0,
+        executed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      // Full audit log for every copy trading action
+      `CREATE TABLE IF NOT EXISTS copy_execution_logs (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        follower_id VARCHAR REFERENCES copy_followers(id),
+        trade_id VARCHAR,
+        level TEXT NOT NULL,
+        event TEXT NOT NULL,
+        message TEXT NOT NULL,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      )`,
     ];
     
     for (const statement of createTableStatements) {
