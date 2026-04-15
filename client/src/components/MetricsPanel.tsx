@@ -619,7 +619,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <BoolYN label="HTF Key Level Present" data={boolImpacts.htfKeyLevelPresent}/>
               <BoolYN label="Key Level Respect"     data={boolImpacts.keyLevelRespected}/>
               <SubLabel>Key Level Type</SubLabel>
-              <Multi label="" options={['Support','Resistance','Supply','Demand'].map(l=>({ label:l==='Resistance'?'Resist.':l, pct: catBreakdown.keyLevelType?.[l]?.winRate ?? null }))}/>
+              {Object.keys(catBreakdown.keyLevelType||{}).length > 0
+                ? Object.entries(catBreakdown.keyLevelType||{}).map(([label, d]: [string,any], i) => (
+                    <Bar key={i} label={label} pct={d?.winRate ?? null} count={d?.count || 0}/>
+                  ))
+                : <Mono size={9} color={P.dim}>No key level data yet</Mono>
+              }
               <Multi label="Momentum" options={['Strong','Moderate','Weak'].map(l=>({ label:l, pct: catBreakdown.momentumValidity?.[l]?.winRate ?? null }))}/>
               <BoolYN label="Target Logic" data={boolImpacts.targetLogic}/>
               <Multi label="Timing Context" options={Object.keys(timingCtxData).map(l=>({ label:l, pct: timingCtxData[l]?.winRate ?? null }))}/>
