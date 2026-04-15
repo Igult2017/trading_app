@@ -5,40 +5,60 @@ retrieves all active followers for the master, and dispatches execution
 to each follower concurrently via TradeExecutor.
 
 Workers are stateless — you can run N processes pointing at the same Redis.
+
+Fixes applied:
+  - brpop is run in a thread-pool executor to avoid blocking the event loop
+  - max_open_trades limit is enforced before dispatching to a follower
+  - Shared redis_client used so producer/consumer share the same instance
 """
 import asyncio
 import logging
-import redis
 from ..models import NormalisedSignal
 from ..config import (
-    REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD,
     TRADE_QUEUE_KEY, TRADE_QUEUE_DLQ, WORKER_CONCURRENCY,
 )
 from .. import database as db
+from ..redis_client import get_client
 from ..execution_service.executor import TradeExecutor
 
 log = logging.getLogger(__name__)
 
-_redis: redis.Redis | None = None
 
-
-def get_redis() -> redis.Redis:
-    global _redis
-    if _redis is None:
-        _redis = redis.Redis(
-            host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB,
-            password=REDIS_PASSWORD, decode_responses=True,
-        )
-    return _redis
+async def _count_open_follower_trades(follower_id: str) -> int:
+    """Count positions currently open for a follower (OPEN executed, no matching CLOSE)."""
+    pool = await db.get_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT COUNT(DISTINCT ctf.master_trade_id) AS cnt
+        FROM   copy_trades_follower ctf
+        JOIN   copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
+        WHERE  ctf.follower_id  = $1
+          AND  ctf.event_type   = 'OPEN'
+          AND  ctf.status       = 'executed'
+          AND  NOT EXISTS (
+                 SELECT 1
+                 FROM   copy_trades_follower cf2
+                 JOIN   copy_trades_master   ctm2 ON ctm2.id = cf2.master_trade_id
+                 WHERE  cf2.follower_id = $1
+                   AND  cf2.event_type  = 'CLOSE'
+                   AND  cf2.status      = 'executed'
+                   AND  ctm2.external_id = ctm.external_id
+               )
+        """,
+        follower_id,
+    )
+    return int(row["cnt"]) if row else 0
 
 
 async def _process_signal(raw: str) -> None:
     """Full pipeline for a single dequeued signal."""
+    r = get_client()
+
     try:
         signal = NormalisedSignal.from_json(raw)
     except Exception as e:
         log.error("[Worker] Failed to parse signal JSON: %s | raw=%s", e, raw[:200])
-        get_redis().lpush(TRADE_QUEUE_DLQ, raw)
+        r.lpush(TRADE_QUEUE_DLQ, raw)
         return
 
     log.info(
@@ -46,16 +66,14 @@ async def _process_signal(raw: str) -> None:
         signal.event_type, signal.action, signal.symbol, signal.master_id,
     )
 
-    # 1. Persist master trade record (deduplication: ON CONFLICT DO NOTHING)
     try:
         master_trade_db_id = await db.insert_master_trade(signal)
         signal.master_trade_db_id = master_trade_db_id
     except Exception as e:
         log.error("[Worker] DB insert master trade failed: %s", e)
-        get_redis().lpush(TRADE_QUEUE_DLQ, raw)
+        r.lpush(TRADE_QUEUE_DLQ, raw)
         return
 
-    # 2. Fetch all active followers for this master
     followers = await db.fetch_active_followers(signal.master_id)
     if not followers:
         log.info("[Worker] No active followers for master=%s — skipping", signal.master_id)
@@ -63,10 +81,8 @@ async def _process_signal(raw: str) -> None:
 
     log.info("[Worker] Dispatching to %d follower(s)", len(followers))
 
-    # 3. For each follower — filter check, lot calculation, execute
     tasks = []
     for follower in followers:
-        # Whitelist / blacklist check
         whitelist = follower.get("symbol_whitelist") or []
         blacklist = follower.get("symbol_blacklist") or []
         if whitelist and signal.symbol not in whitelist:
@@ -76,10 +92,23 @@ async def _process_signal(raw: str) -> None:
             log.debug("[Worker] %s in blacklist for follower=%s — skip", signal.symbol, follower["id"])
             continue
 
-        # Max open trades check (approximate — count via DB)
+        # ── Max open trades enforcement ──────────────────────────────────────
+        if signal.event_type == "OPEN":
+            max_trades = int(follower.get("max_open_trades") or 10)
+            open_count = await _count_open_follower_trades(follower["id"])
+            if open_count >= max_trades:
+                log.info(
+                    "[Worker] Follower=%s already has %d/%d open trades — skipping OPEN for %s",
+                    follower["id"], open_count, max_trades, signal.symbol,
+                )
+                await db.insert_execution_log(
+                    follower["id"], "INFO", "SKIP",
+                    f"Max open trades reached ({open_count}/{max_trades}) — {signal.symbol} skipped",
+                )
+                continue
+
         tasks.append(_dispatch_to_follower(signal, follower, master_trade_db_id))
 
-    # Run all follower executions concurrently (bounded by WORKER_CONCURRENCY)
     sem = asyncio.Semaphore(WORKER_CONCURRENCY)
 
     async def bounded(coro):
@@ -93,12 +122,11 @@ async def _dispatch_to_follower(signal: NormalisedSignal, follower: dict,
                                   master_trade_db_id: str) -> None:
     follower_id = follower["id"]
     try:
-        # Insert a pending follower trade record
         from ..execution_service.executor import calculate_lot
         lot = calculate_lot(
             follower.get("lot_mode", "mult"),
             follower, signal,
-            {"equity": 1000.0},  # placeholder — executor will re-calculate with real equity
+            {"equity": 1000.0},
         )
         follower_trade_db_id = await db.insert_follower_trade(
             master_trade_db_id, follower_id, signal, lot,
@@ -116,19 +144,26 @@ async def _dispatch_to_follower(signal: NormalisedSignal, follower: dict,
 
 
 async def run_worker() -> None:
-    """Main worker loop. Blocks and processes signals from Redis indefinitely."""
-    r = get_redis()
+    """Main worker loop — blocks and processes signals from Redis indefinitely.
+
+    brpop is offloaded to a thread-pool executor so it never blocks the
+    asyncio event loop (which would starve MT5 monitors and Telegram listeners
+    running in the same process).
+    """
+    r = get_client()
+    loop = asyncio.get_event_loop()
     log.info("[Worker] Started. Waiting for signals on queue: %s", TRADE_QUEUE_KEY)
+
     while True:
         try:
-            # BRPOP blocks up to 5 seconds then returns None — keeps the loop alive
-            item = r.brpop(TRADE_QUEUE_KEY, timeout=5)
+            # Run the blocking brpop in a thread so the event loop stays free
+            item = await loop.run_in_executor(
+                None,
+                lambda: r.brpop(TRADE_QUEUE_KEY, timeout=5),
+            )
             if item:
                 _, raw = item
                 await _process_signal(raw)
-        except redis.ConnectionError as e:
-            log.error("[Worker] Redis connection error: %s — retrying in 5s", e)
-            await asyncio.sleep(5)
         except Exception as e:
             log.error("[Worker] Unexpected error: %s", e, exc_info=True)
             await asyncio.sleep(1)

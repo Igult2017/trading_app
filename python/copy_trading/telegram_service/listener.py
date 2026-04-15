@@ -4,14 +4,17 @@ One listener instance per telegram_signal_sources row.
 
 Pipeline:
   Channel message → parser.parse_message() → NormalisedSignal → producer.enqueue()
+
+Fixes applied:
+  - Automatic reconnect loop with exponential back-off (10 → 60 s cap)
+  - Session file must be pre-authenticated; interactive OTP is not possible
+    inside a running service — authenticate once via the CLI helper and
+    commit the session file before starting.
 """
 import asyncio
 import logging
 import os
 from typing import Optional
-
-from telethon import TelegramClient, events
-from telethon.sessions import StringSession
 
 from ..models import NormalisedSignal
 from ..ingestion_service.producer import enqueue
@@ -20,49 +23,45 @@ from ..config import TELEGRAM_SESSION_DIR
 
 log = logging.getLogger(__name__)
 
+try:
+    from telethon import TelegramClient, events
+    TELETHON_AVAILABLE = True
+except ImportError:
+    TELETHON_AVAILABLE = False
+    log.warning("[TG] Telethon not installed — Telegram listener is disabled")
+
 
 class TelegramListener:
     """
     Connects to Telegram as a user (MTProto) and listens to one or more
-    channels for trade signals.
+    channels for trade signals.  Reconnects automatically on disconnect.
     """
 
     def __init__(self, source_config: dict):
-        """
-        source_config is a row from telegram_signal_sources joined to copy_masters.
-        Required keys: api_id, api_hash_enc, phone_number, channel_name, master_id
-        Optional:      entry_keyword, sl_keyword, tp_keyword, symbol_keyword,
-                       execute_no_sl, execute_no_tp, use_first_tp_only,
-                       auto_update, filter_sender, session_file
-        """
-        self.cfg = source_config
-        self.master_id:  str = source_config["master_id"]
-        self.api_id:     int = int(source_config["api_id"])
-        # api_hash is stored encrypted; decrypt here if ENCRYPTION_KEY is set
-        self.api_hash:   str = self._decrypt(source_config.get("api_hash_enc", ""))
-        self.phone:      str = source_config.get("phone_number", "")
-        self.channel:    str = source_config.get("channel_name", "")
+        self.cfg        = source_config
+        self.master_id  = source_config["master_id"]
+        self.api_id     = int(source_config["api_id"])
+        self.api_hash   = self._decrypt(source_config.get("api_hash_enc", ""))
+        self.phone      = source_config.get("phone_number", "")
+        self.channel    = source_config.get("channel_name", "")
         self.filter_sender: Optional[str] = source_config.get("filter_sender")
+        self._running   = False
 
         session_file = source_config.get("session_file") or os.path.join(
             TELEGRAM_SESSION_DIR, f"session_{self.master_id}"
         )
         os.makedirs(TELEGRAM_SESSION_DIR, exist_ok=True)
-        self.client = TelegramClient(session_file, self.api_id, self.api_hash)
-        self._running = False
+        self._session_file = session_file
 
-    # ── Decryption stub (replace with AES when ENCRYPTION_KEY is set) ────────
     @staticmethod
     def _decrypt(cipher: str) -> str:
         from ..config import ENCRYPTION_KEY
         if not ENCRYPTION_KEY:
-            # Development mode: value stored as plain text or base64
             import base64
             try:
                 return base64.b64decode(cipher).decode()
             except Exception:
                 return cipher
-        # Production: AES-256-GCM via cryptography library
         try:
             import base64
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -74,28 +73,62 @@ class TelegramListener:
             log.error("[TG] Decryption failed: %s", e)
             return cipher
 
-    async def start(self) -> None:
-        log.info("[TG] Starting listener for master=%s channel=%s", self.master_id, self.channel)
-        await self.client.start(phone=self.phone)
-        self._running = True
+    def _make_client(self) -> "TelegramClient":
+        return TelegramClient(self._session_file, self.api_id, self.api_hash)
 
-        @self.client.on(events.NewMessage(chats=self.channel))
+    async def start(self) -> None:
+        """Entry point — runs the reconnect loop indefinitely."""
+        if not TELETHON_AVAILABLE:
+            log.error("[TG] Telethon not installed — cannot start listener for master=%s", self.master_id)
+            return
+
+        self._running = True
+        log.info("[TG] Starting listener for master=%s channel=%s", self.master_id, self.channel)
+
+        delay = 10
+        max_delay = 60
+
+        while self._running:
+            try:
+                await self._run_once()
+                # If run_once returns cleanly, the client disconnected
+                if self._running:
+                    log.warning("[TG] master=%s disconnected — reconnecting in %ds", self.master_id, delay)
+            except Exception as e:
+                log.error("[TG] master=%s error: %s — reconnecting in %ds", self.master_id, e, delay)
+
+            if not self._running:
+                break
+
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, max_delay)   # exponential back-off, capped at 60 s
+
+    async def _run_once(self) -> None:
+        """Connect, register handler, and run until disconnected."""
+        client = self._make_client()
+
+        # NOTE: client.start() requires an authenticated session file.
+        # If the session file does not exist, Telethon will attempt an
+        # interactive OTP flow which is impossible inside a running service.
+        # Authenticate once via the CLI: python -m python.copy_trading.auth_helper
+        await client.start(phone=self.phone)
+
+        @client.on(events.NewMessage(chats=self.channel))
         async def handler(event):
             await self._handle_message(event)
 
-        log.info("[TG] Listening to %s", self.channel)
-        await self.client.run_until_disconnected()
+        log.info("[TG] Connected and listening to %s (master=%s)", self.channel, self.master_id)
+        await client.run_until_disconnected()
 
     async def _handle_message(self, event) -> None:
         try:
-            msg = event.message
-            text: str = msg.text or ""
+            msg  = event.message
+            text = msg.text or ""
             if not text.strip():
                 return
 
-            # Sender filter
             if self.filter_sender:
-                sender = await event.get_sender()
+                sender   = await event.get_sender()
                 username = getattr(sender, "username", None) or ""
                 if username.lstrip("@").lower() != self.filter_sender.lstrip("@").lower():
                     return
@@ -112,7 +145,6 @@ class TelegramListener:
                 log.debug("[TG] Message skipped (no signal detected): %.60s", text)
                 return
 
-            # Reject low-confidence signals with no SL if execute_no_sl is off
             if parsed.sl is None and not self.cfg.get("execute_no_sl", False):
                 log.info("[TG] Skipping signal — no SL and execute_no_sl=False")
                 return
@@ -139,8 +171,6 @@ class TelegramListener:
 
     async def stop(self) -> None:
         self._running = False
-        if self.client.is_connected():
-            await self.client.disconnect()
         log.info("[TG] Listener stopped for master=%s", self.master_id)
 
 

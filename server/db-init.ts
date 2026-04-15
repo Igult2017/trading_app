@@ -412,7 +412,26 @@ export async function initializeDatabase() {
         }
       }
     }
-    
+
+    // ── Indexes & constraints added after table creation ─────────────────────
+    const indexStatements = [
+      // Deduplication constraint: prevents the same master signal from being
+      // inserted twice (ON CONFLICT DO NOTHING in insert_master_trade relies on this)
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_copy_trades_master_dedup
+         ON copy_trades_master (master_id, external_id)`,
+    ];
+
+    for (const stmt of indexStatements) {
+      try {
+        await db.execute(sql.raw(stmt));
+      } catch (err) {
+        const error = err as any;
+        if (!error?.message?.includes('already exists') && !error?.message?.includes('duplicate')) {
+          console.error(`[Database] Index creation FAILED: ${error?.message}`);
+        }
+      }
+    }
+
     console.log('[Database] Schema initialization complete - all tables created');
     return true;
   } catch (error) {

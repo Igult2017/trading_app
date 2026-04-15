@@ -3,17 +3,16 @@ MT5 trade executor for follower accounts.
 Receives a NormalisedSignal + follower config and executes OPEN / MODIFY / CLOSE
 on the follower's MT5 account.
 
-Includes:
-  • Lot-size calculation (multiplier / fixed / equity-risk modes)
-  • Deduplication guard (checks copy_trades_follower for existing ticket)
-  • Retry logic (up to WORKER_MAX_RETRIES attempts)
-  • Execution logging to copy_execution_logs
+Fixes applied:
+  - CLOSE uses the follower's actual open volume (not the master's lot)
+  - Risk-mode lot calculation uses symbol-aware pip size and pip value
+  - Retry logic with exponential back-off is preserved
 """
 import asyncio
 import logging
 from typing import Optional
 from ..models import NormalisedSignal
-from ..config import MT5_RECONNECT_ATTEMPTS, MT5_RECONNECT_DELAY_SEC, WORKER_MAX_RETRIES
+from ..config import MT5_RECONNECT_DELAY_SEC, WORKER_MAX_RETRIES
 from .. import database as db
 
 log = logging.getLogger(__name__)
@@ -24,14 +23,47 @@ try:
 except ImportError:
     MT5_AVAILABLE = False
 
+
+# ── Pip helpers ───────────────────────────────────────────────────────────────
+
+def _pip_size(symbol: str) -> float:
+    """Return the value of one pip for the given symbol."""
+    s = symbol.upper()
+    if s.endswith("JPY") or s.startswith("JPY"):
+        return 0.01
+    if s in ("XAUUSD", "GOLD", "XAGUSD", "SILVER", "XPTUSD", "XPDUSD"):
+        return 0.01
+    if any(c in s for c in ("BTC", "ETH", "XRP", "SOL", "BNB", "ADA", "DOT")):
+        return 1.0
+    return 0.0001  # standard 4-decimal forex pair
+
+
+def _pip_value_per_lot(symbol: str) -> float:
+    """Return approximate USD pip value for 1 standard lot."""
+    s = symbol.upper()
+    if s.endswith("JPY") or s.startswith("JPY"):
+        return 8.0        # varies ~7-9 USD
+    if s in ("XAUUSD", "GOLD"):
+        return 1.0        # $1 per $0.01 move per oz (100 oz contract)
+    if s in ("XAGUSD", "SILVER"):
+        return 0.5
+    if "BTC" in s:
+        return 100.0
+    if "ETH" in s:
+        return 10.0
+    if s in ("US100", "NAS100", "NDX", "NASDAQ"):
+        return 1.0
+    if s in ("US500", "SPX500", "SP500"):
+        return 1.0
+    if s in ("US30", "DJ30", "DOW", "DOWJONES"):
+        return 1.0
+    return 10.0           # standard major FX pair (USD-quoted)
+
+
 # ── Lot calculator ────────────────────────────────────────────────────────────
 
 def calculate_lot(mode: str, follower: dict, signal: NormalisedSignal,
                   account_info: dict) -> float:
-    """
-    mode: "mult" | "fixed" | "risk"
-    Returns the lot size to use for the copied trade.
-    """
     master_volume = signal.volume or 0.01
     equity = account_info.get("equity", 1000.0)
 
@@ -40,22 +72,22 @@ def calculate_lot(mode: str, follower: dict, signal: NormalisedSignal,
 
     elif mode == "risk":
         risk_pct = float(follower.get("risk_percent") or 1.0) / 100.0
-        sl_distance = abs((signal.entry_price or 0) - (signal.stop_loss or 0))
+        entry = signal.entry_price or 0.0
+        sl    = signal.stop_loss  or 0.0
+        sl_distance = abs(entry - sl)
+
         if sl_distance <= 0:
             lot = 0.01
         else:
-            # Approximate: 1 standard lot = 100 000 units; pip value varies
-            # Simple formula: lot = (equity * risk%) / (sl_pips * pip_value)
-            # pip_value ≈ 10 USD for most major pairs at 1 standard lot
-            pip_value = 10.0
-            sl_pips = sl_distance * 10_000  # rough for 4-digit pairs
-            lot = (equity * risk_pct) / (sl_pips * pip_value)
+            pip_sz  = _pip_size(signal.symbol)
+            pip_val = _pip_value_per_lot(signal.symbol)
+            sl_pips = sl_distance / pip_sz if pip_sz > 0 else 1.0
+            lot = (equity * risk_pct) / (sl_pips * pip_val)
 
     else:  # "mult" (default)
         multiplier = float(follower.get("lot_multiplier") or 1.0)
         lot = master_volume * multiplier
 
-    # Clamp to broker minimum / maximum
     lot = max(0.01, round(lot, 2))
     return lot
 
@@ -66,10 +98,9 @@ def remap_symbol(symbol: str, prefix: str = "", suffix: str = "") -> str:
     return f"{prefix}{symbol}{suffix}"
 
 
-# ── MT5 execution ─────────────────────────────────────────────────────────────
+# ── MT5 execution helpers ─────────────────────────────────────────────────────
 
 def _mt5_open(follower: dict, signal: NormalisedSignal, lot: float) -> Optional[int]:
-    """Open a trade on the follower MT5 account. Returns ticket or None."""
     symbol = remap_symbol(
         signal.symbol,
         follower.get("symbol_prefix", "") or "",
@@ -82,19 +113,29 @@ def _mt5_open(follower: dict, signal: NormalisedSignal, lot: float) -> Optional[
         return None
 
     ask = price.ask if signal.action == "BUY" else price.bid
+
+    # Determine supported filling mode
+    sym_info = mt5.symbol_info(symbol)
+    if sym_info is not None and sym_info.filling_mode & mt5.ORDER_FILLING_FOK:
+        filling = mt5.ORDER_FILLING_FOK
+    elif sym_info is not None and sym_info.filling_mode & mt5.ORDER_FILLING_IOC:
+        filling = mt5.ORDER_FILLING_IOC
+    else:
+        filling = mt5.ORDER_FILLING_RETURN
+
     request = {
-        "action":    mt5.TRADE_ACTION_DEAL,
-        "symbol":    symbol,
-        "volume":    lot,
-        "type":      order_type,
-        "price":     ask,
-        "sl":        signal.stop_loss or 0.0,
-        "tp":        signal.take_profit or 0.0,
-        "deviation": 20,
-        "magic":     20250101,
-        "comment":   f"copy:{signal.master_id[:8]}",
-        "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_IOC,
+        "action":       mt5.TRADE_ACTION_DEAL,
+        "symbol":       symbol,
+        "volume":       lot,
+        "type":         order_type,
+        "price":        ask,
+        "sl":           signal.stop_loss  or 0.0,
+        "tp":           signal.take_profit or 0.0,
+        "deviation":    20,
+        "magic":        20250101,
+        "comment":      f"copy:{signal.master_id[:8]}",
+        "type_time":    mt5.ORDER_TIME_GTC,
+        "type_filling": filling,
     }
     result = mt5.order_send(request)
     if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -111,7 +152,7 @@ def _mt5_modify(ticket: int, sl: float, tp: float) -> bool:
         "tp":       tp or 0.0,
     }
     result = mt5.order_send(request)
-    return result and result.retcode == mt5.TRADE_RETCODE_DONE
+    return bool(result and result.retcode == mt5.TRADE_RETCODE_DONE)
 
 
 def _mt5_close(ticket: int, volume: float, symbol: str,
@@ -122,21 +163,30 @@ def _mt5_close(ticket: int, volume: float, symbol: str,
         return False
     close_price = tick.bid if action == "BUY" else tick.ask
     close_type  = mt5.ORDER_TYPE_SELL if action == "BUY" else mt5.ORDER_TYPE_BUY
+
+    sym_info = mt5.symbol_info(sym)
+    if sym_info is not None and sym_info.filling_mode & mt5.ORDER_FILLING_FOK:
+        filling = mt5.ORDER_FILLING_FOK
+    elif sym_info is not None and sym_info.filling_mode & mt5.ORDER_FILLING_IOC:
+        filling = mt5.ORDER_FILLING_IOC
+    else:
+        filling = mt5.ORDER_FILLING_RETURN
+
     request = {
-        "action":   mt5.TRADE_ACTION_DEAL,
-        "position": ticket,
-        "symbol":   sym,
-        "volume":   volume,
-        "type":     close_type,
-        "price":    close_price,
-        "deviation": 20,
-        "magic":    20250101,
-        "comment":  "copy:close",
-        "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_IOC,
+        "action":       mt5.TRADE_ACTION_DEAL,
+        "position":     ticket,
+        "symbol":       sym,
+        "volume":       volume,
+        "type":         close_type,
+        "price":        close_price,
+        "deviation":    20,
+        "magic":        20250101,
+        "comment":      "copy:close",
+        "type_time":    mt5.ORDER_TIME_GTC,
+        "type_filling": filling,
     }
     result = mt5.order_send(request)
-    return result and result.retcode == mt5.TRADE_RETCODE_DONE
+    return bool(result and result.retcode == mt5.TRADE_RETCODE_DONE)
 
 
 # ── Main executor ─────────────────────────────────────────────────────────────
@@ -172,7 +222,7 @@ class TradeExecutor:
 
     def connect(self) -> bool:
         if not MT5_AVAILABLE:
-            log.warning("[Exec] MT5 not available — skipping connection")
+            log.warning("[Exec] MT5 not available — skipping connection (Linux/non-Windows)")
             return False
         if not mt5.initialize():
             return False
@@ -189,10 +239,6 @@ class TradeExecutor:
 
     async def execute(self, signal: NormalisedSignal, master_trade_db_id: str,
                       follower_trade_db_id: str) -> bool:
-        """
-        Execute the trade. Returns True on success.
-        Writes result to copy_trades_follower and copy_execution_logs.
-        """
         follower_id = self.follower["id"]
 
         for attempt in range(1, WORKER_MAX_RETRIES + 1):
@@ -214,16 +260,18 @@ class TradeExecutor:
                     success = ticket is not None
 
                 elif signal.event_type == "MODIFY":
-                    # Find the follower ticket mapped to this master trade
                     existing = await self._find_follower_ticket(master_trade_db_id, follower_id)
                     if existing:
-                        success = _mt5_modify(existing, signal.stop_loss or 0, signal.take_profit or 0)
+                        success = _mt5_modify(existing, signal.stop_loss or 0.0, signal.take_profit or 0.0)
 
                 elif signal.event_type == "CLOSE":
                     existing = await self._find_follower_ticket(master_trade_db_id, follower_id)
                     if existing:
+                        # Use the actual volume the follower opened with, not master lot
+                        actual_vol = await self._get_follower_open_volume(master_trade_db_id, follower_id)
+                        close_lot  = actual_vol if actual_vol and actual_vol > 0 else lot
                         success = _mt5_close(
-                            existing, lot, signal.symbol, signal.action,
+                            existing, close_lot, signal.symbol, signal.action,
                             self.follower.get("symbol_prefix", "") or "",
                             self.follower.get("symbol_suffix", "") or "",
                         )
@@ -258,7 +306,6 @@ class TradeExecutor:
             finally:
                 self.disconnect()
 
-        # All retries exhausted
         await db.update_follower_trade(follower_trade_db_id, "failed")
         await db.insert_execution_log(
             follower_id, "ERROR", "FAIL",
@@ -273,9 +320,11 @@ class TradeExecutor:
         row = await pool.fetchrow(
             """
             SELECT external_id FROM copy_trades_follower
-            WHERE master_trade_id=$1 AND follower_id=$2
-              AND status='executed' AND external_id IS NOT NULL
-            ORDER BY created_at DESC LIMIT 1
+            WHERE  master_trade_id = $1
+              AND  follower_id     = $2
+              AND  status          = 'executed'
+              AND  external_id IS NOT NULL
+            ORDER  BY created_at DESC LIMIT 1
             """,
             master_trade_db_id, follower_id,
         )
@@ -283,5 +332,27 @@ class TradeExecutor:
             try:
                 return int(row["external_id"])
             except ValueError:
+                pass
+        return None
+
+    @staticmethod
+    async def _get_follower_open_volume(master_trade_db_id: str, follower_id: str) -> Optional[float]:
+        """Return the lot volume the follower used when opening this trade."""
+        pool = await db.get_pool()
+        row = await pool.fetchrow(
+            """
+            SELECT volume FROM copy_trades_follower
+            WHERE  master_trade_id = $1
+              AND  follower_id     = $2
+              AND  event_type      = 'OPEN'
+              AND  status          = 'executed'
+            ORDER  BY created_at DESC LIMIT 1
+            """,
+            master_trade_db_id, follower_id,
+        )
+        if row and row["volume"] is not None:
+            try:
+                return float(row["volume"])
+            except (TypeError, ValueError):
                 pass
         return None

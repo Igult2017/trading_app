@@ -649,12 +649,74 @@ const StepTgParser = ({ data, setData }: any) => (
   </div>
 );
 
+function clientSideParseSignal(text: string) {
+  const up = text.toUpperCase();
+  const KNOWN = [
+    'EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD',
+    'EURGBP','EURJPY','EURAUD','EURCAD','EURCHF','EURNZD',
+    'GBPJPY','GBPAUD','GBPCAD','GBPCHF','GBPNZD',
+    'XAUUSD','GOLD','XAGUSD','SILVER','USOIL','UKOIL','WTI',
+    'US30','US100','US500','NAS100','SPX500','DJ30','UK100','GER40',
+    'BTCUSD','ETHUSD','XRPUSD','BTCUSDT','ETHUSDT',
+    'AUDJPY','AUDCAD','AUDCHF','AUDNZD','CADJPY','CADCHF','CHFJPY','NZDJPY',
+  ];
+  const BLOCKLIST = new Set(['BUY','SELL','LONG','SHORT','STOP','LIMIT','ENTRY',
+    'TARGET','HIGH','LOW','CLOSE','OPEN','PRICE','LOSS','PROFIT','TAKE','TRADE',
+    'SIGNAL','ALERT','NEWS','UPDATE','MARKET','ORDER','USD','EUR','GBP','JPY',
+    'CHF','CAD','AUD','NZD','TP','SL','RR','PIP','LOT','PAIR']);
+
+  let direction: string | null = null;
+  if (/\b(buy\s+limit|buy\s+stop|buy|long)\b/i.test(text))  direction = 'BUY';
+  else if (/\b(sell\s+limit|sell\s+stop|sell|short)\b/i.test(text)) direction = 'SELL';
+  if (!direction) return null;
+
+  let symbol: string | null = null;
+  for (const s of [...KNOWN].sort((a,b) => b.length - a.length)) {
+    if (new RegExp('(?<![A-Z])' + s + '(?![A-Z])').test(up)) { symbol = s; break; }
+  }
+  if (!symbol) {
+    const m = text.match(/\b([A-Z]{3,6}(?:\/?[A-Z]{3,6})?)\b/);
+    if (m) { const c = m[1].replace('/',''); if (!BLOCKLIST.has(c)) symbol = c; }
+  }
+  if (!symbol) return null;
+
+  const priceRe = /(\d{2,6}(?:[.,]\d{1,5})?)/;
+  const after = (kw: string) => {
+    const m = text.match(new RegExp(kw + '[:\\s@]*' + priceRe.source, 'i'));
+    return m ? parseFloat(m[1].replace(',', '.')) : null;
+  };
+  const entry = after('entry') ?? after('price') ?? after('@');
+  const sl    = after('sl') ?? after('stop');
+  const tp    = after('tp1') ?? after('tp') ?? after('target') ?? after('take profit');
+  const tp2   = (() => { const m = text.match(/tp\s*2[:\s]*([\d.,]+)/i); return m ? parseFloat(m[1].replace(',','.')) : null; })();
+
+  const filled = [entry, sl, tp].filter(v => v !== null).length;
+  const confidence = filled === 3 ? 'High' : filled === 2 ? 'Medium' : 'Low';
+
+  return {
+    symbol, direction,
+    entry: entry ? String(entry) : '—',
+    sl:    sl    ? String(sl)    : '—',
+    tp1:   tp    ? String(tp)    : '—',
+    tp2:   tp2   ? String(tp2)   : '—',
+    confidence,
+  };
+}
+
 const StepTgTest = ({ data, setData }: any) => {
   const [parsed, setParsed] = useState<any>(null);
+  const [parseError, setParseError] = useState<string>('');
   const sampleMsg = data.testMessage ?? '';
   const runTest = () => {
     if (!sampleMsg.trim()) return;
-    setParsed({ symbol:'EURUSD', direction:'BUY', entry:'1.08450', sl:'1.08100', tp1:'1.08800', tp2:'1.09100', confidence:'High' });
+    setParseError('');
+    const result = clientSideParseSignal(sampleMsg);
+    if (result) {
+      setParsed(result);
+    } else {
+      setParsed(null);
+      setParseError('Could not identify a valid trade signal. Check that the message contains a direction (BUY/SELL) and a symbol (e.g. EURUSD).');
+    }
   };
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
@@ -670,9 +732,18 @@ const StepTgTest = ({ data, setData }: any) => {
       </div>
       <div className="p-5 md:p-8 space-y-4 md:space-y-6">
         <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// parser_result</span>
-        {!parsed
+        {!parsed && !parseError
           ? <p className="text-[11px] text-slate-700 leading-relaxed">Paste a signal message and run the test to see the extracted trade details here.</p>
-          : (
+          : parseError
+          ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <span className="text-[10px] font-bold uppercase tracking-widest">No Signal Detected</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">{parseError}</p>
+            </div>
+          )
+          : parsed && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-green-400">
                 <CheckCircle2 size={14} />
@@ -682,7 +753,7 @@ const StepTgTest = ({ data, setData }: any) => {
                 {[{label:'Symbol',value:parsed.symbol},{label:'Direction',value:parsed.direction},{label:'Entry',value:parsed.entry},{label:'Stop-Loss',value:parsed.sl},{label:'TP 1',value:parsed.tp1},{label:'TP 2',value:parsed.tp2}].map((f: any) => (
                   <div key={f.label} className="bg-[#020203] p-2 md:p-3">
                     <div className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1 font-mono">{f.label}</div>
-                    <div className="text-sm font-bold font-mono text-white">{f.value}</div>
+                    <div className="text-sm font-bold font-mono text-white">{f.value ?? '—'}</div>
                   </div>
                 ))}
               </div>
@@ -1310,13 +1381,13 @@ export default function TradeSyncPage() {
               <div className="ts-diagram-slaves">
                 <div className="ts-diagram-slave">
                   <div className="ts-diag-icon">👤</div>
-                  <div><div className="ts-diag-label">Slave Account 5</div><div className="ts-diag-id">1000005</div></div>
-                  <span className="ts-badge-slave">Slave</span>
+                  <div><div className="ts-diag-label">Follower Account A</div><div className="ts-diag-id">1× lot</div></div>
+                  <span className="ts-badge-slave">Follower</span>
                 </div>
                 <div className="ts-diagram-slave">
                   <div className="ts-diag-icon">👤</div>
-                  <div><div className="ts-diag-label">Slave Account 6</div><div className="ts-diag-id">1000006</div></div>
-                  <span className="ts-badge-slave">Slave</span>
+                  <div><div className="ts-diag-label">Follower Account B</div><div className="ts-diag-id">1× lot</div></div>
+                  <span className="ts-badge-slave">Follower</span>
                 </div>
               </div>
             </div>
