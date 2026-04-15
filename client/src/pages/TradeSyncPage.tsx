@@ -226,11 +226,11 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
       </div>
       {data.platform==='Proprietary' ? (
         <div className="space-y-6 md:space-y-8">
-          <TInput label="Broker Platform Name" placeholder="e.g. ThinkTrader, Oanda Desktop" />
-          <TInput label="API Endpoint (Optional)" placeholder="https://api.broker.com/v1" />
+          <TInput label="Broker Platform Name" placeholder="e.g. ThinkTrader, Oanda Desktop" value={data.propriBrokerName??''} onChange={(e:any)=>setData({...data,propriBrokerName:e.target.value})} />
+          <TInput label="API Endpoint (Optional)" placeholder="https://api.broker.com/v1" value={data.propriApiEndpoint??''} onChange={(e:any)=>setData({...data,propriApiEndpoint:e.target.value})} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-            <TInput label="API Key" type="password" placeholder="pk_live_..." />
-            <TInput label="Secret"  type="password" placeholder="••••••••" />
+            <TInput label="API Key" type="password" placeholder="pk_live_..." value={data.propriApiKey??''} onChange={(e:any)=>setData({...data,propriApiKey:e.target.value})} />
+            <TInput label="Secret"  type="password" placeholder="••••••••" value={data.propriSecret??''} onChange={(e:any)=>setData({...data,propriSecret:e.target.value})} />
           </div>
         </div>
       ) : (
