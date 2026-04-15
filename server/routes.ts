@@ -342,10 +342,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/journal/entries/:id", async (req, res) => {
     try {
-      const entry = await storage.updateJournalEntry(req.params.id, req.body);
-      if (!entry) {
-        return res.status(404).json({ error: "Journal entry not found" });
+      const existing = await storage.getJournalEntryById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Journal entry not found" });
+
+      const updates: Record<string, any> = { ...req.body };
+
+      // When profitLoss is being corrected, recalculate accountBalance for this entry
+      // so that the equity displayed for the trade stays consistent.
+      // Formula: balanceBefore = existingAccountBalance - existingProfitLoss
+      //          newAccountBalance = balanceBefore + newProfitLoss
+      if (updates.profitLoss !== undefined && existing.accountBalance != null) {
+        const oldPnL = parseFloat(String(existing.profitLoss ?? '0')) || 0;
+        const newPnL = parseFloat(String(updates.profitLoss)) || 0;
+        const balanceBefore = parseFloat(String(existing.accountBalance)) - oldPnL;
+        updates.accountBalance = String(Math.round((balanceBefore + newPnL) * 100) / 100);
       }
+
+      const entry = await storage.updateJournalEntry(req.params.id, updates);
+      if (!entry) return res.status(404).json({ error: "Journal entry not found" });
+
       invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateCalendarCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateDrawdownCache(entry.sessionId ?? undefined, entry.userId ?? undefined);

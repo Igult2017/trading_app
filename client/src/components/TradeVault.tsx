@@ -162,7 +162,35 @@ function RRBadge({ rr }: { rr: string }) {
 function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean }) {
   const [form, setForm] = useState({ ...trade });
 
-  const handleChange = (field: string, value: string | number) => setForm((f) => ({ ...f, [field]: value }));
+  const handleChange = (field: string, value: string | number) => {
+    setForm((f) => {
+      const updated = { ...f, [field]: value };
+
+      if (field === 'outcome') {
+        // Derive monetary risk from the current signed P/L
+        const currentRR = parseFloat(String(f.rr)) || 1;
+        const monetaryRisk = f.outcome === 'LOSS'
+          ? Math.abs(f.pl)
+          : Math.round((Math.abs(f.pl) / currentRR) * 100) / 100;
+
+        if (value === 'WIN') {
+          updated.pl = Math.round(monetaryRisk * currentRR * 100) / 100;
+        } else {
+          updated.pl = -monetaryRisk;
+        }
+      }
+
+      if (field === 'rr' && f.outcome === 'WIN') {
+        // When RR changes on a WIN, scale the P/L proportionally
+        const currentRR = parseFloat(String(f.rr)) || 1;
+        const newRR = parseFloat(String(value)) || 1;
+        const monetaryRisk = Math.abs(f.pl) / currentRR;
+        updated.pl = Math.round(monetaryRisk * newRR * 100) / 100;
+      }
+
+      return updated;
+    });
+  };
 
   return (
     <div style={styles.overlay}>
