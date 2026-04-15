@@ -695,7 +695,8 @@ const StepTgTest = ({ data, setData }: any) => {
   );
 };
 
-const StepGoLive = ({ data, role, setDeployed }: any) => {
+const StepGoLive = ({ data, role, onReset }: any) => {
+  const [status, setStatus] = useState<'ready'|'deploying'|'success'|'error'>('ready');
   const provider  = PROVIDERS.find(p => p.id === data.selectedProvider);
   const allAccepted = data.riskAccepted && data.affordConfirmed;
   const canDeploy = role==='provider' ? (allAccepted && data.providerConfirmed) : allAccepted;
@@ -705,6 +706,76 @@ const StepGoLive = ({ data, role, setDeployed }: any) => {
     self:     'Self-copy bridge between your two accounts',
     telegram: 'Telegram signal parser configured',
   };
+  const successMsg: any = {
+    follower: provider ? <>Copying <span className="text-blue-400 font-mono">{provider.name}</span> in real-time.</> : 'Bridge is live.',
+    provider: 'Your signals are now broadcasting to followers.',
+    self:     'Self-copy bridge is active between your accounts.',
+    telegram: 'Telegram signal parser is live and monitoring the channel.',
+  };
+
+  const handleDeploy = () => {
+    if (!canDeploy) return;
+    setStatus('deploying');
+    setTimeout(() => setStatus('success'), 2200);
+  };
+
+  if (status === 'deploying') return (
+    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
+      <div className="w-24 h-24 rounded-full border border-blue-500/20 flex items-center justify-center relative">
+        <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-ping" />
+        <Rocket size={40} className="text-blue-400 animate-pulse" strokeWidth={1.5} />
+      </div>
+      <h2 className="text-2xl md:text-3xl font-light">Deploying Terminal…</h2>
+      <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+        {['Establishing bridge connection','Verifying account credentials','Activating copy engine'].map((msg, i) => (
+          <div key={msg} className="flex items-center gap-3 w-full text-left">
+            <div className="w-4 h-4 rounded-full border border-blue-500/40 bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" style={{ animationDelay:`${i*0.3}s` }} />
+            </div>
+            <span className="text-[11px] font-mono text-slate-500">{msg}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (status === 'success') return (
+    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
+      <div className="w-24 h-24 rounded-full border border-green-500/30 flex items-center justify-center relative">
+        <div className="absolute inset-0 bg-green-500/10 blur-2xl animate-pulse" />
+        <CheckCircle2 size={40} className="text-green-400 relative z-10" strokeWidth={1.5} />
+      </div>
+      <div className="space-y-3">
+        <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-4 py-1.5 text-green-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+          Deployment Successful
+        </div>
+        <h2 className="text-2xl md:text-3xl font-light">Terminal Live</h2>
+        <p className="text-slate-500 text-sm max-w-md">{successMsg[role]}</p>
+      </div>
+      <div className="grid grid-cols-3 gap-px bg-white/5 border border-white/5 w-full max-w-sm mt-2">
+        {[
+          { label:'Status',   value:'Active',   color:'#4ade80' },
+          { label:'Latency',  value:'12 ms',    color:'#f8fafc' },
+          { label:'Trades',   value:'Syncing',  color:'#60a5fa' },
+        ].map(s => (
+          <div key={s.label} className="bg-[#020203] p-3 text-center">
+            <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600 mb-1">{s.label}</div>
+            <div className="text-sm font-mono font-bold" style={{ color:s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col items-center gap-3 pt-2">
+        <GlowButton active onClick={onReset}>
+          Set Up Another Terminal <ArrowRight size={14} />
+        </GlowButton>
+        <button className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
+          View Bridge Logs
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
       <div className="w-24 h-24 rounded-full border border-blue-500/20 flex items-center justify-center relative">
@@ -719,7 +790,7 @@ const StepGoLive = ({ data, role, setDeployed }: any) => {
           <span>Please complete the Risk Disclosure step before deploying.</span>
         </div>
       )}
-      <GlowButton active={canDeploy} onClick={() => canDeploy && setDeployed(true)}>
+      <GlowButton active={canDeploy} onClick={handleDeploy}>
         DEPLOY TERMINAL <ArrowRight size={14} />
       </GlowButton>
     </div>
@@ -741,7 +812,6 @@ const STEP_TITLES: any = {
 // ═══════════════════════════════════════════════════════════════════════════════
 function CopierWizard({ onBack }: { onBack: () => void }) {
   const [step, setStep]               = useState(0);
-  const [isDeployed, setIsDeployed]   = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({
     role:'follower', platform:'MT5', lotMode:'mult', riskAmount:'1',
@@ -761,35 +831,10 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
   const handleNext = () => { if (step < steps.length-1) { setStep(s=>s+1); setSidebarOpen(false); } };
   const handlePrev = () => { if (step > 0) setStep(s=>s-1); };
 
-  if (isDeployed) {
-    const provider = PROVIDERS.find(p => p.id === data.selectedProvider);
-    return (
-      <div className="min-h-screen bg-[#020203] text-white flex items-center justify-center p-6 text-center">
-        <style>{FONTS + `body{font-family:'Plus Jakarta Sans',sans-serif;}`}</style>
-        <div className="max-w-xl space-y-8 w-full">
-          <div className="relative inline-block">
-            <div className="absolute inset-0 bg-blue-600 blur-3xl opacity-20 animate-pulse" />
-            <div className="w-20 h-20 md:w-24 md:h-24 border border-blue-500 rounded-full flex items-center justify-center mx-auto relative z-10">
-              <CheckCircle2 size={40} className="text-blue-400" />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-extralight tracking-tighter">Terminal Live</h1>
-            <p className="text-slate-500 font-light leading-relaxed">
-              {data.role==='follower' && provider && <>Copying <span className="text-blue-400 font-mono">{provider.name}</span> in real-time.</>}
-              {data.role==='provider' && <>Your signals are now broadcasting to followers.</>}
-              {data.role==='self'     && <>Self-copy bridge is active between your accounts.</>}
-              {data.role==='telegram' && <>Telegram signal parser is live and monitoring the channel.</>}
-            </p>
-          </div>
-          <div className="pt-6 flex flex-col items-center gap-4">
-            <GlowButton active onClick={onBack}>Go To Dashboard <ArrowRight size={14} /></GlowButton>
-            <button className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">View Bridge Logs</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleReset = () => {
+    setStep(0);
+    setData({ role:'follower', platform:'MT5', lotMode:'mult', riskAmount:'1', selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}] });
+  };
 
   const renderStep = () => {
     switch (cur.id) {
@@ -809,7 +854,7 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
       case 'tg-channel': return <StepTgChannel     data={data} setData={setData} />;
       case 'tg-parser':  return <StepTgParser      data={data} setData={setData} />;
       case 'tg-test':    return <StepTgTest        data={data} setData={setData} />;
-      case 'go-live':    return <StepGoLive        data={data} role={data.role} setDeployed={setIsDeployed} />;
+      case 'go-live':    return <StepGoLive        data={data} role={data.role} onReset={handleReset} />;
       default:           return null;
     }
   };
