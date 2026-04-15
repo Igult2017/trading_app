@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
@@ -827,7 +827,198 @@ function buildDeployPayload(data: any) {
   };
 }
 
-const StepGoLive = ({ data, role, onReset }: any) => {
+// ─── Copier Dashboard (shown after successful deployment) ─────────────────────
+const ROLE_LABELS: Record<string,string> = {
+  follower:'Follower', provider:'Provider / Master', self:'Self-Copy', telegram:'Telegram Signal',
+};
+const ROLE_COLORS: Record<string,string> = {
+  follower:'#60a5fa', provider:'#a78bfa', self:'#34d399', telegram:'#fbbf24',
+};
+
+function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: any) {
+  const [logs, setLogs]         = useState<any[]>([]);
+  const [trades, setTrades]     = useState<any[]>([]);
+  const [account, setAccount]   = useState<any>(null);
+  const [loading, setLoading]   = useState(true);
+  const followerId = deployResult?.follower?.id;
+  const masterId   = deployResult?.master?.id;
+  const accountId  = deployResult?.account?.id;
+
+  const fetchData = useCallback(async () => {
+    try {
+      const reqs: Promise<any>[] = [];
+      if (followerId) {
+        reqs.push(
+          fetch(`/api/copy/logs/${followerId}`).then(r => r.ok ? r.json() : []),
+          fetch(`/api/copy/trades/follower/${followerId}?limit=10`).then(r => r.ok ? r.json() : []),
+        );
+      } else if (masterId) {
+        reqs.push(
+          Promise.resolve([]),
+          fetch(`/api/copy/trades/master/${masterId}?limit=10`).then(r => r.ok ? r.json() : []),
+        );
+      } else {
+        reqs.push(Promise.resolve([]), Promise.resolve([]));
+      }
+      if (accountId) {
+        reqs.push(fetch(`/api/copy/accounts/${accountId}`).then(r => r.ok ? r.json() : null));
+      }
+      const [logsRes, tradesRes, acctRes] = await Promise.all(reqs);
+      setLogs(Array.isArray(logsRes) ? logsRes.slice(0, 8) : []);
+      setTrades(Array.isArray(tradesRes) ? tradesRes.slice(0, 8) : []);
+      if (acctRes) setAccount(acctRes);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, [followerId, masterId, accountId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const roleColor = ROLE_COLORS[role] || '#60a5fa';
+  const roleLabel = ROLE_LABELS[role] || role;
+  const loginId   = data?.loginId || account?.loginId || '—';
+  const broker    = data?.brokerServer || account?.brokerServer || '—';
+  const platform  = data?.platform || account?.platform || 'MT5';
+
+  return (
+    <div className="w-full max-w-3xl mx-auto space-y-0">
+      {/* ── Hero status bar ─────────────────────────────────────────────── */}
+      <div className="border border-white/5 bg-[#05060a] p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
+        <div className="relative flex-shrink-0">
+          <div className="w-16 h-16 rounded-full border border-green-500/30 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-green-500/10 blur-xl animate-pulse" />
+            <CheckCircle2 size={32} className="text-green-400 relative z-10" strokeWidth={1.5} />
+          </div>
+          <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-[#05060a] animate-pulse" />
+        </div>
+        <div className="flex-1 text-center md:text-left space-y-1">
+          <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border"
+              style={{ color: roleColor, borderColor: roleColor + '40', background: roleColor + '10' }}>
+              {roleLabel}
+            </span>
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border border-green-500/30 bg-green-500/10 text-green-400">
+              ● Live
+            </span>
+          </div>
+          <h2 className="text-xl md:text-2xl font-light tracking-tight">Copy Engine Active</h2>
+          <p className="text-slate-500 text-xs font-mono">{data?.nickname || loginId} · {platform} · {broker}</p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={fetchData}
+            className="text-[9px] font-mono uppercase tracking-widest text-slate-600 hover:text-slate-300 border border-white/5 hover:border-white/10 px-3 py-1.5 transition-all">
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* ── Stats strip ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-4 gap-px bg-white/5 border-x border-white/5">
+        {[
+          { label:'Account ID', value: accountId ? accountId.slice(0,8)+'…' : '—', color:'#f8fafc' },
+          { label:'Role',       value: roleLabel,                                    color: roleColor },
+          { label:'Bridge',     value: followerId || masterId ? 'Linked' : 'Ready',  color:'#4ade80' },
+          { label:'Trades',     value: loading ? '…' : String(trades.length),        color:'#60a5fa' },
+        ].map(s => (
+          <div key={s.label} className="bg-[#020203] p-3 md:p-4 text-center">
+            <div className="text-[8px] font-mono font-bold uppercase tracking-widest text-slate-600 mb-1">{s.label}</div>
+            <div className="text-xs md:text-sm font-mono font-bold truncate" style={{ color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Recent logs ─────────────────────────────────────────────────── */}
+      <div className="border border-t-0 border-white/5 bg-[#020203]">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">// execution_log</span>
+          {followerId && (
+            <a href={`/api/copy/logs/${followerId}`} target="_blank" rel="noreferrer"
+              className="text-[9px] font-mono uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
+              View all →
+            </a>
+          )}
+        </div>
+        {loading ? (
+          <div className="px-5 py-8 flex items-center justify-center">
+            <div className="text-[10px] font-mono text-slate-700 animate-pulse">Loading logs…</div>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">
+            <div className="w-8 h-8 rounded-full border border-white/5 flex items-center justify-center">
+              <Radio size={14} className="text-slate-700" />
+            </div>
+            <p className="text-[11px] text-slate-700 font-mono">Listening for first trade signal…</p>
+            <p className="text-[10px] text-slate-800">Logs appear here as trades execute</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {logs.map((log: any, i: number) => {
+              const levelColor: Record<string,string> = { INFO:'#4ade80', WARN:'#fbbf24', ERROR:'#f87171', DEBUG:'#94a3b8' };
+              const c = levelColor[log.level] || '#94a3b8';
+              return (
+                <div key={log.id || i} className="px-5 py-2.5 flex items-start gap-3 hover:bg-white/[0.01]">
+                  <span className="text-[8px] font-mono font-bold uppercase tracking-widest mt-0.5 flex-shrink-0"
+                    style={{ color: c }}>{log.level}</span>
+                  <span className="text-[10px] font-mono text-slate-400 flex-1 leading-relaxed">{log.message}</span>
+                  <span className="text-[8px] font-mono text-slate-700 flex-shrink-0 mt-0.5">
+                    {log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Recent trades ───────────────────────────────────────────────── */}
+      <div className="border border-t-0 border-white/5 bg-[#020203]">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">// recent_trades</span>
+        </div>
+        {loading ? (
+          <div className="px-5 py-6 flex items-center justify-center">
+            <div className="text-[10px] font-mono text-slate-700 animate-pulse">Loading trades…</div>
+          </div>
+        ) : trades.length === 0 ? (
+          <div className="px-5 py-6 flex flex-col items-center justify-center gap-2">
+            <p className="text-[11px] text-slate-700 font-mono">No trades copied yet</p>
+            <p className="text-[10px] text-slate-800">Trades will appear here once the engine processes a signal</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {trades.map((t: any, i: number) => (
+              <div key={t.id || i} className="px-5 py-2.5 grid grid-cols-4 gap-2 items-center hover:bg-white/[0.01]">
+                <span className="text-[10px] font-mono text-slate-300 truncate">{t.symbol || '—'}</span>
+                <span className={`text-[9px] font-mono font-bold uppercase ${t.action==='BUY'?'text-green-400':'text-red-400'}`}>
+                  {t.action || '—'}
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">{t.eventType || t.event_type || '—'}</span>
+                <span className={`text-[9px] font-mono uppercase text-right
+                  ${t.status==='executed'?'text-green-400':t.status==='failed'?'text-red-400':'text-slate-500'}`}>
+                  {t.status || '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Actions ─────────────────────────────────────────────────────── */}
+      <div className="border border-t-0 border-white/5 bg-[#020203] p-5 md:p-6 flex flex-col sm:flex-row items-center gap-3">
+        <GlowButton active onClick={onSetupAnother}>
+          Set Up Another Terminal <ArrowRight size={13} />
+        </GlowButton>
+        <button onClick={onHome}
+          className="text-[10px] font-mono uppercase tracking-widest text-slate-600 hover:text-slate-300 transition-colors border border-white/5 hover:border-white/10 px-4 py-2">
+          ← Back to Trade Sync Home
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const StepGoLive = ({ data, role, onReset, onHome }: any) => {
   const [status, setStatus] = useState<'ready'|'deploying'|'success'|'error'>('ready');
   const [deployResult, setDeployResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -911,43 +1102,13 @@ const StepGoLive = ({ data, role, onReset }: any) => {
   );
 
   if (status === 'success') return (
-    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
-      <div className="w-24 h-24 rounded-full border border-green-500/30 flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-green-500/10 blur-2xl animate-pulse" />
-        <CheckCircle2 size={40} className="text-green-400 relative z-10" strokeWidth={1.5} />
-      </div>
-      <div className="space-y-3">
-        <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-4 py-1.5 text-green-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
-          Deployment Successful
-        </div>
-        <h2 className="text-2xl md:text-3xl font-light">Terminal Live</h2>
-        <p className="text-slate-500 text-sm max-w-md">{successMsg[role]}</p>
-      </div>
-      <div className="grid grid-cols-3 gap-px bg-white/5 border border-white/5 w-full max-w-sm mt-2">
-        {[
-          { label:'Account', value: deployResult?.account?.id ? deployResult.account.id.slice(0,8)+'…' : '—', color:'#4ade80' },
-          { label:'Bridge',  value: deployResult?.follower?.id || deployResult?.master?.id ? 'Linked' : 'Ready', color:'#f8fafc' },
-          { label:'Status',  value:'Live', color:'#60a5fa' },
-        ].map(s => (
-          <div key={s.label} className="bg-[#020203] p-3 text-center">
-            <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600 mb-1">{s.label}</div>
-            <div className="text-sm font-mono font-bold" style={{ color:s.color }}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-col items-center gap-3 pt-2">
-        <GlowButton active onClick={onReset}>
-          Set Up Another Terminal <ArrowRight size={14} />
-        </GlowButton>
-        {deployResult?.follower?.id && (
-          <a href={`/api/copy/logs/${deployResult.follower.id}`} target="_blank" rel="noreferrer"
-            className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
-            View Bridge Logs
-          </a>
-        )}
-      </div>
-    </div>
+    <CopierDashboard
+      deployResult={deployResult}
+      role={role}
+      data={data}
+      onSetupAnother={onReset}
+      onHome={onHome}
+    />
   );
 
   return (
@@ -1028,7 +1189,7 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
       case 'tg-channel': return <StepTgChannel     data={data} setData={setData} />;
       case 'tg-parser':  return <StepTgParser      data={data} setData={setData} />;
       case 'tg-test':    return <StepTgTest        data={data} setData={setData} />;
-      case 'go-live':    return <StepGoLive        data={data} role={data.role} onReset={handleReset} />;
+      case 'go-live':    return <StepGoLive        data={data} role={data.role} onReset={handleReset} onHome={onBack} />;
       default:           return null;
     }
   };
