@@ -1384,18 +1384,15 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         count = len(setup_dates) + no_date_count
         if count == 0:
             continue
-        if len(setup_dates) >= 2:
-            # Use the date span of this specific setup's trades
-            span = max(1, (max(setup_dates) - min(setup_dates)).days + 1)
-        else:
-            # Single-trade setup or no date info — fall back to global span
-            span = global_days
+        # Always use the global journal span so every setup shares the same
+        # denominator. Using a setup-specific span inflates clustered setups
+        # (e.g. 4 trades in 23 days → 63.5/year) and deflates sparse ones.
         result[setup] = {
             "count":    count,
-            "perDay":   round(count / span, 4),
-            "perWeek":  round(count / span * 7,   4),
-            "perMonth": round(count / span * 30,  4),
-            "perYear":  round(count / span * 365, 4),
+            "perDay":   round(count / global_days, 4),
+            "perWeek":  round(count / global_days * 7,   4),
+            "perMonth": round(count / global_days * 30,  4),
+            "perYear":  round(count / global_days * 365, 4),
         }
     return result
 
