@@ -235,11 +235,11 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
         </div>
       ) : (
         <div className="space-y-6 md:space-y-8">
-          <TInput label={`${label} Nickname`} placeholder="e.g. IC Markets Live" />
-          <TInput label="Broker Server" placeholder="IC-Markets-Live-02" />
+          <TInput label={`${label} Nickname`} placeholder="e.g. IC Markets Live" value={data.nickname??''} onChange={(e:any)=>setData({...data,nickname:e.target.value})} />
+          <TInput label="Broker Server" placeholder="IC-Markets-Live-02" value={data.brokerServer??''} onChange={(e:any)=>setData({...data,brokerServer:e.target.value})} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-            <TInput label="Login ID"          placeholder="1029384" />
-            <TInput label="Investor Password" type="password" placeholder="••••••••" />
+            <TInput label="Login ID"          placeholder="1029384" value={data.loginId??''} onChange={(e:any)=>setData({...data,loginId:e.target.value})} />
+            <TInput label="Investor Password" type="password" placeholder="••••••••" value={data.password??''} onChange={(e:any)=>setData({...data,password:e.target.value})} />
           </div>
         </div>
       )}
@@ -292,11 +292,11 @@ const StepFilters = ({ data, setData }: any) => (
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
       <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// symbol_filters</span>
       <InfoBox>Leave blank to copy everything from the provider. Filters only restrict — they never add symbols.</InfoBox>
-      <TInput label="Symbol Whitelist" hint="Only copy trades on these symbols. Comma-separated." placeholder="EURUSD, XAUUSD, BTCUSD" />
-      <TInput label="Symbol Blacklist" hint="Never copy trades on these symbols even if the provider opens them." placeholder="GBPJPY, USDZAR" />
+      <TInput label="Symbol Whitelist" hint="Only copy trades on these symbols. Comma-separated." placeholder="EURUSD, XAUUSD, BTCUSD" value={data.whitelist??''} onChange={(e:any)=>setData({...data,whitelist:e.target.value})} />
+      <TInput label="Symbol Blacklist" hint="Never copy trades on these symbols even if the provider opens them." placeholder="GBPJPY, USDZAR" value={data.blacklist??''} onChange={(e:any)=>setData({...data,blacklist:e.target.value})} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-        <TInput label="Max Open Trades"  hint="Cap on simultaneous copied positions." placeholder="10" type="number" />
-        <TInput label="Trade Delay (sec)" hint="Buffer before a copied trade executes." placeholder="0" type="number" />
+        <TInput label="Max Open Trades"  hint="Cap on simultaneous copied positions." placeholder="10" type="number" value={data.maxOpenTrades??''} onChange={(e:any)=>setData({...data,maxOpenTrades:e.target.value})} />
+        <TInput label="Trade Delay (sec)" hint="Buffer before a copied trade executes." placeholder="0" type="number" value={data.tradeDelay??''} onChange={(e:any)=>setData({...data,tradeDelay:e.target.value})} />
       </div>
     </div>
     <div className="p-5 md:p-8 space-y-4 md:space-y-6">
@@ -326,8 +326,8 @@ const StepCopy = ({ data, setData }: any) => (
       <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">
         // {data.lotMode==='mult'?'balance_multiplier':data.lotMode==='fixed'?'fixed_lot':'equity_risk'}_config
       </span>
-      {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" />}
-      {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" />}
+      {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
+      {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" value={data.fixedLot??''} onChange={(e:any)=>setData({...data,fixedLot:e.target.value})} />}
       {data.lotMode==='risk'  && <TInput label="Risk Per Trade (%)" hint="Engine auto-calculates lot size from your free margin and the stop-loss distance." placeholder="1.0" type="number" value={data.riskAmount} onChange={(e: any) => setData({...data,riskAmount:e.target.value})} />}
       <TSelect label="Direction Mode" hint="How trades are copied relative to the provider's direction."
         options={[{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
@@ -346,13 +346,13 @@ const StepCopy = ({ data, setData }: any) => (
 const StepProtect = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <TInput label="Global Drawdown (%)" hint="Stop all copying if total account drawdown exceeds this." placeholder="5.0" type="number" />
-      <TInput label="Max Daily Loss ($)"  hint="Halt copying for the rest of the day if this dollar loss is hit." placeholder="1000" type="number" />
+      <TInput label="Global Drawdown (%)" hint="Stop all copying if total account drawdown exceeds this." placeholder="5.0" type="number" value={data.maxDdPercent??''} onChange={(e:any)=>setData({...data,maxDdPercent:e.target.value})} />
+      <TInput label="Max Daily Loss ($)"  hint="Halt copying for the rest of the day if this dollar loss is hit." placeholder="1000" type="number" value={data.maxDailyLoss??''} onChange={(e:any)=>setData({...data,maxDailyLoss:e.target.value})} />
       <div className="border-t border-white/5 pt-6 space-y-6">
         <div className="space-y-2">
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Symbol Prefix</label>
           <p className="text-[11px] text-slate-600 leading-relaxed">Characters your broker adds <span className="text-slate-300">before</span> the symbol name.</p>
-          <input type="text" placeholder="e.g. .m" className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+          <input type="text" placeholder="e.g. .m" value={data.symbolPrefix??''} onChange={(e:any)=>setData({...data,symbolPrefix:e.target.value})} className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] font-mono text-slate-600 bg-white/5 border border-white/5 px-2 py-1">EURUSD</span>
             <span className="text-[10px] text-slate-600">→</span>
@@ -362,7 +362,7 @@ const StepProtect = ({ data, setData }: any) => (
         <div className="space-y-2">
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Symbol Suffix</label>
           <p className="text-[11px] text-slate-600 leading-relaxed">Characters your broker adds <span className="text-slate-300">after</span> the symbol name.</p>
-          <input type="text" placeholder="e.g. +f" className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+          <input type="text" placeholder="e.g. +f" value={data.symbolSuffix??''} onChange={(e:any)=>setData({...data,symbolSuffix:e.target.value})} className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] font-mono text-slate-600 bg-white/5 border border-white/5 px-2 py-1">EURUSD</span>
             <span className="text-[10px] text-slate-600">→</span>
@@ -424,8 +424,8 @@ const StepRisk = ({ data, setData, isProvider }: any) => (
 const StepStrategy = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <TInput label="Strategy Name / Nickname" hint="Public-facing name followers will see on your profile." placeholder="e.g. Quantum Swing EA v3" />
-      <TTextarea label="Strategy Description" hint="Describe your trading approach so followers know what to expect." placeholder="Describe your edge, timeframes, risk management approach..." rows={4} />
+      <TInput label="Strategy Name / Nickname" hint="Public-facing name followers will see on your profile." placeholder="e.g. Quantum Swing EA v3" value={data.strategyName??''} onChange={(e:any)=>setData({...data,strategyName:e.target.value})} />
+      <TTextarea label="Strategy Description" hint="Describe your trading approach so followers know what to expect." placeholder="Describe your edge, timeframes, risk management approach..." rows={4} value={data.strategyDescription??''} onChange={(e:any)=>setData({...data,strategyDescription:e.target.value})} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
         <TSelect label="Trading Style" hint="Primary style that best describes your approach."
           options={[{value:'scalp',label:'Scalping (< 1 hour)'},{value:'intraday',label:'Intraday (same-day)'},{value:'swing',label:'Swing (multi-day)'},{value:'position',label:'Position (weeks/months)'},{value:'hft',label:'High-Frequency (HFT)'}]}
@@ -434,7 +434,7 @@ const StepStrategy = ({ data, setData }: any) => (
           options={[{value:'fx',label:'Forex (FX)'},{value:'crypto',label:'Cryptocurrency'},{value:'stocks',label:'Stocks / Indices'},{value:'commodities',label:'Commodities'},{value:'mixed',label:'Mixed / All markets'}]}
           value={data.primaryMarket??'fx'} onChange={(v: any) => setData({...data,primaryMarket:v})} />
       </div>
-      <TInput label="Typical Symbols Traded" hint="Comma-separated list of instruments your strategy focuses on." placeholder="EURUSD, XAUUSD, GBPUSD" />
+      <TInput label="Typical Symbols Traded" hint="Comma-separated list of instruments your strategy focuses on." placeholder="EURUSD, XAUUSD, GBPUSD" value={data.typicalSymbols??''} onChange={(e:any)=>setData({...data,typicalSymbols:e.target.value})} />
     </div>
     <div className="p-5 md:p-8 space-y-4 md:space-y-6">
       <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// active_trading_sessions</span>
@@ -575,11 +575,11 @@ const StepTgAuth = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
       <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// credentials</span>
-      <TInput label="Bot API Token" hint="Create a bot via @BotFather on Telegram and paste the token here." placeholder="1234567890:AAF..." />
-      <TInput label="Telegram Phone Number" hint="Your personal Telegram number linked to the account with channel access." placeholder="+254 7XX XXX XXX" type="tel" />
+      <TInput label="Bot API Token" hint="Create a bot via @BotFather on Telegram and paste the token here." placeholder="1234567890:AAF..." value={data.tgBotToken??''} onChange={(e:any)=>setData({...data,tgBotToken:e.target.value})} />
+      <TInput label="Telegram Phone Number" hint="Your personal Telegram number linked to the account with channel access." placeholder="+254 7XX XXX XXX" type="tel" value={data.tgPhone??''} onChange={(e:any)=>setData({...data,tgPhone:e.target.value})} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-        <TInput label="API ID"   hint="Get from my.telegram.org → API development tools." placeholder="12345678" />
-        <TInput label="API Hash" hint="Generated alongside your API ID." placeholder="abc123def456..." />
+        <TInput label="API ID"   hint="Get from my.telegram.org → API development tools." placeholder="12345678" value={data.tgApiId??''} onChange={(e:any)=>setData({...data,tgApiId:e.target.value})} />
+        <TInput label="API Hash" hint="Generated alongside your API ID." placeholder="abc123def456..." value={data.tgApiHash??''} onChange={(e:any)=>setData({...data,tgApiHash:e.target.value})} />
       </div>
       <InfoBox color="blue">A verification code will be sent to your Telegram app after submitting.</InfoBox>
     </div>
@@ -606,9 +606,9 @@ const StepTgAuth = ({ data, setData }: any) => (
 const StepTgChannel = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <TInput label="Verification Code" hint="Enter the code sent to your Telegram app to confirm account access." placeholder="12345" />
+      <TInput label="Verification Code" hint="Enter the code sent to your Telegram app to confirm account access." placeholder="12345" value={data.tgVerifyCode??''} onChange={(e:any)=>setData({...data,tgVerifyCode:e.target.value})} />
       <div className="border-t border-white/5 pt-6 space-y-6">
-        <TInput label="Channel / Group Name or Link" hint="The exact username or invite link of the signal channel." placeholder="@forex_signals_channel or https://t.me/..." />
+        <TInput label="Channel / Group Name or Link" hint="The exact username or invite link of the signal channel." placeholder="@forex_signals_channel or https://t.me/..." value={data.tgChannelName??''} onChange={(e:any)=>setData({...data,tgChannelName:e.target.value})} />
         <TSelect label="Channel Type" hint="Select the type of Telegram source you're connecting to."
           options={[{value:'public_channel',label:'Public channel (@username)'},{value:'private_channel',label:'Private channel (invite link)'},{value:'group',label:'Group or supergroup'},{value:'bot',label:'Direct bot signals'}]}
           value={data.tgChannelType??'public_channel'} onChange={(v: any) => setData({...data,tgChannelType:v})} />
@@ -620,7 +620,7 @@ const StepTgChannel = ({ data, setData }: any) => (
       <Toggle label="Only copy signals from specific sender" sub="Filter by a specific admin or bot username in the channel" on={data.tgFilterSender??false} onChange={(v: any) => setData({...data,tgFilterSender:v})} />
       {data.tgFilterSender && (
         <div className="pl-4 border-l border-blue-500/30 pt-2">
-          <TInput label="Sender Username" placeholder="@signal_admin" />
+          <TInput label="Sender Username" placeholder="@signal_admin" value={data.tgSenderUsername??''} onChange={(e:any)=>setData({...data,tgSenderUsername:e.target.value})} />
         </div>
       )}
     </div>
@@ -633,10 +633,10 @@ const StepTgParser = ({ data, setData }: any) => (
       <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// signal_keywords</span>
       <InfoBox>Tell the parser what keywords your channel uses so it can extract entry, SL and TP correctly.</InfoBox>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-        <TInput label="Entry Keyword"       hint="Word that precedes the entry price."       placeholder="e.g. Entry, Buy at" />
-        <TInput label="Stop-Loss Keyword"   hint="Word that precedes the stop-loss value."    placeholder="e.g. SL, Stop" />
-        <TInput label="Take-Profit Keyword" hint="Word preceding the take-profit value."      placeholder="e.g. TP, Target" />
-        <TInput label="Symbol Keyword"      hint="How the symbol is labelled in the message." placeholder="e.g. Pair, Symbol" />
+        <TInput label="Entry Keyword"       hint="Word that precedes the entry price."       placeholder="e.g. Entry, Buy at" value={data.tgEntryKw??''} onChange={(e:any)=>setData({...data,tgEntryKw:e.target.value})} />
+        <TInput label="Stop-Loss Keyword"   hint="Word that precedes the stop-loss value."    placeholder="e.g. SL, Stop" value={data.tgSlKw??''} onChange={(e:any)=>setData({...data,tgSlKw:e.target.value})} />
+        <TInput label="Take-Profit Keyword" hint="Word preceding the take-profit value."      placeholder="e.g. TP, Target" value={data.tgTpKw??''} onChange={(e:any)=>setData({...data,tgTpKw:e.target.value})} />
+        <TInput label="Symbol Keyword"      hint="How the symbol is labelled in the message." placeholder="e.g. Pair, Symbol" value={data.tgSymbolKw??''} onChange={(e:any)=>setData({...data,tgSymbolKw:e.target.value})} />
       </div>
     </div>
     <div className="p-5 md:p-8 space-y-4 md:space-y-6">
@@ -695,8 +695,71 @@ const StepTgTest = ({ data, setData }: any) => {
   );
 };
 
+function buildDeployPayload(data: any) {
+  const toList = (csv: string) =>
+    csv ? csv.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined;
+  return {
+    role: data.role,
+    accountConfig: {
+      nickname:     data.nickname || data.loginId || 'My Account',
+      platform:     data.platform || 'MT5',
+      brokerServer: data.brokerServer,
+      loginId:      data.loginId,
+      password:     data.password,
+      symbolPrefix: data.symbolPrefix,
+      symbolSuffix: data.symbolSuffix,
+    },
+    masterConfig: {
+      strategyName:    data.strategyName,
+      description:     data.strategyDescription,
+      tradingStyle:    data.tradingStyle,
+      primaryMarket:   data.primaryMarket,
+      isPublic:        data.isPublic ?? true,
+      requireApproval: data.requireApproval ?? false,
+      showOpenTrades:  data.showOpenTrades ?? true,
+    },
+    followerConfig: {
+      masterId:        data.selectedProvider,
+      lotMode:         data.lotMode || 'mult',
+      lotMultiplier:   data.lotMultiplier || '1.0',
+      fixedLot:        data.fixedLot,
+      riskPercent:     data.riskAmount || '1.0',
+      direction:       data.direction || 'same',
+      symbolWhitelist: toList(data.whitelist),
+      symbolBlacklist: toList(data.blacklist),
+      maxOpenTrades:   data.maxOpenTrades ? parseInt(data.maxOpenTrades) : 10,
+      tradeDelaySec:   data.tradeDelay   ? parseInt(data.tradeDelay)    : 0,
+      pauseInactive:   data.pauseInactive ?? true,
+      pauseOnDD:       data.pauseDD ?? true,
+      maxDdPercent:    data.maxDdPercent  || undefined,
+      maxDailyLoss:    data.maxDailyLoss  || undefined,
+      riskAccepted:    data.riskAccepted  ?? false,
+    },
+    telegramConfig: data.role === 'telegram' ? {
+      botToken:      data.tgBotToken,
+      phoneNumber:   data.tgPhone,
+      apiId:         data.tgApiId,
+      apiHash:       data.tgApiHash,
+      channelName:   data.tgChannelName,
+      channelType:   data.tgChannelType || 'public_channel',
+      multiChannel:  data.tgMultiChannel ?? false,
+      filterSender:  data.tgFilterSender ? data.tgSenderUsername : undefined,
+      entryKeyword:  data.tgEntryKw,
+      slKeyword:     data.tgSlKw,
+      tpKeyword:     data.tgTpKw,
+      symbolKeyword: data.tgSymbolKw,
+      executeNoSL:   data.tgNoSL      ?? false,
+      executeNoTP:   data.tgNoTP      ?? true,
+      useFirstTpOnly: data.tgFirstTP  ?? true,
+      autoUpdate:    data.tgAutoUpdate ?? false,
+    } : undefined,
+  };
+}
+
 const StepGoLive = ({ data, role, onReset }: any) => {
   const [status, setStatus] = useState<'ready'|'deploying'|'success'|'error'>('ready');
+  const [deployResult, setDeployResult] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState('');
   const provider  = PROVIDERS.find(p => p.id === data.selectedProvider);
   const allAccepted = data.riskAccepted && data.affordConfirmed;
   const canDeploy = role==='provider' ? (allAccepted && data.providerConfirmed) : allAccepted;
@@ -713,10 +776,27 @@ const StepGoLive = ({ data, role, onReset }: any) => {
     telegram: 'Telegram signal parser is live and monitoring the channel.',
   };
 
-  const handleDeploy = () => {
+  const handleDeploy = async () => {
     if (!canDeploy) return;
     setStatus('deploying');
-    setTimeout(() => setStatus('success'), 2200);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/copy/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildDeployPayload(data)),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: `Server error ${res.status}` }));
+        throw new Error(err.message || `Server error ${res.status}`);
+      }
+      const result = await res.json();
+      setDeployResult(result);
+      setStatus('success');
+    } catch (err: any) {
+      setErrorMsg(err.message ?? 'Deployment failed');
+      setStatus('error');
+    }
   };
 
   if (status === 'deploying') return (
@@ -739,6 +819,26 @@ const StepGoLive = ({ data, role, onReset }: any) => {
     </div>
   );
 
+  if (status === 'error') return (
+    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
+      <div className="w-24 h-24 rounded-full border border-red-500/30 flex items-center justify-center relative">
+        <div className="absolute inset-0 bg-red-500/10 blur-2xl animate-pulse" />
+        <AlertTriangle size={40} className="text-red-400 relative z-10" strokeWidth={1.5} />
+      </div>
+      <div className="space-y-3">
+        <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-1.5 text-red-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+          Deployment Failed
+        </div>
+        <h2 className="text-2xl md:text-3xl font-light">Terminal Error</h2>
+        <p className="text-slate-500 text-sm max-w-md font-mono">{errorMsg}</p>
+      </div>
+      <GlowButton active onClick={() => setStatus('ready')}>
+        Try Again <ArrowRight size={14} />
+      </GlowButton>
+    </div>
+  );
+
   if (status === 'success') return (
     <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
       <div className="w-24 h-24 rounded-full border border-green-500/30 flex items-center justify-center relative">
@@ -755,9 +855,9 @@ const StepGoLive = ({ data, role, onReset }: any) => {
       </div>
       <div className="grid grid-cols-3 gap-px bg-white/5 border border-white/5 w-full max-w-sm mt-2">
         {[
-          { label:'Status',   value:'Active',   color:'#4ade80' },
-          { label:'Latency',  value:'12 ms',    color:'#f8fafc' },
-          { label:'Trades',   value:'Syncing',  color:'#60a5fa' },
+          { label:'Account', value: deployResult?.account?.id ? deployResult.account.id.slice(0,8)+'…' : '—', color:'#4ade80' },
+          { label:'Bridge',  value: deployResult?.follower?.id || deployResult?.master?.id ? 'Linked' : 'Ready', color:'#f8fafc' },
+          { label:'Status',  value:'Live', color:'#60a5fa' },
         ].map(s => (
           <div key={s.label} className="bg-[#020203] p-3 text-center">
             <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600 mb-1">{s.label}</div>
@@ -769,9 +869,12 @@ const StepGoLive = ({ data, role, onReset }: any) => {
         <GlowButton active onClick={onReset}>
           Set Up Another Terminal <ArrowRight size={14} />
         </GlowButton>
-        <button className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
-          View Bridge Logs
-        </button>
+        {deployResult?.follower?.id && (
+          <a href={`/api/copy/logs/${deployResult.follower.id}`} target="_blank" rel="noreferrer"
+            className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
+            View Bridge Logs
+          </a>
+        )}
       </div>
     </div>
   );
