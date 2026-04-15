@@ -1608,7 +1608,7 @@ export default function TradeSyncPage() {
             <p>Control all your trading accounts from one place—automatically and in real time.</p>
             <div className="ts-hero-actions">
               <button className="ts-btn-primary" onClick={() => setShowCopier(true)}>Start Now →</button>
-              <button className="ts-btn-ghost">Learn More</button>
+              <button className="ts-btn-ghost" onClick={() => document.getElementById('ts-learn-more')?.scrollIntoView({ behavior:'smooth' })}>Learn More</button>
             </div>
           </div>
           <div className="ts-hero-visual">
@@ -1648,7 +1648,7 @@ export default function TradeSyncPage() {
         </div>
 
         {/* HOW IT WORKS */}
-        <div style={{ background:"var(--ts-bg2)", padding:"1px 0" }}>
+        <div id="ts-learn-more" style={{ background:"var(--ts-bg2)", padding:"1px 0" }}>
           <div className="ts-section">
             <div className="ts-section-header">
               <div className="ts-section-title">How Trade Sync Works</div>
