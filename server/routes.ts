@@ -1043,6 +1043,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Masters ───────────────────────────────────────────────────────────────────
+  app.get("/api/copy/masters/public", async (req, res) => {
+    try {
+      return res.json(await storage.getPublicMastersWithStats());
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
   app.get("/api/copy/masters", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;

@@ -139,35 +139,64 @@ const FeatureCard = ({ title, sub, icon: Icon, active, onClick, accent }: any) =
   </div>
 );
 
-// ─── Provider Data ────────────────────────────────────────────────────────────
-const PROVIDERS = [
-  { id:'qc', name:'Quantum Core (Live-01)', initials:'QC', avatarBg:'rgba(37,99,235,0.12)', avatarBorder:'rgba(37,99,235,0.25)', avatarColor:'#60a5fa', since:'Jan 2022', followers:1204, winRate:73.4, totalTrades:3812, avgMonthly:8.2, maxDrawdown:12.1, style:'swing' },
-  { id:'ts', name:'Titanium Scalp v4',      initials:'TS', avatarBg:'rgba(20,184,166,0.1)',  avatarBorder:'rgba(20,184,166,0.2)',  avatarColor:'#2dd4bf', since:'Mar 2023', followers:587,  winRate:61.0, totalTrades:9450, avgMonthly:5.7, maxDrawdown:7.4,  style:'scalp' },
-  { id:'be', name:'Black Edge HFT',         initials:'BE', avatarBg:'rgba(245,158,11,0.1)',  avatarBorder:'rgba(245,158,11,0.2)', avatarColor:'#fbbf24', since:'Aug 2021', followers:2031, winRate:81.9, totalTrades:21340, avgMonthly:14.3, maxDrawdown:19.8, style:'hft' },
+// ─── Provider helpers ─────────────────────────────────────────────────────────
+const AVATAR_PALETTES = [
+  { bg:'rgba(37,99,235,0.12)',  border:'rgba(37,99,235,0.25)', color:'#60a5fa' },
+  { bg:'rgba(20,184,166,0.1)',  border:'rgba(20,184,166,0.2)', color:'#2dd4bf' },
+  { bg:'rgba(245,158,11,0.1)', border:'rgba(245,158,11,0.2)', color:'#fbbf24' },
+  { bg:'rgba(139,92,246,0.1)', border:'rgba(139,92,246,0.2)', color:'#a78bfa' },
+  { bg:'rgba(236,72,153,0.1)', border:'rgba(236,72,153,0.2)', color:'#f472b6' },
 ];
 
+function providerAvatar(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_PALETTES[Math.abs(hash) % AVATAR_PALETTES.length];
+}
+
+function providerInitials(name: string) {
+  return (name || '??')
+    .split(/[\s_\-]+/)
+    .slice(0, 2)
+    .map((w: string) => w[0] ?? '')
+    .join('')
+    .toUpperCase() || '??';
+}
+
 const ProviderCard = ({ provider, selected, onSelect }: any) => {
-  const winColor = provider.winRate >= 70 ? '#4ade80' : provider.winRate >= 55 ? '#fbbf24' : '#f87171';
-  const ddColor  = provider.maxDrawdown <= 10 ? '#4ade80' : provider.maxDrawdown <= 18 ? '#fb923c' : '#f87171';
   const mono = "'JetBrains Mono', monospace";
+  const avatar = providerAvatar(provider.id);
+  const initials = providerInitials(provider.strategyName || provider.name || '');
+  const winRate = provider.winRate;
+  const winColor = winRate == null ? '#475569' : winRate >= 70 ? '#4ade80' : winRate >= 55 ? '#fbbf24' : '#f87171';
+  const totalTrades = provider.totalTrades ?? 0;
+  const followerCount = provider.followerCount ?? 0;
+  const style = provider.tradingStyle || provider.sourceType || '—';
+  const since = provider.since || '—';
+  const name = provider.strategyName || provider.name || 'Unnamed Strategy';
+
+  const stats = [
+    { label:'Win rate',     value: winRate != null ? `${winRate}%` : '—',          color: winColor  },
+    { label:'Market',       value: (provider.primaryMarket || '—').toUpperCase(),   color: '#94a3b8' },
+    { label:'Total trades', value: totalTrades > 0 ? totalTrades.toLocaleString() : '—', color: '#f8fafc' },
+    { label:'Followers',    value: followerCount > 0 ? followerCount.toLocaleString() : '0', color: '#f8fafc' },
+  ];
+
   return (
     <div onClick={() => onSelect(provider.id)}
       className={`relative p-5 md:p-8 border cursor-pointer transition-all duration-700 group flex flex-col
         ${selected ? 'bg-blue-600/5 border-blue-500/50' : 'bg-transparent border-white/5 hover:border-white/20'}`}>
       <div className={`mb-4 md:mb-6 transition-transform duration-500 ${selected ? 'scale-110' : 'group-hover:scale-105'}`}>
-        <div style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:700, fontFamily:mono, background:provider.avatarBg, border:`1px solid ${provider.avatarBorder}`, color:provider.avatarColor }}>
-          {provider.initials}
+        <div style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:700, fontFamily:mono, background:avatar.bg, border:`1px solid ${avatar.border}`, color:avatar.color }}>
+          {initials}
         </div>
       </div>
-      <h3 className={`text-base md:text-lg font-light tracking-tight mb-1 ${selected ? 'text-white' : 'text-slate-400'}`}>{provider.name}</h3>
-      <p className="text-xs text-slate-500 leading-relaxed font-light mb-4 md:mb-6">{provider.style} · {provider.followers.toLocaleString()} followers · since {provider.since}</p>
+      <h3 className={`text-base md:text-lg font-light tracking-tight mb-1 ${selected ? 'text-white' : 'text-slate-400'}`}>{name}</h3>
+      <p className="text-xs text-slate-500 leading-relaxed font-light mb-4 md:mb-6">
+        {style} · {followerCount.toLocaleString()} followers · since {since}
+      </p>
       <div className="grid grid-cols-2 gap-px bg-white/5 border border-white/5 mb-4">
-        {[
-          { label:'Win rate',     value:`${provider.winRate}%`,                color:winColor  },
-          { label:'Avg / month',  value:`+${provider.avgMonthly}%`,            color:'#4ade80' },
-          { label:'Total trades', value:provider.totalTrades.toLocaleString(), color:'#f8fafc' },
-          { label:'Max drawdown', value:`−${provider.maxDrawdown}%`,           color:ddColor   },
-        ].map(s => (
+        {stats.map(s => (
           <div key={s.label} className="bg-[#020203] p-2 md:p-3">
             <div style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#1e293b', marginBottom:'4px', fontFamily:mono }}>{s.label}</div>
             <div style={{ fontSize:'14px', fontWeight:700, letterSpacing:'-0.03em', fontFamily:mono, lineHeight:1, color:s.color }}>{s.value}</div>
@@ -275,17 +304,69 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
   </div>
 );
 
-const StepLink = ({ data, setData }: any) => (
-  <div className="w-full space-y-6 md:space-y-10">
-    <TInput label="Master Search ID" placeholder="Enter Provider UUID or Account ID..." />
-    <div className="space-y-4">
-      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'10px', fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase', color:'#1e293b' }}>// verified_providers</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-        {PROVIDERS.map(p => <ProviderCard key={p.id} provider={p} selected={data.selectedProvider===p.id} onSelect={(id: string) => setData({...data,selectedProvider:id})} />)}
+const StepLink = ({ data, setData, providers, providersLoading }: any) => {
+  const mono = "'JetBrains Mono', monospace";
+  const [search, setSearch] = useState('');
+
+  const filtered = (providers || []).filter((p: any) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      p.id?.toLowerCase().includes(q) ||
+      (p.strategyName || '').toLowerCase().includes(q) ||
+      (p.tradingStyle || '').toLowerCase().includes(q) ||
+      (p.primaryMarket || '').toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="w-full space-y-6 md:space-y-10">
+      <TInput
+        label="Search Providers"
+        placeholder="Filter by name, style, market, or paste a Provider UUID…"
+        value={search}
+        onChange={(e: any) => setSearch(e.target.value)}
+      />
+      <div className="space-y-4">
+        <div style={{ fontFamily: mono, fontSize:'10px', fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase', color:'#1e293b' }}>
+          // verified_providers
+        </div>
+
+        {providersLoading ? (
+          <div className="border border-white/5 p-10 flex items-center justify-center gap-3">
+            <div className="w-4 h-4 border border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span style={{ fontFamily: mono, fontSize:'11px', color:'#334155' }}>loading providers…</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="border border-white/5 p-10 text-center space-y-3">
+            <div style={{ fontFamily: mono, fontSize:'11px', color:'#1e293b' }}>
+              {search.trim()
+                ? `// no_providers_match "${search}"`
+                : '// no_public_providers_registered'}
+            </div>
+            {!search.trim() && (
+              <p className="text-xs text-slate-600 font-light">
+                Be the first — register as a Signal Provider using the role selector above.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className={`grid gap-0 border border-white/5 divide-y divide-white/5
+            ${filtered.length === 1 ? 'grid-cols-1 md:grid-cols-1' : 'grid-cols-1 md:grid-cols-2 md:divide-y-0 md:divide-x'}`}>
+            {filtered.map((p: any) => (
+              <ProviderCard
+                key={p.id}
+                provider={p}
+                selected={data.selectedProvider === p.id}
+                onSelect={(id: string) => setData({ ...data, selectedProvider: id })}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const StepFilters = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
@@ -1018,21 +1099,22 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
   );
 }
 
-const StepGoLive = ({ data, role, onReset, onHome }: any) => {
+const StepGoLive = ({ data, role, onReset, onHome, providers }: any) => {
   const [status, setStatus] = useState<'ready'|'deploying'|'success'|'error'>('ready');
   const [deployResult, setDeployResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const provider  = PROVIDERS.find(p => p.id === data.selectedProvider);
+  const provider = (providers || []).find((p: any) => p.id === data.selectedProvider);
   const allAccepted = data.riskAccepted && data.affordConfirmed;
   const canDeploy = role==='provider' ? (allAccepted && data.providerConfirmed) : allAccepted;
+  const providerName = provider ? (provider.strategyName || provider.name || 'Provider') : null;
   const summaries: any = {
-    follower: provider ? `Copying ${provider.name} · ${data.lotMode??'mult'} lot mode` : 'Configure provider in Bridge Linkage step',
+    follower: providerName ? `Copying ${providerName} · ${data.lotMode??'mult'} lot mode` : 'Configure provider in Bridge Linkage step',
     provider: `Broadcasting your strategy · ${data.isPublic?'Public':'Private'}`,
     self:     'Self-copy bridge between your two accounts',
     telegram: 'Telegram signal parser configured',
   };
   const successMsg: any = {
-    follower: provider ? <>Copying <span className="text-blue-400 font-mono">{provider.name}</span> in real-time.</> : 'Bridge is live.',
+    follower: providerName ? <>Copying <span className="text-blue-400 font-mono">{providerName}</span> in real-time.</> : 'Bridge is live.',
     provider: 'Your signals are now broadcasting to followers.',
     self:     'Self-copy bridge is active between your accounts.',
     telegram: 'Telegram signal parser is live and monitoring the channel.',
@@ -1152,6 +1234,16 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
     role:'follower', platform:'MT5', lotMode:'mult', riskAmount:'1',
     selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}],
   });
+  const [providers, setProviders]             = useState<any[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/copy/masters/public')
+      .then(r => r.json())
+      .then(d => { setProviders(Array.isArray(d) ? d : []); })
+      .catch(() => setProviders([]))
+      .finally(() => setProvidersLoading(false));
+  }, []);
 
   const getSteps = () => {
     if (data.role==='provider') return STEPS_PROVIDER;
@@ -1176,7 +1268,7 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
       case 'role':       return <StepRole          data={data} setData={setData} resetStep={() => setStep(0)} />;
       case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':'Trading Account'} />;
       case 'connect2':   return <StepConnect2      data={data} setData={setData} />;
-      case 'link':       return <StepLink          data={data} setData={setData} />;
+      case 'link':       return <StepLink          data={data} setData={setData} providers={providers} providersLoading={providersLoading} />;
       case 'filters':    return <StepFilters       data={data} setData={setData} />;
       case 'copy':       return <StepCopy          data={data} setData={setData} />;
       case 'protect':    return <StepProtect       data={data} setData={setData} />;

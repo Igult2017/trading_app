@@ -1,7 +1,7 @@
 import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { db, pool } from "./db";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 /**
  * If an entry has entryTime + exitTime but no tradeDuration, compute and
@@ -606,6 +606,54 @@ export class DbStorage implements IStorage {
   async getCopyMasters(userId?: string): Promise<CopyMaster[]> {
     if (userId) return db.select().from(copyMasters).where(eq(copyMasters.userId, userId)).orderBy(desc(copyMasters.createdAt));
     return db.select().from(copyMasters).orderBy(desc(copyMasters.createdAt));
+  }
+
+  async getPublicMastersWithStats(): Promise<any[]> {
+    const { rows } = await pool.query(`
+      SELECT
+        m.id,
+        m.strategy_name   AS "strategyName",
+        m.trading_style   AS "tradingStyle",
+        m.primary_market  AS "primaryMarket",
+        m.description,
+        m.source_type     AS "sourceType",
+        m.is_active       AS "isActive",
+        m.created_at      AS "createdAt",
+
+        -- follower count (active followers only)
+        COUNT(DISTINCT f.id) FILTER (WHERE f.is_active = true)::int AS "followerCount",
+
+        -- total closed trades
+        COUNT(t.id) FILTER (WHERE t.event_type = 'close')::int AS "totalTrades",
+
+        -- wins: BUY closed above entry OR SELL closed below entry
+        COUNT(t.id) FILTER (
+          WHERE t.event_type = 'close'
+            AND t.closed_price IS NOT NULL
+            AND t.entry_price  IS NOT NULL
+            AND (
+              (t.action = 'BUY'  AND t.closed_price::numeric > t.entry_price::numeric)
+              OR
+              (t.action = 'SELL' AND t.closed_price::numeric < t.entry_price::numeric)
+            )
+        )::int AS "winCount",
+
+        -- months active (floor, minimum 1 to avoid division by zero)
+        GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at)) / 2592000))::int AS "monthsActive"
+
+      FROM copy_masters m
+      LEFT JOIN copy_followers     f ON f.master_id = m.id
+      LEFT JOIN copy_trades_master t ON t.master_id = m.id
+      WHERE m.is_public = true
+      GROUP BY m.id
+      ORDER BY m.created_at DESC
+    `);
+
+    return rows.map((r: any) => ({
+      ...r,
+      winRate:    r.totalTrades > 0 ? Math.round((r.winCount / r.totalTrades) * 1000) / 10 : null,
+      since:      new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+    }));
   }
 
   async getCopyMasterById(id: string): Promise<CopyMaster | undefined> {
