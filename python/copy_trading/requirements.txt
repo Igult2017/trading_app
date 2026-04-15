@@ -1,0 +1,25 @@
+# Copy Trading Bridge — Python dependencies
+# Install with: pip install -r python/copy_trading/requirements.txt
+
+# ── Core ──────────────────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+
+# ── Database ──────────────────────────────────────────────────────────────────
+asyncpg>=0.29.0
+
+# ── Queue ─────────────────────────────────────────────────────────────────────
+redis>=5.0.0
+
+# ── Telegram ─────────────────────────────────────────────────────────────────
+telethon>=1.36.0
+
+# ── Encryption ───────────────────────────────────────────────────────────────
+cryptography>=42.0.0
+
+# ── MetaTrader 5 (Windows only — comment out on Linux VPS) ───────────────────
+# MetaTrader5>=5.0.45
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0

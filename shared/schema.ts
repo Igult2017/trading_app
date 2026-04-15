@@ -3,6 +3,184 @@ import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb } f
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// COPY TRADING TABLES
+// Shares the same PostgreSQL database as the journal. All IDs are UUIDs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** MT5 / MT4 account credentials (encrypted at rest by the Python service). */
+export const copyAccounts = pgTable("copy_accounts", {
+  id:           varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:       varchar("user_id").references(() => users.id),
+  nickname:     text("nickname").notNull(),
+  platform:     text("platform").notNull(),          // MT4 | MT5 | cTrader | Proprietary
+  brokerServer: text("broker_server"),
+  loginId:      text("login_id").notNull(),
+  passwordEnc:  text("password_enc").notNull(),      // AES-256 encrypted
+  role:         text("role").notNull(),              // master | follower | source | target
+  isActive:     boolean("is_active").default(true),
+  symbolPrefix: text("symbol_prefix"),
+  symbolSuffix: text("symbol_suffix"),
+  createdAt:    timestamp("created_at").defaultNow(),
+  updatedAt:    timestamp("updated_at").defaultNow(),
+});
+
+export const insertCopyAccountSchema = createInsertSchema(copyAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCopyAccount = z.infer<typeof insertCopyAccountSchema>;
+export type CopyAccount = typeof copyAccounts.$inferSelect;
+
+/** Signal providers / master accounts registered on the platform. */
+export const copyMasters = pgTable("copy_masters", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:          varchar("user_id").references(() => users.id),
+  accountId:       varchar("account_id").references(() => copyAccounts.id),
+  sourceType:      text("source_type").notNull(),    // mt5 | telegram
+  strategyName:    text("strategy_name"),
+  description:     text("description"),
+  tradingStyle:    text("trading_style"),            // scalp | intraday | swing | position | hft
+  primaryMarket:   text("primary_market"),           // fx | crypto | stocks | commodities | mixed
+  isPublic:        boolean("is_public").default(true),
+  requireApproval: boolean("require_approval").default(false),
+  showOpenTrades:  boolean("show_open_trades").default(true),
+  isActive:        boolean("is_active").default(false),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+});
+
+export const insertCopyMasterSchema = createInsertSchema(copyMasters).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCopyMaster = z.infer<typeof insertCopyMasterSchema>;
+export type CopyMaster = typeof copyMasters.$inferSelect;
+
+/** Telegram signal source configuration. */
+export const telegramSignalSources = pgTable("telegram_signal_sources", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  masterId:        varchar("master_id").references(() => copyMasters.id),
+  botToken:        text("bot_token_enc"),             // encrypted
+  phoneNumber:     text("phone_number"),
+  apiId:           text("api_id"),
+  apiHashEnc:      text("api_hash_enc"),              // encrypted
+  channelName:     text("channel_name"),
+  channelType:     text("channel_type"),              // public_channel | private_channel | group | bot
+  multiChannel:    boolean("multi_channel").default(false),
+  filterSender:    text("filter_sender"),
+  entryKeyword:    text("entry_keyword"),
+  slKeyword:       text("sl_keyword"),
+  tpKeyword:       text("tp_keyword"),
+  symbolKeyword:   text("symbol_keyword"),
+  executeNoSl:     boolean("execute_no_sl").default(false),
+  executeNoTp:     boolean("execute_no_tp").default(true),
+  useFirstTpOnly:  boolean("use_first_tp_only").default(true),
+  autoUpdate:      boolean("auto_update").default(false),
+  isActive:        boolean("is_active").default(false),
+  sessionFile:     text("session_file"),              // path to Telethon session file
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+});
+
+export const insertTelegramSignalSourceSchema = createInsertSchema(telegramSignalSources).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTelegramSignalSource = z.infer<typeof insertTelegramSignalSourceSchema>;
+export type TelegramSignalSource = typeof telegramSignalSources.$inferSelect;
+
+/** Follower account configuration for a specific master. */
+export const copyFollowers = pgTable("copy_followers", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:          varchar("user_id").references(() => users.id),
+  accountId:       varchar("account_id").references(() => copyAccounts.id),
+  masterId:        varchar("master_id").references(() => copyMasters.id),
+  lotMode:         text("lot_mode").notNull().default("mult"),  // mult | fixed | risk
+  lotMultiplier:   decimal("lot_multiplier",  { precision: 6, scale: 2 }).default("1.0"),
+  fixedLot:        decimal("fixed_lot",       { precision: 8, scale: 2 }),
+  riskPercent:     decimal("risk_percent",    { precision: 5, scale: 2 }).default("1.0"),
+  direction:       text("direction").default("same"),            // same | reverse | hedge
+  symbolWhitelist: text("symbol_whitelist").array(),
+  symbolBlacklist: text("symbol_blacklist").array(),
+  maxOpenTrades:   integer("max_open_trades").default(10),
+  tradeDelaySec:   integer("trade_delay_sec").default(0),
+  pauseInactive:   boolean("pause_inactive").default(true),
+  pauseOnDD:       boolean("pause_on_dd").default(true),
+  sessionFilter:   boolean("session_filter").default(false),
+  activeSessions:  text("active_sessions").array(),
+  maxDdPercent:    decimal("max_dd_percent",  { precision: 5, scale: 2 }),
+  maxDailyLoss:    decimal("max_daily_loss",  { precision: 10, scale: 2 }),
+  notifDisconnect: boolean("notif_disconnect").default(true),
+  notifExecFail:   boolean("notif_exec_fail").default(true),
+  notifDdWarn:     boolean("notif_dd_warn").default(true),
+  notifDailyWarn:  boolean("notif_daily_warn").default(true),
+  isActive:        boolean("is_active").default(false),
+  riskAccepted:    boolean("risk_accepted").default(false),
+  deployedAt:      timestamp("deployed_at"),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+});
+
+export const insertCopyFollowerSchema = createInsertSchema(copyFollowers).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCopyFollower = z.infer<typeof insertCopyFollowerSchema>;
+export type CopyFollower = typeof copyFollowers.$inferSelect;
+
+/** Normalised trade record from any signal source (before execution). */
+export const copyTradesMaster = pgTable("copy_trades_master", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  masterId:    varchar("master_id").references(() => copyMasters.id),
+  externalId:  text("external_id").notNull(),        // ticket from MT5 or message_id from Telegram
+  source:      text("source").notNull(),             // mt5 | telegram
+  symbol:      text("symbol").notNull(),
+  action:      text("action").notNull(),             // BUY | SELL
+  eventType:   text("event_type").notNull(),         // OPEN | MODIFY | CLOSE
+  volume:      decimal("volume",      { precision: 10, scale: 2 }),
+  entryPrice:  decimal("entry_price", { precision: 12, scale: 5 }),
+  stopLoss:    decimal("stop_loss",   { precision: 12, scale: 5 }),
+  takeProfit:  decimal("take_profit", { precision: 12, scale: 5 }),
+  closedPrice: decimal("closed_price",{ precision: 12, scale: 5 }),
+  rawPayload:  jsonb("raw_payload"),                 // original signal data for audit
+  status:      text("status").default("pending"),    // pending | dispatched | failed
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+
+export const insertCopyTradeMasterSchema = createInsertSchema(copyTradesMaster).omit({ id: true, createdAt: true });
+export type InsertCopyTradeMaster = z.infer<typeof insertCopyTradeMasterSchema>;
+export type CopyTradeMaster = typeof copyTradesMaster.$inferSelect;
+
+/** Execution record on each follower account mapped to a master trade. */
+export const copyTradesFollower = pgTable("copy_trades_follower", {
+  id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  masterTradeId: varchar("master_trade_id").references(() => copyTradesMaster.id),
+  followerId:    varchar("follower_id").references(() => copyFollowers.id),
+  externalId:    text("external_id"),                // ticket on follower MT5 account
+  symbol:        text("symbol").notNull(),
+  action:        text("action").notNull(),
+  eventType:     text("event_type").notNull(),
+  volume:        decimal("volume",      { precision: 10, scale: 2 }),
+  entryPrice:    decimal("entry_price", { precision: 12, scale: 5 }),
+  stopLoss:      decimal("stop_loss",   { precision: 12, scale: 5 }),
+  takeProfit:    decimal("take_profit", { precision: 12, scale: 5 }),
+  closedPrice:   decimal("closed_price",{ precision: 12, scale: 5 }),
+  status:        text("status").default("pending"),  // pending | executed | failed | skipped
+  errorMessage:  text("error_message"),
+  retryCount:    integer("retry_count").default(0),
+  executedAt:    timestamp("executed_at"),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+
+export const insertCopyTradeFollowerSchema = createInsertSchema(copyTradesFollower).omit({ id: true, createdAt: true });
+export type InsertCopyTradeFollower = z.infer<typeof insertCopyTradeFollowerSchema>;
+export type CopyTradeFollower = typeof copyTradesFollower.$inferSelect;
+
+/** Full audit log — every action the copy trading engine performs. */
+export const copyExecutionLogs = pgTable("copy_execution_logs", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  followerId:  varchar("follower_id").references(() => copyFollowers.id),
+  tradeId:     varchar("trade_id"),
+  level:       text("level").notNull(),              // INFO | WARN | ERROR
+  event:       text("event").notNull(),              // OPEN | CLOSE | MODIFY | SKIP | RETRY | FAIL
+  message:     text("message").notNull(),
+  metadata:    jsonb("metadata"),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+
+export const insertCopyExecutionLogSchema = createInsertSchema(copyExecutionLogs).omit({ id: true, createdAt: true });
+export type InsertCopyExecutionLog = z.infer<typeof insertCopyExecutionLogSchema>;
+export type CopyExecutionLog = typeof copyExecutionLogs.$inferSelect;
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),

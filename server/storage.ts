@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -68,6 +68,39 @@ export interface IStorage {
   createSession(session: InsertTradingSession): Promise<TradingSession>;
   updateSession(id: string, session: Partial<InsertTradingSession>): Promise<TradingSession | undefined>;
   deleteSession(id: string): Promise<boolean>;
+
+  // ── Copy Trading ────────────────────────────────────────────────────────────
+  getCopyAccounts(userId?: string): Promise<CopyAccount[]>;
+  getCopyAccountById(id: string): Promise<CopyAccount | undefined>;
+  createCopyAccount(account: InsertCopyAccount): Promise<CopyAccount>;
+  updateCopyAccount(id: string, account: Partial<InsertCopyAccount>): Promise<CopyAccount | undefined>;
+  deleteCopyAccount(id: string): Promise<boolean>;
+
+  getCopyMasters(userId?: string): Promise<CopyMaster[]>;
+  getCopyMasterById(id: string): Promise<CopyMaster | undefined>;
+  createCopyMaster(master: InsertCopyMaster): Promise<CopyMaster>;
+  updateCopyMaster(id: string, master: Partial<InsertCopyMaster>): Promise<CopyMaster | undefined>;
+  deleteCopyMaster(id: string): Promise<boolean>;
+
+  getTelegramSource(masterId: string): Promise<TelegramSignalSource | undefined>;
+  upsertTelegramSource(src: InsertTelegramSignalSource): Promise<TelegramSignalSource>;
+
+  getCopyFollowers(userId?: string, masterId?: string): Promise<CopyFollower[]>;
+  getCopyFollowerById(id: string): Promise<CopyFollower | undefined>;
+  createCopyFollower(follower: InsertCopyFollower): Promise<CopyFollower>;
+  updateCopyFollower(id: string, follower: Partial<InsertCopyFollower>): Promise<CopyFollower | undefined>;
+  deleteCopyFollower(id: string): Promise<boolean>;
+
+  getCopyMasterTrades(masterId: string, limit?: number): Promise<CopyTradeMaster[]>;
+  createCopyMasterTrade(trade: InsertCopyTradeMaster): Promise<CopyTradeMaster>;
+  updateCopyMasterTrade(id: string, trade: Partial<InsertCopyTradeMaster>): Promise<CopyTradeMaster | undefined>;
+
+  getCopyFollowerTrades(followerId: string, limit?: number): Promise<CopyTradeFollower[]>;
+  createCopyFollowerTrade(trade: InsertCopyTradeFollower): Promise<CopyTradeFollower>;
+  updateCopyFollowerTrade(id: string, trade: Partial<InsertCopyTradeFollower>): Promise<CopyTradeFollower | undefined>;
+
+  getCopyExecutionLogs(followerId: string, limit?: number): Promise<CopyExecutionLog[]>;
+  createCopyExecutionLog(log: InsertCopyExecutionLog): Promise<CopyExecutionLog>;
 }
 
 export class DbStorage implements IStorage {
@@ -541,6 +574,139 @@ export class DbStorage implements IStorage {
       console.error('[Storage] Error deleting session:', error);
       return false;
     }
+  }
+
+  // ── Copy Trading ─────────────────────────────────────────────────────────────
+
+  async getCopyAccounts(userId?: string): Promise<CopyAccount[]> {
+    if (userId) return db.select().from(copyAccounts).where(eq(copyAccounts.userId, userId)).orderBy(desc(copyAccounts.createdAt));
+    return db.select().from(copyAccounts).orderBy(desc(copyAccounts.createdAt));
+  }
+
+  async getCopyAccountById(id: string): Promise<CopyAccount | undefined> {
+    const r = await db.select().from(copyAccounts).where(eq(copyAccounts.id, id)).limit(1);
+    return r[0];
+  }
+
+  async createCopyAccount(account: InsertCopyAccount): Promise<CopyAccount> {
+    const r = await db.insert(copyAccounts).values({ ...account, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateCopyAccount(id: string, account: Partial<InsertCopyAccount>): Promise<CopyAccount | undefined> {
+    const r = await db.update(copyAccounts).set({ ...account, updatedAt: new Date() }).where(eq(copyAccounts.id, id)).returning();
+    return r[0];
+  }
+
+  async deleteCopyAccount(id: string): Promise<boolean> {
+    const r = await db.delete(copyAccounts).where(eq(copyAccounts.id, id)).returning();
+    return r.length > 0;
+  }
+
+  async getCopyMasters(userId?: string): Promise<CopyMaster[]> {
+    if (userId) return db.select().from(copyMasters).where(eq(copyMasters.userId, userId)).orderBy(desc(copyMasters.createdAt));
+    return db.select().from(copyMasters).orderBy(desc(copyMasters.createdAt));
+  }
+
+  async getCopyMasterById(id: string): Promise<CopyMaster | undefined> {
+    const r = await db.select().from(copyMasters).where(eq(copyMasters.id, id)).limit(1);
+    return r[0];
+  }
+
+  async createCopyMaster(master: InsertCopyMaster): Promise<CopyMaster> {
+    const r = await db.insert(copyMasters).values({ ...master, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateCopyMaster(id: string, master: Partial<InsertCopyMaster>): Promise<CopyMaster | undefined> {
+    const r = await db.update(copyMasters).set({ ...master, updatedAt: new Date() }).where(eq(copyMasters.id, id)).returning();
+    return r[0];
+  }
+
+  async deleteCopyMaster(id: string): Promise<boolean> {
+    const r = await db.delete(copyMasters).where(eq(copyMasters.id, id)).returning();
+    return r.length > 0;
+  }
+
+  async getTelegramSource(masterId: string): Promise<TelegramSignalSource | undefined> {
+    const r = await db.select().from(telegramSignalSources).where(eq(telegramSignalSources.masterId, masterId)).limit(1);
+    return r[0];
+  }
+
+  async upsertTelegramSource(src: InsertTelegramSignalSource): Promise<TelegramSignalSource> {
+    if (src.masterId) {
+      const existing = await this.getTelegramSource(src.masterId);
+      if (existing) {
+        const r = await db.update(telegramSignalSources).set({ ...src, updatedAt: new Date() }).where(eq(telegramSignalSources.id, existing.id)).returning();
+        return r[0];
+      }
+    }
+    const r = await db.insert(telegramSignalSources).values({ ...src, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async getCopyFollowers(userId?: string, masterId?: string): Promise<CopyFollower[]> {
+    if (userId && masterId) return db.select().from(copyFollowers).where(and(eq(copyFollowers.userId, userId), eq(copyFollowers.masterId, masterId))).orderBy(desc(copyFollowers.createdAt));
+    if (userId)   return db.select().from(copyFollowers).where(eq(copyFollowers.userId, userId)).orderBy(desc(copyFollowers.createdAt));
+    if (masterId) return db.select().from(copyFollowers).where(eq(copyFollowers.masterId, masterId)).orderBy(desc(copyFollowers.createdAt));
+    return db.select().from(copyFollowers).orderBy(desc(copyFollowers.createdAt));
+  }
+
+  async getCopyFollowerById(id: string): Promise<CopyFollower | undefined> {
+    const r = await db.select().from(copyFollowers).where(eq(copyFollowers.id, id)).limit(1);
+    return r[0];
+  }
+
+  async createCopyFollower(follower: InsertCopyFollower): Promise<CopyFollower> {
+    const r = await db.insert(copyFollowers).values({ ...follower, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateCopyFollower(id: string, follower: Partial<InsertCopyFollower>): Promise<CopyFollower | undefined> {
+    const r = await db.update(copyFollowers).set({ ...follower, updatedAt: new Date() }).where(eq(copyFollowers.id, id)).returning();
+    return r[0];
+  }
+
+  async deleteCopyFollower(id: string): Promise<boolean> {
+    const r = await db.delete(copyFollowers).where(eq(copyFollowers.id, id)).returning();
+    return r.length > 0;
+  }
+
+  async getCopyMasterTrades(masterId: string, limit = 100): Promise<CopyTradeMaster[]> {
+    return db.select().from(copyTradesMaster).where(eq(copyTradesMaster.masterId, masterId)).orderBy(desc(copyTradesMaster.createdAt)).limit(limit);
+  }
+
+  async createCopyMasterTrade(trade: InsertCopyTradeMaster): Promise<CopyTradeMaster> {
+    const r = await db.insert(copyTradesMaster).values({ ...trade, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateCopyMasterTrade(id: string, trade: Partial<InsertCopyTradeMaster>): Promise<CopyTradeMaster | undefined> {
+    const r = await db.update(copyTradesMaster).set(trade).where(eq(copyTradesMaster.id, id)).returning();
+    return r[0];
+  }
+
+  async getCopyFollowerTrades(followerId: string, limit = 100): Promise<CopyTradeFollower[]> {
+    return db.select().from(copyTradesFollower).where(eq(copyTradesFollower.followerId, followerId)).orderBy(desc(copyTradesFollower.createdAt)).limit(limit);
+  }
+
+  async createCopyFollowerTrade(trade: InsertCopyTradeFollower): Promise<CopyTradeFollower> {
+    const r = await db.insert(copyTradesFollower).values({ ...trade, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateCopyFollowerTrade(id: string, trade: Partial<InsertCopyTradeFollower>): Promise<CopyTradeFollower | undefined> {
+    const r = await db.update(copyTradesFollower).set(trade).where(eq(copyTradesFollower.id, id)).returning();
+    return r[0];
+  }
+
+  async getCopyExecutionLogs(followerId: string, limit = 200): Promise<CopyExecutionLog[]> {
+    return db.select().from(copyExecutionLogs).where(eq(copyExecutionLogs.followerId, followerId)).orderBy(desc(copyExecutionLogs.createdAt)).limit(limit);
+  }
+
+  async createCopyExecutionLog(log: InsertCopyExecutionLog): Promise<CopyExecutionLog> {
+    const r = await db.insert(copyExecutionLogs).values({ ...log, id: randomUUID() }).returning();
+    return r[0];
   }
 }
 
