@@ -121,7 +121,7 @@ const InfoBox = ({ children, color = 'blue' }: any) => {
 const SectionTitle = ({ step, id, title }: any) => (
   <div className="mb-8 md:mb-16">
     <span className="text-blue-500 font-mono text-xs mb-2 block tracking-widest">0{step + 1} // {id.toUpperCase()}</span>
-    <h1 className="text-3xl md:text-5xl font-extralight tracking-tighter mb-4">{title}</h1>
+    <h1 className="text-xl md:text-2xl font-extralight tracking-tighter mb-4">{title}</h1>
     <div className="w-24 h-[1px] bg-blue-500/50" />
   </div>
 );
