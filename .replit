@@ -9,7 +9,7 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+run = ["node", "dist/index.js"]
 
 [[ports]]
 localPort = 5000
@@ -39,7 +39,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node_modules/.bin/tsx server/index.ts"
+args = "npm run dev"
 waitForPort = 5000
 
 [agent]
