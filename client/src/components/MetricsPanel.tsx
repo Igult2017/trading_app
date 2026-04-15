@@ -512,7 +512,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     d: fmtFreq(d.perDay),
     w: fmtFreq(d.perWeek),
     mo: fmtFreq(d.perMonth),
-    y: fmtFreq(d.perYear),
+    y: (d.perYear == null || isNaN(d.perYear)) ? '--' : String(Math.round(d.perYear)),
     wr: `${Math.round(setupTags[name]?.winRate||0)}%`,
     pc: (setupTags[name]?.winRate||0)>=60?P.green:P.amber,
     best: '--',
