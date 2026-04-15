@@ -559,7 +559,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         setup_clarity_score=_coerce_float(g("setupClarityScore")),
         confluence_score=_coerce_float(g("confluenceScore")),
         signal_validation_score=_coerce_float(g("signalValidationScore") or g("signalValidation")),
-        momentum_score=_momentum_to_score(g("momentumScore") or g("momentumValidity")),
+        momentum_score=_momentum_to_score(g("momentumScore") or g("momentumValidity") or g("strongMomentum")),
         mtf_alignment=_coerce_bool(g("mtfAlignment")),
         trend_alignment=_coerce_bool(g("trendAlignment")),
         htf_key_level_present=_coerce_bool(g("htfKeyLevelPresent")),
