@@ -29,6 +29,12 @@ MT5_POLL_INTERVAL_SEC:  float = float(os.getenv("MT5_POLL_INTERVAL", "1.0"))
 MT5_RECONNECT_ATTEMPTS: int   = int(os.getenv("MT5_RECONNECT_ATTEMPTS", "5"))
 MT5_RECONNECT_DELAY_SEC: float = float(os.getenv("MT5_RECONNECT_DELAY", "5.0"))
 
+# ── MT5 Remote Bridge (Linux VPS — Wine-based) ────────────────────────────────
+# Host/port of the mt5-remote bridge server started inside Wine.
+# Default matches the supervisor config in python/copy_trading/supervisor/.
+MT5_BRIDGE_HOST: str = os.getenv("MT5_BRIDGE_HOST", "127.0.0.1")
+MT5_BRIDGE_PORT: int = int(os.getenv("MT5_BRIDGE_PORT", "18812"))
+
 # ── Worker ────────────────────────────────────────────────────────────────────
 WORKER_CONCURRENCY:    int   = int(os.getenv("WORKER_CONCURRENCY", "4"))
 WORKER_MAX_RETRIES:    int   = int(os.getenv("WORKER_MAX_RETRIES", "3"))

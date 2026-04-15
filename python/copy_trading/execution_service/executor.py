@@ -17,11 +17,18 @@ from .. import database as db
 
 log = logging.getLogger(__name__)
 
+# mt5-remote forwards all calls over a local socket to an MT5 terminal running
+# inside Wine (Linux VPS) or natively (Windows).  The API surface is identical
+# to the official MetaTrader5 package so no other code in this file needs to change.
 try:
-    import MetaTrader5 as mt5
+    from mt5_remote import MetaTrader5 as mt5  # Linux VPS via Wine bridge
     MT5_AVAILABLE = True
 except ImportError:
-    MT5_AVAILABLE = False
+    try:
+        import MetaTrader5 as mt5              # Windows direct fallback
+        MT5_AVAILABLE = True
+    except ImportError:
+        MT5_AVAILABLE = False
 
 
 # ── Pip helpers ───────────────────────────────────────────────────────────────

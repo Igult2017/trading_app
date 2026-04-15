@@ -18,8 +18,11 @@ telethon>=1.36.0
 # ── Encryption ───────────────────────────────────────────────────────────────
 cryptography>=42.0.0
 
-# ── MetaTrader 5 (Windows only — comment out on Linux VPS) ───────────────────
-# MetaTrader5>=5.0.45
+# ── MetaTrader 5 ─────────────────────────────────────────────────────────────
+# On Linux VPS: mt5-remote forwards calls to an MT5 terminal running inside Wine.
+# On Windows:   uncomment MetaTrader5 and comment out mt5-remote.
+mt5-remote>=1.0.0
+# MetaTrader5>=5.0.45   # Windows direct — uncomment if deploying on Windows
 
 # ── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0

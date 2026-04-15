@@ -7,6 +7,11 @@
 #
 # Scaling (future):
 #   docker compose up -d --scale worker=4
+#
+# MT5 bridge (Linux):
+#   The worker connects to the mt5-remote bridge running on the VPS host at
+#   MT5_BRIDGE_HOST:MT5_BRIDGE_PORT (default 127.0.0.1:18812).
+#   network_mode: host lets the containers reach that local socket.
 
 version: "3.9"
 
@@ -59,11 +64,18 @@ services:
       context: ../..
       dockerfile: python/copy_trading/Dockerfile
     restart: unless-stopped
+    # network_mode host lets the container reach the mt5-remote bridge on the
+    # VPS host (127.0.0.1:18812) and the Telegram session files on disk.
+    network_mode: host
     command: python -m python.copy_trading.main
     env_file: ../../.env
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=127.0.0.1
       - REDIS_PORT=6379
+      # MT5_BRIDGE_HOST / MT5_BRIDGE_PORT are read from .env (defaults: 127.0.0.1 / 18812)
+    volumes:
+      # Persist Telegram session files across container restarts
+      - tg_sessions:/var/lib/tradesync/tg_sessions
     depends_on:
       redis:
         condition: service_healthy
@@ -74,3 +86,4 @@ services:
 
 volumes:
   redis_data:
+  tg_sessions:            # named volume — survives container restarts and rebuilds
