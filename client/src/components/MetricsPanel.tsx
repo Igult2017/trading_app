@@ -390,7 +390,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const candlePatterns          = m.candlePatterns              || {};
   const candleIndicatorTFMatrix = m.candleIndicatorTFMatrix     || {};
   const durationBreakdown   = m.durationBreakdown         || {};
-  const sessionPhase        = m.sessionPhase              || {};
+  const sessionPhase           = m.sessionPhase              || {};
+  const sessionPhaseBySession  = m.sessionPhaseBySession     || {};
   const instrSessMatrix           = m.instrumentSessionMatrix          || {};
   const instrPhaseMomMatrix       = m.instrumentPhaseMomentumMatrix    || {};
   const stratMarketMatrix         = m.strategyMarketMatrix             || {};
@@ -454,10 +455,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   }));
   const dayEntries  = Object.entries(dayOfWeekBreakdown).map(([day,d]: [string,any]) => ({ day, wr: Math.round((d as any).winRate||0) }));
   const tfEntries   = Object.entries(tfEntry).map(([tf,d]: [string,any])              => ({ tf,  wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
-  const sessEntries = Object.entries(sessionBreakdown).map(([name,d]: [string,any])   => ({ name, wr: Math.round((d as any).winRate||0) }));
+  const sessEntries = Object.entries(sessionBreakdown).map(([name,d]: [string,any])   => ({ name, wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const exitEntries = Object.entries(exitAnalysis).map(([reason,d]: [string,any])     => ({ reason, pct: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const candleEntries = Object.entries(candlePatterns).map(([pat,d]: [string,any])    => ({ pat, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
   const orderEntries  = Object.entries(orderTypeBreakdown).map(([ot,d]: [string,any]) => ({ ot, wr: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
+  const sessionPhaseEntries   = Object.entries(sessionPhaseBySession).map(([k,d]: [string,any])   => ({ k, wr: (d as any).winRate ?? null, count: (d as any).count||0 }));
   const instrSessEntries      = Object.entries(instrSessMatrix).map(([k,d]: [string,any])         => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const instrPhaseMomEntries  = Object.entries(instrPhaseMomMatrix).map(([k,d]: [string,any])     => ({ k, win: Math.round((d as any).winRate||0), loss: 100-Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const newsEntries = Object.entries(newsImpactBreakdown).map(([k,d]: [string,any])   => ({ k, wr: Math.round((d as any).winRate||0), r: (d as any).avgRR?.toFixed(2)||'--' }));
@@ -752,13 +754,14 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           <Panel title="Session" accent={P.cyan} tag="SESSION · PHASE">
             <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>By Session Name</SubLabel>
             {sessEntries.length>0
-              ? sessEntries.map((x,i)=><Bar key={i} label={x.name} pct={x.wr||null}/>)
+              ? sessEntries.map((x,i)=><Bar key={i} label={x.name} pct={x.wr||null} count={x.count}/>)
               : <Mono size={9} color={P.dim}>No session data yet</Mono>
             }
             <SubLabel>By Session Phase</SubLabel>
-            <Bar label="Open"  pct={sessionPhase['Open']?.winRate  ?? null} count={ct(sessionPhase['Open'])}/>
-            <Bar label="Mid"   pct={sessionPhase['Mid']?.winRate   ?? null} count={ct(sessionPhase['Mid'])}/>
-            <Bar label="Close" pct={sessionPhase['Close']?.winRate ?? null} count={ct(sessionPhase['Close'])}/>
+            {sessionPhaseEntries.length>0
+              ? sessionPhaseEntries.map((x,i)=><Bar key={i} label={x.k} pct={x.wr} count={x.count}/>)
+              : <Mono size={9} color={P.dim}>No session phase data yet</Mono>
+            }
           </Panel>
         </div>
 
