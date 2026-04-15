@@ -1240,6 +1240,26 @@ def calc_session_phase(ctx: SharedContext) -> Dict:
     return breakdown_by_categorical(ctx.trades, "session_phase")
 
 
+def calc_session_phase_by_session(ctx: SharedContext) -> Dict:
+    """Groups trades by 'SESSION Phase' key, e.g. 'LONDON Open', 'NEW YORK Mid'."""
+    PHASE_ORDER = {"Open": 0, "Mid": 1, "Close": 2}
+    groups: Dict[str, List[TradeRecord]] = defaultdict(list)
+    for t in ctx.trades:
+        if t.session and t.session_phase:
+            key = f"{t.session} {t.session_phase}"
+            groups[key].append(t)
+    # Sort by session name then phase order
+    def _sort_key(k: str) -> tuple:
+        parts = k.rsplit(" ", 1)
+        phase = parts[-1] if len(parts) > 1 else ""
+        session = parts[0] if len(parts) > 1 else k
+        return (session, PHASE_ORDER.get(phase, 99))
+    return {
+        k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
+        for k, v in sorted(groups.items(), key=lambda item: _sort_key(item[0]))
+    }
+
+
 def calc_instrument_session_matrix(ctx: SharedContext) -> Dict:
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
@@ -1384,18 +1404,15 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         count = len(setup_dates) + no_date_count
         if count == 0:
             continue
-        if len(setup_dates) >= 2:
-            # Use the date span of this specific setup's trades
-            span = max(1, (max(setup_dates) - min(setup_dates)).days + 1)
-        else:
-            # Single-trade setup or no date info — fall back to global span
-            span = global_days
+        # Always use the global journal span so every setup shares the same
+        # denominator. Using a setup-specific span inflates clustered setups
+        # (e.g. 4 trades in 23 days → 63.5/year) and deflates sparse ones.
         result[setup] = {
             "count":    count,
-            "perDay":   round(count / span, 4),
-            "perWeek":  round(count / span * 7,   4),
-            "perMonth": round(count / span * 30,  4),
-            "perYear":  round(count / span * 365, 4),
+            "perDay":   round(count / global_days, 4),
+            "perWeek":  round(count / global_days * 7,   4),
+            "perMonth": round(count / global_days * 30,  4),
+            "perYear":  round(count / global_days * 365, 4),
         }
     return result
 
@@ -1451,6 +1468,7 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "candleIndicatorTFMatrix":  calc_candle_indicator_tf_matrix,
     "durationBreakdown":        calc_duration_breakdown,
     "sessionPhase":             calc_session_phase,
+    "sessionPhaseBySession":    calc_session_phase_by_session,
     "instrumentSessionMatrix":        calc_instrument_session_matrix,
     "instrumentPhaseMomentumMatrix":  calc_instrument_phase_momentum_matrix,
     "strategyMarketMatrix":           calc_strategy_market_matrix,
