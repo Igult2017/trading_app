@@ -15,7 +15,6 @@ import { SessionsList, GhostSessionsPanel } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 import TraderAI from '@/components/TraderAI';
-import Leaderboard from '@/components/Leaderboard';
 import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
@@ -30,7 +29,6 @@ const SI = {
   Strategy: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>,
   Drawdown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{filter:'drop-shadow(0 0 4px #38bdf8) drop-shadow(0 0 2px #0ea5e9)'}}><polyline points="5 4 12 11 19 4" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points="5 13 12 20 19 13" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Vault: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>,
-  Leaderboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/><path d="M18 7h2a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-2"/><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="10" y1="8" x2="14" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   Sync: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
   Sessions: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
   CreateSession: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
@@ -71,7 +69,6 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'strategy',    label: 'Audit',           icon: SI.Strategy },
     { id: 'fsdai',       label: 'Trader AI',       icon: SI.FsdAi },
     { id: 'sync',        label: 'Sync Trade',      icon: SI.Sync },
-    { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
   ]},
   { section: null, items: [
@@ -948,8 +945,6 @@ export default function Journal() {
             <DrawdownPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} />
-          ) : activeNav === 'leaderboard' ? (
-            <Leaderboard />
           ) : activeNav === 'sync' ? (
             <TradeSyncPage />
           ) : activeNav === 'accounts' ? (
