@@ -11,7 +11,6 @@ import HomePage from "@/pages/HomePage";
 import Dashboard from "@/pages/Dashboard";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
-import EconomicCalendar from "@/pages/EconomicCalendar";
 import Stocks from "@/pages/Stocks";
 import MajorPairs from "@/pages/MajorPairs";
 import Commodities from "@/pages/Commodities";
@@ -73,7 +72,6 @@ function InnerPages() {
           <Route path="/dashboard"   component={Dashboard} />
           <Route path="/history"     component={TradeHistoryPage} />
           <Route path="/analytics"   component={Analytics} />
-          <Route path="/calendar"    component={EconomicCalendar} />
           <Route path="/journal"     component={Journal} />
           <Route path="/assets"      component={AssetPage} />
           <Route path="/accounts"    component={AccountsPage} />
@@ -103,7 +101,7 @@ function AppRoutes() {
       <Route path="/join"   component={Join} />
       <Route path="/tsc"    component={TscPage} />
       <Route path="/blog/:slug" component={BlogPage} />
-      <Route path="/ec"     component={EconomicCalendarPage} />
+      <Route path="/calendar"   component={EconomicCalendarPage} />
 
       {/* Admin route */}
       <Route path="/admin">
