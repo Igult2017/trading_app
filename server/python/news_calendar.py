@@ -121,39 +121,60 @@ def scrape_calendar() -> list:
 # Central bank policy rate fetchers — all free, no API key                    #
 # --------------------------------------------------------------------------- #
 
-# FRED series IDs for each currency's official policy/benchmark rate
-_FRED_SERIES = {
-    'USD': 'FEDFUNDS',       # Federal Funds Rate (effective)
-    'EUR': 'ECBDFR',         # ECB Deposit Facility Rate
-    'GBP': 'BOEBR',          # Bank of England Base Rate
-    'CAD': 'IRSTCA01M156N',  # Canada overnight rate (OECD via FRED)
-    'JPY': 'IRSTJP01M156N',  # Japan overnight rate (OECD via FRED)
-    'CHF': 'IRSTCH01M156N',  # Switzerland overnight rate (OECD via FRED)
-    'NZD': 'IRSTNZ01M156N',  # New Zealand overnight rate (OECD via FRED)
+# FRED series IDs for each currency — ordered lists, first working series wins.
+# Primary IDs are from the IMF/IFS dataset (INTDSR*) which are stable and public.
+# Legacy OECD series (IRST*) are kept as secondary attempts but are often
+# discontinued/gated and return HTML error pages on the public CSV endpoint.
+_FRED_SERIES: dict[str, list[str]] = {
+    'USD': ['FEDFUNDS'],                          # Fed Funds Effective Rate
+    'EUR': ['ECBDFR'],                            # ECB Deposit Facility Rate
+    'GBP': ['INTDSRGBM193N', 'BOEBR'],           # IFS UK discount rate → BoE base
+    'CAD': ['INTDSRCAM193N', 'IRSTCA01M156N'],   # IFS Canada → OECD overnight
+    'JPY': ['INTDSRJPM193N', 'IRSTJP01M156N'],   # IFS Japan → OECD overnight
+    'CHF': ['INTDSRCHM193N', 'IRSTCH01M156N'],   # IFS Switzerland → OECD overnight
+    'NZD': ['INTDSRNZM193N', 'IRSTNZ01M156N'],   # IFS New Zealand → OECD overnight
+    'AUD': ['INTDSRAUM193N'],                     # IFS Australia discount rate
 }
 
 
 def _fetch_fred_series(series_id: str) -> float | None:
     """
     Generic FRED public CSV fetcher — no API key required.
-    Works through Replit's network restrictions (confirmed).
+    Validates that the response is actually a CSV (not an HTML error page)
+    before attempting to parse it.
     """
     try:
         url = f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}'
         r = requests.get(url, timeout=12)
-        lines = [l for l in r.text.strip().split('\n') if l and not l.startswith('DATE')]
-        if lines:
-            val = float(lines[-1].split(',')[1])
-            print(f'[news_calendar] FRED {series_id}: {val}%', file=sys.stderr)
-            return val
+        if r.status_code != 200:
+            raise ValueError(f'HTTP {r.status_code}')
+        lines = r.text.strip().split('\n')
+        # FRED CSV always starts with "DATE,..."; anything else is an error page
+        if not lines or not lines[0].startswith('DATE'):
+            raise ValueError('Response is not a valid CSV (likely an error page)')
+        data_lines = [l for l in lines[1:] if l.strip() and ',' in l]
+        if not data_lines:
+            raise ValueError('No data rows in CSV response')
+        val = float(data_lines[-1].split(',')[1])
+        print(f'[news_calendar] FRED {series_id}: {val}%', file=sys.stderr)
+        return val
     except Exception as e:
         print(f'[news_calendar] FRED {series_id} failed: {e}', file=sys.stderr)
     return None
 
 
+def _fetch_fred_any(currency: str) -> float | None:
+    """Try each FRED series for a currency in order, return first success."""
+    for sid in _FRED_SERIES.get(currency, []):
+        val = _fetch_fred_series(sid)
+        if val is not None:
+            return val
+    return None
+
+
 def _fetch_fred_rate() -> float | None:
     """USD — FRED FEDFUNDS (Federal Funds Effective Rate)."""
-    return _fetch_fred_series('FEDFUNDS')
+    return _fetch_fred_any('USD')
 
 
 def _fetch_ecb_rate() -> float | None:
@@ -171,7 +192,7 @@ def _fetch_ecb_rate() -> float | None:
         return float(obs[latest_key][0])
     except Exception as e:
         print(f'[news_calendar] ECB primary failed ({e}), trying FRED…', file=sys.stderr)
-    return _fetch_fred_series('ECBDFR')
+    return _fetch_fred_any('EUR')
 
 
 def _fetch_boc_rate() -> float | None:
@@ -193,7 +214,7 @@ def _fetch_boc_rate() -> float | None:
                         return float(v)
     except Exception as e:
         print(f'[news_calendar] BoC primary failed ({e}), trying FRED…', file=sys.stderr)
-    return _fetch_fred_series('IRSTCA01M156N')
+    return _fetch_fred_any('CAD')
 
 
 def _fetch_rba_rate() -> float | None:
@@ -253,7 +274,7 @@ def _fetch_boe_rate() -> float | None:
                 return float(pts[-1]['value'])
     except Exception as e:
         print(f'[news_calendar] BoE primary failed ({e}), trying FRED…', file=sys.stderr)
-    return _fetch_fred_series('BOEBR')
+    return _fetch_fred_any('GBP')
 
 
 # BIS country code -> currency mapping for WS_CBPOL dataset
@@ -424,8 +445,8 @@ def get_interest_rates() -> dict:
 
     # --- FRED fallback for BIS currencies that are still missing ---
     for ccy in ('JPY', 'CHF', 'NZD', 'CAD'):
-        if ccy not in rates and ccy in _FRED_SERIES:
-            fred_rate = _fetch_fred_series(_FRED_SERIES[ccy])
+        if ccy not in rates:
+            fred_rate = _fetch_fred_any(ccy)
             _add(ccy, bank_names.get(ccy, ccy), fred_rate)
 
     # --- hardcoded fallback for any currency still missing ---
