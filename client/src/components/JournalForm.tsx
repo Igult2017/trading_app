@@ -390,7 +390,7 @@ function Field({ label, sub, children, ocrFilled }: any) {
   );
 }
 
-function Inp({ label, sub, type = "text", placeholder, value, onChange, ocrFilled }: any) {
+function Inp({ label, sub, type = "text", placeholder, value, onChange, onBlur, ocrFilled }: any) {
   return (
     <Field label={label} sub={sub} ocrFilled={ocrFilled}>
       <input
@@ -399,6 +399,7 @@ function Inp({ label, sub, type = "text", placeholder, value, onChange, ocrFille
         placeholder={placeholder || ""}
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
       />
     </Field>
   );
@@ -720,7 +721,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
           <Inp label="SL Distance (Pips)" type="number" placeholder="0" value={d.stopLossDistancePips} onChange={f("stopLossDistancePips")} ocrFilled={ocrFields?.has("stopLossDistancePips")} />
           <Inp label="Take Profit" type="number" placeholder="0.00" value={d.takeProfit} onChange={f("takeProfit")} ocrFilled={ocrFields?.has("takeProfit")} />
           <Inp label="TP Distance (Pips)" type="number" placeholder="0" value={d.takeProfitDistancePips} onChange={f("takeProfitDistancePips")} ocrFilled={ocrFields?.has("takeProfitDistancePips")} />
-          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPercent} onChange={f("riskPercent")} />
+          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPercent} onChange={f("riskPercent")} onBlur={() => { if (!d.riskPercent || d.riskPercent.trim() === "") f("riskPercent")("1"); }} />
           <Sel label="Order Type" options={["Market","Limit","Stop","Stop-Limit"]} value={d.orderType} onChange={f("orderType")} />
           <Radio label="Outcome" options={["Win","Loss","BE"]} value={d.outcome} onChange={f("outcome")} />
         </div>
