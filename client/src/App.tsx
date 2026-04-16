@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -42,8 +42,17 @@ function LoadingScreen() {
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const [, navigate] = useLocation();
+  const didRedirect = useRef(false);
+
+  useEffect(() => {
+    if (!loading && !session && !didRedirect.current) {
+      didRedirect.current = true;
+      navigate('/auth');
+    }
+  }, [loading, session, navigate]);
+
   if (loading) return <LoadingScreen />;
-  if (!session) { navigate('/auth'); return null; }
+  if (!session) return null;
   return <>{children}</>;
 }
 
@@ -55,9 +64,17 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { session, role, loading } = useAuth();
   const [, navigate] = useLocation();
+  const didRedirect = useRef(false);
+
+  useEffect(() => {
+    if (!loading && !didRedirect.current) {
+      if (!session) { didRedirect.current = true; navigate('/auth'); }
+      else if (role !== 'admin') { didRedirect.current = true; navigate('/dashboard'); }
+    }
+  }, [loading, session, role, navigate]);
+
   if (loading) return <LoadingScreen />;
-  if (!session)          { navigate('/auth');      return null; }
-  if (role !== 'admin')  { navigate('/dashboard'); return null; }
+  if (!session || role !== 'admin') return null;
   return <>{children}</>;
 }
 
@@ -71,7 +88,6 @@ function InnerPages() {
           <Route path="/dashboard"   component={Dashboard} />
           <Route path="/history"     component={TradeHistoryPage} />
           <Route path="/analytics"   component={Analytics} />
-          <Route path="/journal"     component={Journal} />
           <Route path="/assets"      component={AssetPage} />
           <Route path="/accounts"    component={AccountsPage} />
           <Route path="/stocks"      component={Stocks} />
@@ -101,6 +117,11 @@ function AppRoutes() {
       <Route path="/blog"          component={BlogPage} />
       <Route path="/blog/:slug"    component={BlogPage} />
       <Route path="/calendar"      component={EconomicCalendarPage} />
+
+      {/* Journal — protected, has its own header (no shared header/footer) */}
+      <Route path="/journal">
+        {() => <RequireAuth><Journal /></RequireAuth>}
+      </Route>
 
       {/* Admin route */}
       <Route path="/admin">
