@@ -128,6 +128,126 @@ def scrape_calendar() -> list:
 
 
 # --------------------------------------------------------------------------- #
+# Crypto event scraper — RSS from CoinDesk + CoinTelegraph                    #
+# --------------------------------------------------------------------------- #
+
+_CRYPTO_KEYWORDS_HIGH = [
+    'etf', 'halving', 'sec', 'regulation', 'ban', 'fed', 'rate', 'fomc',
+    'inflation', 'cpi', 'reserve', 'sanction', 'hack', 'exploit', 'crash',
+    'all-time high', 'ath', 'approval', 'rejected', 'lawsuit', 'cbdc',
+    'blackrock', 'fidelity', 'grayscale', 'spot',
+]
+_CRYPTO_KEYWORDS_MED = [
+    'bitcoin', 'ethereum', 'solana', 'crypto', 'blockchain', 'defi', 'nft',
+    'stablecoin', 'exchange', 'wallet', 'market', 'price', 'rally', 'surge',
+    'dip', 'layer', 'upgrade', 'fork', 'token', 'staking', 'yield',
+]
+_COIN_MAP = {
+    'bitcoin': 'BTC', 'btc': 'BTC',
+    'ethereum': 'ETH', 'eth': 'ETH', 'ether': 'ETH',
+    'solana': 'SOL', 'sol': 'SOL',
+    'xrp': 'XRP', 'ripple': 'XRP',
+    'cardano': 'ADA', 'ada': 'ADA',
+    'dogecoin': 'DOGE', 'doge': 'DOGE',
+    'polkadot': 'DOT', 'dot': 'DOT',
+    'chainlink': 'LINK', 'link': 'LINK',
+    'avalanche': 'AVAX', 'avax': 'AVAX',
+    'bnb': 'BNB', 'binance': 'BNB',
+    'tron': 'TRX', 'trx': 'TRX',
+    'litecoin': 'LTC', 'ltc': 'LTC',
+    'polygon': 'MATIC', 'matic': 'MATIC',
+    'shiba': 'SHIB', 'shib': 'SHIB',
+    'sui': 'SUI', 'toncoin': 'TON', 'ton': 'TON',
+}
+
+
+def _detect_coin(text: str) -> str:
+    lower = text.lower()
+    for keyword, symbol in _COIN_MAP.items():
+        if keyword in lower:
+            return symbol
+    return 'CRYPTO'
+
+
+def _detect_importance(text: str) -> str:
+    lower = text.lower()
+    for kw in _CRYPTO_KEYWORDS_HIGH:
+        if kw in lower:
+            return 'High'
+    for kw in _CRYPTO_KEYWORDS_MED:
+        if kw in lower:
+            return 'Medium'
+    return 'Low'
+
+
+def _parse_rss_date(pubdate: str) -> tuple[str, str]:
+    """Parse RSS pubDate to (date_label, time_label)."""
+    try:
+        from email.utils import parsedate_to_datetime
+        dt = parsedate_to_datetime(pubdate)
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        date_label = f"{months[dt.month - 1]} {dt.day:02d}"
+        time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
+        return date_label, time_label
+    except Exception:
+        now = datetime.now()
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        return f"{months[now.month - 1]} {now.day:02d}", '12:00am'
+
+
+def scrape_crypto_events(limit: int = 30) -> list:
+    """Fetch crypto news events from CoinDesk and CoinTelegraph RSS feeds."""
+    from xml.etree import ElementTree as ET
+    feeds = [
+        'https://www.coindesk.com/arc/outboundfeeds/rss/',
+        'https://cointelegraph.com/rss',
+        'https://bitcoinmagazine.com/.rss/full/',
+    ]
+    events = []
+    seen_titles: set[str] = set()
+
+    for feed_url in feeds:
+        try:
+            resp = requests.get(feed_url, headers=HEADERS, timeout=12)
+            if resp.status_code != 200:
+                continue
+            root = ET.fromstring(resp.text)
+            for item in root.findall('.//item'):
+                title = (item.findtext('title') or '').strip()
+                pubdate = (item.findtext('pubDate') or '').strip()
+                if not title or not pubdate:
+                    continue
+                key = title[:60].lower()
+                if key in seen_titles:
+                    continue
+                seen_titles.add(key)
+
+                date_label, time_label = _parse_rss_date(pubdate)
+                coin = _detect_coin(title)
+                importance = _detect_importance(title)
+
+                events.append({
+                    'date':       date_label,
+                    'time':       time_label,
+                    'currency':   coin,
+                    'event':      title[:120],
+                    'importance': importance,
+                    'actual':     '-',
+                    'forecast':   '-',
+                    'previous':   '-',
+                    'category':   'Crypto',
+                    'isoDate':    pubdate,
+                })
+        except Exception as exc:
+            print(f'[news_calendar] crypto feed {feed_url} error: {exc}', file=sys.stderr)
+
+    print(f'[news_calendar] crypto events: {len(events)}', file=sys.stderr)
+    return events[:limit]
+
+
+# --------------------------------------------------------------------------- #
 # Interest rate fetchers — all accessible, no DNS-blocked endpoints            #
 # --------------------------------------------------------------------------- #
 
@@ -464,6 +584,8 @@ if __name__ == '__main__':
     if mode == 'rates':
         output = get_interest_rates()
     else:
-        output = scrape_calendar()
+        calendar_events = scrape_calendar()
+        crypto_events = scrape_crypto_events(limit=30)
+        output = calendar_events + crypto_events
 
     print(json.dumps(output))
