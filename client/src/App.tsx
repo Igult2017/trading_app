@@ -16,7 +16,6 @@ import MajorPairs from "@/pages/MajorPairs";
 import Commodities from "@/pages/Commodities";
 import Cryptocurrency from "@/pages/Cryptocurrency";
 import Join from "@/pages/Join";
-import Blog from "@/pages/Blog";
 import Journal from "@/pages/Journal";
 import AssetPage from "@/pages/AssetPage";
 import TscPage from "@/pages/TscPage";
@@ -79,7 +78,6 @@ function InnerPages() {
           <Route path="/major-pairs" component={MajorPairs} />
           <Route path="/commodities" component={Commodities} />
           <Route path="/crypto"      component={Cryptocurrency} />
-          <Route path="/blog"        component={Blog} />
           <Route path="/markets"     component={Stocks} />
           <Route path="/signals"     component={Stocks} />
           <Route component={NotFound} />
@@ -94,21 +92,22 @@ function InnerPages() {
 function AppRoutes() {
   return (
     <Switch>
-      {/* Public routes */}
-      <Route path="/"             component={HomePage} />
-      <Route path="/auth"         component={AuthPage} />
+      {/* Public routes — no login required */}
+      <Route path="/"              component={HomePage} />
+      <Route path="/auth"          component={AuthPage} />
       <Route path="/auth/callback" component={AuthCallbackPage} />
-      <Route path="/join"   component={Join} />
-      <Route path="/tsc"    component={TscPage} />
-      <Route path="/blog/:slug" component={BlogPage} />
-      <Route path="/calendar"   component={EconomicCalendarPage} />
+      <Route path="/join"          component={Join} />
+      <Route path="/tsc"           component={TscPage} />
+      <Route path="/blog"          component={BlogPage} />
+      <Route path="/blog/:slug"    component={BlogPage} />
+      <Route path="/calendar"      component={EconomicCalendarPage} />
 
       {/* Admin route */}
       <Route path="/admin">
         {() => <RequireAdmin><AdminPanel /></RequireAdmin>}
       </Route>
 
-      {/* Protected inner routes */}
+      {/* Protected inner routes — login required */}
       <Route>
         {() => <RequireAuth><InnerPages /></RequireAuth>}
       </Route>
