@@ -246,17 +246,19 @@ function SettingsSection({ currentUser }: { currentUser: { email?: string; full_
 
 // ── Main AdminPanel ──────────────────────────────────────────────────────────
 export default function AdminPanel() {
-  const { user, role, signOut, loading } = useAuth();
+  const { user, session, role, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
-  const [active, setActive]   = useState('overview');
+  const [active, setActive]       = useState('overview');
   const [collapsed, setCollapsed] = useState(false);
-  const [users, setUsers]     = useState<AdminUser[]>([]);
-  const [fetching, setFetching] = useState(false);
+  const [users, setUsers]         = useState<AdminUser[]>([]);
+  const [fetching, setFetching]   = useState(false);
 
-  // Guard: only admins
+  // Guard: redirect based on auth state
   useEffect(() => {
-    if (!loading && role !== 'admin') navigate('/auth');
-  }, [loading, role, navigate]);
+    if (loading) return;
+    if (!session)         navigate('/auth');
+    else if (role !== 'admin') navigate('/dashboard');
+  }, [loading, session, role, navigate]);
 
   // Fetch users from admin API
   useEffect(() => {

@@ -26,8 +26,7 @@ import AuthPage from "@/pages/AuthPage";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 
-// ── Route guards ─────────────────────────────────────────────────────────────
-
+// ── Shared loading screen ─────────────────────────────────────────────────────
 function LoadingScreen() {
   return (
     <div style={{ minHeight: '100vh', background: '#0D0F14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -36,6 +35,9 @@ function LoadingScreen() {
   );
 }
 
+// ── Route guards ─────────────────────────────────────────────────────────────
+
+/** Redirects unauthenticated users to /auth. */
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const [, navigate] = useLocation();
@@ -44,32 +46,40 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Redirects non-admin users.
+ * - Not authenticated → /auth
+ * - Authenticated but not admin → /dashboard
+ */
 function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { role, loading } = useAuth();
+  const { session, role, loading } = useAuth();
   const [, navigate] = useLocation();
   if (loading) return <LoadingScreen />;
-  if (role !== 'admin') { navigate('/dashboard'); return null; }
+  if (!session)          { navigate('/auth');      return null; }
+  if (role !== 'admin')  { navigate('/dashboard'); return null; }
   return <>{children}</>;
 }
 
-// ── Protected inner pages (with header/footer) ────────────────────────────────
+// ── Protected inner pages (require auth, include header + footer) ─────────────
 function InnerPages() {
   return (
     <div className="flex flex-col min-h-screen w-full">
       <Header />
       <main className="flex-1 bg-background">
         <Switch>
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/history" component={TradeHistoryPage} />
-          <Route path="/analytics" component={Analytics} />
-          <Route path="/calendar" component={EconomicCalendar} />
-          <Route path="/stocks" component={Stocks} />
+          <Route path="/dashboard"   component={Dashboard} />
+          <Route path="/history"     component={TradeHistoryPage} />
+          <Route path="/analytics"   component={Analytics} />
+          <Route path="/calendar"    component={EconomicCalendar} />
+          <Route path="/journal"     component={Journal} />
+          <Route path="/assets"      component={AssetPage} />
+          <Route path="/stocks"      component={Stocks} />
           <Route path="/major-pairs" component={MajorPairs} />
           <Route path="/commodities" component={Commodities} />
-          <Route path="/crypto" component={Cryptocurrency} />
-          <Route path="/blog" component={Blog} />
-          <Route path="/markets" component={Stocks} />
-          <Route path="/signals" component={Stocks} />
+          <Route path="/crypto"      component={Cryptocurrency} />
+          <Route path="/blog"        component={Blog} />
+          <Route path="/markets"     component={Stocks} />
+          <Route path="/signals"     component={Stocks} />
           <Route component={NotFound} />
         </Switch>
       </main>
@@ -82,28 +92,24 @@ function InnerPages() {
 function AppRoutes() {
   return (
     <Switch>
-      {/* Public pages — no auth required */}
-      <Route path="/" component={HomePage} />
-      <Route path="/tsc" component={TscPage} />
-      <Route path="/blog" component={BlogPage} />
+      {/* ── Public pages — no auth required ── */}
+      <Route path="/"         component={HomePage} />
+      <Route path="/tsc"      component={TscPage} />
+      <Route path="/blog"     component={BlogPage} />
       <Route path="/calendar" component={EconomicCalendarPage} />
-      <Route path="/journal" component={Journal} />
-      <Route path="/assets" component={AssetPage} />
-      <Route path="/join" component={Join} />
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/join"     component={Join} />
+      <Route path="/auth"     component={AuthPage} />
 
-      {/* Admin panel — authenticated + admin role */}
+      {/* ── Admin panel — admin role required ── */}
       <Route path="/admin">
         {() => (
-          <RequireAuth>
-            <RequireAdmin>
-              <AdminPanel />
-            </RequireAdmin>
-          </RequireAuth>
+          <RequireAdmin>
+            <AdminPanel />
+          </RequireAdmin>
         )}
       </Route>
 
-      {/* All other routes — authenticated users only */}
+      {/* ── All other routes — authenticated users only ── */}
       <Route>
         {() => (
           <RequireAuth>

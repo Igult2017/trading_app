@@ -5,20 +5,23 @@ import { useAuth } from '@/context/AuthContext';
 type Mode = 'login' | 'signup';
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<Mode>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode]             = useState<Mode>('login');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [fullName, setFullName]     = useState('');
+  const [error, setError]           = useState('');
+  const [info, setInfo]             = useState('');
+  const [busy, setBusy]             = useState(false);
 
-  const { signIn, signUp, role } = useAuth();
+  const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
 
-  // If somehow already authenticated, redirect
-  if (role === 'admin') { navigate('/admin'); return null; }
+  // Show loading screen while auth state is being resolved
+  if (loading) return <LoadingScreen />;
+
+  // Already authenticated — redirect immediately
+  if (role === 'admin') { navigate('/admin');     return null; }
   if (role === 'user')  { navigate('/dashboard'); return null; }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,14 +41,27 @@ export default function AuthPage() {
     setBusy(true);
     try {
       if (mode === 'login') {
-        const { error: err } = await signIn(email, password);
+        const { error: err, role: assignedRole } = await signIn(email, password);
         if (err) { setError(err.message); return; }
-        // onAuthStateChange will update role → App.tsx re-renders and redirects
+        // Navigate immediately using the role returned by signIn
+        if (assignedRole === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
-        const { error: err } = await signUp(email, password, fullName);
+        const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName);
         if (err) { setError(err.message); return; }
-        setInfo('Account created! Check your email to confirm, then log in.');
+        if (emailConfirmationRequired) {
+          setInfo('Account created! Please check your email to confirm, then sign in.');
+        } else {
+          setInfo('Account created! Signing you in…');
+        }
         setMode('login');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setFullName('');
       }
     } finally {
       setBusy(false);
@@ -55,7 +71,6 @@ export default function AuthPage() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        {/* Logo / Brand */}
         <div style={styles.brand}>
           <div style={styles.logo}>TS</div>
           <span style={styles.brandName}>TradeSync</span>
@@ -128,7 +143,11 @@ export default function AuthPage() {
           {error && <div style={styles.error}>{error}</div>}
           {info  && <div style={styles.infoBox}>{info}</div>}
 
-          <button style={{ ...styles.btn, opacity: busy ? 0.6 : 1 }} type="submit" disabled={busy}>
+          <button
+            style={{ ...styles.btn, opacity: busy ? 0.6 : 1, cursor: busy ? 'not-allowed' : 'pointer' }}
+            type="submit"
+            disabled={busy}
+          >
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
@@ -149,6 +168,14 @@ export default function AuthPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div style={{ minHeight: '100vh', background: '#0D0F14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: '#4AE8D8', fontSize: 14, fontFamily: 'monospace' }}>Loading…</div>
     </div>
   );
 }
@@ -270,7 +297,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '12px',
     fontWeight: 700,
     fontSize: 14,
-    cursor: 'pointer',
     letterSpacing: '0.02em',
     transition: 'opacity 0.2s',
   },
