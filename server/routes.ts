@@ -1507,6 +1507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!user) return res.status(401).json({ error: "Unauthorized" });
 
     try {
+      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
       // List all users to check if an admin already exists
       const { data: { users: allUsers }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
       if (error) return res.status(500).json({ error: error.message });
@@ -1543,6 +1544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin: list all users ─────────────────────────────────────────────────────
   app.get("/api/admin/users", requireAdmin, async (_req: Request, res: Response) => {
     try {
+      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
       const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
       if (error) return res.status(500).json({ error: error.message });
 
@@ -1571,6 +1573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
       const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         app_metadata: { role },
       });

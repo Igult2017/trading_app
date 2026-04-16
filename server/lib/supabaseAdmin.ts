@@ -1,25 +1,31 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl      = process.env.VITE_SUPABASE_URL      ?? '';
-const serviceRoleKey   = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+const supabaseUrl    = process.env.VITE_SUPABASE_URL       ?? '';
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-if (!supabaseUrl || !serviceRoleKey) {
+const hasCredentials = Boolean(supabaseUrl && serviceRoleKey);
+
+if (!hasCredentials) {
   console.warn('[Supabase] Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY — auth endpoints will not work');
 }
 
 /**
  * Server-side Supabase client using the service role key.
+ * Will be null when credentials are not configured.
  * This has full admin access; never expose this to the browser.
  */
-export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+export const supabaseAdmin: SupabaseClient | null = hasCredentials
+  ? createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
 
 /**
  * Verify a JWT from the Authorization header and return the user,
  * or null if the token is invalid / missing.
  */
 export async function verifyToken(authHeader: string | undefined) {
+  if (!supabaseAdmin) return null;
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
   const { data, error } = await supabaseAdmin.auth.getUser(token);
