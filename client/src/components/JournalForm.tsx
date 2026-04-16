@@ -778,12 +778,12 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
 
 // ── Step 3 — Context ──────────────────────────────────────────────────────────
 function Step3({ d, set, direction }: any) {
-  const regimeTouched  = React.useRef(false);
-  const trendTouched   = React.useRef(false);
+  const regimeTouched  = useRef(false);
+  const trendTouched   = useRef(false);
 
   // Auto-derive Market Regime + Trend Direction from execution direction
   // whenever direction changes, unless the user has already set them manually.
-  React.useEffect(() => {
+  useEffect(() => {
     const derived = direction === "Short" ? "Bearish" : "Bullish";
     set((prev: any) => ({
       ...prev,
