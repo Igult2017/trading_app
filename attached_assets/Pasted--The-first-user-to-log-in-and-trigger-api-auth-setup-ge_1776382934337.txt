@@ -1,0 +1,56 @@
+
+The first user to log in and trigger /api/auth/setup gets promoted to admin via Supabase app_metadata. Every user after that gets the user role. The logic is sound.
+Weaknesses
+1.	Race condition on simultaneous first signups. The admin check reads all users, finds no admin, then writes. If two users sign up at the exact same millisecond, both could pass the adminExists === false check and both get promoted to admin. There is no database-level lock or atomic check-and-set protecting this.
+2.	The role is written on every login, not just registration. Every call to /api/auth/setup overwrites app_metadata. This means a second call (e.g. the admin logs out and back in) re-checks and still finds an admin — so it would overwrite their own metadata with role: 'user', effectively stripping themselves of admin. This is the most immediately dangerous bug.
+3.	The check uses listUsers with perPage: 1000. If you ever have more than 1000 users in Supabase, the admin check will miss users beyond that page and potentially promote another person to admin.
+4.	No client-side guard. The /api/auth/setup call is made from the client. A user who is already set as admin in Supabase and then logs in again will hit weakness #2 above.
+5.	verifyToken is a JWT decode — not a Supabase session revocation check. A stolen token is valid until it naturally expires; there is no server-side session invalidation.
+Of these, weakness #2 is the one that will definitely cause a problem in normal use — the admin logging in a second time will get demoted to a regular user.
+
+
+
+
+
+
+
+
+
+
+The Core Problem
+Right now the system uses Supabase app_metadata as the source of truth for roles, and it re-assigns that role on every login. That is the root of all five weaknesses.
+________________________________________
+The Right Architecture
+Rule: Supabase handles authentication (who you are). Your PostgreSQL database handles authorization (what you can do).
+1. Store roles in your own database — not Supabase metadata
+Add a role column to your users table in PostgreSQL. The DB is atomic, queryable, and not limited by pagination. app_metadata becomes irrelevant for access control.
+2. Assign roles once — at registration, never again at login
+/api/auth/setup should only run when a new account is first created. It should write the role to your DB and then never touch it again on subsequent logins. Reading the role on login is fine — overwriting it is not.
+3. Solve the first-admin race condition with a DB transaction
+Instead of listing all Supabase users and guessing, run a single atomic SQL query inside a transaction:
+BEGIN;
+SELECT COUNT(*) FROM users WHERE role = 'admin' FOR UPDATE;
+-- If count = 0 → INSERT this user as admin
+-- If count > 0 → INSERT this user as 'user'
+COMMIT;
+FOR UPDATE locks the row during the check so two simultaneous signups cannot both pass the zero-admin check.
+4. Alternative for first admin — use an env variable (simpler and most secure)
+Set ADMIN_EMAIL=you@yourdomain.com as a secret. At registration, if the new user's email matches, they get admin. Zero race condition. Zero guessing. You control it explicitly.
+5. On every protected API call — read role from DB, not from the JWT
+The JWT tells you who the user is. Your DB tells you what they are allowed to do. Never trust the JWT for authorization — it can be stale or manipulated.
+________________________________________
+Resulting Flow
+Event	Action
+User signs up	Write to users table with role (admin if first or email matches, else user)
+User logs in	Verify JWT → read role from DB → done
+Protected route	Verify JWT → read role from DB → allow or deny
+Admin demotes a user	Update role in DB — takes effect on their next request
+________________________________________
+Summary of What Gets Fixed
+Weakness	Fix
+Race condition	DB transaction with FOR UPDATE or env-variable admin
+Role overwritten on login	Only write role at registration
+1000-user pagination limit	SQL COUNT(*) replaces listUsers
+Client-side guard	Role always read from DB server-side, never trusted from client
+Stale JWT	Authorization checked against DB on every request, not JWT claims
+

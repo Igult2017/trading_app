@@ -13,6 +13,15 @@ export async function initializeDatabase() {
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL
       )`,
+
+      // User profiles — maps Supabase auth UUIDs to application roles.
+      // This is the single source of truth for authorization.
+      `CREATE TABLE IF NOT EXISTS user_profiles (
+        id VARCHAR PRIMARY KEY,
+        email TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT NOW()
+      )`,
       
       // Trades table
       `CREATE TABLE IF NOT EXISTS trades (

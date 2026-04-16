@@ -195,6 +195,20 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+/**
+ * Maps Supabase auth UUIDs → application roles.
+ * This is the single source of truth for authorization.
+ * Roles are written once at registration and only changed by an admin.
+ */
+export const userProfiles = pgTable("user_profiles", {
+  id:        varchar("id").primaryKey(),
+  email:     text("email").notNull(),
+  role:      text("role").notNull().default("user"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type UserProfile = typeof userProfiles.$inferSelect;
+
 export const trades = pgTable("trades", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),

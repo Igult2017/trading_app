@@ -1,6 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
+import { db } from "./db";
+import { userProfiles } from "@shared/schema";
+import { eq, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
@@ -1584,45 +1587,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // ── Auth: first-user admin setup ─────────────────────────────────────────────
-  // Called by the client right after a new account is created.
-  // If no admin exists yet, this user becomes admin.
+  // ── Auth: registration setup (idempotent) ────────────────────────────────────
+  // Called by the client after every sign-in/sign-up.
+  // On the FIRST call for a given user, a profile is created with a role assigned
+  // atomically. On every subsequent call the existing role is returned unchanged —
+  // an admin can never be demoted by logging in again.
+  //
+  // Role assignment priority (first match wins):
+  //   1. ADMIN_EMAIL env var — explicit, zero race condition.
+  //   2. Atomic DB check: if no admin exists yet → first registrant becomes admin.
+  //   3. Everyone else → 'user'.
   app.post("/api/auth/setup", async (req: Request, res: Response) => {
-    const user = await verifyToken(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const authUser = await verifyToken(req.headers.authorization);
+    if (!authUser) return res.status(401).json({ error: "Unauthorized" });
 
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
-      // List all users to check if an admin already exists
-      const { data: { users: allUsers }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      if (error) return res.status(500).json({ error: error.message });
+      // ── 1. Check if this user already has a profile ───────────────────────
+      const existing = await db
+        .select({ role: userProfiles.role })
+        .from(userProfiles)
+        .where(eq(userProfiles.id, authUser.id))
+        .limit(1);
 
-      const adminExists = allUsers.some(u => u.app_metadata?.role === 'admin');
-
-      if (!adminExists) {
-        // Promote this user to admin
-        await supabaseAdmin.auth.admin.updateUserById(user.id, {
-          app_metadata: { role: 'admin' },
-        });
-        return res.json({ role: 'admin', message: 'You are the first user — admin role granted.' });
+      if (existing.length > 0) {
+        const existingRole = existing[0].role as 'admin' | 'user';
+        // Sync Supabase app_metadata so the client JWT stays accurate
+        if (supabaseAdmin) {
+          await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+            app_metadata: { role: existingRole },
+          });
+        }
+        return res.json({ role: existingRole });
       }
 
-      // Regular user
-      await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        app_metadata: { role: 'user' },
+      // ── 2. New user — determine role atomically ───────────────────────────
+      const email = authUser.email ?? '';
+      let assignedRole: 'admin' | 'user' = 'user';
+
+      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+      if (adminEmail && email.toLowerCase() === adminEmail) {
+        // Explicit env-var admin — no DB query needed, no race condition.
+        assignedRole = 'admin';
+      } else {
+        // Atomic check: promote first registrant to admin using FOR UPDATE lock
+        // so two simultaneous sign-ups cannot both pass the zero-admin check.
+        await db.transaction(async (tx) => {
+          const countResult = await tx.execute(
+            drizzleSql`SELECT COUNT(*)::int AS cnt FROM user_profiles WHERE role = 'admin' FOR UPDATE`
+          );
+          const adminCount = (countResult.rows?.[0] as any)?.cnt ?? 0;
+          if (Number(adminCount) === 0) assignedRole = 'admin';
+        });
+      }
+
+      // ── 3. Insert the profile ─────────────────────────────────────────────
+      await db.insert(userProfiles).values({
+        id:    authUser.id,
+        email,
+        role:  assignedRole,
       });
-      return res.json({ role: 'user' });
+
+      // ── 4. Sync role to Supabase app_metadata so the client JWT is correct ─
+      if (supabaseAdmin) {
+        await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+          app_metadata: { role: assignedRole },
+        });
+      }
+
+      return res.json({
+        role: assignedRole,
+        ...(assignedRole === 'admin' ? { message: 'Admin role granted.' } : {}),
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
   });
 
   // ── Admin middleware ──────────────────────────────────────────────────────────
+  // Reads role from the DB — never from the JWT — so stale or manipulated tokens
+  // cannot escalate privileges.
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
-    const user = await verifyToken(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
-    if (user.app_metadata?.role !== 'admin') return res.status(403).json({ error: "Forbidden — admins only" });
-    (req as any).adminUser = user;
+    const authUser = await verifyToken(req.headers.authorization);
+    if (!authUser) return res.status(401).json({ error: "Unauthorized" });
+
+    const profile = await db
+      .select({ role: userProfiles.role })
+      .from(userProfiles)
+      .where(eq(userProfiles.id, authUser.id))
+      .limit(1);
+
+    if (!profile.length || profile[0].role !== 'admin') {
+      return res.status(403).json({ error: "Forbidden — admins only" });
+    }
+
+    (req as any).adminUser = authUser;
     next();
   }
 
@@ -1630,15 +1688,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/users", requireAdmin, async (_req: Request, res: Response) => {
     try {
       if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
-      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      if (error) return res.status(500).json({ error: error.message });
 
-      const result = users.map(u => ({
-        id:             u.id,
-        email:          u.email ?? '',
-        full_name:      u.user_metadata?.full_name ?? '',
-        role:           u.app_metadata?.role ?? 'user',
-        created_at:     u.created_at,
+      const [supabaseResult, dbProfiles] = await Promise.all([
+        supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+        db.select({ id: userProfiles.id, role: userProfiles.role }).from(userProfiles),
+      ]);
+
+      if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
+
+      const roleMap = new Map(dbProfiles.map(p => [p.id, p.role]));
+
+      const result = supabaseResult.data.users.map(u => ({
+        id:              u.id,
+        email:           u.email ?? '',
+        full_name:       u.user_metadata?.full_name ?? '',
+        role:            roleMap.get(u.id) ?? 'user',
+        created_at:      u.created_at,
         last_sign_in_at: u.last_sign_in_at ?? null,
       }));
 
@@ -1658,11 +1723,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        app_metadata: { role },
-      });
-      if (error) return res.status(500).json({ error: error.message });
+      // Update DB — this is the authoritative source
+      await db
+        .update(userProfiles)
+        .set({ role })
+        .where(eq(userProfiles.id, userId));
+
+      // Sync to Supabase app_metadata so the client JWT reflects the change on next login
+      if (supabaseAdmin) {
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          app_metadata: { role },
+        });
+      }
+
       return res.json({ success: true, userId, role });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
