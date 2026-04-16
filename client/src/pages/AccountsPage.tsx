@@ -39,7 +39,8 @@ const PLATFORMS = [
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 async function authHeaders(): Promise<HeadersInit> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const result = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+  const session = result.data.session;
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${session?.access_token ?? ""}`,

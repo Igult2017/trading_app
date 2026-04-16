@@ -264,7 +264,7 @@ export default function AdminPanel() {
   useEffect(() => {
     if (role !== 'admin') return;
     setFetching(true);
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+    supabase?.auth.getSession().then(async ({ data: { session: s } }) => {
       if (!s) return;
       try {
         const res = await fetch('/api/admin/users', {
@@ -281,7 +281,7 @@ export default function AdminPanel() {
   }, [role]);
 
   async function handleRoleChange(userId: string, newRole: string) {
-    const { data: { session: s } } = await supabase.auth.getSession();
+    const { data: { session: s } } = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
     if (!s) return;
     await fetch(`/api/admin/users/${userId}/role`, {
       method: 'PATCH',

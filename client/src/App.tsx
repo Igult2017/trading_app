@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -88,6 +88,31 @@ function InnerPages() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+// ── Top-level router ──────────────────────────────────────────────────────────
+function AppRoutes() {
+  return (
+    <Switch>
+      {/* Public routes */}
+      <Route path="/"       component={HomePage} />
+      <Route path="/auth"   component={AuthPage} />
+      <Route path="/join"   component={Join} />
+      <Route path="/tsc"    component={TscPage} />
+      <Route path="/blog/:slug" component={BlogPage} />
+      <Route path="/ec"     component={EconomicCalendarPage} />
+
+      {/* Admin route */}
+      <Route path="/admin">
+        {() => <RequireAdmin><AdminPanel /></RequireAdmin>}
+      </Route>
+
+      {/* Protected inner routes */}
+      <Route>
+        {() => <RequireAuth><InnerPages /></RequireAuth>}
+      </Route>
+    </Switch>
   );
 }
 

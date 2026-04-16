@@ -33,6 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
@@ -50,11 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  /**
-   * Call /api/auth/setup to assign a role to the user.
-   * Idempotent — safe to call on every login.
-   * Returns the assigned role, or null if it failed.
-   */
   async function runSetup(accessToken: string): Promise<'admin' | 'user' | null> {
     try {
       const res = await fetch('/api/auth/setup', {
@@ -70,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName: string) {
+    if (!supabase) return { error: new Error('Auth not configured'), emailConfirmationRequired: false };
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -78,31 +80,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) return { error, emailConfirmationRequired: false };
 
-    // Email confirmation is NOT required → session is available immediately
     if (data.session) {
       await runSetup(data.session.access_token);
-      // Refresh so app_metadata.role is reflected in the live session
       await supabase.auth.refreshSession();
       return { error: null, emailConfirmationRequired: false };
     }
 
-    // Email confirmation IS required → user must verify before logging in
     return { error: null, emailConfirmationRequired: true };
   }
 
   async function signIn(email: string, password: string) {
+    if (!supabase) return { error: new Error('Auth not configured'), role: null };
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.session) {
       return { error: error ?? new Error('Sign in failed'), role: null };
     }
 
-    // Always run setup on login — handles the email-confirmation path
-    // where setup couldn't run at signup time, and is a no-op afterwards.
     const assignedRole = await runSetup(data.session.access_token);
 
     if (assignedRole) {
-      // Refresh the session so the updated app_metadata is available
       const { data: refreshed } = await supabase.auth.refreshSession();
       const finalRole = extractRole(refreshed.session?.user ?? null);
       return { error: null, role: finalRole };
@@ -112,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    if (!supabase) return;
     await supabase.auth.signOut();
   }
 
