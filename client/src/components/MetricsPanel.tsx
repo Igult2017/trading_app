@@ -156,10 +156,10 @@ const ScoreRow = ({ label, scores }: { label:string; scores:{ score:string; pct:
   </div>
 );
 
-const SplitBar = ({ label, win, loss: _loss, count }: { label:string; win:number; loss:number; count?:number }) => (
+const SplitBar = ({ label, win, loss: _loss, count, labelSize=10 }: { label:string; win:number; loss:number; count?:number; labelSize?:number }) => (
   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
-    <Mono size={10} color={P.body}>{label}</Mono>
-    <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+    <Mono size={labelSize} color={P.body}>{label}</Mono>
+    <div style={{ display:'flex', gap:5, alignItems:'center', flexShrink:0 }}>
       {count != null && <Mono size={9} color={P.cyan}>({count})</Mono>}
       <Num color={pColor(win)} style={{ fontSize:10 }}>{win}%</Num>
     </div>

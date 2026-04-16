@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs, type BrokerAccount, type InsertBrokerAccount, type SyncedTrade, type InsertSyncedTrade, brokerAccounts, syncedTrades } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -101,6 +101,20 @@ export interface IStorage {
 
   getCopyExecutionLogs(followerId: string, limit?: number): Promise<CopyExecutionLog[]>;
   createCopyExecutionLog(log: InsertCopyExecutionLog): Promise<CopyExecutionLog>;
+
+  // ── Broker Account Sync ─────────────────────────────────────────────────────
+  getBrokerAccounts(userId: string): Promise<BrokerAccount[]>;
+  getBrokerAccountById(id: string): Promise<BrokerAccount | undefined>;
+  getBrokerAccountByWebhookToken(token: string): Promise<BrokerAccount | undefined>;
+  createBrokerAccount(account: InsertBrokerAccount): Promise<BrokerAccount>;
+  updateBrokerAccount(id: string, account: Partial<InsertBrokerAccount>): Promise<BrokerAccount | undefined>;
+  deleteBrokerAccount(id: string): Promise<boolean>;
+  updateBrokerAccountSyncStatus(id: string, status: string, newTrades?: number): Promise<void>;
+
+  getSyncedTrades(brokerAccountId: string, limit?: number): Promise<SyncedTrade[]>;
+  getSyncedTradeByExternal(brokerAccountId: string, externalId: string): Promise<SyncedTrade | undefined>;
+  createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
+  markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -755,6 +769,82 @@ export class DbStorage implements IStorage {
   async createCopyExecutionLog(log: InsertCopyExecutionLog): Promise<CopyExecutionLog> {
     const r = await db.insert(copyExecutionLogs).values({ ...log, id: randomUUID() }).returning();
     return r[0];
+  }
+
+  // ── Broker Account Sync ─────────────────────────────────────────────────────
+
+  async getBrokerAccounts(userId: string): Promise<BrokerAccount[]> {
+    return db.select().from(brokerAccounts)
+      .where(eq(brokerAccounts.userId, userId))
+      .orderBy(desc(brokerAccounts.createdAt));
+  }
+
+  async getBrokerAccountById(id: string): Promise<BrokerAccount | undefined> {
+    const r = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, id)).limit(1);
+    return r[0];
+  }
+
+  async getBrokerAccountByWebhookToken(token: string): Promise<BrokerAccount | undefined> {
+    const r = await db.select().from(brokerAccounts).where(eq(brokerAccounts.webhookToken, token)).limit(1);
+    return r[0];
+  }
+
+  async createBrokerAccount(account: InsertBrokerAccount): Promise<BrokerAccount> {
+    const r = await db.insert(brokerAccounts).values({ ...account, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateBrokerAccount(id: string, account: Partial<InsertBrokerAccount>): Promise<BrokerAccount | undefined> {
+    const r = await db.update(brokerAccounts)
+      .set({ ...account, updatedAt: new Date() })
+      .where(eq(brokerAccounts.id, id))
+      .returning();
+    return r[0];
+  }
+
+  async deleteBrokerAccount(id: string): Promise<boolean> {
+    const r = await db.delete(brokerAccounts).where(eq(brokerAccounts.id, id)).returning();
+    return r.length > 0;
+  }
+
+  async updateBrokerAccountSyncStatus(id: string, status: string, newTrades = 0): Promise<void> {
+    await db.update(brokerAccounts)
+      .set({
+        syncStatus: status,
+        lastSyncAt: new Date(),
+        lastSyncError: status === 'error' ? undefined : null as any,
+        tradeCount: newTrades > 0 ? sql`${brokerAccounts.tradeCount} + ${newTrades}` as any : undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(brokerAccounts.id, id));
+  }
+
+  async getSyncedTrades(brokerAccountId: string, limit = 500): Promise<SyncedTrade[]> {
+    return db.select().from(syncedTrades)
+      .where(eq(syncedTrades.brokerAccountId, brokerAccountId))
+      .orderBy(desc(syncedTrades.createdAt))
+      .limit(limit);
+  }
+
+  async getSyncedTradeByExternal(brokerAccountId: string, externalId: string): Promise<SyncedTrade | undefined> {
+    const r = await db.select().from(syncedTrades)
+      .where(and(
+        eq(syncedTrades.brokerAccountId, brokerAccountId),
+        eq(syncedTrades.externalId, externalId),
+      ))
+      .limit(1);
+    return r[0];
+  }
+
+  async createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade> {
+    const r = await db.insert(syncedTrades).values({ ...trade, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void> {
+    await db.update(syncedTrades)
+      .set({ journalEntryId, journaledAt: new Date() })
+      .where(eq(syncedTrades.id, id));
   }
 }
 

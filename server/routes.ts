@@ -1,5 +1,9 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
+import { encrypt, safeDecrypt } from "./lib/crypto";
+import { processIncomingTrades } from "./services/brokerSyncService";
+import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
@@ -1307,6 +1311,274 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       return res.json(await storage.getCopyExecutionLogs(req.params.followerId, parseInt(req.query.limit as string) || 200));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Broker Account Sync ───────────────────────────────────────────────────────
+  // All routes require a valid Supabase JWT (Authorization: Bearer <token>).
+  // Data is strictly isolated per userId extracted from the JWT.
+
+  /** List the calling user's broker accounts (passwords stripped). */
+  app.get("/api/broker-accounts", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const accounts = await storage.getBrokerAccounts(user.id);
+    // Never return encrypted password to client
+    const safe = accounts.map(({ passwordEnc: _, ...a }) => a);
+    return res.json(safe);
+  });
+
+  /** Add a broker account. Encrypts password before storing. */
+  app.post("/api/broker-accounts", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const { name, loginId, password, server, platform, accountType, connectionType, currency } = req.body as {
+      name: string; loginId: string; password?: string; server?: string;
+      platform: string; accountType?: string; connectionType?: string; currency?: string;
+    };
+
+    if (!name || !loginId || !platform) {
+      return res.status(400).json({ error: "name, loginId, and platform are required" });
+    }
+
+    const passwordEnc = password ? encrypt(password) : undefined;
+    const webhookToken = randomBytes(24).toString('hex');
+
+    try {
+      const account = await storage.createBrokerAccount({
+        userId:         user.id,
+        name,
+        loginId,
+        passwordEnc,
+        server,
+        platform,
+        accountType:    accountType    ?? 'demo',
+        connectionType: connectionType ?? 'webhook',
+        currency:       currency       ?? 'USD',
+        webhookToken,
+        syncStatus: 'pending',
+      });
+
+      const { passwordEnc: _, ...safe } = account;
+      return res.status(201).json({ ...safe, webhookUrl: `/api/broker/webhook/${webhookToken}` });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /** Update a broker account (rename, change type, etc.). */
+  app.put("/api/broker-accounts/:id", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    const { name, server, accountType, currency, password } = req.body as Record<string, string>;
+    const updates: Record<string, unknown> = {};
+    if (name)        updates.name        = name;
+    if (server)      updates.server      = server;
+    if (accountType) updates.accountType = accountType;
+    if (currency)    updates.currency    = currency;
+    if (password)    updates.passwordEnc = encrypt(password);
+
+    const updated = await storage.updateBrokerAccount(req.params.id, updates as any);
+    const { passwordEnc: _, ...safe } = updated!;
+    return res.json(safe);
+  });
+
+  /** Delete a broker account (cascades to synced trades). */
+  app.delete("/api/broker-accounts/:id", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    await storage.deleteBrokerAccount(req.params.id);
+    return res.json({ success: true });
+  });
+
+  /** Get raw synced trades for an account. */
+  app.get("/api/broker-accounts/:id/trades", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    const trades = await storage.getSyncedTrades(req.params.id, parseInt(String(req.query.limit)) || 200);
+    return res.json(trades);
+  });
+
+  /**
+   * EA Webhook — receives closed trades from an MT5/MT4 Expert Advisor.
+   *
+   * The EA posts JSON to:
+   *   POST /api/broker/webhook/:token
+   *
+   * Payload (single trade or array):
+   * {
+   *   externalId: "12345678",
+   *   symbol: "EURUSD",
+   *   direction: "buy",        // buy|sell|Long|Short
+   *   lots: 0.10,
+   *   openPrice: 1.08500,
+   *   closePrice: 1.09000,
+   *   stopLoss: 1.08000,
+   *   takeProfit: 1.09500,
+   *   openTime: "2024-01-15T08:00:00Z",   // ISO string or Unix seconds
+   *   closeTime: "2024-01-15T14:00:00Z",
+   *   profit: 50.00,
+   *   commission: -1.50,
+   *   swap: 0,
+   *   comment: "EA trade"
+   * }
+   *
+   * No auth header needed — the secret token in the URL authenticates the EA.
+   */
+  app.post("/api/broker/webhook/:token", async (req: Request, res: Response) => {
+    const account = await storage.getBrokerAccountByWebhookToken(req.params.token);
+    if (!account) return res.status(401).json({ error: "Invalid webhook token" });
+    if (!account.isActive) return res.status(403).json({ error: "Account is inactive" });
+
+    const body = req.body;
+    const trades = Array.isArray(body) ? body : [body];
+
+    if (trades.length === 0) return res.json({ created: 0, duplicates: 0, journaled: 0 });
+    if (trades.length > 500) return res.status(400).json({ error: "Max 500 trades per request" });
+
+    try {
+      await storage.updateBrokerAccount(account.id, { syncStatus: 'syncing' });
+      const result = await processIncomingTrades(account.id, account.userId, trades);
+      return res.json(result);
+    } catch (err: any) {
+      await storage.updateBrokerAccount(account.id, { syncStatus: 'error', lastSyncError: err.message });
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * Manual sync trigger (for API-connected accounts in future).
+   * Currently marks the account as syncing and returns instructions.
+   */
+  app.post("/api/broker-accounts/:id/sync", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    if (account.connectionType === 'webhook') {
+      return res.json({
+        message: "This account uses EA webhook sync. Trades are pushed automatically when your EA closes a position.",
+        webhookUrl: `/api/broker/webhook/${account.webhookToken}`,
+        connectionType: 'webhook',
+      });
+    }
+
+    // API polling (placeholder — connect to MetaStats or bridge here)
+    return res.json({
+      message: "API sync queued",
+      status: 'pending',
+    });
+  });
+
+  /** Get the EA webhook URL for an account. */
+  app.get("/api/broker-accounts/:id/webhook-url", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    return res.json({
+      webhookUrl: `${req.protocol}://${req.get('host')}/api/broker/webhook/${account.webhookToken}`,
+      token: account.webhookToken,
+    });
+  });
+
+  // ── Auth: first-user admin setup ─────────────────────────────────────────────
+  // Called by the client right after a new account is created.
+  // If no admin exists yet, this user becomes admin.
+  app.post("/api/auth/setup", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    try {
+      // List all users to check if an admin already exists
+      const { data: { users: allUsers }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      if (error) return res.status(500).json({ error: error.message });
+
+      const adminExists = allUsers.some(u => u.app_metadata?.role === 'admin');
+
+      if (!adminExists) {
+        // Promote this user to admin
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          app_metadata: { role: 'admin' },
+        });
+        return res.json({ role: 'admin', message: 'You are the first user — admin role granted.' });
+      }
+
+      // Regular user
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        app_metadata: { role: 'user' },
+      });
+      return res.json({ role: 'user' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin middleware ──────────────────────────────────────────────────────────
+  async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (user.app_metadata?.role !== 'admin') return res.status(403).json({ error: "Forbidden — admins only" });
+    (req as any).adminUser = user;
+    next();
+  }
+
+  // ── Admin: list all users ─────────────────────────────────────────────────────
+  app.get("/api/admin/users", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      if (error) return res.status(500).json({ error: error.message });
+
+      const result = users.map(u => ({
+        id:             u.id,
+        email:          u.email ?? '',
+        full_name:      u.user_metadata?.full_name ?? '',
+        role:           u.app_metadata?.role ?? 'user',
+        created_at:     u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+      }));
+
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: change a user's role ───────────────────────────────────────────────
+  app.patch("/api/admin/users/:userId/role", requireAdmin, async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { role } = req.body as { role: string };
+
+    if (!['admin', 'user'].includes(role)) {
+      return res.status(400).json({ error: "role must be 'admin' or 'user'" });
+    }
+
+    try {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        app_metadata: { role },
+      });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true, userId, role });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   const httpServer = createServer(app);

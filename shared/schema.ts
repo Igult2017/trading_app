@@ -541,3 +541,73 @@ export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit(
 
 export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 export type JournalEntry = typeof journalEntries.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BROKER ACCOUNT SYNC
+// Allows users to connect their broker accounts and auto-journal trades.
+// Supports MT5/MT4 via EA webhook, and API-based polling.
+// Scales to 3000+ users — each account isolated by userId (Supabase UID).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Connected broker account per user. Passwords stored AES-256 encrypted. */
+export const brokerAccounts = pgTable("broker_accounts", {
+  id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:         varchar("user_id").notNull(),          // Supabase auth UID
+  name:           text("name").notNull(),                // display name
+  loginId:        text("login_id").notNull(),            // MT5 account number
+  passwordEnc:    text("password_enc"),                  // AES-256 encrypted (null for webhook-only)
+  server:         text("server"),                        // MT5 broker server
+  platform:       text("platform").notNull(),            // mt4|mt5|ctrader|matchtrader|dxtrade|tradelocker|binance|bybit|bitget
+  accountType:    text("account_type").default("demo"),  // demo|live|funded
+  connectionType: text("connection_type").default("webhook"), // api|webhook
+  currency:       text("currency").default("USD"),
+  balance:        decimal("balance",  { precision: 14, scale: 2 }),
+  equity:         decimal("equity",   { precision: 14, scale: 2 }),
+  leverage:       integer("leverage"),
+  isActive:       boolean("is_active").default(true),
+  syncStatus:     text("sync_status").default("pending"), // pending|syncing|ok|error
+  lastSyncAt:     timestamp("last_sync_at"),
+  lastSyncError:  text("last_sync_error"),
+  webhookToken:   text("webhook_token"),                 // secret token for EA webhook
+  tradeCount:     integer("trade_count").default(0),
+  createdAt:      timestamp("created_at").defaultNow(),
+  updatedAt:      timestamp("updated_at").defaultNow(),
+});
+
+export const insertBrokerAccountSchema = createInsertSchema(brokerAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBrokerAccount = z.infer<typeof insertBrokerAccountSchema>;
+export type BrokerAccount = typeof brokerAccounts.$inferSelect;
+
+/**
+ * Raw trades synced from broker (via webhook or API poll).
+ * Each record maps 1-to-1 to a journal entry once journaled.
+ * externalId + brokerAccountId is a unique pair — prevents duplicate journaling.
+ */
+export const syncedTrades = pgTable("synced_trades", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  brokerAccountId: varchar("broker_account_id").notNull().references(() => brokerAccounts.id, { onDelete: "cascade" }),
+  userId:          varchar("user_id").notNull(),
+  externalId:      text("external_id").notNull(),         // broker ticket / order ID
+  symbol:          text("symbol").notNull(),
+  direction:       text("direction").notNull(),           // Long|Short
+  lots:            decimal("lots",        { precision: 10, scale: 5 }),
+  openPrice:       decimal("open_price",  { precision: 12, scale: 5 }),
+  closePrice:      decimal("close_price", { precision: 12, scale: 5 }),
+  stopLoss:        decimal("stop_loss",   { precision: 12, scale: 5 }),
+  takeProfit:      decimal("take_profit", { precision: 12, scale: 5 }),
+  openTime:        timestamp("open_time"),
+  closeTime:       timestamp("close_time"),
+  profitLoss:      decimal("profit_loss", { precision: 10, scale: 2 }),
+  commission:      decimal("commission",  { precision: 8,  scale: 2 }),
+  swap:            decimal("swap",        { precision: 8,  scale: 2 }),
+  comment:         text("comment"),
+  magic:           integer("magic"),
+  journalEntryId:  varchar("journal_entry_id"),           // null until auto-journaled
+  journaledAt:     timestamp("journaled_at"),
+  rawData:         jsonb("raw_data"),
+  createdAt:       timestamp("created_at").defaultNow(),
+});
+
+export const insertSyncedTradeSchema = createInsertSchema(syncedTrades).omit({ id: true, createdAt: true });
+export type InsertSyncedTrade = z.infer<typeof insertSyncedTradeSchema>;
+export type SyncedTrade = typeof syncedTrades.$inferSelect;
