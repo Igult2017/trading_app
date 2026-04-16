@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
@@ -1254,6 +1255,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       return res.json(await storage.getCopyExecutionLogs(req.params.followerId, parseInt(req.query.limit as string) || 200));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Auth: first-user admin setup ─────────────────────────────────────────────
+  // Called by the client right after a new account is created.
+  // If no admin exists yet, this user becomes admin.
+  app.post("/api/auth/setup", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    try {
+      // List all users to check if an admin already exists
+      const { data: { users: allUsers }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      if (error) return res.status(500).json({ error: error.message });
+
+      const adminExists = allUsers.some(u => u.app_metadata?.role === 'admin');
+
+      if (!adminExists) {
+        // Promote this user to admin
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          app_metadata: { role: 'admin' },
+        });
+        return res.json({ role: 'admin', message: 'You are the first user — admin role granted.' });
+      }
+
+      // Regular user
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        app_metadata: { role: 'user' },
+      });
+      return res.json({ role: 'user' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin middleware ──────────────────────────────────────────────────────────
+  async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (user.app_metadata?.role !== 'admin') return res.status(403).json({ error: "Forbidden — admins only" });
+    (req as any).adminUser = user;
+    next();
+  }
+
+  // ── Admin: list all users ─────────────────────────────────────────────────────
+  app.get("/api/admin/users", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      if (error) return res.status(500).json({ error: error.message });
+
+      const result = users.map(u => ({
+        id:             u.id,
+        email:          u.email ?? '',
+        full_name:      u.user_metadata?.full_name ?? '',
+        role:           u.app_metadata?.role ?? 'user',
+        created_at:     u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+      }));
+
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: change a user's role ───────────────────────────────────────────────
+  app.patch("/api/admin/users/:userId/role", requireAdmin, async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { role } = req.body as { role: string };
+
+    if (!['admin', 'user'].includes(role)) {
+      return res.status(400).json({ error: "role must be 'admin' or 'user'" });
+    }
+
+    try {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        app_metadata: { role },
+      });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true, userId, role });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   const httpServer = createServer(app);
