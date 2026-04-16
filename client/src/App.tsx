@@ -24,6 +24,7 @@ import TscPage from "@/pages/TscPage";
 import BlogPage from "@/pages/BlogPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import AuthPage from "@/pages/AuthPage";
+import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import AdminPanel from "@/pages/AdminPanel";
 import AccountsPage from "@/pages/AccountsPage";
 import NotFound from "@/pages/not-found";
@@ -96,8 +97,9 @@ function AppRoutes() {
   return (
     <Switch>
       {/* Public routes */}
-      <Route path="/"       component={HomePage} />
-      <Route path="/auth"   component={AuthPage} />
+      <Route path="/"             component={HomePage} />
+      <Route path="/auth"         component={AuthPage} />
+      <Route path="/auth/callback" component={AuthCallbackPage} />
       <Route path="/join"   component={Join} />
       <Route path="/tsc"    component={TscPage} />
       <Route path="/blog/:slug" component={BlogPage} />

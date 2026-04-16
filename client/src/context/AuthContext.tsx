@@ -72,10 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(email: string, password: string, fullName: string) {
     if (!supabase) return { error: new Error('Auth not configured'), emailConfirmationRequired: false };
 
+    const redirectTo = `${window.location.origin}/auth/callback`;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: redirectTo,
+      },
     });
 
     if (error) return { error, emailConfirmationRequired: false };
