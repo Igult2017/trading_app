@@ -50,3 +50,4 @@ expertMode = true
 
 [userenv.shared]
 PYTHON_BIN = "/home/runner/workspace/.pythonlibs/bin/python3"
+ADMIN_EMAIL = "antiper@gmail.com"
