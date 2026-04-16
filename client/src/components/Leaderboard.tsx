@@ -105,7 +105,7 @@ export default function Leaderboard() {
             ))}
           </div>
           {/* Mode toggle */}
-          <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', border: '1px solid #1e293b', marginLeft: 'auto' }}>
             {['Demo', 'Real'].map(m => (
               <button key={m} onClick={() => setActiveMode(m)} style={activeMode === m ? btnActive : btnIdle}>{m}</button>
             ))}
