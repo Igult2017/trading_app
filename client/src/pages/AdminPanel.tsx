@@ -257,7 +257,7 @@ export default function AdminPanel() {
   useEffect(() => {
     if (loading) return;
     if (!session)         navigate('/auth');
-    else if (role !== 'admin') navigate('/dashboard');
+    else if (role !== 'admin') navigate('/journal');
   }, [loading, session, role, navigate]);
 
   // Fetch users from admin API

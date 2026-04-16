@@ -50,7 +50,7 @@ export default function AuthCallbackPage() {
       if (role === 'admin') {
         navigate('/admin');
       } else {
-        navigate('/dashboard');
+        navigate('/journal');
       }
     }
 

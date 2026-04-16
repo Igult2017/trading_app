@@ -21,8 +21,8 @@ export default function AuthPage() {
   if (loading) return <LoadingScreen />;
 
   // Already authenticated — redirect immediately
-  if (role === 'admin') { navigate('/admin');     return null; }
-  if (role === 'user')  { navigate('/dashboard'); return null; }
+  if (role === 'admin') { navigate('/admin');   return null; }
+  if (role === 'user')  { navigate('/journal'); return null; }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +47,7 @@ export default function AuthPage() {
         if (assignedRole === 'admin') {
           navigate('/admin');
         } else {
-          navigate('/dashboard');
+          navigate('/journal');
         }
       } else {
         const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName);

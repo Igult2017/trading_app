@@ -8,7 +8,6 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomePage from "@/pages/HomePage";
-import Dashboard from "@/pages/Dashboard";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
 import Stocks from "@/pages/Stocks";
@@ -59,7 +58,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 /**
  * Redirects non-admin users.
  * - Not authenticated → /auth
- * - Authenticated but not admin → /dashboard
+ * - Authenticated but not admin → /journal
  */
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { session, role, loading } = useAuth();
@@ -69,7 +68,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !didRedirect.current) {
       if (!session) { didRedirect.current = true; navigate('/auth'); }
-      else if (role !== 'admin') { didRedirect.current = true; navigate('/dashboard'); }
+      else if (role !== 'admin') { didRedirect.current = true; navigate('/journal'); }
     }
   }, [loading, session, role, navigate]);
 
@@ -85,7 +84,6 @@ function InnerPages() {
       <Header />
       <main className="flex-1 bg-background">
         <Switch>
-          <Route path="/dashboard"   component={Dashboard} />
           <Route path="/history"     component={TradeHistoryPage} />
           <Route path="/analytics"   component={Analytics} />
           <Route path="/assets"      component={AssetPage} />
