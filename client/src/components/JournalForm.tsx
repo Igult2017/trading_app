@@ -943,7 +943,7 @@ const INIT_STEP2 = {
   screenshot: null, exitScreenshot: null,
   instrument: "", pairCategory: "Major", direction: "Long", lotSize: "",
   entryPrice: "", stopLoss: "", stopLossDistancePips: "", takeProfit: "", takeProfitDistancePips: "",
-  riskPercent: "", orderType: "Market", outcome: "Win",
+  riskPercent: "1", orderType: "Market", outcome: "Win",
   entryTime: "", exitTime: "", dayOfWeek: "Monday", tradeDuration: "",
   entryTF: "5M", analysisTF: "1HR", contextTF: "1D",
   entryMethod: "Market", exitStrategy: "", managementType: "Rule-based",
