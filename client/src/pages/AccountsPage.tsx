@@ -140,7 +140,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
       {connType === "webhook" && (
         <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "12px 14px", fontSize: 12, color: "#64748b" }}>
-          After adding, you'll get a webhook URL to paste into your MT5 EA. The EA will push trades to TradeSync automatically.
+          After adding, you'll get a webhook URL to paste into your MT5 EA. The EA will push trades to FSD Journal automatically.
         </div>
       )}
 
@@ -157,33 +157,70 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 }
 
 // ── Webhook info modal ────────────────────────────────────────────────────────
+const SETUP_STEPS = [
+  { n: "1", text: "Download the EA file using the button above." },
+  { n: "2", text: "In MT5: File → Open Data Folder → MQL5 → Experts. Copy the file there." },
+  { n: "3", text: "Back in MT5 press F5 (or right-click Navigator → Refresh). The EA appears under Expert Advisors." },
+  { n: "4", text: "Drag the EA onto any chart (any symbol / any timeframe)." },
+  { n: "5", text: "In the EA inputs, paste your Webhook URL (copy it below)." },
+  { n: "6", text: "Go to Tools → Options → Expert Advisors → Allow WebRequest. Add your server domain." },
+  { n: "7", text: "Click the Auto Trading button in the toolbar (or press F7). Done — trades sync automatically." },
+];
+
 function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: () => void }) {
   const webhookUrl = `${window.location.origin}/api/broker/webhook/${account.webhookToken}`;
+
   return (
     <div style={s.overlay as CSSProperties} onClick={onClose}>
-      <div style={{ ...s.modal, width: 520, maxWidth: "95vw" } as CSSProperties} onClick={e => e.stopPropagation()}>
+      <div style={{ ...s.modal, width: 560, maxWidth: "95vw" } as CSSProperties} onClick={e => e.stopPropagation()}>
         <div style={s.modalHeader as CSSProperties}>
-          <h2 style={s.modalTitle as CSSProperties}>EA Webhook Setup — {account.name}</h2>
+          <h2 style={s.modalTitle as CSSProperties}>EA Setup — {account.name}</h2>
           <button style={s.closeBtn as CSSProperties} onClick={onClose}>✕</button>
         </div>
-        <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>
-            Paste this URL into your TradeSync EA in MT5. Every time you close a trade, the EA posts it here and it's automatically journaled.
-          </p>
+
+        <div style={{ padding: "20px 24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Download */}
+          <a
+            href="/ea/FSD_Journal_EA.mq5"
+            download="FSD_Journal_EA.mq5"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "linear-gradient(to right,#1d4ed8,#3b82f6)", color: "#fff", padding: "13px 20px", fontWeight: 700, fontSize: 14, textDecoration: "none", borderRadius: 4 }}
+          >
+            ⬇ Download FSD_Journal_EA.mq5
+          </a>
+
+          {/* Steps */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Webhook URL</div>
-            <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, wordBreak: "break-all" }}>
-              <span style={{ color: "#38bdf8", fontSize: 12, fontFamily: "monospace" }}>{webhookUrl}</span>
-              <CopyBtn text={webhookUrl} />
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {SETUP_STEPS.map(step => (
+                <div key={step.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span style={{ minWidth: 24, height: 24, background: "#1e3a6e", color: "#60a5fa", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{step.n}</span>
+                  <span style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.5 }}>{step.text}</span>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ background: "#0c1e10", border: "1px solid #1a4020", padding: "12px 14px", color: "#4ade80", fontSize: 12 }}>
-            EA Payload format (JSON sent on each closed trade):<br />
-            <code style={{ fontSize: 11, color: "#94a3b8" }}>
-              {`{ "externalId":"<ticket>", "symbol":"EURUSD", "direction":"buy", "lots":0.10, "openPrice":1.0850, "closePrice":1.0900, "openTime":"<ISO>", "closeTime":"<ISO>", "profit":50.0, "commission":-1.5, "swap":0 }`}
-            </code>
+
+          {/* Webhook URL */}
+          <div>
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
+            <div style={{ background: "#070f1e", border: "1px solid #1e3a55", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#38bdf8", fontSize: 12, fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}>{webhookUrl}</span>
+              <CopyBtn text={webhookUrl} />
+            </div>
+            <p style={{ color: "#475569", fontSize: 11, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "#64748b" }}>InpWebhookURL</strong> input field.</p>
           </div>
-          <button onClick={onClose} style={{ background: "#1d6ed8", border: "none", color: "white", padding: "10px 20px", cursor: "pointer", fontSize: 13, fontWeight: 700, alignSelf: "flex-end" }}>Close</button>
+
+          {/* Info note */}
+          <div style={{ background: "#0c1e10", border: "1px solid #1a4020", padding: "11px 14px", borderRadius: 4 }}>
+            <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 600 }}>How it works: </span>
+            <span style={{ color: "#6b8f72", fontSize: 12 }}>When you close a trade in MT5, the EA automatically posts it to FSD Journal. It is journaled instantly with P&amp;L, session, pips, and duration — no manual entry needed.</span>
+          </div>
+
+          <button onClick={onClose} style={{ background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", padding: "10px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600, alignSelf: "flex-end" }}>
+            Close
+          </button>
         </div>
       </div>
     </div>
