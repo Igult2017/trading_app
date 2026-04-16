@@ -777,8 +777,26 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
 }
 
 // ── Step 3 — Context ──────────────────────────────────────────────────────────
-function Step3({ d, set }: any) {
-  const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
+function Step3({ d, set, direction }: any) {
+  const regimeTouched  = React.useRef(false);
+  const trendTouched   = React.useRef(false);
+
+  // Auto-derive Market Regime + Trend Direction from execution direction
+  // whenever direction changes, unless the user has already set them manually.
+  React.useEffect(() => {
+    const derived = direction === "Short" ? "Bearish" : "Bullish";
+    set((prev: any) => ({
+      ...prev,
+      ...(!regimeTouched.current ? { marketRegime: derived }  : {}),
+      ...(!trendTouched.current  ? { trendDirection: derived } : {}),
+    }));
+  }, [direction]);
+
+  const f = (k: string) => (v: any) => {
+    if (k === "marketRegime")   regimeTouched.current = true;
+    if (k === "trendDirection") trendTouched.current  = true;
+    set((prev: any) => ({ ...prev, [k]: v }));
+  };
   const SCORES: [string, string][] = [
     ["marketAlignment","Market Alignment"],
     ["setupClarity","Setup Clarity"],
@@ -1481,7 +1499,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 currentBalance={currentBalance}
               />
             )}
-            {step === 3 && <Step3 d={s3} set={setS3} />}
+            {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} />}
             {step === 4 && <Step4 d={s4} set={setS4} />}
           </div>
 
