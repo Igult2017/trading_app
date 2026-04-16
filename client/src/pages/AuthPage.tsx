@@ -72,15 +72,20 @@ export default function AuthPage() {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.brand}>
-          <div style={styles.logo}>TS</div>
-          <span style={styles.brandName}>TradeSync</span>
+          <div style={styles.logo}>
+            <span style={{ color: '#ffffff' }}>FSD</span>
+          </div>
+          <span style={styles.brandName}>
+            <span style={{ color: '#ffffff' }}>FSD </span>
+            <span style={{ color: '#3b82f6' }}>Journal</span>
+          </span>
         </div>
 
         <h2 style={styles.title}>{mode === 'login' ? 'Welcome back' : 'Create account'}</h2>
         <p style={styles.sub}>
           {mode === 'login'
             ? 'Sign in to access your trading dashboard.'
-            : 'Join TradeSync and start tracking your trades.'}
+            : 'Join FSD Journal and start tracking your trades.'}
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -174,22 +179,23 @@ export default function AuthPage() {
 
 function LoadingScreen() {
   return (
-    <div style={{ minHeight: '100vh', background: '#0D0F14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#4AE8D8', fontSize: 14, fontFamily: 'monospace' }}>Loading…</div>
+    <div style={{ minHeight: '100vh', background: '#020817', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: '#3b82f6', fontSize: 14, fontFamily: 'monospace' }}>Loading…</div>
     </div>
   );
 }
 
 const C = {
-  bg:     '#0D0F14',
-  card:   '#13161E',
-  border: '#1E2330',
-  text:   '#E2E8F0',
-  dim:    '#8B9BB4',
-  cyan:   '#4AE8D8',
-  error:  '#F87171',
-  info:   '#60A5FA',
-  input:  '#1A1F2E',
+  bg:     '#020817',
+  card:   '#0f172a',
+  border: '#1e293b',
+  text:   '#ffffff',
+  dim:    '#94a3b8',
+  blue:   '#3b82f6',
+  blueDark: '#2563eb',
+  error:  '#f87171',
+  info:   '#60a5fa',
+  input:  '#0c1528',
 };
 
 const styles: Record<string, React.CSSProperties> = {
@@ -200,16 +206,16 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '24px',
-    fontFamily: "'Inter', 'JetBrains Mono', monospace",
+    fontFamily: "'Poppins', 'Inter', sans-serif",
   },
   card: {
     background: C.card,
     border: `1px solid ${C.border}`,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: '40px 36px',
     width: '100%',
     maxWidth: 420,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+    boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 60px rgba(59,130,246,0.06)',
   },
   brand: {
     display: 'flex',
@@ -221,19 +227,20 @@ const styles: Record<string, React.CSSProperties> = {
     width: 36,
     height: 36,
     borderRadius: 8,
-    background: C.cyan,
-    color: '#0D0F14',
-    fontWeight: 700,
-    fontSize: 14,
+    background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+    fontWeight: 900,
+    fontSize: 11,
+    letterSpacing: '0.04em',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    fontFamily: "'Montserrat', sans-serif",
   },
   brandName: {
-    color: C.text,
     fontSize: 18,
-    fontWeight: 600,
-    letterSpacing: '0.02em',
+    fontWeight: 900,
+    letterSpacing: '-0.01em',
+    fontFamily: "'Montserrat', sans-serif",
   },
   title: {
     color: C.text,
@@ -281,8 +288,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '10px 14px',
   },
   infoBox: {
-    background: 'rgba(96,165,250,0.12)',
-    border: '1px solid rgba(96,165,250,0.3)',
+    background: 'rgba(59,130,246,0.1)',
+    border: '1px solid rgba(59,130,246,0.3)',
     borderRadius: 8,
     color: C.info,
     fontSize: 13,
@@ -290,8 +297,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   btn: {
     marginTop: 4,
-    background: C.cyan,
-    color: '#0D0F14',
+    background: 'linear-gradient(to right, #2563eb, #3b82f6)',
+    color: '#ffffff',
     border: 'none',
     borderRadius: 8,
     padding: '12px',
@@ -299,6 +306,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     letterSpacing: '0.02em',
     transition: 'opacity 0.2s',
+    fontFamily: "'Montserrat', sans-serif",
   },
   toggle: {
     marginTop: 20,
@@ -309,7 +317,7 @@ const styles: Record<string, React.CSSProperties> = {
   link: {
     background: 'none',
     border: 'none',
-    color: C.cyan,
+    color: C.blue,
     fontSize: 13,
     cursor: 'pointer',
     fontWeight: 600,
