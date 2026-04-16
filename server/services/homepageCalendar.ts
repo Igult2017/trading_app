@@ -99,3 +99,16 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
     return _ratesCache ?? {};
   }
 }
+
+// ── Startup cache warm-up ─────────────────────────────────────────────────────
+// Fire both scrapes immediately in the background so the cache is hot before
+// any user navigates to the calendar page.
+(function warmupOnStartup() {
+  console.log("[homepageCalendar] Warming up calendar + rates cache in background…");
+  getHomepageCalendar()
+    .then(d  => console.log(`[homepageCalendar] Calendar cache ready (${d.length} events)`))
+    .catch(() => {});
+  getHomepageRates()
+    .then(d  => console.log(`[homepageCalendar] Rates cache ready (${Object.keys(d).length} currencies)`))
+    .catch(() => {});
+})();
