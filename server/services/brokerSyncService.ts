@@ -10,7 +10,7 @@
  *   api     — Reserved for MetaStats / direct bridge polling (future)
  */
 import { storage } from '../storage';
-import type { InsertJournalEntry, SyncedTrade } from '../../shared/schema';
+import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../shared/schema';
 
 // ── Session detection ─────────────────────────────────────────────────────────
 type SessionName = 'SYDNEY' | 'TOKYO' | 'LONDON' | 'NEW YORK' | 'LONDON/NY OVERLAP';
@@ -36,7 +36,7 @@ function minutesBetween(a: Date, b: Date): number {
 }
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
-export async function autoJournalTrade(trade: SyncedTrade): Promise<string | null> {
+export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | null): Promise<string | null> {
   if (trade.journalEntryId) return trade.journalEntryId; // already journaled
 
   const openTime  = trade.openTime  ? new Date(trade.openTime)  : null;
@@ -66,6 +66,7 @@ export async function autoJournalTrade(trade: SyncedTrade): Promise<string | nul
 
   const entry: InsertJournalEntry = {
     userId:      trade.userId,
+    sessionId:   sessionId ?? undefined,  // links to auto-created session for this broker account
     instrument:  trade.symbol,
     direction:   trade.direction,
     lotSize:     trade.lots ?? undefined,
@@ -144,6 +145,11 @@ export async function processIncomingTrades(
 ): Promise<{ created: number; duplicates: number; journaled: number }> {
   let created = 0, duplicates = 0, journaled = 0;
 
+  // Get the account's default session so auto-journaled trades are visible
+  // in session-filtered views (metrics, drawdown, audit)
+  const account = await storage.getBrokerAccountById(brokerAccountId);
+  const defaultSessionId = account?.defaultSessionId ?? null;
+
   for (const raw of trades) {
     // De-duplicate by externalId + brokerAccountId
     const existing = await storage.getSyncedTradeByExternal(brokerAccountId, raw.externalId);
@@ -177,7 +183,7 @@ export async function processIncomingTrades(
 
     // Only auto-journal closed trades (both open + close time present)
     if (openTime && closeTime) {
-      const journalId = await autoJournalTrade(synced);
+      const journalId = await autoJournalTrade(synced, defaultSessionId);
       if (journalId) journaled++;
     }
   }
