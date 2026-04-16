@@ -9,7 +9,7 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["node", "dist/index.js"]
+run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [[ports]]
 localPort = 5000
