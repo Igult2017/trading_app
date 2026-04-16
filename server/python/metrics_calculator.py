@@ -1407,12 +1407,15 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         # Always use the global journal span so every setup shares the same
         # denominator. Using a setup-specific span inflates clustered setups
         # (e.g. 4 trades in 23 days → 63.5/year) and deflates sparse ones.
+        # perYear is the anchor — rounded to a whole number first — then all
+        # other intervals are derived from it so every row stays consistent.
+        per_year = round(count / global_days * 365)
         result[setup] = {
             "count":    count,
-            "perDay":   round(count / global_days, 4),
-            "perWeek":  round(count / global_days * 7,   4),
-            "perMonth": round(count / global_days * 30,  4),
-            "perYear":  round(count / global_days * 365, 4),
+            "perYear":  per_year,
+            "perMonth": round(per_year / 12,  3),
+            "perWeek":  round(per_year / 52,  3),
+            "perDay":   round(per_year / 365, 4),
         }
     return result
 
