@@ -1380,10 +1380,6 @@ def calc_rr_analysis(ctx: SharedContext) -> Dict:
 def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
     if ctx.total == 0:
         return {}
-    all_dates = [t.trade_date for t in ctx.trades if t.trade_date is not None]
-    if not all_dates:
-        return {}
-    global_days = max(1, (max(all_dates) - min(all_dates)).days + 1)
 
     # Group trades by setup type, preserving their dates
     groups: Dict[str, list] = defaultdict(list)
@@ -1396,6 +1392,14 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         if t.setup_type and t.trade_date is None:
             no_date_counts[t.setup_type] += 1
 
+    # Use only dates from trades that have a setup_type so that old
+    # trades without a recorded setup don't artificially inflate the
+    # date range and deflate every per-year figure.
+    setup_dates_all = [d for dates in groups.values() for d in dates]
+    if not setup_dates_all:
+        return {}
+    global_days = max(1, (max(setup_dates_all) - min(setup_dates_all)).days + 1)
+
     all_setups = set(groups.keys()) | set(no_date_counts.keys())
     result = {}
     for setup in sorted(all_setups):
@@ -1404,15 +1408,27 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         count = len(setup_dates) + no_date_count
         if count == 0:
             continue
-        # Always use the global journal span so every setup shares the same
-        # denominator. Using a setup-specific span inflates clustered setups
-        # (e.g. 4 trades in 23 days → 63.5/year) and deflates sparse ones.
+
+        # Annualise: divide count by years spanned, but cap the span at
+        # 1 year so that per_year is never smaller than the actual count.
+        # (If the data covers > 1 year the "typical year" is still at
+        # least as busy as what was observed in total.)
+        years_spanned = global_days / 365.0
+        per_year_raw  = count / years_spanned          # raw annualised figure
+        per_year      = max(float(count), per_year_raw) # always >= count
+
+        # Derive all other intervals from per_year so the cascade is
+        # internally consistent: year → month → week → day.
+        per_month = per_year / 12.0
+        per_week  = per_year / 52.0
+        per_day   = per_year / 365.0
+
         result[setup] = {
             "count":    count,
-            "perDay":   round(count / global_days, 4),
-            "perWeek":  round(count / global_days * 7,   4),
-            "perMonth": round(count / global_days * 30,  4),
-            "perYear":  round(count / global_days * 365, 4),
+            "perYear":  round(per_year,  1),
+            "perMonth": round(per_month, 2),
+            "perWeek":  round(per_week,  3),
+            "perDay":   round(per_day,   4),
         }
     return result
 

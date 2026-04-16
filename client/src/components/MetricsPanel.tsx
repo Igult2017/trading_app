@@ -513,7 +513,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     d: fmtFreq(d.perDay),
     w: fmtFreq(d.perWeek),
     mo: fmtFreq(d.perMonth),
-    y: (d.perYear == null || isNaN(d.perYear)) ? '--' : d.perYear <= 0 ? '0' : d.perYear < 1 ? '< 1' : String(Math.round(d.perYear)),
+    y: (d.perYear == null || isNaN(d.perYear)) ? '--' : fmtFreq(d.perYear),
     wr: `${Math.round(setupTags[name]?.winRate||0)}%`,
     pc: (setupTags[name]?.winRate||0)>=60?P.green:P.amber,
     best: '--',
@@ -908,17 +908,38 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* Strategy × Market Matrix */}
           <Panel title="Strategy × Market Regime" accent={P.green} tag="FULL MATRIX" style={{ height:480 }}>
             <Scroll>
-              {Object.entries(stratMarketMatrix).length>0
-                ? Object.entries(stratMarketMatrix).map(([stratName, regimes]: [string, any]) =>
-                    Object.entries(regimes).map(([regime, d]: [string, any], j) => (
-                      <SplitBar key={`${stratName}-${regime}`}
-                        label={`${stratName} / ${regime}`}
-                        win={Math.round(d.winRate||0)}
-                        loss={100-Math.round(d.winRate||0)}
-                        count={d.count}
-                        labelSize={8}/>
-                    ))
-                  )
+              {Object.entries(stratMarketMatrix).length > 0
+                ? Object.entries(stratMarketMatrix).map(([stratName, regimes]: [string, any]) => {
+                    const regimeColor: Record<string, string> = {
+                      Bullish: P.green, Bearish: P.red, Ranging: P.amber,
+                      Unknown: P.dim, Bear: P.red, Bull: P.green, Range: P.amber,
+                    };
+                    const totalTrades = Object.values(regimes).reduce((s: number, d: any) => s + (d.count || 0), 0);
+                    return (
+                      <div key={stratName}>
+                        <SubLabel style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <span>{stratName}</span>
+                          <span style={{ color: P.dim, fontWeight: 400 }}>{totalTrades} trade{totalTrades !== 1 ? 's' : ''}</span>
+                        </SubLabel>
+                        {Object.entries(regimes).map(([regime, d]: [string, any]) => {
+                          const col = regimeColor[regime] || P.muted;
+                          const winR = Math.round(d.winRate || 0);
+                          return (
+                            <div key={regime} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:`1px solid ${P.line}` }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                                <div style={{ width:5, height:5, borderRadius:'50%', background:col, flexShrink:0 }} />
+                                <Mono size={10} color={P.body}>{regime}</Mono>
+                              </div>
+                              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                                <Mono size={9} color={P.cyan}>({d.count})</Mono>
+                                <Num color={pColor(winR)} style={{ fontSize:10 }}>{winR}<span style={{ fontSize:8, opacity:0.7 }}>%</span></Num>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
                 : <Mono size={9} color={P.dim}>No strategy/regime data yet</Mono>
               }
             </Scroll>

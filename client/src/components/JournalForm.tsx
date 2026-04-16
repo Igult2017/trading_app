@@ -390,7 +390,7 @@ function Field({ label, sub, children, ocrFilled }: any) {
   );
 }
 
-function Inp({ label, sub, type = "text", placeholder, value, onChange, ocrFilled }: any) {
+function Inp({ label, sub, type = "text", placeholder, value, onChange, onBlur, ocrFilled }: any) {
   return (
     <Field label={label} sub={sub} ocrFilled={ocrFilled}>
       <input
@@ -399,6 +399,7 @@ function Inp({ label, sub, type = "text", placeholder, value, onChange, ocrFille
         placeholder={placeholder || ""}
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
       />
     </Field>
   );
@@ -720,7 +721,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
           <Inp label="SL Distance (Pips)" type="number" placeholder="0" value={d.stopLossDistancePips} onChange={f("stopLossDistancePips")} ocrFilled={ocrFields?.has("stopLossDistancePips")} />
           <Inp label="Take Profit" type="number" placeholder="0.00" value={d.takeProfit} onChange={f("takeProfit")} ocrFilled={ocrFields?.has("takeProfit")} />
           <Inp label="TP Distance (Pips)" type="number" placeholder="0" value={d.takeProfitDistancePips} onChange={f("takeProfitDistancePips")} ocrFilled={ocrFields?.has("takeProfitDistancePips")} />
-          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPercent} onChange={f("riskPercent")} />
+          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPercent} onChange={f("riskPercent")} onBlur={() => { if (!d.riskPercent || d.riskPercent.trim() === "") f("riskPercent")("1"); }} />
           <Sel label="Order Type" options={["Market","Limit","Stop","Stop-Limit"]} value={d.orderType} onChange={f("orderType")} />
           <Radio label="Outcome" options={["Win","Loss","BE"]} value={d.outcome} onChange={f("outcome")} />
         </div>
@@ -776,8 +777,26 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
 }
 
 // ── Step 3 — Context ──────────────────────────────────────────────────────────
-function Step3({ d, set }: any) {
-  const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
+function Step3({ d, set, direction }: any) {
+  const regimeTouched  = useRef(false);
+  const trendTouched   = useRef(false);
+
+  // Auto-derive Market Regime + Trend Direction from execution direction
+  // whenever direction changes, unless the user has already set them manually.
+  useEffect(() => {
+    const derived = direction === "Short" ? "Bearish" : "Bullish";
+    set((prev: any) => ({
+      ...prev,
+      ...(!regimeTouched.current ? { marketRegime: derived }  : {}),
+      ...(!trendTouched.current  ? { trendDirection: derived } : {}),
+    }));
+  }, [direction]);
+
+  const f = (k: string) => (v: any) => {
+    if (k === "marketRegime")   regimeTouched.current = true;
+    if (k === "trendDirection") trendTouched.current  = true;
+    set((prev: any) => ({ ...prev, [k]: v }));
+  };
   const SCORES: [string, string][] = [
     ["marketAlignment","Market Alignment"],
     ["setupClarity","Setup Clarity"],
@@ -942,7 +961,7 @@ const INIT_STEP2 = {
   screenshot: null, exitScreenshot: null,
   instrument: "", pairCategory: "Major", direction: "Long", lotSize: "",
   entryPrice: "", stopLoss: "", stopLossDistancePips: "", takeProfit: "", takeProfitDistancePips: "",
-  riskPercent: "", orderType: "Market", outcome: "Win",
+  riskPercent: "1", orderType: "Market", outcome: "Win",
   entryTime: "", exitTime: "", dayOfWeek: "Monday", tradeDuration: "",
   entryTF: "5M", analysisTF: "1HR", contextTF: "1D",
   entryMethod: "Market", exitStrategy: "", managementType: "Rule-based",
@@ -1480,7 +1499,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 currentBalance={currentBalance}
               />
             )}
-            {step === 3 && <Step3 d={s3} set={setS3} />}
+            {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} />}
             {step === 4 && <Step4 d={s4} set={setS4} />}
           </div>
 

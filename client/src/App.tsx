@@ -1,4 +1,5 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -90,42 +91,19 @@ function InnerPages() {
   );
 }
 
-// ── Root routing ──────────────────────────────────────────────────────────────
-function AppRoutes() {
-  return (
-    <Switch>
-      {/* ── Public pages — no auth required ── */}
-      <Route path="/"         component={HomePage} />
-      <Route path="/tsc"      component={TscPage} />
-      <Route path="/blog"     component={BlogPage} />
-      <Route path="/calendar" component={EconomicCalendarPage} />
-      <Route path="/join"     component={Join} />
-      <Route path="/auth"     component={AuthPage} />
-
-      {/* ── Admin panel — admin role required ── */}
-      <Route path="/admin">
-        {() => (
-          <RequireAdmin>
-            <AdminPanel />
-          </RequireAdmin>
-        )}
-      </Route>
-
-      {/* ── All other routes — authenticated users only ── */}
-      <Route>
-        {() => (
-          <RequireAuth>
-            <InnerPages />
-          </RequireAuth>
-        )}
-      </Route>
-    </Switch>
-  );
+function PrefetchCalendar() {
+  useEffect(() => {
+    const opts = { staleTime: 5 * 60 * 1000 };
+    queryClient.prefetchQuery({ queryKey: ['/api/homepage/calendar'], queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).catch(() => []), ...opts });
+    queryClient.prefetchQuery({ queryKey: ['/api/homepage/rates'],   queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).catch(() => ({})), ...opts });
+  }, []);
+  return null;
 }
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <PrefetchCalendar />
       <TooltipProvider>
         <AuthProvider>
           <AppRoutes />

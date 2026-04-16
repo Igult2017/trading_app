@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
   Globe,
@@ -61,24 +62,20 @@ export default function EconomicCalendarPage() {
   const [darkMode, setDarkMode] = useState(true);
   const [location] = useLocation();
 
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [bankData, setBankData] = useState<Record<string, RateEntry>>({});
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [loadingRates, setLoadingRates] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/homepage/calendar')
-      .then(r => r.json())
-      .then((data: CalendarEvent[]) => setEvents(Array.isArray(data) ? data : []))
-      .catch(() => setEvents([]))
-      .finally(() => setLoadingEvents(false));
-
-    fetch('/api/homepage/rates')
-      .then(r => r.json())
-      .then((data: Record<string, RateEntry>) => setBankData(data && typeof data === 'object' ? data : {}))
-      .catch(() => setBankData({}))
-      .finally(() => setLoadingRates(false));
-  }, []);
+  const { data: eventsRaw, isLoading: loadingEvents } = useQuery<CalendarEvent[]>({
+    queryKey: ['/api/homepage/calendar'],
+    queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
+    staleTime: 5 * 60 * 1000,
+    gcTime:    30 * 60 * 1000,
+  });
+  const { data: bankDataRaw, isLoading: loadingRates } = useQuery<Record<string, RateEntry>>({
+    queryKey: ['/api/homepage/rates'],
+    queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
+    staleTime: 5 * 60 * 1000,
+    gcTime:    30 * 60 * 1000,
+  });
+  const events   = eventsRaw   ?? [];
+  const bankData = bankDataRaw ?? {};
 
   const availableCurrencies = ['All', ...Array.from(new Set(events.map(e => e.currency))).filter(Boolean).sort()];
 
