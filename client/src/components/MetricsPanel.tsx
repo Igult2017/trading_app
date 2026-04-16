@@ -908,16 +908,56 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* Strategy × Market Matrix */}
           <Panel title="Strategy × Market Regime" accent={P.green} tag="FULL MATRIX" style={{ height:480 }}>
             <Scroll>
-              {Object.entries(stratMarketMatrix).length>0
-                ? Object.entries(stratMarketMatrix).map(([stratName, regimes]: [string, any]) =>
-                    Object.entries(regimes).map(([regime, d]: [string, any], j) => (
-                      <SplitBar key={`${stratName}-${regime}`}
-                        label={`${stratName} / ${regime}`}
-                        win={Math.round(d.winRate||0)}
-                        loss={100-Math.round(d.winRate||0)}
-                        count={d.count}/>
-                    ))
-                  )
+              {Object.entries(stratMarketMatrix).length > 0
+                ? Object.entries(stratMarketMatrix).map(([stratName, regimes]: [string, any]) => {
+                    const regimeColor: Record<string, string> = {
+                      Bullish: P.green, Bearish: P.red, Ranging: P.amber, Unknown: P.dim, Bear: P.red, Bull: P.green, Range: P.amber,
+                    };
+                    const totalTrades = Object.values(regimes).reduce((s: number, d: any) => s + (d.count || 0), 0);
+                    return (
+                      <div key={stratName} style={{ marginBottom: 8, border: `1px solid ${P.line2}`, background: P.bg }}>
+                        {/* Strategy header row */}
+                        <div style={{ padding: '6px 10px', borderBottom: `1px solid ${P.line2}`, background: P.bg3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 2, height: 10, background: P.cyan, flexShrink: 0 }} />
+                            <Cond size={10} color={P.bright} weight={700}>{stratName}</Cond>
+                          </div>
+                          <Mono size={8} color={P.dim}>{totalTrades} trade{totalTrades !== 1 ? 's' : ''}</Mono>
+                        </div>
+                        {/* Regime chips row */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px' }}>
+                          {Object.entries(regimes).map(([regime, d]: [string, any]) => {
+                            const col = regimeColor[regime] || P.muted;
+                            const winR = Math.round(d.winRate || 0);
+                            const barPct = Math.min(100, winR);
+                            return (
+                              <div key={regime} style={{
+                                flex: '1 1 auto', minWidth: 72, maxWidth: 120,
+                                border: `1px solid ${col}40`,
+                                background: `${col}0D`,
+                                padding: '7px 8px 6px',
+                                display: 'flex', flexDirection: 'column', gap: 3,
+                              }}>
+                                {/* Regime label + dot */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: col, flexShrink: 0 }} />
+                                  <Mono size={8} color={col} weight={600}>{regime}</Mono>
+                                </div>
+                                {/* Win rate */}
+                                <Cond size={16} color={pColor(winR)} weight={700} upper={false} style={{ lineHeight: 1 }}>{winR}%</Cond>
+                                {/* Mini progress bar */}
+                                <div style={{ height: 2, background: P.line2, borderRadius: 1, marginTop: 2 }}>
+                                  <div style={{ width: `${barPct}%`, height: '100%', background: pColor(winR), borderRadius: 1 }} />
+                                </div>
+                                {/* Trade count */}
+                                <Mono size={8} color={P.dim} style={{ marginTop: 1 }}>{d.count} trade{d.count !== 1 ? 's' : ''}</Mono>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
                 : <Mono size={9} color={P.dim}>No strategy/regime data yet</Mono>
               }
             </Scroll>
