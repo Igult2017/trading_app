@@ -1408,16 +1408,27 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         count = len(setup_dates) + no_date_count
         if count == 0:
             continue
-        # Derive all intervals from the raw per-day rate so that setups
-        # with different trade counts always produce distinct, accurate
-        # values (avoids rounding to the same integer for e.g. 4 vs 7 trades).
-        per_day_raw = count / global_days
+
+        # Annualise: divide count by years spanned, but cap the span at
+        # 1 year so that per_year is never smaller than the actual count.
+        # (If the data covers > 1 year the "typical year" is still at
+        # least as busy as what was observed in total.)
+        years_spanned = global_days / 365.0
+        per_year_raw  = count / years_spanned          # raw annualised figure
+        per_year      = max(float(count), per_year_raw) # always >= count
+
+        # Derive all other intervals from per_year so the cascade is
+        # internally consistent: year → month → week → day.
+        per_month = per_year / 12.0
+        per_week  = per_year / 52.0
+        per_day   = per_year / 365.0
+
         result[setup] = {
             "count":    count,
-            "perYear":  round(per_day_raw * 365,   1),
-            "perMonth": round(per_day_raw * 30.44, 2),
-            "perWeek":  round(per_day_raw * 7,     3),
-            "perDay":   round(per_day_raw,         4),
+            "perYear":  round(per_year,  1),
+            "perMonth": round(per_month, 2),
+            "perWeek":  round(per_week,  3),
+            "perDay":   round(per_day,   4),
         }
     return result
 
