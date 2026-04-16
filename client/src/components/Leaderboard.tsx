@@ -75,15 +75,6 @@ export default function Leaderboard() {
     <div style={{ background: '#020617', color: '#f1f5f9', padding: '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
       <div>
 
-        {/* ── Header ── */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10, color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>
-            <Trophy size={24} color="#eab308" />
-            Leaderboard
-          </h1>
-          <p style={{ fontSize: 12, color: '#64748b', marginTop: 4, fontWeight: 500 }}>Tracking the most elite performers in the journal.</p>
-        </div>
-
         {/* ── Category pills ── */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           {categories.map(c => (
