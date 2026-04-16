@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -49,9 +50,19 @@ function InnerPages() {
   );
 }
 
+function PrefetchCalendar() {
+  useEffect(() => {
+    const opts = { staleTime: 5 * 60 * 1000 };
+    queryClient.prefetchQuery({ queryKey: ['/api/homepage/calendar'], queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).catch(() => []), ...opts });
+    queryClient.prefetchQuery({ queryKey: ['/api/homepage/rates'],   queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).catch(() => ({})), ...opts });
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <PrefetchCalendar />
       <TooltipProvider>
         <Switch>
           <Route path="/" component={HomePage} />
