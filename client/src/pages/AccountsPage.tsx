@@ -1,274 +1,319 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Share2, Pencil, Trash2 } from "lucide-react";
+import { Wrench, RefreshCw, Share2, Pencil, Trash2, Copy, Check } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
-const platformList = [
-  {
-    id: "mt5", name: "MT5",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <circle cx="24" cy="24" r="22" fill="#1a3a5c" stroke="#2a5a8c" strokeWidth="1.5"/>
-        <circle cx="24" cy="18" r="8" fill="#4a9eda" opacity="0.8"/>
-        <circle cx="16" cy="30" r="6" fill="#3a8ecb" opacity="0.7"/>
-        <circle cx="32" cy="30" r="6" fill="#2a7ebc" opacity="0.7"/>
-        <text x="24" y="26" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">5</text>
-      </svg>
-    ),
-  },
-  {
-    id: "mt4", name: "MT4",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <circle cx="24" cy="24" r="22" fill="#1a3a5c" stroke="#2a5a8c" strokeWidth="1.5"/>
-        <circle cx="24" cy="18" r="8" fill="#5aaeea" opacity="0.8"/>
-        <circle cx="16" cy="30" r="6" fill="#4a9eda" opacity="0.7"/>
-        <circle cx="32" cy="30" r="6" fill="#3a8ecb" opacity="0.7"/>
-        <text x="24" y="26" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">4</text>
-      </svg>
-    ),
-  },
-  {
-    id: "matchtrader", name: "MatchTrader",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#0d1b2a"/>
-        <path d="M8 24 L16 14 L24 20 L32 10 L40 18" stroke="#00bcd4" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M8 30 L16 24 L24 28 L32 20 L40 26" stroke="#0086a8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
-        <circle cx="16" cy="14" r="2" fill="#00bcd4"/>
-        <circle cx="32" cy="10" r="2" fill="#00bcd4"/>
-      </svg>
-    ),
-  },
-  {
-    id: "bitunix", name: "Bitunix",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#0a1628"/>
-        <path d="M24 8 L38 38 L24 32 L10 38 Z" fill="#4ade80" opacity="0.9"/>
-        <path d="M24 8 L38 38 L24 32 Z" fill="#22c55e"/>
-      </svg>
-    ),
-  },
-  {
-    id: "dxtrade", name: "DXTrade",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#0a1628"/>
-        <text x="8" y="30" fill="#1d9bf0" fontSize="20" fontWeight="900" fontFamily="monospace">DX</text>
-      </svg>
-    ),
-  },
-  {
-    id: "ctrader", name: "CTrader",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#cc0000"/>
-        <circle cx="24" cy="24" r="13" fill="none" stroke="white" strokeWidth="3"/>
-        <circle cx="24" cy="24" r="6" fill="white"/>
-        <rect x="32" y="10" width="8" height="8" rx="0" fill="#cc0000" transform="rotate(45 36 14)"/>
-      </svg>
-    ),
-  },
-  {
-    id: "tradelocker", name: "TradeLocker",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#0a1628"/>
-        <rect x="14" y="10" width="20" height="4" rx="0" fill="#60a5fa"/>
-        <rect x="14" y="18" width="20" height="4" rx="0" fill="#60a5fa" opacity="0.7"/>
-        <rect x="14" y="26" width="20" height="4" rx="0" fill="#60a5fa" opacity="0.5"/>
-        <rect x="14" y="34" width="20" height="4" rx="0" fill="#60a5fa" opacity="0.3"/>
-      </svg>
-    ),
-  },
-  {
-    id: "binance", name: "Binance",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#0a1628"/>
-        <path d="M24 10 L28 14 L24 18 L20 14 Z" fill="#f3ba2f"/>
-        <path d="M14 20 L18 16 L22 20 L18 24 Z" fill="#f3ba2f"/>
-        <path d="M26 20 L30 16 L34 20 L30 24 Z" fill="#f3ba2f"/>
-        <path d="M24 22 L28 26 L24 30 L20 26 Z" fill="#f3ba2f"/>
-        <path d="M24 32 L28 36 L24 40 L20 36 Z" fill="#f3ba2f"/>
-      </svg>
-    ),
-  },
-  {
-    id: "bybit", name: "ByBit",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#1a1a2e"/>
-        <text x="7" y="30" fill="#f7a600" fontSize="11" fontWeight="900" fontFamily="monospace">BYBIT</text>
-      </svg>
-    ),
-  },
-  {
-    id: "bitget", name: "Bitget",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#00c6a2"/>
-        <path d="M14 24 L24 14 L34 24" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M14 30 L24 20 L34 30" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
-      </svg>
-    ),
-  },
-  {
-    id: "charlesschwab", name: "Charles Schwab",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#0a2240"/>
-        <text x="6" y="20" fill="white" fontSize="9" fontWeight="700" fontFamily="serif" fontStyle="italic">charles</text>
-        <text x="6" y="32" fill="white" fontSize="9" fontWeight="700" fontFamily="serif" fontStyle="italic">schwab</text>
-      </svg>
-    ),
-  },
-  {
-    id: "coinbase", name: "CoinBase",
-    icon: () => (
-      <svg viewBox="0 0 48 48" width="38" height="38">
-        <rect width="48" height="48" rx="0" fill="#1652f0"/>
-        <circle cx="24" cy="24" r="12" fill="white" opacity="0.2"/>
-        <text x="24" y="29" textAnchor="middle" fill="white" fontSize="16" fontWeight="900">C</text>
-      </svg>
-    ),
-  },
-];
-
-const defaultAccounts = [
-  {
-    name: "10676855",
-    number: "10676855",
-    server: "PoTrade-...",
-    type: "DEMO",
-    platform: "MT5",
-    balance: "$10,000.00",
-    connection: "API",
-    lastSync: "Ages ago!",
-  },
-];
-
-function useWindowWidth() {
-  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
-  useEffect(() => {
-    const handle = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", handle);
-    return () => window.removeEventListener("resize", handle);
-  }, []);
-  return width;
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface BrokerAccount {
+  id: string;
+  name: string;
+  loginId: string;
+  server: string | null;
+  platform: string;
+  accountType: string;
+  connectionType: string;
+  currency: string;
+  balance: string | null;
+  syncStatus: string;
+  lastSyncAt: string | null;
+  tradeCount: number;
+  webhookToken: string | null;
+  isActive: boolean;
 }
 
-interface AccountsPageProps {
-  openModal?: boolean;
+// ── Platform list ─────────────────────────────────────────────────────────────
+const PLATFORMS = [
+  { id: "mt5",          name: "MT5" },
+  { id: "mt4",          name: "MT4" },
+  { id: "matchtrader",  name: "MatchTrader" },
+  { id: "ctrader",      name: "CTrader" },
+  { id: "tradelocker",  name: "TradeLocker" },
+  { id: "dxtrade",      name: "DXTrade" },
+  { id: "binance",      name: "Binance" },
+  { id: "bybit",        name: "ByBit" },
+  { id: "bitget",       name: "Bitget" },
+  { id: "bitunix",      name: "Bitunix" },
+  { id: "coinbase",     name: "CoinBase" },
+  { id: "charlesschwab",name: "Charles Schwab" },
+];
+
+// ── Auth helper ───────────────────────────────────────────────────────────────
+async function authHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session?.access_token ?? ""}`,
+  };
 }
 
-export default function AccountsPage({ openModal = false }: AccountsPageProps) {
-  const [modalOpen, setModalOpen] = useState(openModal);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState(10);
-  const width = useWindowWidth();
-  const isMobile = width < 640;
-  const isTablet = width >= 640 && width < 1024;
+// ── Sync status badge ─────────────────────────────────────────────────────────
+function SyncBadge({ status, lastSyncAt }: { status: string; lastSyncAt: string | null }) {
+  const color = status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "#64748b";
+  const label = status === "ok" && lastSyncAt
+    ? new Date(lastSyncAt).toLocaleDateString()
+    : status === "error" ? "Error" : status === "syncing" ? "Syncing…" : "Pending";
+  return <span style={{ color, fontWeight: 600, fontSize: 13 }}>{label}</span>;
+}
 
-  useEffect(() => {
-    setModalOpen(openModal);
-  }, [openModal]);
+// ── Copy-to-clipboard button ──────────────────────────────────────────────────
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      title="Copy"
+    >
+      {copied ? <Check size={13} color="#4ade80" /> : <Copy size={13} color="#94a3b8" />}
+    </button>
+  );
+}
 
+// ── Add Account Form (step 2 after platform selection) ───────────────────────
+interface AddFormProps {
+  platform: string;
+  onCancel: () => void;
+  onCreated: (account: BrokerAccount) => void;
+}
+
+function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
+  const [name,        setName]        = useState("");
+  const [loginId,     setLoginId]     = useState("");
+  const [password,    setPassword]    = useState("");
+  const [server,      setServer]      = useState("");
+  const [accountType, setAccountType] = useState<"demo"|"live"|"funded">("demo");
+  const [connType,    setConnType]    = useState<"webhook"|"api">("webhook");
+  const [busy,        setBusy]        = useState(false);
+  const [error,       setError]       = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name || !loginId) { setError("Name and Account Number are required."); return; }
+    setBusy(true); setError("");
+    try {
+      const res = await fetch("/api/broker-accounts", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ name, loginId, password: password || undefined, server: server || undefined, platform, accountType, connectionType: connType }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed to add account"); return; }
+      onCreated(data as BrokerAccount);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const inp: CSSProperties = { background: "#0d1827", border: "1px solid #1e3050", color: "#e2e8f0", borderRadius: 0, padding: "9px 12px", fontSize: 13, width: "100%", outline: "none" };
+  const lbl: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
 
   return (
-    <div style={s.root}>
-      <style>{`
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { height: 4px; width: 4px; background: #0b1220; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; }
-      `}</style>
-
-      {/* Top Banner */}
-      <div style={{
-        ...s.banner,
-        fontSize: isMobile ? 12 : 14,
-        padding: isMobile ? "8px 14px" : "10px 24px",
-      }}>
-        <span style={s.bannerIcon}>ⓘ</span>
-        <span>{isMobile ? "Sync issues? Try history repair" : "Issues syncing? Try an account history repair"}</span>
-        <span style={{ marginLeft: 6 }}>🔧</span>
+    <form onSubmit={handleSubmit} style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>
+        Platform: <strong style={{ color: "#38bdf8" }}>{PLATFORMS.find(p => p.id === platform)?.name ?? platform}</strong>
       </div>
 
-      {/* Main Content */}
-      <div style={{
-        ...s.content,
-        padding: isMobile ? "0 12px 20px" : isTablet ? "0 16px 20px" : "0 24px 24px",
-      }}>
+      <div><label style={lbl}>Display Name *</label><input style={inp} placeholder="e.g. FTMO Challenge" value={name} onChange={e => setName(e.target.value)} required /></div>
+      <div><label style={lbl}>Account Number *</label><input style={inp} placeholder="e.g. 10676855" value={loginId} onChange={e => setLoginId(e.target.value)} required /></div>
+      <div><label style={lbl}>Broker Server</label><input style={inp} placeholder="e.g. PoTrade-Server" value={server} onChange={e => setServer(e.target.value)} /></div>
+      <div><label style={lbl}>Password (optional — for API sync)</label><input style={inp} type="password" placeholder="MT5 investor password" value={password} onChange={e => setPassword(e.target.value)} /></div>
 
-        {/* Tab Row */}
-        <div style={{
-          ...s.tabRow,
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "flex-start" : "center",
-          gap: isMobile ? 10 : 0,
-        } as CSSProperties}>
-          <div style={s.tabs}>
-            <button style={{ ...s.tab, ...s.tabActive }}>Accounts</button>
-            <button style={s.tab}>
-              Portfolios <span style={s.proBadge}>Pro</span>
-            </button>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <label style={lbl}>Account Type</label>
+          <select style={inp} value={accountType} onChange={e => setAccountType(e.target.value as any)}>
+            <option value="demo">DEMO</option>
+            <option value="live">LIVE</option>
+            <option value="funded">FUNDED</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Connection</label>
+          <select style={inp} value={connType} onChange={e => setConnType(e.target.value as any)}>
+            <option value="webhook">EA Webhook</option>
+            <option value="api">API</option>
+          </select>
+        </div>
+      </div>
+
+      {connType === "webhook" && (
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "12px 14px", fontSize: 12, color: "#64748b" }}>
+          After adding, you'll get a webhook URL to paste into your MT5 EA. The EA will push trades to TradeSync automatically.
+        </div>
+      )}
+
+      {error && <div style={{ color: "#ef4444", fontSize: 12 }}>{error}</div>}
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button type="button" onClick={onCancel} style={{ background: "none", border: "1px solid #1e3050", color: "#94a3b8", padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
+        <button type="submit" disabled={busy} style={{ background: "#1d6ed8", border: "none", color: "white", padding: "9px 20px", cursor: busy ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: busy ? 0.7 : 1 }}>
+          {busy ? "Adding…" : "Add Account"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── Webhook info modal ────────────────────────────────────────────────────────
+function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: () => void }) {
+  const webhookUrl = `${window.location.origin}/api/broker/webhook/${account.webhookToken}`;
+  return (
+    <div style={s.overlay as CSSProperties} onClick={onClose}>
+      <div style={{ ...s.modal, width: 520, maxWidth: "95vw" } as CSSProperties} onClick={e => e.stopPropagation()}>
+        <div style={s.modalHeader as CSSProperties}>
+          <h2 style={s.modalTitle as CSSProperties}>EA Webhook Setup — {account.name}</h2>
+          <button style={s.closeBtn as CSSProperties} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>
+            Paste this URL into your TradeSync EA in MT5. Every time you close a trade, the EA posts it here and it's automatically journaled.
+          </p>
+          <div>
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Webhook URL</div>
+            <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, wordBreak: "break-all" }}>
+              <span style={{ color: "#38bdf8", fontSize: 12, fontFamily: "monospace" }}>{webhookUrl}</span>
+              <CopyBtn text={webhookUrl} />
+            </div>
           </div>
-          <div style={{
-            ...s.tabRowRight,
-            width: isMobile ? "100%" : "auto",
-            justifyContent: isMobile ? "flex-end" : "flex-start",
-          } as CSSProperties}>
-            <span style={s.counter}>1/20</span>
-            <button
-              style={{ ...s.addBtn, fontSize: isMobile ? 12 : 14, padding: isMobile ? "6px 10px" : "7px 16px" }}
-              onClick={() => setModalOpen(true)}
-            >
-              <span style={{ fontSize: isMobile ? 15 : 18, lineHeight: 1 }}>+</span>
-              {isMobile ? "Add" : "Add Account"}
+          <div style={{ background: "#0c1e10", border: "1px solid #1a4020", padding: "12px 14px", color: "#4ade80", fontSize: 12 }}>
+            EA Payload format (JSON sent on each closed trade):<br />
+            <code style={{ fontSize: 11, color: "#94a3b8" }}>
+              {`{ "externalId":"<ticket>", "symbol":"EURUSD", "direction":"buy", "lots":0.10, "openPrice":1.0850, "closePrice":1.0900, "openTime":"<ISO>", "closeTime":"<ISO>", "profit":50.0, "commission":-1.5, "swap":0 }`}
+            </code>
+          </div>
+          <button onClick={onClose} style={{ background: "#1d6ed8", border: "none", color: "white", padding: "10px 20px", cursor: "pointer", fontSize: 13, fontWeight: 700, alignSelf: "flex-end" }}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main AccountsPage ─────────────────────────────────────────────────────────
+export default function AccountsPage({ openModal = false }: { openModal?: boolean }) {
+  const { session } = useAuth();
+  const [accounts,    setAccounts]    = useState<BrokerAccount[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [modalOpen,   setModalOpen]   = useState(openModal);
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  const [showForm,    setShowForm]    = useState(false);
+  const [webhookAcc,  setWebhookAcc]  = useState<BrokerAccount | null>(null);
+  const [pageSize,    setPageSize]    = useState(10);
+  const [page,        setPage]        = useState(1);
+  const [isMobile,    setIsMobile]    = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check(); window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => { if (session) fetchAccounts(); }, [session]);
+  useEffect(() => { setModalOpen(openModal); }, [openModal]);
+
+  async function fetchAccounts() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/broker-accounts", { headers: await authHeaders() });
+      if (res.ok) setAccounts(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Remove this account? Synced trades will also be deleted.")) return;
+    await fetch(`/api/broker-accounts/${id}`, { method: "DELETE", headers: await authHeaders() });
+    setAccounts(prev => prev.filter(a => a.id !== id));
+  }
+
+  async function handleSync(account: BrokerAccount) {
+    if (account.connectionType === "webhook") { setWebhookAcc(account); return; }
+    await fetch(`/api/broker-accounts/${account.id}/sync`, { method: "POST", headers: await authHeaders() });
+    fetchAccounts();
+  }
+
+  function handleCreated(account: BrokerAccount) {
+    setAccounts(prev => [account, ...prev]);
+    setModalOpen(false);
+    setShowForm(false);
+    setSelectedPlatform(null);
+    if (account.connectionType === "webhook") setWebhookAcc(account);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
+  const paged = accounts.slice((page - 1) * pageSize, page * pageSize);
+
+  return (
+    <div style={s.root as CSSProperties}>
+      <style>{`* { box-sizing: border-box; } ::-webkit-scrollbar { height: 4px; width: 4px; background: #0b1220; } ::-webkit-scrollbar-thumb { background: #1e293b; }`}</style>
+
+      {/* Top Banner */}
+      <div style={s.banner as CSSProperties}>
+        <span style={{ color: "#38bdf8" }}>ⓘ</span>
+        <span>Issues syncing? Try an account history repair</span>
+        <span>🔧</span>
+      </div>
+
+      <div style={{ padding: isMobile ? "0 12px 20px" : "0 24px 24px", flex: 1 }}>
+        {/* Tab row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 0", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+            <button style={{ ...s.tab, ...s.tabActive } as CSSProperties}>Accounts</button>
+            <button style={s.tab as CSSProperties}>Portfolios <span style={s.proBadge as CSSProperties}>Pro</span></button>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={s.counter as CSSProperties}>{accounts.length}/20</span>
+            <button style={s.addBtn as CSSProperties} onClick={() => { setModalOpen(true); setShowForm(false); setSelectedPlatform(null); }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
             </button>
-            <button style={{ ...s.syncBtn, fontSize: isMobile ? 12 : 14, padding: isMobile ? "6px 10px" : "7px 16px" }}>
-              <span style={{ fontSize: 14 }}>↻</span>
-              {isMobile ? "Sync" : "Sync All"}
+            <button style={s.syncBtn as CSSProperties} onClick={fetchAccounts}>
+              <span style={{ fontSize: 14 }}>↻</span> {isMobile ? "Sync" : "Sync All"}
             </button>
           </div>
         </div>
 
         {/* Table */}
-        <div style={{ ...s.tableWrap, overflowX: "auto" }}>
-          <table style={{ ...s.table, minWidth: isMobile ? 580 : "100%" }}>
+        <div style={{ ...s.tableWrap, overflowX: "auto" } as CSSProperties}>
+          <table style={{ ...s.table, minWidth: 620 } as CSSProperties}>
             <thead>
               <tr>
-                {["Name", "Number", "Server", "Type", "Platform", "Balance", "Connecti...", "Last Sync", "Actions"].map((h) => (
-                  <th key={h} style={{
-                    ...s.th,
-                    padding: isMobile ? "10px" : "13px 16px",
-                    fontSize: isMobile ? 11 : 13,
-                  }}>{h}</th>
+                {["Name", "Number", "Server", "Type", "Platform", "Balance", "Connection", "Last Sync", "Actions"].map(h => (
+                  <th key={h} style={s.th as CSSProperties}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {defaultAccounts.map((a, i) => (
-                <tr key={i} style={s.tr}>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.name}</td>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.number}</td>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.server}</td>
-                  <td style={{ ...s.td, color: "#ef4444", fontWeight: 700, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.type}</td>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>
+              {loading ? (
+                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "#38bdf8", padding: 24 } as CSSProperties}>Loading accounts…</td></tr>
+              ) : paged.length === 0 ? (
+                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "#64748b", padding: 28 } as CSSProperties}>
+                  No accounts yet. Click <strong style={{ color: "#38bdf8" }}>+ Add Account</strong> to connect your first broker.
+                </td></tr>
+              ) : paged.map(a => (
+                <tr key={a.id} style={s.tr as CSSProperties}>
+                  <td style={s.td as CSSProperties}>{a.name}</td>
+                  <td style={{ ...s.td, color: "#38bdf8", fontWeight: 700 } as CSSProperties}>{a.loginId}</td>
+                  <td style={{ ...s.td, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis" } as CSSProperties}>{a.server ?? "—"}</td>
+                  <td style={{ ...s.td, color: a.accountType === "live" ? "#4ade80" : a.accountType === "funded" ? "#a78bfa" : "#ef4444", fontWeight: 700 } as CSSProperties}>
+                    {a.accountType.toUpperCase()}
+                  </td>
+                  <td style={s.td as CSSProperties}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={s.platformIcon}>⚙</span>
-                      {a.platform}
+                      <span style={{ width: 22, height: 22, background: "#1a3a5c", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>⚙</span>
+                      {a.platform.toUpperCase()}
                     </div>
                   </td>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.balance}</td>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.connection}</td>
-                  <td style={{ ...s.td, padding: isMobile ? "10px" : "14px 16px", fontSize: isMobile ? 12 : 14 }}>{a.lastSync}</td>
-                  <td style={{ ...s.td, padding: isMobile ? "8px" : "14px 16px" }}>
-                    <div style={{ ...s.actions, gap: isMobile ? 2 : 6 }}>
-                      <button style={s.actionBtn} title="Settings"><Wrench size={isMobile ? 13 : 15} color="#f59e0b" /></button>
-                      <button style={s.actionBtn} title="Refresh"><RefreshCw size={isMobile ? 13 : 15} color="#94a3b8" /></button>
-                      <button style={s.actionBtn} title="Share"><Share2 size={isMobile ? 13 : 15} color="#94a3b8" /></button>
-                      <button style={s.actionBtn} title="Edit"><Pencil size={isMobile ? 13 : 15} color="#38bdf8" /></button>
-                      <button style={s.actionBtn} title="Delete"><Trash2 size={isMobile ? 13 : 15} color="#ef4444" /></button>
+                  <td style={s.td as CSSProperties}>{a.balance ? `$${parseFloat(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</td>
+                  <td style={s.td as CSSProperties}>{a.connectionType === "webhook" ? "EA" : "API"}</td>
+                  <td style={s.td as CSSProperties}><SyncBadge status={a.syncStatus} lastSyncAt={a.lastSyncAt} /></td>
+                  <td style={s.td as CSSProperties}>
+                    <div style={{ display: "flex", gap: isMobile ? 2 : 5, alignItems: "center" }}>
+                      <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
+                      <button style={s.actionBtn as CSSProperties} title="Sync" onClick={() => handleSync(a)}><RefreshCw size={14} color="#94a3b8" /></button>
+                      <button style={s.actionBtn as CSSProperties} title="Edit"><Pencil size={14} color="#38bdf8" /></button>
+                      <button style={s.actionBtn as CSSProperties} title="Delete" onClick={() => handleDelete(a.id)}><Trash2 size={14} color="#ef4444" /></button>
                     </div>
                   </td>
                 </tr>
@@ -278,430 +323,93 @@ export default function AccountsPage({ openModal = false }: AccountsPageProps) {
         </div>
 
         {/* Pagination */}
-        <div style={{
-          ...s.pagination,
-          flexWrap: "wrap",
-          gap: isMobile ? 8 : 12,
-          justifyContent: isMobile ? "center" : "flex-end",
-        } as CSSProperties}>
-          <span style={s.pageLabel}>Page Size:</span>
-          <select
-            style={s.pageSelect}
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-          >
-            {[10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 0 0", fontSize: 13, color: "#64748b", flexWrap: "wrap" }}>
+          <span>Page Size:</span>
+          <select style={s.pageSelect as CSSProperties} value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
+            {[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <span style={s.pageInfo}>1 to 1 of 1</span>
-          <div style={s.pageNav}>
-            <button style={s.pageBtn}>«</button>
-            <button style={s.pageBtn}>‹</button>
-            <span style={s.pageLabel}>Page <strong>1</strong> of 1</span>
-            <button style={s.pageBtn}>›</button>
-            <button style={s.pageBtn}>»</button>
+          <span>{Math.min((page - 1) * pageSize + 1, accounts.length)} to {Math.min(page * pageSize, accounts.length)} of {accounts.length}</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {[["«", 1], ["‹", page - 1], ["›", page + 1], ["»", totalPages]].map(([label, target]) => (
+              <button key={label} style={s.pageBtn as CSSProperties} onClick={() => setPage(Math.max(1, Math.min(totalPages, Number(target))))}>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Add Account Modal */}
       {modalOpen && (
-        <div
-          style={{
-            ...s.overlay,
-            alignItems: isMobile ? "flex-end" : "center",
-          } as CSSProperties}
-          onClick={() => { setModalOpen(false); setSelected(null); }}
-        >
-          <div
-            style={{
-              ...s.modal,
-              width: isMobile ? "100%" : isTablet ? "90vw" : 560,
-              maxWidth: isMobile ? "100%" : "95vw",
-              maxHeight: "90vh",
-              borderLeft: isMobile ? "none" : "1px solid #1e3050",
-              borderRight: isMobile ? "none" : "1px solid #1e3050",
-            } as CSSProperties}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
+        <div style={s.overlay as CSSProperties} onClick={() => { setModalOpen(false); setShowForm(false); setSelectedPlatform(null); }}>
+          <div style={{ ...s.modal, width: isMobile ? "100%" : 560, maxWidth: isMobile ? "100%" : "95vw" } as CSSProperties} onClick={e => e.stopPropagation()}>
             <div style={s.modalHeader as CSSProperties}>
-              <h2 style={{ ...s.modalTitle, fontSize: isMobile ? 15 : 18 }}>Select trading platform</h2>
-              <button style={s.closeBtn} onClick={() => { setModalOpen(false); setSelected(null); }}>✕</button>
+              <h2 style={s.modalTitle as CSSProperties}>{showForm ? "Account Details" : "Select trading platform"}</h2>
+              <button style={s.closeBtn as CSSProperties} onClick={() => { setModalOpen(false); setShowForm(false); setSelectedPlatform(null); }}>✕</button>
             </div>
 
-            {/* Platform Grid */}
-            <div style={{ ...s.modalBody, padding: isMobile ? "14px 12px 20px" : "18px 24px 24px" }}>
-              <div style={{
-                ...s.grid,
-                gridTemplateColumns: isMobile ? "repeat(3, 1fr)" : "repeat(4, 1fr)",
-                gap: isMobile ? 8 : 12,
-              } as CSSProperties}>
-                {platformList.map((p) => {
-                  const Icon = p.icon;
-                  return (
+            {!showForm ? (
+              <div style={{ padding: "18px 24px 24px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
+                  {PLATFORMS.map(p => (
                     <button
                       key={p.id}
-                      style={{
-                        ...s.platformCard,
-                        ...(selected === p.id ? s.platformCardSelected : {}),
-                        padding: isMobile ? "12px 6px 10px" : "16px 8px 12px",
-                      } as CSSProperties}
-                      onClick={() => setSelected(p.id)}
+                      style={{ ...s.platformCard, ...(selectedPlatform === p.id ? s.platformCardSelected : {}) } as CSSProperties}
+                      onClick={() => setSelectedPlatform(p.id)}
                     >
-                      <div style={s.platformIconWrap}><Icon /></div>
-                      <span style={{ ...s.platformName, fontSize: isMobile ? 10 : 12 }}>{p.name}</span>
+                      <span style={{ fontSize: 22 }}>⚙</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, textAlign: "center" }}>{p.name}</span>
                     </button>
-                  );
-                })}
-              </div>
-
-              {/* Broker Banner */}
-              <div style={{
-                ...s.brokerBanner,
-                flexDirection: isMobile ? "column" : "row",
-                alignItems: isMobile ? "flex-start" : "center",
-                padding: isMobile ? "14px" : "16px 20px",
-              } as CSSProperties}>
-                <div style={s.brokerBannerLeft}>
-                  <p style={{ ...s.brokerQ, fontSize: isMobile ? 13 : 14 }}>Need a broker before connecting?</p>
-                  <p style={{ ...s.brokerSub, fontSize: isMobile ? 12 : 13 }}>
-                    Take our quick quiz to match with a partner that fits your region, budget, and platforms.
-                  </p>
+                  ))}
                 </div>
-                <button style={{
-                  ...s.findBrokerBtn,
-                  width: isMobile ? "100%" : "auto",
-                  textAlign: "center",
-                  padding: isMobile ? "10px 0" : "10px 22px",
-                  fontSize: isMobile ? 13 : 14,
-                }}>Find a Broker</button>
+                <button
+                  disabled={!selectedPlatform}
+                  onClick={() => setShowForm(true)}
+                  style={{ width: "100%", background: selectedPlatform ? "#1d6ed8" : "#1e293b", border: "none", color: selectedPlatform ? "white" : "#475569", padding: "11px", fontWeight: 700, fontSize: 14, cursor: selectedPlatform ? "pointer" : "not-allowed" }}
+                >
+                  Continue →
+                </button>
               </div>
-            </div>
-
-            {/* Nav Arrows — desktop only */}
-            {!isMobile && (
-              <>
-                <button style={{ ...s.navArrow, left: -20 } as CSSProperties}>‹</button>
-                <button style={{ ...s.navArrow, right: -20 } as CSSProperties}>›</button>
-              </>
+            ) : (
+              <AddAccountForm
+                platform={selectedPlatform!}
+                onCancel={() => setShowForm(false)}
+                onCreated={handleCreated}
+              />
             )}
           </div>
         </div>
       )}
+
+      {/* Webhook Info Modal */}
+      {webhookAcc && <WebhookModal account={webhookAcc} onClose={() => setWebhookAcc(null)} />}
     </div>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const s: Record<string, CSSProperties> = {
-  root: {
-    minHeight: "100%",
-    background: "#070d1a",
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-    color: "#cbd5e1",
-    display: "flex",
-    flexDirection: "column",
-  },
-  banner: {
-    background: "#0c1a2e",
-    borderBottom: "1px solid #1a3050",
-    padding: "10px 24px",
-    fontSize: 14,
-    color: "#94a3b8",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  bannerIcon: { color: "#38bdf8", fontSize: 16 },
-  content: {
-    padding: "0 24px 24px",
-    flex: 1,
-  },
-  tabRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "14px 0 0",
-    marginBottom: 16,
-  },
-  tabs: { display: "flex", gap: 28, alignItems: "center" },
-  tab: {
-    background: "none",
-    border: "none",
-    color: "#64748b",
-    fontSize: 15,
-    fontWeight: 500,
-    cursor: "pointer",
-    padding: "6px 0",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-  },
-  tabActive: {
-    color: "#38bdf8",
-    borderBottom: "2px solid #38bdf8",
-    fontWeight: 700,
-  },
-  proBadge: {
-    background: "#1e40af",
-    color: "#93c5fd",
-    fontSize: 10,
-    fontWeight: 700,
-    padding: "2px 6px",
-    borderRadius: 0,
-  },
-  tabRowRight: { display: "flex", gap: 10, alignItems: "center" },
-  counter: {
-    background: "#1e293b",
-    border: "1px solid #334155",
-    borderRadius: 0,
-    padding: "4px 10px",
-    fontSize: 13,
-    color: "#94a3b8",
-  },
-  addBtn: {
-    background: "transparent",
-    border: "1.5px solid #38bdf8",
-    color: "#38bdf8",
-    borderRadius: 0,
-    padding: "7px 16px",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-  },
-  syncBtn: {
-    background: "transparent",
-    border: "1.5px solid #334155",
-    color: "#94a3b8",
-    borderRadius: 0,
-    padding: "7px 16px",
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-  },
-  tableWrap: {
-    border: "1px solid #1e293b",
-    borderRadius: 0,
-    overflow: "hidden",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    background: "#0b1220",
-  },
-  th: {
-    padding: "13px 16px",
-    textAlign: "left",
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#64748b",
-    borderBottom: "1px solid #1e293b",
-    borderRight: "1px solid #1a2a40",
-    whiteSpace: "nowrap",
-  },
-  tr: { borderBottom: "1px solid #111d30" },
-  td: {
-    padding: "14px 16px",
-    fontSize: 14,
-    color: "#cbd5e1",
-    borderRight: "1px solid #111d30",
-    whiteSpace: "nowrap",
-  },
-  platformIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 0,
-    background: "#1a3a5c",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 12,
-  },
-  actions: { display: "flex", gap: 6, alignItems: "center" },
-  actionBtn: {
-    background: "none",
-    border: "none",
-    color: "#94a3b8",
-    cursor: "pointer",
-    fontSize: 15,
-    padding: "2px 4px",
-  },
-  pagination: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 12,
-    padding: "14px 0 0",
-    fontSize: 13,
-    color: "#64748b",
-  },
-  pageLabel: { color: "#64748b", fontSize: 13 },
-  pageSelect: {
-    background: "#1e293b",
-    border: "1px solid #334155",
-    color: "#cbd5e1",
-    borderRadius: 0,
-    padding: "4px 10px",
-    fontSize: 13,
-    cursor: "pointer",
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-  },
-  pageInfo: { color: "#94a3b8" },
-  pageNav: { display: "flex", alignItems: "center", gap: 4 },
-  pageBtn: {
-    background: "none",
-    border: "1px solid #1e293b",
-    color: "#64748b",
-    borderRadius: 0,
-    padding: "3px 8px",
-    cursor: "pointer",
-    fontSize: 13,
-  },
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.7)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    backdropFilter: "blur(4px)",
-  },
-  modal: {
-    background: "#0d1827",
-    border: "1px solid #1e3050",
-    borderRadius: 0,
-    width: 560,
-    maxWidth: "95vw",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    position: "relative",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "22px 24px 14px",
-    position: "sticky",
-    top: 0,
-    background: "#0d1827",
-    zIndex: 1,
-    borderBottom: "1px solid #1e3050",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: "#f1f5f9",
-    margin: 0,
-  },
-  closeBtn: {
-    background: "none",
-    border: "none",
-    color: "#ef4444",
-    fontSize: 18,
-    cursor: "pointer",
-    padding: "2px 6px",
-    lineHeight: 1,
-  },
-  modalBody: { padding: "18px 24px 24px" },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 12,
-    marginBottom: 20,
-  },
-  platformCard: {
-    background: "#111e30",
-    border: "1.5px solid #1e3050",
-    borderRadius: 0,
-    padding: "16px 8px 12px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-    cursor: "pointer",
-    transition: "all 0.15s",
-    color: "#e2e8f0",
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-  },
-  platformCardSelected: {
-    border: "1.5px solid #38bdf8",
-    background: "#0c2233",
-  },
-  platformIconWrap: {
-    width: 48,
-    height: 48,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  platformName: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#cbd5e1",
-    textAlign: "center",
-    lineHeight: 1.2,
-  },
-  brokerBanner: {
-    background: "#0f1e30",
-    border: "1px solid #1e3a55",
-    borderRadius: 0,
-    padding: "16px 20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    marginTop: 4,
-  },
-  brokerBannerLeft: { flex: 1 },
-  brokerQ: {
-    color: "#f1f5f9",
-    fontWeight: 700,
-    fontSize: 14,
-    margin: "0 0 4px",
-  },
-  brokerSub: {
-    color: "#64748b",
-    fontSize: 13,
-    margin: 0,
-    lineHeight: 1.5,
-  },
-  findBrokerBtn: {
-    background: "#1d6ed8",
-    border: "none",
-    color: "white",
-    fontWeight: 700,
-    fontSize: 14,
-    borderRadius: 0,
-    padding: "10px 22px",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-  },
-  navArrow: {
-    position: "absolute",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "#1e293b",
-    border: "1px solid #334155",
-    color: "#94a3b8",
-    borderRadius: 0,
-    width: 36,
-    height: 36,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    fontSize: 18,
-    zIndex: 2,
-  },
+  root:    { minHeight: "100%", background: "#070d1a", fontFamily: "'Montserrat','Segoe UI',sans-serif", color: "#cbd5e1", display: "flex", flexDirection: "column" },
+  banner:  { background: "#0c1a2e", borderBottom: "1px solid #1a3050", padding: "10px 24px", fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 },
+  tab:     { background: "none", border: "none", color: "#64748b", fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  tabActive:{ color: "#38bdf8", borderBottom: "2px solid #38bdf8", fontWeight: 700 },
+  proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 10, fontWeight: 700, padding: "2px 6px" },
+  counter: { background: "#1e293b", border: "1px solid #334155", padding: "4px 10px", fontSize: 13, color: "#94a3b8" },
+  addBtn:  { background: "transparent", border: "1.5px solid #38bdf8", color: "#38bdf8", padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  syncBtn: { background: "transparent", border: "1.5px solid #334155", color: "#94a3b8", padding: "7px 16px", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  tableWrap:{ border: "1px solid #1e293b", overflow: "hidden" },
+  table:   { width: "100%", borderCollapse: "collapse", background: "#0b1220" },
+  th:      { padding: "12px 14px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" },
+  tr:      { borderBottom: "1px solid #111d30" },
+  td:      { padding: "13px 14px", fontSize: 13, color: "#cbd5e1", whiteSpace: "nowrap" },
+  actionBtn:{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "2px 4px" },
+  pageSelect:{ background: "#1e293b", border: "1px solid #334155", color: "#cbd5e1", padding: "3px 8px", fontSize: 12, cursor: "pointer" },
+  pageBtn: { background: "none", border: "1px solid #1e293b", color: "#64748b", padding: "3px 8px", cursor: "pointer", fontSize: 12 },
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
+  modal:   { background: "#0d1827", border: "1px solid #1e3050", width: 560, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", position: "relative", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" },
+  modalHeader:{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px 14px", position: "sticky", top: 0, background: "#0d1827", zIndex: 1, borderBottom: "1px solid #1e3050" },
+  modalTitle: { fontSize: 17, fontWeight: 700, color: "#f1f5f9", margin: 0 },
+  closeBtn:   { background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "2px 6px" },
+  platformCard:       { background: "#111e30", border: "1.5px solid #1e3050", padding: "14px 8px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", color: "#e2e8f0", fontFamily: "inherit" },
+  platformCardSelected:{ border: "1.5px solid #38bdf8", background: "#0c2233" },
 };

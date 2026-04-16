@@ -24,6 +24,7 @@ import BlogPage from "@/pages/BlogPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import AuthPage from "@/pages/AuthPage";
 import AdminPanel from "@/pages/AdminPanel";
+import AccountsPage from "@/pages/AccountsPage";
 import NotFound from "@/pages/not-found";
 
 // ── Shared loading screen ─────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ function InnerPages() {
           <Route path="/calendar"    component={EconomicCalendar} />
           <Route path="/journal"     component={Journal} />
           <Route path="/assets"      component={AssetPage} />
+          <Route path="/accounts"    component={AccountsPage} />
           <Route path="/stocks"      component={Stocks} />
           <Route path="/major-pairs" component={MajorPairs} />
           <Route path="/commodities" component={Commodities} />
