@@ -1,7 +1,16 @@
 """
 Newskeeper-based economic calendar scraper.
 Scrapes MyFXBook economic calendar (same approach as the newskeeper library).
-Fetches central bank interest rates and inflation from free official APIs — no hardcoded values.
+Fetches central bank interest rates from accessible free sources — no hardcoded values.
+
+Sources used (all accessible from Replit environment):
+  USD — FRED FEDFUNDS CSV (no API key)
+  EUR — FRED ECBDFR CSV (no API key)
+  GBP — Bank of England official website scrape
+  CAD — Bank of Canada Valet API (series V39079)
+  AUD — Reserve Bank of Australia statistics CSV
+  JPY, CHF, NZD — Trading Economics website scrape (id='actual' element)
+  Universal fallback — Trading Economics for any currency that fails primary
 
 Usage:
   python news_calendar.py calendar   -> JSON array of upcoming events
@@ -9,6 +18,7 @@ Usage:
 """
 
 import sys
+import re
 import json
 import requests
 from bs4 import BeautifulSoup
@@ -118,30 +128,14 @@ def scrape_calendar() -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Central bank policy rate fetchers — all free, no API key                    #
+# Interest rate fetchers — all accessible, no DNS-blocked endpoints            #
 # --------------------------------------------------------------------------- #
 
-# FRED series IDs for each currency — ordered lists, first working series wins.
-# Primary IDs are from the IMF/IFS dataset (INTDSR*) which are stable and public.
-# Legacy OECD series (IRST*) are kept as secondary attempts but are often
-# discontinued/gated and return HTML error pages on the public CSV endpoint.
-_FRED_SERIES: dict[str, list[str]] = {
-    'USD': ['FEDFUNDS'],                          # Fed Funds Effective Rate
-    'EUR': ['ECBDFR'],                            # ECB Deposit Facility Rate
-    'GBP': ['INTDSRGBM193N', 'BOEBR'],           # IFS UK discount rate → BoE base
-    'CAD': ['INTDSRCAM193N', 'IRSTCA01M156N'],   # IFS Canada → OECD overnight
-    'JPY': ['INTDSRJPM193N', 'IRSTJP01M156N'],   # IFS Japan → OECD overnight
-    'CHF': ['INTDSRCHM193N', 'IRSTCH01M156N'],   # IFS Switzerland → OECD overnight
-    'NZD': ['INTDSRNZM193N', 'IRSTNZ01M156N'],   # IFS New Zealand → OECD overnight
-    'AUD': ['INTDSRAUM193N'],                     # IFS Australia discount rate
-}
-
-
-def _fetch_fred_series(series_id: str) -> float | None:
+def _fetch_fred_csv(series_id: str) -> float | None:
     """
-    Generic FRED public CSV fetcher — no API key required.
-    Validates that the response is actually a CSV (not an HTML error page)
-    before attempting to parse it.
+    FRED public CSV endpoint — no API key required.
+    Skips rows with '.' (unreleased data) to find the most recent real value.
+    Only FEDFUNDS and ECBDFR are reliably available without a key.
     """
     try:
         url = f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}'
@@ -149,13 +143,26 @@ def _fetch_fred_series(series_id: str) -> float | None:
         if r.status_code != 200:
             raise ValueError(f'HTTP {r.status_code}')
         lines = r.text.strip().split('\n')
-        # FRED CSV always starts with "DATE,..."; anything else is an error page
-        if not lines or not lines[0].startswith('DATE'):
-            raise ValueError('Response is not a valid CSV (likely an error page)')
-        data_lines = [l for l in lines[1:] if l.strip() and ',' in l]
-        if not data_lines:
-            raise ValueError('No data rows in CSV response')
-        val = float(data_lines[-1].split(',')[1])
+        if not lines or not (lines[0].startswith('DATE') or lines[0].startswith('observation_date')):
+            raise ValueError('Not a valid CSV response')
+        real_data = []
+        for line in lines[1:]:
+            line = line.strip()
+            if not line or ',' not in line:
+                continue
+            parts = line.split(',', 1)
+            if len(parts) < 2:
+                continue
+            val_str = parts[1].strip()
+            if val_str == '.' or val_str == '':
+                continue
+            try:
+                real_data.append(float(val_str))
+            except ValueError:
+                continue
+        if not real_data:
+            raise ValueError('No real data values found in CSV')
+        val = real_data[-1]
         print(f'[news_calendar] FRED {series_id}: {val}%', file=sys.stderr)
         return val
     except Exception as e:
@@ -163,68 +170,67 @@ def _fetch_fred_series(series_id: str) -> float | None:
     return None
 
 
-def _fetch_fred_any(currency: str) -> float | None:
-    """Try each FRED series for a currency in order, return first success."""
-    for sid in _FRED_SERIES.get(currency, []):
-        val = _fetch_fred_series(sid)
-        if val is not None:
+def _fetch_usd_rate() -> float | None:
+    """USD — FRED FEDFUNDS (Federal Funds Effective Rate, no API key needed)."""
+    return _fetch_fred_csv('FEDFUNDS')
+
+
+def _fetch_eur_rate() -> float | None:
+    """EUR — FRED ECBDFR (ECB Deposit Facility Rate, no API key needed)."""
+    return _fetch_fred_csv('ECBDFR')
+
+
+def _fetch_gbp_rate() -> float | None:
+    """GBP — Scrape the Bank of England official monetary policy page."""
+    try:
+        url = 'https://www.bankofengland.co.uk/monetary-policy/the-interest-rate-bank-rate'
+        r = requests.get(url, headers=HEADERS, timeout=12)
+        if r.status_code != 200:
+            raise ValueError(f'HTTP {r.status_code}')
+        soup = BeautifulSoup(r.text, 'html.parser')
+        text = soup.get_text()
+        match = re.search(r'Current Bank Rate\s*([\d.]+)%', text)
+        if match:
+            val = float(match.group(1))
+            print(f'[news_calendar] BoE website: {val}%', file=sys.stderr)
             return val
+        raise ValueError('Rate pattern not found on BoE page')
+    except Exception as e:
+        print(f'[news_calendar] BoE scrape failed: {e}', file=sys.stderr)
     return None
 
 
-def _fetch_fred_rate() -> float | None:
-    """USD — FRED FEDFUNDS (Federal Funds Effective Rate)."""
-    return _fetch_fred_any('USD')
-
-
-def _fetch_ecb_rate() -> float | None:
-    """EUR — try ECB SDW API first, then FRED ECBDFR as backup."""
+def _fetch_cad_rate() -> float | None:
+    """CAD — Bank of Canada Valet API, series V39079 (Target Overnight Rate)."""
     try:
-        url = (
-            'https://data.api.ecb.europa.eu/service/data/'
-            'FM/B.U2.EUR.4F.KR.MRR_FR.LEV'
-            '?lastNObservations=1&format=jsondata'
-        )
+        url = 'https://www.bankofcanada.ca/valet/observations/V39079/json?recent=1'
         r = requests.get(url, timeout=10)
-        data = r.json()
-        obs = data['dataSets'][0]['series']['0:0:0:0:0:0']['observations']
-        latest_key = max(obs.keys(), key=lambda x: int(x))
-        return float(obs[latest_key][0])
-    except Exception as e:
-        print(f'[news_calendar] ECB primary failed ({e}), trying FRED…', file=sys.stderr)
-    return _fetch_fred_any('EUR')
-
-
-def _fetch_boc_rate() -> float | None:
-    """CAD — try Bank of Canada Valet API, then FRED IRSTCA01M156N."""
-    try:
-        url = (
-            'https://www.bankofcanada.ca/valet/observations/'
-            'group/policy_interest_rate/json?recent=1'
-        )
-        r = requests.get(url, timeout=10)
+        if r.status_code != 200:
+            raise ValueError(f'HTTP {r.status_code}')
         data = r.json()
         obs_list = data.get('observations', [])
-        if obs_list:
-            latest = obs_list[-1]
-            for key, val in latest.items():
-                if key != 'd' and isinstance(val, dict):
-                    v = val.get('v')
-                    if v not in (None, ''):
-                        return float(v)
+        if not obs_list:
+            raise ValueError('No observations in BoC response')
+        latest = obs_list[-1]
+        v = latest.get('V39079', {}).get('v')
+        if v is None or v == '':
+            raise ValueError('Empty value in BoC response')
+        val = float(v)
+        print(f'[news_calendar] BoC Valet: {val}%', file=sys.stderr)
+        return val
     except Exception as e:
-        print(f'[news_calendar] BoC primary failed ({e}), trying FRED…', file=sys.stderr)
-    return _fetch_fred_any('CAD')
+        print(f'[news_calendar] BoC Valet failed: {e}', file=sys.stderr)
+    return None
 
 
-def _fetch_rba_rate() -> float | None:
-    """AUD — Reserve Bank of Australia cash rate target (official stats CSV)."""
+def _fetch_aud_rate() -> float | None:
+    """AUD — Reserve Bank of Australia F1 statistics CSV (Cash Rate Target column)."""
     try:
-        # F1 table: Selected Interest Rates — column FIRMMCRTD (Cash Rate Target)
         url = 'https://www.rba.gov.au/statistics/tables/csv/f1-data.csv'
-        r = requests.get(url, headers=HEADERS, timeout=10)
+        r = requests.get(url, headers=HEADERS, timeout=12)
+        if r.status_code != 200:
+            raise ValueError(f'HTTP {r.status_code}')
         lines = r.text.strip().split('\n')
-        # Find the Cash Rate Target row header, then its data
         target_col = None
         for i, line in enumerate(lines):
             if 'Cash Rate Target' in line or 'FIRMMCRTD' in line:
@@ -234,121 +240,95 @@ def _fetch_rba_rate() -> float | None:
                         target_col = j
                         break
             if target_col is not None and i > 10:
-                # Try to read a data value from this column
                 cols = [c.strip().strip('"') for c in line.split(',')]
                 if target_col < len(cols) and cols[target_col]:
                     try:
                         val = float(cols[target_col])
-                        if 0 < val < 30:  # sanity check
+                        if 0 < val < 30:
+                            print(f'[news_calendar] RBA CSV: {val}%', file=sys.stderr)
                             return val
                     except ValueError:
                         pass
-        # Fallback: last non-empty value in last few lines
         for line in reversed(lines[-20:]):
             cols = [c.strip().strip('"') for c in line.split(',')]
             for col in reversed(cols):
                 try:
                     val = float(col)
                     if 0 < val < 30:
+                        print(f'[news_calendar] RBA CSV fallback: {val}%', file=sys.stderr)
                         return val
                 except ValueError:
                     pass
+        raise ValueError('Cash Rate Target not found in RBA CSV')
     except Exception as e:
-        print(f'[news_calendar] RBA fetch failed: {e}', file=sys.stderr)
+        print(f'[news_calendar] RBA CSV failed: {e}', file=sys.stderr)
     return None
 
 
-def _fetch_boe_rate() -> float | None:
-    """GBP — try Bank of England chart API, then FRED BOEBR as backup."""
-    try:
-        url = (
-            'https://api.bankofengland.co.uk/chart/series'
-            '?seriesIds=IUDBEDR&startDate=2025-01-01'
-        )
-        r = requests.get(url, timeout=10)
-        data = r.json()
-        chart_data = data.get('chartData', [])
-        if chart_data:
-            pts = chart_data[0].get('dataPoints', [])
-            if pts:
-                return float(pts[-1]['value'])
-    except Exception as e:
-        print(f'[news_calendar] BoE primary failed ({e}), trying FRED…', file=sys.stderr)
-    return _fetch_fred_any('GBP')
-
-
-# BIS country code -> currency mapping for WS_CBPOL dataset
-_BIS_CODE_MAP = {
-    'JP':  'JPY',
-    'CH':  'CHF',
-    'NZ':  'NZD',
-    'GB':  'GBP',   # backup if BoE API fails
-    'CN':  'CNY',   # PBOC if included
+# Trading Economics country slugs for each currency
+_TE_COUNTRY = {
+    'USD': 'united-states',
+    'EUR': 'euro-area',
+    'GBP': 'united-kingdom',
+    'JPY': 'japan',
+    'CAD': 'canada',
+    'AUD': 'australia',
+    'CHF': 'switzerland',
+    'NZD': 'new-zealand',
 }
 
 
-def _fetch_bis_rates(currencies: list) -> dict:
+def _fetch_trading_economics_rate(currency: str) -> float | None:
     """
-    JPY, CHF, NZD (and optionally GBP, CNY) — BIS Central Bank Policy Rates
-    via the BIS SDMX 2.1 REST API (no key, completely free).
-    Dataset: WS_CBPOL
+    Fetch policy rate from Trading Economics interest rate page.
+    Uses id='actual' element — the first one containing a '%' is the rate.
+    This site is accessible from Replit and covers all 8 major currencies.
     """
-    wanted_bis = [k for k, v in _BIS_CODE_MAP.items() if v in currencies]
-    if not wanted_bis:
-        return {}
-    codes = '+'.join(wanted_bis)
-    url = (
-        f'https://stats.bis.org/api/v2/data/dataflow/BIS,WS_CBPOL,1.0/'
-        f'M.{codes}?lastNObservations=1&format=jsondata'
-    )
+    country = _TE_COUNTRY.get(currency)
+    if not country:
+        return None
     try:
-        r = requests.get(url, timeout=15)
-        data = r.json()
-        inner = data.get('data', data)
-        datasets = inner.get('dataSets', [])
-        structure = inner.get('structure', {})
+        url = f'https://tradingeconomics.com/{country}/interest-rate'
+        r = requests.get(url, headers=HEADERS, timeout=12)
+        if r.status_code != 200:
+            raise ValueError(f'HTTP {r.status_code}')
+        soup = BeautifulSoup(r.text, 'html.parser')
 
-        series_dims = structure.get('dimensions', {}).get('series', [])
-        ref_area_dim = next(
-            (d for d in series_dims if d.get('id') == 'REF_AREA'), None
-        )
-        if not ref_area_dim or not datasets:
-            return {}
+        # Primary: find the table row labelled 'Interest Rate' and extract its actual value
+        for row in soup.find_all('tr'):
+            cells = row.find_all('td')
+            if not cells:
+                continue
+            if 'interest rate' in cells[0].get_text(strip=True).lower():
+                actual_cell = row.find(id='actual')
+                if actual_cell:
+                    text = actual_cell.get_text(strip=True)
+                    if '%' in text:
+                        val = float(text.rstrip('%').strip())
+                        print(f'[news_calendar] TE {currency} (row): {val}%', file=sys.stderr)
+                        return val
 
-        ref_area_values = ref_area_dim.get('values', [])
-        ref_area_idx = series_dims.index(ref_area_dim)
+        # Fallback: first id='actual' element that contains a '%'
+        for el in soup.find_all(id='actual'):
+            text = el.get_text(strip=True)
+            if '%' in text:
+                val = float(text.rstrip('%').strip())
+                print(f'[news_calendar] TE {currency} (fallback): {val}%', file=sys.stderr)
+                return val
 
-        result = {}
-        for key, series in datasets[0].get('series', {}).items():
-            parts = key.split(':')
-            if ref_area_idx < len(parts):
-                area_pos = int(parts[ref_area_idx])
-                if area_pos < len(ref_area_values):
-                    country_code = ref_area_values[area_pos].get('id', '')
-                    currency = _BIS_CODE_MAP.get(country_code)
-                    if currency:
-                        obs = series.get('observations', {})
-                        if obs:
-                            latest_key = max(obs.keys(), key=int)
-                            val = obs[latest_key][0]
-                            if val is not None:
-                                result[currency] = float(val)
-        print(f'[news_calendar] BIS fetched: {list(result.keys())}', file=sys.stderr)
-        return result
-
+        raise ValueError('No rate value found on page')
     except Exception as e:
-        print(f'[news_calendar] BIS fetch failed: {e}', file=sys.stderr)
-        return {}
+        print(f'[news_calendar] TE {currency} failed: {e}', file=sys.stderr)
+    return None
 
 
 # --------------------------------------------------------------------------- #
 # Inflation fetchers — World Bank CPI YoY (free, no key)                      #
 # --------------------------------------------------------------------------- #
 
-# World Bank country codes for each currency
 _WB_COUNTRY = {
     'USD': 'US',
-    'EUR': '1A',   # Euro area aggregate
+    'EUR': '1A',
     'GBP': 'GB',
     'JPY': 'JP',
     'AUD': 'AU',
@@ -392,67 +372,70 @@ def _fetch_wb_inflation(currency: str) -> float | None:
 # --------------------------------------------------------------------------- #
 
 _FALLBACK_RATES = {
-    'USD': ('Federal Reserve',                4.33),
-    'EUR': ('European Central Bank',          2.15),
-    'GBP': ('Bank of England',               4.50),
-    'JPY': ('Bank of Japan',                  0.50),
-    'CAD': ('Bank of Canada',                 2.75),
-    'AUD': ('Reserve Bank of Australia',      4.10),
-    'CHF': ('Swiss National Bank',            0.25),
-    'NZD': ('Reserve Bank of New Zealand',    3.75),
+    'USD': ('Federal Reserve',               4.33),
+    'EUR': ('European Central Bank',         2.40),
+    'GBP': ('Bank of England',              4.50),
+    'JPY': ('Bank of Japan',                 0.50),
+    'CAD': ('Bank of Canada',               2.75),
+    'AUD': ('Reserve Bank of Australia',    4.10),
+    'CHF': ('Swiss National Bank',          0.00),
+    'NZD': ('Reserve Bank of New Zealand',  3.50),
+}
+
+_BANK_NAMES = {
+    'USD': 'Federal Reserve',
+    'EUR': 'European Central Bank',
+    'GBP': 'Bank of England',
+    'JPY': 'Bank of Japan',
+    'CAD': 'Bank of Canada',
+    'AUD': 'Reserve Bank of Australia',
+    'CHF': 'Swiss National Bank',
+    'NZD': 'Reserve Bank of New Zealand',
 }
 
 
 def get_interest_rates() -> dict:
     """
-    Fetch central bank policy rates from official free APIs.
-    If a live API call fails, a recent fallback value is used and
-    the entry is marked live=False so the UI can indicate the data
-    may not be real-time.  All 8 major currencies are always returned.
+    Fetch central bank policy rates from accessible free sources.
+    If a live fetch fails, Trading Economics is tried as a universal fallback.
+    If all live attempts fail, a recent hardcoded fallback is used and
+    marked live=False so the UI can indicate the data may not be real-time.
     """
     rates: dict = {}
 
-    def _add(currency: str, bank: str, nominal: float | None) -> None:
+    def _add(currency: str, nominal: float | None, source: str = 'live') -> bool:
         if nominal is not None:
             rates[currency] = {
-                'bank':      bank,
+                'bank':      _BANK_NAMES.get(currency, currency),
                 'nominal':   nominal,
                 'inflation': None,
                 'live':      True,
             }
+            print(f'[news_calendar] {currency} -> {nominal}% (via {source})', file=sys.stderr)
+            return True
+        return False
 
-    # --- live nominal rates ---
-    _add('EUR', 'European Central Bank',     _fetch_ecb_rate())
-    _add('USD', 'Federal Reserve',           _fetch_fred_rate())
-    _add('CAD', 'Bank of Canada',            _fetch_boc_rate())
-    _add('AUD', 'Reserve Bank of Australia', _fetch_rba_rate())
-    _add('GBP', 'Bank of England',           _fetch_boe_rate())
+    # ── Primary sources (dedicated, stable APIs/scrapes) ──────────────────────
+    _add('USD', _fetch_usd_rate(),  'FRED FEDFUNDS')
+    _add('EUR', _fetch_eur_rate(),  'FRED ECBDFR')
+    _add('GBP', _fetch_gbp_rate(),  'BoE website')
+    _add('CAD', _fetch_cad_rate(),  'BoC Valet API')
+    _add('AUD', _fetch_aud_rate(),  'RBA CSV')
 
-    # BIS covers JPY, CHF, NZD (+ GBP & CNY as backup)
-    still_needed = [c for c in ('JPY', 'CHF', 'NZD', 'CNY') if c not in rates]
-    bis = _fetch_bis_rates(still_needed + (['GBP'] if 'GBP' not in rates else []))
-
-    bank_names = {
-        'JPY': 'Bank of Japan',
-        'CHF': 'Swiss National Bank',
-        'NZD': 'Reserve Bank of New Zealand',
-        'GBP': 'Bank of England',
-        'CNY': "People's Bank of China",
-    }
-    for ccy, rate in bis.items():
+    # JPY, CHF, NZD — Trading Economics as primary
+    for ccy in ('JPY', 'CHF', 'NZD'):
         if ccy not in rates:
-            _add(ccy, bank_names.get(ccy, ccy), rate)
+            _add(ccy, _fetch_trading_economics_rate(ccy), 'Trading Economics')
 
-    # --- FRED fallback for BIS currencies that are still missing ---
-    for ccy in ('JPY', 'CHF', 'NZD', 'CAD'):
+    # ── Trading Economics universal fallback ──────────────────────────────────
+    for ccy in list(_FALLBACK_RATES.keys()):
         if ccy not in rates:
-            fred_rate = _fetch_fred_any(ccy)
-            _add(ccy, bank_names.get(ccy, ccy), fred_rate)
+            _add(ccy, _fetch_trading_economics_rate(ccy), 'Trading Economics (fallback)')
 
-    # --- hardcoded fallback for any currency still missing ---
+    # ── Hardcoded last-resort fallback ────────────────────────────────────────
     for ccy, (bank, fallback_rate) in _FALLBACK_RATES.items():
         if ccy not in rates:
-            print(f'[news_calendar] Using fallback rate for {ccy}: {fallback_rate}%', file=sys.stderr)
+            print(f'[news_calendar] Using hardcoded fallback for {ccy}: {fallback_rate}%', file=sys.stderr)
             rates[ccy] = {
                 'bank':      bank,
                 'nominal':   fallback_rate,
@@ -460,7 +443,7 @@ def get_interest_rates() -> dict:
                 'live':      False,
             }
 
-    # --- inflation (World Bank CPI YoY) ---
+    # ── Inflation (World Bank CPI YoY) ────────────────────────────────────────
     for currency in list(rates.keys()):
         infl = _fetch_wb_inflation(currency)
         rates[currency]['inflation'] = infl
