@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Trophy, TrendingUp, Search, Medal, Zap, Percent } from 'lucide-react';
+import { Trophy, TrendingUp, Medal, Percent } from 'lucide-react';
 
 const mockTraders = [
   { id: 1, name: "Sarah 'Scalper' Jenkins", avatar: "SJ", pnl: 45230.50, winRate: 68, trades: 142, profitFactor: 2.1, growth: [10, 15, 12, 18, 25, 30, 45] },
@@ -31,23 +31,20 @@ const Sparkline = ({ data, color }: { data: number[]; color: string }) => {
 
 export default function Leaderboard() {
   const [activeCategory, setActiveCategory] = useState<'pnl' | 'winRate' | 'profitFactor'>('pnl');
-  const [searchTerm, setSearchTerm]         = useState('');
   const [activePeriod, setActivePeriod]     = useState('Weekly');
   const [activeMetric, setActiveMetric]     = useState('Percentage');
   const [activeMode, setActiveMode]         = useState('Demo');
 
   const categories = [
-    { id: 'pnl' as const,          label: 'By PnL',         icon: <TrendingUp size={14} />, color: '#34d399' },
-    { id: 'winRate' as const,      label: 'By Win Rate',    icon: <Percent size={14} />,    color: '#60a5fa' },
-    { id: 'profitFactor' as const, label: 'By RR / Factor', icon: <Zap size={14} />,        color: '#a78bfa' },
+    { id: 'pnl' as const,     label: 'By PnL',      icon: <TrendingUp size={14} />, color: '#34d399' },
+    { id: 'winRate' as const, label: 'By Win Rate',  icon: <Percent size={14} />,    color: '#60a5fa' },
   ];
 
   const sortedTraders = useMemo(() => {
-    let items = [...mockTraders];
-    if (searchTerm) items = items.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const items = [...mockTraders];
     items.sort((a, b) => b[activeCategory] - a[activeCategory]);
     return items;
-  }, [searchTerm, activeCategory]);
+  }, [activeCategory]);
 
   const podiumTraders = useMemo(() => {
     const top3 = sortedTraders.slice(0, 3);
@@ -75,49 +72,43 @@ export default function Leaderboard() {
     <div style={{ background: '#020617', color: '#f1f5f9', padding: '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
       <div>
 
-        {/* ── Category pills ── */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {/* ── Single controls row ── */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          {/* Category pills */}
           {categories.map(c => (
             <button key={c.id} onClick={() => setActiveCategory(c.id)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${activeCategory === c.id ? c.color + '60' : '#1e293b'}`, background: activeCategory === c.id ? c.color + '18' : '#0f172a', color: activeCategory === c.id ? c.color : '#64748b', transition: 'all 0.15s' }}>
               {c.icon}{c.label}
             </button>
           ))}
-        </div>
-
-        {/* ── Controls row ── */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
-              {['Daily', 'Weekly', 'Monthly'].map(p => (
-                <button key={p} onClick={() => setActivePeriod(p)} style={activePeriod === p ? btnActive : btnIdle}>{p}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', background: '#0f172a', border: '1px solid #1e293b', padding: '7px 12px', gap: 10 }}>
-              <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>‹</button>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>
-                {activePeriod === 'Daily' ? 'Today' : activePeriod === 'Weekly' ? 'This Week' : 'This Month'}
-              </span>
-              <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>›</button>
-            </div>
+          {/* Divider */}
+          <div style={{ width: 1, height: 22, background: '#1e293b', margin: '0 4px' }} />
+          {/* Period selector */}
+          <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
+            {['Daily', 'Weekly', 'Monthly'].map(p => (
+              <button key={p} onClick={() => setActivePeriod(p)} style={activePeriod === p ? btnActive : btnIdle}>{p}</button>
+            ))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Search */}
-            <div style={{ position: 'relative' }}>
-              <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search trader…"
-                style={{ background: '#0f172a', border: '1px solid #1e293b', color: '#cbd5e1', fontSize: 11, padding: '7px 10px 7px 28px', outline: 'none', width: 160, fontFamily: 'inherit' }} />
-            </div>
-            <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
-              {['Percentage', 'Currency'].map(o => (
-                <button key={o} onClick={() => setActiveMetric(o)} style={activeMetric === o ? btnActive : btnIdle}>{o}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
-              {['Demo', 'Real'].map(m => (
-                <button key={m} onClick={() => setActiveMode(m)} style={activeMode === m ? btnActive : btnIdle}>{m}</button>
-              ))}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', background: '#0f172a', border: '1px solid #1e293b', padding: '7px 12px', gap: 10 }}>
+            <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>‹</button>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>
+              {activePeriod === 'Daily' ? 'Today' : activePeriod === 'Weekly' ? 'This Week' : 'This Month'}
+            </span>
+            <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>›</button>
+          </div>
+          {/* Divider */}
+          <div style={{ width: 1, height: 22, background: '#1e293b', margin: '0 4px' }} />
+          {/* Metric toggle */}
+          <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
+            {['Percentage', 'Currency'].map(o => (
+              <button key={o} onClick={() => setActiveMetric(o)} style={activeMetric === o ? btnActive : btnIdle}>{o}</button>
+            ))}
+          </div>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
+            {['Demo', 'Real'].map(m => (
+              <button key={m} onClick={() => setActiveMode(m)} style={activeMode === m ? btnActive : btnIdle}>{m}</button>
+            ))}
           </div>
         </div>
 
