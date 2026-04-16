@@ -1600,6 +1600,12 @@ export default function TradeSyncPage() {
       <style>{landingStyles}</style>
       <div className="ts-page">
 
+        {/* ── Overview Banner ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: '12px 16px', marginBottom: 0, fontSize: 11, color: '#64748b', lineHeight: 1.6, fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif" }}>
+          <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong style={{ color: '#94a3b8', fontWeight: 700 }}>What is Trade Sync?</strong> — Trade Sync is an automated copy-trading engine that links multiple brokerage accounts and replicates positions in real time. You can operate as a <strong style={{ color: '#94a3b8' }}>Provider</strong> (broadcasting your trades to followers), a <strong style={{ color: '#94a3b8' }}>Follower</strong> (mirroring a master account with configurable lot sizing and risk controls), perform <strong style={{ color: '#94a3b8' }}>Self-Copy</strong> between your own accounts, or route signals directly from a <strong style={{ color: '#94a3b8' }}>Telegram</strong> channel. All copying happens through an isolated bridge — no withdrawal permissions or sensitive credentials are ever required.</span>
+        </div>
+
         {/* HERO */}
         <div className="ts-hero">
           <div>
