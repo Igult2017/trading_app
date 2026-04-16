@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { encrypt, safeDecrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
+import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
+import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
@@ -1489,11 +1491,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
 
-    // API polling (placeholder — connect to MetaStats or bridge here)
-    return res.json({
-      message: "API sync queued",
-      status: 'pending',
-    });
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: `No API adapter for platform: ${account.platform}` });
+    }
+
+    try {
+      // Default: sync last 30 days; caller can override with ?days=N
+      const days  = Math.min(parseInt(String(req.query.days ?? '30')), 365);
+      const toMs  = Date.now();
+      const fromMs = toMs - days * 86_400_000;
+
+      await storage.updateBrokerAccountSyncStatus(account.id, 'syncing', 0);
+
+      const rawTrades = await fetchTradesForAccount(account, fromMs, toMs);
+      const result    = await processIncomingTrades(account.id, account.userId, rawTrades);
+
+      return res.json({ ...result, platform: account.platform, daysScanned: days });
+    } catch (err: any) {
+      await storage.updateBrokerAccountSyncStatus(account.id, 'error', 0);
+      return res.status(500).json({ error: err.message ?? 'Sync failed' });
+    }
+  });
+
+  // ── cTrader OAuth2 flow ───────────────────────────────────────────────────────
+
+  /** Step 1: redirect user to cTrader authorization page. */
+  app.get("/api/broker/ctrader/connect", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const accountId = String(req.query.accountId ?? '');
+    if (!accountId) return res.status(400).json({ error: "accountId required" });
+
+    try {
+      const url = getCTraderAuthUrl(accountId);
+      return res.json({ url });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /** Step 2: OAuth callback — exchange code, store tokens, fetch cTrader accounts. */
+  app.get("/api/broker/ctrader/callback", async (req: Request, res: Response) => {
+    const { code, state: accountId, error: oauthError } = req.query as Record<string, string>;
+
+    if (oauthError) {
+      return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(oauthError)}`);
+    }
+    if (!code || !accountId) {
+      return res.redirect('/accounts?ctrader_error=missing_code');
+    }
+
+    try {
+      const tokens   = await exchangeCodeForTokens(code);
+      const ctAccounts = await getCTraderAccounts(tokens.accessToken);
+
+      // Pick the first cTrader account (or let user choose later)
+      const ct = ctAccounts[0];
+      const ctraderId = String(ct?.ctidTraderAccountId ?? '');
+
+      // Store tokens encrypted in passwordEnc as JSON
+      const credJson = JSON.stringify({
+        accessToken:  tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        ctraderId,
+      });
+
+      await storage.updateBrokerAccount(accountId, {
+        loginId:     ctraderId || accountId,
+        passwordEnc: encrypt(credJson),
+        syncStatus:  'ok',
+      });
+
+      return res.redirect('/accounts?ctrader_connected=1');
+    } catch (err: any) {
+      console.error('[cTrader OAuth]', err);
+      return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(err.message)}`);
+    }
   });
 
   /** Get the EA webhook URL for an account. */

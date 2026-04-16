@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Share2, Pencil, Trash2, Copy, Check } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
@@ -69,6 +69,15 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+// ── Platform credential config ────────────────────────────────────────────────
+const WEBHOOK_PLATFORMS  = new Set(['mt4', 'mt5', 'matchtrader', 'dxtrade', 'tradelocker', 'charlesschwab']);
+const CRYPTO_PLATFORMS   = new Set(['binance', 'bybit', 'bitget', 'bitunix', 'coinbase']);
+const CTRADER_PLATFORM   = 'ctrader';
+
+function platformConnType(pid: string): 'webhook' | 'api' {
+  return WEBHOOK_PLATFORMS.has(pid) ? 'webhook' : 'api';
+}
+
 // ── Add Account Form (step 2 after platform selection) ───────────────────────
 interface AddFormProps {
   platform: string;
@@ -78,23 +87,50 @@ interface AddFormProps {
 
 function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   const [name,        setName]        = useState("");
-  const [loginId,     setLoginId]     = useState("");
-  const [password,    setPassword]    = useState("");
-  const [server,      setServer]      = useState("");
+  const [loginId,     setLoginId]     = useState("");     // account no. / API key
+  const [secret,      setSecret]      = useState("");     // API secret
+  const [passphrase,  setPassphrase]  = useState("");     // Bitget only
+  const [server,      setServer]      = useState("");     // MT4/5 server or Binance symbol list
   const [accountType, setAccountType] = useState<"demo"|"live"|"funded">("demo");
-  const [connType,    setConnType]    = useState<"webhook"|"api">("webhook");
   const [busy,        setBusy]        = useState(false);
   const [error,       setError]       = useState("");
 
+  const isMT    = WEBHOOK_PLATFORMS.has(platform);
+  const isCT    = platform === CTRADER_PLATFORM;
+  const isCrypto = CRYPTO_PLATFORMS.has(platform);
+  const connType = platformConnType(platform);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name || !loginId) { setError("Name and Account Number are required."); return; }
+    if (!name)    { setError("Display name is required."); return; }
+    if (!isCT && !loginId) { setError(isCrypto ? "API Key is required." : "Account Number is required."); return; }
+
     setBusy(true); setError("");
     try {
-      const res = await fetch("/api/broker-accounts", {
+      // Build password payload: for crypto, encrypt as JSON
+      let passwordPayload: string | undefined;
+      if (isCrypto) {
+        const creds: Record<string, string> = { secret };
+        if (passphrase) creds.passphrase = passphrase;
+        passwordPayload = JSON.stringify(creds);
+      } else if (isMT) {
+        passwordPayload = secret || undefined;
+      }
+
+      const body: Record<string, any> = {
+        name,
+        loginId:         isCT ? `pending_${Date.now()}` : loginId,
+        password:        passwordPayload,
+        server:          server || undefined,
+        platform,
+        accountType,
+        connectionType:  connType,
+      };
+
+      const res  = await fetch("/api/broker-accounts", {
         method: "POST",
         headers: await authHeaders(),
-        body: JSON.stringify({ name, loginId, password: password || undefined, server: server || undefined, platform, accountType, connectionType: connType }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to add account"); return; }
@@ -108,48 +144,84 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
   const inp: CSSProperties = { background: "#0d1827", border: "1px solid #1e3050", color: "#e2e8f0", borderRadius: 0, padding: "9px 12px", fontSize: 13, width: "100%", outline: "none" };
   const lbl: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
+  const pname = PLATFORMS.find(p => p.id === platform)?.name ?? platform;
 
   return (
     <form onSubmit={handleSubmit} style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>
-        Platform: <strong style={{ color: "#38bdf8" }}>{PLATFORMS.find(p => p.id === platform)?.name ?? platform}</strong>
+        Platform: <strong style={{ color: "#38bdf8" }}>{pname}</strong>
+        <span style={{ marginLeft: 10, fontSize: 11, color: connType === 'webhook' ? '#facc15' : '#4ade80', fontWeight: 600 }}>
+          {connType === 'webhook' ? '⚡ EA Webhook' : '🔗 REST API'}
+        </span>
       </div>
 
-      <div><label style={lbl}>Display Name *</label><input style={inp} placeholder="e.g. FTMO Challenge" value={name} onChange={e => setName(e.target.value)} required /></div>
-      <div><label style={lbl}>Account Number *</label><input style={inp} placeholder="e.g. 10676855" value={loginId} onChange={e => setLoginId(e.target.value)} required /></div>
-      <div><label style={lbl}>Broker Server</label><input style={inp} placeholder="e.g. PoTrade-Server" value={server} onChange={e => setServer(e.target.value)} /></div>
-      <div><label style={lbl}>Password (optional — for API sync)</label><input style={inp} type="password" placeholder="MT5 investor password" value={password} onChange={e => setPassword(e.target.value)} /></div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <label style={lbl}>Account Type</label>
-          <select style={inp} value={accountType} onChange={e => setAccountType(e.target.value as any)}>
-            <option value="demo">DEMO</option>
-            <option value="live">LIVE</option>
-            <option value="funded">FUNDED</option>
-          </select>
-        </div>
-        <div>
-          <label style={lbl}>Connection</label>
-          <select style={inp} value={connType} onChange={e => setConnType(e.target.value as any)}>
-            <option value="webhook">EA Webhook</option>
-            <option value="api">API</option>
-          </select>
-        </div>
+      {/* Common */}
+      <div><label style={lbl}>Display Name *</label>
+        <input style={inp} placeholder={`e.g. My ${pname} Account`} value={name} onChange={e => setName(e.target.value)} required />
       </div>
 
-      {connType === "webhook" && (
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "12px 14px", fontSize: 12, color: "#64748b" }}>
-          After adding, you'll get a webhook URL to paste into your MT5 EA. The EA will push trades to FSD Journal automatically.
+      {/* MT4/MT5/webhook platforms */}
+      {isMT && (<>
+        <div><label style={lbl}>Account Number *</label>
+          <input style={inp} placeholder="e.g. 10676855" value={loginId} onChange={e => setLoginId(e.target.value)} required />
+        </div>
+        <div><label style={lbl}>Broker Server</label>
+          <input style={inp} placeholder="e.g. ICMarkets-Live01" value={server} onChange={e => setServer(e.target.value)} />
+        </div>
+        <div><label style={lbl}>Investor Password (optional)</label>
+          <input style={inp} type="password" placeholder="Read-only investor password" value={secret} onChange={e => setSecret(e.target.value)} />
+        </div>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+          After adding, you'll receive a webhook URL. Install the EA on any chart — trades sync automatically.
+        </div>
+      </>)}
+
+      {/* Crypto exchanges */}
+      {isCrypto && (<>
+        <div><label style={lbl}>API Key *</label>
+          <input style={inp} placeholder="Paste your API key" value={loginId} onChange={e => setLoginId(e.target.value)} required />
+        </div>
+        <div><label style={lbl}>API Secret *</label>
+          <input style={inp} type="password" placeholder="Paste your API secret" value={secret} onChange={e => setSecret(e.target.value)} required />
+        </div>
+        {platform === 'bitget' && (
+          <div><label style={lbl}>Passphrase *</label>
+            <input style={inp} type="password" placeholder="Bitget API passphrase" value={passphrase} onChange={e => setPassphrase(e.target.value)} required />
+          </div>
+        )}
+        {platform === 'binance' && (
+          <div><label style={lbl}>Trading Pairs (Spot only — leave blank for Futures)</label>
+            <input style={inp} placeholder="e.g. BTCUSDT, ETHUSDT" value={server} onChange={e => setServer(e.target.value)} />
+          </div>
+        )}
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+          Use a <strong style={{ color: "#38bdf8" }}>read-only API key</strong> — FSD Journal only reads your trade history, never places orders.
+        </div>
+      </>)}
+
+      {/* cTrader — OAuth flow */}
+      {isCT && (
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div>cTrader uses OAuth — after adding the account you'll be redirected to cTrader to authorize access.</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>No passwords are stored. FSD Journal receives a read-only access token.</div>
         </div>
       )}
+
+      <div>
+        <label style={lbl}>Account Type</label>
+        <select style={inp} value={accountType} onChange={e => setAccountType(e.target.value as any)}>
+          <option value="demo">DEMO</option>
+          <option value="live">LIVE</option>
+          <option value="funded">FUNDED</option>
+        </select>
+      </div>
 
       {error && <div style={{ color: "#ef4444", fontSize: 12 }}>{error}</div>}
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button type="button" onClick={onCancel} style={{ background: "none", border: "1px solid #1e3050", color: "#94a3b8", padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
-        <button type="submit" disabled={busy} style={{ background: "#1d6ed8", border: "none", color: "white", padding: "9px 20px", cursor: busy ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: busy ? 0.7 : 1 }}>
-          {busy ? "Adding…" : "Add Account"}
+        <button type="submit" disabled={busy} style={{ background: "linear-gradient(to right,#1d4ed8,#3b82f6)", border: "none", color: "white", padding: "9px 20px", cursor: busy ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+          {busy ? "Adding…" : isCT ? (<>Authorize with cTrader <ExternalLink size={13} /></>) : "Add Account"}
         </button>
       </div>
     </form>
@@ -236,6 +308,7 @@ export default function AccountsPage({ openModal = false }: { openModal?: boolea
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [showForm,    setShowForm]    = useState(false);
   const [webhookAcc,  setWebhookAcc]  = useState<BrokerAccount | null>(null);
+  const [info,        setInfo]        = useState<string | null>(null);
   const [pageSize,    setPageSize]    = useState(10);
   const [page,        setPage]        = useState(1);
   const [isMobile,    setIsMobile]    = useState(false);
@@ -248,6 +321,19 @@ export default function AccountsPage({ openModal = false }: { openModal?: boolea
 
   useEffect(() => { if (session) fetchAccounts(); }, [session]);
   useEffect(() => { setModalOpen(openModal); }, [openModal]);
+
+  // Handle cTrader OAuth callback query params
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('ctrader_connected')) {
+      setInfo('cTrader connected! Click Sync on the account to import your trades.');
+      window.history.replaceState({}, '', '/accounts');
+      fetchAccounts();
+    } else if (p.get('ctrader_error')) {
+      setInfo(`cTrader error: ${decodeURIComponent(p.get('ctrader_error') ?? '')}`);
+      window.history.replaceState({}, '', '/accounts');
+    }
+  }, []);
 
   async function fetchAccounts() {
     setLoading(true);
@@ -271,12 +357,23 @@ export default function AccountsPage({ openModal = false }: { openModal?: boolea
     fetchAccounts();
   }
 
-  function handleCreated(account: BrokerAccount) {
+  async function handleCreated(account: BrokerAccount) {
     setAccounts(prev => [account, ...prev]);
     setModalOpen(false);
     setShowForm(false);
     setSelectedPlatform(null);
-    if (account.connectionType === "webhook") setWebhookAcc(account);
+
+    if (account.connectionType === "webhook") { setWebhookAcc(account); return; }
+
+    // cTrader: kick off OAuth redirect
+    if (account.platform === "ctrader") {
+      try {
+        const res  = await fetch(`/api/broker/ctrader/connect?accountId=${account.id}`, { headers: await authHeaders() });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+        else setInfo(`cTrader connect failed: ${data.error}`);
+      } catch (err: any) { setInfo(`cTrader connect failed: ${err.message}`); }
+    }
   }
 
   const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
@@ -292,6 +389,14 @@ export default function AccountsPage({ openModal = false }: { openModal?: boolea
         <span>Issues syncing? Try an account history repair</span>
         <span>🔧</span>
       </div>
+
+      {/* OAuth / info message */}
+      {info && (
+        <div style={{ background: "#0c2a1a", border: "1px solid #166534", padding: "10px 24px", fontSize: 13, color: "#4ade80", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{info}</span>
+          <button onClick={() => setInfo(null)} style={{ background: "none", border: "none", color: "#4ade80", cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+      )}
 
       <div style={{ padding: isMobile ? "0 12px 20px" : "0 24px 24px", flex: 1 }}>
         {/* Tab row */}
