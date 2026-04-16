@@ -1346,22 +1346,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const webhookToken = randomBytes(24).toString('hex');
 
     try {
+      // Auto-create a trading session for this broker account so auto-journaled
+      // trades are immediately visible in all session-filtered views.
+      const startingBal = req.body.startingBalance ?? '0.00';
+      const session = await storage.createSession({
+        userId:          user.id,
+        sessionName:     name,
+        startingBalance: String(parseFloat(String(startingBal)).toFixed(2)),
+        status:          'active',
+      });
+
       const account = await storage.createBrokerAccount({
-        userId:         user.id,
+        userId:           user.id,
         name,
         loginId,
         passwordEnc,
         server,
         platform,
-        accountType:    accountType    ?? 'demo',
-        connectionType: connectionType ?? 'webhook',
-        currency:       currency       ?? 'USD',
+        accountType:      accountType    ?? 'demo',
+        connectionType:   connectionType ?? 'webhook',
+        currency:         currency       ?? 'USD',
         webhookToken,
-        syncStatus: 'pending',
+        defaultSessionId: session.id,
+        syncStatus:       'pending',
       });
 
       const { passwordEnc: _, ...safe } = account;
-      return res.status(201).json({ ...safe, webhookUrl: `/api/broker/webhook/${webhookToken}` });
+      return res.status(201).json({ ...safe, webhookUrl: `/api/broker/webhook/${webhookToken}`, sessionId: session.id });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

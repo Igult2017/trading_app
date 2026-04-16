@@ -455,7 +455,7 @@ export type InterestRate = typeof interestRates.$inferSelect;
 
 export const tradingSessions = pgTable("trading_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
+  userId: varchar("user_id"),  // Supabase auth UID — no FK constraint
   sessionName: text("session_name").notNull(),
   startingBalance: decimal("starting_balance", { precision: 12, scale: 2 }).notNull(),
   status: text("status").default("active"),
@@ -485,8 +485,8 @@ export type TradingSession = typeof tradingSessions.$inferSelect;
 
 export const journalEntries = pgTable("journal_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
-  sessionId: varchar("session_id").references(() => tradingSessions.id),
+  userId: varchar("user_id"),        // Supabase auth UID — no FK, supports both legacy and Supabase users
+  sessionId: varchar("session_id"),  // soft reference to trading_sessions.id
 
   instrument: text("instrument"),
   pairCategory: text("pair_category"),
@@ -568,9 +568,10 @@ export const brokerAccounts = pgTable("broker_accounts", {
   syncStatus:     text("sync_status").default("pending"), // pending|syncing|ok|error
   lastSyncAt:     timestamp("last_sync_at"),
   lastSyncError:  text("last_sync_error"),
-  webhookToken:   text("webhook_token"),                 // secret token for EA webhook
-  tradeCount:     integer("trade_count").default(0),
-  createdAt:      timestamp("created_at").defaultNow(),
+  webhookToken:      text("webhook_token"),              // secret token for EA webhook
+  defaultSessionId:  varchar("default_session_id"),      // auto-created session for this account
+  tradeCount:        integer("trade_count").default(0),
+  createdAt:         timestamp("created_at").defaultNow(),
   updatedAt:      timestamp("updated_at").defaultNow(),
 });
 
