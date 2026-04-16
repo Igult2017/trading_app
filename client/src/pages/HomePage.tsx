@@ -500,7 +500,7 @@ export default function HomePage() {
         </section>
 
         {/* Testimonials */}
-        <section id="testimonials" style={{ padding: '60px 24px', background: t.sectionAlt }}>
+        <section id="reviews" style={{ padding: '60px 24px', background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             <h2 style={{ ...oswald, fontSize: 36, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose FSD Journal</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
