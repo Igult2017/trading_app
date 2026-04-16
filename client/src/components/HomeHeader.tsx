@@ -35,7 +35,7 @@ function TickerTape() {
   );
 }
 
-const NAV_LINKS: { label: string; href: string }[] = [
+const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
   { label: "Reviews", href: "/#reviews" },
@@ -43,8 +43,8 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Assets", href: "/#assets" },
   { label: "Blog", href: "/blog" },
   { label: "TSC", href: "/tsc" },
-  { label: "Login", href: "/#login" },
-  { label: "Signup", href: "/#signup" },
+  { label: "Login", href: "/auth", newTab: true },
+  { label: "Signup", href: "/auth", newTab: true },
 ];
 
 interface HomeHeaderProps {
@@ -92,32 +92,31 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
         </Link>
 
         <div className="hh-nav-links">
-          {NAV_LINKS.map(({ label, href }) => {
-            const isActive = activePath === href || (href !== "/" && activePath?.startsWith(href));
-            return (
-              <Link
-                key={label}
-                href={href}
-                className={`hh-nav-a${isActive ? " active" : ""}`}
-                style={{ color: isActive ? "#3b82f6" : navLink }}
-                onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  if (!isActive) {
-                    e.currentTarget.style.color = navLinkHover;
-                    e.currentTarget.style.borderColor = navBorder;
-                    e.currentTarget.style.background = dm ? "#0c1219" : "#f1f5f9";
-                  }
-                }}
-                onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  if (!isActive) {
-                    e.currentTarget.style.color = navLink;
-                    e.currentTarget.style.borderColor = "transparent";
-                    e.currentTarget.style.background = "none";
-                  }
-                }}
-              >
-                {label}
-              </Link>
-            );
+          {NAV_LINKS.map(({ label, href, newTab }) => {
+            const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
+            const linkProps = {
+              key: label,
+              href,
+              className: `hh-nav-a${isActive ? " active" : ""}`,
+              style: { color: isActive ? "#3b82f6" : navLink } as React.CSSProperties,
+              onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = navLinkHover;
+                  e.currentTarget.style.borderColor = navBorder;
+                  e.currentTarget.style.background = dm ? "#0c1219" : "#f1f5f9";
+                }
+              },
+              onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = navLink;
+                  e.currentTarget.style.borderColor = "transparent";
+                  e.currentTarget.style.background = "none";
+                }
+              },
+            };
+            return newTab
+              ? <a {...linkProps} target="_blank" rel="noopener noreferrer">{label}</a>
+              : <Link {...linkProps}>{label}</Link>;
           })}
           <button
             onClick={() => setDarkMode(!dm)}
@@ -149,18 +148,16 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
 
       {mobileMenuOpen && (
         <div className="hh-mob-dropdown open" style={{ background: dm ? "#0c1219" : "#ffffff", borderBottom: `1px solid ${navBorder}` }}>
-          {NAV_LINKS.map(({ label, href }) => (
-            <Link
-              key={label}
-              href={href}
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ display: "block", padding: "13px 24px", borderBottom: `1px solid ${navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", color: textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: "none" }}
-              onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = text; }}
-              onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = textMuted; }}
-            >
-              {label}
-            </Link>
-          ))}
+          {NAV_LINKS.map(({ label, href, newTab }) => {
+            const mobStyle: React.CSSProperties = { display: "block", padding: "13px 24px", borderBottom: `1px solid ${navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", color: textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: "none" };
+            const mobEvents = {
+              onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = text; },
+              onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = textMuted; },
+            };
+            return newTab
+              ? <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={mobStyle} {...mobEvents}>{label}</a>
+              : <Link key={label} href={href} onClick={() => setMobileMenuOpen(false)} style={mobStyle} {...mobEvents}>{label}</Link>;
+          })}
         </div>
       )}
     </div>
