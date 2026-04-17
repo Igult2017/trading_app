@@ -204,6 +204,11 @@ export const userProfiles = pgTable("user_profiles", {
   id:        varchar("id").primaryKey(),
   email:     text("email").notNull(),
   role:      text("role").notNull().default("user"),
+  fullName:  text("full_name").default(''),
+  country:   text("country").default(''),
+  plan:      text("plan").default('Free'),
+  status:    text("status").default('Active'),
+  winRate:   text("win_rate").default(''),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

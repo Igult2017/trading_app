@@ -207,6 +207,222 @@ const StatCard = ({ title, value, change, trend, icon: Icon }) => (
   </div>
 );
 
+// ─── USERS SECTION ───────────────────────────────────────────────────────────
+const flagEmoji = (code: string) => {
+  if (!code || code.length !== 2) return '🌐';
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0)));
+};
+const PLAN_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+  Free:       { bg: C.border,                  color: '#94a3b8',  border: C.border2 },
+  Pro:        { bg: 'rgba(99,102,241,0.12)',    color: C.indigoL,  border: 'rgba(99,102,241,0.3)' },
+  Enterprise: { bg: 'rgba(245,158,11,0.12)',    color: C.amberL,   border: 'rgba(245,158,11,0.3)' },
+};
+const STATUS_COLOR: Record<string, string> = { Active: C.greenL, Inactive: '#64748b', Banned: C.redL };
+
+const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; apiUsers: any[]; setApiUsers: (fn: any) => void; getAdminToken: () => Promise<string | null> }) => {
+  const [search, setSearch] = useState('');
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<any | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+
+  const filtered = apiUsers.filter(u =>
+    (u.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.country || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const updateProfile = async (userId: string, patch: Record<string, string>) => {
+    const token = await getAdminToken();
+    if (!token) return;
+    await fetch(`/api/admin/users/${userId}/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(patch),
+    });
+    setApiUsers((prev: any[]) => prev.map(u => u.id === userId ? { ...u, ...Object.fromEntries(Object.entries(patch).map(([k, v]) => [k === 'win_rate' ? 'win_rate' : k, v])) } : u));
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    const token = await getAdminToken();
+    if (!token) return;
+    await fetch(`/api/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ role: newRole }),
+    });
+    setApiUsers((prev: any[]) => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+  };
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    const token = await getAdminToken();
+    if (token) {
+      await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      });
+    }
+    setInviting(false);
+    setShowInvite(false);
+    setInviteEmail('');
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+      {/* Header bar */}
+      <div style={{ ...cs, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search traders..." style={{ ...inp, width: bp.isMobile ? '100%' : '220px', paddingLeft: '34px', fontSize: '13px' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ color: '#475569', fontSize: '12px' }}>{filtered.length} traders</span>
+          <button onClick={() => setShowInvite(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '12px', border: 'none', whiteSpace: 'nowrap', fontWeight: 700 }}>
+            <UserPlus size={14} /> Add User
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ ...cs, overflowX: 'auto', marginTop: '3px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+          <thead>
+            <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
+              {['User', 'Country', 'Plan', 'Status', 'Win Rate', 'Last Login', ''].map((h, i) => (
+                <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(u => {
+              const planStyle = PLAN_STYLE[u.plan] || PLAN_STYLE.Free;
+              const statusColor = STATUS_COLOR[u.status] || '#64748b';
+              const lastLogin = u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : 'Never';
+              const isMenuOpen = menuOpenId === u.id;
+              return (
+                <tr key={u.id} style={{ borderTop: `1px solid ${C.bg}`, position: 'relative' }} onClick={() => setMenuOpenId(null)}>
+                  <td style={{ padding: '13px 16px' }}>
+                    <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name || '—'}</p>
+                    <p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
+                  </td>
+                  <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
+                    {u.country ? (
+                      <span style={{ color: '#cbd5e1', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '16px' }}>{flagEmoji(u.country)}</span> {u.country.toUpperCase()}
+                      </span>
+                    ) : <span style={{ color: '#334155', fontSize: '12px' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '3px 8px', background: planStyle.bg, color: planStyle.color, border: `1px solid ${planStyle.border}`, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>{u.plan || 'Free'}</span>
+                  </td>
+                  <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: statusColor, fontSize: '12px', fontWeight: 600 }}>
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, flexShrink: 0, display: 'inline-block', boxShadow: `0 0 5px ${statusColor}60` }} />
+                      {u.status || 'Active'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <span style={{ color: u.win_rate ? C.blueL : '#334155', fontSize: '13px', fontWeight: u.win_rate ? 700 : 400 }}>{u.win_rate || '—'}</span>
+                  </td>
+                  <td style={{ padding: '13px 16px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>{lastLogin}</td>
+                  <td style={{ padding: '13px 16px', textAlign: 'right', position: 'relative' }}>
+                    <button onClick={e => { e.stopPropagation(); setMenuOpenId(isMenuOpen ? null : u.id); }}
+                      style={{ ...btn, background: 'transparent', color: '#475569', border: 'none', padding: '4px 8px', fontSize: '16px', lineHeight: 1 }}>⋮</button>
+                    {isMenuOpen && (
+                      <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: '12px', top: '100%', zIndex: 30, background: '#1e293b', border: `1px solid ${C.border2}`, minWidth: '160px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+                        {(['Free', 'Pro', 'Enterprise'] as const).map(p => (
+                          <button key={p} onClick={() => { updateProfile(u.id, { plan: p }); setMenuOpenId(null); }}
+                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.plan === p ? 'rgba(79,70,229,0.1)' : 'transparent', color: u.plan === p ? C.indigoL : '#94a3b8', border: 'none', fontSize: '12px' }}>Plan: {p}</button>
+                        ))}
+                        <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
+                        {(['Active', 'Inactive', 'Banned'] as const).map(s => (
+                          <button key={s} onClick={() => { updateProfile(u.id, { status: s }); setMenuOpenId(null); }}
+                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.status === s ? 'rgba(79,70,229,0.1)' : 'transparent', color: u.status === s ? C.indigoL : STATUS_COLOR[s], border: 'none', fontSize: '12px' }}>Status: {s}</button>
+                        ))}
+                        <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
+                        <button onClick={() => { handleRoleChange(u.id, u.role === 'admin' ? 'user' : 'admin'); setMenuOpenId(null); }}
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.amberL, border: 'none', fontSize: '12px' }}>
+                          {u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
+                        </button>
+                        <button onClick={() => { setEditUser(u); setMenuOpenId(null); }}
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: '#94a3b8', border: 'none', fontSize: '12px' }}>Edit Profile</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: '32px', color: '#475569', fontSize: '13px', textAlign: 'center' }}>
+                {search ? 'No traders match your search.' : 'No users found.'}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Edit Profile modal */}
+      {editUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '400px', padding: '24px', border: `1px solid ${C.border2}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '16px', margin: 0 }}>Edit Trader Profile</h3>
+              <button onClick={() => setEditUser(null)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div><label style={{ ...lbl }}>Country Code (e.g. US, SG)</label>
+                <input defaultValue={editUser.country || ''} id="ep-country" placeholder="US" style={{ ...inp }} /></div>
+              <div><label style={{ ...lbl }}>Win Rate (e.g. 68%)</label>
+                <input defaultValue={editUser.win_rate || ''} id="ep-winrate" placeholder="68%" style={{ ...inp }} /></div>
+              <div><label style={{ ...lbl }}>Plan</label>
+                <select id="ep-plan" defaultValue={editUser.plan || 'Free'} style={{ ...inp, cursor: 'pointer' }}>
+                  {['Free', 'Pro', 'Enterprise'].map(p => <option key={p} value={p}>{p}</option>)}
+                </select></div>
+              <div><label style={{ ...lbl }}>Status</label>
+                <select id="ep-status" defaultValue={editUser.status || 'Active'} style={{ ...inp, cursor: 'pointer' }}>
+                  {['Active', 'Inactive', 'Banned'].map(s => <option key={s} value={s}>{s}</option>)}
+                </select></div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button onClick={() => setEditUser(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => {
+                const country = (document.getElementById('ep-country') as HTMLInputElement)?.value || '';
+                const win_rate = (document.getElementById('ep-winrate') as HTMLInputElement)?.value || '';
+                const plan = (document.getElementById('ep-plan') as HTMLSelectElement)?.value || 'Free';
+                const status = (document.getElementById('ep-status') as HTMLSelectElement)?.value || 'Active';
+                updateProfile(editUser.id, { country, win_rate, plan, status });
+                setEditUser(null);
+              }} style={{ ...btn, flex: 1, padding: '10px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite user modal */}
+      {showInvite && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '24px', border: `1px solid ${C.border2}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '16px', margin: 0 }}>Invite User</h3>
+              <button onClick={() => setShowInvite(false)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
+            </div>
+            <label style={{ ...lbl }}>Email Address</label>
+            <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="trader@example.com" style={{ ...inp, marginBottom: '16px' }} />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setShowInvite(false)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleInvite} disabled={inviting} style={{ ...btn, flex: 1, padding: '10px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px', opacity: inviting ? 0.6 : 1 }}>{inviting ? 'Sending…' : 'Send Invite'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
 const CustomerCareSection = ({ bp, apiUsers = [] }) => {
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -1470,7 +1686,6 @@ export default function AdminPanel() {
 
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
   const dashMainCols = bp.isDesktop ? '2fr 1fr' : '1fr';
-  const userTableScrollable = !bp.isDesktop;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1509,57 +1724,7 @@ export default function AdminPanel() {
         </div>
       );
 
-      case 'users': return (
-        <div style={{ ...cs, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-              <input type="text" placeholder="Search users..." style={{ ...inp, width: bp.isMobile ? '100%' : '200px', paddingLeft: '32px' }} />
-            </div>
-            <span style={{ color: '#475569', fontSize: '12px', fontFamily: FONT }}>{apiUsers.length} users</span>
-          </div>
-          <div style={{ overflowX: userTableScrollable ? 'auto' : 'visible' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
-              <thead>
-                <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
-                  {['User', 'Role', 'Joined', 'Last Login', 'Change Role'].map(h => (
-                    <th key={h} style={{ padding: '11px 18px', textAlign: h === 'Change Role' ? 'right' : 'left', color: C.muted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: FONT, whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {apiUsers.map(u => (
-                  <tr key={u.id} style={{ borderTop: `1px solid ${C.bg}` }}>
-                    <td style={{ padding: '13px 18px', fontFamily: FONT }}>
-                      <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name || '—'}</p>
-                      <p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
-                    </td>
-                    <td style={{ padding: '13px 18px', fontFamily: FONT }}>
-                      <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: u.role === 'admin' ? 'rgba(245,158,11,0.1)' : C.border, color: u.role === 'admin' ? C.amberL : '#94a3b8', whiteSpace: 'nowrap' }}>{u.role}</span>
-                    </td>
-                    <td style={{ padding: '13px 18px', color: '#475569', fontSize: '12px', fontFamily: FONT, whiteSpace: 'nowrap' }}>
-                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
-                    </td>
-                    <td style={{ padding: '13px 18px', color: '#475569', fontSize: '12px', fontFamily: FONT, whiteSpace: 'nowrap' }}>
-                      {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}
-                    </td>
-                    <td style={{ padding: '13px 18px', textAlign: 'right' }}>
-                      <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)}
-                        style={{ background: '#1e293b', border: `1px solid ${C.border}`, color: '#94a3b8', fontSize: '11px', padding: '4px 8px', cursor: 'pointer', fontFamily: FONT }}>
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-                {apiUsers.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '24px 18px', color: '#475569', fontSize: '13px', textAlign: 'center', fontFamily: FONT }}>No users found.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
+      case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'blog': return <BlogSection bp={bp} />;
       case 'marketing': return <MarketingSection bp={bp} />;
       case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} />;

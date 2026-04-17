@@ -1691,23 +1691,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [supabaseResult, dbProfiles] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-        db.select({ id: userProfiles.id, role: userProfiles.role }).from(userProfiles),
+        db.select({
+          id: userProfiles.id, role: userProfiles.role,
+          country: userProfiles.country, plan: userProfiles.plan,
+          status: userProfiles.status, winRate: userProfiles.winRate,
+        }).from(userProfiles),
       ]);
 
       if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
 
-      const roleMap = new Map(dbProfiles.map(p => [p.id, p.role]));
+      const profileMap = new Map(dbProfiles.map(p => [p.id, p]));
 
-      const result = supabaseResult.data.users.map(u => ({
-        id:              u.id,
-        email:           u.email ?? '',
-        full_name:       u.user_metadata?.full_name ?? '',
-        role:            roleMap.get(u.id) ?? 'user',
-        created_at:      u.created_at,
-        last_sign_in_at: u.last_sign_in_at ?? null,
-      }));
+      const result = supabaseResult.data.users.map(u => {
+        const profile = profileMap.get(u.id);
+        return {
+          id:              u.id,
+          email:           u.email ?? '',
+          full_name:       u.user_metadata?.full_name ?? '',
+          role:            profile?.role ?? 'user',
+          country:         profile?.country ?? '',
+          plan:            profile?.plan ?? 'Free',
+          status:          profile?.status ?? 'Active',
+          win_rate:        profile?.winRate ?? '',
+          created_at:      u.created_at,
+          last_sign_in_at: u.last_sign_in_at ?? null,
+        };
+      });
 
       return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: update trader profile (plan, status, country, win_rate) ─────────────
+  app.patch("/api/admin/users/:userId/profile", requireAdmin, async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { country, plan, status, win_rate } = req.body as Record<string, string>;
+    const allowed = ['Free', 'Pro', 'Enterprise'];
+    const allowedStatus = ['Active', 'Inactive', 'Banned'];
+    if (plan && !allowed.includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (status && !allowedStatus.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    try {
+      await db.update(userProfiles)
+        .set({
+          ...(country !== undefined && { country }),
+          ...(plan    !== undefined && { plan }),
+          ...(status  !== undefined && { status }),
+          ...(win_rate !== undefined && { winRate: win_rate }),
+        })
+        .where(eq(userProfiles.id, userId));
+      return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -1774,6 +1808,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: invite user by email ───────────────────────────────────────────────
+  app.post("/api/admin/invite", requireAdmin, async (req: Request, res: Response) => {
+    const { email } = req.body as { email: string };
+    if (!email?.trim()) return res.status(400).json({ error: 'email is required' });
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Auth service not configured' });
+    try {
+      const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email.trim());
+      if (error) return res.status(400).json({ error: error.message });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin: change a user's role ───────────────────────────────────────────────
   app.patch("/api/admin/users/:userId/role", requireAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;
@@ -1829,6 +1877,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `);
   } catch (e: any) {
     console.warn('[Blog] Could not ensure blog_posts table:', e.message);
+  }
+
+  // ── Ensure user_profiles has trader profile columns ──────────────────────────
+  try {
+    await db.execute(sql`
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name   TEXT DEFAULT '';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country     TEXT DEFAULT '';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan        TEXT DEFAULT 'Free';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status      TEXT DEFAULT 'Active';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate    TEXT DEFAULT '';
+    `);
+  } catch (e: any) {
+    console.warn('[UserProfiles] Could not add trader columns:', e.message);
   }
 
   // ── Blog: public list (published only) ───────────────────────────────────────
