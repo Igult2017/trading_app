@@ -312,6 +312,7 @@ export type TelegramSubscriber = typeof telegramSubscribers.$inferSelect;
 
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
   type: text("type").notNull(),
   title: text("title").notNull(),
   message: text("message").notNull(),
