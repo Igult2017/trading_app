@@ -95,7 +95,8 @@ const SOCIAL_PLATFORMS = [
 ];
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
-const EMPTY_FORM = { title: '', section: 'blog', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [], shareOn: [], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
+const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
+const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [], shareOn: [], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -551,6 +552,7 @@ const BlogSection = ({ bp }) => {
         .then(data => {
           setPosts(data.map((p: any) => ({
             id: p.id, title: p.title, section: p.section ?? 'blog',
+            category: p.category ?? 'Analysis',
             status: p.status ?? 'Draft', author: p.author ?? 'Admin',
             date: p.date, signal: p.signalData ?? p.signal_data ?? null,
           })));
@@ -561,7 +563,7 @@ const BlogSection = ({ bp }) => {
 
   const filtered = activeSection === 'all' ? posts : posts.filter(p => p.section === activeSection);
   const openNew = () => { setEditPost(null); setForm(EMPTY_FORM); setModalTab('post'); setShowModal(true); };
-  const openEdit = (post: any) => { setEditPost(post); setForm({ ...EMPTY_FORM, title: post.title, section: post.section, status: post.status, signal: post.signal || EMPTY_FORM.signal }); setModalTab('post'); setShowModal(true); };
+  const openEdit = (post: any) => { setEditPost(post); setForm({ ...EMPTY_FORM, title: post.title, section: post.section, category: post.category || 'Analysis', status: post.status, signal: post.signal || EMPTY_FORM.signal }); setModalTab('post'); setShowModal(true); };
 
   const handleSave = async () => {
     if (!form.title.trim() || saving) return;
@@ -572,6 +574,7 @@ const BlogSection = ({ bp }) => {
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const body = JSON.stringify({
         title: form.title, section: form.section, status: form.status,
+        category: (form as any).category || 'Analysis',
         author: (form as any).authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
         signalData: form.section === 'trade-signals' ? form.signal : null,
@@ -676,9 +679,10 @@ const BlogSection = ({ bp }) => {
             <div key={post.id} style={{ ...cs, padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
-                  <div style={{ display: 'flex', gap: '5px' }}>
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: sec.bg, color: sec.color, border: `1px solid ${sec.border}` }}>{sec.label}</span>
+                    {post.category && post.section === 'blog' && <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: 'rgba(99,102,241,0.08)', color: C.indigoL, border: `1px solid rgba(99,102,241,0.2)` }}>{post.category}</span>}
                   </div>
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
@@ -727,6 +731,19 @@ const BlogSection = ({ bp }) => {
                       ))}
                     </div>
                   </div>
+                  {fv('section') === 'blog' && (
+                    <div>
+                      <label style={{ ...lbl }}>Category</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {BLOG_CATEGORIES.map(cat => (
+                          <button key={cat} onClick={() => setF('category', cat)}
+                            style={{ ...btn, padding: '6px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: fv('category') === cat ? 'rgba(79,70,229,0.18)' : 'transparent', color: fv('category') === cat ? C.indigoL : C.muted, border: `1px solid ${fv('category') === cat ? 'rgba(99,102,241,0.5)' : C.border2}`, borderLeft: fv('category') === cat ? `2px solid ${C.indigoL}` : `2px solid transparent` }}>
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label style={{ ...lbl }}>Status</label>
                     <div style={{ display: 'flex', gap: '7px' }}>
