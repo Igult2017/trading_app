@@ -657,3 +657,14 @@ export const blogPosts = pgTable("blog_posts", {
 export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE VIEWS
+// ─────────────────────────────────────────────────────────────────────────────
+export const pageViews = pgTable("page_views", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  page:            text("page").notNull(),
+  sessionId:       text("session_id"),
+  durationSeconds: integer("duration_seconds"),
+  viewedAt:        timestamp("viewed_at").defaultNow(),
+});

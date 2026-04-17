@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 type Article = {
   id: string | number;
