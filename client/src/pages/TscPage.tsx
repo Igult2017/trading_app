@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { usePageTracking } from '@/hooks/usePageTracking';
 import { useLocation } from "wouter";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
@@ -211,6 +212,7 @@ function SessionCard({ s, decimalTime, weekday, dark }: { s: Session; decimalTim
 }
 
 export default function TscPage() {
+  usePageTracking('tsc');
   const [now, setNow] = useState(new Date());
   const [darkMode, setDarkMode] = useState(true);
   const [location] = useLocation();

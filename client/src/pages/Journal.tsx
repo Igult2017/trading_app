@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -712,6 +713,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
 
 
 export default function Journal() {
+  usePageTracking('journal');
   const { user } = useAuth();
   const [activeNav, setActiveNav] = useState(() => {
     if (typeof window !== 'undefined') {
