@@ -14,7 +14,7 @@ export default function AuthPage() {
   const [info, setInfo]             = useState('');
   const [busy, setBusy]             = useState(false);
 
-  const { signIn, signUp, role, loading } = useAuth();
+  const { signIn, signUp, signOut, role, loading } = useAuth();
   const [, navigate] = useLocation();
 
   if (loading) return <LoadingScreen />;
@@ -40,6 +40,12 @@ export default function AuthPage() {
             onClick={() => window.open(dest, '_blank', 'noopener,noreferrer')}
           >
             {label} ↗
+          </button>
+          <button
+            style={{ ...styles.backBtn, marginTop: 10, color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}
+            onClick={async () => { await signOut(); }}
+          >
+            Sign out & use a different account
           </button>
           <button style={styles.backBtn} onClick={() => navigate('/')}>
             ← Back to Home
