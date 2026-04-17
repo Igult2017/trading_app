@@ -585,15 +585,16 @@ const BlogSection = ({ bp }) => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const f = form as any;
+      // Social media handles are optional — always send safe defaults
       const authorData = {
-        bio:       f.authorBio      || '',
+        bio:       f.authorBio       || '',
         expertise: f.authorExpertise || [],
         twitter:   f.authorTwitter   || '',
         linkedin:  f.authorLinkedin  || '',
         telegram:  f.authorTelegram  || '',
       };
       const payload = {
-        title: form.title, section: form.section, status: form.status,
+        title: form.title.trim(), section: form.section, status: form.status,
         category: f.category || 'Analysis',
         author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
@@ -602,19 +603,27 @@ const BlogSection = ({ bp }) => {
       };
       const body = JSON.stringify(payload);
       let savedPost: any = null;
+      let saveError: string | null = null;
       if (editPost) {
         const r = await fetch(`/api/blog/${editPost.id}`, { method: 'PATCH', headers, body });
         if (r.ok) {
           savedPost = await r.json();
           setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...savedPost, category: savedPost.category, authorData: savedPost.authorData } : x));
+        } else {
+          const err = await r.json().catch(() => ({}));
+          saveError = err.error || `Server error ${r.status}`;
         }
       } else {
         const r = await fetch('/api/blog', { method: 'POST', headers, body });
         if (r.ok) {
           savedPost = await r.json();
           setPosts(p => [...p, { id: savedPost.id, title: savedPost.title, section: savedPost.section, category: savedPost.category, status: savedPost.status, author: savedPost.author, date: savedPost.date, signal: savedPost.signalData, authorData: savedPost.authorData }]);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          saveError = err.error || `Server error ${r.status}`;
         }
       }
+      if (saveError) { alert(`Failed to save post: ${saveError}`); return; }
       // If publishing, trigger share links for selected platforms
       if (savedPost && form.status === 'Published' && (f.shareOn || []).length > 0) {
         const postUrl = encodeURIComponent(window.location.origin + '/blog');
@@ -631,6 +640,8 @@ const BlogSection = ({ bp }) => {
         });
       }
       setShowModal(false);
+    } catch (err: any) {
+      alert(`Unexpected error: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -823,7 +834,7 @@ const BlogSection = ({ bp }) => {
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...lbl }}>Social Profiles</label>
+                    <label style={{ ...lbl }}>Social Profiles <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#475569' }}>(optional)</span></label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ position: 'relative' }}>
                         <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#e2e8f0', fontSize: '11px', fontWeight: 700, pointerEvents: 'none' }}>𝕏</span>
