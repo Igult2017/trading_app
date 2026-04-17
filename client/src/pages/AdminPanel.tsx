@@ -209,12 +209,12 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
 
 const StatCard = ({ title, value, change, trend, icon: Icon }) => (
   <div style={{ ...cs, padding: '20px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
       <div style={{ padding: '8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL }}><Icon size={18} /></div>
       <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 7px', background: trend === 'up' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: trend === 'up' ? C.greenL : C.redL }}>{change}</span>
     </div>
+    <p style={{ color: 'white', fontSize: '19px', fontWeight: 700, margin: '0 0 6px', letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</p>
     <p style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{title}</p>
-    <p style={{ color: 'white', fontSize: '19px', fontWeight: 700, margin: '4px 0 0', letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</p>
   </div>
 );
 
@@ -2022,7 +2022,7 @@ export default function AdminPanel() {
 
       {/* MAIN CONTENT */}
       <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `12px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `6px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
