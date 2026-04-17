@@ -1692,10 +1692,34 @@ export default function AdminPanel() {
       case 'dashboard': return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 'calc(100vh - 120px)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
-            <StatCard title="Total Users" value={overviewStats ? overviewStats.totalUsers.toLocaleString() : '—'} change={overviewStats ? `${overviewStats.totalUsers} registered` : 'Loading…'} trend="up" icon={Users} />
-            <StatCard title="Published Posts" value={overviewStats ? String(overviewStats.publishedPosts) : '—'} change={overviewStats ? `${overviewStats.draftPosts} draft${overviewStats.draftPosts !== 1 ? 's' : ''}` : 'Loading…'} trend="up" icon={TrendingUp} />
-            <StatCard title="Drafts Pending" value={overviewStats ? String(overviewStats.draftPosts) : '—'} change={overviewStats ? `${overviewStats.publishedPosts} live` : 'Loading…'} trend={overviewStats?.draftPosts > 0 ? 'up' : 'up'} icon={Clock} />
-            <StatCard title="Admins" value={overviewStats ? String(overviewStats.adminCount) : '—'} change={overviewStats ? `of ${overviewStats.totalUsers} users` : 'Loading…'} trend="up" icon={Globe} />
+            <StatCard
+              title="Total Traders"
+              value={overviewStats ? overviewStats.totalUsers.toLocaleString() : '—'}
+              change={overviewStats?.userChange != null ? `+${overviewStats.userChange}%` : '—'}
+              trend="up"
+              icon={Users}
+            />
+            <StatCard
+              title="Monthly Visitors"
+              value={overviewStats ? (overviewStats.monthlyVisitors >= 1000 ? `${(overviewStats.monthlyVisitors / 1000).toFixed(1)}k` : String(overviewStats.monthlyVisitors)) : '—'}
+              change={overviewStats?.visitorChange != null ? `+${overviewStats.visitorChange}%` : 'Tracking…'}
+              trend="up"
+              icon={TrendingUp}
+            />
+            <StatCard
+              title="Avg. Session"
+              value={overviewStats?.avgSessionSeconds != null ? `${Math.floor(overviewStats.avgSessionSeconds / 60)}m ${overviewStats.avgSessionSeconds % 60}s` : '—'}
+              change={overviewStats?.avgSessionSeconds != null ? 'This month' : 'Collecting…'}
+              trend="up"
+              icon={Clock}
+            />
+            <StatCard
+              title="MRR"
+              value="—"
+              change="No billing data"
+              trend="up"
+              icon={Globe}
+            />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />

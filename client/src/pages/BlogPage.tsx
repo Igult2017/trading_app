@@ -61,6 +61,7 @@ const FALLBACK_ARCHIVED = [
 const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 
 export default function BlogPage() {
+  usePageTracking('blog');
   const [activeCategory, setActiveCategory] = useState('All');
   const [darkMode, setDarkMode] = useState(true);
   const [location] = useLocation();
