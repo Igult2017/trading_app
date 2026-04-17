@@ -1,501 +1,1430 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import {
+  Users, FileText, Megaphone, Settings, Search, TrendingUp,
+  MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
+  Globe, Clock, HeadphonesIcon, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
+  MessageSquare, Phone, Star, Timer, Database,
+  Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, Layers
+} from 'lucide-react';
 
-// ── Colour palette ───────────────────────────────────────────────────────────
-const C = {
-  bg:      '#0D0F14',
-  panel:   '#13161E',
-  sidebar: '#0F1219',
-  border:  '#1E2330',
-  text:    '#E2E8F0',
-  dim:     '#8B9BB4',
-  cyan:    '#4AE8D8',
-  green:   '#4ADE80',
-  red:     '#F87171',
-  yellow:  '#FCD34D',
-  hover:   '#1A1F2E',
-};
+// ─── BREAKPOINT HOOK ─────────────────────────────────────────────────────────
+function useBreakpoint() {
+  const [bp, setBp] = useState({ isMobile: false, isTablet: false, isDesktop: true, w: 1200 });
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      setBp({ isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024, w });
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return bp;
+}
 
-// ── Sidebar nav items ────────────────────────────────────────────────────────
-type NavItem = { id: string; label: string; icon: string };
-const NAV: NavItem[] = [
-  { id: 'overview',  label: 'Overview',       icon: '◈' },
-  { id: 'users',     label: 'User Accounts',  icon: '◎' },
-  { id: 'support',   label: 'Customer Care',  icon: '◷' },
-  { id: 'monitor',   label: 'System Monitor', icon: '◉' },
-  { id: 'content',   label: 'Content',        icon: '◫' },
-  { id: 'settings',  label: 'Settings',       icon: '◌' },
+// ─── MOCK DATA ───────────────────────────────────────────────────────────────
+const MOCK_USERS = [
+  { id: 1, name: 'Alex Thompson', email: 'alex@example.com', plan: 'Pro', status: 'Active', winRate: '68%', lastLogin: '2h ago', tickets: 2, country: 'US' },
+  { id: 2, name: 'Sarah Chen', email: 'sarah.c@trading.io', plan: 'Free', status: 'Inactive', winRate: '42%', lastLogin: '3d ago', tickets: 0, country: 'SG' },
+  { id: 3, name: 'Marcus Miller', email: 'marcus@fx.net', plan: 'Enterprise', status: 'Active', winRate: '71%', lastLogin: '15m ago', tickets: 1, country: 'DE' },
+  { id: 4, name: 'Elena Rodriguez', email: 'elena.r@crypto.com', plan: 'Pro', status: 'Banned', winRate: '55%', lastLogin: '1w ago', tickets: 5, country: 'MX' },
 ];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function Pill({ color, label }: { color: string; label: string }) {
-  return (
-    <span style={{
-      background: `${color}20`, border: `1px solid ${color}50`,
-      color, borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600,
-    }}>{label}</span>
-  );
-}
+const MOCK_POSTS = [
+  { id: 1, title: 'Weekly Market Recap: CPI Volatility', author: 'Admin', date: '2023-10-24', status: 'Published', section: 'blog' },
+  { id: 2, title: 'Top 5 Psychological Biases in Trading', author: 'Admin', date: '2023-10-22', status: 'Draft', section: 'blog' },
+  { id: 3, title: 'Breakout Strategy: 3-EMA Confluence', author: 'Admin', date: '2023-10-20', status: 'Published', section: 'verified-strategies' },
+  { id: 4, title: 'Scalping the London Open - Full Playbook', author: 'Admin', date: '2023-10-18', status: 'Draft', section: 'verified-strategies' },
+  { id: 5, title: 'EUR/USD Buy Signal', author: 'Admin', date: '2023-10-24', status: 'Published', section: 'trade-signals', signal: { pair: 'EUR/USD', action: 'BUY', entry: '1.0632', sl: '1.0589', tp1: '1.0685', tp2: '1.0740', tp3: '', rr: '2.8', timeframe: 'H4', confidence: 'High', market: 'Forex', rationale: 'Price bounced off key demand zone with bullish engulfing. RSI divergence supports upside.' } },
+  { id: 6, title: 'BTC/USDT Short Setup', author: 'Admin', date: '2023-10-23', status: 'Published', section: 'trade-signals', signal: { pair: 'BTC/USDT', action: 'SELL', entry: '34,280', sl: '35,100', tp1: '33,200', tp2: '32,000', tp3: '', rr: '1.9', timeframe: 'D1', confidence: 'Medium', market: 'Crypto', rationale: 'Rejection at key resistance with bearish divergence on daily RSI.' } },
+];
 
-function StatCard({ label, value, sub, color = C.cyan }: { label: string; value: string | number; sub?: string; color?: string }) {
+const GROWTH_DATA_MONTHLY = [40, 55, 45, 70, 65, 85, 75, 90, 80, 95, 88, 110];
+const GROWTH_DATA_DAILY = [12,18,14,22,19,25,17,30,28,24,32,27,20,35,33,29,38,31,26,40,36,34,42,39,37,44,41,43,46,45];
+
+const MOCK_TICKETS = [
+  { id: 'TK-1042', user: 'Alex Thompson', email: 'alex@example.com', subject: 'API connection drops intermittently', priority: 'High', status: 'Open', created: '10m ago', channel: 'email' },
+  { id: 'TK-1041', user: 'Marcus Miller', email: 'marcus@fx.net', subject: 'Unable to export trade history CSV', priority: 'Medium', status: 'In Progress', created: '1h ago', channel: 'chat' },
+  { id: 'TK-1040', user: 'Priya Sharma', email: 'priya@inv.co', subject: 'Billing discrepancy on last invoice', priority: 'High', status: 'Open', created: '3h ago', channel: 'phone' },
+  { id: 'TK-1039', user: 'Daniel Park', email: 'dpark@trade.io', subject: 'Feature request: Dark mode toggle', priority: 'Low', status: 'Resolved', created: '1d ago', channel: 'chat', satisfaction: 5 },
+  { id: 'TK-1038', user: 'Sarah Chen', email: 'sarah.c@trading.io', subject: 'Login 2FA not sending SMS code', priority: 'Critical', status: 'Resolved', created: '2d ago', channel: 'email', satisfaction: 4 },
+];
+
+const generateMetric = (base, variance) => +(base + (Math.random() - 0.5) * variance).toFixed(1);
+const INITIAL_METRICS = { cpu: 34, memory: 61, latency: 42, uptime: 99.97, requestsPerSec: 847, errorRate: 0.12, dbQueryTime: 18, activeConnections: 1243 };
+const INITIAL_LOGS = [
+  { id: 1, time: '14:32:01', level: 'error', service: 'Binance-API', message: 'Connection timeout after 5000ms - retrying (3/5)', resolved: false },
+  { id: 2, time: '14:31:44', level: 'warn', service: 'Auth-Service', message: 'Elevated failed login attempts from IP 185.220.x.x', resolved: false },
+  { id: 3, time: '14:30:12', level: 'info', service: 'Trade-Engine', message: 'Successfully processed 1,240 trade signals in batch', resolved: true },
+  { id: 4, time: '14:29:55', level: 'error', service: 'DB-Cluster', message: 'Replica lag exceeded threshold: 340ms', resolved: true },
+  { id: 5, time: '14:27:11', level: 'warn', service: 'Payment-SVC', message: 'Stripe webhook delivery delayed by 12s', resolved: false },
+];
+
+// ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
+const FONT = "'Inter', sans-serif";
+const C = {
+  bg: '#020617', sidebar: '#0a0f1e', card: '#0f172a',
+  border: '#1e293b', border2: '#334155', dim: '#334155',
+  text: '#e2e8f0', muted: '#64748b',
+  indigo: '#4f46e5', indigoL: '#818cf8',
+  green: '#10b981', greenL: '#34d399',
+  red: '#f43f5e', redL: '#fb7185',
+  amber: '#f59e0b', amberL: '#fbbf24',
+  blue: '#3b82f6', blueL: '#93c5fd',
+};
+const cs = { background: C.card, border: `1px solid ${C.border}` };
+const inp = { width: '100%', background: '#1e293b', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
+const lbl = { display: 'block', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted, marginBottom: '8px' };
+const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.05em' };
+
+const SECTION_META = {
+  blog: { label: 'Blog', color: C.indigoL, bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.3)', dot: C.indigo },
+  'verified-strategies': { label: 'Verified Strategies', color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', dot: C.amber },
+  'trade-signals': { label: 'Trade Signals', color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)', dot: C.green },
+};
+
+const SOCIAL_PLATFORMS = [
+  { id: 'facebook', label: 'Facebook', ac: '#1877F2', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.413c0-3.025 1.791-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" /></svg> },
+  { id: 'twitter', label: 'X / Twitter', ac: '#e2e8f0', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.261 5.638 5.902-5.638zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg> },
+  { id: 'linkedin', label: 'LinkedIn', ac: '#0A66C2', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg> },
+  { id: 'telegram', label: 'Telegram', ac: '#26A5E4', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" /></svg> },
+  { id: 'whatsapp', label: 'WhatsApp', ac: '#25D366', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg> },
+];
+
+const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
+const EMPTY_FORM = { title: '', section: 'blog', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [], shareOn: [], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
+
+// ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const BarGraph = ({ data, labels, xAxisLabel }) => {
+  const [hovered, setHovered] = useState(null);
+  const w = 500, h = 210;
+  const padLeft = 46, padRight = 12, padTop = 16, padBot = 52;
+  const chartW = w - padLeft - padRight;
+  const chartH = h - padTop - padBot;
+  const max = Math.max(...data);
+  const rawStep = max / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const step = Math.ceil(rawStep / mag) * mag;
+  const yTicks = Array.from({ length: 5 }, (_, i) => i * step);
+  const yMax = yTicks[yTicks.length - 1];
+  const barW = chartW / data.length;
+  const gap = barW * 0.28;
   return (
-    <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 20px' }}>
-      <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{label}</div>
-      <div style={{ color, fontSize: 28, fontWeight: 700 }}>{value}</div>
-      {sub && <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>{sub}</div>}
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '210px', overflow: 'visible' }}>
+      <defs>
+        <linearGradient id="bargrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#4338ca" stopOpacity="0.7" />
+        </linearGradient>
+        <linearGradient id="bargradhov" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#818cf8" stopOpacity="1" />
+          <stop offset="100%" stopColor="#6366f1" stopOpacity="0.85" />
+        </linearGradient>
+      </defs>
+      <text x={10} y={h / 2} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700"
+        transform={`rotate(-90, 10, ${h / 2})`} letterSpacing="0.08em">USERS</text>
+      {yTicks.map((tick, i) => {
+        const y = padTop + chartH - (tick / yMax) * chartH;
+        return (
+          <g key={i}>
+            <line x1={padLeft} y1={y} x2={padLeft + chartW} y2={y} stroke="#1e293b" strokeWidth="1" />
+            <text x={padLeft - 6} y={y + 3.5} textAnchor="end" fill="#475569" fontSize="9" fontWeight="600">
+              {tick >= 1000 ? `${tick / 1000}k` : tick}
+            </text>
+          </g>
+        );
+      })}
+      <text x={padLeft + chartW / 2} y={h - 4} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700" letterSpacing="0.08em">
+        {xAxisLabel || 'MONTH'}
+      </text>
+      <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + chartH} stroke="#334155" strokeWidth="1" />
+      <line x1={padLeft} y1={padTop + chartH} x2={padLeft + chartW} y2={padTop + chartH} stroke="#334155" strokeWidth="1" />
+      {data.map((v, i) => {
+        const barH = (v / yMax) * chartH;
+        const x = padLeft + i * barW + gap / 2;
+        const y = padTop + chartH - barH;
+        const bw = barW - gap;
+        const isHov = hovered === i;
+        const lbl = labels ? labels[i] : MONTHS[i];
+        return (
+          <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'pointer' }}>
+            <rect x={x - 1} y={padTop} width={bw + 2} height={chartH} fill={isHov ? 'rgba(99,102,241,0.05)' : 'transparent'} />
+            <rect x={x} y={y} width={bw} height={barH} fill={isHov ? 'url(#bargradhov)' : 'url(#bargrad)'} rx="2" style={{ transition: 'fill 0.12s' }} />
+            {isHov && (
+              <g>
+                <rect x={x + bw / 2 - 20} y={y - 22} width={40} height={17} fill="#1e293b" rx="3" stroke="#334155" strokeWidth="1" />
+                <text x={x + bw / 2} y={y - 10} textAnchor="middle" fill="white" fontSize="10" fontWeight="700">{v} users</text>
+              </g>
+            )}
+            {lbl !== '' && (
+              <text x={x + bw / 2} y={padTop + chartH + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="600">{lbl}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+const Sparkline = ({ data, danger }) => {
+  const W = 80, H = 32, pd = 2, max = Math.max(...data, 1);
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * (W - pd * 2) + pd},${H - ((v / max) * (H - pd * 2) + pd)}`).join(' ');
+  return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '80px', height: '32px' }}><polyline fill="none" stroke={danger ? C.red : '#6366f1'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} opacity="0.8" /></svg>;
+};
+
+const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
+  const r = (size - sw) / 2, circ = 2 * Math.PI * r, pct = Math.min(value / max, 1), dash = pct * circ;
+  const ring = pct > 0.8 ? C.red : pct > 0.6 ? C.amber : color;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1e293b" strokeWidth={sw} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ring} strokeWidth={sw} strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+    </svg>
+  );
+};
+
+const StatCard = ({ title, value, change, trend, icon: Icon }) => (
+  <div style={{ ...cs, padding: '20px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+      <div style={{ padding: '8px', background: 'rgba(99,102,241,0.1)', color: C.indigoL }}><Icon size={18} /></div>
+      <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 7px', background: trend === 'up' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: trend === 'up' ? C.greenL : C.redL }}>{change}</span>
     </div>
-  );
-}
+    <p style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{title}</p>
+    <p style={{ color: 'white', fontSize: '19px', fontWeight: 700, margin: '4px 0 0', letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</p>
+  </div>
+);
 
-// ── Types ────────────────────────────────────────────────────────────────────
-interface AdminUser {
-  id: string;
-  email: string;
-  full_name: string;
-  role: string;
-  created_at: string;
-  last_sign_in_at: string | null;
-}
+// ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
+const CustomerCareSection = ({ bp }) => {
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [tickets, setTickets] = useState(MOCK_TICKETS);
+  const [replyText, setReplyText] = useState('');
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [actionUser, setActionUser] = useState(null);
 
-// ── Section: Overview ────────────────────────────────────────────────────────
-function OverviewSection({ users }: { users: AdminUser[] }) {
-  const total   = users.length;
-  const admins  = users.filter(u => u.role === 'admin').length;
-  const members = total - admins;
-  const recent  = users.filter(u => {
-    if (!u.created_at) return false;
-    return Date.now() - new Date(u.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
-  }).length;
+  const openCount = tickets.filter(t => t.status === 'Open').length;
+  const resolvedCount = tickets.filter(t => t.status === 'Resolved').length;
+  const avgSat = (tickets.filter(t => t.satisfaction).reduce((a, t) => a + t.satisfaction, 0) / Math.max(tickets.filter(t => t.satisfaction).length, 1)).toFixed(1);
+  const filtered = filterStatus === 'All' ? tickets : tickets.filter(t => t.status === filterStatus);
+
+  const PC = {
+    Critical: { bg: 'rgba(244,63,94,0.12)', c: C.redL, b: 'rgba(244,63,94,0.3)' },
+    High: { bg: 'rgba(245,158,11,0.12)', c: C.amberL, b: 'rgba(245,158,11,0.3)' },
+    Medium: { bg: 'rgba(59,130,246,0.12)', c: C.blueL, b: 'rgba(59,130,246,0.3)' },
+    Low: { bg: C.border, c: '#94a3b8', b: C.border2 },
+  };
+  const SC = { Open: C.amberL, 'In Progress': C.blueL, Resolved: C.greenL };
+  const ChanIcon = { email: Mail, chat: MessageSquare, phone: Phone };
+
+  const handleResolve = id => {
+    setTickets(p => p.map(t => t.id === id ? { ...t, status: 'Resolved' } : t));
+    if (selectedTicket?.id === id) setSelectedTicket(p => ({ ...p, status: 'Resolved' }));
+  };
+
+  const statCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
+  const mainCols = bp.isDesktop ? '1fr 1fr' : '1fr';
 
   return (
-    <div>
-      <h2 style={styles.sectionTitle}>Overview</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 28 }}>
-        <StatCard label="Total Users"    value={total}   sub="Registered accounts"  color={C.cyan}   />
-        <StatCard label="Admin Accounts" value={admins}  sub="Full access"           color={C.yellow} />
-        <StatCard label="Members"        value={members} sub="Standard users"        color={C.green}  />
-        <StatCard label="New This Week"  value={recent}  sub="Last 7 days"           color={C.cyan}   />
-      </div>
-
-      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20 }}>
-        <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
-          Recent Signups
-        </div>
-        {users.slice(0, 5).map(u => (
-          <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
-            <div>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{u.full_name || u.email}</div>
-              <div style={{ color: C.dim, fontSize: 11 }}>{u.email}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Pill color={u.role === 'admin' ? C.yellow : C.cyan} label={u.role} />
-              <span style={{ color: C.dim, fontSize: 11 }}>{new Date(u.created_at).toLocaleDateString()}</span>
-            </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      {/* ── STAT CARDS ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '3px' }}>
+        {[
+          { label: 'Open Tickets', value: openCount, icon: MessageSquare, color: C.amberL, glow: 'rgba(245,158,11,0.12)' },
+          { label: 'Avg Response', value: '4m 12s', icon: Timer, color: C.greenL, glow: 'rgba(16,185,129,0.12)' },
+          { label: 'Resolved Today', value: resolvedCount, icon: CheckCircle, color: C.indigoL, glow: 'rgba(99,102,241,0.12)' },
+          { label: 'CSAT Score', value: avgSat + '/5', icon: Star, color: C.amberL, glow: 'rgba(245,158,11,0.12)' },
+        ].map((s, i) => (
+          <div key={i} style={{ ...cs, padding: '16px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '56px', height: '56px', background: s.glow, borderRadius: '0 0 0 56px', pointerEvents: 'none' }} />
+            <s.icon size={16} style={{ color: s.color, marginBottom: '8px' }} />
+            <p style={{ color: s.color, fontSize: '22px', fontWeight: 700, margin: 0 }}>{s.value}</p>
+            <p style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '3px 0 0' }}>{s.label}</p>
           </div>
         ))}
-        {users.length === 0 && <div style={{ color: C.dim, fontSize: 13 }}>No users yet.</div>}
+      </div>
+
+      {/* ── MAIN GRID ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: mainCols, gap: '3px', alignItems: 'stretch' }}>
+        {/* LEFT — Support Queue */}
+        <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '15px', margin: 0 }}>Support Queue</h3>
+            <div style={{ display: 'flex', gap: '3px', background: C.bg, padding: '3px', border: `1px solid ${C.border}` }}>
+              {['All', 'Open', 'In Progress', 'Resolved'].map(f => (
+                <button key={f} onClick={() => setFilterStatus(f)} style={{ ...btn, fontSize: '9px', padding: '4px 9px', background: filterStatus === f ? C.indigo : 'transparent', color: filterStatus === f ? 'white' : C.muted, border: 'none', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f}</button>
+              ))}
+            </div>
+          </div>
+          {filtered.map((ticket, idx) => {
+            const pc = PC[ticket.priority];
+            const CI = ChanIcon[ticket.channel];
+            const sel = selectedTicket?.id === ticket.id;
+            const isLast = idx === filtered.length - 1;
+            return (
+              <div key={ticket.id} onClick={() => setSelectedTicket(sel ? null : ticket)}
+                style={{ padding: '13px 16px', borderBottom: isLast ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: sel ? 'rgba(79,70,229,0.07)' : 'transparent', borderLeft: `3px solid ${sel ? C.indigo : 'transparent'}`, transition: 'background 0.15s' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                      <span style={{ color: '#475569', fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em' }}>{ticket.id}</span>
+                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: pc.bg, color: pc.c, border: `1px solid ${pc.b}`, letterSpacing: '0.05em' }}>{ticket.priority}</span>
+                    </div>
+                    <p style={{ color: 'white', fontSize: '13px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.subject}</p>
+                    <p style={{ color: '#475569', fontSize: '11px', margin: 0 }}>{ticket.user} · {ticket.created}</p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', marginLeft: '12px', flexShrink: 0 }}>
+                    <span style={{ color: SC[ticket.status], fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket.status}</span>
+                    <CI size={12} style={{ color: C.dim }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* RIGHT */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', height: '100%' }}>
+          <div style={{ ...cs, overflow: 'hidden' }}>
+            {selectedTicket ? (
+              <>
+                <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ color: '#475569', fontSize: '10px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{selectedTicket.id}</p>
+                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket.subject}</p>
+                  </div>
+                  <button onClick={() => setSelectedTicket(null)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', marginLeft: '8px' }}><X size={15} /></button>
+                </div>
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ background: 'rgba(30,41,59,0.6)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `3px solid ${C.indigo}` }}>
+                    <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                      {selectedTicket.user.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{selectedTicket.user}</p>
+                      <p style={{ color: '#475569', fontSize: '11px', margin: 0 }}>{selectedTicket.email}</p>
+                    </div>
+                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', background: selectedTicket.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket.status], border: `1px solid ${SC[selectedTicket.status]}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket.status}</span>
+                  </div>
+                  <div>
+                    <p style={{ ...lbl }}>Quick Actions</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                      {[
+                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(selectedTicket.id) },
+                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => {} },
+                        { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => setActionUser(selectedTicket.user) },
+                        { label: 'Reset', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: () => {} },
+                      ].map((b, i) => (
+                        <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          <b.icon size={13} />{b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ ...lbl }}>Reply to Customer</p>
+                    <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Type your response..." style={{ ...inp, resize: 'none', display: 'block', fontSize: '13px' }} />
+                    <button style={{ ...btn, marginTop: '8px', width: '100%', background: C.indigo, color: 'white', padding: '10px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <Send size={12} /> Send Reply
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <div style={{ width: '48px', height: '48px', background: 'rgba(30,41,59,0.8)', border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <MessageSquare size={22} style={{ color: C.border2 }} />
+                </div>
+                <p style={{ color: '#475569', fontSize: '13px', margin: 0, fontWeight: 500 }}>Select a ticket to view details</p>
+                <p style={{ color: '#2d3d52', fontSize: '11px', margin: '4px 0 0' }}>Click any ticket from the queue</p>
+              </div>
+            )}
+          </div>
+          <div style={{ ...cs, overflow: 'hidden', flex: 1 }}>
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
+              <Users size={13} style={{ color: '#475569' }} />
+            </div>
+            {apiUsers.slice(0, 5).map((u, idx) => {
+              const isAdmin = u.role === 'admin';
+              const displayName = (u.full_name || u.email?.split('@')[0] || 'User') as string;
+              const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+              const statusColor = isAdmin ? C.amberL : C.green;
+              return (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderBottom: idx < Math.min(apiUsers.length, 5) - 1 ? `1px solid ${C.border}` : 'none' }}>
+                  <div style={{ width: '30px', height: '30px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                    {initials}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: 'white', fontSize: '12px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: statusColor }} />
+                      <span style={{ color: statusColor, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{u.role}</span>
+                    </div>
+                  </div>
+                  <Eye size={11} style={{ color: '#475569', flexShrink: 0 }} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {actionUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, padding: '28px', maxWidth: '340px', width: '100%', border: `1px solid rgba(244,63,94,0.3)` }}>
+            <div style={{ width: '44px', height: '44px', background: 'rgba(244,63,94,0.1)', border: `1px solid rgba(244,63,94,0.3)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Ban size={20} style={{ color: C.redL }} />
+            </div>
+            <p style={{ color: 'white', fontWeight: 700, fontSize: '17px', textAlign: 'center', margin: '0 0 8px' }}>Confirm Ban</p>
+            <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{actionUser}</strong></p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '13px' }}>Ban Account</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── SYSTEM MONITOR ──────────────────────────────────────────────────────────
+const SystemMonitorSection = ({ bp }) => {
+  const [metrics, setMetrics] = useState(INITIAL_METRICS);
+  const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [history, setHistory] = useState({ cpu: [28, 31, 34, 30, 33, 34], memory: [58, 60, 61, 62, 60, 61], latency: [38, 45, 42, 44, 40, 42], requests: [800, 820, 847, 835, 847, 847] });
+  const [isLive, setIsLive] = useState(true);
+  const [resolvedIds, setResolvedIds] = useState(new Set(INITIAL_LOGS.filter(l => l.resolved).map(l => l.id)));
+  const logIdRef = useRef(7); const timerRef = useRef(null);
+
+  const LOG_POOL = [
+    { level: 'error', service: 'Binance-API', message: 'WebSocket feed disconnected - reconnecting...' },
+    { level: 'warn', service: 'Rate-Limiter', message: 'User #3842 hit API quota - throttling applied' },
+    { level: 'info', service: 'Trade-Engine', message: 'New market signal batch queued: 340 entries' },
+    { level: 'error', service: 'Auth-Service', message: 'JWT signing key rotation failed - fallback active' },
+  ];
+
+  useEffect(() => {
+    if (!isLive) { clearInterval(timerRef.current); return; }
+    timerRef.current = setInterval(() => {
+      setMetrics(prev => ({ cpu: generateMetric(prev.cpu, 8), memory: generateMetric(prev.memory, 4), latency: generateMetric(prev.latency, 10), uptime: prev.uptime, requestsPerSec: Math.round(generateMetric(prev.requestsPerSec, 60)), errorRate: +(generateMetric(prev.errorRate, 0.1)).toFixed(2), dbQueryTime: Math.round(generateMetric(prev.dbQueryTime, 6)), activeConnections: Math.round(generateMetric(prev.activeConnections, 50)) }));
+      setHistory(prev => ({ cpu: [...prev.cpu.slice(-11), generateMetric(metrics.cpu, 8)], memory: [...prev.memory.slice(-11), generateMetric(metrics.memory, 4)], latency: [...prev.latency.slice(-11), generateMetric(metrics.latency, 10)], requests: [...prev.requests.slice(-11), Math.round(generateMetric(metrics.requestsPerSec, 60))] }));
+      if (Math.random() < 0.3) {
+        const t = LOG_POOL[Math.floor(Math.random() * LOG_POOL.length)];
+        const now = new Date(); const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        setLogs(prev => [{ id: logIdRef.current++, time, ...t, resolved: false }, ...prev.slice(0, 19)]);
+      }
+    }, 1800);
+    return () => clearInterval(timerRef.current);
+  }, [isLive, metrics]);
+
+  const resolveLog = id => setResolvedIds(prev => new Set([...prev, id]));
+  const errorCount = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
+  const warnCount = logs.filter(l => l.level === 'warn' && !resolvedIds.has(l.id)).length;
+  const healthy = metrics.cpu < 80 && metrics.errorRate < 1 && metrics.latency < 100;
+  const LC = { error: { bg: 'rgba(244,63,94,0.1)', c: C.redL, b: 'rgba(244,63,94,0.2)' }, warn: { bg: 'rgba(245,158,11,0.1)', c: C.amberL, b: 'rgba(245,158,11,0.2)' }, info: { bg: C.border, c: C.muted, b: C.border2 } };
+  const metricCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: healthy ? C.green : C.red }} />
+          <span style={{ color: healthy ? C.greenL : C.redL, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{healthy ? 'All Systems Operational' : 'Degraded Performance'}</span>
+        </div>
+        <button onClick={() => setIsLive(p => !p)} style={{ ...btn, padding: '5px 12px', background: isLive ? 'rgba(16,185,129,0.1)' : C.border, color: isLive ? C.greenL : C.muted, border: `1px solid ${isLive ? 'rgba(16,185,129,0.3)' : C.border2}`, fontSize: '11px', textTransform: 'uppercase' }}>{isLive ? 'Live' : 'Paused'}</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: metricCols, gap: '6px' }}>
+        {[{ label: 'CPU Usage', value: metrics.cpu, unit: '%', h: history.cpu, icon: Cpu, danger: metrics.cpu > 80 }, { label: 'Memory', value: metrics.memory, unit: '%', h: history.memory, icon: Database, danger: metrics.memory > 85 }, { label: 'Latency', value: metrics.latency, unit: 'ms', h: history.latency, icon: Zap, danger: metrics.latency > 100 }, { label: 'Req/sec', value: metrics.requestsPerSec, unit: '', h: history.requests, icon: Activity, danger: false }].map((m, i) => (
+          <div key={i} style={{ ...cs, padding: '14px', borderColor: m.danger ? 'rgba(244,63,94,0.3)' : C.border }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <m.icon size={14} style={{ color: m.danger ? C.redL : '#475569' }} />
+              <GaugeRing value={m.unit === '%' ? m.value : Math.min((m.value / 2000) * 100, 100)} color={C.indigo} />
+            </div>
+            <p style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700, margin: 0 }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></p>
+            <p style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '3px 0 6px' }}>{m.label}</p>
+            <Sparkline data={m.h} danger={m.danger} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '6px', alignItems: 'stretch' }}>
+        <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Service Status</h3>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: C.muted }}>6 services</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            {[
+              { name: 'Trade Engine', status: 'operational', lat: '18ms', uptime: '99.9%' },
+              { name: 'Binance API', status: 'degraded', lat: '340ms', uptime: '97.2%' },
+              { name: 'Auth Service', status: 'operational', lat: '12ms', uptime: '100%' },
+              { name: 'Payment SVC', status: 'degraded', lat: '210ms', uptime: '98.1%' },
+              { name: 'DB Cluster', status: 'operational', lat: '8ms', uptime: '99.9%' },
+              { name: 'Cache Layer', status: 'operational', lat: '2ms', uptime: '100%' },
+            ].map((svc, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: svc.status === 'degraded' ? 'rgba(245,158,11,0.04)' : 'transparent' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: svc.status === 'operational' ? C.green : C.amber, boxShadow: `0 0 6px ${svc.status === 'operational' ? C.green : C.amber}` }} />
+                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ color: C.muted, fontSize: '10px', fontFamily: 'monospace' }}>{svc.uptime}</span>
+                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#475569', fontSize: '11px', fontFamily: 'monospace', fontWeight: svc.status === 'degraded' ? 700 : 400 }}>{svc.lat}</span>
+                  <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: svc.status === 'operational' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: svc.status === 'operational' ? C.greenL : C.amberL, border: `1px solid ${svc.status === 'operational' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}` }}>{svc.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
+              {errorCount > 0 && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', background: 'rgba(244,63,94,0.12)', color: C.redL, border: `1px solid rgba(244,63,94,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{errorCount} errors</span>}
+              {warnCount > 0 && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.12)', color: C.amberL, border: `1px solid rgba(245,158,11,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{warnCount} warn</span>}
+            </div>
+            <button onClick={() => setResolvedIds(new Set(logs.map(l => l.id)))} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}><Trash2 size={11} /> Clear</button>
+          </div>
+          <div style={{ overflowY: 'auto', fontFamily: 'monospace', flex: 1 }}>
+            {logs.filter(l => !resolvedIds.has(l.id)).length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center' }}>
+                <CheckCircle size={24} style={{ color: C.green, margin: '0 auto 8px' }} />
+                <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>No active incidents</p>
+              </div>
+            ) : logs.filter(l => !resolvedIds.has(l.id)).map(log => {
+              const lc = LC[log.level];
+              const levelColor = log.level === 'error' ? C.red : log.level === 'warn' ? C.amber : '#475569';
+              return (
+                <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: log.level === 'error' ? 'rgba(244,63,94,0.03)' : log.level === 'warn' ? 'rgba(245,158,11,0.02)' : 'transparent' }}>
+                  <div style={{ width: '3px', alignSelf: 'stretch', background: levelColor, borderRadius: '2px', flexShrink: 0, minHeight: '36px', opacity: 0.8 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: lc.bg, color: lc.c, border: `1px solid ${lc.b}`, letterSpacing: '0.06em' }}>{log.level}</span>
+                      <span style={{ color: '#64748b', fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em' }}>{log.service}</span>
+                      <span style={{ color: C.dim, fontSize: '9px', marginLeft: 'auto' }}>{log.time}</span>
+                    </div>
+                    <p style={{ color: log.level === 'error' ? '#fca5a5' : log.level === 'warn' ? '#fde68a' : '#94a3b8', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>{log.message}</p>
+                  </div>
+                  {log.level !== 'info' && (
+                    <button onClick={() => resolveLog(log.id)} title="Mark resolved" style={{ ...btn, background: 'transparent', color: C.dim, border: `1px solid ${C.border2}`, padding: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle size={12} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
 
-// ── Section: Users ───────────────────────────────────────────────────────────
-function UsersSection({ users, onRoleChange }: { users: AdminUser[]; onRoleChange: (id: string, role: string) => void }) {
-  const [search, setSearch] = useState('');
-  const filtered = users.filter(u =>
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    (u.full_name || '').toLowerCase().includes(search.toLowerCase())
-  );
+// ─── BLOG SECTION ────────────────────────────────────────────────────────────
+const BlogSection = ({ bp }) => {
+  const [posts, setPosts] = useState(MOCK_POSTS);
+  const [activeSection, setActiveSection] = useState('all');
+  const [showModal, setShowModal] = useState(false);
+  const [editPost, setEditPost] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [modalTab, setModalTab] = useState('post');
+
+  const filtered = activeSection === 'all' ? posts : posts.filter(p => p.section === activeSection);
+  const openNew = () => { setEditPost(null); setForm(EMPTY_FORM); setModalTab('post'); setShowModal(true); };
+  const openEdit = post => { setEditPost(post); setForm({ ...EMPTY_FORM, title: post.title, section: post.section, status: post.status, signal: post.signal || EMPTY_FORM.signal }); setModalTab('post'); setShowModal(true); };
+  const handleSave = () => { if (!form.title.trim()) return; if (editPost) { setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...form } : x)); } else { setPosts(p => [...p, { id: Date.now(), author: form.authorName || 'Admin', date: new Date().toISOString().slice(0, 10), ...form }]); } setShowModal(false); };
+  const handleDelete = id => setPosts(p => p.filter(x => x.id !== id));
+  const toggleStatus = id => setPosts(p => p.map(x => x.id === id ? { ...x, status: x.status === 'Published' ? 'Draft' : 'Published' } : x));
+  const fv = k => form[k]; const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
+  const sg = k => form.signal[k];
+
+  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(form.section === 'trade-signals' ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
+  const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
-    <div>
-      <h2 style={styles.sectionTitle}>User Accounts</h2>
-      <input
-        style={{ ...styles.searchInput, marginBottom: 16 }}
-        placeholder="Search by name or email…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
-      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 140px', padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.sidebar }}>
-          {['Name / Email', 'User ID', 'Role', 'Joined'].map(h => (
-            <div key={h} style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div>
+        <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>Content Manager</h2>
+        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Blog, Strategies & Trade Signals</p>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', flexWrap: 'wrap' }}>
+          {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'trade-signals', label: 'Signals', count: posts.filter(p => p.section === 'trade-signals').length }].map(tab => (
+            <button key={tab.id} onClick={() => setActiveSection(tab.id)} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? C.indigo : 'transparent', color: activeSection === tab.id ? 'white' : C.muted, fontSize: '12px', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              {tab.label}
+              <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? 'rgba(255,255,255,0.2)' : C.border, color: activeSection === tab.id ? 'white' : C.muted }}>{tab.count}</span>
+            </button>
           ))}
         </div>
-        {filtered.map(u => (
-          <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 140px', padding: '12px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
-            <div>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{u.full_name || '—'}</div>
-              <div style={{ color: C.dim, fontSize: 11 }}>{u.email}</div>
+        <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap' }}><Plus size={15} /> New Post</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: postCols, gap: '6px' }}>
+        {filtered.map(post => {
+          const sec = SECTION_META[post.section];
+          const sig = post.signal;
+          if (sig && post.section === 'trade-signals') {
+            const isBuy = sig.action === 'BUY';
+            return (
+              <div key={post.id} style={{ ...cs, overflow: 'hidden', borderColor: isBuy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)' }}>
+                <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', background: isBuy ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: isBuy ? C.greenL : C.redL, fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', fontFamily: "'DM Mono', monospace" }}>{sig.pair}</span>
+                    <span style={{ background: isBuy ? C.green : C.red, color: 'white', fontSize: '10px', fontWeight: 700, padding: '2px 8px', textTransform: 'uppercase' }}>{sig.action}</span>
+                    <span style={{ background: C.border, color: C.muted, fontSize: '10px', padding: '2px 6px' }}>{sig.timeframe}</span>
+                  </div>
+                  <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
+                </div>
+                <div style={{ padding: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
+                    {[{ label: 'Entry', value: sig.entry, color: 'white' }, { label: 'SL', value: sig.sl, color: C.redL }, { label: 'TP1', value: sig.tp1, color: C.greenL }, { label: 'TP2', value: sig.tp2 || '-', color: sig.tp2 ? '#6ee7b7' : '#475569' }].map(({ label, value, color }) => (
+                      <div key={label} style={{ background: 'rgba(30,41,59,0.6)', padding: '7px', textAlign: 'center' }}>
+                        <p style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px' }}>{label}</p>
+                        <p style={{ color, fontSize: '12px', fontWeight: 700, margin: 0 }}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {sig.rationale && <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
+                  <div style={{ paddingTop: '10px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
+                    <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
+                    <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Edit</button>
+                    <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={post.id} style={{ ...cs, padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
+                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: sec.bg, color: sec.color, border: `1px solid ${sec.border}` }}>{sec.label}</span>
+                  </div>
+                  <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
+                </div>
+                <h4 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 6px' }}>{post.title}</h4>
+                <p style={{ color: '#475569', fontSize: '12px', margin: 0 }}>Market analysis and key trading insights...</p>
+              </div>
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                <span style={{ color: C.dim, fontSize: '11px' }}>By {post.author}</span>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
+                  <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Edit</button>
+                  <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Delete</button>
+                </div>
+              </div>
             </div>
-            <div style={{ color: C.dim, fontSize: 11, fontFamily: 'monospace' }}>{u.id.slice(0, 12)}…</div>
-            <div>
-              <select
-                value={u.role}
-                onChange={e => onRoleChange(u.id, e.target.value)}
-                style={{ background: C.hover, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontSize: 12, padding: '4px 8px', cursor: 'pointer' }}
-              >
-                <option value="user">user</option>
-                <option value="admin">admin</option>
-              </select>
+          );
+        })}
+      </div>
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '560px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '18px 22px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '17px', margin: 0 }}>{editPost ? 'Edit Post' : 'New Post'}</h3>
+              <button onClick={() => setShowModal(false)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={17} /></button>
             </div>
-            <div style={{ color: C.dim, fontSize: 12 }}>
-              {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+            <div style={{ display: 'flex', gap: '3px', padding: '9px 22px', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+              {TABS.map(tab => (
+                <button key={tab.id} onClick={() => setModalTab(tab.id)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: modalTab === tab.id ? C.indigo : 'transparent', color: modalTab === tab.id ? 'white' : C.muted, border: 'none', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <tab.icon size={11} />{tab.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {modalTab === 'post' && (
+                <>
+                  <div><label style={{ ...lbl }}>Post Title</label><input value={fv('title')} onChange={e => setF('title', e.target.value)} placeholder="Enter post title..." style={{ ...inp }} /></div>
+                  <div>
+                    <label style={{ ...lbl }}>Destination</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                      {Object.entries(SECTION_META).map(([key, meta]) => (
+                        <button key={key} onClick={() => { setF('section', key); if (key !== 'trade-signals' && modalTab === 'signal') setModalTab('post'); }}
+                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: fv('section') === key ? meta.bg : 'rgba(30,41,59,0.5)', border: `1px solid ${fv('section') === key ? meta.border : C.border2}`, color: fv('section') === key ? meta.color : C.muted, textAlign: 'left' }}>
+                          <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{meta.label}</p><p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{key === 'blog' ? 'Articles & recaps' : key === 'verified-strategies' ? 'Trade strategies' : 'Live signals'}</p></div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ ...lbl }}>Status</label>
+                    <div style={{ display: 'flex', gap: '7px' }}>
+                      {['Draft', 'Published'].map(st => (
+                        <button key={st} onClick={() => setF('status', st)} style={{ ...btn, flex: 1, padding: '9px', background: fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.1)' : C.border) : 'transparent', color: fv('status') === st ? (st === 'Published' ? C.greenL : 'white') : C.muted, border: `1px solid ${fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.3)' : '#475569') : C.border2}`, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{st}</button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              {modalTab === 'signal' && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {['BUY', 'SELL'].map(action => (
+                      <button key={action} onClick={() => setSig('action', action)} style={{ ...btn, padding: '16px', fontSize: '17px', fontWeight: 700, background: sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)') : 'rgba(30,41,59,0.5)', color: sg('action') === action ? (action === 'BUY' ? C.greenL : C.redL) : C.muted, border: `1px solid ${sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.4)' : 'rgba(244,63,94,0.4)') : C.border2}` }}>{action}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
+                    {[{ k: 'pair', label: 'Pair', ph: 'EUR/USD' }, { k: 'entry', label: 'Entry', ph: '1.0632' }, { k: 'sl', label: 'Stop Loss', ph: '1.0589' }].map(({ k, label, ph }) => (
+                      <div key={k}><label style={{ ...lbl }}>{label}</label><input value={sg(k)} onChange={e => setSig(k, e.target.value)} placeholder={ph} style={{ ...inp }} /></div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {['tp1', 'tp2', 'tp3'].map((tp, i) => (
+                      <div key={tp}><label style={{ ...lbl }}>TP {i + 1}</label><input value={sg(tp)} onChange={e => setSig(tp, e.target.value)} placeholder="0.0000" style={{ ...inp, borderColor: 'rgba(16,185,129,0.2)', color: '#6ee7b7' }} /></div>
+                    ))}
+                  </div>
+                  <div><label style={{ ...lbl }}>Rationale</label><textarea value={sg('rationale')} onChange={e => setSig('rationale', e.target.value)} rows={3} placeholder="Explain the reason for this signal..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
+                </>
+              )}
+              {modalTab === 'author' && (
+                <>
+                  <div><label style={{ ...lbl }}>Author Name</label><input value={fv('authorName')} onChange={e => setF('authorName', e.target.value)} placeholder="Full name..." style={{ ...inp }} /></div>
+                  <div><label style={{ ...lbl }}>Short Bio</label><textarea value={fv('authorBio')} onChange={e => setF('authorBio', e.target.value)} rows={3} placeholder="Author background..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
+                  <div>
+                    <label style={{ ...lbl }}>Expertise</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                      {EXPERTISE_OPTIONS.map(tag => { const active = (fv('authorExpertise') || []).includes(tag); return <button key={tag} onClick={() => setF('authorExpertise', active ? (fv('authorExpertise') || []).filter(t => t !== tag) : [...(fv('authorExpertise') || []), tag])} style={{ ...btn, padding: '5px 11px', background: active ? C.indigo : C.border, color: active ? 'white' : C.muted, border: `1px solid ${active ? C.indigo : C.border2}`, fontSize: '11px' }}>{tag}</button>; })}
+                    </div>
+                  </div>
+                </>
+              )}
+              {modalTab === 'share' && (
+                <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                  {SOCIAL_PLATFORMS.map(p => { const active = (fv('shareOn') || []).includes(p.id); return <button key={p.id} onClick={() => setF('shareOn', active ? (fv('shareOn') || []).filter(s => s !== p.id) : [...(fv('shareOn') || []), p.id])} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: active ? `${p.ac}15` : 'rgba(30,41,59,0.5)', color: active ? p.ac : C.muted, border: `1px solid ${active ? `${p.ac}40` : C.border2}`, textAlign: 'left', fontSize: '13px', fontWeight: 600 }}><p.icon />{p.label}</button>; })}
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '12px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setShowModal(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleSave} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>{editPost ? 'Save Changes' : 'Create Post'}</button>
             </div>
           </div>
-        ))}
-        {filtered.length === 0 && (
-          <div style={{ padding: '20px 16px', color: C.dim, fontSize: 13 }}>No users found.</div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
-// ── Section: Customer Care ────────────────────────────────────────────────────
-function SupportSection() {
-  return (
-    <div>
-      <h2 style={styles.sectionTitle}>Customer Care</h2>
-      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>◷</div>
-        <div style={{ color: C.text, fontWeight: 600, marginBottom: 6 }}>Support Tickets</div>
-        <div style={{ color: C.dim, fontSize: 13 }}>Ticket management coming soon.</div>
-      </div>
-    </div>
-  );
-}
+// ─── MARKETING SECTION ───────────────────────────────────────────────────────
+const MarketingSection = ({ bp }) => {
+  const [activeChannels, setActiveChannels] = useState(['Email']);
 
-// ── Section: System Monitor ───────────────────────────────────────────────────
-function MonitorSection() {
-  const [uptime] = useState(() => {
-    const s = Math.floor(Math.random() * 100000) + 50000;
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    return `${h}h ${m}m`;
-  });
+  const toggleChannel = label => {
+    setActiveChannels(prev =>
+      prev.includes(label) ? prev.filter(c => c !== label) : [...prev, label]
+    );
+  };
+
+  const CHANNELS = [
+    { icon: Mail, label: 'Email' },
+    { icon: AlertCircle, label: 'Push' },
+    { icon: ShieldCheck, label: 'In-App' },
+  ];
 
   return (
-    <div>
-      <h2 style={styles.sectionTitle}>System Monitor</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <StatCard label="Server Uptime" value={uptime}  color={C.green} />
-        <StatCard label="API Status"    value="Online"  sub="All endpoints healthy" color={C.green}  />
-        <StatCard label="DB Status"     value="Online"  sub="Supabase connected"    color={C.green}  />
-        <StatCard label="Auth Service"  value="Active"  sub="Supabase Auth"         color={C.cyan}   />
-      </div>
-      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20 }}>
-        <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>System Log</div>
-        {[
-          { ts: new Date().toISOString(), msg: 'Auth service initialised', level: 'info' },
-          { ts: new Date(Date.now() - 60000).toISOString(), msg: 'Supabase connection established', level: 'info' },
-          { ts: new Date(Date.now() - 120000).toISOString(), msg: 'Database schema validated', level: 'info' },
-        ].map((log, i) => (
-          <div key={i} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 12 }}>
-            <span style={{ color: C.dim, flexShrink: 0 }}>{new Date(log.ts).toLocaleTimeString()}</span>
-            <span style={{ color: log.level === 'error' ? C.red : C.green }}>[{log.level.toUpperCase()}]</span>
-            <span style={{ color: C.text }}>{log.msg}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '2fr 1fr' : '1fr', gap: '6px' }}>
+      <div style={{ ...cs, padding: '24px' }}>
+        <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '17px', margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Megaphone size={17} style={{ color: C.indigoL }} /> Multi-Channel Broadcast
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label style={{ ...lbl }}>Target Audience</label>
+            <select style={{ ...inp, cursor: 'pointer' }}>
+              <option>All Users (12,842)</option>
+              <option>Free Plan Only</option>
+              <option>Inactive Users</option>
+            </select>
           </div>
-        ))}
+          <div>
+            <label style={{ ...lbl }}>Channel</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              {CHANNELS.map(({ icon: Icon, label }) => {
+                const active = activeChannels.includes(label);
+                return (
+                  <button key={label} onClick={() => toggleChannel(label)} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', padding: '14px 8px', background: active ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.5)', color: active ? C.indigoL : C.muted, border: `1px solid ${active ? 'rgba(99,102,241,0.5)' : C.border2}`, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', outline: active ? `2px solid rgba(99,102,241,0.25)` : 'none', outlineOffset: '2px', boxShadow: active ? '0 0 12px rgba(99,102,241,0.2)' : 'none', transition: 'all 0.15s ease', position: 'relative' }}>
+                    <Icon size={20} />
+                    {label}
+                    {active && (
+                      <div style={{ position: 'absolute', top: '6px', right: '6px', width: '14px', height: '14px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CheckCircle size={9} style={{ color: 'white' }} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
+            {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
+          </div>
+          <div>
+            <label style={{ ...lbl }}>Message</label>
+            <textarea rows={5} placeholder="Enter your announcement..." style={{ ...inp, resize: 'none', display: 'block' }} />
+          </div>
+          <button style={{ ...btn, background: activeChannels.length > 0 ? C.indigo : C.border, color: activeChannels.length > 0 ? 'white' : C.muted, padding: '13px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.12em', border: 'none', cursor: activeChannels.length > 0 ? 'pointer' : 'not-allowed', transition: 'background 0.15s' }}>
+            Send Campaign Now
+          </button>
+        </div>
       </div>
-    </div>
-  );
-}
+      <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }} />
+            <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Campaign Stats</h4>
+          </div>
+          <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', background: 'rgba(99,102,241,0.1)', color: C.indigoL, border: `1px solid rgba(99,102,241,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
+        </div>
 
-// ── Section: Content ─────────────────────────────────────────────────────────
-function ContentSection() {
-  return (
-    <div>
-      <h2 style={styles.sectionTitle}>Content Manager</h2>
-      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>◫</div>
-        <div style={{ color: C.text, fontWeight: 600, marginBottom: 6 }}>Blog & Strategies</div>
-        <div style={{ color: C.dim, fontSize: 13 }}>Content management coming soon.</div>
-      </div>
-    </div>
-  );
-}
-
-// ── Section: Settings ─────────────────────────────────────────────────────────
-function SettingsSection({ currentUser }: { currentUser: { email?: string; full_name?: string } }) {
-  return (
-    <div>
-      <h2 style={styles.sectionTitle}>Settings</h2>
-      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, maxWidth: 480 }}>
-        <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>Admin Account</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: C.dim, fontSize: 13 }}>Email</span>
-            <span style={{ color: C.text, fontSize: 13 }}>{currentUser.email || '—'}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: C.dim, fontSize: 13 }}>Display Name</span>
-            <span style={{ color: C.text, fontSize: 13 }}>{currentUser.full_name || '—'}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: C.dim, fontSize: 13 }}>Role</span>
-            <Pill color={C.yellow} label="admin" />
-          </div>
+        {/* Stats */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {[
+            { label: 'Emails Sent', value: '24,810', change: '+12%', up: true, icon: Mail, pct: 88 },
+            { label: 'Open Rate',   value: '38.4%',  change: '+2.1%', up: true, icon: TrendingUp, pct: 38 },
+            { label: 'Click Rate',  value: '9.2%',   change: '-0.4%', up: false, icon: Activity, pct: 9  },
+            { label: 'Unsubscribes', value: '142',   change: '+8',    up: false, icon: AlertTriangle, pct: 14 },
+          ].map((s, i, arr) => (
+            <div key={i} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Top row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '28px', height: '28px', background: s.up ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)', border: `1px solid ${s.up ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <s.icon size={13} style={{ color: s.up ? C.greenL : C.redL }} />
+                  </div>
+                  <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 500 }}>{s.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: "'DM Mono', monospace" }}>{s.value}</span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', background: s.up ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)', color: s.up ? C.greenL : C.redL, border: `1px solid ${s.up ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)'}` }}>{s.change}</span>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div style={{ height: '3px', background: 'rgba(30,41,59,0.8)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${s.pct}%`, background: s.up ? `linear-gradient(90deg, ${C.green}, ${C.greenL})` : `linear-gradient(90deg, ${C.red}, ${C.redL})`, opacity: 0.7, transition: 'width 0.6s ease' }} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-}
+};
 
-// ── Main AdminPanel ──────────────────────────────────────────────────────────
+// ─── GROWTH ANALYTICS CARD ───────────────────────────────────────────────────
+const GrowthAnalyticsCard = () => {
+  const [period, setPeriod] = useState('monthly');
+  const isMonthly = period === 'monthly';
+  const data = isMonthly ? GROWTH_DATA_MONTHLY : GROWTH_DATA_DAILY;
+  const labels = isMonthly
+    ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    : Array.from({ length: 30 }, (_, i) => (i + 1) % 5 === 0 || i === 0 ? String(i + 1) : '');
+  const xAxisLabel = isMonthly ? 'MONTH' : 'DAY';
+  return (
+    <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+        <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0, display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <TrendingUp size={15} style={{ color: C.greenL }} /> Growth Analytics
+        </h3>
+        <select value={period} onChange={e => setPeriod(e.target.value)} style={{ background: C.border, color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '5px 10px', fontFamily: FONT, fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
+          <option value="monthly">Last 12 Months</option>
+          <option value="daily">Last 30 Days</option>
+        </select>
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+        <BarGraph data={data} labels={labels} xAxisLabel={xAxisLabel} />
+      </div>
+    </div>
+  );
+};
+
+// ─── SETTINGS SECTION ────────────────────────────────────────────────────────
+const AVAILABLE_FUNCTIONS = [
+  { id: 'view_tickets', label: 'View Tickets', desc: 'See support queue' },
+  { id: 'reply_tickets', label: 'Reply to Tickets', desc: 'Send responses' },
+  { id: 'resolve_tickets', label: 'Resolve Tickets', desc: 'Close tickets' },
+  { id: 'ban_users', label: 'Ban Users', desc: 'Suspend accounts' },
+  { id: 'reset_passwords', label: 'Reset Passwords', desc: 'Reset user credentials' },
+  { id: 'escalate', label: 'Escalate Issues', desc: 'Escalate to senior' },
+  { id: 'view_analytics', label: 'View Analytics', desc: 'Access reporting' },
+  { id: 'manage_content', label: 'Manage Content', desc: 'Edit blog/signals' },
+];
+
+const THEME_OPTIONS = [
+  { id: 'dark', label: 'Dark', bg: '#020617', card: '#0f172a', accent: '#4f46e5' },
+  { id: 'midnight', label: 'Midnight', bg: '#000000', card: '#111111', accent: '#7c3aed' },
+  { id: 'slate', label: 'Slate', bg: '#0f172a', card: '#1e293b', accent: '#0ea5e9' },
+  { id: 'forest', label: 'Forest', bg: '#052e16', card: '#14532d', accent: '#22c55e' },
+];
+
+const FONT_OPTIONS = [
+  { id: 'onest', label: 'Onest', stack: "'Onest', sans-serif" },
+  { id: 'inter', label: 'Inter', stack: "'Inter', sans-serif" },
+  { id: 'mono', label: 'DM Mono', stack: "'DM Mono', monospace" },
+  { id: 'sora', label: 'Sora', stack: "'Sora', sans-serif" },
+];
+
+const MOCK_CC_USERS = [
+  { id: 'CC001', name: 'Jamie Reyes', email: 'jamie@support.io', functions: ['view_tickets', 'reply_tickets', 'resolve_tickets'], status: 'Active' },
+  { id: 'CC002', name: 'Nadia Osei', email: 'nadia@support.io', functions: ['view_tickets', 'reply_tickets'], status: 'Active' },
+];
+
+const MOCK_TASKS = [
+  { id: 1, title: 'Follow up with Alex Thompson on API issue', assignee: 'Jamie Reyes', due: '2023-10-25', status: 'Pending' },
+  { id: 2, title: 'Review billing dispute for Priya Sharma', assignee: 'Nadia Osei', due: '2023-10-24', status: 'Complete' },
+  { id: 3, title: 'Send 2FA resolution email to Sarah Chen', assignee: 'Jamie Reyes', due: '2023-10-26', status: 'Pending' },
+  { id: 4, title: 'Prepare weekly support summary report', assignee: 'Nadia Osei', due: '2023-10-27', status: 'Pending' },
+];
+
+const SettingsSection = ({ bp }) => {
+  const [settingsTab, setSettingsTab] = useState('agents');
+  const [ccUsers, setCcUsers] = useState(MOCK_CC_USERS);
+  const [tasks, setTasks] = useState(MOCK_TASKS);
+  const [showNewAgent, setShowNewAgent] = useState(false);
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [activeTheme, setActiveTheme] = useState('dark');
+  const [activeFont, setActiveFont] = useState('onest');
+  const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] });
+  const [newTask, setNewTask] = useState({ title: '', assignee: '', due: '' });
+  const [showPass, setShowPass] = useState(false);
+
+  const SETTINGS_TABS = [
+    { id: 'agents', label: 'CC Agents' },
+    { id: 'tasks', label: 'Task Scheduler' },
+    { id: 'appearance', label: 'Appearance' },
+  ];
+
+  const toggleAgentFn = (agentId, fnId) => {
+    setCcUsers(p => p.map(u => u.id === agentId ? { ...u, functions: u.functions.includes(fnId) ? u.functions.filter(f => f !== fnId) : [...u.functions, fnId] } : u));
+  };
+
+  const approveTask = id => setTasks(p => p.map(t => t.id === id ? { ...t, status: 'Complete' } : t));
+  const deleteTask = id => setTasks(p => p.filter(t => t.id !== id));
+
+  const handleCreateAgent = () => {
+    if (!newAgent.name || !newAgent.email || !newAgent.password) return;
+    const id = 'CC' + String(ccUsers.length + 1).padStart(3, '0');
+    setCcUsers(p => [...p, { id, name: newAgent.name, email: newAgent.email, functions: newAgent.functions, status: 'Active' }]);
+    setNewAgent({ name: '', email: '', password: '', functions: [] });
+    setShowNewAgent(false);
+  };
+
+  const handleCreateTask = () => {
+    if (!newTask.title || !newTask.assignee) return;
+    setTasks(p => [...p, { id: Date.now(), ...newTask, status: 'Pending' }]);
+    setNewTask({ title: '', assignee: '', due: '' });
+    setShowNewTask(false);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div>
+        <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>System Settings</h2>
+        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Manage agents, tasks &amp; appearance</p>
+      </div>
+
+      <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', width: 'fit-content' }}>
+        {SETTINGS_TABS.map(t => (
+          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t.label}</button>
+        ))}
+      </div>
+
+      {settingsTab === 'agents' && (
+        <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px', alignItems: 'start' }}>
+          <div style={{ ...cs, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>Customer Care Agents</h3>
+              <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> New Agent</button>
+            </div>
+            {ccUsers.map((user, idx) => (
+              <div key={user.id} onClick={() => setSelectedAgent(selectedAgent?.id === user.id ? null : user)} style={{ padding: '12px 16px', borderBottom: idx < ccUsers.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', background: selectedAgent?.id === user.id ? 'rgba(79,70,229,0.07)' : 'transparent', borderLeft: `3px solid ${selectedAgent?.id === user.id ? C.indigo : 'transparent'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                    {user.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{user.name}</p>
+                    <p style={{ color: C.muted, fontSize: '11px', margin: '2px 0 0' }}>{user.id} · {user.email}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 7px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase' }}>{user.status}</span>
+                    <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0' }}>{user.functions.length} permissions</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...cs, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>
+                {selectedAgent ? `Permissions — ${selectedAgent.name}` : 'Select an agent to edit permissions'}
+              </h3>
+            </div>
+            {selectedAgent ? (
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {AVAILABLE_FUNCTIONS.map(fn => {
+                  const agent = ccUsers.find(u => u.id === selectedAgent.id);
+                  const active = agent?.functions.includes(fn.id);
+                  return (
+                    <div key={fn.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: active ? 'rgba(79,70,229,0.07)' : 'rgba(30,41,59,0.4)', border: `1px solid ${active ? 'rgba(79,70,229,0.25)' : C.border}` }}>
+                      <div>
+                        <p style={{ color: active ? 'white' : C.muted, fontSize: '13px', fontWeight: 600, margin: 0 }}>{fn.label}</p>
+                        <p style={{ color: C.muted, fontSize: '11px', margin: '2px 0 0' }}>{fn.desc}</p>
+                      </div>
+                      <button onClick={() => toggleAgentFn(selectedAgent.id, fn.id)} style={{ ...btn, width: '38px', height: '22px', background: active ? C.indigo : C.border, border: 'none', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                        <div style={{ width: '16px', height: '16px', background: 'white', position: 'absolute', top: '3px', left: active ? '19px' : '3px', transition: 'left 0.2s' }} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '48px', textAlign: 'center' }}>
+                <ShieldCheck size={28} style={{ color: C.border2, margin: '0 auto 10px', display: 'block' }} />
+                <p style={{ color: C.muted, fontSize: '13px', margin: 0 }}>Click an agent on the left to manage their permissions</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showNewAgent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '480px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '16px', margin: 0 }}>Create CC Agent</h3>
+              <button onClick={() => setShowNewAgent(false)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', border: 'none' }}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '20px 22px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div><label style={{ ...lbl }}>Full Name</label><input value={newAgent.name} onChange={e => setNewAgent(p => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" style={{ ...inp }} /></div>
+              <div><label style={{ ...lbl }}>Email / User ID</label><input value={newAgent.email} onChange={e => setNewAgent(p => ({ ...p, email: e.target.value }))} placeholder="jane@support.io" style={{ ...inp }} /></div>
+              <div>
+                <label style={{ ...lbl }}>Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPass ? 'text' : 'password'} value={newAgent.password} onChange={e => setNewAgent(p => ({ ...p, password: e.target.value }))} placeholder="Set initial password..." style={{ ...inp, paddingRight: '44px' }} />
+                  <button onClick={() => setShowPass(p => !p)} style={{ ...btn, position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', color: C.muted, border: 'none', padding: '2px' }}><Eye size={14} /></button>
+                </div>
+              </div>
+              <div>
+                <label style={{ ...lbl }}>Assign Permissions</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {AVAILABLE_FUNCTIONS.map(fn => {
+                    const active = newAgent.functions.includes(fn.id);
+                    return (
+                      <button key={fn.id} onClick={() => setNewAgent(p => ({ ...p, functions: active ? p.functions.filter(f => f !== fn.id) : [...p.functions, fn.id] }))}
+                        style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: active ? 'rgba(79,70,229,0.08)' : 'rgba(30,41,59,0.4)', border: `1px solid ${active ? 'rgba(79,70,229,0.3)' : C.border}`, color: active ? C.indigoL : C.muted, fontSize: '12px', textAlign: 'left' }}>
+                        <span>{fn.label}</span>
+                        <div style={{ width: '14px', height: '14px', background: active ? C.indigo : 'transparent', border: `2px solid ${active ? C.indigo : C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {active && <CheckCircle size={9} style={{ color: 'white' }} />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowNewAgent(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleCreateAgent} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>Create Agent</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {settingsTab === 'tasks' && (
+        <div style={{ ...cs, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>Scheduled Tasks</h3>
+            <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(30,41,59,0.5)', gap: '12px' }}>
+            {['Task', 'Assignee', 'Due Date', 'Status'].map(h => (
+              <span key={h} style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</span>
+            ))}
+          </div>
+          {tasks.map((task, idx) => (
+            <div key={task.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '13px 16px', borderBottom: idx < tasks.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', gap: '12px', background: task.status === 'Complete' ? 'rgba(16,185,129,0.03)' : 'transparent' }}>
+              <p style={{ color: task.status === 'Complete' ? C.muted : 'white', fontSize: '13px', fontWeight: 600, margin: 0, textDecoration: task.status === 'Complete' ? 'line-through' : 'none' }}>{task.title}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '22px', height: '22px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                  {task.assignee.split(' ').map(n => n[0]).join('')}
+                </div>
+                <span style={{ color: C.muted, fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.assignee}</span>
+              </div>
+              <span style={{ color: C.muted, fontSize: '11px', fontFamily: 'monospace' }}>{task.due || '—'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {task.status === 'Pending' ? (
+                  <button onClick={() => approveTask(task.id)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.25)`, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <CheckCircle size={10} /> Approve
+                  </button>
+                ) : (
+                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '5px 10px', background: 'rgba(16,185,129,0.08)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Complete</span>
+                )}
+                <button onClick={() => deleteTask(task.id)} style={{ ...btn, background: 'transparent', color: '#475569', padding: '4px', border: 'none' }}><Trash2 size={12} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showNewTask && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '420px' }}>
+            <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '16px', margin: 0 }}>Schedule Task</h3>
+              <button onClick={() => setShowNewTask(false)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', border: 'none' }}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div><label style={{ ...lbl }}>Task Description</label><input value={newTask.title} onChange={e => setNewTask(p => ({ ...p, title: e.target.value }))} placeholder="Describe the task..." style={{ ...inp }} /></div>
+              <div>
+                <label style={{ ...lbl }}>Assign To</label>
+                <select value={newTask.assignee} onChange={e => setNewTask(p => ({ ...p, assignee: e.target.value }))} style={{ ...inp, cursor: 'pointer' }}>
+                  <option value="">Select agent...</option>
+                  {ccUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
+              </div>
+              <div><label style={{ ...lbl }}>Due Date</label><input type="date" value={newTask.due} onChange={e => setNewTask(p => ({ ...p, due: e.target.value }))} style={{ ...inp, colorScheme: 'dark' }} /></div>
+            </div>
+            <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowNewTask(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleCreateTask} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>Add Task</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {settingsTab === 'appearance' && (
+        <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px' }}>
+          <div style={{ ...cs, padding: '20px' }}>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {THEME_OPTIONS.map(theme => (
+                <button key={theme.id} onClick={() => setActiveTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
+                  <div style={{ height: '60px', background: theme.bg, position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', width: '30px', height: '30px', background: theme.card, border: `1px solid ${theme.accent}30` }} />
+                    <div style={{ position: 'absolute', top: '10px', left: '48px', right: '10px', height: '8px', background: theme.accent, opacity: 0.8 }} />
+                    <div style={{ position: 'absolute', top: '24px', left: '48px', right: '20px', height: '5px', background: theme.card }} />
+                    <div style={{ position: 'absolute', bottom: '10px', left: '10px', right: '10px', height: '14px', background: theme.card }} />
+                    {activeTheme === theme.id && (
+                      <div style={{ position: 'absolute', top: '6px', right: '6px', width: '16px', height: '16px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CheckCircle size={10} style={{ color: 'white' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ padding: '8px 10px', background: C.card }}>
+                    <p style={{ color: activeTheme === theme.id ? C.indigoL : 'white', fontSize: '12px', fontWeight: 700, margin: 0 }}>{theme.label}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme changes apply on next session</p>
+          </div>
+
+          <div style={{ ...cs, padding: '20px' }}>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {FONT_OPTIONS.map(font => (
+                <button key={font.id} onClick={() => setActiveFont(font.id)} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(79,70,229,0.08)' : 'rgba(30,41,59,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(79,70,229,0.35)' : C.border}`, textAlign: 'left' }}>
+                  <div>
+                    <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '15px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
+                    <p style={{ color: C.muted, fontSize: '11px', margin: '3px 0 0', fontFamily: font.stack }}>The quick brown fox jumps over the lazy dog</p>
+                  </div>
+                  {activeFont === font.id && (
+                    <div style={{ width: '20px', height: '20px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <CheckCircle size={12} style={{ color: 'white' }} />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button style={{ ...btn, marginTop: '16px', width: '100%', background: C.indigo, color: 'white', padding: '11px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none' }}>Apply Font</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function AdminPanel() {
+  const bp = useBreakpoint();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [collapsed, setCollapsed] = useState(false);
+  const openTickets = MOCK_TICKETS.filter(t => t.status === 'Open').length;
+
   const { user, session, role, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
-  const [active, setActive]       = useState('overview');
-  const [collapsed, setCollapsed] = useState(false);
-  const [users, setUsers]         = useState<AdminUser[]>([]);
-  const [fetching, setFetching]   = useState(false);
+  const [apiUsers, setApiUsers] = useState<any[]>([]);
 
-  // Guard: redirect based on auth state
   useEffect(() => {
     if (loading) return;
-    if (!session)         navigate('/auth');
+    if (!session) navigate('/auth');
     else if (role !== 'admin') navigate('/journal');
   }, [loading, session, role, navigate]);
 
-  // Fetch users from admin API
   useEffect(() => {
     if (role !== 'admin') return;
-    setFetching(true);
     supabase?.auth.getSession().then(async ({ data: { session: s } }) => {
       if (!s) return;
-      try {
-        const res = await fetch('/api/admin/users', {
-          headers: { Authorization: `Bearer ${s.access_token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUsers(data);
-        }
-      } finally {
-        setFetching(false);
-      }
+      const res = await fetch('/api/admin/users', {
+        headers: { Authorization: `Bearer ${s.access_token}` },
+      });
+      if (res.ok) setApiUsers(await res.json());
     });
   }, [role]);
 
   async function handleRoleChange(userId: string, newRole: string) {
-    const { data: { session: s } } = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+    const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+    const s = (r as any).data.session;
     if (!s) return;
     await fetch(`/api/admin/users/${userId}/role`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.access_token}` },
       body: JSON.stringify({ role: newRole }),
     });
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    setApiUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
   }
 
-  if (loading) {
-    return <div style={{ ...styles.page, color: C.dim, fontSize: 14 }}>Loading…</div>;
-  }
+  useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  const currentUser = {
-    email: user?.email,
-    full_name: user?.user_metadata?.full_name,
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#020617', color: '#64748b', fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>Loading…</div>;
+
+  const adminEmail = user?.email ?? '';
+  const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
+  const adminInitial = (adminName[0] ?? 'A').toUpperCase();
+
+  const SIDEBAR_GROUPS = [
+    { label: 'Core',             items: [{ id: 'dashboard',     label: 'Overview',        icon: Layers,        ready: true }] },
+    { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: Users,         ready: true }] },
+    { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: HeadphonesIcon, badge: openTickets, ready: true }] },
+    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'marketing', label: 'Marketing', icon: Megaphone, ready: true }] },
+    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu,           ready: true }] },
+    { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
+  ];
+
+  const PAGE_TITLES = {
+    dashboard: 'Overview', analytics: 'Analytics & Reports', health: 'Health Dashboard',
+    users: 'User Accounts', 'user-activity': 'User Activity', roles: 'Roles & Permissions', flagged: 'Blocked / Flagged',
+    'customer-care': 'Customer Care', feedback: 'User Feedback',
+    reported: 'Reported Content', 'audit-logs': 'Audit Logs', 'data-mgmt': 'Data Management',
+    blog: 'Blogpost', marketing: 'Marketing', announcements: 'Announcements',
+    'system-monitor': 'System Monitor', 'usage-metrics': 'Usage Metrics', 'error-logs': 'Error Logs',
+    billing: 'Plans & Billing', promotions: 'Promotions',
+    settings: 'System Settings', api: 'API & Integrations', 'feature-flags': 'Feature Flags', security: 'Security Settings',
   };
 
-  return (
-    <div style={styles.page}>
-      {/* Sidebar */}
-      <aside style={{ ...styles.sidebar, width: collapsed ? 60 : 220 }}>
-        <div style={styles.sidebarTop}>
-          <div style={styles.brand}>
-            <div style={styles.brandLogo}>TS</div>
-            {!collapsed && <span style={styles.brandName}>TradeSync</span>}
+  const navBtn = item => {
+    const isActive = activeTab === item.id;
+    const isSoon = !item.ready;
+    const activeBg = isActive ? 'rgba(79,70,229,0.18)' : 'transparent';
+    const activeColor = isActive ? 'white' : isSoon ? '#6b7280' : '#94a3b8';
+    const iconColor = isActive ? C.indigoL : isSoon ? '#4b5563' : '#64748b';
+    return (
+      <button key={item.id} onClick={() => setActiveTab(item.id)} title={item.label}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '6px 10px', justifyContent: collapsed ? 'center' : 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 400, fontSize: '12px', position: 'relative', transition: 'background 0.15s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent' }}>
+        <item.icon size={14} style={{ flexShrink: 0, color: iconColor }} />
+        {!collapsed && (
+          <>
+            <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{item.label}</span>
+            {isSoon && (
+              <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.1)', color: '#92400e', border: '1px solid rgba(245,158,11,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
+            )}
+          </>
+        )}
+        {item.badge > 0 && (
+          <span style={{ background: C.red, color: 'white', fontSize: '9px', fontWeight: 700, padding: '1px 5px', position: collapsed ? 'absolute' : 'static', top: collapsed ? '3px' : 'auto', right: collapsed ? '3px' : 'auto', flexShrink: 0, minWidth: '16px', textAlign: 'center' }}>{item.badge}</span>
+        )}
+      </button>
+    );
+  };
+
+  const sectionLabel = label => !collapsed && (
+    <p style={{ color: '#2d3d52', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', padding: '10px 12px 3px', margin: 0 }}>{label}</p>
+  );
+
+  const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
+  const dashMainCols = bp.isDesktop ? '2fr 1fr' : '1fr';
+  const userTableScrollable = !bp.isDesktop;
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard': return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 'calc(100vh - 120px)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
+            <StatCard title="Total Traders" value="12,842" change="+12.5%" trend="up" icon={Users} />
+            <StatCard title="Monthly Visitors" value="42.5k" change="+8.2%" trend="up" icon={TrendingUp} />
+            <StatCard title="Avg. Session" value="12m 42s" change="+4.1%" trend="up" icon={Clock} />
+            <StatCard title="MRR" value="$84,200" change="+18.3%" trend="up" icon={Globe} />
           </div>
-          {!collapsed && <div style={{ color: C.yellow, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', marginLeft: 2, marginBottom: 4 }}>ADMIN</div>}
-          <button onClick={() => setCollapsed(c => !c)} style={styles.collapseBtn} title="Toggle sidebar">
-            {collapsed ? '›' : '‹'}
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
+            <GrowthAnalyticsCard />
+            <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '14px', margin: '0 0 16px' }}>Recent Activity</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {[{ text: 'New Enterprise signup: Marcus', time: '2m ago', err: false }, { text: 'Critical Error: Binance API lag', time: '14m ago', err: true }, { text: 'Blog post published: CPI Recap', time: '1h ago', err: false }].map((a, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.err ? C.red : C.indigo, marginTop: '3px', flexShrink: 0 }} />
+                    <div><p style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{a.time}</p></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+      case 'users': return (
+        <div style={{ ...cs, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+              <input type="text" placeholder="Search users..." style={{ ...inp, width: bp.isMobile ? '100%' : '200px', paddingLeft: '32px' }} />
+            </div>
+            <span style={{ color: '#475569', fontSize: '12px', fontFamily: FONT }}>{apiUsers.length} users</span>
+          </div>
+          <div style={{ overflowX: userTableScrollable ? 'auto' : 'visible' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+              <thead>
+                <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
+                  {['User', 'Role', 'Joined', 'Last Login', 'Change Role'].map(h => (
+                    <th key={h} style={{ padding: '11px 18px', textAlign: h === 'Change Role' ? 'right' : 'left', color: C.muted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: FONT, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {apiUsers.map(u => (
+                  <tr key={u.id} style={{ borderTop: `1px solid ${C.bg}` }}>
+                    <td style={{ padding: '13px 18px', fontFamily: FONT }}>
+                      <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name || '—'}</p>
+                      <p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
+                    </td>
+                    <td style={{ padding: '13px 18px', fontFamily: FONT }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: u.role === 'admin' ? 'rgba(245,158,11,0.1)' : C.border, color: u.role === 'admin' ? C.amberL : '#94a3b8', whiteSpace: 'nowrap' }}>{u.role}</span>
+                    </td>
+                    <td style={{ padding: '13px 18px', color: '#475569', fontSize: '12px', fontFamily: FONT, whiteSpace: 'nowrap' }}>
+                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td style={{ padding: '13px 18px', color: '#475569', fontSize: '12px', fontFamily: FONT, whiteSpace: 'nowrap' }}>
+                      {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}
+                    </td>
+                    <td style={{ padding: '13px 18px', textAlign: 'right' }}>
+                      <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)}
+                        style={{ background: '#1e293b', border: `1px solid ${C.border}`, color: '#94a3b8', fontSize: '11px', padding: '4px 8px', cursor: 'pointer', fontFamily: FONT }}>
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+                {apiUsers.length === 0 && (
+                  <tr><td colSpan={5} style={{ padding: '24px 18px', color: '#475569', fontSize: '13px', textAlign: 'center', fontFamily: FONT }}>No users found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+      case 'blog': return <BlogSection bp={bp} />;
+      case 'marketing': return <MarketingSection bp={bp} />;
+      case 'customer-care': return <CustomerCareSection bp={bp} />;
+      case 'system-monitor': return <SystemMonitorSection bp={bp} />;
+      case 'settings': return <SettingsSection bp={bp} />;
+
+    }
+  };
+
+  const sidebarW = collapsed ? '60px' : '240px';
+  const contentPad = bp.isMobile ? '14px' : '24px';
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
+
+      {/* SIDEBAR */}
+      <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
+        <button onClick={() => setCollapsed(p => !p)}
+          style={{ position: 'absolute', right: '-12px', top: '68px', zIndex: 30, width: '24px', height: '24px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.muted }}>
+          <svg viewBox="0 0 24 24" style={{ width: '11px', height: '11px', transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+        </button>
+        <div style={{ padding: collapsed ? '16px 0' : '16px 14px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ width: '38px', height: '38px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none">
+              <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
+              <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#0a0f1e" />
+            </svg>
+          </div>
+          {!collapsed && <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '16px', letterSpacing: '0.12em', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>FSDZONES</span>}
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
+          {SIDEBAR_GROUPS.map((group, gi) => (
+            <div key={gi}>
+              {sectionLabel(group.label)}
+              {group.items.map(navBtn)}
+            </div>
+          ))}
         </div>
 
-        <nav style={styles.nav}>
-          {NAV.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActive(item.id)}
-              style={{
-                ...styles.navItem,
-                background: active === item.id ? C.hover : 'transparent',
-                color: active === item.id ? C.cyan : C.dim,
-                justifyContent: collapsed ? 'center' : 'flex-start',
-              }}
-              title={collapsed ? item.label : undefined}
-            >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
-              {!collapsed && <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>}
-            </button>
-          ))}
-        </nav>
-
-        <div style={styles.sidebarBottom}>
+        {/* User profile + sign out */}
+        <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0 }}>
           {!collapsed && (
-            <div style={{ color: C.dim, fontSize: 11, marginBottom: 6 }}>
-              {currentUser.email}
+            <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+              <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
+                {adminInitial}
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
+                <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
+              </div>
             </div>
           )}
           <button
-            onClick={async () => { await signOut(); navigate('/auth'); }}
-            style={{ ...styles.navItem, color: C.red, justifyContent: collapsed ? 'center' : 'flex-start' }}
+            onClick={async () => { await signOut(); navigate('/'); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
           >
-            <span style={{ fontSize: 16 }}>⏻</span>
-            {!collapsed && <span style={{ fontSize: 13, fontWeight: 500 }}>Sign Out</span>}
+            <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            {!collapsed && <span>Sign Out</span>}
           </button>
         </div>
+
       </aside>
 
-      {/* Main content */}
-      <main style={styles.main}>
-        <div style={styles.topbar}>
-          <div>
-            <div style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>
-              {NAV.find(n => n.id === active)?.label ?? 'Admin Panel'}
-            </div>
-            <div style={{ color: C.dim, fontSize: 12 }}>TradeSync Administration</div>
+      {/* MAIN CONTENT */}
+      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0f172a 0%, #020617 60%)' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(2,6,23,0.9)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `12px ${contentPad}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ color: 'white', fontWeight: 800, fontStyle: 'italic', fontSize: bp.isMobile ? '16px' : '19px', fontFamily: FONT, letterSpacing: '0.02em', margin: 0 }}>{PAGE_TITLES[activeTab] || activeTab}</h1>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button style={{ ...btn, background: 'rgba(30,41,59,0.6)', color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#475569'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(30,41,59,0.6)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = C.border2; }}>
+              <Mail size={16} />
+              {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
+              <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
+            </button>
+            <div style={{ width: '1px', height: '24px', background: C.border2 }} />
+            <button style={{ ...btn, background: 'rgba(30,41,59,0.6)', color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#475569'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(30,41,59,0.6)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = C.border2; }}>
+              <Bell size={16} />
+              {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
+              <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
+            </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Pill color={C.yellow} label="ADMIN" />
-            <span style={{ color: C.dim, fontSize: 13 }}>{currentUser.email}</span>
-          </div>
-        </div>
-
-        <div style={styles.content}>
-          {fetching && active !== 'monitor' && active !== 'support' && active !== 'content' && active !== 'settings' && (
-            <div style={{ color: C.dim, fontSize: 13, marginBottom: 16 }}>Loading data…</div>
-          )}
-          {active === 'overview'  && <OverviewSection users={users} />}
-          {active === 'users'     && <UsersSection users={users} onRoleChange={handleRoleChange} />}
-          {active === 'support'   && <SupportSection />}
-          {active === 'monitor'   && <MonitorSection />}
-          {active === 'content'   && <ContentSection />}
-          {active === 'settings'  && <SettingsSection currentUser={currentUser} />}
-        </div>
+        </header>
+        <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px' }}>{renderContent()}</section>
       </main>
     </div>
   );
 }
-
-// ── Styles ───────────────────────────────────────────────────────────────────
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    display: 'flex',
-    minHeight: '100vh',
-    background: C.bg,
-    fontFamily: "'Inter', 'JetBrains Mono', monospace",
-    color: C.text,
-  },
-  sidebar: {
-    background: C.sidebar,
-    borderRight: `1px solid ${C.border}`,
-    display: 'flex',
-    flexDirection: 'column',
-    flexShrink: 0,
-    transition: 'width 0.2s',
-    overflow: 'hidden',
-  },
-  sidebarTop: {
-    padding: '20px 14px 10px',
-  },
-  brand: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 6,
-  },
-  brandLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    background: C.cyan,
-    color: '#0D0F14',
-    fontWeight: 700,
-    fontSize: 13,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  brandName: {
-    color: C.text,
-    fontSize: 16,
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-  },
-  collapseBtn: {
-    background: 'none',
-    border: `1px solid ${C.border}`,
-    borderRadius: 6,
-    color: C.dim,
-    cursor: 'pointer',
-    fontSize: 16,
-    padding: '2px 8px',
-    marginTop: 10,
-    width: '100%',
-  },
-  nav: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    padding: '8px 8px',
-  },
-  navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '9px 10px',
-    borderRadius: 8,
-    border: 'none',
-    cursor: 'pointer',
-    width: '100%',
-    textAlign: 'left',
-    transition: 'background 0.15s, color 0.15s',
-  },
-  sidebarBottom: {
-    padding: '10px 8px 16px',
-    borderTop: `1px solid ${C.border}`,
-  },
-  main: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-  },
-  topbar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 24px',
-    borderBottom: `1px solid ${C.border}`,
-    background: C.panel,
-  },
-  content: {
-    flex: 1,
-    padding: '24px',
-    overflowY: 'auto',
-  },
-  sectionTitle: {
-    color: C.text,
-    fontSize: 18,
-    fontWeight: 700,
-    marginBottom: 20,
-    marginTop: 0,
-  },
-  searchInput: {
-    background: C.hover,
-    border: `1px solid ${C.border}`,
-    borderRadius: 8,
-    padding: '9px 14px',
-    color: C.text,
-    fontSize: 13,
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-};
