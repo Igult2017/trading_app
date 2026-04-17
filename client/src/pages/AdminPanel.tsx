@@ -782,7 +782,12 @@ const BlogSection = ({ bp }) => {
                     <label style={{ ...lbl }}>Destination</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                       {Object.entries(SECTION_META).map(([key, meta]) => (
-                        <button key={key} onClick={() => { setF('section', key); if (key !== 'trade-signals' && modalTab === 'signal') setModalTab('post'); }}
+                        <button key={key} onClick={() => {
+                          setF('section', key);
+                          if (key === 'verified-strategies') setF('category', 'Backtested Strategies');
+                          if (key === 'blog' && !BLOG_CATEGORIES.includes(fv('category'))) setF('category', 'Analysis');
+                          if (key !== 'trade-signals' && modalTab === 'signal') setModalTab('post');
+                        }}
                           style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: fv('section') === key ? meta.bg : 'rgba(30,41,59,0.5)', border: `1px solid ${fv('section') === key ? meta.border : C.border2}`, color: fv('section') === key ? meta.color : C.muted, textAlign: 'left' }}>
                           <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0 }} />
                           <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{meta.label}</p><p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{key === 'blog' ? 'Articles & recaps' : key === 'verified-strategies' ? 'Trade strategies' : 'Live signals'}</p></div>
@@ -790,9 +795,9 @@ const BlogSection = ({ bp }) => {
                       ))}
                     </div>
                   </div>
-                  {fv('section') === 'blog' && (
+                  {fv('section') !== 'trade-signals' && (
                     <div>
-                      <label style={{ ...lbl }}>Category</label>
+                      <label style={{ ...lbl }}>Category <span style={{ color: '#475569', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to blog nav tab</span></label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {BLOG_CATEGORIES.map(cat => (
                           <button key={cat} onClick={() => setF('category', cat)}
