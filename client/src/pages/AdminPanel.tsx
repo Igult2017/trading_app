@@ -64,7 +64,7 @@ const INITIAL_LOGS = [
 ];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-const FONT = "'Inter', sans-serif";
+const FONT = "'Montserrat', sans-serif";
 const C = {
   bg: '#07090e', sidebar: '#07090e', card: '#0c1018',
   border: '#131c28', border2: '#1b2840', dim: '#1b2840',
@@ -1441,10 +1441,10 @@ const THEME_OPTIONS = [
 ];
 
 const FONT_OPTIONS = [
+  { id: 'montserrat', label: 'Montserrat', stack: "'Montserrat', sans-serif" },
   { id: 'onest', label: 'Onest', stack: "'Onest', sans-serif" },
   { id: 'inter', label: 'Inter', stack: "'Inter', sans-serif" },
   { id: 'mono', label: 'DM Mono', stack: "'DM Mono', monospace" },
-  { id: 'sora', label: 'Sora', stack: "'Sora', sans-serif" },
 ];
 
 const MOCK_CC_USERS = [
@@ -1467,7 +1467,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('admin_theme') || 'dark');
-  const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'onest');
+  const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'montserrat');
   const [fontSaved, setFontSaved] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] as string[] });
   const [newTask, setNewTask] = useState({ title: '', assignee: '', due: '' });
@@ -1826,7 +1826,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>Loading…</div>;
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: "'Montserrat', sans-serif", fontSize: '13px' }}>Loading…</div>;
 
   const adminEmail = user?.email ?? '';
   const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
@@ -1967,7 +1967,7 @@ export default function AdminPanel() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
 
       {/* SIDEBAR */}
       <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
