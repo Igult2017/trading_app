@@ -100,6 +100,14 @@ const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: '
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const timeAgo = (ts: string | null) => {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
 const BarGraph = ({ data, labels, xAxisLabel }) => {
   const [hovered, setHovered] = useState(null);
   const w = 500, h = 210;
@@ -200,7 +208,7 @@ const StatCard = ({ title, value, change, trend, icon: Icon }) => (
 );
 
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
-const CustomerCareSection = ({ bp }) => {
+const CustomerCareSection = ({ bp, apiUsers = [] }) => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [tickets, setTickets] = useState(MOCK_TICKETS);
   const [replyText, setReplyText] = useState('');
@@ -561,7 +569,9 @@ const BlogSection = ({ bp }) => {
     });
   }, []);
 
-  const filtered = activeSection === 'all' ? posts : posts.filter(p => p.section === activeSection);
+  const filtered = activeSection === 'all' ? posts
+    : activeSection === 'drafts' ? posts.filter(p => p.status === 'Draft')
+    : posts.filter(p => p.section === activeSection);
   const openNew = () => { setEditPost(null); setForm(EMPTY_FORM); setModalTab('post'); setShowModal(true); };
   const openEdit = (post: any) => {
     const ad = post.authorData || {};
@@ -585,15 +595,16 @@ const BlogSection = ({ bp }) => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const f = form as any;
+      // Social media handles are optional — always send safe defaults
       const authorData = {
-        bio:       f.authorBio      || '',
+        bio:       f.authorBio       || '',
         expertise: f.authorExpertise || [],
         twitter:   f.authorTwitter   || '',
         linkedin:  f.authorLinkedin  || '',
         telegram:  f.authorTelegram  || '',
       };
       const payload = {
-        title: form.title, section: form.section, status: form.status,
+        title: form.title.trim(), section: form.section, status: form.status,
         category: f.category || 'Analysis',
         author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
@@ -602,19 +613,27 @@ const BlogSection = ({ bp }) => {
       };
       const body = JSON.stringify(payload);
       let savedPost: any = null;
+      let saveError: string | null = null;
       if (editPost) {
         const r = await fetch(`/api/blog/${editPost.id}`, { method: 'PATCH', headers, body });
         if (r.ok) {
           savedPost = await r.json();
           setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...savedPost, category: savedPost.category, authorData: savedPost.authorData } : x));
+        } else {
+          const err = await r.json().catch(() => ({}));
+          saveError = err.error || `Server error ${r.status}`;
         }
       } else {
         const r = await fetch('/api/blog', { method: 'POST', headers, body });
         if (r.ok) {
           savedPost = await r.json();
           setPosts(p => [...p, { id: savedPost.id, title: savedPost.title, section: savedPost.section, category: savedPost.category, status: savedPost.status, author: savedPost.author, date: savedPost.date, signal: savedPost.signalData, authorData: savedPost.authorData }]);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          saveError = err.error || `Server error ${r.status}`;
         }
       }
+      if (saveError) { alert(`Failed to save post: ${saveError}`); return; }
       // If publishing, trigger share links for selected platforms
       if (savedPost && form.status === 'Published' && (f.shareOn || []).length > 0) {
         const postUrl = encodeURIComponent(window.location.origin + '/blog');
@@ -631,6 +650,8 @@ const BlogSection = ({ bp }) => {
         });
       }
       setShowModal(false);
+    } catch (err: any) {
+      alert(`Unexpected error: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -669,10 +690,10 @@ const BlogSection = ({ bp }) => {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', flexWrap: 'wrap' }}>
-          {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'trade-signals', label: 'Signals', count: posts.filter(p => p.section === 'trade-signals').length }].map(tab => (
-            <button key={tab.id} onClick={() => setActiveSection(tab.id)} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? C.indigo : 'transparent', color: activeSection === tab.id ? 'white' : C.muted, fontSize: '12px', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+          {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'trade-signals', label: 'Signals', count: posts.filter(p => p.section === 'trade-signals').length }, { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => (
+            <button key={tab.id} onClick={() => setActiveSection(tab.id)} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '12px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
               {tab.label}
-              <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? 'rgba(255,255,255,0.2)' : C.border, color: activeSection === tab.id ? 'white' : C.muted }}>{tab.count}</span>
+              <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.2)') : C.border, color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted }}>{tab.count}</span>
             </button>
           ))}
         </div>
@@ -823,7 +844,7 @@ const BlogSection = ({ bp }) => {
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...lbl }}>Social Profiles</label>
+                    <label style={{ ...lbl }}>Social Profiles <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#475569' }}>(optional)</span></label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ position: 'relative' }}>
                         <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#e2e8f0', fontSize: '11px', fontWeight: 700, pointerEvents: 'none' }}>𝕏</span>
@@ -999,10 +1020,10 @@ const MarketingSection = ({ bp }) => {
 };
 
 // ─── GROWTH ANALYTICS CARD ───────────────────────────────────────────────────
-const GrowthAnalyticsCard = () => {
+const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthlyData?: number[] | null; dailyData?: number[] | null }) => {
   const [period, setPeriod] = useState('monthly');
   const isMonthly = period === 'monthly';
-  const data = isMonthly ? GROWTH_DATA_MONTHLY : GROWTH_DATA_DAILY;
+  const data = isMonthly ? (monthlyData ?? GROWTH_DATA_MONTHLY) : (dailyData ?? GROWTH_DATA_DAILY);
   const labels = isMonthly
     ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     : Array.from({ length: 30 }, (_, i) => (i + 1) % 5 === 0 || i === 0 ? String(i + 1) : '');
@@ -1344,6 +1365,7 @@ export default function AdminPanel() {
   const { user, session, role, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
   const [apiUsers, setApiUsers] = useState<any[]>([]);
+  const [overviewStats, setOverviewStats] = useState<any>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -1355,10 +1377,13 @@ export default function AdminPanel() {
     if (role !== 'admin') return;
     supabase?.auth.getSession().then(async ({ data: { session: s } }) => {
       if (!s) return;
-      const res = await fetch('/api/admin/users', {
-        headers: { Authorization: `Bearer ${s.access_token}` },
-      });
-      if (res.ok) setApiUsers(await res.json());
+      const hdrs = { Authorization: `Bearer ${s.access_token}` };
+      const [usersRes, statsRes] = await Promise.all([
+        fetch('/api/admin/users', { headers: hdrs }),
+        fetch('/api/admin/stats', { headers: hdrs }),
+      ]);
+      if (usersRes.ok) setApiUsers(await usersRes.json());
+      if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
   }, [role]);
 
@@ -1447,22 +1472,32 @@ export default function AdminPanel() {
       case 'dashboard': return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 'calc(100vh - 120px)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
-            <StatCard title="Total Traders" value="12,842" change="+12.5%" trend="up" icon={Users} />
-            <StatCard title="Monthly Visitors" value="42.5k" change="+8.2%" trend="up" icon={TrendingUp} />
-            <StatCard title="Avg. Session" value="12m 42s" change="+4.1%" trend="up" icon={Clock} />
-            <StatCard title="MRR" value="$84,200" change="+18.3%" trend="up" icon={Globe} />
+            <StatCard title="Total Users" value={overviewStats ? overviewStats.totalUsers.toLocaleString() : '—'} change={overviewStats ? `${overviewStats.totalUsers} registered` : 'Loading…'} trend="up" icon={Users} />
+            <StatCard title="Published Posts" value={overviewStats ? String(overviewStats.publishedPosts) : '—'} change={overviewStats ? `${overviewStats.draftPosts} draft${overviewStats.draftPosts !== 1 ? 's' : ''}` : 'Loading…'} trend="up" icon={TrendingUp} />
+            <StatCard title="Drafts Pending" value={overviewStats ? String(overviewStats.draftPosts) : '—'} change={overviewStats ? `${overviewStats.publishedPosts} live` : 'Loading…'} trend={overviewStats?.draftPosts > 0 ? 'up' : 'up'} icon={Clock} />
+            <StatCard title="Admins" value={overviewStats ? String(overviewStats.adminCount) : '—'} change={overviewStats ? `of ${overviewStats.totalUsers} users` : 'Loading…'} trend="up" icon={Globe} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
-            <GrowthAnalyticsCard />
+            <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '14px', margin: '0 0 16px' }}>Recent Activity</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {[{ text: 'New Enterprise signup: Marcus', time: '2m ago', err: false }, { text: 'Critical Error: Binance API lag', time: '14m ago', err: true }, { text: 'Blog post published: CPI Recap', time: '1h ago', err: false }].map((a, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '10px' }}>
-                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.err ? C.red : C.indigo, marginTop: '3px', flexShrink: 0 }} />
-                    <div><p style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{a.time}</p></div>
-                  </div>
-                ))}
+                {overviewStats?.recentActivity?.length > 0
+                  ? overviewStats.recentActivity.map((a: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.type === 'post' ? C.greenL : C.indigo, marginTop: '3px', flexShrink: 0 }} />
+                      <div><p style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
+                    </div>
+                  ))
+                  : !overviewStats
+                    ? [1,2,3].map(i => (
+                      <div key={i} style={{ display: 'flex', gap: '10px' }}>
+                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.border, marginTop: '3px', flexShrink: 0 }} />
+                        <div style={{ height: '13px', width: '180px', background: C.border, borderRadius: '2px' }} />
+                      </div>
+                    ))
+                    : <p style={{ color: '#475569', fontSize: '13px', margin: 0 }}>No recent activity yet.</p>
+                }
               </div>
             </div>
           </div>
@@ -1522,7 +1557,7 @@ export default function AdminPanel() {
       );
       case 'blog': return <BlogSection bp={bp} />;
       case 'marketing': return <MarketingSection bp={bp} />;
-      case 'customer-care': return <CustomerCareSection bp={bp} />;
+      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} />;
       case 'settings': return <SettingsSection bp={bp} />;
 
