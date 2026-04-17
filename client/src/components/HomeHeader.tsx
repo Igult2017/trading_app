@@ -43,8 +43,8 @@ const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Assets", href: "/#assets" },
   { label: "Blog", href: "/blog" },
   { label: "TSC", href: "/tsc" },
-  { label: "Login", href: "/auth", newTab: true },
-  { label: "Signup", href: "/auth", newTab: true },
+  { label: "Login", href: "/auth" },
+  { label: "Signup", href: "/auth?mode=signup" },
 ];
 
 interface HomeHeaderProps {

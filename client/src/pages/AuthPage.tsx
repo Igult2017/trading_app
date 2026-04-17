@@ -1,11 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'wouter';
+import { useState } from 'react';
+import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 
 type Mode = 'login' | 'signup';
 
 export default function AuthPage() {
-  const [mode, setMode]             = useState<Mode>('login');
+  const search = useSearch();
+  const urlMode = new URLSearchParams(search).get('mode');
+  const isSignupRoute = urlMode === 'signup';
+
+  const [mode, setMode] = useState<Mode>(isSignupRoute ? 'signup' : 'login');
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,24 +20,38 @@ export default function AuthPage() {
 
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
-  const didRedirect = useRef(false);
-
-  // Already authenticated — open destination in new tab, send this tab back to homepage
-  useEffect(() => {
-    if (loading || didRedirect.current) return;
-    if (role === 'admin') {
-      didRedirect.current = true;
-      window.open('/admin', '_blank', 'noopener,noreferrer');
-      navigate('/');
-    } else if (role === 'user') {
-      didRedirect.current = true;
-      window.open('/journal', '_blank', 'noopener,noreferrer');
-      navigate('/');
-    }
-  }, [loading, role, navigate]);
 
   if (loading) return <LoadingScreen />;
-  if (role) return null;
+
+  // Already authenticated — show "already signed in" screen
+  if (role) {
+    const dest = role === 'admin' ? '/admin' : '/journal';
+    const label = role === 'admin' ? 'Go to Admin Panel' : 'Open Journal';
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <div style={styles.brand}>
+            <div style={styles.logo}><span style={{ color: '#ffffff' }}>FSD</span></div>
+            <span style={styles.brandName}>
+              <span style={{ color: '#ffffff' }}>FSD </span>
+              <span style={{ color: '#3b82f6' }}>Journal</span>
+            </span>
+          </div>
+          <h2 style={styles.title}>You're already signed in</h2>
+          <p style={styles.sub}>Your session is active. Open your dashboard below.</p>
+          <button
+            style={{ ...styles.btn, marginTop: 24, cursor: 'pointer' }}
+            onClick={() => window.open(dest, '_blank', 'noopener,noreferrer')}
+          >
+            {label} ↗
+          </button>
+          <button style={styles.backBtn} onClick={() => navigate('/')}>
+            ← Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -184,6 +202,10 @@ export default function AuthPage() {
             </>
           )}
         </div>
+
+        <button style={styles.backBtn} onClick={() => navigate('/')}>
+          ← Back to Home
+        </button>
       </div>
     </div>
   );
@@ -334,5 +356,19 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontWeight: 600,
     padding: 0,
+  },
+  backBtn: {
+    marginTop: 16,
+    width: '100%',
+    background: 'transparent',
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    color: C.dim,
+    fontSize: 13,
+    fontWeight: 600,
+    padding: '10px',
+    cursor: 'pointer',
+    transition: 'color 0.2s, border-color 0.2s',
+    fontFamily: "'Poppins', 'Inter', sans-serif",
   },
 };

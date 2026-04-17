@@ -2202,7 +2202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Ensure user_profiles has trader profile columns ──────────────────────────
   try {
-    await db.execute(sql`
+    await pool.query(`
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name   TEXT DEFAULT '';
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country     TEXT DEFAULT '';
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan        TEXT DEFAULT 'Free';
