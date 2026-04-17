@@ -1713,6 +1713,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: overview stats ─────────────────────────────────────────────────────
+  app.get("/api/admin/stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
+
+      const [supabaseResult, allPosts, roleProfiles] = await Promise.all([
+        supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+        storage.getBlogPosts(),
+        db.select({ role: userProfiles.role }).from(userProfiles),
+      ]);
+
+      if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
+
+      const users = supabaseResult.data.users;
+      const adminCount = roleProfiles.filter(p => p.role === 'admin').length;
+      const now = new Date();
+
+      // Monthly signups for current calendar year
+      const signupsByMonth = Array(12).fill(0);
+      users.forEach(u => {
+        const d = new Date(u.created_at);
+        if (d.getFullYear() === now.getFullYear()) signupsByMonth[d.getMonth()]++;
+      });
+
+      // Daily signups for last 30 days
+      const signupsByDay = Array(30).fill(0);
+      users.forEach(u => {
+        const daysAgo = Math.floor((now.getTime() - new Date(u.created_at).getTime()) / 86400000);
+        if (daysAgo >= 0 && daysAgo < 30) signupsByDay[29 - daysAgo]++;
+      });
+
+      // Recent activity: newest users + newest published posts merged
+      const recentUsers = [...users]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5)
+        .map(u => ({ type: 'signup', text: `New signup: ${(u.user_metadata as any)?.full_name || u.email}`, ts: u.created_at }));
+
+      const recentPosts = (allPosts as any[])
+        .filter(p => p.status === 'Published')
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 5)
+        .map(p => ({ type: 'post', text: `Post published: ${p.title}`, ts: p.createdAt }));
+
+      const recentActivity = [...recentUsers, ...recentPosts]
+        .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+        .slice(0, 5);
+
+      return res.json({
+        totalUsers: users.length,
+        adminCount,
+        publishedPosts: (allPosts as any[]).filter(p => p.status === 'Published').length,
+        draftPosts: (allPosts as any[]).filter(p => p.status === 'Draft').length,
+        signupsByMonth,
+        signupsByDay,
+        recentActivity,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin: change a user's role ───────────────────────────────────────────────
   app.patch("/api/admin/users/:userId/role", requireAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;

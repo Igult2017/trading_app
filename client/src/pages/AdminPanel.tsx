@@ -100,6 +100,14 @@ const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: '
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const timeAgo = (ts: string | null) => {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
 const BarGraph = ({ data, labels, xAxisLabel }) => {
   const [hovered, setHovered] = useState(null);
   const w = 500, h = 210;
@@ -1012,10 +1020,10 @@ const MarketingSection = ({ bp }) => {
 };
 
 // ─── GROWTH ANALYTICS CARD ───────────────────────────────────────────────────
-const GrowthAnalyticsCard = () => {
+const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthlyData?: number[] | null; dailyData?: number[] | null }) => {
   const [period, setPeriod] = useState('monthly');
   const isMonthly = period === 'monthly';
-  const data = isMonthly ? GROWTH_DATA_MONTHLY : GROWTH_DATA_DAILY;
+  const data = isMonthly ? (monthlyData ?? GROWTH_DATA_MONTHLY) : (dailyData ?? GROWTH_DATA_DAILY);
   const labels = isMonthly
     ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     : Array.from({ length: 30 }, (_, i) => (i + 1) % 5 === 0 || i === 0 ? String(i + 1) : '');
@@ -1357,6 +1365,7 @@ export default function AdminPanel() {
   const { user, session, role, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
   const [apiUsers, setApiUsers] = useState<any[]>([]);
+  const [overviewStats, setOverviewStats] = useState<any>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -1368,10 +1377,13 @@ export default function AdminPanel() {
     if (role !== 'admin') return;
     supabase?.auth.getSession().then(async ({ data: { session: s } }) => {
       if (!s) return;
-      const res = await fetch('/api/admin/users', {
-        headers: { Authorization: `Bearer ${s.access_token}` },
-      });
-      if (res.ok) setApiUsers(await res.json());
+      const hdrs = { Authorization: `Bearer ${s.access_token}` };
+      const [usersRes, statsRes] = await Promise.all([
+        fetch('/api/admin/users', { headers: hdrs }),
+        fetch('/api/admin/stats', { headers: hdrs }),
+      ]);
+      if (usersRes.ok) setApiUsers(await usersRes.json());
+      if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
   }, [role]);
 
@@ -1460,22 +1472,32 @@ export default function AdminPanel() {
       case 'dashboard': return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 'calc(100vh - 120px)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
-            <StatCard title="Total Traders" value="12,842" change="+12.5%" trend="up" icon={Users} />
-            <StatCard title="Monthly Visitors" value="42.5k" change="+8.2%" trend="up" icon={TrendingUp} />
-            <StatCard title="Avg. Session" value="12m 42s" change="+4.1%" trend="up" icon={Clock} />
-            <StatCard title="MRR" value="$84,200" change="+18.3%" trend="up" icon={Globe} />
+            <StatCard title="Total Users" value={overviewStats ? overviewStats.totalUsers.toLocaleString() : '—'} change={overviewStats ? `${overviewStats.totalUsers} registered` : 'Loading…'} trend="up" icon={Users} />
+            <StatCard title="Published Posts" value={overviewStats ? String(overviewStats.publishedPosts) : '—'} change={overviewStats ? `${overviewStats.draftPosts} draft${overviewStats.draftPosts !== 1 ? 's' : ''}` : 'Loading…'} trend="up" icon={TrendingUp} />
+            <StatCard title="Drafts Pending" value={overviewStats ? String(overviewStats.draftPosts) : '—'} change={overviewStats ? `${overviewStats.publishedPosts} live` : 'Loading…'} trend={overviewStats?.draftPosts > 0 ? 'up' : 'up'} icon={Clock} />
+            <StatCard title="Admins" value={overviewStats ? String(overviewStats.adminCount) : '—'} change={overviewStats ? `of ${overviewStats.totalUsers} users` : 'Loading…'} trend="up" icon={Globe} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
-            <GrowthAnalyticsCard />
+            <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '14px', margin: '0 0 16px' }}>Recent Activity</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {[{ text: 'New Enterprise signup: Marcus', time: '2m ago', err: false }, { text: 'Critical Error: Binance API lag', time: '14m ago', err: true }, { text: 'Blog post published: CPI Recap', time: '1h ago', err: false }].map((a, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '10px' }}>
-                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.err ? C.red : C.indigo, marginTop: '3px', flexShrink: 0 }} />
-                    <div><p style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{a.time}</p></div>
-                  </div>
-                ))}
+                {overviewStats?.recentActivity?.length > 0
+                  ? overviewStats.recentActivity.map((a: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.type === 'post' ? C.greenL : C.indigo, marginTop: '3px', flexShrink: 0 }} />
+                      <div><p style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
+                    </div>
+                  ))
+                  : !overviewStats
+                    ? [1,2,3].map(i => (
+                      <div key={i} style={{ display: 'flex', gap: '10px' }}>
+                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.border, marginTop: '3px', flexShrink: 0 }} />
+                        <div style={{ height: '13px', width: '180px', background: C.border, borderRadius: '2px' }} />
+                      </div>
+                    ))
+                    : <p style={{ color: '#475569', fontSize: '13px', margin: 0 }}>No recent activity yet.</p>
+                }
               </div>
             </div>
           </div>
