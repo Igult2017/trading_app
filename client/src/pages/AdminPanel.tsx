@@ -200,7 +200,7 @@ const StatCard = ({ title, value, change, trend, icon: Icon }) => (
 );
 
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
-const CustomerCareSection = ({ bp }) => {
+const CustomerCareSection = ({ bp, apiUsers = [] }) => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [tickets, setTickets] = useState(MOCK_TICKETS);
   const [replyText, setReplyText] = useState('');
@@ -1522,7 +1522,7 @@ export default function AdminPanel() {
       );
       case 'blog': return <BlogSection bp={bp} />;
       case 'marketing': return <MarketingSection bp={bp} />;
-      case 'customer-care': return <CustomerCareSection bp={bp} />;
+      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} />;
       case 'settings': return <SettingsSection bp={bp} />;
 
