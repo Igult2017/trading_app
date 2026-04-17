@@ -245,7 +245,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             </nav>
 
             <div className="fsd-desktop" style={{ width: 1, height: 32, background: "var(--border-lit)", margin: "0 4px" }} />
-            <Link href="/login" className="fsd-desktop" style={{ textDecoration: "none" }}>
+            <Link href="/auth" className="fsd-desktop" style={{ textDecoration: "none" }}>
               <button className="fsd-btn-in" style={{ padding: "6px 14px", fontSize: 10 }}>SIGN IN</button>
             </Link>
 
@@ -320,7 +320,7 @@ export default function NewHeader({ isDark, toggleTheme }: NewHeaderProps) {
             <Link href="/join" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
               <button className="fsd-btn-sub" style={{ width: "100%", borderRadius: 0 }}>SUBSCRIBE</button>
             </Link>
-            <Link href="/login" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
+            <Link href="/auth" style={{ flex: 1, textDecoration: "none" }} onClick={() => setMobileOpen(false)}>
               <button className="fsd-btn-in" style={{ width: "100%", borderRadius: 0, borderTop: "none", borderBottom: "none" }}>SIGN IN</button>
             </Link>
           </div>

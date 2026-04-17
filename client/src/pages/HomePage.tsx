@@ -158,7 +158,6 @@ export default function HomePage() {
     if (item === 'Login' || item === 'Signup') return '/auth';
     return `#${item.toLowerCase().replace(' ', '-')}`;
   };
-  const navNewTab = (item: string) => item === 'Login' || item === 'Signup';
 
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
@@ -189,7 +188,6 @@ export default function HomePage() {
           <div className="nav-links">
             {navItems.map(item => (
               <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
-                {...(navNewTab(item) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
                 onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
               >{item}</a>
@@ -220,7 +218,7 @@ export default function HomePage() {
         <div className="mob-dropdown open" style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}` }}>
           {navItems.map(item => (
             <a key={item} href={navHref(item)}
-              {...(navNewTab(item) ? { target: '_blank', rel: 'noopener noreferrer' } : { onClick: () => setMobileMenuOpen(false) })}
+              onClick={() => setMobileMenuOpen(false)}
               style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
               onMouseEnter={e => e.currentTarget.style.color = t.text}
               onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
@@ -251,7 +249,7 @@ export default function HomePage() {
             <span style={{ color: t.textMuted, fontSize: 14 }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
           </div>
           <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
-            <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+            <a href="/auth" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
               Start Now - It's Free! <ArrowRight className="w-5 h-5" />
             </a>
           </div>
