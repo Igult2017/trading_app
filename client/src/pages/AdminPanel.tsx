@@ -64,7 +64,7 @@ const INITIAL_LOGS = [
 ];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-const FONT = "'Inter', sans-serif";
+const FONT = "'Montserrat', sans-serif";
 const C = {
   bg: '#07090e', sidebar: '#07090e', card: '#0c1018',
   border: '#131c28', border2: '#1b2840', dim: '#1b2840',
@@ -96,6 +96,17 @@ const SOCIAL_PLATFORMS = [
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
 const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
+const CATEGORY_TO_SECTION: Record<string, string> = {
+  'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
+  'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
+};
+const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; border: string; dot: string }> = {
+  'Equities':              { sub: 'Stocks & indices',    color: C.indigoL, bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.3)',  dot: C.indigo  },
+  'Forex':                 { sub: 'Currency pairs',      color: C.blueL,   bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.3)',  dot: C.blue    },
+  'Digital Assets':        { sub: 'Crypto & DeFi',       color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
+  'Analysis':              { sub: 'Market analysis',     color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted   },
+  'Backtested Strategies': { sub: 'Verified strategies', color: C.amberL,  bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.3)',  dot: C.amber   },
+};
 const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
@@ -893,7 +904,7 @@ const BlogSection = ({ bp }) => {
     setEditPost(post);
     setForm({
       ...EMPTY_FORM,
-      title: post.title, section: post.section, category: post.category || 'Analysis', status: post.status,
+      title: post.title, section: CATEGORY_TO_SECTION[post.category] ?? post.section ?? 'blog', category: post.category || 'Analysis', status: post.status,
       authorName: post.author || '', authorBio: ad.bio || '', authorExpertise: ad.expertise || [],
       authorTwitter: ad.twitter || '', authorLinkedin: ad.linkedin || '', authorTelegram: ad.telegram || '',
       signal: post.signal || EMPTY_FORM.signal,
@@ -918,12 +929,13 @@ const BlogSection = ({ bp }) => {
         linkedin:  f.authorLinkedin  || '',
         telegram:  f.authorTelegram  || '',
       };
+      const derivedSection = CATEGORY_TO_SECTION[f.category] ?? 'blog';
       const payload = {
-        title: form.title.trim(), section: form.section, status: form.status,
+        title: form.title.trim(), section: derivedSection, status: form.status,
         category: f.category || 'Analysis',
         author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
-        signalData: form.section === 'trade-signals' ? form.signal : null,
+        signalData: f.category === 'Trade Signals' ? form.signal : null,
         authorData,
       };
       const body = JSON.stringify(payload);
@@ -994,7 +1006,7 @@ const BlogSection = ({ bp }) => {
   const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
   const sg = k => form.signal[k];
 
-  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(form.section === 'trade-signals' ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
+  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
@@ -1055,8 +1067,7 @@ const BlogSection = ({ bp }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
                   <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
-                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: sec.bg, color: sec.color, border: `1px solid ${sec.border}` }}>{sec.label}</span>
-                    {post.category && post.section === 'blog' && <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.2)` }}>{post.category}</span>}
+                    {post.category && (() => { const m = CATEGORY_META[post.category]; return m ? <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
                   </div>
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
@@ -1094,35 +1105,25 @@ const BlogSection = ({ bp }) => {
                 <>
                   <div><label style={{ ...lbl }}>Post Title</label><input value={fv('title')} onChange={e => setF('title', e.target.value)} placeholder="Enter post title..." style={{ ...inp }} /></div>
                   <div>
-                    <label style={{ ...lbl }}>Destination</label>
+                    <label style={{ ...lbl }}>Destination <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to frontend nav tab</span></label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                      {Object.entries(SECTION_META).map(([key, meta]) => (
-                        <button key={key} onClick={() => {
-                          setF('section', key);
-                          if (key === 'verified-strategies') setF('category', 'Backtested Strategies');
-                          if (key === 'blog' && !BLOG_CATEGORIES.includes(fv('category'))) setF('category', 'Analysis');
-                          if (key !== 'trade-signals' && modalTab === 'signal') setModalTab('post');
-                        }}
-                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: fv('section') === key ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${fv('section') === key ? meta.border : C.border2}`, color: fv('section') === key ? meta.color : C.muted, textAlign: 'left' }}>
-                          <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0 }} />
-                          <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{meta.label}</p><p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{key === 'blog' ? 'Articles & recaps' : key === 'verified-strategies' ? 'Trade strategies' : 'Live signals'}</p></div>
-                        </button>
-                      ))}
+                      {BLOG_CATEGORIES.map(cat => {
+                        const meta = CATEGORY_META[cat];
+                        const active = fv('category') === cat;
+                        return (
+                          <button key={cat} onClick={() => setF('category', cat)}
+                            style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: active ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${active ? meta.border : C.border2}`, color: active ? meta.color : C.muted, textAlign: 'left' }}>
+                            <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0, borderRadius: '1px' }} />
+                            <div style={{ flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>{cat}</p>
+                              <p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{meta.sub}</p>
+                            </div>
+                            {active && <CheckCircle size={14} style={{ color: meta.color, flexShrink: 0 }} />}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  {fv('section') !== 'trade-signals' && (
-                    <div>
-                      <label style={{ ...lbl }}>Category <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to blog nav tab</span></label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {BLOG_CATEGORIES.map(cat => (
-                          <button key={cat} onClick={() => setF('category', cat)}
-                            style={{ ...btn, padding: '6px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: fv('category') === cat ? 'rgba(0,200,224,0.18)' : 'transparent', color: fv('category') === cat ? C.indigoL : C.muted, border: `1px solid ${fv('category') === cat ? 'rgba(0,200,224,0.5)' : C.border2}`, borderLeft: fv('category') === cat ? `2px solid ${C.indigoL}` : `2px solid transparent` }}>
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <label style={{ ...lbl }}>Status</label>
                     <div style={{ display: 'flex', gap: '7px' }}>
@@ -1242,6 +1243,22 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [stats, setStats] = useState<any>(null);
+
+  const getHdrs = async () => {
+    const token = await getAdminToken?.();
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+  };
+
+  const loadStats = async () => {
+    const h = await getHdrs();
+    const r = await fetch('/api/admin/campaign-stats', { headers: h }).catch(() => null);
+    if (r?.ok) setStats(await r.json());
+  };
+
+  useEffect(() => { loadStats(); }, []);
 
   const toggleChannel = label => {
     setActiveChannels(prev =>
@@ -1253,16 +1270,14 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
     if (!message.trim() || activeChannels.length === 0 || sending) return;
     setSending(true); setResult(null);
     try {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const h = await getHdrs();
       const r = await fetch('/api/admin/campaigns', {
-        method: 'POST', headers,
+        method: 'POST', headers: h,
         body: JSON.stringify({ channels: activeChannels, audience, subject, message }),
       });
       const data = await r.json();
-      setResult({ ok: r.ok, msg: r.ok ? (data.message ?? 'Campaign sent!') : (data.error ?? 'Failed to send') });
-      if (r.ok) { setSubject(''); setMessage(''); }
+      setResult({ ok: r.ok, msg: r.ok ? (data.message ?? `Sent to ${data.sent ?? 0} users`) : (data.error ?? 'Failed to send') });
+      if (r.ok) { setSubject(''); setMessage(''); loadStats(); }
     } catch {
       setResult({ ok: false, msg: 'Network error — please retry' });
     }
@@ -1343,11 +1358,16 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
 
         {/* Stats */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {[
-            { label: 'Emails Sent', value: '24,810', change: '+12%', up: true, icon: Mail, pct: 88 },
-            { label: 'Open Rate',   value: '38.4%',  change: '+2.1%', up: true, icon: TrendingUp, pct: 38 },
-            { label: 'Click Rate',  value: '9.2%',   change: '-0.4%', up: false, icon: Activity, pct: 9  },
-            { label: 'Unsubscribes', value: '142',   change: '+8',    up: false, icon: AlertTriangle, pct: 14 },
+          {stats === null ? (
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <Activity size={20} style={{ color: C.border2, margin: '0 auto 8px', display: 'block' }} />
+              <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>Loading stats…</p>
+            </div>
+          ) : [
+            { label: 'In-App Sent', value: stats.inAppSent?.toLocaleString() ?? '0', change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(stats.sentChangePct ?? 0, 100) },
+            { label: 'Read Rate',   value: `${stats.readRate ?? 0}%`, change: stats.readChange ?? '—', up: (stats.readRate ?? 0) > 0, icon: TrendingUp, pct: stats.readRate ?? 0 },
+            { label: 'Campaigns',   value: stats.campaignCount?.toString() ?? '0', change: '30d', up: true, icon: Megaphone, pct: Math.min((stats.campaignCount ?? 0) * 10, 100) },
+            { label: 'Email / Push', value: 'N/A', change: 'config needed', up: false, icon: AlertTriangle, pct: 0 },
           ].map((s, i, arr) => (
             <div key={i} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {/* Top row */}
@@ -1422,10 +1442,10 @@ const THEME_OPTIONS = [
 ];
 
 const FONT_OPTIONS = [
+  { id: 'montserrat', label: 'Montserrat', stack: "'Montserrat', sans-serif" },
   { id: 'onest', label: 'Onest', stack: "'Onest', sans-serif" },
   { id: 'inter', label: 'Inter', stack: "'Inter', sans-serif" },
   { id: 'mono', label: 'DM Mono', stack: "'DM Mono', monospace" },
-  { id: 'sora', label: 'Sora', stack: "'Sora', sans-serif" },
 ];
 
 const MOCK_CC_USERS = [
@@ -1448,7 +1468,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('admin_theme') || 'dark');
-  const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'onest');
+  const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'montserrat');
   const [fontSaved, setFontSaved] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] as string[] });
   const [newTask, setNewTask] = useState({ title: '', assignee: '', due: '' });
@@ -1807,7 +1827,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>Loading…</div>;
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: "'Montserrat', sans-serif", fontSize: '13px' }}>Loading…</div>;
 
   const adminEmail = user?.email ?? '';
   const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
@@ -1948,7 +1968,7 @@ export default function AdminPanel() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
 
       {/* SIDEBAR */}
       <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
