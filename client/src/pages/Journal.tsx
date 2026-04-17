@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'wouter';
-import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Activity, Loader2, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
@@ -76,36 +77,59 @@ const NAV_SECTIONS: NavGroup[] = [
   ]},
 ];
 
-const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => (
-  <button
-    onClick={item.disabled ? undefined : onClick}
-    data-testid={`nav-${item.id}`}
-    disabled={item.disabled}
-    style={{
-      width: '100%', display: 'flex', alignItems: 'center',
-      justifyContent: showLabels ? 'space-between' : 'center',
-      padding: showLabels ? '16px 14px' : '14px', borderRadius: 10, marginBottom: 4,
-      background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-      border: 'none',
-      cursor: item.disabled ? 'not-allowed' : 'pointer',
-      transition: 'background 0.18s', fontFamily: "'Montserrat',sans-serif",
-      opacity: item.disabled ? 0.35 : 1,
-      pointerEvents: item.disabled ? 'none' : undefined,
-    }}
-    onMouseEnter={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-    onMouseLeave={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'transparent'; }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-      <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: !showLabels ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.2s ease' }}><item.icon /></span>
-      {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? '#f1f5f9' : 'rgba(148,163,184,0.75)', whiteSpace: 'nowrap' }}>{item.label}</span>}
+const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      style={{ position: 'relative', marginBottom: 4 }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <button
+        onClick={item.disabled ? undefined : onClick}
+        data-testid={`nav-${item.id}`}
+        disabled={item.disabled}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center',
+          justifyContent: showLabels ? 'space-between' : 'center',
+          padding: showLabels ? '16px 14px' : '14px', borderRadius: 10,
+          background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+          border: 'none',
+          cursor: item.disabled ? 'not-allowed' : 'pointer',
+          transition: 'background 0.18s', fontFamily: "'Montserrat',sans-serif",
+          opacity: item.disabled ? 0.35 : 1,
+          pointerEvents: item.disabled ? 'none' : undefined,
+        }}
+        onMouseEnter={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+        onMouseLeave={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'transparent'; }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
+          <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: !showLabels ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.2s ease' }}><item.icon /></span>
+          {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? '#f1f5f9' : 'rgba(148,163,184,0.75)', whiteSpace: 'nowrap' }}>{item.label}</span>}
+        </div>
+        {showLabels && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {item.badge && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
+            {item.arrow && <span style={{ color: 'rgba(100,116,139,0.5)', display: 'flex', marginLeft: 2 }}><SI.ChevronRight /></span>}
+          </div>
+        )}
+      </button>
+      {showLabels && !item.disabled && hov && (
+        <button
+          onClick={(e) => { e.stopPropagation(); window.open(`/journal?tab=${item.id}`, '_blank', 'noopener,noreferrer'); }}
+          title="Open in new tab"
+          style={{
+            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+            background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)',
+            cursor: 'pointer', color: '#38bdf8', padding: '3px 4px', borderRadius: 4,
+            display: 'flex', alignItems: 'center', lineHeight: 1,
+          }}
+        >
+          <ExternalLink size={9} strokeWidth={2.5} />
+        </button>
+      )}
     </div>
-    {showLabels && (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        {item.badge && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
-        {item.arrow && <span style={{ color: 'rgba(100,116,139,0.5)', display: 'flex', marginLeft: 2 }}><SI.ChevronRight /></span>}
-      </div>
-    )}
-  </button>
-);
+  );
+};
 
 const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void }) => {
   const showLabels = isMobile || open;
@@ -688,7 +712,15 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string
 
 
 export default function Journal() {
-  const [activeNav, setActiveNav] = useState('dashboard');
+  const { user } = useAuth();
+  const [activeNav, setActiveNav] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const tab = new URLSearchParams(window.location.search).get('tab');
+      const valid = NAV_SECTIONS.flatMap(g => g.items).map(i => i.id);
+      if (tab && valid.includes(tab)) return tab;
+    }
+    return 'dashboard';
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -701,25 +733,32 @@ export default function Journal() {
   useEffect(() => {
     if (!activeSessionId) return;
     const sid = activeSessionId;
+    const uidParam = user?.id ? `&userId=${user.id}` : '';
     const STALE = 2 * 60 * 1000;
 
     const endpoints: { queryKey: unknown[]; url: string; staleTime: number }[] = [
-      { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}`,    staleTime: STALE },
-      { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}`,   staleTime: STALE },
-      { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}`,   staleTime: STALE },
-      { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}`,  staleTime: 60_000 },
+      { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}${uidParam}`,    staleTime: STALE },
+      { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}${uidParam}`,   staleTime: STALE },
+      { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}${uidParam}`,   staleTime: STALE },
+      { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}${uidParam}`,  staleTime: 60_000 },
     ];
 
     for (const { queryKey, url, staleTime } of endpoints) {
       queryClient.prefetchQuery({
         queryKey,
-        queryFn: () => fetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+        queryFn: () => fetch(url, { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.reject(r.status)),
         staleTime,
       });
     }
-  }, [activeSessionId, queryClient]);
+  }, [activeSessionId, queryClient, user?.id]);
 
-  const { data: sessions = [] } = useQuery<any[]>({ queryKey: ['/api/sessions'] });
+  const { data: sessions = [] } = useQuery<any[]>({
+    queryKey: ['/api/sessions', user?.id],
+    queryFn: () => user
+      ? fetch(`/api/sessions?userId=${user.id}`, { credentials: 'include' }).then(r => r.json())
+      : Promise.resolve([]),
+    enabled: !!user,
+  });
 
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
