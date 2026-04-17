@@ -32,6 +32,13 @@ import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockT
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService, getCachedCandleData } from "./lib/priceService";
 import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
 import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
+import os from "os";
+
+// ── Module-level request tracking for real metrics ────────────────────────────
+let _prevCpu = process.cpuUsage();
+let _prevCpuTime = Date.now();
+let _reqTimestamps: number[] = [];
+let _errorCount = 0;
 import { signalMonitor } from "./services/signalMonitor";
 // ── FIX: import balance tracker ───────────────────────────────────────────────
 import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTracker";
@@ -96,6 +103,15 @@ function invalidateDrawdownCache(sessionId?: string, userId?: string): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Count every request for real req/sec metrics
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    const now = Date.now();
+    _reqTimestamps.push(now);
+    if (_reqTimestamps.length > 5000) _reqTimestamps = _reqTimestamps.slice(-2000);
+    res.on('finish', () => { if (res.statusCode >= 500) _errorCount++; });
+    next();
+  });
+
   app.get("/api/trades", async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
@@ -1867,6 +1883,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: real server metrics ────────────────────────────────────────────────
+  app.get("/api/admin/metrics", requireAdmin, (_req: Request, res: Response) => {
+    const now = Date.now();
+    const curr = process.cpuUsage();
+    const elapsed = (now - _prevCpuTime) * 1000;
+    const cpuDelta = (curr.user - _prevCpu.user) + (curr.system - _prevCpu.system);
+    const cpu = elapsed > 0 ? Math.min(Math.round((cpuDelta / elapsed) * 1000) / 10, 100) : 0;
+    _prevCpu = curr; _prevCpuTime = now;
+
+    const totalMem = os.totalmem();
+    const freeMem  = os.freemem();
+    const memory   = Math.round((1 - freeMem / totalMem) * 1000) / 10;
+    const uptimeSec = Math.floor(process.uptime());
+    const recentReqs = _reqTimestamps.filter(t => t > now - 60000);
+    const reqPerSec  = Math.round(recentReqs.length / 60 * 10) / 10;
+    const loadAvg    = os.loadavg()[0];
+
+    return res.json({ cpu, memory, uptimeSec, reqPerSec, loadAvg: Math.round(loadAvg * 100) / 100, totalMemGB: (totalMem / 1073741824).toFixed(1), freeMemGB: (freeMem / 1073741824).toFixed(1) });
+  });
+
+  // ── Support tickets (public submit) ──────────────────────────────────────────
+  app.post("/api/support/ticket", async (req: Request, res: Response) => {
+    try {
+      const { user_name = '', user_email = '', subject, message = '', priority = 'Medium', channel = 'email' } = req.body as Record<string, string>;
+      if (!subject?.trim()) return res.status(400).json({ error: 'subject is required' });
+      const result = await db.execute(drizzleSql`
+        INSERT INTO support_tickets (user_name, user_email, subject, message, priority, channel)
+        VALUES (${user_name}, ${user_email}, ${subject.trim()}, ${message}, ${priority}, ${channel})
+        RETURNING *
+      `);
+      const row = (result as any).rows?.[0] ?? result;
+      return res.status(201).json(row);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: list all support tickets ──────────────────────────────────────────
+  app.get("/api/admin/tickets", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await db.execute(drizzleSql`SELECT * FROM support_tickets ORDER BY created_at DESC`);
+      return res.json((result as any).rows ?? result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: update ticket (status, reply) ──────────────────────────────────────
+  app.patch("/api/admin/tickets/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, reply } = req.body as { status?: string; reply?: string };
+      await db.execute(drizzleSql`
+        UPDATE support_tickets
+        SET status = COALESCE(${status ?? null}, status),
+            reply  = COALESCE(${reply  ?? null}, reply),
+            updated_at = NOW()
+        WHERE id = ${id}::uuid
+      `);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: send campaign (In-App notifications) ───────────────────────────────
+  app.post("/api/admin/campaigns", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Auth service not configured' });
+      const { subject, message, channels = [], audience = 'all' } = req.body as { subject?: string; message: string; channels: string[]; audience?: string };
+      if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
+
+      const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      if (error) return res.status(500).json({ error: error.message });
+
+      let targets = usersData.users;
+      if (audience === 'inactive') {
+        const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+        targets = targets.filter(u => !u.last_sign_in_at || u.last_sign_in_at < cutoff);
+      }
+
+      let notifCount = 0;
+      if (channels.includes('In-App') || channels.includes('in-app')) {
+        for (const u of targets) {
+          await db.execute(drizzleSql`
+            INSERT INTO notifications (user_id, type, title, message, is_read, created_at)
+            VALUES (${u.id}, 'announcement', ${subject?.trim() || 'Announcement'}, ${message.trim()}, false, NOW())
+          `);
+          notifCount++;
+        }
+      }
+
+      await db.execute(drizzleSql`
+        INSERT INTO support_tickets (user_name, user_email, subject, message, priority, channel, status)
+        VALUES ('Admin', 'admin@system', ${`Campaign: ${subject || 'Broadcast'}`}, ${`Sent to ${targets.length} users via ${channels.join(', ')}`}, 'Low', 'email', 'Resolved')
+      `);
+
+      return res.json({ ok: true, sent: targets.length, notificationsCreated: notifCount, emailNote: channels.includes('Email') ? 'Email delivery requires SMTP configuration (SMTP_HOST, SMTP_USER, SMTP_PASS env vars)' : undefined });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin: change a user's role ───────────────────────────────────────────────
   app.patch("/api/admin/users/:userId/role", requireAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;
@@ -1951,6 +2070,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `);
   } catch (e: any) {
     console.warn('[PageViews] Could not ensure page_views table:', e.message);
+  }
+
+  // ── Ensure support_tickets table exists ──────────────────────────────────────
+  try {
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_name    TEXT NOT NULL DEFAULT '',
+        user_email   TEXT NOT NULL DEFAULT '',
+        subject      TEXT NOT NULL,
+        message      TEXT NOT NULL DEFAULT '',
+        priority     TEXT NOT NULL DEFAULT 'Medium',
+        status       TEXT NOT NULL DEFAULT 'Open',
+        channel      TEXT NOT NULL DEFAULT 'email',
+        reply        TEXT,
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        updated_at   TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+  } catch (e: any) {
+    console.warn('[SupportTickets] Could not ensure table:', e.message);
   }
 
   // ── Page-view tracking (public — no auth required) ──────────────────────────
