@@ -96,7 +96,7 @@ const SOCIAL_PLATFORMS = [
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
 const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
-const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [], shareOn: [], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
+const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -563,7 +563,19 @@ const BlogSection = ({ bp }) => {
 
   const filtered = activeSection === 'all' ? posts : posts.filter(p => p.section === activeSection);
   const openNew = () => { setEditPost(null); setForm(EMPTY_FORM); setModalTab('post'); setShowModal(true); };
-  const openEdit = (post: any) => { setEditPost(post); setForm({ ...EMPTY_FORM, title: post.title, section: post.section, category: post.category || 'Analysis', status: post.status, signal: post.signal || EMPTY_FORM.signal }); setModalTab('post'); setShowModal(true); };
+  const openEdit = (post: any) => {
+    const ad = post.authorData || {};
+    setEditPost(post);
+    setForm({
+      ...EMPTY_FORM,
+      title: post.title, section: post.section, category: post.category || 'Analysis', status: post.status,
+      authorName: post.author || '', authorBio: ad.bio || '', authorExpertise: ad.expertise || [],
+      authorTwitter: ad.twitter || '', authorLinkedin: ad.linkedin || '', authorTelegram: ad.telegram || '',
+      signal: post.signal || EMPTY_FORM.signal,
+    });
+    setModalTab('post');
+    setShowModal(true);
+  };
 
   const handleSave = async () => {
     if (!form.title.trim() || saving) return;
@@ -572,25 +584,51 @@ const BlogSection = ({ bp }) => {
       const token = await getToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const body = JSON.stringify({
+      const f = form as any;
+      const authorData = {
+        bio:       f.authorBio      || '',
+        expertise: f.authorExpertise || [],
+        twitter:   f.authorTwitter   || '',
+        linkedin:  f.authorLinkedin  || '',
+        telegram:  f.authorTelegram  || '',
+      };
+      const payload = {
         title: form.title, section: form.section, status: form.status,
-        category: (form as any).category || 'Analysis',
-        author: (form as any).authorName || 'Admin',
+        category: f.category || 'Analysis',
+        author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
         signalData: form.section === 'trade-signals' ? form.signal : null,
-      });
+        authorData,
+      };
+      const body = JSON.stringify(payload);
+      let savedPost: any = null;
       if (editPost) {
         const r = await fetch(`/api/blog/${editPost.id}`, { method: 'PATCH', headers, body });
         if (r.ok) {
-          const updated = await r.json();
-          setPosts(p => p.map(x => x.id === editPost.id ? { ...x, title: updated.title, section: updated.section, status: updated.status } : x));
+          savedPost = await r.json();
+          setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...savedPost, category: savedPost.category, authorData: savedPost.authorData } : x));
         }
       } else {
         const r = await fetch('/api/blog', { method: 'POST', headers, body });
         if (r.ok) {
-          const created = await r.json();
-          setPosts(p => [...p, { id: created.id, title: created.title, section: created.section, status: created.status, author: created.author, date: created.date, signal: created.signalData }]);
+          savedPost = await r.json();
+          setPosts(p => [...p, { id: savedPost.id, title: savedPost.title, section: savedPost.section, category: savedPost.category, status: savedPost.status, author: savedPost.author, date: savedPost.date, signal: savedPost.signalData, authorData: savedPost.authorData }]);
         }
+      }
+      // If publishing, trigger share links for selected platforms
+      if (savedPost && form.status === 'Published' && (f.shareOn || []).length > 0) {
+        const postUrl = encodeURIComponent(window.location.origin + '/blog');
+        const postTitle = encodeURIComponent(form.title);
+        const shareUrls: Record<string, string> = {
+          twitter:  `https://twitter.com/intent/tweet?text=${postTitle}&url=${postUrl}`,
+          facebook: `https://www.facebook.com/sharer/sharer.php?u=${postUrl}`,
+          linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${postUrl}`,
+          telegram: `https://t.me/share/url?url=${postUrl}&text=${postTitle}`,
+        };
+        (f.shareOn as string[]).forEach((platform, i) => {
+          const url = shareUrls[platform];
+          if (url) setTimeout(() => window.open(url, '_blank', 'noopener,noreferrer,width=600,height=500'), i * 400);
+        });
       }
       setShowModal(false);
     } finally {
@@ -777,18 +815,70 @@ const BlogSection = ({ bp }) => {
               {modalTab === 'author' && (
                 <>
                   <div><label style={{ ...lbl }}>Author Name</label><input value={fv('authorName')} onChange={e => setF('authorName', e.target.value)} placeholder="Full name..." style={{ ...inp }} /></div>
-                  <div><label style={{ ...lbl }}>Short Bio</label><textarea value={fv('authorBio')} onChange={e => setF('authorBio', e.target.value)} rows={3} placeholder="Author background..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
+                  <div><label style={{ ...lbl }}>Short Bio</label><textarea value={fv('authorBio')} onChange={e => setF('authorBio', e.target.value)} rows={3} placeholder="Author background, experience, credentials..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
                   <div>
                     <label style={{ ...lbl }}>Expertise</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
-                      {EXPERTISE_OPTIONS.map(tag => { const active = (fv('authorExpertise') || []).includes(tag); return <button key={tag} onClick={() => setF('authorExpertise', active ? (fv('authorExpertise') || []).filter(t => t !== tag) : [...(fv('authorExpertise') || []), tag])} style={{ ...btn, padding: '5px 11px', background: active ? C.indigo : C.border, color: active ? 'white' : C.muted, border: `1px solid ${active ? C.indigo : C.border2}`, fontSize: '11px' }}>{tag}</button>; })}
+                      {EXPERTISE_OPTIONS.map(tag => { const active = (fv('authorExpertise') || []).includes(tag); return <button key={tag} onClick={() => setF('authorExpertise', active ? (fv('authorExpertise') || []).filter((t: string) => t !== tag) : [...(fv('authorExpertise') || []), tag])} style={{ ...btn, padding: '5px 11px', background: active ? C.indigo : C.border, color: active ? 'white' : C.muted, border: `1px solid ${active ? C.indigo : C.border2}`, fontSize: '11px' }}>{tag}</button>; })}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ ...lbl }}>Social Profiles</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#e2e8f0', fontSize: '11px', fontWeight: 700, pointerEvents: 'none' }}>𝕏</span>
+                        <input value={fv('authorTwitter')} onChange={e => setF('authorTwitter', e.target.value)} placeholder="@handle or profile URL" style={{ ...inp, paddingLeft: '30px' }} />
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <svg viewBox="0 0 24 24" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, fill: '#0A66C2', pointerEvents: 'none' }}><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
+                        <input value={fv('authorLinkedin')} onChange={e => setF('authorLinkedin', e.target.value)} placeholder="LinkedIn profile URL" style={{ ...inp, paddingLeft: '30px' }} />
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <svg viewBox="0 0 24 24" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, fill: '#26A5E4', pointerEvents: 'none' }}><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" /></svg>
+                        <input value={fv('authorTelegram')} onChange={e => setF('authorTelegram', e.target.value)} placeholder="@channel or profile" style={{ ...inp, paddingLeft: '30px' }} />
+                      </div>
                     </div>
                   </div>
                 </>
               )}
               {modalTab === 'share' && (
-                <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
-                  {SOCIAL_PLATFORMS.map(p => { const active = (fv('shareOn') || []).includes(p.id); return <button key={p.id} onClick={() => setF('shareOn', active ? (fv('shareOn') || []).filter(s => s !== p.id) : [...(fv('shareOn') || []), p.id])} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: active ? `${p.ac}15` : 'rgba(30,41,59,0.5)', color: active ? p.ac : C.muted, border: `1px solid ${active ? `${p.ac}40` : C.border2}`, textAlign: 'left', fontSize: '13px', fontWeight: 600 }}><p.icon />{p.label}</button>; })}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>Toggle platforms to share when this post is published. Selected platforms will open share dialogs automatically.</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                    {SOCIAL_PLATFORMS.map(p => {
+                      const active = (fv('shareOn') || []).includes(p.id);
+                      return (
+                        <button key={p.id}
+                          onClick={() => setF('shareOn', active ? (fv('shareOn') || []).filter((s: string) => s !== p.id) : [...(fv('shareOn') || []), p.id])}
+                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: active ? `${p.ac}15` : 'rgba(30,41,59,0.5)', color: active ? p.ac : C.muted, border: `1px solid ${active ? `${p.ac}40` : C.border2}`, textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>
+                          <p.icon />
+                          <span style={{ flex: 1 }}>{p.label}</span>
+                          {active && <svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(fv('shareOn') || []).length > 0 && form.title && (
+                    <button
+                      onClick={() => {
+                        const postUrl = encodeURIComponent(window.location.origin + '/blog');
+                        const postTitle = encodeURIComponent(form.title);
+                        const shareUrls: Record<string, string> = {
+                          twitter:  `https://twitter.com/intent/tweet?text=${postTitle}&url=${postUrl}`,
+                          facebook: `https://www.facebook.com/sharer/sharer.php?u=${postUrl}`,
+                          linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${postUrl}`,
+                          telegram: `https://t.me/share/url?url=${postUrl}&text=${postTitle}`,
+                        };
+                        (fv('shareOn') as string[]).forEach((platform, i) => {
+                          const url = shareUrls[platform];
+                          if (url) setTimeout(() => window.open(url, '_blank', 'noopener,noreferrer,width=600,height=500'), i * 400);
+                        });
+                      }}
+                      style={{ ...btn, padding: '10px', background: 'rgba(99,102,241,0.15)', color: C.indigoL, border: `1px solid rgba(99,102,241,0.3)`, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      <svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
+                      Share Now ({(fv('shareOn') as string[]).length} platform{(fv('shareOn') as string[]).length > 1 ? 's' : ''})
+                    </button>
+                  )}
                 </div>
               )}
             </div>

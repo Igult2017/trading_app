@@ -644,6 +644,7 @@ export const blogPosts = pgTable("blog_posts", {
   status:     text("status").default('Draft'),          // Published | Draft
   section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals
   signalData: jsonb("signal_data"),
+  authorData: jsonb("author_data"),            // { bio, expertise[], twitter, linkedin, telegram }
   createdAt:  timestamp("created_at").defaultNow(),
   updatedAt:  timestamp("updated_at").defaultNow(),
 });

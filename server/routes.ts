@@ -1759,9 +1759,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status      TEXT DEFAULT 'Draft',
         section     TEXT DEFAULT 'blog',
         signal_data JSONB,
+        author_data JSONB,
         created_at  TIMESTAMPTZ DEFAULT NOW(),
         updated_at  TIMESTAMPTZ DEFAULT NOW()
       );
+      -- add author_data column if table was created before this change
+      ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS author_data JSONB;
     `);
   } catch (e: any) {
     console.warn('[Blog] Could not ensure blog_posts table:', e.message);
@@ -1795,7 +1798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
-      const { title, excerpt, content, category, author, date, readTime, imageUrl, status, section, signalData } = req.body;
+      const { title, excerpt, content, category, author, date, readTime, imageUrl, status, section, signalData, authorData } = req.body;
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
       const post = await storage.createBlogPost({
         title: title.trim(),
@@ -1810,6 +1813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status ?? 'Draft',
         section: section ?? 'blog',
         signalData: signalData ?? null,
+        authorData: authorData ?? null,
       });
       return res.status(201).json(post);
     } catch (err: any) {
