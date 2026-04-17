@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { userProfiles } from "@shared/schema";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt } from "./lib/crypto";
@@ -1926,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Ensure user_profiles has trader profile columns ──────────────────────────
   try {
-    await db.execute(sql`
+    await pool.query(`
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name   TEXT DEFAULT '';
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country     TEXT DEFAULT '';
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan        TEXT DEFAULT 'Free';
