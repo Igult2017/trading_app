@@ -778,13 +778,12 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
       <div style={{ display: 'grid', gridTemplateColumns: metricCols, gap: '6px' }}>
         {[{ label: 'CPU Usage', value: metrics.cpu, unit: '%', h: history.cpu, icon: Cpu, danger: metrics.cpu > 80 }, { label: 'Memory', value: metrics.memory, unit: '%', h: history.memory, icon: Database, danger: metrics.memory > 85 }, { label: 'Latency', value: metrics.latency, unit: 'ms', h: history.latency, icon: Zap, danger: metrics.latency > 100 }, { label: 'Req/sec', value: metrics.requestsPerSec, unit: '', h: history.requests, icon: Activity, danger: false }].map((m, i) => (
           <div key={i} style={{ ...cs, padding: '14px', borderColor: m.danger ? 'rgba(244,63,94,0.3)' : C.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <m.icon size={14} style={{ color: m.danger ? C.redL : '#3d5878' }} />
               <GaugeRing value={m.unit === '%' ? m.value : Math.min((m.value / 2000) * 100, 100)} color={C.indigo} />
             </div>
-            <p style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700, margin: 0 }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></p>
-            <p style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '3px 0 6px' }}>{m.label}</p>
-            <Sparkline data={m.h} danger={m.danger} />
+            <p style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700, margin: '0 0 6px' }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></p>
+            <p style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{m.label}</p>
           </div>
         ))}
       </div>
