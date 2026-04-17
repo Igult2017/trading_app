@@ -23,8 +23,8 @@ export default function AuthPage() {
 
   if (loading) return <LoadingScreen />;
 
-  // Already authenticated AND not coming via the signup route — show "already signed in" screen
-  if (role && !isSignupRoute) {
+  // Already authenticated — show "already signed in" screen
+  if (role) {
     const dest = role === 'admin' ? '/admin' : '/journal';
     const label = role === 'admin' ? 'Go to Admin Panel' : 'Open Journal';
     return (
