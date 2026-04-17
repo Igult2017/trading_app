@@ -424,12 +424,42 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
 };
 
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
-const CustomerCareSection = ({ bp, apiUsers = [] }) => {
+const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [tickets, setTickets] = useState(MOCK_TICKETS);
+  const [tickets, setTickets] = useState([]);
   const [replyText, setReplyText] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [actionUser, setActionUser] = useState(null);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [sendingReply, setSendingReply] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      try {
+        const r = await fetch('/api/admin/tickets', { headers });
+        if (r.ok) {
+          const data = await r.json();
+          setTickets(data.map((t: any) => ({
+            id: `TK-${t.id}`, _id: t.id,
+            user: t.user_name || 'Unknown', email: t.user_email || '',
+            subject: t.subject || t.message?.slice(0, 60) || 'No subject',
+            priority: t.priority || 'Medium', status: t.status || 'Open',
+            created: new Date(t.created_at).toLocaleString(), channel: t.channel || 'email',
+            reply: t.reply || '',
+          })));
+        } else {
+          setTickets(MOCK_TICKETS);
+        }
+      } catch {
+        setTickets(MOCK_TICKETS);
+      }
+      setLoadingTickets(false);
+    };
+    load();
+  }, []);
 
   const openCount = tickets.filter(t => t.status === 'Open').length;
   const resolvedCount = tickets.filter(t => t.status === 'Resolved').length;
@@ -445,9 +475,35 @@ const CustomerCareSection = ({ bp, apiUsers = [] }) => {
   const SC = { Open: C.amberL, 'In Progress': C.blueL, Resolved: C.greenL };
   const ChanIcon = { email: Mail, chat: MessageSquare, phone: Phone };
 
-  const handleResolve = id => {
-    setTickets(p => p.map(t => t.id === id ? { ...t, status: 'Resolved' } : t));
-    if (selectedTicket?.id === id) setSelectedTicket(p => ({ ...p, status: 'Resolved' }));
+  const handleResolve = async (displayId: string, dbId: number) => {
+    const token = await getAdminToken?.();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (dbId) {
+      await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Resolved' }) }).catch(() => {});
+    }
+    setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Resolved' } : t));
+    if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Resolved' }));
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedTicket || sendingReply) return;
+    setSendingReply(true);
+    const token = await getAdminToken?.();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (selectedTicket._id) {
+      const r = await fetch(`/api/admin/tickets/${selectedTicket._id}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ reply: replyText, status: 'In Progress' }),
+      }).catch(() => null);
+      if (r?.ok) {
+        setTickets(p => p.map(t => t.id === selectedTicket.id ? { ...t, reply: replyText, status: 'In Progress' } : t));
+        setSelectedTicket((p: any) => ({ ...p, reply: replyText, status: 'In Progress' }));
+        setReplyText('');
+      }
+    }
+    setSendingReply(false);
   };
 
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
@@ -538,7 +594,7 @@ const CustomerCareSection = ({ bp, apiUsers = [] }) => {
                     <p style={{ ...lbl }}>Quick Actions</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                       {[
-                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(selectedTicket.id) },
+                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(selectedTicket.id, selectedTicket._id) },
                         { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => {} },
                         { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => setActionUser(selectedTicket.user) },
                         { label: 'Reset', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: () => {} },
@@ -552,8 +608,8 @@ const CustomerCareSection = ({ bp, apiUsers = [] }) => {
                   <div>
                     <p style={{ ...lbl }}>Reply to Customer</p>
                     <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Type your response..." style={{ ...inp, resize: 'none', display: 'block', fontSize: '13px' }} />
-                    <button style={{ ...btn, marginTop: '8px', width: '100%', background: C.indigo, color: 'white', padding: '10px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                      <Send size={12} /> Send Reply
+                    <button onClick={handleSendReply} disabled={sendingReply} style={{ ...btn, marginTop: '8px', width: '100%', background: C.indigo, color: 'white', padding: '10px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: sendingReply ? 0.6 : 1 }}>
+                      <Send size={12} /> {sendingReply ? 'Sending…' : 'Send Reply'}
                     </button>
                   </div>
                 </div>
@@ -618,34 +674,47 @@ const CustomerCareSection = ({ bp, apiUsers = [] }) => {
 };
 
 // ─── SYSTEM MONITOR ──────────────────────────────────────────────────────────
-const SystemMonitorSection = ({ bp }) => {
+const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
   const [metrics, setMetrics] = useState(INITIAL_METRICS);
   const [logs, setLogs] = useState(INITIAL_LOGS);
   const [history, setHistory] = useState({ cpu: [28, 31, 34, 30, 33, 34], memory: [58, 60, 61, 62, 60, 61], latency: [38, 45, 42, 44, 40, 42], requests: [800, 820, 847, 835, 847, 847] });
   const [isLive, setIsLive] = useState(true);
   const [resolvedIds, setResolvedIds] = useState(new Set(INITIAL_LOGS.filter(l => l.resolved).map(l => l.id)));
-  const logIdRef = useRef(7); const timerRef = useRef(null);
-
-  const LOG_POOL = [
-    { level: 'error', service: 'Binance-API', message: 'WebSocket feed disconnected - reconnecting...' },
-    { level: 'warn', service: 'Rate-Limiter', message: 'User #3842 hit API quota - throttling applied' },
-    { level: 'info', service: 'Trade-Engine', message: 'New market signal batch queued: 340 entries' },
-    { level: 'error', service: 'Auth-Service', message: 'JWT signing key rotation failed - fallback active' },
-  ];
+  const logIdRef = useRef(7); const timerRef = useRef<any>(null);
 
   useEffect(() => {
     if (!isLive) { clearInterval(timerRef.current); return; }
-    timerRef.current = setInterval(() => {
-      setMetrics(prev => ({ cpu: generateMetric(prev.cpu, 8), memory: generateMetric(prev.memory, 4), latency: generateMetric(prev.latency, 10), uptime: prev.uptime, requestsPerSec: Math.round(generateMetric(prev.requestsPerSec, 60)), errorRate: +(generateMetric(prev.errorRate, 0.1)).toFixed(2), dbQueryTime: Math.round(generateMetric(prev.dbQueryTime, 6)), activeConnections: Math.round(generateMetric(prev.activeConnections, 50)) }));
-      setHistory(prev => ({ cpu: [...prev.cpu.slice(-11), generateMetric(metrics.cpu, 8)], memory: [...prev.memory.slice(-11), generateMetric(metrics.memory, 4)], latency: [...prev.latency.slice(-11), generateMetric(metrics.latency, 10)], requests: [...prev.requests.slice(-11), Math.round(generateMetric(metrics.requestsPerSec, 60))] }));
-      if (Math.random() < 0.3) {
-        const t = LOG_POOL[Math.floor(Math.random() * LOG_POOL.length)];
-        const now = new Date(); const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-        setLogs(prev => [{ id: logIdRef.current++, time, ...t, resolved: false }, ...prev.slice(0, 19)]);
-      }
-    }, 1800);
+    const poll = async () => {
+      try {
+        const token = await getAdminToken?.();
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const r = await fetch('/api/admin/metrics', { headers });
+        if (r.ok) {
+          const d = await r.json();
+          const cpuVal = +d.cpuPercent || 0;
+          const memVal = +d.memPercent || 0;
+          const reqVal = +d.reqPerSec || 0;
+          setMetrics(prev => ({
+            ...prev,
+            cpu: cpuVal,
+            memory: memVal,
+            uptime: +(d.uptimeSec / 3600 / 24).toFixed(2),
+            requestsPerSec: Math.round(reqVal),
+          }));
+          setHistory(prev => ({
+            cpu: [...prev.cpu.slice(-11), cpuVal],
+            memory: [...prev.memory.slice(-11), memVal],
+            latency: [...prev.latency.slice(-11), prev.latency[prev.latency.length - 1] ?? 42],
+            requests: [...prev.requests.slice(-11), Math.round(reqVal)],
+          }));
+        }
+      } catch {}
+    };
+    poll();
+    timerRef.current = setInterval(poll, 3000);
     return () => clearInterval(timerRef.current);
-  }, [isLive, metrics]);
+  }, [isLive]);
 
   const resolveLog = id => setResolvedIds(prev => new Set([...prev, id]));
   const errorCount = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
@@ -1136,13 +1205,38 @@ const BlogSection = ({ bp }) => {
 };
 
 // ─── MARKETING SECTION ───────────────────────────────────────────────────────
-const MarketingSection = ({ bp }) => {
-  const [activeChannels, setActiveChannels] = useState(['Email']);
+const MarketingSection = ({ bp, getAdminToken = null }) => {
+  const [activeChannels, setActiveChannels] = useState(['In-App']);
+  const [audience, setAudience] = useState('all');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const toggleChannel = label => {
     setActiveChannels(prev =>
       prev.includes(label) ? prev.filter(c => c !== label) : [...prev, label]
     );
+  };
+
+  const handleSend = async () => {
+    if (!message.trim() || activeChannels.length === 0 || sending) return;
+    setSending(true); setResult(null);
+    try {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const r = await fetch('/api/admin/campaigns', {
+        method: 'POST', headers,
+        body: JSON.stringify({ channels: activeChannels, audience, subject, message }),
+      });
+      const data = await r.json();
+      setResult({ ok: r.ok, msg: r.ok ? (data.message ?? 'Campaign sent!') : (data.error ?? 'Failed to send') });
+      if (r.ok) { setSubject(''); setMessage(''); }
+    } catch {
+      setResult({ ok: false, msg: 'Network error — please retry' });
+    }
+    setSending(false);
   };
 
   const CHANNELS = [
@@ -1160,10 +1254,10 @@ const MarketingSection = ({ bp }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
             <label style={{ ...lbl }}>Target Audience</label>
-            <select style={{ ...inp, cursor: 'pointer' }}>
-              <option>All Users (12,842)</option>
-              <option>Free Plan Only</option>
-              <option>Inactive Users</option>
+            <select value={audience} onChange={e => setAudience(e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+              <option value="all">All Users</option>
+              <option value="free">Free Plan Only</option>
+              <option value="inactive">Inactive Users (30d+)</option>
             </select>
           </div>
           <div>
@@ -1186,13 +1280,23 @@ const MarketingSection = ({ bp }) => {
             </div>
             {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
             {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
+            {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Email requires SMTP_HOST, SMTP_USER, SMTP_PASS env vars</p>}
+          </div>
+          <div>
+            <label style={{ ...lbl }}>Subject (optional)</label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Announcement subject..." style={{ ...inp }} />
           </div>
           <div>
             <label style={{ ...lbl }}>Message</label>
-            <textarea rows={5} placeholder="Enter your announcement..." style={{ ...inp, resize: 'none', display: 'block' }} />
+            <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Enter your announcement..." style={{ ...inp, resize: 'none', display: 'block' }} />
           </div>
-          <button style={{ ...btn, background: activeChannels.length > 0 ? C.indigo : C.border, color: activeChannels.length > 0 ? 'white' : C.muted, padding: '13px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.12em', border: 'none', cursor: activeChannels.length > 0 ? 'pointer' : 'not-allowed', transition: 'background 0.15s' }}>
-            Send Campaign Now
+          {result && (
+            <div style={{ padding: '10px 14px', background: result.ok ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', border: `1px solid ${result.ok ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`, color: result.ok ? C.greenL : C.redL, fontSize: '12px', fontWeight: 600 }}>
+              {result.ok ? '✓ ' : '✕ '}{result.msg}
+            </div>
+          )}
+          <button onClick={handleSend} disabled={sending || activeChannels.length === 0} style={{ ...btn, background: activeChannels.length > 0 && !sending ? C.indigo : C.border, color: activeChannels.length > 0 && !sending ? 'white' : C.muted, padding: '13px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.12em', border: 'none', cursor: activeChannels.length > 0 && !sending ? 'pointer' : 'not-allowed', transition: 'background 0.15s' }}>
+            {sending ? 'Sending…' : 'Send Campaign Now'}
           </button>
         </div>
       </div>
@@ -1312,11 +1416,28 @@ const SettingsSection = ({ bp }) => {
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [activeTheme, setActiveTheme] = useState('dark');
-  const [activeFont, setActiveFont] = useState('onest');
+  const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('admin_theme') || 'dark');
+  const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'onest');
+  const [fontSaved, setFontSaved] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] });
   const [newTask, setNewTask] = useState({ title: '', assignee: '', due: '' });
   const [showPass, setShowPass] = useState(false);
+
+  const selectTheme = (id: string) => {
+    setActiveTheme(id);
+    localStorage.setItem('admin_theme', id);
+  };
+
+  const applyFont = () => {
+    const font = FONT_OPTIONS.find(f => f.id === activeFont);
+    if (font) {
+      localStorage.setItem('admin_font', activeFont);
+      document.documentElement.style.setProperty('font-family', font.stack);
+      document.body.style.fontFamily = font.stack;
+    }
+    setFontSaved(true);
+    setTimeout(() => setFontSaved(false), 2000);
+  };
 
   const SETTINGS_TABS = [
     { id: 'agents', label: 'CC Agents' },
@@ -1530,7 +1651,7 @@ const SettingsSection = ({ bp }) => {
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {THEME_OPTIONS.map(theme => (
-                <button key={theme.id} onClick={() => setActiveTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
+                <button key={theme.id} onClick={() => selectTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
                   <div style={{ height: '60px', background: theme.bg, position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: '10px', left: '10px', width: '30px', height: '30px', background: theme.card, border: `1px solid ${theme.accent}30` }} />
                     <div style={{ position: 'absolute', top: '10px', left: '48px', right: '10px', height: '8px', background: theme.accent, opacity: 0.8 }} />
@@ -1548,14 +1669,14 @@ const SettingsSection = ({ bp }) => {
                 </button>
               ))}
             </div>
-            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme changes apply on next session</p>
+            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme preference saved — reloads on next session</p>
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {FONT_OPTIONS.map(font => (
-                <button key={font.id} onClick={() => setActiveFont(font.id)} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(79,70,229,0.08)' : 'rgba(30,41,59,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(79,70,229,0.35)' : C.border}`, textAlign: 'left' }}>
+                <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(79,70,229,0.08)' : 'rgba(30,41,59,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(79,70,229,0.35)' : C.border}`, textAlign: 'left' }}>
                   <div>
                     <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '15px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
                     <p style={{ color: C.muted, fontSize: '11px', margin: '3px 0 0', fontFamily: font.stack }}>The quick brown fox jumps over the lazy dog</p>
@@ -1568,7 +1689,7 @@ const SettingsSection = ({ bp }) => {
                 </button>
               ))}
             </div>
-            <button style={{ ...btn, marginTop: '16px', width: '100%', background: C.indigo, color: 'white', padding: '11px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none' }}>Apply Font</button>
+            <button onClick={applyFont} style={{ ...btn, marginTop: '16px', width: '100%', background: fontSaved ? C.green : C.indigo, color: 'white', padding: '11px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', transition: 'background 0.3s' }}>{fontSaved ? '✓ Font Applied' : 'Apply Font'}</button>
           </div>
         </div>
       )}
@@ -1750,9 +1871,9 @@ export default function AdminPanel() {
 
       case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'blog': return <BlogSection bp={bp} />;
-      case 'marketing': return <MarketingSection bp={bp} />;
-      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} />;
-      case 'system-monitor': return <SystemMonitorSection bp={bp} />;
+      case 'marketing': return <MarketingSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'settings': return <SettingsSection bp={bp} />;
 
     }
