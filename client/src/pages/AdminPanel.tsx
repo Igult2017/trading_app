@@ -7,7 +7,7 @@ import {
   MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
   Globe, Clock, HeadphonesIcon, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
   MessageSquare, Phone, Star, Timer, Database,
-  Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, Layers
+  Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, Layers, BookOpen, ExternalLink
 } from 'lucide-react';
 
 // ─── BREAKPOINT HOOK ─────────────────────────────────────────────────────────
@@ -529,19 +529,90 @@ const SystemMonitorSection = ({ bp }) => {
 
 // ─── BLOG SECTION ────────────────────────────────────────────────────────────
 const BlogSection = ({ bp }) => {
-  const [posts, setPosts] = useState(MOCK_POSTS);
+  const [posts, setPosts] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState('all');
   const [showModal, setShowModal] = useState(false);
-  const [editPost, setEditPost] = useState(null);
+  const [editPost, setEditPost] = useState<any>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [modalTab, setModalTab] = useState('post');
+  const [saving, setSaving] = useState(false);
+
+  const getToken = async () => {
+    const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+    return (r as any).data?.session?.access_token as string | null;
+  };
+
+  useEffect(() => {
+    getToken().then(token => {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      fetch('/api/blog/all', { headers })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          setPosts(data.map((p: any) => ({
+            id: p.id, title: p.title, section: p.section ?? 'blog',
+            status: p.status ?? 'Draft', author: p.author ?? 'Admin',
+            date: p.date, signal: p.signalData ?? p.signal_data ?? null,
+          })));
+        })
+        .catch(() => {});
+    });
+  }, []);
 
   const filtered = activeSection === 'all' ? posts : posts.filter(p => p.section === activeSection);
   const openNew = () => { setEditPost(null); setForm(EMPTY_FORM); setModalTab('post'); setShowModal(true); };
-  const openEdit = post => { setEditPost(post); setForm({ ...EMPTY_FORM, title: post.title, section: post.section, status: post.status, signal: post.signal || EMPTY_FORM.signal }); setModalTab('post'); setShowModal(true); };
-  const handleSave = () => { if (!form.title.trim()) return; if (editPost) { setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...form } : x)); } else { setPosts(p => [...p, { id: Date.now(), author: form.authorName || 'Admin', date: new Date().toISOString().slice(0, 10), ...form }]); } setShowModal(false); };
-  const handleDelete = id => setPosts(p => p.filter(x => x.id !== id));
-  const toggleStatus = id => setPosts(p => p.map(x => x.id === id ? { ...x, status: x.status === 'Published' ? 'Draft' : 'Published' } : x));
+  const openEdit = (post: any) => { setEditPost(post); setForm({ ...EMPTY_FORM, title: post.title, section: post.section, status: post.status, signal: post.signal || EMPTY_FORM.signal }); setModalTab('post'); setShowModal(true); };
+
+  const handleSave = async () => {
+    if (!form.title.trim() || saving) return;
+    setSaving(true);
+    try {
+      const token = await getToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const body = JSON.stringify({
+        title: form.title, section: form.section, status: form.status,
+        author: (form as any).authorName || 'Admin',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+        signalData: form.section === 'trade-signals' ? form.signal : null,
+      });
+      if (editPost) {
+        const r = await fetch(`/api/blog/${editPost.id}`, { method: 'PATCH', headers, body });
+        if (r.ok) {
+          const updated = await r.json();
+          setPosts(p => p.map(x => x.id === editPost.id ? { ...x, title: updated.title, section: updated.section, status: updated.status } : x));
+        }
+      } else {
+        const r = await fetch('/api/blog', { method: 'POST', headers, body });
+        if (r.ok) {
+          const created = await r.json();
+          setPosts(p => [...p, { id: created.id, title: created.title, section: created.section, status: created.status, author: created.author, date: created.date, signal: created.signalData }]);
+        }
+      }
+      setShowModal(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: any) => {
+    const token = await getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const r = await fetch(`/api/blog/${id}`, { method: 'DELETE', headers });
+    if (r.ok) setPosts(p => p.filter(x => x.id !== id));
+  };
+
+  const toggleStatus = async (id: any) => {
+    const post = posts.find(x => x.id === id);
+    if (!post) return;
+    const newStatus = post.status === 'Published' ? 'Draft' : 'Published';
+    const token = await getToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const r = await fetch(`/api/blog/${id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: newStatus }) });
+    if (r.ok) setPosts(p => p.map(x => x.id === id ? { ...x, status: newStatus } : x));
+  };
   const fv = k => form[k]; const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
   const sg = k => form.signal[k];
@@ -706,7 +777,7 @@ const BlogSection = ({ bp }) => {
             </div>
             <div style={{ padding: '12px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setShowModal(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={handleSave} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>{editPost ? 'Save Changes' : 'Create Post'}</button>
+              <button onClick={handleSave} disabled={saving} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : editPost ? 'Save Changes' : 'Create Post'}</button>
             </div>
           </div>
         </div>
@@ -1211,6 +1282,7 @@ export default function AdminPanel() {
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'marketing', label: 'Marketing', icon: Megaphone, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu,           ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
+    { label: 'Journal',          items: [{ id: 'journal',       label: 'Open Journal',    icon: BookOpen,      ready: true }] },
   ];
 
   const PAGE_TITLES = {
@@ -1222,6 +1294,7 @@ export default function AdminPanel() {
     'system-monitor': 'System Monitor', 'usage-metrics': 'Usage Metrics', 'error-logs': 'Error Logs',
     billing: 'Plans & Billing', promotions: 'Promotions',
     settings: 'System Settings', api: 'API & Integrations', 'feature-flags': 'Feature Flags', security: 'Security Settings',
+    journal: 'Open Journal',
   };
 
   const navBtn = item => {
@@ -1230,8 +1303,12 @@ export default function AdminPanel() {
     const activeBg = isActive ? 'rgba(79,70,229,0.18)' : 'transparent';
     const activeColor = isActive ? 'white' : isSoon ? '#6b7280' : '#94a3b8';
     const iconColor = isActive ? C.indigoL : isSoon ? '#4b5563' : '#64748b';
+    const handleClick = () => {
+      if (item.id === 'journal') { window.open('/journal', '_blank', 'noopener,noreferrer'); return; }
+      setActiveTab(item.id);
+    };
     return (
-      <button key={item.id} onClick={() => setActiveTab(item.id)} title={item.label}
+      <button key={item.id} onClick={handleClick} title={item.label}
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '6px 10px', justifyContent: collapsed ? 'center' : 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 400, fontSize: '12px', position: 'relative', transition: 'background 0.15s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent' }}>
         <item.icon size={14} style={{ flexShrink: 0, color: iconColor }} />
         {!collapsed && (
@@ -1240,6 +1317,7 @@ export default function AdminPanel() {
             {isSoon && (
               <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.1)', color: '#92400e', border: '1px solid rgba(245,158,11,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
             )}
+            {item.id === 'journal' && <ExternalLink size={10} style={{ color: '#64748b', flexShrink: 0 }} />}
           </>
         )}
         {item.badge > 0 && (
