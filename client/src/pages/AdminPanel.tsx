@@ -64,7 +64,7 @@ const INITIAL_LOGS = [
 ];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-const FONT = "'Inter', sans-serif";
+const FONT = "'Montserrat', sans-serif";
 const C = {
   bg: '#020617', sidebar: '#0a0f1e', card: '#0f172a',
   border: '#1e293b', border2: '#334155', dim: '#334155',
@@ -1623,8 +1623,7 @@ export default function AdminPanel() {
 
       {/* MAIN CONTENT */}
       <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0f172a 0%, #020617 60%)' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(2,6,23,0.9)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `12px ${contentPad}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ color: 'white', fontWeight: 800, fontStyle: 'italic', fontSize: bp.isMobile ? '16px' : '19px', fontFamily: FONT, letterSpacing: '0.02em', margin: 0 }}>{PAGE_TITLES[activeTab] || activeTab}</h1>
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(2,6,23,0.9)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `12px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button style={{ ...btn, background: 'rgba(30,41,59,0.6)', color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#475569'; }}
