@@ -486,6 +486,23 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
     if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Resolved' }));
   };
 
+  const handleEscalate = async (displayId: string, dbId: number) => {
+    const token = await getAdminToken?.();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (dbId) await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Escalated', priority: 'Critical' }) }).catch(() => {});
+    setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Escalated', priority: 'Critical' } : t));
+    if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Escalated', priority: 'Critical' }));
+  };
+
+  const handleBanUser = async (userId: string) => {
+    const token = await getAdminToken?.();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    await fetch(`/api/admin/users/${userId}/ban`, { method: 'PATCH', headers, body: JSON.stringify({ action: 'ban' }) }).catch(() => {});
+    setActionUser(null);
+  };
+
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedTicket || sendingReply) return;
     setSendingReply(true);
@@ -595,9 +612,9 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                       {[
                         { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(selectedTicket.id, selectedTicket._id) },
-                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => {} },
-                        { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => setActionUser(selectedTicket.user) },
-                        { label: 'Reset', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: () => {} },
+                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(selectedTicket.id, selectedTicket._id) },
+                        { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => setActionUser({ name: selectedTicket.user, userId: selectedTicket.userId }) },
+                        { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket._id) await fetch(`/api/admin/tickets/${selectedTicket._id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
                       ].map((b, i) => (
                         <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           <b.icon size={13} />{b.label}
@@ -677,43 +694,57 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
 const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
   const [metrics, setMetrics] = useState(INITIAL_METRICS);
   const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [services, setServices] = useState<any[]>([]);
   const [history, setHistory] = useState({ cpu: [28, 31, 34, 30, 33, 34], memory: [58, 60, 61, 62, 60, 61], latency: [38, 45, 42, 44, 40, 42], requests: [800, 820, 847, 835, 847, 847] });
   const [isLive, setIsLive] = useState(true);
   const [resolvedIds, setResolvedIds] = useState(new Set(INITIAL_LOGS.filter(l => l.resolved).map(l => l.id)));
-  const logIdRef = useRef(7); const timerRef = useRef<any>(null);
+  const timerRef = useRef<any>(null);
+  const logTimerRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!isLive) { clearInterval(timerRef.current); return; }
-    const poll = async () => {
+    if (!isLive) { clearInterval(timerRef.current); clearInterval(logTimerRef.current); return; }
+    const getHeaders = async () => {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return headers;
+    };
+
+    const pollMetrics = async () => {
       try {
-        const token = await getAdminToken?.();
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const headers = await getHeaders();
         const r = await fetch('/api/admin/metrics', { headers });
         if (r.ok) {
           const d = await r.json();
-          const cpuVal = +d.cpuPercent || 0;
-          const memVal = +d.memPercent || 0;
-          const reqVal = +d.reqPerSec || 0;
-          setMetrics(prev => ({
-            ...prev,
-            cpu: cpuVal,
-            memory: memVal,
-            uptime: +(d.uptimeSec / 3600 / 24).toFixed(2),
-            requestsPerSec: Math.round(reqVal),
-          }));
-          setHistory(prev => ({
-            cpu: [...prev.cpu.slice(-11), cpuVal],
-            memory: [...prev.memory.slice(-11), memVal],
-            latency: [...prev.latency.slice(-11), prev.latency[prev.latency.length - 1] ?? 42],
-            requests: [...prev.requests.slice(-11), Math.round(reqVal)],
-          }));
+          const cpuVal = +d.cpu ?? +d.cpuPercent ?? 0;
+          const memVal = +d.memory ?? +d.memPercent ?? 0;
+          const reqVal = +d.reqPerSec ?? 0;
+          setMetrics(prev => ({ ...prev, cpu: cpuVal, memory: memVal, uptime: +(d.uptimeSec / 3600 / 24).toFixed(2), requestsPerSec: Math.round(reqVal) }));
+          setHistory(prev => ({ cpu: [...prev.cpu.slice(-11), cpuVal], memory: [...prev.memory.slice(-11), memVal], latency: [...prev.latency.slice(-11), prev.latency[prev.latency.length-1] ?? 42], requests: [...prev.requests.slice(-11), Math.round(reqVal)] }));
         }
       } catch {}
     };
-    poll();
-    timerRef.current = setInterval(poll, 3000);
-    return () => clearInterval(timerRef.current);
+
+    const pollHealth = async () => {
+      try {
+        const headers = await getHeaders();
+        const r = await fetch('/api/admin/health', { headers });
+        if (r.ok) { const d = await r.json(); setServices(d.services ?? []); }
+      } catch {}
+    };
+
+    const pollLogs = async () => {
+      try {
+        const headers = await getHeaders();
+        const r = await fetch('/api/admin/logs', { headers });
+        if (r.ok) { const d = await r.json(); if (d.logs?.length) setLogs(d.logs.slice(0, 20)); }
+      } catch {}
+    };
+
+    pollMetrics(); pollHealth(); pollLogs();
+    timerRef.current = setInterval(() => { pollMetrics(); }, 3000);
+    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); }, 8000);
+    return () => { clearInterval(timerRef.current); clearInterval(logTimerRef.current); };
   }, [isLive]);
 
   const resolveLog = id => setResolvedIds(prev => new Set([...prev, id]));
@@ -751,29 +782,28 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Service Status</h3>
-            <span style={{ fontSize: '10px', fontWeight: 600, color: C.muted }}>6 services</span>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: C.muted }}>{services.length || '—'} services</span>
           </div>
           <div style={{ flex: 1 }}>
-            {[
-              { name: 'Trade Engine', status: 'operational', lat: '18ms', uptime: '99.9%' },
-              { name: 'Binance API', status: 'degraded', lat: '340ms', uptime: '97.2%' },
-              { name: 'Auth Service', status: 'operational', lat: '12ms', uptime: '100%' },
-              { name: 'Payment SVC', status: 'degraded', lat: '210ms', uptime: '98.1%' },
-              { name: 'DB Cluster', status: 'operational', lat: '8ms', uptime: '99.9%' },
-              { name: 'Cache Layer', status: 'operational', lat: '2ms', uptime: '100%' },
-            ].map((svc, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: svc.status === 'degraded' ? 'rgba(245,158,11,0.04)' : 'transparent' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: svc.status === 'operational' ? C.green : C.amber, boxShadow: `0 0 6px ${svc.status === 'operational' ? C.green : C.amber}` }} />
-                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#9ab4cc', fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+            {(services.length ? services : [{ name: 'Loading…', status: 'operational', latency: '—', uptime: '—' }]).map((svc, i) => {
+              const isOk = svc.status === 'operational';
+              const isDeg = svc.status === 'degraded';
+              const dotColor = isOk ? C.green : isDeg ? C.amber : C.muted;
+              const textColor = isDeg ? C.amberL : isOk ? '#cbd5e1' : C.muted;
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: isDeg ? 'rgba(245,158,11,0.04)' : 'transparent' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, boxShadow: isOk || isDeg ? `0 0 6px ${dotColor}` : 'none' }} />
+                    <span style={{ color: textColor, fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ color: C.muted, fontSize: '10px', fontFamily: 'monospace' }}>{svc.uptime}</span>
+                    <span style={{ color: isDeg ? C.amberL : '#475569', fontSize: '11px', fontFamily: 'monospace', fontWeight: isDeg ? 700 : 400 }}>{svc.latency}</span>
+                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(245,158,11,0.2)' : C.border2}` }}>{svc.status}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ color: C.muted, fontSize: '10px', fontFamily: 'monospace' }}>{svc.uptime}</span>
-                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#3d5878', fontSize: '11px', fontFamily: 'monospace', fontWeight: svc.status === 'degraded' ? 700 : 400 }}>{svc.lat}</span>
-                  <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: svc.status === 'operational' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: svc.status === 'operational' ? C.greenL : C.amberL, border: `1px solid ${svc.status === 'operational' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}` }}>{svc.status}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -1281,6 +1311,7 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
             {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
             {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
             {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Email requires SMTP_HOST, SMTP_USER, SMTP_PASS env vars</p>}
+            {activeChannels.includes('Push') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Push notifications require Web Push VAPID key setup</p>}
           </div>
           <div>
             <label style={{ ...lbl }}>Subject (optional)</label>
@@ -1409,34 +1440,40 @@ const MOCK_TASKS = [
   { id: 4, title: 'Prepare weekly support summary report', assignee: 'Nadia Osei', due: '2023-10-27', status: 'Pending' },
 ];
 
-const SettingsSection = ({ bp }) => {
+const SettingsSection = ({ bp, getAdminToken = null }) => {
   const [settingsTab, setSettingsTab] = useState('agents');
-  const [ccUsers, setCcUsers] = useState(MOCK_CC_USERS);
-  const [tasks, setTasks] = useState(MOCK_TASKS);
+  const [ccUsers, setCcUsers] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('admin_theme') || 'dark');
   const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'onest');
   const [fontSaved, setFontSaved] = useState(false);
-  const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] });
+  const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] as string[] });
   const [newTask, setNewTask] = useState({ title: '', assignee: '', due: '' });
   const [showPass, setShowPass] = useState(false);
 
-  const selectTheme = (id: string) => {
-    setActiveTheme(id);
-    localStorage.setItem('admin_theme', id);
+  const getHdrs = async () => {
+    const token = await getAdminToken?.();
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
   };
+
+  useEffect(() => {
+    getHdrs().then(h => {
+      fetch('/api/admin/cc-agents', { headers: h }).then(r => r.ok ? r.json() : []).then(d => setCcUsers(d.map((a: any) => ({ ...a, functions: Array.isArray(a.functions) ? a.functions : [] }))));
+      fetch('/api/admin/tasks', { headers: h }).then(r => r.ok ? r.json() : []).then(d => setTasks(d));
+    });
+  }, []);
+
+  const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem('admin_theme', id); };
 
   const applyFont = () => {
     const font = FONT_OPTIONS.find(f => f.id === activeFont);
-    if (font) {
-      localStorage.setItem('admin_font', activeFont);
-      document.documentElement.style.setProperty('font-family', font.stack);
-      document.body.style.fontFamily = font.stack;
-    }
-    setFontSaved(true);
-    setTimeout(() => setFontSaved(false), 2000);
+    if (font) { localStorage.setItem('admin_font', activeFont); document.body.style.fontFamily = font.stack; }
+    setFontSaved(true); setTimeout(() => setFontSaved(false), 2000);
   };
 
   const SETTINGS_TABS = [
@@ -1445,24 +1482,51 @@ const SettingsSection = ({ bp }) => {
     { id: 'appearance', label: 'Appearance' },
   ];
 
-  const toggleAgentFn = (agentId, fnId) => {
-    setCcUsers(p => p.map(u => u.id === agentId ? { ...u, functions: u.functions.includes(fnId) ? u.functions.filter(f => f !== fnId) : [...u.functions, fnId] } : u));
+  const toggleAgentFn = async (agentId: string, fnId: string) => {
+    const agent = ccUsers.find(u => u.id === agentId);
+    if (!agent) return;
+    const newFns = agent.functions.includes(fnId) ? agent.functions.filter((f: string) => f !== fnId) : [...agent.functions, fnId];
+    setCcUsers(p => p.map(u => u.id === agentId ? { ...u, functions: newFns } : u));
+    const h = await getHdrs();
+    await fetch(`/api/admin/cc-agents/${agentId}`, { method: 'PATCH', headers: h, body: JSON.stringify({ functions: newFns }) }).catch(() => {});
   };
 
-  const approveTask = id => setTasks(p => p.map(t => t.id === id ? { ...t, status: 'Complete' } : t));
-  const deleteTask = id => setTasks(p => p.filter(t => t.id !== id));
+  const approveTask = async (id: string) => {
+    setTasks(p => p.map(t => t.id === id ? { ...t, status: 'Complete' } : t));
+    const h = await getHdrs();
+    await fetch(`/api/admin/tasks/${id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Complete' }) }).catch(() => {});
+  };
 
-  const handleCreateAgent = () => {
-    if (!newAgent.name || !newAgent.email || !newAgent.password) return;
-    const id = 'CC' + String(ccUsers.length + 1).padStart(3, '0');
-    setCcUsers(p => [...p, { id, name: newAgent.name, email: newAgent.email, functions: newAgent.functions, status: 'Active' }]);
+  const deleteTask = async (id: string) => {
+    setTasks(p => p.filter(t => t.id !== id));
+    const h = await getHdrs();
+    await fetch(`/api/admin/tasks/${id}`, { method: 'DELETE', headers: h }).catch(() => {});
+  };
+
+  const handleCreateAgent = async () => {
+    if (!newAgent.name || !newAgent.email) return;
+    const h = await getHdrs();
+    const r = await fetch('/api/admin/cc-agents', { method: 'POST', headers: h, body: JSON.stringify({ name: newAgent.name, email: newAgent.email, functions: newAgent.functions }) }).catch(() => null);
+    if (r?.ok) {
+      const created = await r.json();
+      setCcUsers(p => [...p, { ...created, functions: created.functions ?? [] }]);
+    } else {
+      setCcUsers(p => [...p, { id: Date.now().toString(), name: newAgent.name, email: newAgent.email, functions: newAgent.functions, status: 'Active' }]);
+    }
     setNewAgent({ name: '', email: '', password: '', functions: [] });
     setShowNewAgent(false);
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!newTask.title || !newTask.assignee) return;
-    setTasks(p => [...p, { id: Date.now(), ...newTask, status: 'Pending' }]);
+    const h = await getHdrs();
+    const r = await fetch('/api/admin/tasks', { method: 'POST', headers: h, body: JSON.stringify(newTask) }).catch(() => null);
+    if (r?.ok) {
+      const created = await r.json();
+      setTasks(p => [...p, created]);
+    } else {
+      setTasks(p => [...p, { id: Date.now().toString(), ...newTask, status: 'Pending' }]);
+    }
     setNewTask({ title: '', assignee: '', due: '' });
     setShowNewTask(false);
   };
@@ -1874,7 +1938,7 @@ export default function AdminPanel() {
       case 'marketing': return <MarketingSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
-      case 'settings': return <SettingsSection bp={bp} />;
+      case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
 
     }
   };
