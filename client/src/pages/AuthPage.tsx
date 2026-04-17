@@ -184,6 +184,10 @@ export default function AuthPage() {
             </>
           )}
         </div>
+
+        <button style={styles.backBtn} onClick={() => navigate('/')}>
+          ← Back to Home
+        </button>
       </div>
     </div>
   );
@@ -334,5 +338,19 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontWeight: 600,
     padding: 0,
+  },
+  backBtn: {
+    marginTop: 16,
+    width: '100%',
+    background: 'transparent',
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    color: C.dim,
+    fontSize: 13,
+    fontWeight: 600,
+    padding: '10px',
+    cursor: 'pointer',
+    transition: 'color 0.2s, border-color 0.2s',
+    fontFamily: "'Poppins', 'Inter', sans-serif",
   },
 };
