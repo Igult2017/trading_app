@@ -285,7 +285,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0', flex: 1 }}>
       {/* Header bar */}
       <div style={{ ...cs, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ position: 'relative' }}>
@@ -540,7 +540,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const mainCols = bp.isDesktop ? '1fr 1fr' : '1fr';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
       {/* ── STAT CARDS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '3px' }}>
         {[
@@ -770,7 +770,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
   const metricCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
       <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: healthy ? C.green : C.red }} />
@@ -1015,7 +1015,7 @@ const BlogSection = ({ bp }) => {
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
       <div>
         <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>Content Manager</h2>
         <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Blog, Strategies & Trade Signals</p>
@@ -1296,7 +1296,7 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
   ];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '2fr 1fr' : '1fr', gap: '6px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '2fr 1fr' : '1fr', gap: '6px', flex: 1, alignContent: 'start' }}>
       <div style={{ ...cs, padding: '24px' }}>
         <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '17px', margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Megaphone size={17} style={{ color: C.indigoL }} /> Multi-Channel Broadcast
@@ -1557,7 +1557,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
       <div>
         <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>System Settings</h2>
         <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Manage agents, tasks &amp; appearance</p>
@@ -1900,7 +1900,7 @@ export default function AdminPanel() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 'calc(100vh - 120px)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
           <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
             <StatCard
               title="Total Traders"
@@ -2026,7 +2026,7 @@ export default function AdminPanel() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)' }}>
+      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)', display: 'flex', flexDirection: 'column' }}>
         <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `6px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
@@ -2046,7 +2046,7 @@ export default function AdminPanel() {
             </button>
           </div>
         </header>
-        <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px' }}>{renderContent()}</section>
+        <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
       </main>
     </div>
   );
