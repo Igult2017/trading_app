@@ -2016,8 +2016,9 @@ export default function AdminPanel() {
             onClick={async () => { await signOut(); navigate('/'); }}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
           >
-            <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+            <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v6" />
+              <path d="M6.8 4.8a9 9 0 1 0 10.4 0" />
             </svg>
             {!collapsed && <span>Sign Out</span>}
           </button>
