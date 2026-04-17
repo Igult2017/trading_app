@@ -64,26 +64,26 @@ const INITIAL_LOGS = [
 ];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-const FONT = "'Montserrat', sans-serif";
+const FONT = "'Inter', sans-serif";
 const C = {
-  bg: '#020617', sidebar: '#0a0f1e', card: '#0f172a',
-  border: '#1e293b', border2: '#334155', dim: '#334155',
-  text: '#e2e8f0', muted: '#64748b',
-  indigo: '#4f46e5', indigoL: '#818cf8',
-  green: '#10b981', greenL: '#34d399',
-  red: '#f43f5e', redL: '#fb7185',
-  amber: '#f59e0b', amberL: '#fbbf24',
-  blue: '#3b82f6', blueL: '#93c5fd',
+  bg: '#07090e', sidebar: '#07090e', card: '#0c1018',
+  border: '#131c28', border2: '#1b2840', dim: '#1b2840',
+  text: '#d0dff0', muted: '#3a5070',
+  indigo: '#00c8e0', indigoL: '#33d8f0',
+  green: '#00d48a', greenL: '#00ff9d',
+  red: '#ff3060', redL: '#ff6080',
+  amber: '#ffb700', amberL: '#ffd030',
+  blue: '#2888f0', blueL: '#50a8f8',
 };
 const cs = { background: C.card, border: `1px solid ${C.border}` };
-const inp = { width: '100%', background: '#1e293b', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
-const lbl = { display: 'block', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted, marginBottom: '8px' };
-const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.05em' };
+const inp = { width: '100%', background: '#0a0f18', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
+const lbl = { display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
+const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.04em' };
 
 const SECTION_META = {
-  blog: { label: 'Blog', color: C.indigoL, bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.3)', dot: C.indigo },
-  'verified-strategies': { label: 'Verified Strategies', color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', dot: C.amber },
-  'trade-signals': { label: 'Trade Signals', color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)', dot: C.green },
+  blog: { label: 'Blog', color: C.indigoL, bg: 'rgba(0,200,224,0.08)', border: 'rgba(0,200,224,0.25)', dot: C.indigo },
+  'verified-strategies': { label: 'Verified Strategies', color: C.amberL, bg: 'rgba(255,183,0,0.08)', border: 'rgba(255,183,0,0.25)', dot: C.amber },
+  'trade-signals': { label: 'Trade Signals', color: C.greenL, bg: 'rgba(0,212,138,0.08)', border: 'rgba(0,212,138,0.25)', dot: C.green },
 };
 
 const SOCIAL_PLATFORMS = [
@@ -126,32 +126,32 @@ const BarGraph = ({ data, labels, xAxisLabel }) => {
     <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '210px', overflow: 'visible' }}>
       <defs>
         <linearGradient id="bargrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#4338ca" stopOpacity="0.7" />
+          <stop offset="0%" stopColor="#00c8e0" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#006e80" stopOpacity="0.55" />
         </linearGradient>
         <linearGradient id="bargradhov" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#818cf8" stopOpacity="1" />
-          <stop offset="100%" stopColor="#6366f1" stopOpacity="0.85" />
+          <stop offset="0%" stopColor="#33d8f0" stopOpacity="1" />
+          <stop offset="100%" stopColor="#00c8e0" stopOpacity="0.75" />
         </linearGradient>
       </defs>
-      <text x={10} y={h / 2} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700"
+      <text x={10} y={h / 2} textAnchor="middle" fill="#3d5878" fontSize="9" fontWeight="700"
         transform={`rotate(-90, 10, ${h / 2})`} letterSpacing="0.08em">USERS</text>
       {yTicks.map((tick, i) => {
         const y = padTop + chartH - (tick / yMax) * chartH;
         return (
           <g key={i}>
-            <line x1={padLeft} y1={y} x2={padLeft + chartW} y2={y} stroke="#1e293b" strokeWidth="1" />
-            <text x={padLeft - 6} y={y + 3.5} textAnchor="end" fill="#475569" fontSize="9" fontWeight="600">
+            <line x1={padLeft} y1={y} x2={padLeft + chartW} y2={y} stroke="#131c28" strokeWidth="1" />
+            <text x={padLeft - 6} y={y + 3.5} textAnchor="end" fill="#3d5878" fontSize="9" fontWeight="600">
               {tick >= 1000 ? `${tick / 1000}k` : tick}
             </text>
           </g>
         );
       })}
-      <text x={padLeft + chartW / 2} y={h - 4} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700" letterSpacing="0.08em">
+      <text x={padLeft + chartW / 2} y={h - 4} textAnchor="middle" fill="#3d5878" fontSize="9" fontWeight="700" letterSpacing="0.08em">
         {xAxisLabel || 'MONTH'}
       </text>
-      <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + chartH} stroke="#334155" strokeWidth="1" />
-      <line x1={padLeft} y1={padTop + chartH} x2={padLeft + chartW} y2={padTop + chartH} stroke="#334155" strokeWidth="1" />
+      <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + chartH} stroke="#1b2840" strokeWidth="1" />
+      <line x1={padLeft} y1={padTop + chartH} x2={padLeft + chartW} y2={padTop + chartH} stroke="#1b2840" strokeWidth="1" />
       {data.map((v, i) => {
         const barH = (v / yMax) * chartH;
         const x = padLeft + i * barW + gap / 2;
@@ -161,16 +161,16 @@ const BarGraph = ({ data, labels, xAxisLabel }) => {
         const lbl = labels ? labels[i] : MONTHS[i];
         return (
           <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'pointer' }}>
-            <rect x={x - 1} y={padTop} width={bw + 2} height={chartH} fill={isHov ? 'rgba(99,102,241,0.05)' : 'transparent'} />
+            <rect x={x - 1} y={padTop} width={bw + 2} height={chartH} fill={isHov ? 'rgba(0,200,224,0.05)' : 'transparent'} />
             <rect x={x} y={y} width={bw} height={barH} fill={isHov ? 'url(#bargradhov)' : 'url(#bargrad)'} rx="2" style={{ transition: 'fill 0.12s' }} />
             {isHov && (
               <g>
-                <rect x={x + bw / 2 - 20} y={y - 22} width={40} height={17} fill="#1e293b" rx="3" stroke="#334155" strokeWidth="1" />
+                <rect x={x + bw / 2 - 20} y={y - 22} width={40} height={17} fill="#0c1018" rx="3" stroke="#1b2840" strokeWidth="1" />
                 <text x={x + bw / 2} y={y - 10} textAnchor="middle" fill="white" fontSize="10" fontWeight="700">{v} users</text>
               </g>
             )}
             {lbl !== '' && (
-              <text x={x + bw / 2} y={padTop + chartH + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="600">{lbl}</text>
+              <text x={x + bw / 2} y={padTop + chartH + 14} textAnchor="middle" fill="#3d5878" fontSize="9" fontWeight="600">{lbl}</text>
             )}
           </g>
         );
@@ -182,7 +182,7 @@ const BarGraph = ({ data, labels, xAxisLabel }) => {
 const Sparkline = ({ data, danger }) => {
   const W = 80, H = 32, pd = 2, max = Math.max(...data, 1);
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * (W - pd * 2) + pd},${H - ((v / max) * (H - pd * 2) + pd)}`).join(' ');
-  return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '80px', height: '32px' }}><polyline fill="none" stroke={danger ? C.red : '#6366f1'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} opacity="0.8" /></svg>;
+  return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '80px', height: '32px' }}><polyline fill="none" stroke={danger ? C.red : C.indigo} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} opacity="0.8" /></svg>;
 };
 
 const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
@@ -190,7 +190,7 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
   const ring = pct > 0.8 ? C.red : pct > 0.6 ? C.amber : color;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1e293b" strokeWidth={sw} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#131c28" strokeWidth={sw} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ring} strokeWidth={sw} strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.6s ease' }} />
     </svg>
   );
@@ -199,7 +199,7 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
 const StatCard = ({ title, value, change, trend, icon: Icon }) => (
   <div style={{ ...cs, padding: '20px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-      <div style={{ padding: '8px', background: 'rgba(99,102,241,0.1)', color: C.indigoL }}><Icon size={18} /></div>
+      <div style={{ padding: '8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL }}><Icon size={18} /></div>
       <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 7px', background: trend === 'up' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: trend === 'up' ? C.greenL : C.redL }}>{change}</span>
     </div>
     <p style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{title}</p>
@@ -213,11 +213,11 @@ const flagEmoji = (code: string) => {
   return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0)));
 };
 const PLAN_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  Free:       { bg: C.border,                  color: '#94a3b8',  border: C.border2 },
-  Pro:        { bg: 'rgba(99,102,241,0.12)',    color: C.indigoL,  border: 'rgba(99,102,241,0.3)' },
+  Free:       { bg: C.border,                  color: '#607898',  border: C.border2 },
+  Pro:        { bg: 'rgba(0,200,224,0.12)',    color: C.indigoL,  border: 'rgba(0,200,224,0.3)' },
   Enterprise: { bg: 'rgba(245,158,11,0.12)',    color: C.amberL,   border: 'rgba(245,158,11,0.3)' },
 };
-const STATUS_COLOR: Record<string, string> = { Active: C.greenL, Inactive: '#64748b', Banned: C.redL };
+const STATUS_COLOR: Record<string, string> = { Active: C.greenL, Inactive: '#3d5878', Banned: C.redL };
 
 const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; apiUsers: any[]; setApiUsers: (fn: any) => void; getAdminToken: () => Promise<string | null> }) => {
   const [search, setSearch] = useState('');
@@ -276,11 +276,11 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
       {/* Header bar */}
       <div style={{ ...cs, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+          <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#3d5878' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search traders..." style={{ ...inp, width: bp.isMobile ? '100%' : '220px', paddingLeft: '34px', fontSize: '13px' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: '#475569', fontSize: '12px' }}>{filtered.length} traders</span>
+          <span style={{ color: '#3d5878', fontSize: '12px' }}>{filtered.length} traders</span>
           <button onClick={() => setShowInvite(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '12px', border: 'none', whiteSpace: 'nowrap', fontWeight: 700 }}>
             <UserPlus size={14} /> Add User
           </button>
@@ -291,7 +291,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
       <div style={{ ...cs, overflowX: 'auto', marginTop: '3px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
           <thead>
-            <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
+            <tr style={{ background: 'rgba(8,14,24,0.5)' }}>
               {['User', 'Country', 'Plan', 'Status', 'Win Rate', 'Last Login', ''].map((h, i) => (
                 <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
@@ -300,21 +300,21 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
           <tbody>
             {filtered.map(u => {
               const planStyle = PLAN_STYLE[u.plan] || PLAN_STYLE.Free;
-              const statusColor = STATUS_COLOR[u.status] || '#64748b';
+              const statusColor = STATUS_COLOR[u.status] || '#3d5878';
               const lastLogin = u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : 'Never';
               const isMenuOpen = menuOpenId === u.id;
               return (
                 <tr key={u.id} style={{ borderTop: `1px solid ${C.bg}`, position: 'relative' }} onClick={() => setMenuOpenId(null)}>
                   <td style={{ padding: '13px 16px' }}>
                     <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name || '—'}</p>
-                    <p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
+                    <p style={{ color: '#3d5878', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
                   </td>
                   <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
                     {u.country ? (
-                      <span style={{ color: '#cbd5e1', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: '#9ab4cc', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '16px' }}>{flagEmoji(u.country)}</span> {u.country.toUpperCase()}
                       </span>
-                    ) : <span style={{ color: '#334155', fontSize: '12px' }}>—</span>}
+                    ) : <span style={{ color: '#1b2840', fontSize: '12px' }}>—</span>}
                   </td>
                   <td style={{ padding: '13px 16px' }}>
                     <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '3px 8px', background: planStyle.bg, color: planStyle.color, border: `1px solid ${planStyle.border}`, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>{u.plan || 'Free'}</span>
@@ -326,22 +326,22 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                     </span>
                   </td>
                   <td style={{ padding: '13px 16px' }}>
-                    <span style={{ color: u.win_rate ? C.blueL : '#334155', fontSize: '13px', fontWeight: u.win_rate ? 700 : 400 }}>{u.win_rate || '—'}</span>
+                    <span style={{ color: u.win_rate ? C.blueL : '#1b2840', fontSize: '13px', fontWeight: u.win_rate ? 700 : 400 }}>{u.win_rate || '—'}</span>
                   </td>
-                  <td style={{ padding: '13px 16px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>{lastLogin}</td>
+                  <td style={{ padding: '13px 16px', color: '#3d5878', fontSize: '12px', whiteSpace: 'nowrap' }}>{lastLogin}</td>
                   <td style={{ padding: '13px 16px', textAlign: 'right', position: 'relative' }}>
                     <button onClick={e => { e.stopPropagation(); setMenuOpenId(isMenuOpen ? null : u.id); }}
-                      style={{ ...btn, background: 'transparent', color: '#475569', border: 'none', padding: '4px 8px', fontSize: '16px', lineHeight: 1 }}>⋮</button>
+                      style={{ ...btn, background: 'transparent', color: '#3d5878', border: 'none', padding: '4px 8px', fontSize: '16px', lineHeight: 1 }}>⋮</button>
                     {isMenuOpen && (
-                      <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: '12px', top: '100%', zIndex: 30, background: '#1e293b', border: `1px solid ${C.border2}`, minWidth: '160px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+                      <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: '12px', top: '100%', zIndex: 30, background: '#0c1018', border: `1px solid ${C.border2}`, minWidth: '160px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
                         {(['Free', 'Pro', 'Enterprise'] as const).map(p => (
                           <button key={p} onClick={() => { updateProfile(u.id, { plan: p }); setMenuOpenId(null); }}
-                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.plan === p ? 'rgba(79,70,229,0.1)' : 'transparent', color: u.plan === p ? C.indigoL : '#94a3b8', border: 'none', fontSize: '12px' }}>Plan: {p}</button>
+                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.plan === p ? 'rgba(0,200,224,0.1)' : 'transparent', color: u.plan === p ? C.indigoL : '#607898', border: 'none', fontSize: '12px' }}>Plan: {p}</button>
                         ))}
                         <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
                         {(['Active', 'Inactive', 'Banned'] as const).map(s => (
                           <button key={s} onClick={() => { updateProfile(u.id, { status: s }); setMenuOpenId(null); }}
-                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.status === s ? 'rgba(79,70,229,0.1)' : 'transparent', color: u.status === s ? C.indigoL : STATUS_COLOR[s], border: 'none', fontSize: '12px' }}>Status: {s}</button>
+                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.status === s ? 'rgba(0,200,224,0.1)' : 'transparent', color: u.status === s ? C.indigoL : STATUS_COLOR[s], border: 'none', fontSize: '12px' }}>Status: {s}</button>
                         ))}
                         <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
                         <button onClick={() => { handleRoleChange(u.id, u.role === 'admin' ? 'user' : 'admin'); setMenuOpenId(null); }}
@@ -349,7 +349,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                           {u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
                         </button>
                         <button onClick={() => { setEditUser(u); setMenuOpenId(null); }}
-                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: '#94a3b8', border: 'none', fontSize: '12px' }}>Edit Profile</button>
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: '#607898', border: 'none', fontSize: '12px' }}>Edit Profile</button>
                       </div>
                     )}
                   </td>
@@ -357,7 +357,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: '32px', color: '#475569', fontSize: '13px', textAlign: 'center' }}>
+              <tr><td colSpan={7} style={{ padding: '32px', color: '#3d5878', fontSize: '13px', textAlign: 'center' }}>
                 {search ? 'No traders match your search.' : 'No users found.'}
               </td></tr>
             )}
@@ -388,7 +388,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                 </select></div>
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button onClick={() => setEditUser(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => setEditUser(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
               <button onClick={() => {
                 const country = (document.getElementById('ep-country') as HTMLInputElement)?.value || '';
                 const win_rate = (document.getElementById('ep-winrate') as HTMLInputElement)?.value || '';
@@ -413,7 +413,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
             <label style={{ ...lbl }}>Email Address</label>
             <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="trader@example.com" style={{ ...inp, marginBottom: '16px' }} />
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowInvite(false)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => setShowInvite(false)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
               <button onClick={handleInvite} disabled={inviting} style={{ ...btn, flex: 1, padding: '10px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px', opacity: inviting ? 0.6 : 1 }}>{inviting ? 'Sending…' : 'Send Invite'}</button>
             </div>
           </div>
@@ -470,7 +470,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
     Critical: { bg: 'rgba(244,63,94,0.12)', c: C.redL, b: 'rgba(244,63,94,0.3)' },
     High: { bg: 'rgba(245,158,11,0.12)', c: C.amberL, b: 'rgba(245,158,11,0.3)' },
     Medium: { bg: 'rgba(59,130,246,0.12)', c: C.blueL, b: 'rgba(59,130,246,0.3)' },
-    Low: { bg: C.border, c: '#94a3b8', b: C.border2 },
+    Low: { bg: C.border, c: '#607898', b: C.border2 },
   };
   const SC = { Open: C.amberL, 'In Progress': C.blueL, Resolved: C.greenL };
   const ChanIcon = { email: Mail, chat: MessageSquare, phone: Phone };
@@ -516,7 +516,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
         {[
           { label: 'Open Tickets', value: openCount, icon: MessageSquare, color: C.amberL, glow: 'rgba(245,158,11,0.12)' },
           { label: 'Avg Response', value: '4m 12s', icon: Timer, color: C.greenL, glow: 'rgba(16,185,129,0.12)' },
-          { label: 'Resolved Today', value: resolvedCount, icon: CheckCircle, color: C.indigoL, glow: 'rgba(99,102,241,0.12)' },
+          { label: 'Resolved Today', value: resolvedCount, icon: CheckCircle, color: C.indigoL, glow: 'rgba(0,200,224,0.12)' },
           { label: 'CSAT Score', value: avgSat + '/5', icon: Star, color: C.amberL, glow: 'rgba(245,158,11,0.12)' },
         ].map((s, i) => (
           <div key={i} style={{ ...cs, padding: '16px', position: 'relative', overflow: 'hidden' }}>
@@ -547,15 +547,15 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
             const isLast = idx === filtered.length - 1;
             return (
               <div key={ticket.id} onClick={() => setSelectedTicket(sel ? null : ticket)}
-                style={{ padding: '13px 16px', borderBottom: isLast ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: sel ? 'rgba(79,70,229,0.07)' : 'transparent', borderLeft: `3px solid ${sel ? C.indigo : 'transparent'}`, transition: 'background 0.15s' }}>
+                style={{ padding: '13px 16px', borderBottom: isLast ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: sel ? 'rgba(0,200,224,0.07)' : 'transparent', borderLeft: `3px solid ${sel ? C.indigo : 'transparent'}`, transition: 'background 0.15s' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#475569', fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em' }}>{ticket.id}</span>
+                      <span style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em' }}>{ticket.id}</span>
                       <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: pc.bg, color: pc.c, border: `1px solid ${pc.b}`, letterSpacing: '0.05em' }}>{ticket.priority}</span>
                     </div>
                     <p style={{ color: 'white', fontSize: '13px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.subject}</p>
-                    <p style={{ color: '#475569', fontSize: '11px', margin: 0 }}>{ticket.user} · {ticket.created}</p>
+                    <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{ticket.user} · {ticket.created}</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', marginLeft: '12px', flexShrink: 0 }}>
                     <span style={{ color: SC[ticket.status], fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket.status}</span>
@@ -574,19 +574,19 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <>
                 <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ color: '#475569', fontSize: '10px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{selectedTicket.id}</p>
+                    <p style={{ color: '#3d5878', fontSize: '10px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{selectedTicket.id}</p>
                     <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket.subject}</p>
                   </div>
                   <button onClick={() => setSelectedTicket(null)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', marginLeft: '8px' }}><X size={15} /></button>
                 </div>
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ background: 'rgba(30,41,59,0.6)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `3px solid ${C.indigo}` }}>
+                  <div style={{ background: 'rgba(8,14,24,0.6)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `3px solid ${C.indigo}` }}>
                     <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                       {selectedTicket.user.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{selectedTicket.user}</p>
-                      <p style={{ color: '#475569', fontSize: '11px', margin: 0 }}>{selectedTicket.email}</p>
+                      <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{selectedTicket.email}</p>
                     </div>
                     <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', background: selectedTicket.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket.status], border: `1px solid ${SC[selectedTicket.status]}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket.status}</span>
                   </div>
@@ -616,10 +616,10 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               </>
             ) : (
               <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ width: '48px', height: '48px', background: 'rgba(30,41,59,0.8)', border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <div style={{ width: '48px', height: '48px', background: 'rgba(8,14,24,0.8)', border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                   <MessageSquare size={22} style={{ color: C.border2 }} />
                 </div>
-                <p style={{ color: '#475569', fontSize: '13px', margin: 0, fontWeight: 500 }}>Select a ticket to view details</p>
+                <p style={{ color: '#3d5878', fontSize: '13px', margin: 0, fontWeight: 500 }}>Select a ticket to view details</p>
                 <p style={{ color: '#2d3d52', fontSize: '11px', margin: '4px 0 0' }}>Click any ticket from the queue</p>
               </div>
             )}
@@ -627,7 +627,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
           <div style={{ ...cs, overflow: 'hidden', flex: 1 }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
-              <Users size={13} style={{ color: '#475569' }} />
+              <Users size={13} style={{ color: '#3d5878' }} />
             </div>
             {apiUsers.slice(0, 5).map((u, idx) => {
               const isAdmin = u.role === 'admin';
@@ -646,7 +646,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                       <span style={{ color: statusColor, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{u.role}</span>
                     </div>
                   </div>
-                  <Eye size={11} style={{ color: '#475569', flexShrink: 0 }} />
+                  <Eye size={11} style={{ color: '#3d5878', flexShrink: 0 }} />
                 </div>
               );
             })}
@@ -661,9 +661,9 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <Ban size={20} style={{ color: C.redL }} />
             </div>
             <p style={{ color: 'white', fontWeight: 700, fontSize: '17px', textAlign: 'center', margin: '0 0 8px' }}>Confirm Ban</p>
-            <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{actionUser}</strong></p>
+            <p style={{ color: '#3d5878', fontSize: '13px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{actionUser}</strong></p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
               <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '13px' }}>Ban Account</button>
             </div>
           </div>
@@ -737,7 +737,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
         {[{ label: 'CPU Usage', value: metrics.cpu, unit: '%', h: history.cpu, icon: Cpu, danger: metrics.cpu > 80 }, { label: 'Memory', value: metrics.memory, unit: '%', h: history.memory, icon: Database, danger: metrics.memory > 85 }, { label: 'Latency', value: metrics.latency, unit: 'ms', h: history.latency, icon: Zap, danger: metrics.latency > 100 }, { label: 'Req/sec', value: metrics.requestsPerSec, unit: '', h: history.requests, icon: Activity, danger: false }].map((m, i) => (
           <div key={i} style={{ ...cs, padding: '14px', borderColor: m.danger ? 'rgba(244,63,94,0.3)' : C.border }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <m.icon size={14} style={{ color: m.danger ? C.redL : '#475569' }} />
+              <m.icon size={14} style={{ color: m.danger ? C.redL : '#3d5878' }} />
               <GaugeRing value={m.unit === '%' ? m.value : Math.min((m.value / 2000) * 100, 100)} color={C.indigo} />
             </div>
             <p style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700, margin: 0 }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></p>
@@ -765,11 +765,11 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
               <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: svc.status === 'degraded' ? 'rgba(245,158,11,0.04)' : 'transparent' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: svc.status === 'operational' ? C.green : C.amber, boxShadow: `0 0 6px ${svc.status === 'operational' ? C.green : C.amber}` }} />
-                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#9ab4cc', fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ color: C.muted, fontSize: '10px', fontFamily: 'monospace' }}>{svc.uptime}</span>
-                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#475569', fontSize: '11px', fontFamily: 'monospace', fontWeight: svc.status === 'degraded' ? 700 : 400 }}>{svc.lat}</span>
+                  <span style={{ color: svc.status === 'degraded' ? C.amberL : '#3d5878', fontSize: '11px', fontFamily: 'monospace', fontWeight: svc.status === 'degraded' ? 700 : 400 }}>{svc.lat}</span>
                   <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: svc.status === 'operational' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: svc.status === 'operational' ? C.greenL : C.amberL, border: `1px solid ${svc.status === 'operational' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}` }}>{svc.status}</span>
                 </div>
               </div>
@@ -794,17 +794,17 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
               </div>
             ) : logs.filter(l => !resolvedIds.has(l.id)).map(log => {
               const lc = LC[log.level];
-              const levelColor = log.level === 'error' ? C.red : log.level === 'warn' ? C.amber : '#475569';
+              const levelColor = log.level === 'error' ? C.red : log.level === 'warn' ? C.amber : '#3d5878';
               return (
                 <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: log.level === 'error' ? 'rgba(244,63,94,0.03)' : log.level === 'warn' ? 'rgba(245,158,11,0.02)' : 'transparent' }}>
                   <div style={{ width: '3px', alignSelf: 'stretch', background: levelColor, borderRadius: '2px', flexShrink: 0, minHeight: '36px', opacity: 0.8 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: lc.bg, color: lc.c, border: `1px solid ${lc.b}`, letterSpacing: '0.06em' }}>{log.level}</span>
-                      <span style={{ color: '#64748b', fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em' }}>{log.service}</span>
+                      <span style={{ color: '#3d5878', fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em' }}>{log.service}</span>
                       <span style={{ color: C.dim, fontSize: '9px', marginLeft: 'auto' }}>{log.time}</span>
                     </div>
-                    <p style={{ color: log.level === 'error' ? '#fca5a5' : log.level === 'warn' ? '#fde68a' : '#94a3b8', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>{log.message}</p>
+                    <p style={{ color: log.level === 'error' ? '#fca5a5' : log.level === 'warn' ? '#fde68a' : '#607898', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>{log.message}</p>
                   </div>
                   {log.level !== 'info' && (
                     <button onClick={() => resolveLog(log.id)} title="Mark resolved" style={{ ...btn, background: 'transparent', color: C.dim, border: `1px solid ${C.border2}`, padding: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1002,14 +1002,14 @@ const BlogSection = ({ bp }) => {
                 </div>
                 <div style={{ padding: '16px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
-                    {[{ label: 'Entry', value: sig.entry, color: 'white' }, { label: 'SL', value: sig.sl, color: C.redL }, { label: 'TP1', value: sig.tp1, color: C.greenL }, { label: 'TP2', value: sig.tp2 || '-', color: sig.tp2 ? '#6ee7b7' : '#475569' }].map(({ label, value, color }) => (
-                      <div key={label} style={{ background: 'rgba(30,41,59,0.6)', padding: '7px', textAlign: 'center' }}>
+                    {[{ label: 'Entry', value: sig.entry, color: 'white' }, { label: 'SL', value: sig.sl, color: C.redL }, { label: 'TP1', value: sig.tp1, color: C.greenL }, { label: 'TP2', value: sig.tp2 || '-', color: sig.tp2 ? '#6ee7b7' : '#3d5878' }].map(({ label, value, color }) => (
+                      <div key={label} style={{ background: 'rgba(8,14,24,0.6)', padding: '7px', textAlign: 'center' }}>
                         <p style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px' }}>{label}</p>
                         <p style={{ color, fontSize: '12px', fontWeight: 700, margin: 0 }}>{value}</p>
                       </div>
                     ))}
                   </div>
-                  {sig.rationale && <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
+                  {sig.rationale && <p style={{ color: '#3d5878', fontSize: '12px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
                   <div style={{ paddingTop: '10px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
                     <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
                     <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Edit</button>
@@ -1026,12 +1026,12 @@ const BlogSection = ({ bp }) => {
                   <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: sec.bg, color: sec.color, border: `1px solid ${sec.border}` }}>{sec.label}</span>
-                    {post.category && post.section === 'blog' && <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: 'rgba(99,102,241,0.08)', color: C.indigoL, border: `1px solid rgba(99,102,241,0.2)` }}>{post.category}</span>}
+                    {post.category && post.section === 'blog' && <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.2)` }}>{post.category}</span>}
                   </div>
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
                 <h4 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 6px' }}>{post.title}</h4>
-                <p style={{ color: '#475569', fontSize: '12px', margin: 0 }}>Market analysis and key trading insights...</p>
+                <p style={{ color: '#3d5878', fontSize: '12px', margin: 0 }}>Market analysis and key trading insights...</p>
               </div>
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                 <span style={{ color: C.dim, fontSize: '11px' }}>By {post.author}</span>
@@ -1073,7 +1073,7 @@ const BlogSection = ({ bp }) => {
                           if (key === 'blog' && !BLOG_CATEGORIES.includes(fv('category'))) setF('category', 'Analysis');
                           if (key !== 'trade-signals' && modalTab === 'signal') setModalTab('post');
                         }}
-                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: fv('section') === key ? meta.bg : 'rgba(30,41,59,0.5)', border: `1px solid ${fv('section') === key ? meta.border : C.border2}`, color: fv('section') === key ? meta.color : C.muted, textAlign: 'left' }}>
+                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: fv('section') === key ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${fv('section') === key ? meta.border : C.border2}`, color: fv('section') === key ? meta.color : C.muted, textAlign: 'left' }}>
                           <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0 }} />
                           <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{meta.label}</p><p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{key === 'blog' ? 'Articles & recaps' : key === 'verified-strategies' ? 'Trade strategies' : 'Live signals'}</p></div>
                         </button>
@@ -1082,11 +1082,11 @@ const BlogSection = ({ bp }) => {
                   </div>
                   {fv('section') !== 'trade-signals' && (
                     <div>
-                      <label style={{ ...lbl }}>Category <span style={{ color: '#475569', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to blog nav tab</span></label>
+                      <label style={{ ...lbl }}>Category <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to blog nav tab</span></label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {BLOG_CATEGORIES.map(cat => (
                           <button key={cat} onClick={() => setF('category', cat)}
-                            style={{ ...btn, padding: '6px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: fv('category') === cat ? 'rgba(79,70,229,0.18)' : 'transparent', color: fv('category') === cat ? C.indigoL : C.muted, border: `1px solid ${fv('category') === cat ? 'rgba(99,102,241,0.5)' : C.border2}`, borderLeft: fv('category') === cat ? `2px solid ${C.indigoL}` : `2px solid transparent` }}>
+                            style={{ ...btn, padding: '6px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: fv('category') === cat ? 'rgba(0,200,224,0.18)' : 'transparent', color: fv('category') === cat ? C.indigoL : C.muted, border: `1px solid ${fv('category') === cat ? 'rgba(0,200,224,0.5)' : C.border2}`, borderLeft: fv('category') === cat ? `2px solid ${C.indigoL}` : `2px solid transparent` }}>
                             {cat}
                           </button>
                         ))}
@@ -1097,7 +1097,7 @@ const BlogSection = ({ bp }) => {
                     <label style={{ ...lbl }}>Status</label>
                     <div style={{ display: 'flex', gap: '7px' }}>
                       {['Draft', 'Published'].map(st => (
-                        <button key={st} onClick={() => setF('status', st)} style={{ ...btn, flex: 1, padding: '9px', background: fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.1)' : C.border) : 'transparent', color: fv('status') === st ? (st === 'Published' ? C.greenL : 'white') : C.muted, border: `1px solid ${fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.3)' : '#475569') : C.border2}`, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{st}</button>
+                        <button key={st} onClick={() => setF('status', st)} style={{ ...btn, flex: 1, padding: '9px', background: fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.1)' : C.border) : 'transparent', color: fv('status') === st ? (st === 'Published' ? C.greenL : 'white') : C.muted, border: `1px solid ${fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.3)' : '#3d5878') : C.border2}`, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{st}</button>
                       ))}
                     </div>
                   </div>
@@ -1107,7 +1107,7 @@ const BlogSection = ({ bp }) => {
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     {['BUY', 'SELL'].map(action => (
-                      <button key={action} onClick={() => setSig('action', action)} style={{ ...btn, padding: '16px', fontSize: '17px', fontWeight: 700, background: sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)') : 'rgba(30,41,59,0.5)', color: sg('action') === action ? (action === 'BUY' ? C.greenL : C.redL) : C.muted, border: `1px solid ${sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.4)' : 'rgba(244,63,94,0.4)') : C.border2}` }}>{action}</button>
+                      <button key={action} onClick={() => setSig('action', action)} style={{ ...btn, padding: '16px', fontSize: '17px', fontWeight: 700, background: sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)') : 'rgba(8,14,24,0.5)', color: sg('action') === action ? (action === 'BUY' ? C.greenL : C.redL) : C.muted, border: `1px solid ${sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.4)' : 'rgba(244,63,94,0.4)') : C.border2}` }}>{action}</button>
                     ))}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
@@ -1134,7 +1134,7 @@ const BlogSection = ({ bp }) => {
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...lbl }}>Social Profiles <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#475569' }}>(optional)</span></label>
+                    <label style={{ ...lbl }}>Social Profiles <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#3d5878' }}>(optional)</span></label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ position: 'relative' }}>
                         <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#e2e8f0', fontSize: '11px', fontWeight: 700, pointerEvents: 'none' }}>𝕏</span>
@@ -1161,7 +1161,7 @@ const BlogSection = ({ bp }) => {
                       return (
                         <button key={p.id}
                           onClick={() => setF('shareOn', active ? (fv('shareOn') || []).filter((s: string) => s !== p.id) : [...(fv('shareOn') || []), p.id])}
-                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: active ? `${p.ac}15` : 'rgba(30,41,59,0.5)', color: active ? p.ac : C.muted, border: `1px solid ${active ? `${p.ac}40` : C.border2}`, textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>
+                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: active ? `${p.ac}15` : 'rgba(8,14,24,0.5)', color: active ? p.ac : C.muted, border: `1px solid ${active ? `${p.ac}40` : C.border2}`, textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>
                           <p.icon />
                           <span style={{ flex: 1 }}>{p.label}</span>
                           {active && <svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
@@ -1185,7 +1185,7 @@ const BlogSection = ({ bp }) => {
                           if (url) setTimeout(() => window.open(url, '_blank', 'noopener,noreferrer,width=600,height=500'), i * 400);
                         });
                       }}
-                      style={{ ...btn, padding: '10px', background: 'rgba(99,102,241,0.15)', color: C.indigoL, border: `1px solid rgba(99,102,241,0.3)`, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      style={{ ...btn, padding: '10px', background: 'rgba(0,200,224,0.15)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.3)`, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       <svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
                       Share Now ({(fv('shareOn') as string[]).length} platform{(fv('shareOn') as string[]).length > 1 ? 's' : ''})
                     </button>
@@ -1194,7 +1194,7 @@ const BlogSection = ({ bp }) => {
               )}
             </div>
             <div style={{ padding: '12px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setShowModal(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: '#94a3b8', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => setShowModal(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
               <button onClick={handleSave} disabled={saving} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : editPost ? 'Save Changes' : 'Create Post'}</button>
             </div>
           </div>
@@ -1266,7 +1266,7 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
               {CHANNELS.map(({ icon: Icon, label }) => {
                 const active = activeChannels.includes(label);
                 return (
-                  <button key={label} onClick={() => toggleChannel(label)} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', padding: '14px 8px', background: active ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.5)', color: active ? C.indigoL : C.muted, border: `1px solid ${active ? 'rgba(99,102,241,0.5)' : C.border2}`, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', outline: active ? `2px solid rgba(99,102,241,0.25)` : 'none', outlineOffset: '2px', boxShadow: active ? '0 0 12px rgba(99,102,241,0.2)' : 'none', transition: 'all 0.15s ease', position: 'relative' }}>
+                  <button key={label} onClick={() => toggleChannel(label)} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', padding: '14px 8px', background: active ? 'rgba(0,200,224,0.15)' : 'rgba(8,14,24,0.5)', color: active ? C.indigoL : C.muted, border: `1px solid ${active ? 'rgba(0,200,224,0.5)' : C.border2}`, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', outline: active ? `2px solid rgba(0,200,224,0.25)` : 'none', outlineOffset: '2px', boxShadow: active ? '0 0 12px rgba(0,200,224,0.2)' : 'none', transition: 'all 0.15s ease', position: 'relative' }}>
                     <Icon size={20} />
                     {label}
                     {active && (
@@ -1307,7 +1307,7 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }} />
             <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Campaign Stats</h4>
           </div>
-          <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', background: 'rgba(99,102,241,0.1)', color: C.indigoL, border: `1px solid rgba(99,102,241,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
+          <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
         </div>
 
         {/* Stats */}
@@ -1325,7 +1325,7 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
                   <div style={{ width: '28px', height: '28px', background: s.up ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)', border: `1px solid ${s.up ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <s.icon size={13} style={{ color: s.up ? C.greenL : C.redL }} />
                   </div>
-                  <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 500 }}>{s.label}</span>
+                  <span style={{ color: '#607898', fontSize: '12px', fontWeight: 500 }}>{s.label}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: "'DM Mono', monospace" }}>{s.value}</span>
@@ -1333,7 +1333,7 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
                 </div>
               </div>
               {/* Progress bar */}
-              <div style={{ height: '3px', background: 'rgba(30,41,59,0.8)', overflow: 'hidden' }}>
+              <div style={{ height: '3px', background: 'rgba(8,14,24,0.8)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${s.pct}%`, background: s.up ? `linear-gradient(90deg, ${C.green}, ${C.greenL})` : `linear-gradient(90deg, ${C.red}, ${C.redL})`, opacity: 0.7, transition: 'width 0.6s ease' }} />
               </div>
             </div>
@@ -1359,7 +1359,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
         <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0, display: 'flex', alignItems: 'center', gap: '7px' }}>
           <TrendingUp size={15} style={{ color: C.greenL }} /> Growth Analytics
         </h3>
-        <select value={period} onChange={e => setPeriod(e.target.value)} style={{ background: C.border, color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '5px 10px', fontFamily: FONT, fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
+        <select value={period} onChange={e => setPeriod(e.target.value)} style={{ background: C.border, color: '#607898', border: `1px solid ${C.border2}`, padding: '5px 10px', fontFamily: FONT, fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
           <option value="monthly">Last 12 Months</option>
           <option value="daily">Last 30 Days</option>
         </select>
@@ -1488,7 +1488,7 @@ const SettingsSection = ({ bp }) => {
               <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> New Agent</button>
             </div>
             {ccUsers.map((user, idx) => (
-              <div key={user.id} onClick={() => setSelectedAgent(selectedAgent?.id === user.id ? null : user)} style={{ padding: '12px 16px', borderBottom: idx < ccUsers.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', background: selectedAgent?.id === user.id ? 'rgba(79,70,229,0.07)' : 'transparent', borderLeft: `3px solid ${selectedAgent?.id === user.id ? C.indigo : 'transparent'}` }}>
+              <div key={user.id} onClick={() => setSelectedAgent(selectedAgent?.id === user.id ? null : user)} style={{ padding: '12px 16px', borderBottom: idx < ccUsers.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', background: selectedAgent?.id === user.id ? 'rgba(0,200,224,0.07)' : 'transparent', borderLeft: `3px solid ${selectedAgent?.id === user.id ? C.indigo : 'transparent'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                     {user.name.split(' ').map(n => n[0]).join('')}
@@ -1518,7 +1518,7 @@ const SettingsSection = ({ bp }) => {
                   const agent = ccUsers.find(u => u.id === selectedAgent.id);
                   const active = agent?.functions.includes(fn.id);
                   return (
-                    <div key={fn.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: active ? 'rgba(79,70,229,0.07)' : 'rgba(30,41,59,0.4)', border: `1px solid ${active ? 'rgba(79,70,229,0.25)' : C.border}` }}>
+                    <div key={fn.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: active ? 'rgba(0,200,224,0.07)' : 'rgba(8,14,24,0.4)', border: `1px solid ${active ? 'rgba(0,200,224,0.25)' : C.border}` }}>
                       <div>
                         <p style={{ color: active ? 'white' : C.muted, fontSize: '13px', fontWeight: 600, margin: 0 }}>{fn.label}</p>
                         <p style={{ color: C.muted, fontSize: '11px', margin: '2px 0 0' }}>{fn.desc}</p>
@@ -1564,7 +1564,7 @@ const SettingsSection = ({ bp }) => {
                     const active = newAgent.functions.includes(fn.id);
                     return (
                       <button key={fn.id} onClick={() => setNewAgent(p => ({ ...p, functions: active ? p.functions.filter(f => f !== fn.id) : [...p.functions, fn.id] }))}
-                        style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: active ? 'rgba(79,70,229,0.08)' : 'rgba(30,41,59,0.4)', border: `1px solid ${active ? 'rgba(79,70,229,0.3)' : C.border}`, color: active ? C.indigoL : C.muted, fontSize: '12px', textAlign: 'left' }}>
+                        style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: active ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${active ? 'rgba(0,200,224,0.3)' : C.border}`, color: active ? C.indigoL : C.muted, fontSize: '12px', textAlign: 'left' }}>
                         <span>{fn.label}</span>
                         <div style={{ width: '14px', height: '14px', background: active ? C.indigo : 'transparent', border: `2px solid ${active ? C.indigo : C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           {active && <CheckCircle size={9} style={{ color: 'white' }} />}
@@ -1589,7 +1589,7 @@ const SettingsSection = ({ bp }) => {
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>Scheduled Tasks</h3>
             <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(30,41,59,0.5)', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(8,14,24,0.5)', gap: '12px' }}>
             {['Task', 'Assignee', 'Due Date', 'Status'].map(h => (
               <span key={h} style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</span>
             ))}
@@ -1612,7 +1612,7 @@ const SettingsSection = ({ bp }) => {
                 ) : (
                   <span style={{ fontSize: '10px', fontWeight: 700, padding: '5px 10px', background: 'rgba(16,185,129,0.08)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Complete</span>
                 )}
-                <button onClick={() => deleteTask(task.id)} style={{ ...btn, background: 'transparent', color: '#475569', padding: '4px', border: 'none' }}><Trash2 size={12} /></button>
+                <button onClick={() => deleteTask(task.id)} style={{ ...btn, background: 'transparent', color: '#3d5878', padding: '4px', border: 'none' }}><Trash2 size={12} /></button>
               </div>
             </div>
           ))}
@@ -1676,7 +1676,7 @@ const SettingsSection = ({ bp }) => {
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {FONT_OPTIONS.map(font => (
-                <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(79,70,229,0.08)' : 'rgba(30,41,59,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(79,70,229,0.35)' : C.border}`, textAlign: 'left' }}>
+                <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(0,200,224,0.35)' : C.border}`, textAlign: 'left' }}>
                   <div>
                     <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '15px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
                     <p style={{ color: C.muted, fontSize: '11px', margin: '3px 0 0', fontFamily: font.stack }}>The quick brown fox jumps over the lazy dog</p>
@@ -1743,7 +1743,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#020617', color: '#64748b', fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>Loading…</div>;
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>Loading…</div>;
 
   const adminEmail = user?.email ?? '';
   const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
@@ -1774,9 +1774,9 @@ export default function AdminPanel() {
   const navBtn = item => {
     const isActive = activeTab === item.id;
     const isSoon = !item.ready;
-    const activeBg = isActive ? 'rgba(79,70,229,0.18)' : 'transparent';
-    const activeColor = isActive ? 'white' : isSoon ? '#6b7280' : '#94a3b8';
-    const iconColor = isActive ? C.indigoL : isSoon ? '#4b5563' : '#64748b';
+    const activeBg = isActive ? 'rgba(0,200,224,0.18)' : 'transparent';
+    const activeColor = isActive ? 'white' : isSoon ? '#2a3d54' : '#607898';
+    const iconColor = isActive ? C.indigoL : isSoon ? '#1e3050' : '#3d5878';
     const handleClick = () => {
       if (item.id === 'journal') { window.open('/journal', '_blank', 'noopener,noreferrer'); return; }
       setActiveTab(item.id);
@@ -1791,7 +1791,7 @@ export default function AdminPanel() {
             {isSoon && (
               <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.1)', color: '#92400e', border: '1px solid rgba(245,158,11,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
             )}
-            {item.id === 'journal' && <ExternalLink size={10} style={{ color: '#64748b', flexShrink: 0 }} />}
+            {item.id === 'journal' && <ExternalLink size={10} style={{ color: '#3d5878', flexShrink: 0 }} />}
           </>
         )}
         {item.badge > 0 && (
@@ -1851,7 +1851,7 @@ export default function AdminPanel() {
                   ? overviewStats.recentActivity.map((a: any, i: number) => (
                     <div key={i} style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.type === 'post' ? C.greenL : C.indigo, marginTop: '3px', flexShrink: 0 }} />
-                      <div><p style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#475569', fontSize: '11px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
+                      <div><p style={{ color: '#9ab4cc', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#3d5878', fontSize: '11px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
                     </div>
                   ))
                   : !overviewStats
@@ -1861,7 +1861,7 @@ export default function AdminPanel() {
                         <div style={{ height: '13px', width: '180px', background: C.border, borderRadius: '2px' }} />
                       </div>
                     ))
-                    : <p style={{ color: '#475569', fontSize: '13px', margin: 0 }}>No recent activity yet.</p>
+                    : <p style={{ color: '#3d5878', fontSize: '13px', margin: 0 }}>No recent activity yet.</p>
                 }
               </div>
             </div>
@@ -1896,7 +1896,7 @@ export default function AdminPanel() {
           <div style={{ width: '38px', height: '38px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none">
               <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
-              <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#0a0f1e" />
+              <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
             </svg>
           </div>
           {!collapsed && <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '16px', letterSpacing: '0.12em', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>FSDZONES</span>}
@@ -1937,20 +1937,20 @@ export default function AdminPanel() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0f172a 0%, #020617 60%)' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(2,6,23,0.9)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `12px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `12px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button style={{ ...btn, background: 'rgba(30,41,59,0.6)', color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#475569'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(30,41,59,0.6)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = C.border2; }}>
+            <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
               <Mail size={16} />
               {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
               <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
             </button>
             <div style={{ width: '1px', height: '24px', background: C.border2 }} />
-            <button style={{ ...btn, background: 'rgba(30,41,59,0.6)', color: '#94a3b8', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#475569'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(30,41,59,0.6)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = C.border2; }}>
+            <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
               <Bell size={16} />
               {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
               <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
