@@ -204,6 +204,11 @@ export const userProfiles = pgTable("user_profiles", {
   id:        varchar("id").primaryKey(),
   email:     text("email").notNull(),
   role:      text("role").notNull().default("user"),
+  fullName:  text("full_name").default(''),
+  country:   text("country").default(''),
+  plan:      text("plan").default('Free'),
+  status:    text("status").default('Active'),
+  winRate:   text("win_rate").default(''),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -652,3 +657,14 @@ export const blogPosts = pgTable("blog_posts", {
 export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE VIEWS
+// ─────────────────────────────────────────────────────────────────────────────
+export const pageViews = pgTable("page_views", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  page:            text("page").notNull(),
+  sessionId:       text("session_id"),
+  durationSeconds: integer("duration_seconds"),
+  viewedAt:        timestamp("viewed_at").defaultNow(),
+});

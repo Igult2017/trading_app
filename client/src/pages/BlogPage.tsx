@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 type Article = {
   id: string | number;
@@ -60,6 +61,7 @@ const FALLBACK_ARCHIVED = [
 const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 
 export default function BlogPage() {
+  usePageTracking('blog');
   const [activeCategory, setActiveCategory] = useState('All');
   const [darkMode, setDarkMode] = useState(true);
   const [location] = useLocation();

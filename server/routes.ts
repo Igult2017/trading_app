@@ -1691,23 +1691,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [supabaseResult, dbProfiles] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-        db.select({ id: userProfiles.id, role: userProfiles.role }).from(userProfiles),
+        db.select({
+          id: userProfiles.id, role: userProfiles.role,
+          country: userProfiles.country, plan: userProfiles.plan,
+          status: userProfiles.status, winRate: userProfiles.winRate,
+        }).from(userProfiles),
       ]);
 
       if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
 
-      const roleMap = new Map(dbProfiles.map(p => [p.id, p.role]));
+      const profileMap = new Map(dbProfiles.map(p => [p.id, p]));
 
-      const result = supabaseResult.data.users.map(u => ({
-        id:              u.id,
-        email:           u.email ?? '',
-        full_name:       u.user_metadata?.full_name ?? '',
-        role:            roleMap.get(u.id) ?? 'user',
-        created_at:      u.created_at,
-        last_sign_in_at: u.last_sign_in_at ?? null,
-      }));
+      const result = supabaseResult.data.users.map(u => {
+        const profile = profileMap.get(u.id);
+        return {
+          id:              u.id,
+          email:           u.email ?? '',
+          full_name:       u.user_metadata?.full_name ?? '',
+          role:            profile?.role ?? 'user',
+          country:         profile?.country ?? '',
+          plan:            profile?.plan ?? 'Free',
+          status:          profile?.status ?? 'Active',
+          win_rate:        profile?.winRate ?? '',
+          created_at:      u.created_at,
+          last_sign_in_at: u.last_sign_in_at ?? null,
+        };
+      });
 
       return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: update trader profile (plan, status, country, win_rate) ─────────────
+  app.patch("/api/admin/users/:userId/profile", requireAdmin, async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { country, plan, status, win_rate } = req.body as Record<string, string>;
+    const allowed = ['Free', 'Pro', 'Enterprise'];
+    const allowedStatus = ['Active', 'Inactive', 'Banned'];
+    if (plan && !allowed.includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (status && !allowedStatus.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    try {
+      await db.update(userProfiles)
+        .set({
+          ...(country !== undefined && { country }),
+          ...(plan    !== undefined && { plan }),
+          ...(status  !== undefined && { status }),
+          ...(win_rate !== undefined && { winRate: win_rate }),
+        })
+        .where(eq(userProfiles.id, userId));
+      return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -1718,23 +1752,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
 
-      const [supabaseResult, allPosts, roleProfiles] = await Promise.all([
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const [supabaseResult, allPosts, roleProfiles, visitorRows] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         storage.getBlogPosts(),
         db.select({ role: userProfiles.role }).from(userProfiles),
+        db.execute(drizzleSql`
+          SELECT
+            date_trunc('month', viewed_at) AS month,
+            COUNT(DISTINCT session_id)     AS unique_visitors,
+            AVG(duration_seconds)          AS avg_duration
+          FROM page_views
+          WHERE viewed_at >= NOW() - INTERVAL '3 months'
+          GROUP BY month
+          ORDER BY month DESC
+        `),
       ]);
 
       if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
 
       const users = supabaseResult.data.users;
       const adminCount = roleProfiles.filter(p => p.role === 'admin').length;
-      const now = new Date();
 
       // Monthly signups for current calendar year
       const signupsByMonth = Array(12).fill(0);
       users.forEach(u => {
         const d = new Date(u.created_at);
-        if (d.getFullYear() === now.getFullYear()) signupsByMonth[d.getMonth()]++;
+        if (d.getFullYear() === currentYear) signupsByMonth[d.getMonth()]++;
       });
 
       // Daily signups for last 30 days
@@ -1744,7 +1791,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (daysAgo >= 0 && daysAgo < 30) signupsByDay[29 - daysAgo]++;
       });
 
-      // Recent activity: newest users + newest published posts merged
+      // Visitor stats from page_views
+      const rows = (visitorRows as any).rows ?? (visitorRows as any) ?? [];
+      const thisMonthRow = rows.find((r: any) => {
+        const d = new Date(r.month);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+      const lastMonthRow = rows.find((r: any) => {
+        const d = new Date(r.month);
+        const lm = currentMonth === 0 ? 11 : currentMonth - 1;
+        const ly = currentMonth === 0 ? currentYear - 1 : currentYear;
+        return d.getMonth() === lm && d.getFullYear() === ly;
+      });
+
+      const monthlyVisitors = Number(thisMonthRow?.unique_visitors ?? 0);
+      const lastMonthVisitors = Number(lastMonthRow?.unique_visitors ?? 0);
+      const visitorChange = lastMonthVisitors > 0
+        ? ((monthlyVisitors - lastMonthVisitors) / lastMonthVisitors * 100).toFixed(1)
+        : null;
+
+      const avgSessionSeconds = thisMonthRow?.avg_duration ? Math.round(Number(thisMonthRow.avg_duration)) : null;
+
+      // User growth %: signups this month vs last month
+      const thisMonthSignups = signupsByMonth[currentMonth];
+      const lastMonthSignups = signupsByMonth[currentMonth === 0 ? 11 : currentMonth - 1];
+      const userChange = lastMonthSignups > 0
+        ? ((thisMonthSignups - lastMonthSignups) / lastMonthSignups * 100).toFixed(1)
+        : null;
+
+      // Recent activity
       const recentUsers = [...users]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
@@ -1762,13 +1837,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({
         totalUsers: users.length,
+        userChange,
         adminCount,
         publishedPosts: (allPosts as any[]).filter(p => p.status === 'Published').length,
         draftPosts: (allPosts as any[]).filter(p => p.status === 'Draft').length,
+        monthlyVisitors,
+        visitorChange,
+        avgSessionSeconds,
         signupsByMonth,
         signupsByDay,
         recentActivity,
       });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: invite user by email ───────────────────────────────────────────────
+  app.post("/api/admin/invite", requireAdmin, async (req: Request, res: Response) => {
+    const { email } = req.body as { email: string };
+    if (!email?.trim()) return res.status(400).json({ error: 'email is required' });
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Auth service not configured' });
+    try {
+      const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email.trim());
+      if (error) return res.status(400).json({ error: error.message });
+      return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -1830,6 +1923,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (e: any) {
     console.warn('[Blog] Could not ensure blog_posts table:', e.message);
   }
+
+  // ── Ensure user_profiles has trader profile columns ──────────────────────────
+  try {
+    await db.execute(sql`
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name   TEXT DEFAULT '';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country     TEXT DEFAULT '';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan        TEXT DEFAULT 'Free';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status      TEXT DEFAULT 'Active';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate    TEXT DEFAULT '';
+    `);
+  } catch (e: any) {
+    console.warn('[UserProfiles] Could not add trader columns:', e.message);
+  }
+
+  // ── Ensure page_views table exists ───────────────────────────────────────────
+  try {
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS page_views (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        page            TEXT NOT NULL,
+        session_id      TEXT,
+        duration_seconds INTEGER,
+        viewed_at       TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS page_views_viewed_at_idx ON page_views (viewed_at);
+    `);
+  } catch (e: any) {
+    console.warn('[PageViews] Could not ensure page_views table:', e.message);
+  }
+
+  // ── Page-view tracking (public — no auth required) ──────────────────────────
+  app.post("/api/track", async (req: Request, res: Response) => {
+    try {
+      const { page, sessionId, durationSeconds } = req.body as { page: string; sessionId?: string; durationSeconds?: number };
+      if (!page?.trim()) return res.status(400).json({ error: 'page required' });
+      await db.execute(drizzleSql`
+        INSERT INTO page_views (page, session_id, duration_seconds)
+        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null})
+      `);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
 
   // ── Blog: public list (published only) ───────────────────────────────────────
   app.get("/api/blog", async (req: Request, res: Response) => {

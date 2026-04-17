@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
@@ -55,6 +56,7 @@ function getImportanceColor(imp: string) {
 const IMPACT_LEVELS = ['All', 'High', 'Medium', 'Low'] as const;
 
 export default function EconomicCalendarPage() {
+  usePageTracking('calendar');
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [ccyFilter, setCcyFilter] = useState('All');
