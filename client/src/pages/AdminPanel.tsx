@@ -209,12 +209,14 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
 
 const StatCard = ({ title, value, change, trend, icon: Icon }) => (
   <div style={{ ...cs, padding: '20px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
       <div style={{ padding: '8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL }}><Icon size={18} /></div>
       <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 7px', background: trend === 'up' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: trend === 'up' ? C.greenL : C.redL }}>{change}</span>
     </div>
-    <p style={{ color: 'white', fontSize: '19px', fontWeight: 700, margin: '0 0 6px', letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</p>
-    <p style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{title}</p>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
+      <span style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}:</span>
+      <span style={{ color: 'white', fontSize: '19px', fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</span>
+    </div>
   </div>
 );
 
@@ -549,9 +551,11 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
         ].map((s, i) => (
           <div key={i} style={{ ...cs, padding: '16px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: '56px', height: '56px', background: s.glow, borderRadius: '0 0 0 56px', pointerEvents: 'none' }} />
-            <s.icon size={16} style={{ color: s.color, marginBottom: '8px' }} />
-            <p style={{ color: s.color, fontSize: '22px', fontWeight: 700, margin: 0 }}>{s.value}</p>
-            <p style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '3px 0 0' }}>{s.label}</p>
+            <s.icon size={16} style={{ color: s.color, marginBottom: '12px' }} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.label}:</span>
+              <span style={{ color: s.color, fontSize: '22px', fontWeight: 700 }}>{s.value}</span>
+            </div>
           </div>
         ))}
       </div>
@@ -778,12 +782,14 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
       <div style={{ display: 'grid', gridTemplateColumns: metricCols, gap: '6px' }}>
         {[{ label: 'CPU Usage', value: metrics.cpu, unit: '%', h: history.cpu, icon: Cpu, danger: metrics.cpu > 80 }, { label: 'Memory', value: metrics.memory, unit: '%', h: history.memory, icon: Database, danger: metrics.memory > 85 }, { label: 'Latency', value: metrics.latency, unit: 'ms', h: history.latency, icon: Zap, danger: metrics.latency > 100 }, { label: 'Req/sec', value: metrics.requestsPerSec, unit: '', h: history.requests, icon: Activity, danger: false }].map((m, i) => (
           <div key={i} style={{ ...cs, padding: '14px', borderColor: m.danger ? 'rgba(244,63,94,0.3)' : C.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <m.icon size={14} style={{ color: m.danger ? C.redL : '#3d5878' }} />
               <GaugeRing value={m.unit === '%' ? m.value : Math.min((m.value / 2000) * 100, 100)} color={C.indigo} />
             </div>
-            <p style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700, margin: '0 0 6px' }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></p>
-            <p style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{m.label}</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
+              <span style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700 }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+            </div>
           </div>
         ))}
       </div>
