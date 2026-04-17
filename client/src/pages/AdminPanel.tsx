@@ -95,19 +95,17 @@ const SOCIAL_PLATFORMS = [
 ];
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
-const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies', 'Trade Signals'];
+const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 const CATEGORY_TO_SECTION: Record<string, string> = {
   'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
   'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
-  'Trade Signals': 'trade-signals',
 };
 const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; border: string; dot: string }> = {
-  'Equities':              { sub: 'Stocks & indices',      color: C.indigoL, bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.3)',  dot: C.indigo },
-  'Forex':                 { sub: 'Currency pairs',        color: C.blueL,   bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.3)',   dot: C.blue   },
-  'Digital Assets':        { sub: 'Crypto & DeFi',         color: '#a78bfa',  bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
-  'Analysis':              { sub: 'Market analysis',       color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted  },
-  'Backtested Strategies': { sub: 'Verified strategies',   color: C.amberL,  bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.3)',  dot: C.amber  },
-  'Trade Signals':         { sub: 'Live trade signals',    color: C.greenL,  bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.3)',  dot: C.green  },
+  'Equities':              { sub: 'Stocks & indices',    color: C.indigoL, bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.3)',  dot: C.indigo  },
+  'Forex':                 { sub: 'Currency pairs',      color: C.blueL,   bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.3)',  dot: C.blue    },
+  'Digital Assets':        { sub: 'Crypto & DeFi',       color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
+  'Analysis':              { sub: 'Market analysis',     color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted   },
+  'Backtested Strategies': { sub: 'Verified strategies', color: C.amberL,  bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.3)',  dot: C.amber   },
 };
 const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
@@ -1008,7 +1006,7 @@ const BlogSection = ({ bp }) => {
   const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
   const sg = k => form.signal[k];
 
-  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(form.category === 'Trade Signals' ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
+  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
@@ -1113,10 +1111,7 @@ const BlogSection = ({ bp }) => {
                         const meta = CATEGORY_META[cat];
                         const active = fv('category') === cat;
                         return (
-                          <button key={cat} onClick={() => {
-                            setF('category', cat);
-                            if (cat !== 'Trade Signals' && modalTab === 'signal') setModalTab('post');
-                          }}
+                          <button key={cat} onClick={() => setF('category', cat)}
                             style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: active ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${active ? meta.border : C.border2}`, color: active ? meta.color : C.muted, textAlign: 'left' }}>
                             <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0, borderRadius: '1px' }} />
                             <div style={{ flex: 1 }}>
