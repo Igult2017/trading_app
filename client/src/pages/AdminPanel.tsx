@@ -95,7 +95,20 @@ const SOCIAL_PLATFORMS = [
 ];
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
-const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
+const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies', 'Trade Signals'];
+const CATEGORY_TO_SECTION: Record<string, string> = {
+  'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
+  'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
+  'Trade Signals': 'trade-signals',
+};
+const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; border: string; dot: string }> = {
+  'Equities':              { sub: 'Stocks & indices',      color: C.indigoL, bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.3)',  dot: C.indigo },
+  'Forex':                 { sub: 'Currency pairs',        color: C.blueL,   bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.3)',   dot: C.blue   },
+  'Digital Assets':        { sub: 'Crypto & DeFi',         color: '#a78bfa',  bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
+  'Analysis':              { sub: 'Market analysis',       color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted  },
+  'Backtested Strategies': { sub: 'Verified strategies',   color: C.amberL,  bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.3)',  dot: C.amber  },
+  'Trade Signals':         { sub: 'Live trade signals',    color: C.greenL,  bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.3)',  dot: C.green  },
+};
 const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
@@ -893,7 +906,7 @@ const BlogSection = ({ bp }) => {
     setEditPost(post);
     setForm({
       ...EMPTY_FORM,
-      title: post.title, section: post.section, category: post.category || 'Analysis', status: post.status,
+      title: post.title, section: CATEGORY_TO_SECTION[post.category] ?? post.section ?? 'blog', category: post.category || 'Analysis', status: post.status,
       authorName: post.author || '', authorBio: ad.bio || '', authorExpertise: ad.expertise || [],
       authorTwitter: ad.twitter || '', authorLinkedin: ad.linkedin || '', authorTelegram: ad.telegram || '',
       signal: post.signal || EMPTY_FORM.signal,
@@ -918,12 +931,13 @@ const BlogSection = ({ bp }) => {
         linkedin:  f.authorLinkedin  || '',
         telegram:  f.authorTelegram  || '',
       };
+      const derivedSection = CATEGORY_TO_SECTION[f.category] ?? 'blog';
       const payload = {
-        title: form.title.trim(), section: form.section, status: form.status,
+        title: form.title.trim(), section: derivedSection, status: form.status,
         category: f.category || 'Analysis',
         author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
-        signalData: form.section === 'trade-signals' ? form.signal : null,
+        signalData: f.category === 'Trade Signals' ? form.signal : null,
         authorData,
       };
       const body = JSON.stringify(payload);
@@ -994,7 +1008,7 @@ const BlogSection = ({ bp }) => {
   const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
   const sg = k => form.signal[k];
 
-  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(form.section === 'trade-signals' ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
+  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(form.category === 'Trade Signals' ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
@@ -1055,8 +1069,7 @@ const BlogSection = ({ bp }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
                   <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
-                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: sec.bg, color: sec.color, border: `1px solid ${sec.border}` }}>{sec.label}</span>
-                    {post.category && post.section === 'blog' && <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.2)` }}>{post.category}</span>}
+                    {post.category && (() => { const m = CATEGORY_META[post.category]; return m ? <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
                   </div>
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
@@ -1094,35 +1107,28 @@ const BlogSection = ({ bp }) => {
                 <>
                   <div><label style={{ ...lbl }}>Post Title</label><input value={fv('title')} onChange={e => setF('title', e.target.value)} placeholder="Enter post title..." style={{ ...inp }} /></div>
                   <div>
-                    <label style={{ ...lbl }}>Destination</label>
+                    <label style={{ ...lbl }}>Destination <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to frontend nav tab</span></label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                      {Object.entries(SECTION_META).map(([key, meta]) => (
-                        <button key={key} onClick={() => {
-                          setF('section', key);
-                          if (key === 'verified-strategies') setF('category', 'Backtested Strategies');
-                          if (key === 'blog' && !BLOG_CATEGORIES.includes(fv('category'))) setF('category', 'Analysis');
-                          if (key !== 'trade-signals' && modalTab === 'signal') setModalTab('post');
-                        }}
-                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: fv('section') === key ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${fv('section') === key ? meta.border : C.border2}`, color: fv('section') === key ? meta.color : C.muted, textAlign: 'left' }}>
-                          <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0 }} />
-                          <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{meta.label}</p><p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{key === 'blog' ? 'Articles & recaps' : key === 'verified-strategies' ? 'Trade strategies' : 'Live signals'}</p></div>
-                        </button>
-                      ))}
+                      {BLOG_CATEGORIES.map(cat => {
+                        const meta = CATEGORY_META[cat];
+                        const active = fv('category') === cat;
+                        return (
+                          <button key={cat} onClick={() => {
+                            setF('category', cat);
+                            if (cat !== 'Trade Signals' && modalTab === 'signal') setModalTab('post');
+                          }}
+                            style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: active ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${active ? meta.border : C.border2}`, color: active ? meta.color : C.muted, textAlign: 'left' }}>
+                            <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0, borderRadius: '1px' }} />
+                            <div style={{ flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>{cat}</p>
+                              <p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{meta.sub}</p>
+                            </div>
+                            {active && <CheckCircle size={14} style={{ color: meta.color, flexShrink: 0 }} />}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  {fv('section') !== 'trade-signals' && (
-                    <div>
-                      <label style={{ ...lbl }}>Category <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to blog nav tab</span></label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {BLOG_CATEGORIES.map(cat => (
-                          <button key={cat} onClick={() => setF('category', cat)}
-                            style={{ ...btn, padding: '6px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: fv('category') === cat ? 'rgba(0,200,224,0.18)' : 'transparent', color: fv('category') === cat ? C.indigoL : C.muted, border: `1px solid ${fv('category') === cat ? 'rgba(0,200,224,0.5)' : C.border2}`, borderLeft: fv('category') === cat ? `2px solid ${C.indigoL}` : `2px solid transparent` }}>
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <label style={{ ...lbl }}>Status</label>
                     <div style={{ display: 'flex', gap: '7px' }}>
