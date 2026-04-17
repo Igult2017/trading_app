@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 
@@ -16,13 +16,24 @@ export default function AuthPage() {
 
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
+  const didRedirect = useRef(false);
 
-  // Show loading screen while auth state is being resolved
+  // Already authenticated — open destination in new tab, send this tab back to homepage
+  useEffect(() => {
+    if (loading || didRedirect.current) return;
+    if (role === 'admin') {
+      didRedirect.current = true;
+      window.open('/admin', '_blank', 'noopener,noreferrer');
+      navigate('/');
+    } else if (role === 'user') {
+      didRedirect.current = true;
+      window.open('/journal', '_blank', 'noopener,noreferrer');
+      navigate('/');
+    }
+  }, [loading, role, navigate]);
+
   if (loading) return <LoadingScreen />;
-
-  // Already authenticated — redirect immediately
-  if (role === 'admin') { navigate('/admin');   return null; }
-  if (role === 'user')  { navigate('/journal'); return null; }
+  if (role) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,12 +54,13 @@ export default function AuthPage() {
       if (mode === 'login') {
         const { error: err, role: assignedRole } = await signIn(email, password);
         if (err) { setError(err.message); return; }
-        // Navigate immediately using the role returned by signIn
+        // Open journal in a new tab; send this auth tab back to the homepage
         if (assignedRole === 'admin') {
-          navigate('/admin');
+          window.open('/admin', '_blank', 'noopener,noreferrer');
         } else {
-          navigate('/journal');
+          window.open('/journal', '_blank', 'noopener,noreferrer');
         }
+        navigate('/');
       } else {
         const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName);
         if (err) { setError(err.message); return; }

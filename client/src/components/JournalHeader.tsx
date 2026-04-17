@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings, ChevronRight, Power, Flame, Shield } from 'lucide-react';
+import { useAuth } from "@/context/AuthContext";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -40,7 +41,13 @@ interface JournalHeaderProps {
   onToggleSidebar: () => void;
 }
 
-function ProfileDropdown({ dm, dropdownRef }: { dm: boolean; dropdownRef: RefObject<HTMLDivElement> }) {
+function ProfileDropdown({ dm, dropdownRef, displayName, avatarLetter, onLogout }: {
+  dm: boolean;
+  dropdownRef: RefObject<HTMLDivElement>;
+  displayName: string;
+  avatarLetter: string;
+  onLogout: () => void;
+}) {
   const border = dm ? '#1a2d45' : '#e2e8f0';
   const muted  = dm ? '#4a6580' : '#94a3b8';
   const text   = dm ? '#c8d8e8' : '#0f172a';
@@ -69,10 +76,10 @@ function ProfileDropdown({ dm, dropdownRef }: { dm: boolean; dropdownRef: RefObj
           flexShrink: 0, fontSize: 16, fontWeight: 800, color: '#fff',
           fontFamily: "'Montserrat',sans-serif",
           boxShadow: '0 0 0 3px rgba(59,130,246,0.2)',
-        }}>T</div>
+        }}>{avatarLetter}</div>
         <div>
           <div style={{ fontSize: 13, color: dm ? '#94a3b8' : '#475569', fontFamily: "'Inter',sans-serif" }}>
-            Hello, <span style={{ fontWeight: 700, color: '#3b82f6' }}>Trader</span>
+            Hello, <span style={{ fontWeight: 700, color: '#3b82f6' }}>{displayName}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
             <Shield size={9} color="#3b82f6" />
@@ -105,10 +112,10 @@ function ProfileDropdown({ dm, dropdownRef }: { dm: boolean; dropdownRef: RefObj
       {/* ── Menu items ── */}
       <div style={{ padding: '4px 6px 6px' }}>
         {[
-          { icon: <Settings size={14} color={muted} />, label: 'Account settings', red: false },
-          { icon: <Power   size={14} color="#ef4444" strokeWidth={2.2} />, label: 'Logout', red: true },
-        ].map(({ icon, label, red }) => (
-          <button key={label} style={{
+          { icon: <Settings size={14} color={muted} />, label: 'Account settings', red: false, action: undefined },
+          { icon: <Power   size={14} color="#ef4444" strokeWidth={2.2} />, label: 'Logout', red: true, action: onLogout },
+        ].map(({ icon, label, red, action }) => (
+          <button key={label} onClick={action} style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: 10,
             padding: '9px 10px', background: 'transparent', border: 'none', borderRadius: 8,
             cursor: 'pointer', color: red ? '#ef4444' : (dm ? '#94a3b8' : '#475569'),
@@ -138,6 +145,20 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
   const profileRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dm = darkMode;
+
+  const { user, signOut } = useAuth();
+  const [, navigate] = useLocation();
+
+  const displayName = user?.user_metadata?.full_name
+    ?? user?.email?.split('@')[0]
+    ?? 'Trader';
+  const avatarLetter = (displayName[0] ?? 'T').toUpperCase();
+
+  async function handleLogout() {
+    setProfileOpen(false);
+    await signOut();
+    navigate('/');
+  }
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -260,7 +281,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
               <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)}>
                 <UserCircle2 size={18} color="#60a5fa" />
               </button>
-              {profileOpen && <ProfileDropdown dm={dm} dropdownRef={dropdownRef} />}
+              {profileOpen && <ProfileDropdown dm={dm} dropdownRef={dropdownRef} displayName={displayName} avatarLetter={avatarLetter} onLogout={handleLogout} />}
             </div>
             <button className="settings-btn" title="Settings">
               <Settings size={15} />

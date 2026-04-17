@@ -186,12 +186,16 @@ export default function HomePage() {
             <span style={{ color: '#3b82f6' }}>Journal</span>
           </span>
           <div className="nav-links">
-            {navItems.map(item => (
-              <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
-                onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-              >{item}</a>
-            ))}
+            {navItems.map(item => {
+              const isAuthLink = item === 'Login' || item === 'Signup';
+              return (
+                <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
+                  {...(isAuthLink ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+                >{item}</a>
+              );
+            })}
             <button onClick={() => setDarkMode(!dm)}
               style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0, marginLeft: 4 }}>
               <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -216,14 +220,18 @@ export default function HomePage() {
 
       {mobileMenuOpen && (
         <div className="mob-dropdown open" style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}` }}>
-          {navItems.map(item => (
-            <a key={item} href={navHref(item)}
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-              onMouseEnter={e => e.currentTarget.style.color = t.text}
-              onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
-            >{item}</a>
-          ))}
+          {navItems.map(item => {
+            const isAuthLink = item === 'Login' || item === 'Signup';
+            return (
+              <a key={item} href={navHref(item)}
+                onClick={() => setMobileMenuOpen(false)}
+                {...(isAuthLink ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.color = t.text}
+                onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
+              >{item}</a>
+            );
+          })}
         </div>
       )}
 
@@ -249,7 +257,7 @@ export default function HomePage() {
             <span style={{ color: t.textMuted, fontSize: 14 }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
           </div>
           <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
-            <a href="/auth" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+            <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
               Start Now - It's Free! <ArrowRight className="w-5 h-5" />
             </a>
           </div>
