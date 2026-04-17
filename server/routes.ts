@@ -1742,6 +1742,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Ensure blog_posts table exists ───────────────────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS blog_posts (
+        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        title       TEXT NOT NULL,
+        excerpt     TEXT DEFAULT '',
+        content     TEXT DEFAULT '',
+        category    TEXT DEFAULT 'Analysis',
+        author      TEXT DEFAULT 'Admin',
+        author_id   VARCHAR,
+        date        TEXT NOT NULL,
+        read_time   TEXT DEFAULT '5 min',
+        image_url   TEXT DEFAULT '',
+        status      TEXT DEFAULT 'Draft',
+        section     TEXT DEFAULT 'blog',
+        signal_data JSONB,
+        author_data JSONB,
+        created_at  TIMESTAMPTZ DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+      -- add author_data column if table was created before this change
+      ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS author_data JSONB;
+    `);
+  } catch (e: any) {
+    console.warn('[Blog] Could not ensure blog_posts table:', e.message);
+  }
+
+  // ── Blog: public list (published only) ───────────────────────────────────────
+  app.get("/api/blog", async (req: Request, res: Response) => {
+    try {
+      const { section } = req.query as { section?: string };
+      const filters: { status?: string; section?: string } = { status: 'Published' };
+      if (section) filters.section = section;
+      const posts = await storage.getBlogPosts(filters);
+      return res.json(posts);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Blog: admin list (all posts) ─────────────────────────────────────────────
+  app.get("/api/blog/all", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { section } = req.query as { section?: string };
+      const posts = await storage.getBlogPosts(section ? { section } : undefined);
+      return res.json(posts);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Blog: create post ─────────────────────────────────────────────────────────
+  app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const adminUser = (req as any).adminUser;
+      const { title, excerpt, content, category, author, date, readTime, imageUrl, status, section, signalData, authorData } = req.body;
+      if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+      const post = await storage.createBlogPost({
+        title: title.trim(),
+        excerpt: excerpt ?? '',
+        content: content ?? '',
+        category: category ?? 'Analysis',
+        author: author || adminUser?.user_metadata?.full_name || adminUser?.email || 'Admin',
+        authorId: adminUser?.id,
+        date: date || new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+        readTime: readTime ?? '5 min',
+        imageUrl: imageUrl ?? '',
+        status: status ?? 'Draft',
+        section: section ?? 'blog',
+        signalData: signalData ?? null,
+        authorData: authorData ?? null,
+      });
+      return res.status(201).json(post);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Blog: update post ─────────────────────────────────────────────────────────
+  app.patch("/api/blog/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateBlogPost(id, req.body);
+      if (!updated) return res.status(404).json({ error: 'Post not found' });
+      return res.json(updated);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Blog: delete post ─────────────────────────────────────────────────────────
+  app.delete("/api/blog/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteBlogPost(id);
+      if (!ok) return res.status(404).json({ error: 'Post not found' });
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

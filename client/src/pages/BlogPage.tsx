@@ -4,6 +4,17 @@ import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-reac
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 
+type Article = {
+  id: string | number;
+  title: string;
+  excerpt: string;
+  category: string;
+  author: string;
+  date: string;
+  readTime: string;
+  image: string;
+};
+
 const FEATURE_IMAGE_URL = "https://picsum.photos/seed/macro1/1200/800";
 const YEN_IMAGE_URL = "https://picsum.photos/seed/forex1/800/600";
 const AI_IMAGE_URL = "https://picsum.photos/seed/tech1/800/600";
@@ -30,50 +41,14 @@ function SafeImage({ src, alt, className, isDark }: { src: string; alt: string; 
   );
 }
 
-const articles = [
-  {
-    id: 1,
-    title: "The Liquidity Trap: Why macro cycles are shortening in 2024",
-    excerpt: "The traditional four-year market cycle is dead. We explore how algorithmic high-frequency trading and retail momentum have compressed the time between peak and trough.",
-    category: "Analysis",
-    author: "Julian Thorne",
-    date: "Feb 06",
-    readTime: "12 min",
-    image: FEATURE_IMAGE_URL,
-  },
-  {
-    id: 2,
-    title: "The Yen Paradox: Japan's Final Stand against Inflation",
-    excerpt: "As the BoJ nears a historic pivot, we analyze the structural impact on the global carry trade.",
-    category: "Forex",
-    author: "Elena Rossi",
-    date: "Feb 05",
-    readTime: "8 min",
-    image: YEN_IMAGE_URL,
-  },
-  {
-    id: 3,
-    title: "Silicon Valley's AI moat: Hardware vs. Software",
-    excerpt: "Where the real value lies in the current tech rally: Analyzing the semiconductor supply chain.",
-    category: "Equities",
-    author: "Marcus Chen",
-    date: "Feb 04",
-    readTime: "6 min",
-    image: AI_IMAGE_URL,
-  },
-  {
-    id: 4,
-    title: "DeFi 2.0: The Institutional Adoption Curve",
-    excerpt: "How traditional banking rails are quietly merging with blockchain liquidity pools.",
-    category: "Digital Assets",
-    author: "Sarah Wu",
-    date: "Feb 03",
-    readTime: "10 min",
-    image: DEFI_IMAGE_URL,
-  },
+const FALLBACK_ARTICLES: Article[] = [
+  { id: 1, title: "The Liquidity Trap: Why macro cycles are shortening in 2024", excerpt: "The traditional four-year market cycle is dead. We explore how algorithmic high-frequency trading and retail momentum have compressed the time between peak and trough.", category: "Analysis", author: "Julian Thorne", date: "Feb 06", readTime: "12 min", image: FEATURE_IMAGE_URL },
+  { id: 2, title: "The Yen Paradox: Japan's Final Stand against Inflation", excerpt: "As the BoJ nears a historic pivot, we analyze the structural impact on the global carry trade.", category: "Forex", author: "Elena Rossi", date: "Feb 05", readTime: "8 min", image: YEN_IMAGE_URL },
+  { id: 3, title: "Silicon Valley's AI moat: Hardware vs. Software", excerpt: "Where the real value lies in the current tech rally: Analyzing the semiconductor supply chain.", category: "Equities", author: "Marcus Chen", date: "Feb 04", readTime: "6 min", image: AI_IMAGE_URL },
+  { id: 4, title: "DeFi 2.0: The Institutional Adoption Curve", excerpt: "How traditional banking rails are quietly merging with blockchain liquidity pools.", category: "Digital Assets", author: "Sarah Wu", date: "Feb 03", readTime: "10 min", image: DEFI_IMAGE_URL },
 ];
 
-const archivedPosts = [
+const FALLBACK_ARCHIVED = [
   { id: 5, title: "Understanding Market Volatility in Bear Markets", category: "Analysis", author: "Michael Torres", date: "Jan 28", readTime: "7 min" },
   { id: 6, title: "The Rise of Algorithmic Trading Strategies", category: "Backtested Strategies", author: "Lisa Chen", date: "Jan 25", readTime: "9 min" },
   { id: 7, title: "EUR/USD: Technical Analysis and Outlook", category: "Forex", author: "David Kumar", date: "Jan 22", readTime: "5 min" },
@@ -88,15 +63,35 @@ export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [darkMode, setDarkMode] = useState(true);
   const [location] = useLocation();
+  const [apiPosts, setApiPosts] = useState<Article[] | null>(null);
 
+  useEffect(() => {
+    fetch('/api/blog')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: any[] | null) => {
+        if (!data || data.length === 0) return;
+        setApiPosts(data.map(p => ({
+          id:       p.id,
+          title:    p.title,
+          excerpt:  p.excerpt ?? '',
+          category: p.category ?? 'Analysis',
+          author:   p.author ?? 'Admin',
+          date:     p.date ?? '',
+          readTime: p.readTime ?? p.read_time ?? '5 min',
+          image:    p.imageUrl ?? p.image_url ?? `https://picsum.photos/seed/${p.id}/800/600`,
+        })));
+      })
+      .catch(() => {});
+  }, []);
 
+  const allPosts = apiPosts ?? FALLBACK_ARTICLES;
   const isDark = darkMode;
 
   const filteredArticles = activeCategory === 'All'
-    ? articles
-    : articles.filter(a => a.category === activeCategory);
+    ? allPosts
+    : allPosts.filter(a => a.category === activeCategory);
 
-  const featuredArticle = filteredArticles[0] ?? articles[0];
+  const featuredArticle = filteredArticles[0] ?? allPosts[0];
   const sideArticles = filteredArticles.slice(1);
 
   return (
@@ -260,7 +255,7 @@ export default function BlogPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {archivedPosts.map((post) => (
+            {(apiPosts ? allPosts.slice(4) : FALLBACK_ARCHIVED).map((post) => (
               <article key={post.id} className={`group cursor-pointer p-6 border transition-all duration-300 ${isDark ? 'bg-[#1e293b]/30 border-[#334155] hover:border-blue-500' : 'bg-white border-stone-200 hover:border-stone-400'}`}>
                 <div className={`text-[8px] font-extrabold uppercase tracking-widest mb-3 ${isDark ? 'text-blue-500' : 'text-blue-600'}`}>
                   {post.category}

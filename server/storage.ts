@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs, type BrokerAccount, type InsertBrokerAccount, type SyncedTrade, type InsertSyncedTrade, brokerAccounts, syncedTrades } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs, type BrokerAccount, type InsertBrokerAccount, type SyncedTrade, type InsertSyncedTrade, brokerAccounts, syncedTrades, type BlogPost, type InsertBlogPost, blogPosts } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -115,6 +115,13 @@ export interface IStorage {
   getSyncedTradeByExternal(brokerAccountId: string, externalId: string): Promise<SyncedTrade | undefined>;
   createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
+
+  // ── Blog ─────────────────────────────────────────────────────────────────
+  getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]>;
+  getBlogPostById(id: string): Promise<BlogPost | undefined>;
+  createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
+  updateBlogPost(id: string, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
+  deleteBlogPost(id: string): Promise<boolean>;
 }
 
 export class DbStorage implements IStorage {
@@ -845,6 +852,37 @@ export class DbStorage implements IStorage {
     await db.update(syncedTrades)
       .set({ journalEntryId, journaledAt: new Date() })
       .where(eq(syncedTrades.id, id));
+  }
+
+  // ── Blog ─────────────────────────────────────────────────────────────────
+  async getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]> {
+    let q = db.select().from(blogPosts).$dynamic();
+    if (filters?.status)  q = q.where(eq(blogPosts.status, filters.status));
+    if (filters?.section) q = q.where(eq(blogPosts.section, filters.section));
+    return (await q.orderBy(desc(blogPosts.createdAt)));
+  }
+
+  async getBlogPostById(id: string): Promise<BlogPost | undefined> {
+    const r = await db.select().from(blogPosts).where(eq(blogPosts.id, id)).limit(1);
+    return r[0];
+  }
+
+  async createBlogPost(post: InsertBlogPost): Promise<BlogPost> {
+    const r = await db.insert(blogPosts).values({ ...post, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateBlogPost(id: string, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined> {
+    const r = await db.update(blogPosts)
+      .set({ ...post, updatedAt: new Date() })
+      .where(eq(blogPosts.id, id))
+      .returning();
+    return r[0];
+  }
+
+  async deleteBlogPost(id: string): Promise<boolean> {
+    const r = await db.delete(blogPosts).where(eq(blogPosts.id, id)).returning();
+    return r.length > 0;
   }
 }
 

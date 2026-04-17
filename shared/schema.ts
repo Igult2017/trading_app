@@ -626,3 +626,29 @@ export const syncedTrades = pgTable("synced_trades", {
 export const insertSyncedTradeSchema = createInsertSchema(syncedTrades).omit({ id: true, createdAt: true });
 export type InsertSyncedTrade = z.infer<typeof insertSyncedTradeSchema>;
 export type SyncedTrade = typeof syncedTrades.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BLOG POSTS
+// ─────────────────────────────────────────────────────────────────────────────
+export const blogPosts = pgTable("blog_posts", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title:      text("title").notNull(),
+  excerpt:    text("excerpt").default(''),
+  content:    text("content").default(''),
+  category:   text("category").default('Analysis'),    // Equities | Forex | Digital Assets | Analysis | Backtested Strategies
+  author:     text("author").default('Admin'),
+  authorId:   varchar("author_id"),
+  date:       text("date").notNull(),
+  readTime:   text("read_time").default('5 min'),
+  imageUrl:   text("image_url").default(''),
+  status:     text("status").default('Draft'),          // Published | Draft
+  section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals
+  signalData: jsonb("signal_data"),
+  authorData: jsonb("author_data"),            // { bio, expertise[], twitter, linkedin, telegram }
+  createdAt:  timestamp("created_at").defaultNow(),
+  updatedAt:  timestamp("updated_at").defaultNow(),
+});
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+export type BlogPost = typeof blogPosts.$inferSelect;
