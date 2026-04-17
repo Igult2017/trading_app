@@ -1242,6 +1242,22 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [stats, setStats] = useState<any>(null);
+
+  const getHdrs = async () => {
+    const token = await getAdminToken?.();
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+  };
+
+  const loadStats = async () => {
+    const h = await getHdrs();
+    const r = await fetch('/api/admin/campaign-stats', { headers: h }).catch(() => null);
+    if (r?.ok) setStats(await r.json());
+  };
+
+  useEffect(() => { loadStats(); }, []);
 
   const toggleChannel = label => {
     setActiveChannels(prev =>
@@ -1253,16 +1269,14 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
     if (!message.trim() || activeChannels.length === 0 || sending) return;
     setSending(true); setResult(null);
     try {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const h = await getHdrs();
       const r = await fetch('/api/admin/campaigns', {
-        method: 'POST', headers,
+        method: 'POST', headers: h,
         body: JSON.stringify({ channels: activeChannels, audience, subject, message }),
       });
       const data = await r.json();
-      setResult({ ok: r.ok, msg: r.ok ? (data.message ?? 'Campaign sent!') : (data.error ?? 'Failed to send') });
-      if (r.ok) { setSubject(''); setMessage(''); }
+      setResult({ ok: r.ok, msg: r.ok ? (data.message ?? `Sent to ${data.sent ?? 0} users`) : (data.error ?? 'Failed to send') });
+      if (r.ok) { setSubject(''); setMessage(''); loadStats(); }
     } catch {
       setResult({ ok: false, msg: 'Network error — please retry' });
     }
@@ -1343,11 +1357,16 @@ const MarketingSection = ({ bp, getAdminToken = null }) => {
 
         {/* Stats */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {[
-            { label: 'Emails Sent', value: '24,810', change: '+12%', up: true, icon: Mail, pct: 88 },
-            { label: 'Open Rate',   value: '38.4%',  change: '+2.1%', up: true, icon: TrendingUp, pct: 38 },
-            { label: 'Click Rate',  value: '9.2%',   change: '-0.4%', up: false, icon: Activity, pct: 9  },
-            { label: 'Unsubscribes', value: '142',   change: '+8',    up: false, icon: AlertTriangle, pct: 14 },
+          {stats === null ? (
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <Activity size={20} style={{ color: C.border2, margin: '0 auto 8px', display: 'block' }} />
+              <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>Loading stats…</p>
+            </div>
+          ) : [
+            { label: 'In-App Sent', value: stats.inAppSent?.toLocaleString() ?? '0', change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(stats.sentChangePct ?? 0, 100) },
+            { label: 'Read Rate',   value: `${stats.readRate ?? 0}%`, change: stats.readChange ?? '—', up: (stats.readRate ?? 0) > 0, icon: TrendingUp, pct: stats.readRate ?? 0 },
+            { label: 'Campaigns',   value: stats.campaignCount?.toString() ?? '0', change: '30d', up: true, icon: Megaphone, pct: Math.min((stats.campaignCount ?? 0) * 10, 100) },
+            { label: 'Email / Push', value: 'N/A', change: 'config needed', up: false, icon: AlertTriangle, pct: 0 },
           ].map((s, i, arr) => (
             <div key={i} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {/* Top row */}

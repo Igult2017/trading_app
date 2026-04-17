@@ -2005,6 +2005,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: campaign statistics (real DB data) ─────────────────────────────────
+  app.get("/api/admin/campaign-stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
+
+      // Total in-app announcements sent in last 30d
+      const sentRes = await db.execute(drizzleSql`
+        SELECT COUNT(*)::int AS total,
+               COUNT(*) FILTER (WHERE is_read = true)::int AS read_count
+        FROM notifications
+        WHERE type = 'announcement' AND created_at >= ${since30}
+      `);
+      const sentRow = (sentRes.rows ?? [])[0] as any;
+      const totalSent: number = +(sentRow?.total ?? 0);
+      const readCount: number = +(sentRow?.read_count ?? 0);
+      const readRate: number = totalSent > 0 ? Math.round((readCount / totalSent) * 1000) / 10 : 0;
+
+      // Number of campaigns dispatched in last 30d (logged as tickets)
+      const campaignRes = await db.execute(drizzleSql`
+        SELECT COUNT(*)::int AS total
+        FROM support_tickets
+        WHERE subject LIKE 'Campaign:%' AND created_at >= ${since30}
+      `);
+      const campaignCount: number = +((campaignRes.rows ?? [])[0] as any)?.total ?? 0;
+
+      // Previous 30d for change calculation
+      const prev60 = new Date(Date.now() - 60 * 86400000).toISOString();
+      const prevRes = await db.execute(drizzleSql`
+        SELECT COUNT(*)::int AS total,
+               COUNT(*) FILTER (WHERE is_read = true)::int AS read_count
+        FROM notifications
+        WHERE type = 'announcement' AND created_at >= ${prev60} AND created_at < ${since30}
+      `);
+      const prevRow = (prevRes.rows ?? [])[0] as any;
+      const prevTotal: number = +(prevRow?.total ?? 0);
+      const prevRead: number = +(prevRow?.read_count ?? 0);
+      const prevReadRate: number = prevTotal > 0 ? Math.round((prevRead / prevTotal) * 1000) / 10 : 0;
+
+      const sentChange = prevTotal > 0 ? `${totalSent >= prevTotal ? '+' : ''}${totalSent - prevTotal}` : totalSent > 0 ? `+${totalSent}` : '—';
+      const readChange = prevReadRate > 0 ? `${readRate >= prevReadRate ? '+' : ''}${(readRate - prevReadRate).toFixed(1)}%` : readRate > 0 ? `+${readRate}%` : '—';
+
+      return res.json({
+        inAppSent: totalSent,
+        readRate,
+        campaignCount,
+        sentChange,
+        readChange,
+        sentChangePct: totalSent > 0 ? Math.min(totalSent, 100) : 0,
+        readChangePct: readRate,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin: ban / unban user ───────────────────────────────────────────────────
   app.patch("/api/admin/users/:userId/ban", requireAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;
