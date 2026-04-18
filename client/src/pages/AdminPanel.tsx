@@ -95,11 +95,10 @@ const SOCIAL_PLATFORMS = [
 ];
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
-const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies', 'Trade Signals'];
+const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 const CATEGORY_TO_SECTION: Record<string, string> = {
   'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
   'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
-  'Trade Signals': 'trade-signals',
 };
 const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; border: string; dot: string }> = {
   'Equities':              { sub: 'Stocks & indices',    color: C.indigoL, bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.3)',  dot: C.indigo  },
@@ -107,7 +106,6 @@ const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; bo
   'Digital Assets':        { sub: 'Crypto & DeFi',       color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
   'Analysis':              { sub: 'Market analysis',     color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted   },
   'Backtested Strategies': { sub: 'Verified strategies', color: C.amberL,  bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.3)',  dot: C.amber   },
-  'Trade Signals':         { sub: 'Live trade signals',  color: C.greenL,  bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.3)',  dot: C.green   },
 };
 const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', imageUrl: '', excerpt: '', content: '', readTime: '5 min', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
@@ -1023,19 +1021,18 @@ const BlogSection = ({ bp }) => {
   const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
   const sg = k => form.signal[k];
 
-  const isSignal = fv('category') === 'Trade Signals';
-  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(isSignal ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
+  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
       <div>
         <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>Content Manager</h2>
-        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Blog, Strategies & Trade Signals</p>
+        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Blog & Verified Strategies</p>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', flexWrap: 'wrap' }}>
-          {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'trade-signals', label: 'Signals', count: posts.filter(p => p.section === 'trade-signals').length }, { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => (
+          {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => (
             <button key={tab.id} onClick={() => setActiveSection(tab.id)} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '12px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
               {tab.label}
               <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.2)') : C.border, color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted }}>{tab.count}</span>
