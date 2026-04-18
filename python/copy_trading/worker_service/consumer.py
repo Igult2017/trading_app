@@ -125,11 +125,12 @@ async def _dispatch_to_follower(signal: NormalisedSignal, follower: dict,
     follower_id = follower["id"]
     try:
         from ..execution_service.executor import calculate_lot
-        lot = calculate_lot(
-            follower.get("lot_mode", "mult"),
-            follower, signal,
-            {"equity": 1000.0},
-        )
+        # Pre-calculate an estimated lot for the initial pending DB record.
+        # For risk-% mode this uses a placeholder equity; the executor
+        # recalculates with real account equity once the MT5 lock is held.
+        mode = follower.get("lot_mode", "mult")
+        estimated_lot = calculate_lot(mode, follower, signal, {"equity": 1000.0})
+        lot = estimated_lot
         follower_trade_db_id = await db.insert_follower_trade(
             master_trade_db_id, follower_id, signal, lot,
         )
