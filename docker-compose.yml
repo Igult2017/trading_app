@@ -1,0 +1,203 @@
+# TradeSync — Full Stack Docker Compose
+# Single VPS deployment: one command brings up everything.
+#
+# SETUP (one time):
+#   cp .env.example .env
+#   # Edit .env — fill in SESSION_SECRET, COPY_ENCRYPTION_KEY,
+#   #              DB_PASSWORD, SUPABASE_*, GOOGLE_API_KEY
+#   docker compose up -d
+#
+# FIRST BOOT NOTE:
+#   The mt5 container installs MetaTrader 5 under Wine on first start.
+#   This takes 5–10 minutes. The bridge containers wait automatically
+#   via their entrypoint — no manual steps required.
+#
+# LOGS:
+#   docker compose logs -f mt5          # watch MT5 installation progress
+#   docker compose logs -f bridge-worker
+#
+# UPDATE:
+#   docker compose pull && docker compose up -d --build
+#
+# VNC (optional — visual access to the MT5 terminal):
+#   Browse to http://<your-vps-ip>:3010  (localhost only by default)
+
+version: "3.9"
+
+services:
+
+  # ── 1. PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-tradesync}
+      POSTGRES_USER:     ${DB_USER:-tradesync}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tradesync} -d ${DB_NAME:-tradesync}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── 2. Redis (trade signal queue) ────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  # ── 3. MT5 Terminal (Wine + MT5 + mt5linux RPyC) ──────────────────────────────
+  # First boot installs MT5 under Wine — can take 5–10 minutes.
+  # After that, subsequent starts are fast (<30 s).
+  # VNC browser UI available at http://localhost:3010 for admin access only.
+  mt5:
+    image: gmag11/metatrader5_vnc:latest
+    restart: unless-stopped
+    ports:
+      # VNC browser — bind to localhost so it is NOT reachable from the internet.
+      # SSH tunnel to access:  ssh -L 3010:localhost:3010 user@your-vps
+      - "127.0.0.1:3010:3000"
+    environment:
+      CUSTOM_USER: admin
+      PASSWORD:    ${VNC_PASSWORD:-tradesync_vnc_2025}
+    volumes:
+      # Persist the Wine prefix and MT5 installation across container restarts.
+      # Without this volume, MT5 reinstalls on every container start.
+      - mt5_data:/config
+    networks:
+      - internal
+    healthcheck:
+      # Port 8812 is the mt5linux RPyC server inside the container.
+      test: ["CMD-SHELL", "nc -z localhost 8812 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      # start_period covers the full first-boot installation time.
+      start_period: 600s
+
+  # ── 4. Node.js App (trading dashboard + API) ─────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    env_file: .env
+    environment:
+      # Override DATABASE_URL to point at the internal postgres service.
+      DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5000/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── 5. Bridge — FastAPI control plane ────────────────────────────────────────
+  bridge-api:
+    build:
+      context: .
+      dockerfile: python/copy_trading/Dockerfile
+    restart: unless-stopped
+    command:
+      - uvicorn
+      - python.copy_trading.api_service.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8001"
+      - --workers
+      - "1"
+    ports:
+      - "127.0.0.1:8001:8001"
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MT5_BRIDGE_HOST: mt5
+      MT5_BRIDGE_PORT: "8812"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mt5:
+        condition: service_healthy
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── 6. Bridge — Worker (queue consumer + MT5 executor) ───────────────────────
+  bridge-worker:
+    build:
+      context: .
+      dockerfile: python/copy_trading/Dockerfile
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - python.copy_trading.main
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MT5_BRIDGE_HOST: mt5
+      MT5_BRIDGE_PORT: "8812"
+      BRIDGE_SECRET: "${BRIDGE_SECRET:-changeme_set_in_env}"
+      APP_URL: "http://app:5000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      bridge-api:
+        condition: service_healthy
+      mt5:
+        condition: service_healthy
+    volumes:
+      - tg_sessions:/var/lib/tradesync/tg_sessions
+    networks:
+      - internal
+
+# ── All containers talk on an isolated Docker bridge network ─────────────────
+# Nothing is reachable from the internet except the app on PORT and
+# the VNC on 127.0.0.1:3010 (localhost only — use SSH tunnel to access).
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pg_data:       # PostgreSQL data
+  redis_data:    # Redis AOF persistence
+  mt5_data:      # MT5 Wine prefix — avoids reinstall on every container start
+  tg_sessions:   # Telegram session files for signal listener
