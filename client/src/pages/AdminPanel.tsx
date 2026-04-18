@@ -1995,17 +1995,17 @@ export default function AdminPanel() {
       {/* SIDEBAR */}
       <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
         <button onClick={() => setCollapsed(p => !p)}
-          style={{ position: 'absolute', right: '-12px', top: '68px', zIndex: 30, width: '24px', height: '24px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.muted }}>
+          style={{ position: 'absolute', right: '-12px', top: '30px', zIndex: 30, width: '24px', height: '24px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.muted }}>
           <svg viewBox="0 0 24 24" style={{ width: '11px', height: '11px', transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
-        <div style={{ padding: collapsed ? '16px 0' : '16px 14px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ width: '38px', height: '38px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none">
+        <div style={{ padding: collapsed ? '6px 0' : '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ width: '28px', height: '28px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none">
               <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
               <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
             </svg>
           </div>
-          {!collapsed && <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '16px', letterSpacing: '0.12em', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>FSDZONES</span>}
+          {!collapsed && <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '12px', letterSpacing: '0.12em', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>FSDZONES</span>}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
           {SIDEBAR_GROUPS.map((group, gi) => (
