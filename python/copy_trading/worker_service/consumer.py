@@ -20,6 +20,7 @@ from ..config import (
 from .. import database as db
 from ..redis_client import get_client
 from ..execution_service.executor import TradeExecutor
+from ..notification_service import get_notifier
 
 log = logging.getLogger(__name__)
 
@@ -105,6 +106,7 @@ async def _process_signal(raw: str) -> None:
                     follower["id"], "INFO", "SKIP",
                     f"Max open trades reached ({open_count}/{max_trades}) — {signal.symbol} skipped",
                 )
+                await get_notifier().notify_skipped(signal, follower, open_count, max_trades)
                 continue
 
         tasks.append(_dispatch_to_follower(signal, follower, master_trade_db_id))

@@ -1214,6 +1214,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
+  // ── Subscribe to a public signal provider ────────────────────────────────────
+  // POST body: { accountId, lotMode?, lotMultiplier?, fixedLot?, riskPercent? }
+  app.post("/api/copy/masters/:masterId/subscribe", async (req: Request, res: Response) => {
+    try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const { masterId } = req.params;
+      const { accountId, lotMode, lotMultiplier, fixedLot, riskPercent } = req.body;
+
+      if (!accountId) return res.status(400).json({ error: "accountId is required" });
+
+      // Verify master exists and is publicly visible
+      const masterRow = await pool.query<{
+        id: string; is_public: boolean; require_approval: boolean; strategy_name: string | null;
+      }>(`SELECT id, is_public, require_approval, strategy_name FROM copy_masters WHERE id = $1`, [masterId]);
+
+      if (!masterRow.rows.length) return res.status(404).json({ error: "Master not found" });
+      const master = masterRow.rows[0];
+      if (!master.is_public) return res.status(403).json({ error: "This provider is not public" });
+
+      // Prevent duplicate subscriptions
+      const existing = await pool.query(
+        `SELECT id FROM copy_followers WHERE master_id = $1 AND user_id = $2 AND account_id = $3`,
+        [masterId, user.id, accountId],
+      );
+      if (existing.rows.length) return res.status(409).json({ error: "Already subscribed with this account" });
+
+      const follower = await storage.createCopyFollower({
+        userId:        user.id,
+        accountId,
+        masterId,
+        lotMode:       lotMode       || "mult",
+        lotMultiplier: lotMultiplier || "1.0",
+        fixedLot:      fixedLot      || null,
+        riskPercent:   riskPercent   || "1.0",
+        isActive:      !master.require_approval,  // auto-activate unless approval required
+        riskAccepted:  false,
+      });
+
+      return res.status(201).json({
+        follower,
+        requiresApproval: master.require_approval,
+        message: master.require_approval
+          ? "Subscription submitted — awaiting provider approval"
+          : "Subscribed — trades will start copying within 60 seconds",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Followers ─────────────────────────────────────────────────────────────────
   app.get("/api/copy/followers", async (req, res) => {
     try {
@@ -2425,6 +2477,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ok = await storage.deleteBlogPost(id);
       if (!ok) return res.status(404).json({ error: 'Post not found' });
       return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Internal bridge API (Python bridge → Node.js) ──────────────────────────
+  // All routes under /api/internal are protected by BRIDGE_SECRET.
+  // Only the copy trading bridge container calls these — never the browser.
+
+  const requireBridgeSecret = (req: Request, res: Response, next: NextFunction) => {
+    const secret = process.env.BRIDGE_SECRET;
+    if (!secret || req.headers['x-bridge-secret'] !== secret)
+      return res.status(403).json({ error: 'Forbidden' });
+    next();
+  };
+
+  // Bridge fetches this on startup to know which MT5 master accounts to monitor.
+  app.get('/api/internal/active-providers', requireBridgeSecret, async (req: Request, res: Response) => {
+    try {
+      const rows = await pool.query<{
+        id: string; login_id: string; broker_server: string; password_enc: string;
+      }>(`
+        SELECT cm.id, ca.login_id, ca.broker_server, ca.password_enc
+        FROM   copy_masters  cm
+        JOIN   copy_accounts ca ON ca.id = cm.account_id
+        WHERE  cm.is_active = TRUE AND cm.source_type = 'mt5'
+      `);
+      const providers = rows.rows.map(r => ({
+        id:       r.id,
+        login:    r.login_id,
+        server:   r.broker_server,
+        password: safeDecrypt(r.password_enc) ?? '',
+      }));
+      return res.json(providers);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

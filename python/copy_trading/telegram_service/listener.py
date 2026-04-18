@@ -145,24 +145,30 @@ class TelegramListener:
                 log.debug("[TG] Message skipped (no signal detected): %.60s", text)
                 return
 
-            if parsed.sl is None and not self.cfg.get("execute_no_sl", False):
-                log.info("[TG] Skipping signal — no SL and execute_no_sl=False")
-                return
-            if parsed.tp is None and not self.cfg.get("execute_no_tp", True):
-                log.info("[TG] Skipping signal — no TP and execute_no_tp=False")
-                return
+            # SL/TP validation only applies to OPEN signals.
+            if parsed.event_type == "OPEN":
+                if parsed.sl is None and not self.cfg.get("execute_no_sl", False):
+                    log.info("[TG] Skipping OPEN — no SL and execute_no_sl=False")
+                    return
+                if parsed.tp is None and not self.cfg.get("execute_no_tp", True):
+                    log.info("[TG] Skipping OPEN — no TP and execute_no_tp=False")
+                    return
 
             signal = NormalisedSignal(
                 source="telegram",
                 symbol=parsed.symbol,
                 action=parsed.direction,
-                event_type="OPEN",
+                event_type=parsed.event_type,
                 trade_id=str(msg.id),
                 master_id=self.master_id,
                 entry_price=parsed.entry,
                 stop_loss=parsed.sl,
                 take_profit=parsed.tp,
-                raw_payload={"text": text, "message_id": msg.id, "confidence": parsed.confidence},
+                raw_payload={
+                    "text": text,
+                    "message_id": msg.id,
+                    "confidence": parsed.confidence,
+                },
             )
             enqueue(signal)
 

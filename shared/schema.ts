@@ -102,6 +102,7 @@ export const copyFollowers = pgTable("copy_followers", {
   activeSessions:  text("active_sessions").array(),
   maxDdPercent:    decimal("max_dd_percent",  { precision: 5, scale: 2 }),
   maxDailyLoss:    decimal("max_daily_loss",  { precision: 10, scale: 2 }),
+  notifChatId:     text("notif_chat_id"),                        // per-follower Telegram chat override
   notifDisconnect: boolean("notif_disconnect").default(true),
   notifExecFail:   boolean("notif_exec_fail").default(true),
   notifDdWarn:     boolean("notif_dd_warn").default(true),
