@@ -95,10 +95,11 @@ const SOCIAL_PLATFORMS = [
 ];
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
-const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
+const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies', 'Trade Signals'];
 const CATEGORY_TO_SECTION: Record<string, string> = {
   'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
   'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
+  'Trade Signals': 'trade-signals',
 };
 const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; border: string; dot: string }> = {
   'Equities':              { sub: 'Stocks & indices',    color: C.indigoL, bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.3)',  dot: C.indigo  },
@@ -106,8 +107,9 @@ const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; bo
   'Digital Assets':        { sub: 'Crypto & DeFi',       color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
   'Analysis':              { sub: 'Market analysis',     color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted   },
   'Backtested Strategies': { sub: 'Verified strategies', color: C.amberL,  bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.3)',  dot: C.amber   },
+  'Trade Signals':         { sub: 'Live trade signals',  color: C.greenL,  bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.3)',  dot: C.green   },
 };
-const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
+const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', imageUrl: '', excerpt: '', content: '', readTime: '5 min', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -894,6 +896,11 @@ const BlogSection = ({ bp }) => {
             category: p.category ?? 'Analysis',
             status: p.status ?? 'Draft', author: p.author ?? 'Admin',
             date: p.date, signal: p.signalData ?? p.signal_data ?? null,
+            imageUrl: p.imageUrl ?? p.image_url ?? '',
+            excerpt: p.excerpt ?? '',
+            content: p.content ?? '',
+            readTime: p.readTime ?? p.read_time ?? '5 min',
+            authorData: p.authorData ?? p.author_data ?? null,
           })));
         })
         .catch(() => {});
@@ -910,6 +917,7 @@ const BlogSection = ({ bp }) => {
     setForm({
       ...EMPTY_FORM,
       title: post.title, section: CATEGORY_TO_SECTION[post.category] ?? post.section ?? 'blog', category: post.category || 'Analysis', status: post.status,
+      imageUrl: post.imageUrl || '', excerpt: post.excerpt || '', content: post.content || '', readTime: post.readTime || '5 min',
       authorName: post.author || '', authorBio: ad.bio || '', authorExpertise: ad.expertise || [],
       authorTwitter: ad.twitter || '', authorLinkedin: ad.linkedin || '', authorTelegram: ad.telegram || '',
       signal: post.signal || EMPTY_FORM.signal,
@@ -940,6 +948,10 @@ const BlogSection = ({ bp }) => {
         category: f.category || 'Analysis',
         author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+        imageUrl: f.imageUrl || '',
+        excerpt: f.excerpt || '',
+        content: f.content || '',
+        readTime: f.readTime || '5 min',
         signalData: f.category === 'Trade Signals' ? form.signal : null,
         authorData,
       };
@@ -959,7 +971,7 @@ const BlogSection = ({ bp }) => {
         const r = await fetch('/api/blog', { method: 'POST', headers, body });
         if (r.ok) {
           savedPost = await r.json();
-          setPosts(p => [...p, { id: savedPost.id, title: savedPost.title, section: savedPost.section, category: savedPost.category, status: savedPost.status, author: savedPost.author, date: savedPost.date, signal: savedPost.signalData, authorData: savedPost.authorData }]);
+          setPosts(p => [...p, { id: savedPost.id, title: savedPost.title, section: savedPost.section, category: savedPost.category, status: savedPost.status, author: savedPost.author, date: savedPost.date, signal: savedPost.signalData, imageUrl: savedPost.imageUrl ?? '', excerpt: savedPost.excerpt ?? '', content: savedPost.content ?? '', readTime: savedPost.readTime ?? '5 min', authorData: savedPost.authorData }]);
         } else {
           const err = await r.json().catch(() => ({}));
           saveError = err.error || `Server error ${r.status}`;
@@ -1011,7 +1023,8 @@ const BlogSection = ({ bp }) => {
   const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
   const sg = k => form.signal[k];
 
-  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
+  const isSignal = fv('category') === 'Trade Signals';
+  const TABS = [{ id: 'post', label: 'Post', icon: FileText }, ...(isSignal ? [{ id: 'signal', label: 'Signal', icon: TrendingUp }] : []), { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
@@ -1077,10 +1090,10 @@ const BlogSection = ({ bp }) => {
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
                 <h4 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 6px' }}>{post.title}</h4>
-                <p style={{ color: '#3d5878', fontSize: '12px', margin: 0 }}>Market analysis and key trading insights...</p>
+                {post.excerpt ? <p style={{ color: '#607898', fontSize: '12px', margin: 0, lineHeight: 1.5 }}>{post.excerpt}</p> : <p style={{ color: '#3d5878', fontSize: '12px', margin: 0, fontStyle: 'italic' }}>No excerpt — add one when editing.</p>}
               </div>
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                <span style={{ color: C.dim, fontSize: '11px' }}>By {post.author}</span>
+                <span style={{ color: C.dim, fontSize: '11px' }}>By {post.author}{post.readTime ? ` · ${post.readTime}` : ''}</span>
                 <div style={{ display: 'flex', gap: '3px' }}>
                   <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
                   <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Edit</button>
@@ -1109,6 +1122,13 @@ const BlogSection = ({ bp }) => {
               {modalTab === 'post' && (
                 <>
                   <div><label style={{ ...lbl }}>Post Title</label><input value={fv('title')} onChange={e => setF('title', e.target.value)} placeholder="Enter post title..." style={{ ...inp }} /></div>
+                  <div><label style={{ ...lbl }}>Excerpt <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— short summary shown in cards</span></label><textarea value={fv('excerpt')} onChange={e => setF('excerpt', e.target.value)} rows={2} placeholder="Brief description shown in the blog listing..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'end' }}>
+                    <div><label style={{ ...lbl }}>Cover Image URL <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— paste a link to the post image</span></label><input value={fv('imageUrl')} onChange={e => setF('imageUrl', e.target.value)} placeholder="https://..." style={{ ...inp }} /></div>
+                    <div><label style={{ ...lbl }}>Read Time</label><input value={fv('readTime')} onChange={e => setF('readTime', e.target.value)} placeholder="5 min" style={{ ...inp, width: '90px' }} /></div>
+                  </div>
+                  {fv('imageUrl') && <div style={{ width: '100%', height: '120px', overflow: 'hidden', border: `1px solid ${C.border2}`, background: C.border }}><img src={fv('imageUrl')} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.currentTarget.style.display = 'none')} /></div>}
+                  <div><label style={{ ...lbl }}>Content <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— full body of the post</span></label><textarea value={fv('content')} onChange={e => setF('content', e.target.value)} rows={6} placeholder="Write the full post content here..." style={{ ...inp, resize: 'vertical', display: 'block', minHeight: '100px' }} /></div>
                   <div>
                     <label style={{ ...lbl }}>Destination <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to frontend nav tab</span></label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>

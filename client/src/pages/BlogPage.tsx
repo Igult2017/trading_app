@@ -175,7 +175,7 @@ export default function BlogPage() {
               </div>
 
               <div className="space-y-10">
-                {(sideArticles.length > 0 ? sideArticles : articles.slice(1)).map((art) => (
+                {(sideArticles.length > 0 ? sideArticles : allPosts.slice(1)).map((art) => (
                   <article key={art.id} className="group cursor-pointer">
                     <div className="flex gap-5">
                       <div className="flex-1">
