@@ -23,34 +23,11 @@ export default function AuthPage() {
 
   if (loading) return <LoadingScreen />;
 
-  // Already authenticated — show "already signed in" screen
+  // Already authenticated — redirect immediately without showing any dialog
   if (role) {
     const dest = role === 'admin' ? '/admin' : '/journal';
-    const label = role === 'admin' ? 'Go to Admin Panel' : 'Open Journal';
-    return (
-      <div style={styles.page}>
-        <div style={styles.card}>
-          <div style={styles.brand}>
-            <div style={styles.logo}><span style={{ color: '#ffffff' }}>FSD</span></div>
-            <span style={styles.brandName}>
-              <span style={{ color: '#ffffff' }}>FSD </span>
-              <span style={{ color: '#3b82f6' }}>Journal</span>
-            </span>
-          </div>
-          <h2 style={styles.title}>You're already signed in</h2>
-          <p style={styles.sub}>Your session is active. Open your dashboard below.</p>
-          <button
-            style={{ ...styles.btn, marginTop: 24, cursor: 'pointer' }}
-            onClick={() => window.open(dest, '_blank', 'noopener,noreferrer')}
-          >
-            {label} ↗
-          </button>
-          <button style={styles.backBtn} onClick={() => navigate('/')}>
-            ← Back to Home
-          </button>
-        </div>
-      </div>
-    );
+    navigate(dest);
+    return <LoadingScreen />;
   }
 
   async function handleSubmit(e: React.FormEvent) {
