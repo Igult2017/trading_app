@@ -14,6 +14,7 @@ from typing import Optional
 from ..models import NormalisedSignal
 from ..config import MT5_RECONNECT_DELAY_SEC, WORKER_MAX_RETRIES
 from .. import database as db
+from ..notification_service import get_notifier
 
 log = logging.getLogger(__name__)
 
@@ -293,6 +294,7 @@ class TradeExecutor:
                         f"{signal.event_type} {signal.action} {signal.symbol} lot={lot:.2f} — OK",
                         trade_id=follower_trade_db_id,
                     )
+                    await get_notifier().notify_executed(signal, self.follower, lot)
                     return True
 
                 raise RuntimeError(f"MT5 execution failed (attempt {attempt})")
@@ -318,6 +320,10 @@ class TradeExecutor:
             follower_id, "ERROR", "FAIL",
             f"All {WORKER_MAX_RETRIES} attempts failed for {signal.event_type} {signal.symbol}",
             trade_id=follower_trade_db_id,
+        )
+        await get_notifier().notify_failed(
+            signal, self.follower,
+            f"All {WORKER_MAX_RETRIES} attempts failed",
         )
         return False
 

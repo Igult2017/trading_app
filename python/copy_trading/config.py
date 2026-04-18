@@ -43,5 +43,11 @@ WORKER_RETRY_DELAY_SEC: float = float(os.getenv("WORKER_RETRY_DELAY", "2.0"))
 # ── Telegram ──────────────────────────────────────────────────────────────────
 TELEGRAM_SESSION_DIR: str = os.getenv("TELEGRAM_SESSION_DIR", "/tmp/tg_sessions")
 
+# ── Notifications ─────────────────────────────────────────────────────────────
+# Telegram bot token from @BotFather. Leave blank to disable notifications.
+NOTIFY_BOT_TOKEN: str = os.getenv("NOTIFY_BOT_TOKEN", "")
+# Default admin chat / channel ID. Followers can override via notify_chat_id.
+NOTIFY_CHAT_ID: str = os.getenv("NOTIFY_CHAT_ID", "")
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOG_LEVEL: str = os.getenv("COPY_LOG_LEVEL", "INFO")
