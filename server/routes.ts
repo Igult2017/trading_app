@@ -1214,6 +1214,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
+  // ── Subscribe to a public signal provider ────────────────────────────────────
+  // POST body: { accountId, lotMode?, lotMultiplier?, fixedLot?, riskPercent? }
+  app.post("/api/copy/masters/:masterId/subscribe", async (req: Request, res: Response) => {
+    try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const { masterId } = req.params;
+      const { accountId, lotMode, lotMultiplier, fixedLot, riskPercent } = req.body;
+
+      if (!accountId) return res.status(400).json({ error: "accountId is required" });
+
+      // Verify master exists and is publicly visible
+      const masterRow = await pool.query<{
+        id: string; is_public: boolean; require_approval: boolean; strategy_name: string | null;
+      }>(`SELECT id, is_public, require_approval, strategy_name FROM copy_masters WHERE id = $1`, [masterId]);
+
+      if (!masterRow.rows.length) return res.status(404).json({ error: "Master not found" });
+      const master = masterRow.rows[0];
+      if (!master.is_public) return res.status(403).json({ error: "This provider is not public" });
+
+      // Prevent duplicate subscriptions
+      const existing = await pool.query(
+        `SELECT id FROM copy_followers WHERE master_id = $1 AND user_id = $2 AND account_id = $3`,
+        [masterId, user.id, accountId],
+      );
+      if (existing.rows.length) return res.status(409).json({ error: "Already subscribed with this account" });
+
+      const follower = await storage.createCopyFollower({
+        userId:        user.id,
+        accountId,
+        masterId,
+        lotMode:       lotMode       || "mult",
+        lotMultiplier: lotMultiplier || "1.0",
+        fixedLot:      fixedLot      || null,
+        riskPercent:   riskPercent   || "1.0",
+        isActive:      !master.require_approval,  // auto-activate unless approval required
+        riskAccepted:  false,
+      });
+
+      return res.status(201).json({
+        follower,
+        requiresApproval: master.require_approval,
+        message: master.require_approval
+          ? "Subscription submitted — awaiting provider approval"
+          : "Subscribed — trades will start copying within 60 seconds",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Followers ─────────────────────────────────────────────────────────────────
   app.get("/api/copy/followers", async (req, res) => {
     try {
