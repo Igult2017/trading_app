@@ -215,7 +215,7 @@ const StatCard = ({ title, value, change, trend, icon: Icon }) => (
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
       <span style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}:</span>
-      <span style={{ color: 'white', fontSize: '19px', fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</span>
+      <span style={{ color: 'white', fontSize: '10px', fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</span>
     </div>
   </div>
 );
@@ -554,7 +554,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
             <s.icon size={16} style={{ color: s.color, marginBottom: '12px' }} />
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.label}:</span>
-              <span style={{ color: s.color, fontSize: '22px', fontWeight: 700 }}>{s.value}</span>
+              <span style={{ color: s.color, fontSize: '11px', fontWeight: 700 }}>{s.value}</span>
             </div>
           </div>
         ))}
@@ -788,7 +788,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
-              <span style={{ color: m.danger ? C.redL : 'white', fontSize: '22px', fontWeight: 700 }}>{m.value}<span style={{ fontSize: '11px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+              <span style={{ color: m.danger ? C.redL : 'white', fontSize: '11px', fontWeight: 700 }}>{m.value}<span style={{ fontSize: '9px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
             </div>
           </div>
         ))}
