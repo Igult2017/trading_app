@@ -13,7 +13,7 @@ from typing import Optional
 from ..models import NormalisedSignal
 from ..ingestion_service.producer import enqueue
 from ..config import MT5_POLL_INTERVAL_SEC, MT5_RECONNECT_ATTEMPTS, MT5_RECONNECT_DELAY_SEC
-from ..mt5_instance import get_mt5, MT5_AVAILABLE
+from ..mt5_instance import get_mt5, is_mt5_available
 from ..mt5_lock import get_mt5_lock
 
 log = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class MT5Monitor:
         self._running:  bool = False
 
     def _connect(self) -> bool:
-        if not MT5_AVAILABLE:
+        if not is_mt5_available():
             return False
         mt5 = get_mt5()
         mt5.initialize()
@@ -74,11 +74,11 @@ class MT5Monitor:
         return True
 
     def _disconnect(self) -> None:
-        if MT5_AVAILABLE:
+        if is_mt5_available():
             get_mt5().shutdown()
 
     def _get_positions(self) -> dict:
-        if not MT5_AVAILABLE:
+        if not is_mt5_available():
             return {}
         positions = get_mt5().positions_get()
         if positions is None:

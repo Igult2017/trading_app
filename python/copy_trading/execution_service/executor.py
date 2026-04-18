@@ -13,7 +13,7 @@ from typing import Optional
 from ..models import NormalisedSignal
 from ..config import MT5_RECONNECT_DELAY_SEC, WORKER_MAX_RETRIES
 from .. import database as db
-from ..mt5_instance import get_mt5, MT5_AVAILABLE
+from ..mt5_instance import get_mt5, is_mt5_available
 from ..mt5_lock import get_mt5_lock
 from ..notification_service import get_notifier
 
@@ -211,7 +211,7 @@ class TradeExecutor:
             return enc
 
     def _connect(self) -> bool:
-        if not MT5_AVAILABLE:
+        if not is_mt5_available():
             log.warning("[Exec] mt5linux not available — skipping")
             return False
         mt5 = get_mt5()
@@ -222,12 +222,13 @@ class TradeExecutor:
         return True
 
     def _disconnect(self) -> None:
-        if MT5_AVAILABLE:
+        if is_mt5_available():
             get_mt5().shutdown()
 
     async def execute(self, signal: NormalisedSignal, master_trade_db_id: str,
                       follower_trade_db_id: str) -> bool:
         follower_id = self.follower["id"]
+        lot: float = 0.01  # safe default; overwritten inside the lock on success
 
         for attempt in range(1, WORKER_MAX_RETRIES + 1):
             try:
@@ -238,7 +239,7 @@ class TradeExecutor:
 
                     try:
                         mt5 = get_mt5()
-                        account_info = mt5.account_info()._asdict() if MT5_AVAILABLE else {}
+                        account_info = mt5.account_info()._asdict() if is_mt5_available() else {}
                         lot = calculate_lot(
                             self.follower.get("lot_mode", "mult"),
                             self.follower, signal, account_info,
