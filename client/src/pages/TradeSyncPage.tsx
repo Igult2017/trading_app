@@ -533,10 +533,10 @@ const StepLimits = ({ data, setData }: any) => (
       <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// trade_limits</span>
       <InfoBox>These limits protect your followers from overexposure and help them size positions correctly.</InfoBox>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-        <TInput label="Max Lot Size Per Signal"    hint="Highest lot you will ever broadcast."              placeholder="1.00" type="number" />
-        <TInput label="Max Open Trades at Once"    hint="Maximum simultaneous positions you'll carry."      placeholder="5"    type="number" />
-        <TInput label="Typical Stop-Loss (pips)"   hint="Average SL distance per trade."                   placeholder="30"   type="number" />
-        <TInput label="Typical Take-Profit (pips)" hint="Average TP distance."                             placeholder="60"   type="number" />
+        <TInput label="Max Lot Size Per Signal"    hint="Highest lot you will ever broadcast."              placeholder="1.00" type="number" value={data.maxLotSize??''}          onChange={(e:any)=>setData({...data,maxLotSize:e.target.value})} />
+        <TInput label="Max Open Trades at Once"    hint="Maximum simultaneous positions you'll carry."      placeholder="5"    type="number" value={data.provMaxOpenTrades??''}   onChange={(e:any)=>setData({...data,provMaxOpenTrades:e.target.value})} />
+        <TInput label="Typical Stop-Loss (pips)"   hint="Average SL distance per trade."                   placeholder="30"   type="number" value={data.typicalSL??''}           onChange={(e:any)=>setData({...data,typicalSL:e.target.value})} />
+        <TInput label="Typical Take-Profit (pips)" hint="Average TP distance."                             placeholder="60"   type="number" value={data.typicalTP??''}           onChange={(e:any)=>setData({...data,typicalTP:e.target.value})} />
       </div>
     </div>
     <div className="p-5 md:p-8 space-y-4 md:space-y-6">
@@ -551,7 +551,7 @@ const StepLimits = ({ data, setData }: any) => (
 const StepProviderNotif = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <TInput label="Notification Email" hint="Where to receive follower and performance alerts." placeholder="you@example.com" type="email" />
+      <TInput label="Notification Email" hint="Where to receive follower and performance alerts." placeholder="you@example.com" type="email" value={data.notifEmail??''} onChange={(e:any)=>setData({...data,notifEmail:e.target.value})} />
       <div className="border-t border-white/5 pt-4 space-y-3">
         <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// alert_events</span>
         <Toggle label="New follower joined"           sub="Alert when someone starts copying you"           on={data.nNewFollower??true} onChange={(v: any) => setData({...data,nNewFollower:v})} />
@@ -569,9 +569,29 @@ const StepProviderNotif = ({ data, setData }: any) => (
   </div>
 );
 
-const StepConnect2 = ({ data, setData }: any) => (
-  <StepConnect data={{...data,platform:data.platform2??'MT5'}} setData={(d: any) => setData({...data,platform2:d.platform})} label="Target Account" />
-);
+const StepConnect2 = ({ data, setData }: any) => {
+  const inner = {
+    ...data,
+    platform:     data.platform2     ?? 'MT5',
+    nickname:     data.nickname2     ?? '',
+    brokerServer: data.brokerServer2 ?? '',
+    loginId:      data.loginId2      ?? '',
+    password:     data.password2     ?? '',
+    symbolPrefix: data.symbolPrefix2 ?? '',
+    symbolSuffix: data.symbolSuffix2 ?? '',
+  };
+  const setInner = (d: any) => setData({
+    ...data,
+    platform2:     d.platform,
+    nickname2:     d.nickname,
+    brokerServer2: d.brokerServer,
+    loginId2:      d.loginId,
+    password2:     d.password,
+    symbolPrefix2: d.symbolPrefix,
+    symbolSuffix2: d.symbolSuffix,
+  });
+  return <StepConnect data={inner} setData={setInner} label="Target Account" />;
+};
 
 const StepMapping = ({ data, setData }: any) => {
   const copyAll = data.copyAllSymbols ?? true;
@@ -861,14 +881,33 @@ function buildDeployPayload(data: any) {
       symbolPrefix: data.symbolPrefix,
       symbolSuffix: data.symbolSuffix,
     },
+    targetAccountConfig: data.role === 'self' ? {
+      nickname:     data.nickname2 || data.loginId2 || 'Target Account',
+      platform:     data.platform2 || 'MT5',
+      brokerServer: data.brokerServer2,
+      loginId:      data.loginId2,
+      password:     data.password2,
+      symbolPrefix: data.symbolPrefix2,
+      symbolSuffix: data.symbolSuffix2,
+    } : undefined,
     masterConfig: {
-      strategyName:    data.strategyName,
-      description:     data.strategyDescription,
-      tradingStyle:    data.tradingStyle,
-      primaryMarket:   data.primaryMarket,
-      isPublic:        data.isPublic ?? true,
-      requireApproval: data.requireApproval ?? false,
-      showOpenTrades:  data.showOpenTrades ?? true,
+      strategyName:      data.strategyName,
+      description:       data.strategyDescription,
+      tradingStyle:      data.tradingStyle,
+      primaryMarket:     data.primaryMarket,
+      isPublic:          data.isPublic ?? true,
+      requireApproval:   data.requireApproval ?? false,
+      showOpenTrades:    data.showOpenTrades ?? true,
+      maxLotSize:        data.maxLotSize        || undefined,
+      provMaxOpenTrades: data.provMaxOpenTrades  ? parseInt(data.provMaxOpenTrades) : undefined,
+      typicalSL:         data.typicalSL          || undefined,
+      typicalTP:         data.typicalTP          || undefined,
+      notifEmail:        data.notifEmail         || undefined,
+      nNewFollower:      data.nNewFollower       ?? true,
+      nDropped:          data.nDropped           ?? true,
+      nExecFail:         data.nExecFail          ?? true,
+      nDisconnect:       data.nDisconnect        ?? true,
+      nWeekly:           data.nWeekly            ?? false,
     },
     followerConfig: {
       masterId:        data.selectedProvider,
