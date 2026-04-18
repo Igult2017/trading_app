@@ -41,7 +41,7 @@ MONTH_MAP = {
 }
 
 # --------------------------------------------------------------------------- #
-# Calendar — Forex Factory public JSON feed (this week + next week)            #
+# Calendar scraper (newskeeper approach — MyFXBook via BeautifulSoup)          #
 # --------------------------------------------------------------------------- #
 
 def _categorize(name: str, currency: str) -> str:
@@ -55,80 +55,76 @@ def _categorize(name: str, currency: str) -> str:
     return 'Currencies'
 
 
-def _ff_date_labels(iso_str: str) -> tuple:
-    """Parse a Forex Factory ISO date string into (date_label, time_label, iso_str)."""
+def _parse_datetime(date_str: str, year: int) -> tuple:
+    """Returns (date_label, time_label, iso_string)."""
+    parts = date_str.split(',', 1)
+    day_part = parts[0].strip()
+    time_part = parts[1].strip() if len(parts) > 1 else '00:00'
     try:
-        from datetime import timezone
-        import re as _re
-        # Handle offset like -04:00 or +00:00
-        dt = datetime.fromisoformat(iso_str)
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        date_label = f"{months[dt.month - 1]} {dt.day:02d}"
-        time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
-        return date_label, time_label, iso_str
+        dp = day_part.split()
+        month = MONTH_MAP.get(dp[0], 1)
+        day_num = int(dp[1]) if len(dp) > 1 else 1
+        tp = time_part.replace('am', '').replace('pm', '').strip().split(':')
+        hour = int(tp[0]) if tp else 0
+        minute = int(tp[1]) if len(tp) > 1 else 0
+        dt = datetime(year, month, day_num, hour, minute)
+        return f"{dp[0]} {day_num:02d}", time_part, dt.isoformat()
     except Exception:
-        now = datetime.now()
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        return f"{months[now.month - 1]} {now.day:02d}", '12:00am', iso_str
+        return day_part, time_part, datetime.now().isoformat()
 
 
 def scrape_calendar() -> list:
-    """Fetch this week + next week economic calendar from Forex Factory public JSON."""
-    urls = [
-        'https://nfs.faireconomy.media/ff_calendar_thisweek.json',
-        'https://nfs.faireconomy.media/ff_calendar_nextweek.json',
-    ]
-    results = []
-    seen: set = set()
+    """Newskeeper-style scrape of MyFXBook economic calendar."""
+    url = 'https://www.myfxbook.com/forex-economic-calendar'
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code != 200:
+            print(f'[news_calendar] HTTP {resp.status_code}', file=sys.stderr)
+            return []
 
-    for url in urls:
-        try:
-            resp = requests.get(url, headers=HEADERS, timeout=15)
-            if resp.status_code != 200:
-                print(f'[news_calendar] FF {url} HTTP {resp.status_code}', file=sys.stderr)
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        rows = soup.find_all('tr', class_='economicCalendarRow')
+        year = datetime.now().year
+        results = []
+
+        for row in rows:
+            cells = row.find_all('td', class_='calendarToggleCell')
+            if len(cells) < 9:
                 continue
 
-            events = resp.json()
-            for ev in events:
-                title    = (ev.get('title') or '').strip()
-                currency = (ev.get('country') or '').strip()
-                iso_str  = ev.get('date', '')
-                impact   = ev.get('impact', 'Low')
-                forecast = ev.get('forecast') or '-'
-                previous = ev.get('previous') or '-'
-                actual   = ev.get('actual') or '-'
+            date_str  = cells[0].get_text().strip()
+            currency  = cells[3].get_text().strip()
+            name      = ' '.join(cells[4].get_text().split())
+            impact    = cells[5].get_text().strip()
+            previous  = cells[6].get_text().strip()
+            consensus = cells[7].get_text().strip()
+            actual    = cells[8].get_text().strip()
 
-                if not title or not currency:
-                    continue
+            if not name or not currency:
+                continue
 
-                key = f"{iso_str}:{currency}:{title}"
-                if key in seen:
-                    continue
-                seen.add(key)
+            date_label, time_label, iso_dt = _parse_datetime(date_str, year)
+            importance = impact if impact in ('High', 'Medium', 'Low') else 'Low'
 
-                importance = impact if impact in ('High', 'Medium', 'Low') else 'Low'
-                date_label, time_label, iso_out = _ff_date_labels(iso_str)
+            results.append({
+                'date':       date_label,
+                'time':       time_label,
+                'currency':   currency,
+                'event':      name,
+                'importance': importance,
+                'actual':     actual    or '-',
+                'forecast':   consensus or '-',
+                'previous':   previous  or '-',
+                'eventTime':  iso_dt,
+                'category':   _categorize(name, currency),
+            })
 
-                results.append({
-                    'date':       date_label,
-                    'time':       time_label,
-                    'currency':   currency,
-                    'event':      title,
-                    'importance': importance,
-                    'actual':     actual,
-                    'forecast':   forecast,
-                    'previous':   previous,
-                    'eventTime':  iso_out,
-                    'category':   _categorize(title, currency),
-                })
+        print(f'[news_calendar] scraped {len(results)} events', file=sys.stderr)
+        return results
 
-        except Exception as exc:
-            print(f'[news_calendar] FF feed error ({url}): {exc}', file=sys.stderr)
-
-    print(f'[news_calendar] FF calendar: {len(results)} events', file=sys.stderr)
-    return results
+    except Exception as exc:
+        print(f'[news_calendar] scrape error: {exc}', file=sys.stderr)
+        return []
 
 
 # --------------------------------------------------------------------------- #
