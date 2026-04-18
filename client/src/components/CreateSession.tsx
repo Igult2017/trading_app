@@ -22,16 +22,6 @@ function useVisible(delay = 0) {
   return v;
 }
 
-const TrashIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14H6L5 6"/>
-    <path d="M10 11v6M14 11v6"/>
-    <path d="M9 6V4h6v2"/>
-  </svg>
-);
-
 interface SessionData {
   id: string;
   sessionName: string;
@@ -44,6 +34,10 @@ interface CreateSessionFormProps {
   onCreated: (sessionId: string) => void;
 }
 
+const FONT_IMPORT = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap');
+`;
+
 export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   const [sessionName, setSessionName] = useState('');
   const [startingBalance, setStartingBalance] = useState('');
@@ -52,10 +46,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   const createMutation = useMutation({
     mutationFn: async (data: { sessionName: string; startingBalance: number }) => {
       const res = await apiRequest("POST", "/api/sessions", data);
-      // ✅ FIX: Check for non-2xx responses and surface the server error message
-      // instead of silently failing. Previously res.json() was called blindly
-      // even on 400 responses, causing the onSuccess to never fire with no
-      // visible error shown to the user.
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(err.details || err.error || 'Failed to create session');
@@ -70,7 +60,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
       onCreated(session.id);
     },
     onError: (error: Error) => {
-      // ✅ FIX: Surface the error in the UI so the user knows what went wrong
       setFormError(error.message || 'Failed to create session. Please try again.');
     },
   });
@@ -78,119 +67,133 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
-
-    // ✅ FIX: Validate before sending — previously `|| 0` silently submitted
-    // 0 as the balance when the field was empty or non-numeric, which then
-    // failed Zod validation on the server with no visible feedback.
     const balance = parseFloat(startingBalance);
     if (!startingBalance.trim() || isNaN(balance) || balance < 0) {
       setFormError('Please enter a valid starting balance (must be 0 or greater).');
       return;
     }
-
     if (!sessionName.trim()) {
       setFormError('Please enter a session name.');
       return;
     }
-
     createMutation.mutate({ sessionName: sessionName.trim(), startingBalance: balance });
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <div className="bg-[#0c111b]/40 backdrop-blur-2xl p-6 md:p-10 shadow-2xl">
+    <>
+      <style>{FONT_IMPORT}{`
+        .csf-root { font-family: 'Syne', sans-serif; }
+        .csf-input:focus { outline: none; background: rgba(29,158,117,0.06) !important; border-color: rgba(29,158,117,0.5) !important; }
+        .csf-btn:not(:disabled):hover { background: rgba(29,158,117,0.22) !important; border-color: rgba(29,158,117,0.6) !important; }
+        .csf-btn:not(:disabled):active { transform: translateY(1px); }
+      `}</style>
+      <div className="csf-root" style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
+        <div style={{
+          background: '#111113',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: 8,
+          padding: '2rem',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+            background: 'linear-gradient(90deg, #1D9E75, #5DCAA5)',
+          }} />
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(29,158,117,0.05) 0%, transparent 60%)',
+            pointerEvents: 'none',
+          }} />
 
-        <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-14 h-14 bg-indigo-600 flex items-center justify-center text-white mb-4 shadow-[4px_4px_0px_rgba(79,70,229,0.3)]">
-            <PlusCircle size={28} />
+          <div style={{ marginBottom: '1.75rem', position: 'relative' }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: '0.2em', color: '#1D9E75', textTransform: 'uppercase', marginBottom: 6 }}>
+              New Session
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: '#f0ede6' }}>
+              Create Session
+            </div>
           </div>
-          <h2
-            className="text-base font-black text-white tracking-tighter mb-1 uppercase"
-            data-testid="text-create-session-title"
-          >
-            Create New Session
-          </h2>
-          <p className="text-slate-400 text-[10px] font-semibold uppercase tracking-widest">
-            System Initialisation Required
-          </p>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6" data-testid="form-create-session">
-          <div className="group">
-            <label className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
-              <Clock size={10} className="text-indigo-500" />
-              Session Identifier
-            </label>
-            <div className="relative">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} data-testid="form-create-session">
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 8 }}>
+                <Clock size={10} style={{ color: '#1D9E75' }} />
+                Session Identifier
+              </label>
               <input
                 type="text"
                 required
                 value={sessionName}
                 onChange={(e) => setSessionName(e.target.value)}
                 placeholder="E.G. NASDAQ_SCALP_01"
-                className="w-full bg-slate-900/80 border-0 rounded-none py-4 px-6 text-sm text-white font-bold placeholder:text-slate-700 focus:outline-none focus:bg-slate-800 transition-all duration-200"
+                className="csf-input"
                 data-testid="input-session-name"
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, padding: '10px 14px', fontSize: 13, fontWeight: 600,
+                  color: '#f0ede6', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
+                  transition: 'border-color 0.2s, background 0.2s', boxSizing: 'border-box',
+                }}
               />
-              <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
             </div>
-          </div>
 
-          <div className="group">
-            <label className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
-              <Wallet size={10} className="text-indigo-500" />
-              Initial Liquidity
-            </label>
-            <div className="relative">
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-sm">$</div>
-              <input
-                type="number"
-                value={startingBalance}
-                onChange={(e) => setStartingBalance(e.target.value)}
-                placeholder="10000"
-                min="0"
-                step="0.01"
-                className="w-full bg-slate-900/80 border-0 rounded-none py-4 pl-12 pr-6 text-sm text-white font-black focus:outline-none focus:bg-slate-800 transition-all duration-200"
-                data-testid="input-starting-balance"
-              />
-              <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-indigo-500 group-focus-within:w-full transition-all duration-500" />
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 8 }}>
+                <Wallet size={10} style={{ color: '#1D9E75' }} />
+                Initial Balance
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#1D9E75', fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500 }}>$</span>
+                <input
+                  type="number"
+                  value={startingBalance}
+                  onChange={(e) => setStartingBalance(e.target.value)}
+                  placeholder="10000"
+                  min="0"
+                  step="0.01"
+                  className="csf-input"
+                  data-testid="input-starting-balance"
+                  style={{
+                    width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 6, padding: '10px 14px 10px 28px', fontSize: 13, fontWeight: 600,
+                    color: '#f0ede6', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
+                    transition: 'border-color 0.2s, background 0.2s', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          {formError && (
-            <div className="bg-red-500/10 border-l-2 border-red-500 px-4 py-3">
-              <p className="text-xs font-semibold text-red-400" data-testid="text-form-error">{formError}</p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className={`w-full relative mt-2 py-4 font-black text-white transition-all duration-200 flex items-center justify-center gap-3 tracking-[0.15em] uppercase text-[10px] ${
-              createMutation.isPending
-                ? 'bg-indigo-900'
-                : 'bg-indigo-600 hover:bg-indigo-500 active:translate-y-1 shadow-[0_6px_0_rgb(49,46,129)] hover:shadow-[0_3px_0_rgb(49,46,129)] active:shadow-none'
-            }`}
-            data-testid="button-create-session"
-          >
-            {createMutation.isPending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                Deploy Session
-                <ChevronRight size={14} strokeWidth={3} />
-              </>
+            {formError && (
+              <div style={{ background: 'rgba(255,77,77,0.08)', border: '1px solid rgba(255,77,77,0.25)', borderRadius: 6, padding: '10px 14px' }}>
+                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: '#ff7070', margin: 0 }} data-testid="text-form-error">{formError}</p>
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center gap-2">
-          <div className="text-[9px] font-bold text-slate-600 tracking-[0.3em] uppercase">Status: Ready</div>
-          <div className="h-1 w-16 bg-slate-800 relative overflow-hidden">
-            <div className="absolute inset-0 bg-indigo-500/50 animate-pulse" />
-          </div>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="csf-btn"
+              data-testid="button-create-session"
+              style={{
+                width: '100%', background: 'rgba(29,158,117,0.12)', border: '1px solid rgba(29,158,117,0.3)',
+                borderRadius: 6, padding: '11px 20px', color: '#1D9E75',
+                fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500,
+                letterSpacing: '0.1em', textTransform: 'uppercase', cursor: createMutation.isPending ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: createMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              {createMutation.isPending ? (
+                <div style={{ width: 14, height: 14, border: '2px solid rgba(29,158,117,0.3)', borderTopColor: '#1D9E75', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              ) : (
+                <>Deploy Session <ChevronRight size={13} /></>
+              )}
+            </button>
+          </form>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -203,29 +206,29 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
 }) => {
   const [hov, setHov] = useState(false);
   const [deleteHov, setDeleteHov] = useState(false);
+  const [editHov, setEditHov] = useState(false);
 
-  // Balance editing
   const [editingBal, setEditingBal] = useState(false);
   const [balInput, setBalInput] = useState('');
   const [balSaved, setBalSaved] = useState(false);
   const balInputRef = useRef<HTMLInputElement>(null);
 
-  // Name editing
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [nameSaved, setNameSaved] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const visible = useVisible(index * 80 + 120);
+  const visible = useVisible(index * 80 + 60);
   const pulse = usePulse();
   const { totalPnL, tradeCount, isLoading: balLoading } = useSessionBalance(session.id);
   const startBal = parseFloat(session.startingBalance) || 0;
   const hasData = !balLoading && tradeCount > 0;
   const pnlPositive = totalPnL >= 0;
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
-  const dateStr = session.createdAt ? new Date(session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const dateStr = session.createdAt
+    ? new Date(session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '';
 
-  // Balance mutation
   const updateBalMutation = useMutation({
     mutationFn: (newBal: number) =>
       apiRequest('PUT', `/api/sessions/${session.id}`, { startingBalance: String(newBal) }),
@@ -255,7 +258,6 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
     e.stopPropagation();
   };
 
-  // Name mutation
   const updateNameMutation = useMutation({
     mutationFn: (newName: string) =>
       apiRequest('PUT', `/api/sessions/${session.id}`, { sessionName: newName }),
@@ -285,10 +287,16 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
     e.stopPropagation();
   };
 
-  const pnlColor = !hasData ? '#555' : totalPnL === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
-  const retColor = !hasData ? '#555' : returnPct === 0 ? '#555' : pnlPositive ? '#3dff8f' : '#ff4d4d';
-
   const isEditing = editingBal || editingName;
+  const isWinner = hasData;
+
+  const pnlColor = !hasData ? 'rgba(232,230,224,0.25)' : pnlPositive ? '#1D9E75' : '#ff5e5e';
+  const retColor = !hasData ? 'rgba(232,230,224,0.25)' : pnlPositive ? '#1D9E75' : '#ff5e5e';
+  const tradesColor = tradeCount > 0 ? '#1D9E75' : 'rgba(232,230,224,0.25)';
+
+  const cardBorder = isWinner
+    ? (hov ? 'rgba(29,158,117,0.5)' : 'rgba(29,158,117,0.3)')
+    : (hov ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.07)');
 
   return (
     <div
@@ -297,184 +305,209 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        background: '#0c111b',
-        border: `2px solid ${isActive ? '#2a2a2a' : hov ? '#2a2a2a' : '#1a1a1a'}`,
-        cursor: 'pointer',
+        background: '#111113',
+        border: `1px solid ${cardBorder}`,
+        borderRadius: 6,
         position: 'relative',
-        transition: 'border-color 0.15s, transform 0.1s',
         overflow: 'hidden',
-        transform: visible ? (hov && !isActive ? 'translateY(-2px)' : 'translateY(0)') : 'translateY(24px)',
+        cursor: 'pointer',
+        transition: 'border-color 0.2s, transform 0.2s, opacity 0.4s',
+        transform: visible ? (hov && !isActive ? 'translateY(-2px)' : 'translateY(0)') : 'translateY(20px)',
         opacity: visible ? 1 : 0,
-        fontFamily: "'Montserrat', sans-serif",
+        fontFamily: "'DM Mono', monospace",
       }}
     >
-      {/* Top accent line */}
-      <div style={{ height: 3, background: hasData ? '#ff4d4d' : '#1e1e1e' }} />
+      {isWinner && (
+        <>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #1D9E75, #5DCAA5)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(29,158,117,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
+        </>
+      )}
 
-      {/* Card top bar */}
-      <div style={{
-        background: '#0d1220',
-        borderBottom: '2px solid #151e2e',
-        padding: '14px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {editingName ? (
-            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input
-                ref={nameInputRef}
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value)}
-                onKeyDown={handleNameKeyDown}
-                data-testid={`input-session-name-${session.id}`}
-                style={{
-                  fontSize: 12, fontWeight: 800, color: '#7eb8f7', background: 'transparent',
-                  border: 'none', borderBottom: '2px solid #60a5fa', outline: 'none',
-                  flex: 1, fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.1em',
-                  textTransform: 'uppercase', padding: '2px 0', minWidth: 0,
-                }}
-              />
-              <button onMouseDown={e => { e.preventDefault(); commitNameEdit(); }}
-                style={{ background: 'none', border: '1.5px solid #3dff8f', color: '#3dff8f', fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", flexShrink: 0 }}>✓</button>
-              <button onMouseDown={e => { e.preventDefault(); cancelNameEdit(); }}
-                style={{ background: 'none', border: '1.5px solid #444', color: '#888', fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", flexShrink: 0 }}>✗</button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div
-                data-testid={`text-session-name-${session.id}`}
-                style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7eb8f7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-              >
-                {session.sessionName}
+      <div style={{ padding: '1.25rem 1.25rem 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.1rem' }}>
+          <div style={{ flex: 1, minWidth: 0, marginRight: 10 }}>
+            {editingName ? (
+              <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  ref={nameInputRef}
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  data-testid={`input-session-name-${session.id}`}
+                  style={{
+                    fontSize: 13, fontWeight: 700, color: '#f0ede6', background: 'transparent',
+                    border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
+                    flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
+                    textTransform: 'uppercase', padding: '2px 0', minWidth: 0,
+                  }}
+                />
+                <button onMouseDown={e => { e.preventDefault(); commitNameEdit(); }}
+                  style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '2px 7px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✓</button>
+                <button onMouseDown={e => { e.preventDefault(); cancelNameEdit(); }}
+                  style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '2px 7px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✗</button>
               </div>
-              <span
-                onClick={startNameEdit}
-                style={{ cursor: 'pointer', color: '#60a5fa', opacity: 0.7, fontSize: 8, letterSpacing: '0.1em', flexShrink: 0 }}
-                title="Edit name"
-              >✎ EDIT</span>
-              {nameSaved && <span style={{ color: '#3dff8f', fontSize: 8, letterSpacing: '0.1em', flexShrink: 0 }}>✓ SAVED</span>}
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <div
+                  data-testid={`text-session-name-${session.id}`}
+                  style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: '#f0ede6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {session.sessionName}
+                </div>
+                <span
+                  onClick={startNameEdit}
+                  style={{ cursor: 'pointer', color: 'rgba(29,158,117,0.6)', fontSize: 8, letterSpacing: '0.1em', flexShrink: 0, transition: 'color 0.15s' }}
+                  title="Edit name"
+                >✎</span>
+                {nameSaved && <span style={{ color: '#1D9E75', fontSize: 8, letterSpacing: '0.1em' }}>saved</span>}
+              </div>
+            )}
+            <div style={{ fontSize: 10, letterSpacing: '0.06em', color: 'rgba(232,230,224,0.3)', marginTop: 3 }}>
+              {dateStr}
             </div>
-          )}
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#444', textTransform: 'uppercase', marginTop: 2 }}>
-            {dateStr}
           </div>
-        </div>
-        {isActive ? (
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px', flexShrink: 0,
-          }}>
-            <span style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: pulse ? '#60a5fa' : 'rgba(96,165,250,0.3)',
-              boxShadow: pulse ? '0 0 5px rgba(96,165,250,0.9)' : 'none',
-              transition: 'all 0.6s ease', flexShrink: 0,
-            }} />
-            ACTIVE
-          </span>
-        ) : (
-          <span style={{
-            fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#60a5fa', border: '1.5px solid #60a5fa', padding: '3px 8px', flexShrink: 0,
-          }}>
-            {session.status?.toUpperCase() || 'ACTIVE'}
-          </span>
-        )}
-      </div>
 
-      {/* Card body */}
-      <div style={{ padding: '10px 20px 0' }}>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: '#444', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-          Starting Balance
-          {!editingBal && (
-            <span onClick={startEdit} style={{ cursor: 'pointer', color: '#60a5fa', opacity: 0.7, fontSize: 8, letterSpacing: '0.1em' }} title="Edit balance">✎ EDIT</span>
-          )}
-          {balSaved && (
-            <span style={{ color: '#3dff8f', fontSize: 8, letterSpacing: '0.1em' }}>✓ SAVED</span>
+          {isActive ? (
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: '#5DCAA5', border: '1px solid rgba(29,158,117,0.3)',
+              padding: '3px 10px', borderRadius: 20, background: 'rgba(29,158,117,0.1)',
+            }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: pulse ? '#1D9E75' : 'rgba(29,158,117,0.3)',
+                boxShadow: pulse ? '0 0 6px rgba(29,158,117,0.9)' : 'none',
+                transition: 'all 0.6s ease', flexShrink: 0,
+              }} />
+              active
+            </span>
+          ) : (
+            <span style={{
+              flexShrink: 0, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: '#5DCAA5', border: '1px solid rgba(29,158,117,0.2)',
+              padding: '3px 10px', borderRadius: 20, background: 'rgba(29,158,117,0.1)',
+            }}>
+              {session.status?.toLowerCase() || 'active'}
+            </span>
           )}
         </div>
-        {editingBal ? (
-          <div onClick={e => e.stopPropagation()} style={{ marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: '1rem' }} />
+
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 4 }}>
+            Starting balance
+          </div>
+          {editingBal ? (
+            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
                 ref={balInputRef}
                 value={balInput}
                 onChange={e => setBalInput(e.target.value)}
                 onKeyDown={handleBalKeyDown}
                 style={{
-                  fontSize: 18, fontWeight: 800, color: '#ffffff', background: 'transparent',
-                  border: 'none', borderBottom: '2px solid #60a5fa', outline: 'none',
-                  flex: 1, fontFamily: "'Montserrat', sans-serif", letterSpacing: '-0.01em',
-                  padding: '2px 0',
+                  fontSize: 17, fontWeight: 700, color: '#f0ede6', background: 'transparent',
+                  border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
+                  flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.01em', padding: '2px 0',
                 }}
               />
               <button onMouseDown={e => { e.preventDefault(); commitEdit(); }}
-                style={{ background: 'none', border: '1.5px solid #3dff8f', color: '#3dff8f', fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em', flexShrink: 0 }}>✓</button>
+                style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '3px 8px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✓</button>
               <button onMouseDown={e => { e.preventDefault(); cancelEdit(); }}
-                style={{ background: 'none', border: '1.5px solid #444', color: '#888', fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.08em', flexShrink: 0 }}>✗</button>
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '3px 8px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✗</button>
             </div>
-          </div>
-        ) : (
-          <div
-            onClick={startEdit}
-            style={{ fontSize: 19, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 10, cursor: 'text' }}
-          >
-            ${startBal.toLocaleString()}
-          </div>
-        )}
+          ) : (
+            <div
+              onClick={startEdit}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f0ede6', letterSpacing: '-0.02em', cursor: 'text' }}>
+                ${startBal.toLocaleString()}
+              </div>
+              {balSaved && <span style={{ color: '#1D9E75', fontSize: 8, letterSpacing: '0.1em' }}>saved</span>}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: '1.1rem' }}>
+          {[
+            {
+              label: 'P&L',
+              value: !hasData ? '—' : `${totalPnL < 0 ? '' : '+'}$${Math.abs(totalPnL).toFixed(2)}`,
+              color: pnlColor,
+            },
+            {
+              label: 'Return',
+              value: !hasData ? '—' : `${returnPct < 0 ? '' : '+'}${returnPct.toFixed(1)}%`,
+              color: retColor,
+            },
+            {
+              label: 'Trades',
+              value: balLoading ? '—' : String(tradeCount),
+              color: tradesColor,
+            },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: 6,
+              padding: '8px 10px',
+            }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 5 }}>
+                {label}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 500, color, letterSpacing: '0.02em' }}>
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '2px solid #1a1a1a' }}>
-        <div style={{ padding: '16px 20px', borderRight: '2px solid #1a1a1a' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: '#444', textTransform: 'uppercase', marginBottom: 6 }}>P&amp;L</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: pnlColor, letterSpacing: '-0.01em' }}>
-            {!hasData ? '—' : `${totalPnL < 0 ? '' : '+'}${totalPnL.toFixed(2)}`}
-          </div>
-        </div>
-        <div style={{ padding: '16px 20px', borderRight: '2px solid #1a1a1a' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: '#444', textTransform: 'uppercase', marginBottom: 6 }}>Return</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: retColor, letterSpacing: '-0.01em' }}>
-            {!hasData ? '—' : `${returnPct < 0 ? '' : '+'}${returnPct.toFixed(1)}%`}
-          </div>
-        </div>
-        <div style={{ padding: '16px 20px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: '#444', textTransform: 'uppercase', marginBottom: 6 }}>Trades</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: tradeCount > 0 ? '#7eb8f7' : '#555', letterSpacing: '-0.01em' }}>
-            {balLoading ? '—' : tradeCount}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 20px', borderTop: '2px solid #151e2e', background: '#0d1220',
+        padding: '10px 1.25rem',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
       }}>
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#3a3a3a', textTransform: 'uppercase' }}>
+        <span style={{
+          fontSize: 10, letterSpacing: '0.05em',
+          color: hasData ? 'rgba(29,158,117,0.6)' : 'rgba(232,230,224,0.2)',
+        }}>
           {tradeCount === 0 ? 'No trades yet' : `${tradeCount} trade${tradeCount === 1 ? '' : 's'} logged`}
         </span>
-        <button
-          onClick={onDelete}
-          data-testid={`button-delete-session-${session.id}`}
-          onMouseEnter={() => setDeleteHov(true)}
-          onMouseLeave={() => setDeleteHov(false)}
-          style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: deleteHov ? '#ff4d4d' : '#3a3a3a',
-            background: 'none',
-            border: `1.5px solid ${deleteHov ? '#ff4d4d' : '#2a2a2a'}`,
-            padding: '5px 12px', cursor: 'pointer',
-            fontFamily: "'Montserrat', sans-serif",
-            transition: 'border-color 0.15s, color 0.15s',
-          }}
-        >
-          Delete
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={startNameEdit}
+            onMouseEnter={() => setEditHov(true)}
+            onMouseLeave={() => setEditHov(false)}
+            style={{
+              fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: '0.08em',
+              padding: '4px 12px', borderRadius: 5, cursor: 'pointer', transition: 'all 0.15s',
+              border: `1px solid ${editHov ? 'rgba(29,158,117,0.5)' : 'rgba(29,158,117,0.25)'}`,
+              background: editHov ? 'rgba(29,158,117,0.1)' : 'transparent',
+              color: editHov ? '#1D9E75' : 'rgba(29,158,117,0.7)',
+            }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            data-testid={`button-delete-session-${session.id}`}
+            onMouseEnter={() => setDeleteHov(true)}
+            onMouseLeave={() => setDeleteHov(false)}
+            style={{
+              fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: '0.08em',
+              padding: '4px 12px', borderRadius: 5, cursor: 'pointer', transition: 'all 0.15s',
+              border: `1px solid ${deleteHov ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              background: deleteHov ? 'rgba(255,80,80,0.08)' : 'transparent',
+              color: deleteHov ? '#ff5e5e' : 'rgba(232,230,224,0.35)',
+            }}
+          >
+            Delete
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -511,7 +544,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Loading sessions...</span>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Loading sessions...</span>
       </div>
     );
   }
@@ -519,43 +552,45 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   if (sessions.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 16 }}>
-        <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99,210,170,0.06)', border: '1px solid rgba(99,210,170,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Globe size={28} style={{ color: 'rgba(99,210,170,0.4)' }} />
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(29,158,117,0.06)', border: '1px solid rgba(29,158,117,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Globe size={28} style={{ color: 'rgba(29,158,117,0.4)' }} />
         </div>
-        <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 14, color: '#e2eaf5' }} data-testid="text-no-sessions">No Sessions Yet</span>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: 'rgba(255,255,255,0.28)', letterSpacing: '0.04em' }}>Create your first trading session to start tracking your performance</span>
+        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: '#f0ede6' }} data-testid="text-no-sessions">No Sessions Yet</span>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: 'rgba(232,230,224,0.28)', letterSpacing: '0.04em', textAlign: 'center' }}>Create your first trading session to start tracking your performance</span>
       </div>
     );
   }
 
   return (
     <>
-      <style>{`
-        .sessions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+      <style>{FONT_IMPORT}{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sessions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
         @media (max-width: 700px) { .sessions-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 480px) { .sessions-grid { grid-template-columns: 1fr; } }
       `}</style>
 
-      <div style={{ position: 'relative', fontFamily: "'Montserrat', sans-serif" }}>
+      <div style={{ position: 'relative', fontFamily: "'DM Mono', monospace" }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 12, borderBottom: '2px solid #222', paddingBottom: 16,
+          marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 16,
           opacity: headerVis ? 1 : 0,
           transform: headerVis ? 'translateY(0)' : 'translateY(-10px)',
           transition: 'opacity 0.5s ease, transform 0.5s ease',
         }}>
-          <h2
-            data-testid="text-sessions-title"
-            style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7eb8f7', margin: 0 }}
-          >
-            Trading Sessions
-          </h2>
-          <p style={{ fontSize: 11, fontWeight: 500, color: '#8a9bb0', letterSpacing: '0.02em', margin: 0 }}>
-            Select a session to view dashboard, metrics &amp; trade vault
-          </p>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: '#1D9E75', textTransform: 'uppercase', marginBottom: 4 }}>
+              Trading Sessions
+            </div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: '#f0ede6' }}
+              data-testid="text-sessions-title">
+              Your Sessions
+            </div>
+          </div>
           <span style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: '#60a5fa', border: '2px solid #60a5fa', padding: '6px 14px', whiteSpace: 'nowrap',
+            fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: '#5DCAA5', border: '1px solid rgba(29,158,117,0.2)',
+            padding: '5px 14px', borderRadius: 20, background: 'rgba(29,158,117,0.08)',
           }}>
             {sessions.length} {sessions.length === 1 ? 'Session' : 'Sessions'}
           </span>

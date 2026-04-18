@@ -1,0 +1,423 @@
+import { useState } from "react";
+
+const strategies = [
+  {
+    id: 1,
+    name: "M1H1D1(3)",
+    date: "14 Apr 2026",
+    balance: 5000,
+    pnl: null,
+    returnPct: null,
+    trades: 0,
+    status: "active",
+  },
+  {
+    id: 2,
+    name: "M1H1D1",
+    date: "14 Apr 2026",
+    balance: 5000,
+    pnl: null,
+    returnPct: null,
+    trades: 0,
+    status: "active",
+  },
+  {
+    id: 3,
+    name: "SNR/EMA200",
+    date: "05 Apr 2026",
+    balance: 5000,
+    pnl: 8964.02,
+    returnPct: 179.3,
+    trades: 21,
+    status: "active",
+  },
+];
+
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .tj-root {
+    min-height: 100vh;
+    background: #0a0a0b;
+    font-family: 'Syne', sans-serif;
+    color: #e8e6e0;
+    padding: 1rem;
+    position: relative;
+  }
+
+  @media (min-width: 640px) {
+    .tj-root { padding: 2rem; }
+  }
+
+  .tj-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(29,158,117,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 80% 80%, rgba(29,158,117,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .tj-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .tj-title-group {}
+
+  .tj-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: #1D9E75;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .tj-title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #f0ede6;
+  }
+
+  .tj-new-btn {
+    background: rgba(29,158,117,0.12);
+    border: 1px solid rgba(29,158,117,0.3);
+    color: #1D9E75;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tj-new-btn:hover {
+    background: rgba(29,158,117,0.2);
+    border-color: rgba(29,158,117,0.5);
+  }
+
+  .tj-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  @media (min-width: 540px) {
+    .tj-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (min-width: 860px) {
+    .tj-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .tj-card {
+    background: #111113;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+    padding: 1rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+
+  @media (min-width: 640px) {
+    .tj-card { padding: 1.5rem; }
+  }
+
+  .tj-card:hover {
+    border-color: rgba(255,255,255,0.14);
+    transform: translateY(-2px);
+  }
+
+  .tj-card-winner {
+    border-color: rgba(29,158,117,0.3);
+  }
+
+  .tj-card-winner:hover {
+    border-color: rgba(29,158,117,0.5);
+  }
+
+  .tj-card-winner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #1D9E75, #5DCAA5);
+  }
+
+  .tj-card-winner::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(29,158,117,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .tj-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+  }
+
+  .tj-card-name {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #f0ede6;
+    margin-bottom: 4px;
+  }
+
+  .tj-card-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: rgba(232,230,224,0.35);
+    letter-spacing: 0.04em;
+  }
+
+  .tj-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(29,158,117,0.1);
+    color: #5DCAA5;
+    border: 1px solid rgba(29,158,117,0.2);
+  }
+
+  .tj-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+    margin: 1rem 0;
+  }
+
+  .tj-balance-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232,230,224,0.3);
+    margin-bottom: 4px;
+  }
+
+  .tj-balance-value {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #f0ede6;
+    margin-bottom: 1.25rem;
+  }
+
+  .tj-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 1.25rem;
+  }
+
+  .tj-stat {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px 10px 8px;
+  }
+
+  .tj-stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(232,230,224,0.3);
+    margin-bottom: 5px;
+  }
+
+  .tj-stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(232,230,224,0.45);
+  }
+
+  @media (min-width: 640px) {
+    .tj-stat-value { font-size: 12px; }
+  }
+
+  .tj-stat-value.positive {
+    color: #1D9E75;
+  }
+
+  .tj-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .tj-footer-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: rgba(232,230,224,0.25);
+    letter-spacing: 0.05em;
+  }
+
+  .tj-footer-note.has-trades {
+    color: rgba(29,158,117,0.6);
+  }
+
+  .tj-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tj-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 5px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: rgba(232,230,224,0.4);
+  }
+
+  .tj-btn:hover {
+    background: rgba(255,255,255,0.05);
+    color: rgba(232,230,224,0.7);
+  }
+
+  .tj-btn-edit {
+    border-color: rgba(29,158,117,0.25);
+    color: rgba(29,158,117,0.7);
+  }
+
+  .tj-btn-edit:hover {
+    background: rgba(29,158,117,0.1);
+    color: #1D9E75;
+  }
+
+  .tj-summary-bar {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .tj-summary-item {}
+
+  .tj-summary-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232,230,224,0.25);
+    margin-bottom: 3px;
+  }
+
+  .tj-summary-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(232,230,224,0.6);
+  }
+
+  .tj-summary-value.green { color: #1D9E75; }
+`;
+
+function StatBlock({ label, value, positive }) {
+  return (
+    <div className="tj-stat">
+      <div className="tj-stat-label">{label}</div>
+      <div className={`tj-stat-value${positive ? " positive" : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function StrategyCard({ strategy }) {
+  const isWinner = strategy.trades > 0;
+  const hasPnl = strategy.pnl !== null;
+
+  return (
+    <div className={`tj-card${isWinner ? " tj-card-winner" : ""}`}>
+      <div className="tj-card-header">
+        <div>
+          <div className="tj-card-name">{strategy.name}</div>
+          <div className="tj-card-date">{strategy.date}</div>
+        </div>
+        <span className="tj-badge">{strategy.status}</span>
+      </div>
+
+      <div className="tj-divider" />
+
+      <div className="tj-balance-label">Starting balance</div>
+      <div className="tj-balance-value">
+        ${strategy.balance.toLocaleString()}
+      </div>
+
+      <div className="tj-stats">
+        <StatBlock
+          label="P&L"
+          value={hasPnl ? `+$${strategy.pnl.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+          positive={hasPnl}
+        />
+        <StatBlock
+          label="Return"
+          value={hasPnl ? `+${strategy.returnPct}%` : "—"}
+          positive={hasPnl}
+        />
+        <StatBlock
+          label="Trades"
+          value={strategy.trades === 0 ? "0" : strategy.trades}
+          positive={strategy.trades > 0}
+        />
+      </div>
+
+      <div className="tj-card-footer">
+        <span className={`tj-footer-note${isWinner ? " has-trades" : ""}`}>
+          {isWinner ? `${strategy.trades} trades logged` : "No trades yet"}
+        </span>
+        <div className="tj-actions">
+          <button className="tj-btn tj-btn-edit">Edit</button>
+          <button className="tj-btn">Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function TradingJournal() {
+  const [cards, setCards] = useState(strategies);
+
+  const totalTrades = cards.reduce((s, c) => s + c.trades, 0);
+  const totalPnl = cards.reduce((s, c) => s + (c.pnl || 0), 0);
+  const activeCount = cards.filter((c) => c.status === "active").length;
+
+  return (
+    <>
+      <style>{styles}</style>
+      <div className="tj-root">
+
+
+
+
+        <div className="tj-grid">
+          {cards.map((s) => (
+            <StrategyCard key={s.id} strategy={s} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
