@@ -2430,6 +2430,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Internal bridge API (Python bridge → Node.js) ──────────────────────────
+  // All routes under /api/internal are protected by BRIDGE_SECRET.
+  // Only the copy trading bridge container calls these — never the browser.
+
+  const requireBridgeSecret = (req: Request, res: Response, next: NextFunction) => {
+    const secret = process.env.BRIDGE_SECRET;
+    if (!secret || req.headers['x-bridge-secret'] !== secret)
+      return res.status(403).json({ error: 'Forbidden' });
+    next();
+  };
+
+  // Bridge fetches this on startup to know which MT5 master accounts to monitor.
+  app.get('/api/internal/active-providers', requireBridgeSecret, async (req: Request, res: Response) => {
+    try {
+      const rows = await pool.query<{
+        id: string; login_id: string; broker_server: string; password_enc: string;
+      }>(`
+        SELECT cm.id, ca.login_id, ca.broker_server, ca.password_enc
+        FROM   copy_masters  cm
+        JOIN   copy_accounts ca ON ca.id = cm.account_id
+        WHERE  cm.is_active = TRUE AND cm.source_type = 'mt5'
+      `);
+      const providers = rows.rows.map(r => ({
+        id:       r.id,
+        login:    r.login_id,
+        server:   r.broker_server,
+        password: safeDecrypt(r.password_enc) ?? '',
+      }));
+      return res.json(providers);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

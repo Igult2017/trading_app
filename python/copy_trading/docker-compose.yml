@@ -1,23 +1,45 @@
-# Copy Trading Bridge — Docker Compose (single VPS, Phase 1)
-# Runs alongside the existing Node.js trading journal on the same host.
+# Copy Trading Bridge — Docker Compose
+# Single VPS, Path B (one MT5 terminal, serialised via asyncio lock).
+# Supports up to ~8 active followers comfortably on a 4–8 GB VPS.
 #
 # Usage:
-#   cp .env.example .env        # fill in secrets
+#   cp ../../.env.example ../../.env   # fill in all secrets
 #   docker compose up -d
 #
-# Scaling (future):
-#   docker compose up -d --scale worker=4
+# Teardown:
+#   docker compose down
 #
-# MT5 bridge (Linux):
-#   The worker connects to the mt5-remote bridge running on the VPS host at
-#   MT5_BRIDGE_HOST:MT5_BRIDGE_PORT (default 127.0.0.1:18812).
-#   network_mode: host lets the containers reach that local socket.
+# Upgrade MT5 (flushes Wine prefix — only if MT5 needs reinstall):
+#   docker compose down && docker volume rm copy_trading_mt5_data
+#   docker compose up -d
 
 version: "3.9"
 
 services:
 
-  # ── Redis queue ──────────────────────────────────────────────────────────────
+  # ── 1. MT5 Terminal (Wine + MT5 + mt5linux RPyC server) ──────────────────────
+  mt5:
+    image: gmag11/metatrader5_vnc:latest
+    restart: unless-stopped
+    ports:
+      # VNC browser UI — view/configure the MT5 terminal visually
+      - "127.0.0.1:3010:3000"
+      # mt5linux RPyC — Python bridge connects here (internal only)
+      - "127.0.0.1:8812:8812"
+    volumes:
+      - mt5_data:/config
+    environment:
+      - CUSTOM_USER=admin
+      - PASSWORD=${VNC_PASSWORD}
+    networks:
+      - bridge_net
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8812 || exit 1"]
+      interval: 20s
+      retries: 10
+      start_period: 60s
+
+  # ── 2. Redis (signal queue) ───────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -26,16 +48,16 @@ services:
       --requirepass ${REDIS_PASSWORD:-}
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-    ports:
-      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - bridge_net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       retries: 5
 
-  # ── FastAPI bridge (control plane + signal ingestion API) ───────────────────
+  # ── 3. FastAPI control plane (signal ingestion + status API) ─────────────────
   api:
     build:
       context: ../..
@@ -50,40 +72,52 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # mt5linux connects to the mt5 service by Docker service name
+      - MT5_BRIDGE_HOST=mt5
+      - MT5_BRIDGE_PORT=8812
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - bridge_net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 15s
       retries: 3
 
-  # ── Worker (queue consumer + MT5 executor) ───────────────────────────────────
+  # ── 4. Worker (queue consumer + MT5 executor) ─────────────────────────────────
   worker:
     build:
       context: ../..
       dockerfile: python/copy_trading/Dockerfile
     restart: unless-stopped
-    # network_mode host lets the container reach the mt5-remote bridge on the
-    # VPS host (127.0.0.1:18812) and the Telegram session files on disk.
-    network_mode: host
     command: python -m python.copy_trading.main
     env_file: ../../.env
     environment:
-      - REDIS_HOST=127.0.0.1
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # MT5_BRIDGE_HOST / MT5_BRIDGE_PORT are read from .env (defaults: 127.0.0.1 / 18812)
+      # Point at the MT5 container — no longer needs host networking
+      - MT5_BRIDGE_HOST=mt5
+      - MT5_BRIDGE_PORT=8812
     volumes:
-      # Persist Telegram session files across container restarts
       - tg_sessions:/var/lib/tradesync/tg_sessions
     depends_on:
       redis:
         condition: service_healthy
       api:
         condition: service_healthy
+      mt5:
+        condition: service_healthy
+    networks:
+      - bridge_net
     deploy:
-      replicas: 1          # increase to 4 when scaling beyond 100 users
+      replicas: 1   # single worker — Path B serialises via asyncio lock
+
+networks:
+  bridge_net:
+    driver: bridge
 
 volumes:
+  mt5_data:       # MT5 Wine prefix + config (survives container restarts)
   redis_data:
-  tg_sessions:            # named volume — survives container restarts and rebuilds
+  tg_sessions:
