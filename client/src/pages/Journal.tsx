@@ -262,22 +262,25 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
   );
 };
 
-const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void }) => {
+const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void; darkMode?: boolean }) => {
   const showLabels = isMobile || open;
   const [hovered, setHovered] = useState(false);
+  const dm = darkMode ?? true;
+  const sbBg = dm ? '#010409' : '#f8fafc';
+  const sbBorder = dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.07)';
 
   const sidebarStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', top: 0, left: open ? 0 : '-280px', bottom: 0, width: 185,
-    zIndex: 50, transition: 'left 0.3s ease', background: '#010409',
+    zIndex: 50, transition: 'left 0.3s ease, background 0.3s', background: sbBg,
     display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
   } : {
     width: open ? 185 : 72, minWidth: open ? 185 : 72, height: '100%',
-    overflowY: 'auto', overflowX: 'hidden', background: '#010409',
+    overflowY: 'auto', overflowX: 'hidden', background: sbBg,
     display: 'flex', flexDirection: 'column', position: 'relative',
-    flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
+    flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease, background 0.3s',
     fontFamily: "'Montserrat',sans-serif",
-    borderRight: '1px solid rgba(255,255,255,0.04)',
+    borderRight: `1px solid ${sbBorder}`,
   };
 
   return (
@@ -855,6 +858,19 @@ export default function Journal() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('journal_dark_mode');
+      return saved === null ? true : saved === 'true';
+    }
+    return true;
+  });
+  const toggleDarkMode = () => setDarkMode(d => {
+    const next = !d;
+    localStorage.setItem('journal_dark_mode', String(next));
+    return next;
+  });
+  const dm = darkMode;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -922,7 +938,7 @@ export default function Journal() {
 
 
   return (
-    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
+    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: dm ? '#010409' : '#f0f4f8', color: dm ? '#cbd5e1' : '#1e293b', transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
         .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
         .journal-root svg text{font-family:'Montserrat',sans-serif!important;}
@@ -933,10 +949,14 @@ export default function Journal() {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
-      <JournalHeader onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)} />
+      <JournalHeader
+        onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
+      />
 
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
-        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
+        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={darkMode} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
 
