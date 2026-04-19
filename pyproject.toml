@@ -36,4 +36,5 @@ dependencies = [
     "uvicorn[standard]>=0.44.0",
     "websockets>=12.0",
     "yfinance>=0.2.66",
+    "cloudscraper>=1.2.71",
 ]

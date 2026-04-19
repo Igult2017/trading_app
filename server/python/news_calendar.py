@@ -21,6 +21,7 @@ import sys
 import re
 import json
 import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -161,19 +162,36 @@ def _scrape_tradingview() -> list:
 
 
 def _scrape_myfxbook() -> list:
-    """Newskeeper-style scrape of MyFXBook economic calendar (fallback)."""
+    """Newskeeper-style scrape of MyFXBook using cloudscraper to bypass Cloudflare."""
     url = 'https://www.myfxbook.com/forex-economic-calendar'
     try:
-        session = requests.Session()
-        # Prime session with a visit to get any required cookies
-        session.get('https://www.myfxbook.com', headers=HEADERS, timeout=10)
-        resp = session.get(url, headers=HEADERS, timeout=15)
+        scraper = cloudscraper.create_scraper(
+            browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
+        )
+        resp = scraper.get(url, timeout=30)
+        print(
+            f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes)',
+            file=sys.stderr,
+        )
         if resp.status_code != 200:
-            print(f'[news_calendar] MyFXBook HTTP {resp.status_code}', file=sys.stderr)
+            return []
+
+        if 'Just a moment' in resp.text or 'cf-browser-verification' in resp.text:
+            print('[news_calendar] MyFXBook: Cloudflare challenge not bypassed', file=sys.stderr)
             return []
 
         soup = BeautifulSoup(resp.text, 'html.parser')
         rows = soup.find_all('tr', class_='economicCalendarRow')
+
+        if not rows:
+            title = soup.title.string if soup.title else 'none'
+            print(
+                f'[news_calendar] MyFXBook: 0 rows. Title={title!r}. '
+                f'First 300: {resp.text[:300]}',
+                file=sys.stderr,
+            )
+            return []
+
         year = datetime.now().year
         results = []
 
