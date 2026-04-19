@@ -2483,6 +2483,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Blog: single post (public) ───────────────────────────────────────────────
+  app.get("/api/blog/:id", async (req: Request, res: Response) => {
+    try {
+      const post = await storage.getBlogPostById(req.params.id);
+      if (!post) return res.status(404).json({ error: 'Post not found' });
+      return res.json(post);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Blog: create post ─────────────────────────────────────────────────────────
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
