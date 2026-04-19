@@ -54,7 +54,9 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     pillow \
     pytesseract \
     opencv-python-headless \
-    psycopg2-binary
+    psycopg2-binary \
+    beautifulsoup4 \
+    cloudscraper
 
 # Copy package files and install production Node dependencies
 COPY package*.json ./
