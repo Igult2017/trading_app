@@ -2066,19 +2066,8 @@ export default function AdminPanel() {
 
       {/* SIDEBAR */}
       <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
-        <button onClick={() => setCollapsed(p => !p)}
-          style={{ position: 'absolute', right: '-12px', top: '30px', zIndex: 30, width: '24px', height: '24px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.muted }}>
-          <svg viewBox="0 0 24 24" style={{ width: '11px', height: '11px', transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-        </button>
-        <div style={{ padding: collapsed ? '6px 0' : '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ width: '28px', height: '28px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none">
-              <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
-              <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
-            </svg>
-          </div>
-          {!collapsed && <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '12px', letterSpacing: '0.12em', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>FSDZONES</span>}
-        </div>
+        {/* top spacer that aligns with the header bar height */}
+        <div style={{ height: '49px', flexShrink: 0, borderBottom: `1px solid ${C.border}` }} />
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
           {SIDEBAR_GROUPS.map((group, gi) => (
             <div key={gi}>
@@ -2117,7 +2106,36 @@ export default function AdminPanel() {
 
       {/* MAIN CONTENT */}
       <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `6px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+          {/* ── Left: hamburger + logo ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => setCollapsed(p => !p)}
+              aria-label="Toggle sidebar"
+              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '5px', width: '36px', height: '36px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px', transition: 'background 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              {/* three lines — animate to X when collapsed */}
+              <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(45deg) translate(4px,4px)' : 'none' }} />
+              <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', opacity: collapsed ? 0 : 1 }} />
+              <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(-45deg) translate(4px,-4px)' : 'none' }} />
+            </button>
+
+            {/* Logo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '26px', height: '26px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none">
+                  <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
+                  <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
+                </svg>
+              </div>
+              <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '13px', letterSpacing: '0.1em', color: 'white', textTransform: 'uppercase' }}>FSDZONES</span>
+            </div>
+          </div>
+
+          {/* ── Right: actions ── */}
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
