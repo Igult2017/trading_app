@@ -307,7 +307,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       style={{
         background: '#111113',
         border: `1px solid ${cardBorder}`,
-        borderRadius: 6,
+        borderRadius: 0,
         position: 'relative',
         overflow: 'hidden',
         cursor: 'pointer',
@@ -452,7 +452,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
             <div key={label} style={{
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: 6,
+              borderRadius: 0,
               padding: '8px 10px',
             }}>
               <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 5 }}>
@@ -581,10 +581,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.2em', color: '#1D9E75', textTransform: 'uppercase', marginBottom: 4 }}>
               Trading Sessions
-            </div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: '#f0ede6' }}
-              data-testid="text-sessions-title">
-              Your Sessions
             </div>
           </div>
           <span style={{
