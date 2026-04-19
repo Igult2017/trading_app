@@ -319,7 +319,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
     >
       {isWinner && (
         <>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #1D9E75, #5DCAA5)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #1a6ef5, #5aadff)', zIndex: 1 }} />
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(29,158,117,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
         </>
       )}
