@@ -15,6 +15,18 @@ export interface SignalOutcome {
 export class SignalMonitorService {
   private monitoringInterval: NodeJS.Timeout | null = null;
   private isRunning = false;
+  private _lastScanAt: number | null = null;
+  private _lastActiveCount: number | null = null;
+  private _lastError: string | null = null;
+
+  getStatus() {
+    return {
+      running:         this.isRunning,
+      lastScanAt:      this._lastScanAt,
+      lastActiveCount: this._lastActiveCount,
+      lastError:       this._lastError,
+    };
+  }
 
   async start(intervalMs: number = 30000) {
     if (this.isRunning) {
@@ -51,7 +63,7 @@ export class SignalMonitorService {
           await this.checkWatchlistSignal(signal);
           continue;
         }
-        
+
         if (signal.status !== 'active') continue;
 
         const outcome = await this.checkSignal(signal);
@@ -64,8 +76,12 @@ export class SignalMonitorService {
         }
       }
 
+      this._lastScanAt = Date.now();
+      this._lastActiveCount = allSignals.filter(s => s.status === 'active').length;
+      this._lastError = null;
       return outcomes;
-    } catch (error) {
+    } catch (error: any) {
+      this._lastError = error?.message ?? String(error);
       console.error('[SignalMonitor] Error checking signals:', error);
       return [];
     }

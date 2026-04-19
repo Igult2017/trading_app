@@ -54,7 +54,7 @@ const addServerLog = (level: ServerLog['level'], service: string, message: strin
 import { signalMonitor } from "./services/signalMonitor";
 // ── FIX: import balance tracker ───────────────────────────────────────────────
 import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTracker";
-import { getHomepageCalendar, getHomepageRates } from "./services/homepageCalendar";
+import { getHomepageCalendar, getHomepageRates, getCalendarServiceStatus } from "./services/homepageCalendar";
 import { getCryptoData } from "./services/cryptoService";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
@@ -2362,6 +2362,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ]);
 
     return res.json({ services: checks, uptimeSec: Math.floor(process.uptime()) });
+  });
+
+  // ── Admin: background services state ─────────────────────────────────────────
+  app.get("/api/admin/services-state", requireAdmin, (_req: Request, res: Response) => {
+    const calStatus = getCalendarServiceStatus();
+    const sigStatus = signalMonitor.getStatus();
+    const dbPool = pool as any;
+    return res.json({
+      calendar: calStatus.calendar,
+      rates:    calStatus.rates,
+      signals:  sigStatus,
+      dbPool: {
+        total:   dbPool.totalCount   ?? null,
+        idle:    dbPool.idleCount    ?? null,
+        waiting: dbPool.waitingCount ?? null,
+      },
+    });
   });
 
   // ── Admin: server event log ───────────────────────────────────────────────────
