@@ -28,7 +28,7 @@ const inputBase = (extra: Record<string, any> = {}) => ({
   border:       "0.5px solid rgba(255,255,255,0.1)",
   borderRadius: 6,
   color:        "rgba(255,255,255,0.85)",
-  fontFamily:   "'Geist', system-ui, sans-serif",
+  fontFamily:   "var(--admin-font)",
   fontSize:     12,
   padding:      "7px 10px",
   outline:      "none",
@@ -106,7 +106,7 @@ function YoutubeEmbed({ value, onChange }: { value: string; onChange: (v: string
           placeholder="Paste YouTube URL or video ID…"
           style={{
             flex: 1, background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.1)",
-            borderRadius: 7, color: "rgba(255,255,255,0.85)", fontFamily: "'Geist',system-ui,sans-serif",
+            borderRadius: 7, color: "rgba(255,255,255,0.85)", fontFamily: "var(--admin-font)",
             fontSize: 13, padding: "9px 12px", outline: "none",
           }}
           onFocus={e => { e.target.style.borderColor = "rgba(255,80,80,0.4)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
@@ -294,7 +294,7 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
               background:   on ? "rgba(99,153,34,0.2)"  : "rgba(255,255,255,0.04)",
               border:       `0.5px solid ${on ? "rgba(99,153,34,0.55)" : "rgba(255,255,255,0.1)"}`,
               borderRadius: 20, color: on ? "#a8d46f" : "rgba(255,255,255,0.38)",
-              fontSize: 10, fontFamily: "'Geist', system-ui, sans-serif",
+              fontSize: 10, fontFamily: "var(--admin-font)",
               padding: "4px 10px", cursor: "pointer", transition: "all 0.15s",
               whiteSpace: "nowrap" as const, lineHeight: 1.4, display: "flex", alignItems: "center", gap: 4,
             }}>
@@ -709,7 +709,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
     border:       `0.5px solid ${focused ? "rgba(99,153,34,0.45)" : "rgba(255,255,255,0.1)"}`,
     borderRadius: "0 0 8px 8px",
     color:        "rgba(255,255,255,0.82)",
-    fontFamily:   "'Geist', system-ui, sans-serif",
+    fontFamily:   "var(--admin-font)",
     fontSize:     13.5,
     lineHeight:   1.9,
     padding:      "12px 14px",
@@ -818,7 +818,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
                   }}>
                     {isNumbered ? num : "•"}
                   </span>
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6, fontFamily: "'Geist', system-ui, sans-serif" }}>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6, fontFamily: "var(--admin-font)" }}>
                     {text}
                   </span>
                 </li>
@@ -854,7 +854,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     border:       "0.5px solid rgba(255,255,255,0.1)",
     borderRadius: 7,
     color:        "rgba(255,255,255,0.85)",
-    fontFamily:   "'Geist', system-ui, sans-serif",
+    fontFamily:   "var(--admin-font)",
     fontSize:     13,
     padding:      "9px 12px",
     outline:      "none",
@@ -905,7 +905,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     <div style={{
       background: "#0a0d12", display: "flex", flexDirection: "column" as const,
       flex: 1, minHeight: 0,
-      fontFamily: "'Geist', system-ui, sans-serif",
+      fontFamily: "var(--admin-font)",
       color: "rgba(255,255,255,0.85)",
       border: "0.5px solid rgba(255,255,255,0.08)",
       borderRadius: 10, overflow: "hidden",
@@ -985,7 +985,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
 
           {/* Article Summary */}
           <SectionHeading>Article Summary</SectionHeading>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "'Geist', system-ui, sans-serif", marginTop: -14, marginBottom: 2, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "var(--admin-font)", marginTop: -14, marginBottom: 2, lineHeight: 1.6 }}>
             Key takeaways shown before the full article — great for readers who skim. Each bullet or numbered point becomes a formatted list.
           </div>
           <SummaryEditor value={form.summary} onChange={v => set({ summary: v })} />
@@ -1056,7 +1056,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={onCancel}
-            style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.12)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "'Geist', system-ui, sans-serif", fontSize: 13, padding: "7px 16px", cursor: "pointer", transition: "all 0.15s" }}
+            style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.12)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 13, padding: "7px 16px", cursor: "pointer", transition: "all 0.15s" }}
             onMouseEnter={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.28)"; (e.target as any).style.color = "rgba(255,255,255,0.75)"; }}
             onMouseLeave={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.12)"; (e.target as any).style.color = "rgba(255,255,255,0.45)"; }}
           >
@@ -1073,7 +1073,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           <button
             onClick={handleSubmit}
             disabled={saving || !form.title.trim()}
-            style={{ background: saving || !form.title.trim() ? "#2a4d0c" : "#3b6d11", border: "none", borderRadius: 7, color: saving || !form.title.trim() ? "rgba(192,221,151,0.5)" : "#c0dd97", fontFamily: "'Geist', system-ui, sans-serif", fontSize: 13, fontWeight: 500, padding: "7px 22px", cursor: saving || !form.title.trim() ? "not-allowed" : "pointer", transition: "background 0.15s" }}
+            style={{ background: saving || !form.title.trim() ? "#2a4d0c" : "#3b6d11", border: "none", borderRadius: 7, color: saving || !form.title.trim() ? "rgba(192,221,151,0.5)" : "#c0dd97", fontFamily: "var(--admin-font)", fontSize: 13, fontWeight: 500, padding: "7px 22px", cursor: saving || !form.title.trim() ? "not-allowed" : "pointer", transition: "background 0.15s" }}
             onMouseEnter={e => { if (!saving && form.title.trim()) (e.target as any).style.background = "#4a8515"; }}
             onMouseLeave={e => { if (!saving && form.title.trim()) (e.target as any).style.background = "#3b6d11"; }}
           >
