@@ -168,12 +168,15 @@ def _scrape_myfxbook() -> list:
         scraper = cloudscraper.create_scraper(
             browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
         )
+        # Prime cookies with a homepage visit first
+        scraper.get('https://www.myfxbook.com', timeout=20)
         resp = scraper.get(url, timeout=30)
         print(
             f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes)',
             file=sys.stderr,
         )
         if resp.status_code != 200:
+            print(f'[news_calendar] MyFXBook body snippet: {resp.text[:300]}', file=sys.stderr)
             return []
 
         if 'Just a moment' in resp.text or 'cf-browser-verification' in resp.text:
@@ -330,7 +333,13 @@ def scrape_crypto_events(limit: int = 30) -> list:
             resp = requests.get(feed_url, headers=HEADERS, timeout=12)
             if resp.status_code != 200:
                 continue
-            root = ET.fromstring(resp.text)
+            # Use bytes so ET can read the XML encoding declaration correctly.
+            # If the response isn't XML at all, skip gracefully.
+            content = resp.content.lstrip()
+            if not content.startswith(b'<'):
+                print(f'[news_calendar] {feed_url}: not XML, skipping', file=sys.stderr)
+                continue
+            root = ET.fromstring(content)
             for item in root.findall('.//item'):
                 title = (item.findtext('title') or '').strip()
                 pubdate = (item.findtext('pubDate') or '').strip()
