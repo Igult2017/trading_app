@@ -113,6 +113,168 @@ function renderMarkdown(md: string, isDark: boolean): string {
   return out.join('\n');
 }
 
+// ── Share bar ─────────────────────────────────────────────────────────────────
+
+const SHARE_PLATFORMS = [
+  {
+    key: 'x',
+    label: 'X',
+    icon: '𝕏',
+    color: '#000',
+    bg: 'rgba(255,255,255,0.08)',
+    border: 'rgba(255,255,255,0.15)',
+    url: (u: string, t: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}`,
+  },
+  {
+    key: 'facebook',
+    label: 'Facebook',
+    icon: 'f',
+    color: '#1877f2',
+    bg: 'rgba(24,119,242,0.1)',
+    border: 'rgba(24,119,242,0.25)',
+    url: (u: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}`,
+  },
+  {
+    key: 'linkedin',
+    label: 'LinkedIn',
+    icon: 'in',
+    color: '#0a66c2',
+    bg: 'rgba(10,102,194,0.1)',
+    border: 'rgba(10,102,194,0.25)',
+    url: (u: string, t: string) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(u)}&title=${encodeURIComponent(t)}`,
+  },
+  {
+    key: 'reddit',
+    label: 'Reddit',
+    icon: '⬆',
+    color: '#ff4500',
+    bg: 'rgba(255,69,0,0.1)',
+    border: 'rgba(255,69,0,0.25)',
+    url: (u: string, t: string) => `https://reddit.com/submit?url=${encodeURIComponent(u)}&title=${encodeURIComponent(t)}`,
+  },
+  {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    icon: '💬',
+    color: '#25d366',
+    bg: 'rgba(37,211,102,0.1)',
+    border: 'rgba(37,211,102,0.25)',
+    url: (u: string, t: string) => `https://api.whatsapp.com/send?text=${encodeURIComponent(t + ' ' + u)}`,
+  },
+  {
+    key: 'telegram',
+    label: 'Telegram',
+    icon: '✈',
+    color: '#229ed9',
+    bg: 'rgba(34,158,217,0.1)',
+    border: 'rgba(34,158,217,0.25)',
+    url: (u: string, t: string) => `https://t.me/share/url?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}`,
+  },
+];
+
+function ShareBar({ post, isDark, border, accent, muted, cardBg }: {
+  post: Post; isDark: boolean; border: string; accent: string; muted: string; cardBg: string;
+}) {
+  const [copied, setCopied]       = useState(false);
+  const [showEmbed, setShowEmbed] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
+
+  const pageUrl   = window.location.href;
+  const embedCode = `<iframe src="${pageUrl}" width="100%" height="700" frameborder="0" style="border-radius:8px;border:1px solid #1e293b;" allowfullscreen loading="lazy" title="${post.title}"></iframe>`;
+
+  const share = (p: typeof SHARE_PLATFORMS[0]) => {
+    window.open(p.url(pageUrl, post.title), '_blank', 'noopener,noreferrer,width=600,height=500');
+  };
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(pageUrl).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyEmbed = async () => {
+    await navigator.clipboard.writeText(embedCode).catch(() => {});
+    setEmbedCopied(true);
+    setTimeout(() => setEmbedCopied(false), 2000);
+  };
+
+  const divStyle: React.CSSProperties = { height: 1, background: border, margin: '48px 0 32px' };
+  const btnBase: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',
+    borderRadius: 8, border: '1px solid', cursor: 'pointer', fontSize: 12,
+    fontFamily: '"Montserrat",sans-serif', fontWeight: 700, transition: 'all 0.15s',
+    whiteSpace: 'nowrap' as const, textDecoration: 'none',
+  };
+
+  return (
+    <>
+      <div style={divStyle} />
+      <div style={{ marginBottom: 48 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: muted, marginBottom: 16 }}>
+          Share this article
+        </div>
+
+        {/* Platform buttons */}
+        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 8, marginBottom: 12 }}>
+          {SHARE_PLATFORMS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => share(p)}
+              style={{ ...btnBase, background: p.bg, borderColor: p.border, color: p.color }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+            >
+              <span style={{ fontSize: p.key === 'x' ? 13 : 14, lineHeight: 1 }}>{p.icon}</span>
+              {p.label}
+            </button>
+          ))}
+
+          {/* Copy link */}
+          <button
+            onClick={copyLink}
+            style={{ ...btnBase, background: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', borderColor: border, color: copied ? '#4ade80' : muted }}
+          >
+            <span style={{ fontSize: 13 }}>{copied ? '✓' : '🔗'}</span>
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+        </div>
+
+        {/* Embed toggle */}
+        <button
+          onClick={() => setShowEmbed(v => !v)}
+          style={{ ...btnBase, background: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb', color: muted, fontSize: 11 }}
+        >
+          <span style={{ fontSize: 13 }}>{'</>'}</span>
+          {showEmbed ? 'Hide embed code' : 'Embed in your article'}
+        </button>
+
+        {/* Embed code panel */}
+        {showEmbed && (
+          <div style={{ marginTop: 14, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${border}` }}>
+              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.15em', color: muted, fontFamily: '"DM Mono",monospace' }}>
+                iframe embed code
+              </span>
+              <button
+                onClick={copyEmbed}
+                style={{ ...btnBase, padding: '4px 12px', fontSize: 11, background: embedCopied ? 'rgba(74,222,128,0.1)' : isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', borderColor: embedCopied ? 'rgba(74,222,128,0.3)' : border, color: embedCopied ? '#4ade80' : muted }}
+              >
+                {embedCopied ? '✓ Copied' : 'Copy code'}
+              </button>
+            </div>
+            <pre style={{ margin: 0, padding: '14px', fontSize: 11, fontFamily: '"DM Mono",monospace', color: isDark ? '#93c5fd' : '#1d4ed8', overflowX: 'auto' as const, lineHeight: 1.6, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-all' as const }}>
+              {embedCode}
+            </pre>
+            <div style={{ padding: '8px 14px', borderTop: `1px solid ${border}`, fontSize: 10, color: muted, fontFamily: '"DM Mono",monospace' }}>
+              Paste this into any HTML page or article editor to embed this post.
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ── Reading progress bar ───────────────────────────────────────────────────────
 
 function ReadingProgress({ isDark }: { isDark: boolean }) {
@@ -357,6 +519,9 @@ export default function BlogPostPage() {
           style={{ color: isDark ? '#cbd5e1' : '#374151', fontSize: '1.06rem', lineHeight: 1.9 }}
           dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content || '_No content yet._', isDark) }}
         />
+
+        {/* ── Share bar ────────────────────────────────────────────────────── */}
+        <ShareBar post={post} isDark={isDark} border={border} accent={accent} muted={muted} cardBg={cardBg} />
 
         {/* ── Author card ───────────────────────────────────────────────────── */}
         <div style={{ marginTop: 60, padding: '28px 32px', background: cardBg, border: `1px solid ${border}`, borderLeft: `4px solid ${accent}` }}>
