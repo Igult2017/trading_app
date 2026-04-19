@@ -7,7 +7,7 @@ import {
   Users, FileText, Megaphone, Settings, Search, TrendingUp,
   MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
   Globe, Clock, HeadphonesIcon, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  MessageSquare, Phone, Star, Timer, Database,
+  MessageSquare, Phone, Star, Timer, Database, GitFork,
   Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, Layers, BookOpen, ExternalLink
 } from 'lucide-react';
 
@@ -744,6 +744,360 @@ const SERVICE_GROUPS = {
   'Infrastructure': ['Database', 'Auth / Logins', 'Cache Layer', 'App Loading'],
   'Features':       ['Blog', 'Journal', 'Economic Calendar', 'TSC Page'],
   'Services':       ['Price Feed', 'Gemini AI', 'Telegram Bot', 'Copy Trading Bridge'],
+};
+
+// ─── SYNC PERFORMANCE SECTION ────────────────────────────────────────────────
+const SyncPerformanceSection = ({ bp }: { bp: any }) => {
+  const [tab, setTab] = useState<'providers' | 'telegram' | 'followers' | 'trades'>('providers');
+
+  // ── Providers ──────────────────────────────────────────────────────────────
+  const [providers, setProviders]       = useState<any[]>([]);
+  const [provLoading, setProvLoading]   = useState(true);
+
+  // ── Telegram ───────────────────────────────────────────────────────────────
+  const [tgStats, setTgStats]           = useState<any>(null);
+  const [tgTrades, setTgTrades]         = useState<any[]>([]);
+  const [tgLoading, setTgLoading]       = useState(true);
+  const [marking, setMarking]           = useState<string | null>(null);
+
+  // ── Followers ──────────────────────────────────────────────────────────────
+  const [followers, setFollowers]       = useState<any[]>([]);
+  const [follLoading, setFollLoading]   = useState(true);
+
+  // ── Copy Trades ────────────────────────────────────────────────────────────
+  const [copyTrades, setCopyTrades]     = useState<any[]>([]);
+  const [ctLoading, setCtLoading]       = useState(true);
+
+  useEffect(() => { loadProviders(); }, []);
+  useEffect(() => { if (tab === 'telegram')  { loadTgStats(); loadTgTrades(); } }, [tab]);
+  useEffect(() => { if (tab === 'followers') { loadFollowers(); } }, [tab]);
+  useEffect(() => { if (tab === 'trades')    { loadCopyTrades(); } }, [tab]);
+
+  async function loadProviders() {
+    setProvLoading(true);
+    try {
+      const r = await fetch('/api/copy/masters');
+      if (r.ok) setProviders(await r.json());
+    } catch {}
+    setProvLoading(false);
+  }
+
+  async function loadTgStats() {
+    try {
+      const r = await fetch('/api/copy/telegram-journal/stats');
+      if (r.ok) setTgStats(await r.json());
+    } catch {}
+  }
+
+  async function loadTgTrades() {
+    setTgLoading(true);
+    try {
+      const r = await fetch('/api/copy/telegram-journal?limit=200');
+      if (r.ok) setTgTrades(await r.json());
+    } catch {}
+    setTgLoading(false);
+  }
+
+  async function loadFollowers() {
+    setFollLoading(true);
+    try {
+      const r = await fetch('/api/copy/followers');
+      if (r.ok) setFollowers(await r.json());
+    } catch {}
+    setFollLoading(false);
+  }
+
+  async function loadCopyTrades() {
+    setCtLoading(true);
+    try {
+      // fetch recent follower trades across all followers
+      const r = await fetch('/api/copy/telegram-journal?limit=200');
+      if (r.ok) setCopyTrades(await r.json());
+    } catch {}
+    setCtLoading(false);
+  }
+
+  async function markOutcome(id: string, current: string | null, which: 'win' | 'loss') {
+    const next = current === which ? null : which;
+    setMarking(id);
+    try {
+      const r = await fetch(`/api/copy/telegram-journal/${id}/outcome`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome: next }),
+      });
+      if (r.ok) {
+        setTgTrades(prev => prev.map(t => t.id === id ? { ...t, manual_outcome: next } : t));
+        setTgStats((prev: any) => {
+          if (!prev) return prev;
+          const wasWin    = current === 'win';
+          const wasLoss   = current === 'loss';
+          const nowWin    = next === 'win';
+          const nowLoss   = next === 'loss';
+          const wins      = prev.wins    + (nowWin  ? 1 : 0) - (wasWin  ? 1 : 0);
+          const losses    = prev.losses  + (nowLoss ? 1 : 0) - (wasLoss ? 1 : 0);
+          const unmarked  = prev.unmarked + (next == null ? 1 : 0) - (current == null ? 1 : 0);
+          const marked    = wins + losses;
+          return { ...prev, wins, losses, unmarked, winRate: marked > 0 ? +((wins / marked) * 100).toFixed(1) : null };
+        });
+      }
+    } catch {}
+    setMarking(null);
+  }
+
+  const fmt = (v: any, dp = 5) => (v == null || v === '' ? '—' : parseFloat(v).toFixed(dp));
+  const fmtDate = (v: any) => v ? new Date(v).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  // ── Shared UI ──────────────────────────────────────────────────────────────
+  const TAB_ITEMS = [
+    { id: 'providers', label: 'Providers' },
+    { id: 'telegram',  label: 'Telegram' },
+    { id: 'followers', label: 'Followers' },
+    { id: 'trades',    label: 'Copy Trades' },
+  ] as const;
+
+  const tabBar = (
+    <div style={{ display: 'flex', gap: '2px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', marginBottom: '20px', width: 'fit-content' }}>
+      {TAB_ITEMS.map(t => (
+        <button key={t.id} onClick={() => setTab(t.id)}
+          style={{ ...btn, padding: '6px 14px', fontSize: '11px', background: tab === t.id ? C.indigo : 'transparent', color: tab === t.id ? '#fff' : C.muted, transition: 'all 0.15s' }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const th = (label: string) => (
+    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+      {label}
+    </th>
+  );
+
+  const td = (content: any, mono = false, color?: string) => (
+    <td style={{ padding: '8px 10px', fontSize: '11px', color: color ?? C.text, fontFamily: mono ? "'DM Mono', monospace" : FONT, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+      {content}
+    </td>
+  );
+
+  const pill = (label: string, color: string) => (
+    <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 7px', border: `1px solid ${color}33`, color, background: `${color}15`, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
+  );
+
+  const emptyState = (msg: string) => (
+    <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '12px' }}>{msg}</div>
+  );
+
+  const spinner = (
+    <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '12px' }}>Loading…</div>
+  );
+
+  // ── Providers Tab ──────────────────────────────────────────────────────────
+  const renderProviders = () => (
+    <div>
+      {provLoading ? spinner : providers.length === 0 ? emptyState('No providers registered yet.') : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <thead>
+              <tr style={{ background: C.card }}>
+                {th('Strategy')} {th('Type')} {th('Market')} {th('Style')} {th('Win Rate')} {th('Trades')} {th('Followers')} {th('Status')} {th('Since')}
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((p: any) => {
+                const wr = p.winRate != null ? p.winRate : (p.totalTrades > 0 ? +((p.winCount / p.totalTrades) * 100).toFixed(1) : null);
+                const wrColor = wr == null ? C.muted : wr >= 70 ? C.green : wr >= 55 ? C.amber : C.red;
+                const isActive = p.isActive || p.is_active;
+                return (
+                  <tr key={p.id} style={{ background: 'transparent' }}>
+                    {td(p.strategyName || p.strategy_name || '—')}
+                    {td(pill(p.sourceType || p.source_type || '—', p.sourceType === 'telegram' || p.source_type === 'telegram' ? '#26A5E4' : C.indigoL))}
+                    {td((p.primaryMarket || p.primary_market || '—').toUpperCase(), true)}
+                    {td(p.tradingStyle || p.trading_style || '—')}
+                    {td(wr != null ? `${wr}%` : '—', true, wrColor)}
+                    {td((p.totalTrades ?? p.total_trades ?? 0).toLocaleString(), true)}
+                    {td((p.followerCount ?? p.follower_count ?? 0).toLocaleString(), true)}
+                    {td(pill(isActive ? 'Active' : 'Inactive', isActive ? C.green : C.muted))}
+                    {td(p.since || (p.createdAt ? new Date(p.createdAt || p.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Telegram Tab ───────────────────────────────────────────────────────────
+  const renderTelegram = () => {
+    const stats = tgStats;
+    const wrColor = stats?.winRate != null ? (stats.winRate >= 70 ? C.green : stats.winRate >= 55 ? C.amber : C.red) : C.muted;
+    return (
+      <div>
+        {/* Stats bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: '6px', marginBottom: '18px' }}>
+          {[
+            { label: 'Total',    value: stats?.total    ?? '—', color: C.text },
+            { label: 'Wins',     value: stats?.wins     ?? '—', color: C.green },
+            { label: 'Losses',   value: stats?.losses   ?? '—', color: C.red },
+            { label: 'Unmarked', value: stats?.unmarked ?? '—', color: C.amber },
+            { label: 'Win Rate', value: stats?.winRate  != null ? `${stats.winRate}%` : '—', color: wrColor },
+          ].map(s => (
+            <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '12px 14px' }}>
+              <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{s.label}</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: "'DM Mono', monospace", color: s.color, lineHeight: 1 }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Trade table */}
+        {tgLoading ? spinner : tgTrades.length === 0 ? emptyState('No Telegram trades executed yet.') : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: C.card }}>
+                  {th('Symbol')} {th('Action')} {th('Volume')} {th('Entry')} {th('SL')} {th('TP')} {th('Executed')} {th('Win / Loss')}
+                </tr>
+              </thead>
+              <tbody>
+                {tgTrades.map((t: any) => {
+                  const outcome = t.manual_outcome;
+                  const isMarkingThis = marking === t.id;
+                  return (
+                    <tr key={t.id}>
+                      {td(<span style={{ fontWeight: 700 }}>{t.symbol || '—'}</span>, false, C.indigoL)}
+                      {td(pill(t.action || '—', t.action === 'BUY' ? C.green : C.red))}
+                      {td(fmt(t.volume, 2), true)}
+                      {td(fmt(t.entry_price), true)}
+                      {td(fmt(t.stop_loss), true, C.red)}
+                      {td(fmt(t.take_profit), true, C.green)}
+                      {td(fmtDate(t.executed_at || t.created_at))}
+                      <td style={{ padding: '6px 10px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            disabled={isMarkingThis}
+                            onClick={() => markOutcome(t.id, outcome, 'win')}
+                            title="Mark Win"
+                            style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: `1px solid ${outcome === 'win' ? C.green : C.border2}`, background: outcome === 'win' ? `${C.green}20` : 'transparent', color: outcome === 'win' ? C.green : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
+                            ✓
+                          </button>
+                          <button
+                            disabled={isMarkingThis}
+                            onClick={() => markOutcome(t.id, outcome, 'loss')}
+                            title="Mark Loss"
+                            style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: `1px solid ${outcome === 'loss' ? C.red : C.border2}`, background: outcome === 'loss' ? `${C.red}20` : 'transparent', color: outcome === 'loss' ? C.red : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
+                            ✕
+                          </button>
+                          {outcome && (
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: outcome === 'win' ? C.green : C.red, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{outcome}</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Followers Tab ──────────────────────────────────────────────────────────
+  const renderFollowers = () => (
+    follLoading ? spinner : followers.length === 0 ? emptyState('No followers registered yet.') : (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: C.card }}>
+              {th('Follower ID')} {th('Master ID')} {th('Lot Mode')} {th('Multiplier')} {th('Risk %')} {th('Direction')} {th('Max Trades')} {th('DD Pause')} {th('Status')} {th('Deployed')}
+            </tr>
+          </thead>
+          <tbody>
+            {followers.map((f: any) => {
+              const isActive = f.isActive || f.is_active;
+              return (
+                <tr key={f.id}>
+                  {td(<span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>{(f.id || '').slice(0, 12)}…</span>)}
+                  {td(<span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>{(f.masterId || f.master_id || '—').slice(0, 12)}{f.masterId || f.master_id ? '…' : ''}</span>)}
+                  {td((f.lotMode || f.lot_mode || '—').toUpperCase(), true)}
+                  {td(f.lotMultiplier || f.lot_multiplier || '—', true)}
+                  {td(f.riskPercent != null ? `${f.riskPercent}%` : f.risk_percent != null ? `${f.risk_percent}%` : '—', true)}
+                  {td((f.direction || '—').toUpperCase(), true)}
+                  {td(f.maxOpenTrades ?? f.max_open_trades ?? '—', true)}
+                  {td(pill((f.pauseOnDD ?? f.pause_on_dd) ? 'Yes' : 'No', (f.pauseOnDD ?? f.pause_on_dd) ? C.amber : C.muted))}
+                  {td(pill(isActive ? 'Active' : 'Inactive', isActive ? C.green : C.muted))}
+                  {td(fmtDate(f.deployedAt || f.deployed_at))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  );
+
+  // ── Copy Trades Tab ────────────────────────────────────────────────────────
+  const renderCopyTrades = () => (
+    ctLoading ? spinner : copyTrades.length === 0 ? emptyState('No copy trades found.') : (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: C.card }}>
+              {th('Symbol')} {th('Action')} {th('Source')} {th('Volume')} {th('Entry')} {th('SL')} {th('TP')} {th('Status')} {th('Executed')}
+            </tr>
+          </thead>
+          <tbody>
+            {copyTrades.map((t: any) => {
+              const status = t.status || '—';
+              const statusColor = status === 'executed' ? C.green : status === 'failed' ? C.red : status === 'skipped' ? C.amber : C.muted;
+              return (
+                <tr key={t.id}>
+                  {td(<span style={{ fontWeight: 700 }}>{t.symbol || '—'}</span>, false, C.indigoL)}
+                  {td(pill(t.action || '—', t.action === 'BUY' ? C.green : C.red))}
+                  {td(pill(t.source || 'telegram', '#26A5E4'))}
+                  {td(fmt(t.volume, 2), true)}
+                  {td(fmt(t.entry_price), true)}
+                  {td(fmt(t.stop_loss), true, C.red)}
+                  {td(fmt(t.take_profit), true, C.green)}
+                  {td(pill(status, statusColor))}
+                  {td(fmtDate(t.executed_at || t.created_at))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: C.text, letterSpacing: '0.04em', marginBottom: '2px' }}>Sync & Copy Performance</div>
+          <div style={{ fontSize: '11px', color: C.muted }}>Providers · Telegram signals · Followers · Executions</div>
+        </div>
+        <button onClick={() => { loadProviders(); loadTgStats(); loadTgTrades(); loadFollowers(); loadCopyTrades(); }}
+          style={{ ...btn, padding: '6px 14px', fontSize: '10px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
+          ↻ Refresh
+        </button>
+      </div>
+
+      {/* Tab bar */}
+      {tabBar}
+
+      {/* Content */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '16px', overflow: 'auto', flex: 1 }}>
+        {tab === 'providers' && renderProviders()}
+        {tab === 'telegram'  && renderTelegram()}
+        {tab === 'followers' && renderFollowers()}
+        {tab === 'trades'    && renderCopyTrades()}
+      </div>
+    </div>
+  );
 };
 
 const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
@@ -2024,7 +2378,7 @@ export default function AdminPanel() {
     { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: Users,         ready: true }] },
     { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: HeadphonesIcon, badge: openTickets, ready: true }] },
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'marketing', label: 'Marketing', icon: Megaphone, ready: true }] },
-    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu,           ready: true }] },
+    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
     { label: 'Journal',          items: [{ id: 'journal',       label: 'Open Journal',    icon: BookOpen,      ready: true }] },
   ];
@@ -2039,6 +2393,7 @@ export default function AdminPanel() {
     billing: 'Plans & Billing', promotions: 'Promotions',
     settings: 'System Settings', api: 'API & Integrations', 'feature-flags': 'Feature Flags', security: 'Security Settings',
     journal: 'Open Journal',
+    'sync-performance': 'Sync Performance',
   };
 
   const navBtn = item => {
@@ -2183,6 +2538,7 @@ export default function AdminPanel() {
       case 'marketing': return <MarketingSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
       case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
 
     }
