@@ -4,7 +4,7 @@ import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { db, pool } from "./db";
 import { userProfiles } from "@shared/schema";
 import { eq, sql as drizzleSql } from "drizzle-orm";
-import { encrypt, safeDecrypt } from "./lib/crypto";
+import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
@@ -1128,8 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { nickname, platform, brokerServer, loginId, password, role, symbolPrefix, symbolSuffix, userId } = req.body;
       if (!loginId || !password || !role || !platform) return res.status(400).json({ error: "Missing required fields: loginId, password, role, platform" });
-      // Base64 placeholder — the Python bridge replaces this with AES-256 on first connect
-      const passwordEnc = Buffer.from(password).toString("base64");
+      const passwordEnc = safeEncrypt(password);
       const account = await storage.createCopyAccount({ nickname: nickname || loginId, platform, brokerServer, loginId, passwordEnc, role, symbolPrefix, symbolSuffix, userId, isActive: true });
       const { passwordEnc: _, ...safe } = account;
       return res.status(201).json(safe);
@@ -1140,7 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { password, ...rest } = req.body;
       const updates: any = { ...rest };
-      if (password) updates.passwordEnc = Buffer.from(password).toString("base64");
+      if (password) updates.passwordEnc = safeEncrypt(password);
       const updated = await storage.updateCopyAccount(req.params.id, updates);
       if (!updated) return res.status(404).json({ error: "Account not found" });
       const { passwordEnc: _, ...safe } = updated;
@@ -1315,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         platform:     ac.platform || "MT5",
         brokerServer: ac.brokerServer,
         loginId:      ac.loginId || "unknown",
-        passwordEnc:  ac.password ? Buffer.from(ac.password).toString("base64") : "",
+        passwordEnc:  ac.password ? safeEncrypt(ac.password) : "",
         role:         role === "provider" ? "master" : "follower",
         symbolPrefix: ac.symbolPrefix,
         symbolSuffix: ac.symbolSuffix,
@@ -1342,7 +1341,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isActive:        true,
         });
         if (role === "telegram" && telegramConfig) {
-          await storage.upsertTelegramSource({ ...telegramConfig, masterId: masterRecord.id });
+          // Remap apiHash → apiHashEnc (schema field name) and encrypt it.
+          // The wizard sends { apiHash, apiId, phoneNumber, channelName, ... }
+          // The schema expects { apiHashEnc, apiId, phoneNumber, channelName, ... }
+          const { apiHash, ...tgRest } = telegramConfig;
+          await storage.upsertTelegramSource({
+            ...tgRest,
+            masterId:   masterRecord.id,
+            apiHashEnc: apiHash ? safeEncrypt(apiHash) : undefined,
+          });
         }
       }
 
