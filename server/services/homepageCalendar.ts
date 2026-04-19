@@ -44,6 +44,34 @@ let _calendarInFlight: Promise<CalendarEvent[]> | null = null;
 let _ratesInFlight: Promise<Record<string, RateEntry>> | null = null;
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Service status tracking ──────────────────────────────────────────────────
+let _calendarSource: 'myfxbook' | 'tradingview' | 'unknown' = 'unknown';
+let _calendarEventCount = 0;
+let _calendarLastError: string | null = null;
+let _ratesLiveCount   = 0;
+let _ratesFallbackCount = 0;
+let _ratesLastError: string | null = null;
+
+export function getCalendarServiceStatus() {
+  return {
+    calendar: {
+      fetchedAt:  _calendarFetchedAt || null,
+      eventCount: _calendarEventCount,
+      source:     _calendarSource,
+      inFlight:   _calendarInFlight !== null,
+      lastError:  _calendarLastError,
+    },
+    rates: {
+      fetchedAt:     _ratesFetchedAt || null,
+      liveCount:     _ratesLiveCount,
+      fallbackCount: _ratesFallbackCount,
+      inFlight:      _ratesInFlight !== null,
+      lastError:     _ratesLastError,
+    },
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function runPython(mode: "calendar" | "rates"): Promise<string> {
   return new Promise((resolve, reject) => {
     let stdout = "";
@@ -76,7 +104,8 @@ function runPython(mode: "calendar" | "rates"): Promise<string> {
       clearTimeout(timer);
       if (stderr) console.log(`[homepageCalendar/${mode}]`, stderr.trim());
       if (code !== 0) return reject(new Error(`Python exited ${code}`));
-      resolve(stdout);
+      // Pass stderr along so callers can inspect the source
+      resolve(JSON.stringify({ stdout, stderr }));
     });
   });
 }
@@ -86,20 +115,28 @@ export async function getHomepageCalendar(): Promise<CalendarEvent[]> {
     return _calendarCache;
   }
 
-  // Return existing in-flight promise to avoid duplicate Python processes
   if (_calendarInFlight) return _calendarInFlight;
 
   _calendarInFlight = runPython("calendar")
-    .then((raw) => {
-      const data = JSON.parse(raw) as CalendarEvent[];
-      // Only cache non-empty results — don't freeze the calendar on a bad scrape
+    .then((envelope) => {
+      const { stdout, stderr } = JSON.parse(envelope);
+      // Detect source from Python stderr logs
+      if (stderr.includes('Falling back to TradingView')) {
+        _calendarSource = 'tradingview';
+      } else if (stderr.includes('MyFXBook:') && !stderr.includes('0 rows')) {
+        _calendarSource = 'myfxbook';
+      }
+      const data = JSON.parse(stdout) as CalendarEvent[];
       if (data.length > 0) {
         _calendarCache = data;
         _calendarFetchedAt = Date.now();
+        _calendarEventCount = data.length;
+        _calendarLastError = null;
       }
       return data.length > 0 ? data : (_calendarCache ?? []);
     })
     .catch((err) => {
+      _calendarLastError = err.message;
       console.error("[homepageCalendar] calendar fetch failed:", err);
       return _calendarCache ?? [];
     })
@@ -116,15 +153,20 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
   if (_ratesInFlight) return _ratesInFlight;
 
   _ratesInFlight = runPython("rates")
-    .then((raw) => {
-      const data = JSON.parse(raw) as Record<string, RateEntry>;
+    .then((envelope) => {
+      const { stdout } = JSON.parse(envelope);
+      const data = JSON.parse(stdout) as Record<string, RateEntry>;
       if (Object.keys(data).length > 0) {
         _ratesCache = data;
         _ratesFetchedAt = Date.now();
+        _ratesLiveCount     = Object.values(data).filter(r => r.live).length;
+        _ratesFallbackCount = Object.values(data).filter(r => !r.live).length;
+        _ratesLastError = null;
       }
       return Object.keys(data).length > 0 ? data : (_ratesCache ?? {});
     })
     .catch((err) => {
+      _ratesLastError = err.message;
       console.error("[homepageCalendar] rates fetch failed:", err);
       return _ratesCache ?? {};
     })

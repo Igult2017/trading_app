@@ -750,6 +750,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
   const [metrics, setMetrics]     = useState<any>(null);
   const [logs, setLogs]           = useState<any[]>([]);
   const [services, setServices]   = useState<any[]>([]);
+  const [svcState, setSvcState]   = useState<any>(null);
   const [history, setHistory]     = useState<any>({ cpu: [], memory: [], latency: [], requests: [] });
   const [isLive, setIsLive]       = useState(true);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -810,9 +811,17 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
       } catch {}
     };
 
-    pollMetrics(); pollHealth(); pollLogs();
+    const pollSvcState = async () => {
+      try {
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/services-state', { headers: h });
+        if (r.ok) setSvcState(await r.json());
+      } catch {}
+    };
+
+    pollMetrics(); pollHealth(); pollLogs(); pollSvcState();
     timerRef.current    = setInterval(pollMetrics, 4000);
-    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); }, 10000);
+    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); pollSvcState(); }, 15000);
     return () => { clearInterval(timerRef.current); clearInterval(logTimerRef.current); };
   }, [isLive]);
 
@@ -909,6 +918,86 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
           );
         })}
       </div>
+
+      {/* ── Background services state ── */}
+      {(() => {
+        const fmtAge = (ts: number | null) => {
+          if (!ts) return '—';
+          const s = Math.floor((Date.now() - ts) / 1000);
+          if (s < 60)  return `${s}s ago`;
+          if (s < 3600) return `${Math.floor(s/60)}m ago`;
+          return `${Math.floor(s/3600)}h ago`;
+        };
+        const srcColor = (src: string) => src === 'myfxbook' ? C.greenL : src === 'tradingview' ? C.amberL : C.muted;
+        const srcLabel = (src: string) => src === 'myfxbook' ? 'MyFXBook' : src === 'tradingview' ? 'TradingView ↩' : '—';
+        const dot = (ok: boolean | null) => (
+          <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+            background: ok === null ? C.muted : ok ? C.green : C.red,
+            boxShadow: ok === null ? 'none' : ok ? `0 0 5px ${C.green}` : `0 0 5px ${C.red}` }} />
+        );
+        const Row = ({ label, children }: { label: string; children: any }) => (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: 11, color: C.muted, letterSpacing: '0.04em' }}>{label}</span>
+            <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 600, textAlign: 'right' }}>{children}</span>
+          </div>
+        );
+        const cal = svcState?.calendar;
+        const rates = svcState?.rates;
+        const sig = svcState?.signals;
+        const db = svcState?.dbPool;
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : 'repeat(2,1fr)', gap: '6px' }}>
+            {/* Calendar */}
+            <div style={{ ...cs, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
+                {dot(cal ? cal.eventCount > 0 : null)}
+              </div>
+              <Row label="Source">{cal ? <span style={{ color: srcColor(cal.source) }}>{srcLabel(cal.source)}</span> : '—'}</Row>
+              <Row label="Events cached">{cal?.eventCount ?? '—'}</Row>
+              <Row label="Last fetch">{fmtAge(cal?.fetchedAt)}</Row>
+              <Row label="In-flight">{cal?.inFlight ? <span style={{ color: C.amberL }}>fetching…</span> : 'idle'}</Row>
+              {cal?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 10 }}>{cal.lastError.slice(0, 40)}</span></Row>}
+            </div>
+
+            {/* Interest rates */}
+            <div style={{ ...cs, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
+                {dot(rates ? rates.liveCount > 0 : null)}
+              </div>
+              <Row label="Live">{rates ? <span style={{ color: rates.liveCount > 0 ? C.greenL : C.muted }}>{rates.liveCount} currencies</span> : '—'}</Row>
+              <Row label="Fallback">{rates ? <span style={{ color: rates.fallbackCount > 0 ? C.amberL : C.muted }}>{rates.fallbackCount} currencies</span> : '—'}</Row>
+              <Row label="Last fetch">{fmtAge(rates?.fetchedAt)}</Row>
+              <Row label="In-flight">{rates?.inFlight ? <span style={{ color: C.amberL }}>fetching…</span> : 'idle'}</Row>
+              {rates?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 10 }}>{rates.lastError.slice(0, 40)}</span></Row>}
+            </div>
+
+            {/* Signal monitor */}
+            <div style={{ ...cs, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
+                {dot(sig ? sig.running : null)}
+              </div>
+              <Row label="Status">{sig ? <span style={{ color: sig.running ? C.greenL : C.muted }}>{sig.running ? 'Running' : 'Stopped'}</span> : '—'}</Row>
+              <Row label="Active signals">{sig?.lastActiveCount ?? '—'}</Row>
+              <Row label="Last scan">{fmtAge(sig?.lastScanAt)}</Row>
+              {sig?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 10 }}>{sig.lastError.slice(0, 40)}</span></Row>}
+            </div>
+
+            {/* DB pool */}
+            <div style={{ ...cs, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
+                {dot(db ? db.waiting === 0 : null)}
+              </div>
+              <Row label="Total connections">{db?.total ?? '—'}</Row>
+              <Row label="Idle">{db?.idle ?? '—'}</Row>
+              <Row label="Waiting">{db ? <span style={{ color: (db.waiting ?? 0) > 0 ? C.amberL : C.muted }}>{db.waiting ?? '—'}</span> : '—'}</Row>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

@@ -19,6 +19,15 @@ export class ScraperScheduler {
   private sessionAwareScanJobs: ReturnType<typeof cron.schedule>[] = [];
   private isRunning = false;
 
+  private _jobs: Record<string, { enabled: boolean; lastRunAt: number | null; lastResult: 'success' | 'error' | null }> = {
+    myfxbook:     { enabled: false, lastRunAt: null, lastResult: null },
+    interestRates:{ enabled: false, lastRunAt: null, lastResult: null },
+    signalScan:   { enabled: false, lastRunAt: null, lastResult: null },
+    notifications:{ enabled: false, lastRunAt: null, lastResult: null },
+  };
+
+  getStatus() { return this._jobs; }
+
   async fetchEvents(): Promise<void> {
     if (this.isRunning) {
       console.log('[Calendar] Fetch already in progress, skipping...');
@@ -176,12 +185,17 @@ export class ScraperScheduler {
     //   await this.runCleanup();
     // });
 
+    this._jobs.notifications.enabled = true;
     this.notificationJob = cron.schedule('*/5 * * * *', async () => {
       if (!telegramNotificationService) return;
       try {
         await telegramNotificationService.checkAndNotifyUpcomingEvents();
         await telegramNotificationService.checkAndNotifyTradingSessions();
+        this._jobs.notifications.lastRunAt = Date.now();
+        this._jobs.notifications.lastResult = 'success';
       } catch (err: any) {
+        this._jobs.notifications.lastRunAt = Date.now();
+        this._jobs.notifications.lastResult = 'error';
         console.error('[Scheduler] Notification job error:', err?.message);
       }
     });
