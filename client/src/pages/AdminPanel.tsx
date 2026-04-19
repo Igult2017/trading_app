@@ -1924,7 +1924,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: "'Montserrat', sans-serif", fontSize: '13px' }}>Loading…</div>;
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--admin-bg)', color: '#3a5070', fontFamily: FONT, fontSize: '13px' }}>Loading…</div>;
 
   const adminEmail = user?.email ?? '';
   const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
@@ -1955,7 +1955,7 @@ export default function AdminPanel() {
   const navBtn = item => {
     const isActive = activeTab === item.id;
     const isSoon = !item.ready;
-    const activeBg = isActive ? 'rgba(0,200,224,0.18)' : 'transparent';
+    const activeBg = isActive ? 'color-mix(in srgb, var(--admin-accent) 18%, transparent)' : 'transparent';
     const activeColor = isActive ? 'white' : isSoon ? '#2a3d54' : '#607898';
     const iconColor = isActive ? C.indigoL : isSoon ? '#1e3050' : '#3d5878';
     const handleClick = () => {
@@ -2134,8 +2134,8 @@ export default function AdminPanel() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: `radial-gradient(ellipse at top, var(--admin-card) 0%, var(--admin-bg) 60%)`, display: 'flex', flexDirection: 'column' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'color-mix(in srgb, var(--admin-bg) 92%, transparent)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
           {/* ── Left: hamburger + logo ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
