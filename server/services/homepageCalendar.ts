@@ -37,72 +37,103 @@ const CALENDAR_TTL = 15 * 60 * 1000; // 15 minutes
 let _ratesCache: Record<string, RateEntry> | null = null;
 let _ratesFetchedAt = 0;
 const RATES_TTL = 60 * 60 * 1000; // 1 hour
+
+// In-flight promise deduplication — prevents spawning multiple Python processes
+// for concurrent requests while one scrape is already running.
+let _calendarInFlight: Promise<CalendarEvent[]> | null = null;
+let _ratesInFlight: Promise<Record<string, RateEntry>> | null = null;
 // ─────────────────────────────────────────────────────────────────────────────
 
 function runPython(mode: "calendar" | "rates"): Promise<string> {
   return new Promise((resolve, reject) => {
     let stdout = "";
     let stderr = "";
+    let settled = false;
 
     const child = spawn(PYTHON_BIN, [SCRIPT, mode], {
       cwd: process.cwd(),
       env: process.env,
     });
 
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill();
+        reject(new Error("Python timeout (30s)"));
+      }
+    }, 30_000);
+
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
 
-    child.on("error", reject);
+    child.on("error", (err) => {
+      if (!settled) { settled = true; clearTimeout(timer); reject(err); }
+    });
+
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (stderr) console.log(`[homepageCalendar/${mode}]`, stderr.trim());
       if (code !== 0) return reject(new Error(`Python exited ${code}`));
       resolve(stdout);
     });
-
-    setTimeout(() => {
-      child.kill();
-      reject(new Error("Python timeout (30s)"));
-    }, 30_000);
   });
 }
 
 export async function getHomepageCalendar(): Promise<CalendarEvent[]> {
-  if (_calendarCache && Date.now() - _calendarFetchedAt < CALENDAR_TTL) {
+  if (_calendarCache && _calendarCache.length > 0 && Date.now() - _calendarFetchedAt < CALENDAR_TTL) {
     return _calendarCache;
   }
 
-  try {
-    const raw = await runPython("calendar");
-    const data = JSON.parse(raw) as CalendarEvent[];
-    _calendarCache = data;
-    _calendarFetchedAt = Date.now();
-    return data;
-  } catch (err) {
-    console.error("[homepageCalendar] calendar fetch failed:", err);
-    return _calendarCache ?? [];
-  }
+  // Return existing in-flight promise to avoid duplicate Python processes
+  if (_calendarInFlight) return _calendarInFlight;
+
+  _calendarInFlight = runPython("calendar")
+    .then((raw) => {
+      const data = JSON.parse(raw) as CalendarEvent[];
+      // Only cache non-empty results — don't freeze the calendar on a bad scrape
+      if (data.length > 0) {
+        _calendarCache = data;
+        _calendarFetchedAt = Date.now();
+      }
+      return data.length > 0 ? data : (_calendarCache ?? []);
+    })
+    .catch((err) => {
+      console.error("[homepageCalendar] calendar fetch failed:", err);
+      return _calendarCache ?? [];
+    })
+    .finally(() => { _calendarInFlight = null; });
+
+  return _calendarInFlight;
 }
 
 export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
-  if (_ratesCache && Date.now() - _ratesFetchedAt < RATES_TTL) {
+  if (_ratesCache && Object.keys(_ratesCache).length > 0 && Date.now() - _ratesFetchedAt < RATES_TTL) {
     return _ratesCache;
   }
 
-  try {
-    const raw = await runPython("rates");
-    const data = JSON.parse(raw) as Record<string, RateEntry>;
-    _ratesCache = data;
-    _ratesFetchedAt = Date.now();
-    return data;
-  } catch (err) {
-    console.error("[homepageCalendar] rates fetch failed:", err);
-    return _ratesCache ?? {};
-  }
+  if (_ratesInFlight) return _ratesInFlight;
+
+  _ratesInFlight = runPython("rates")
+    .then((raw) => {
+      const data = JSON.parse(raw) as Record<string, RateEntry>;
+      if (Object.keys(data).length > 0) {
+        _ratesCache = data;
+        _ratesFetchedAt = Date.now();
+      }
+      return Object.keys(data).length > 0 ? data : (_ratesCache ?? {});
+    })
+    .catch((err) => {
+      console.error("[homepageCalendar] rates fetch failed:", err);
+      return _ratesCache ?? {};
+    })
+    .finally(() => { _ratesInFlight = null; });
+
+  return _ratesInFlight;
 }
 
 // ── Startup cache warm-up ─────────────────────────────────────────────────────
-// Fire both scrapes immediately in the background so the cache is hot before
-// any user navigates to the calendar page.
 (function warmupOnStartup() {
   console.log("[homepageCalendar] Warming up calendar + rates cache in background…");
   getHomepageCalendar()

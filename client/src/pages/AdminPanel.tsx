@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor';
 import {
   Users, FileText, Megaphone, Settings, Search, TrendingUp,
   MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
@@ -64,19 +65,48 @@ const INITIAL_LOGS = [
 ];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-const FONT = "'Montserrat', sans-serif";
+const ADMIN_THEMES: Record<string, Record<string, string>> = {
+  dark:     { bg:'#07090e', sidebar:'#07090e', card:'#0c1018', border:'#131c28', border2:'#1b2840', dim:'#1b2840', accent:'#00c8e0', accentL:'#33d8f0' },
+  midnight: { bg:'#000000', sidebar:'#050508', card:'#0d0d14', border:'#1a1a2e', border2:'#16213e', dim:'#16213e', accent:'#7c3aed', accentL:'#9d65f5' },
+  slate:    { bg:'#0f172a', sidebar:'#0f172a', card:'#1e293b', border:'#334155', border2:'#475569', dim:'#475569', accent:'#0ea5e9', accentL:'#38bdf8' },
+  forest:   { bg:'#052e16', sidebar:'#04200f', card:'#073b1d', border:'#166534', border2:'#15803d', dim:'#15803d', accent:'#22c55e', accentL:'#4ade80' },
+};
+
+const ADMIN_FONTS: Record<string, string> = {
+  montserrat: "'Montserrat', sans-serif",
+  onest:      "'Onest', sans-serif",
+  inter:      "'Inter', sans-serif",
+  mono:       "'DM Mono', monospace",
+};
+
+function applyAdminTheme(id: string) {
+  const t = ADMIN_THEMES[id] ?? ADMIN_THEMES.dark;
+  const r = document.documentElement;
+  Object.entries(t).forEach(([k, v]) => r.style.setProperty(`--admin-${k}`, v));
+}
+
+function applyAdminFont(id: string) {
+  const stack = ADMIN_FONTS[id] ?? ADMIN_FONTS.montserrat;
+  document.documentElement.style.setProperty('--admin-font', stack);
+}
+
+// Apply saved preferences immediately on module load
+applyAdminTheme(localStorage.getItem('admin_theme') ?? 'dark');
+applyAdminFont(localStorage.getItem('admin_font') ?? 'montserrat');
+
+const FONT = 'var(--admin-font)';
 const C = {
-  bg: '#07090e', sidebar: '#07090e', card: '#0c1018',
-  border: '#131c28', border2: '#1b2840', dim: '#1b2840',
+  bg: 'var(--admin-bg)', sidebar: 'var(--admin-sidebar)', card: 'var(--admin-card)',
+  border: 'var(--admin-border)', border2: 'var(--admin-border2)', dim: 'var(--admin-dim)',
   text: '#d0dff0', muted: '#3a5070',
-  indigo: '#00c8e0', indigoL: '#33d8f0',
+  indigo: 'var(--admin-accent)', indigoL: 'var(--admin-accentL)',
   green: '#00d48a', greenL: '#00ff9d',
   red: '#ff3060', redL: '#ff6080',
   amber: '#ffb700', amberL: '#ffd030',
   blue: '#2888f0', blueL: '#50a8f8',
 };
 const cs = { background: C.card, border: `1px solid ${C.border}` };
-const inp = { width: '100%', background: '#0a0f18', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
+const inp = { width: '100%', background: 'var(--admin-bg)', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
 const lbl = { display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
 const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.04em' };
 
@@ -195,6 +225,10 @@ const Sparkline = ({ data, danger }) => {
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * (W - pd * 2) + pd},${H - ((v / max) * (H - pd * 2) + pd)}`).join(' ');
   return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '80px', height: '32px' }}><polyline fill="none" stroke={danger ? C.red : C.indigo} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} opacity="0.8" /></svg>;
 };
+
+const _skeletonStyle = document.createElement('style');
+_skeletonStyle.textContent = '@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}';
+if (!document.head.querySelector('[data-sk]')) { _skeletonStyle.setAttribute('data-sk','1'); document.head.appendChild(_skeletonStyle); }
 
 const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
   const r = (size - sw) / 2, circ = 2 * Math.PI * r, pct = Math.min(value / max, 1), dash = pct * circ;
@@ -706,123 +740,177 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
 };
 
 // ─── SYSTEM MONITOR ──────────────────────────────────────────────────────────
+const SERVICE_GROUPS = {
+  'Infrastructure': ['Database', 'Auth / Logins', 'Cache Layer', 'App Loading'],
+  'Features':       ['Blog', 'Journal', 'Economic Calendar', 'TSC Page'],
+  'Services':       ['Price Feed', 'Gemini AI', 'Telegram Bot', 'Copy Trading Bridge'],
+};
+
 const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
-  const [metrics, setMetrics] = useState(INITIAL_METRICS);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
-  const [services, setServices] = useState<any[]>([]);
-  const [history, setHistory] = useState({ cpu: [28, 31, 34, 30, 33, 34], memory: [58, 60, 61, 62, 60, 61], latency: [38, 45, 42, 44, 40, 42], requests: [800, 820, 847, 835, 847, 847] });
-  const [isLive, setIsLive] = useState(true);
-  const [resolvedIds, setResolvedIds] = useState(new Set(INITIAL_LOGS.filter(l => l.resolved).map(l => l.id)));
-  const timerRef = useRef<any>(null);
+  const [metrics, setMetrics]     = useState<any>(null);
+  const [logs, setLogs]           = useState<any[]>([]);
+  const [services, setServices]   = useState<any[]>([]);
+  const [history, setHistory]     = useState<any>({ cpu: [], memory: [], latency: [], requests: [] });
+  const [isLive, setIsLive]       = useState(true);
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [loadingHealth, setLoadingHealth]   = useState(true);
+  const [resolvedIds, setResolvedIds] = useState(new Set<number>());
+  const timerRef    = useRef<any>(null);
   const logTimerRef = useRef<any>(null);
 
   useEffect(() => {
     if (!isLive) { clearInterval(timerRef.current); clearInterval(logTimerRef.current); return; }
+
     const getHeaders = async () => {
       const token = await getAdminToken?.();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      return headers;
+      const h: Record<string, string> = {};
+      if (token) h['Authorization'] = `Bearer ${token}`;
+      return h;
     };
 
     const pollMetrics = async () => {
       try {
-        const headers = await getHeaders();
-        const r = await fetch('/api/admin/metrics', { headers });
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/metrics', { headers: h });
         if (r.ok) {
           const d = await r.json();
-          const cpuVal = +d.cpu ?? +d.cpuPercent ?? 0;
-          const memVal = +d.memory ?? +d.memPercent ?? 0;
-          const reqVal = +d.reqPerSec ?? 0;
-          setMetrics(prev => ({ ...prev, cpu: cpuVal, memory: memVal, uptime: +(d.uptimeSec / 3600 / 24).toFixed(2), requestsPerSec: Math.round(reqVal) }));
-          setHistory(prev => ({ cpu: [...prev.cpu.slice(-11), cpuVal], memory: [...prev.memory.slice(-11), memVal], latency: [...prev.latency.slice(-11), prev.latency[prev.latency.length-1] ?? 42], requests: [...prev.requests.slice(-11), Math.round(reqVal)] }));
+          const cpuVal = +(d.cpu ?? 0);
+          const memVal = +(d.memory ?? 0);
+          const reqVal = +(d.reqPerSec ?? 0);
+          const lat    = +(d.latency ?? 0);
+          setMetrics({ cpu: cpuVal, memory: memVal, uptime: +(d.uptimeSec / 3600 / 24).toFixed(2), requestsPerSec: Math.round(reqVal), latency: lat, errorRate: +(d.errorRate ?? 0) });
+          setHistory((prev: any) => ({
+            cpu:      [...(prev.cpu.slice(-11)),      cpuVal],
+            memory:   [...(prev.memory.slice(-11)),   memVal],
+            latency:  [...(prev.latency.slice(-11)),  lat],
+            requests: [...(prev.requests.slice(-11)), Math.round(reqVal)],
+          }));
+          setLoadingMetrics(false);
         }
       } catch {}
     };
 
     const pollHealth = async () => {
       try {
-        const headers = await getHeaders();
-        const r = await fetch('/api/admin/health', { headers });
-        if (r.ok) { const d = await r.json(); setServices(d.services ?? []); }
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/health', { headers: h });
+        if (r.ok) {
+          const d = await r.json();
+          setServices(d.services ?? []);
+          setLoadingHealth(false);
+        }
       } catch {}
     };
 
     const pollLogs = async () => {
       try {
-        const headers = await getHeaders();
-        const r = await fetch('/api/admin/logs', { headers });
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/logs', { headers: h });
         if (r.ok) { const d = await r.json(); if (d.logs?.length) setLogs(d.logs.slice(0, 20)); }
       } catch {}
     };
 
     pollMetrics(); pollHealth(); pollLogs();
-    timerRef.current = setInterval(() => { pollMetrics(); }, 3000);
-    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); }, 8000);
+    timerRef.current    = setInterval(pollMetrics, 4000);
+    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); }, 10000);
     return () => { clearInterval(timerRef.current); clearInterval(logTimerRef.current); };
   }, [isLive]);
 
-  const resolveLog = id => setResolvedIds(prev => new Set([...prev, id]));
-  const errorCount = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
-  const warnCount = logs.filter(l => l.level === 'warn' && !resolvedIds.has(l.id)).length;
-  const healthy = metrics.cpu < 80 && metrics.errorRate < 1 && metrics.latency < 100;
+  const resolveLog  = (id: number) => setResolvedIds(prev => new Set([...prev, id]));
+  const errorCount  = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
+  const warnCount   = logs.filter(l => l.level === 'warn'  && !resolvedIds.has(l.id)).length;
+  const allOk       = services.length > 0 && services.every(s => s.status === 'operational' || s.status === 'not-configured');
+  const anyDegraded = services.some(s => s.status === 'degraded');
+  const healthy     = !anyDegraded && (!metrics || (metrics.cpu < 80 && metrics.latency < 200));
+  const statusLabel = loadingHealth ? 'Checking…' : anyDegraded ? 'Degraded Performance' : allOk ? 'All Systems Operational' : 'Checking…';
   const LC = { error: { bg: 'rgba(244,63,94,0.1)', c: C.redL, b: 'rgba(244,63,94,0.2)' }, warn: { bg: 'rgba(245,158,11,0.1)', c: C.amberL, b: 'rgba(245,158,11,0.2)' }, info: { bg: C.border, c: C.muted, b: C.border2 } };
   const metricCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
+  const Skeleton = ({ w = '100%', h = 14 }: { w?: string|number; h?: number }) => (
+    <div style={{ width: w, height: h, background: 'rgba(255,255,255,0.06)', borderRadius: 4, animation: 'pulse 1.5s ease-in-out infinite' }} />
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
+      {/* ── Status banner ── */}
+      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${loadingHealth ? C.border : healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: loadingHealth ? 'transparent' : healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: healthy ? C.green : C.red }} />
-          <span style={{ color: healthy ? C.greenL : C.redL, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{healthy ? 'All Systems Operational' : 'Degraded Performance'}</span>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: loadingHealth ? C.muted : healthy ? C.green : C.red, boxShadow: loadingHealth ? 'none' : healthy ? `0 0 8px ${C.green}` : `0 0 8px ${C.red}` }} />
+          <span style={{ color: loadingHealth ? C.muted : healthy ? C.greenL : C.redL, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{statusLabel}</span>
         </div>
-        <button onClick={() => setIsLive(p => !p)} style={{ ...btn, padding: '5px 12px', background: isLive ? 'rgba(16,185,129,0.1)' : C.border, color: isLive ? C.greenL : C.muted, border: `1px solid ${isLive ? 'rgba(16,185,129,0.3)' : C.border2}`, fontSize: '11px', textTransform: 'uppercase' }}>{isLive ? 'Live' : 'Paused'}</button>
+        <button onClick={() => setIsLive(p => !p)} style={{ ...btn, padding: '5px 12px', background: isLive ? 'rgba(16,185,129,0.1)' : C.border, color: isLive ? C.greenL : C.muted, border: `1px solid ${isLive ? 'rgba(16,185,129,0.3)' : C.border2}`, fontSize: '11px', textTransform: 'uppercase' }}>{isLive ? '● Live' : '⏸ Paused'}</button>
       </div>
 
+      {/* ── Server metrics ── */}
       <div style={{ display: 'grid', gridTemplateColumns: metricCols, gap: '6px' }}>
-        {[{ label: 'CPU Usage', value: metrics.cpu, unit: '%', h: history.cpu, icon: Cpu, danger: metrics.cpu > 80 }, { label: 'Memory', value: metrics.memory, unit: '%', h: history.memory, icon: Database, danger: metrics.memory > 85 }, { label: 'Latency', value: metrics.latency, unit: 'ms', h: history.latency, icon: Zap, danger: metrics.latency > 100 }, { label: 'Req/sec', value: metrics.requestsPerSec, unit: '', h: history.requests, icon: Activity, danger: false }].map((m, i) => (
+        {[
+          { label: 'CPU Usage',  val: metrics?.cpu,            unit: '%',  icon: Cpu,      danger: (metrics?.cpu ?? 0) > 80  },
+          { label: 'Memory',     val: metrics?.memory,         unit: '%',  icon: Database, danger: (metrics?.memory ?? 0) > 85 },
+          { label: 'Latency',    val: metrics?.latency,        unit: 'ms', icon: Zap,      danger: (metrics?.latency ?? 0) > 200 },
+          { label: 'Req / sec',  val: metrics?.requestsPerSec, unit: '',   icon: Activity, danger: false },
+        ].map((m, i) => (
           <div key={i} style={{ ...cs, padding: '14px', borderColor: m.danger ? 'rgba(244,63,94,0.3)' : C.border }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <m.icon size={14} style={{ color: m.danger ? C.redL : '#3d5878' }} />
-              <GaugeRing value={m.unit === '%' ? m.value : Math.min((m.value / 2000) * 100, 100)} color={C.indigo} />
+              {loadingMetrics ? <Skeleton w={36} h={36} /> : <GaugeRing value={m.unit === '%' ? (m.val ?? 0) : Math.min(((m.val ?? 0) / 2000) * 100, 100)} color={C.indigo} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
-              <span style={{ color: m.danger ? C.redL : 'white', fontSize: '11px', fontWeight: 700 }}>{m.value}<span style={{ fontSize: '9px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+              {loadingMetrics
+                ? <Skeleton w={40} h={12} />
+                : <span style={{ color: m.danger ? C.redL : 'white', fontSize: '11px', fontWeight: 700 }}>{m.val ?? '—'}<span style={{ fontSize: '9px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+              }
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '6px', alignItems: 'stretch' }}>
-        <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Service Status</h3>
-            <span style={{ fontSize: '10px', fontWeight: 600, color: C.muted }}>{services.length || '—'} services</span>
-          </div>
-          <div style={{ flex: 1 }}>
-            {(services.length ? services : [{ name: 'Loading…', status: 'operational', latency: '—', uptime: '—' }]).map((svc, i) => {
-              const isOk = svc.status === 'operational';
-              const isDeg = svc.status === 'degraded';
-              const dotColor = isOk ? C.green : isDeg ? C.amber : C.muted;
-              const textColor = isDeg ? C.amberL : isOk ? '#cbd5e1' : C.muted;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: isDeg ? 'rgba(245,158,11,0.04)' : 'transparent' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, boxShadow: isOk || isDeg ? `0 0 6px ${dotColor}` : 'none' }} />
-                    <span style={{ color: textColor, fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+      {/* ── Feature / service status (grouped) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : 'repeat(3,1fr)', gap: '6px' }}>
+        {Object.entries(SERVICE_GROUPS).map(([group, names]) => {
+          const groupSvcs = loadingHealth
+            ? names.map(n => ({ name: n, status: 'loading' }))
+            : names.map(n => services.find(s => s.name === n) ?? { name: n, status: 'unknown' });
+          const groupOk  = groupSvcs.every(s => s.status === 'operational' || s.status === 'not-configured');
+          const groupBad = groupSvcs.some(s => s.status === 'degraded');
+          return (
+            <div key={group} style={{ ...cs, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: loadingHealth ? C.muted : groupBad ? C.red : groupOk ? C.green : C.muted, boxShadow: loadingHealth ? 'none' : groupBad ? `0 0 5px ${C.red}` : `0 0 5px ${C.green}` }} />
+              </div>
+              {groupSvcs.map((svc: any, i: number) => {
+                const isOk   = svc.status === 'operational';
+                const isDeg  = svc.status === 'degraded';
+                const isNC   = svc.status === 'not-configured';
+                const isLoad = svc.status === 'loading';
+                const dotClr = isOk ? C.green : isDeg ? C.red : isNC ? C.amber : C.muted;
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: isDeg ? 'rgba(244,63,94,0.04)' : 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      {isLoad
+                        ? <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.muted, opacity: 0.4 }} />
+                        : <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotClr, boxShadow: (isOk || isDeg) ? `0 0 5px ${dotClr}` : 'none' }} />
+                      }
+                      <span style={{ fontSize: '12px', color: isDeg ? C.redL : isNC ? C.amberL : isLoad ? C.dim : '#cbd5e1', fontWeight: 600 }}>{svc.name}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {svc.latency && <span style={{ fontSize: '10px', fontFamily: 'monospace', color: C.dim }}>{svc.latency}</span>}
+                      {isLoad
+                        ? <Skeleton w={52} h={16} />
+                        : <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(244,63,94,0.1)' : isNC ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.redL : isNC ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(244,63,94,0.2)' : isNC ? 'rgba(245,158,11,0.2)' : C.border2}` }}>
+                            {isOk ? 'OK' : isDeg ? 'DOWN' : isNC ? 'not set' : svc.status}
+                          </span>
+                      }
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ color: C.muted, fontSize: '10px', fontFamily: 'monospace' }}>{svc.uptime}</span>
-                    <span style={{ color: isDeg ? C.amberL : '#475569', fontSize: '11px', fontFamily: 'monospace', fontWeight: isDeg ? 700 : 400 }}>{svc.latency}</span>
-                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(245,158,11,0.2)' : C.border2}` }}>{svc.status}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -876,16 +964,28 @@ const BlogSection = ({ bp }) => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [modalTab, setModalTab] = useState('post');
   const [saving, setSaving] = useState(false);
+  const [editorInitialData, setEditorInitialData] = useState<Partial<BlogEditorData>>({});
 
   const getToken = async () => {
     const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
     return (r as any).data?.session?.access_token as string | null;
   };
 
+  const getAdminHeaders = async (withContentType = false): Promise<Record<string, string>> => {
+    const token = await getToken();
+    const headers: Record<string, string> = {};
+    if (withContentType) headers['Content-Type'] = 'application/json';
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      const secret = import.meta.env.VITE_ADMIN_SECRET;
+      if (secret) headers['X-Admin-Secret'] = secret;
+    }
+    return headers;
+  };
+
   useEffect(() => {
-    getToken().then(token => {
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+    getAdminHeaders().then(headers => {
       fetch('/api/blog/all', { headers })
         .then(r => r.ok ? r.json() : [])
         .then(data => {
@@ -908,7 +1008,13 @@ const BlogSection = ({ bp }) => {
   const filtered = activeSection === 'all' ? posts
     : activeSection === 'drafts' ? posts.filter(p => p.status === 'Draft')
     : posts.filter(p => p.section === activeSection);
-  const openNew = () => { setEditPost(null); setForm(EMPTY_FORM); setModalTab('post'); setShowModal(true); };
+  const openNew = () => {
+    setEditPost(null);
+    setForm(EMPTY_FORM);
+    setEditorInitialData({});
+    setModalTab('post');
+    setShowModal(true);
+  };
   const openEdit = (post: any) => {
     const ad = post.authorData || {};
     setEditPost(post);
@@ -920,17 +1026,122 @@ const BlogSection = ({ bp }) => {
       authorTwitter: ad.twitter || '', authorLinkedin: ad.linkedin || '', authorTelegram: ad.telegram || '',
       signal: post.signal || EMPTY_FORM.signal,
     });
+    setEditorInitialData({
+      title:           post.title,
+      excerpt:         post.excerpt || '',
+      summary:         post.summary || '',
+      imageUrl:        post.imageUrl || '',
+      readTime:        post.readTime || '5 min',
+      content:         post.content || '',
+      category:        post.category || 'Analysis',
+      status:          post.status || 'Draft',
+      authorName:      post.author || '',
+      authorBio:       ad.bio || '',
+      authorExpertise: ad.expertise || [],
+      authorTwitter:   ad.twitter || '',
+      authorLinkedin:  ad.linkedin || '',
+      authorTelegram:  ad.telegram || '',
+    });
     setModalTab('post');
     setShowModal(true);
+  };
+
+  const uploadCoverImage = async (dataUrl: string): Promise<string> => {
+    if (!supabase) return dataUrl;
+    try {
+      const res  = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext  = blob.type.split('/')[1] || 'jpg';
+      const path = `covers/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data: up, error } = await supabase.storage
+        .from('blog-images')
+        .upload(path, blob, { contentType: blob.type, upsert: false });
+      if (error || !up) return dataUrl;
+      const { data: pub } = supabase.storage.from('blog-images').getPublicUrl(up.path);
+      return pub.publicUrl;
+    } catch {
+      return dataUrl;
+    }
+  };
+
+  const handleEditorSubmit = async (data: BlogEditorData) => {
+    if (!data.title.trim() || saving) return;
+    setSaving(true);
+    try {
+      const headers = await getAdminHeaders(true);
+
+      // Upload base64 cover to Supabase Storage — avoids bloating the DB
+      let imageUrl = data.imageUrl || '';
+      if (imageUrl.startsWith('data:')) {
+        imageUrl = await uploadCoverImage(imageUrl);
+      }
+
+      const derivedSection = CATEGORY_TO_SECTION[data.category] ?? 'blog';
+      const authorData = {
+        bio:       data.authorBio,
+        expertise: data.authorExpertise,
+        twitter:   data.authorTwitter,
+        linkedin:  data.authorLinkedin,
+        telegram:  data.authorTelegram,
+      };
+      const payload = {
+        title:      data.title.trim(),
+        section:    derivedSection,
+        status:     data.status,
+        category:   data.category,
+        author:     data.authorName || 'Admin',
+        date:       new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+        imageUrl,
+        videoUrl:   data.videoUrl || '',
+        excerpt:    data.excerpt || '',
+        summary:    data.summary || '',
+        content:    data.content || '',
+        readTime:   data.readTime || '5 min',
+        signalData: null,
+        authorData,
+      };
+      const body = JSON.stringify(payload);
+      if (editPost) {
+        const r = await fetch(`/api/blog/${editPost.id}`, { method: 'PATCH', headers, body });
+        if (r.ok) {
+          const savedPost = await r.json();
+          setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...savedPost, category: savedPost.category, authorData: savedPost.authorData } : x));
+        } else {
+          const err = await r.json().catch(() => ({}));
+          alert(`Failed to save post: ${err.error || `Server error ${r.status}`}`);
+          return;
+        }
+      } else {
+        const r = await fetch('/api/blog', { method: 'POST', headers, body });
+        if (r.ok) {
+          const savedPost = await r.json();
+          setPosts(p => [...p, {
+            id: savedPost.id, title: savedPost.title, section: savedPost.section,
+            category: savedPost.category, status: savedPost.status, author: savedPost.author,
+            date: savedPost.date, signal: savedPost.signalData,
+            imageUrl: savedPost.imageUrl ?? '', excerpt: savedPost.excerpt ?? '',
+            content: savedPost.content ?? '', readTime: savedPost.readTime ?? '5 min',
+            authorData: savedPost.authorData,
+          }]);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          alert(`Failed to save post: ${err.error || `Server error ${r.status}`}`);
+          return;
+        }
+      }
+      setShowModal(false);
+    } catch (err: any) {
+      alert(`Unexpected error: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
     if (!form.title.trim() || saving) return;
     setSaving(true);
     try {
-      const token = await getToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await getAdminHeaders(true);
       const f = form as any;
       // Social media handles are optional — always send safe defaults
       const authorData = {
@@ -1000,9 +1211,7 @@ const BlogSection = ({ bp }) => {
   };
 
   const handleDelete = async (id: any) => {
-    const token = await getToken();
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers = await getAdminHeaders();
     const r = await fetch(`/api/blog/${id}`, { method: 'DELETE', headers });
     if (r.ok) setPosts(p => p.filter(x => x.id !== id));
   };
@@ -1011,9 +1220,7 @@ const BlogSection = ({ bp }) => {
     const post = posts.find(x => x.id === id);
     if (!post) return;
     const newStatus = post.status === 'Published' ? 'Draft' : 'Published';
-    const token = await getToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers = await getAdminHeaders(true);
     const r = await fetch(`/api/blog/${id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: newStatus }) });
     if (r.ok) setPosts(p => p.map(x => x.id === id ? { ...x, status: newStatus } : x));
   };
@@ -1025,7 +1232,7 @@ const BlogSection = ({ bp }) => {
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: 0 }}>
       <div>
         <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>Content Manager</h2>
         <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Blog & Verified Strategies</p>
@@ -1039,8 +1246,24 @@ const BlogSection = ({ bp }) => {
             </button>
           ))}
         </div>
-        <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap' }}><Plus size={15} /> New Post</button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {showModal && (
+            <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '9px 14px', fontSize: '13px', border: `1px solid ${C.border2}` }}>
+              <X size={14} /> Back to Posts
+            </button>
+          )}
+          <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap' }}><Plus size={15} /> New Post</button>
+        </div>
       </div>
+      {showModal ? (
+        <BlogPostEditor
+          initialData={editorInitialData}
+          editPost={editPost}
+          onSubmit={handleEditorSubmit}
+          onCancel={() => setShowModal(false)}
+          saving={saving}
+        />
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: postCols, gap: '6px' }}>
         {filtered.map(post => {
           const sec = SECTION_META[post.section];
@@ -1101,157 +1324,6 @@ const BlogSection = ({ bp }) => {
           );
         })}
       </div>
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
-          <div style={{ ...cs, width: '100%', maxWidth: '560px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '18px 22px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '17px', margin: 0 }}>{editPost ? 'Edit Post' : 'New Post'}</h3>
-              <button onClick={() => setShowModal(false)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={17} /></button>
-            </div>
-            <div style={{ display: 'flex', gap: '3px', padding: '9px 22px', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
-              {TABS.map(tab => (
-                <button key={tab.id} onClick={() => setModalTab(tab.id)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: modalTab === tab.id ? C.indigo : 'transparent', color: modalTab === tab.id ? 'white' : C.muted, border: 'none', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <tab.icon size={11} />{tab.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {modalTab === 'post' && (
-                <>
-                  <div><label style={{ ...lbl }}>Post Title</label><input value={fv('title')} onChange={e => setF('title', e.target.value)} placeholder="Enter post title..." style={{ ...inp }} /></div>
-                  <div><label style={{ ...lbl }}>Excerpt <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— short summary shown in cards</span></label><textarea value={fv('excerpt')} onChange={e => setF('excerpt', e.target.value)} rows={2} placeholder="Brief description shown in the blog listing..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'end' }}>
-                    <div><label style={{ ...lbl }}>Cover Image URL <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— paste a link to the post image</span></label><input value={fv('imageUrl')} onChange={e => setF('imageUrl', e.target.value)} placeholder="https://..." style={{ ...inp }} /></div>
-                    <div><label style={{ ...lbl }}>Read Time</label><input value={fv('readTime')} onChange={e => setF('readTime', e.target.value)} placeholder="5 min" style={{ ...inp, width: '90px' }} /></div>
-                  </div>
-                  {fv('imageUrl') && <div style={{ width: '100%', height: '120px', overflow: 'hidden', border: `1px solid ${C.border2}`, background: C.border }}><img src={fv('imageUrl')} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.currentTarget.style.display = 'none')} /></div>}
-                  <div><label style={{ ...lbl }}>Content <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— full body of the post</span></label><textarea value={fv('content')} onChange={e => setF('content', e.target.value)} rows={6} placeholder="Write the full post content here..." style={{ ...inp, resize: 'vertical', display: 'block', minHeight: '100px' }} /></div>
-                  <div>
-                    <label style={{ ...lbl }}>Destination <span style={{ color: '#3d5878', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— maps to frontend nav tab</span></label>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                      {BLOG_CATEGORIES.map(cat => {
-                        const meta = CATEGORY_META[cat];
-                        const active = fv('category') === cat;
-                        return (
-                          <button key={cat} onClick={() => setF('category', cat)}
-                            style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '11px', background: active ? meta.bg : 'rgba(8,14,24,0.5)', border: `1px solid ${active ? meta.border : C.border2}`, color: active ? meta.color : C.muted, textAlign: 'left' }}>
-                            <div style={{ width: '8px', height: '8px', background: meta.dot, flexShrink: 0, borderRadius: '1px' }} />
-                            <div style={{ flex: 1 }}>
-                              <p style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>{cat}</p>
-                              <p style={{ margin: '2px 0 0', fontSize: '10px', opacity: 0.6 }}>{meta.sub}</p>
-                            </div>
-                            {active && <CheckCircle size={14} style={{ color: meta.color, flexShrink: 0 }} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ ...lbl }}>Status</label>
-                    <div style={{ display: 'flex', gap: '7px' }}>
-                      {['Draft', 'Published'].map(st => (
-                        <button key={st} onClick={() => setF('status', st)} style={{ ...btn, flex: 1, padding: '9px', background: fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.1)' : C.border) : 'transparent', color: fv('status') === st ? (st === 'Published' ? C.greenL : 'white') : C.muted, border: `1px solid ${fv('status') === st ? (st === 'Published' ? 'rgba(16,185,129,0.3)' : '#3d5878') : C.border2}`, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{st}</button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-              {modalTab === 'signal' && (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {['BUY', 'SELL'].map(action => (
-                      <button key={action} onClick={() => setSig('action', action)} style={{ ...btn, padding: '16px', fontSize: '17px', fontWeight: 700, background: sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)') : 'rgba(8,14,24,0.5)', color: sg('action') === action ? (action === 'BUY' ? C.greenL : C.redL) : C.muted, border: `1px solid ${sg('action') === action ? (action === 'BUY' ? 'rgba(16,185,129,0.4)' : 'rgba(244,63,94,0.4)') : C.border2}` }}>{action}</button>
-                    ))}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
-                    {[{ k: 'pair', label: 'Pair', ph: 'EUR/USD' }, { k: 'entry', label: 'Entry', ph: '1.0632' }, { k: 'sl', label: 'Stop Loss', ph: '1.0589' }].map(({ k, label, ph }) => (
-                      <div key={k}><label style={{ ...lbl }}>{label}</label><input value={sg(k)} onChange={e => setSig(k, e.target.value)} placeholder={ph} style={{ ...inp }} /></div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                    {['tp1', 'tp2', 'tp3'].map((tp, i) => (
-                      <div key={tp}><label style={{ ...lbl }}>TP {i + 1}</label><input value={sg(tp)} onChange={e => setSig(tp, e.target.value)} placeholder="0.0000" style={{ ...inp, borderColor: 'rgba(16,185,129,0.2)', color: '#6ee7b7' }} /></div>
-                    ))}
-                  </div>
-                  <div><label style={{ ...lbl }}>Rationale</label><textarea value={sg('rationale')} onChange={e => setSig('rationale', e.target.value)} rows={3} placeholder="Explain the reason for this signal..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
-                </>
-              )}
-              {modalTab === 'author' && (
-                <>
-                  <div><label style={{ ...lbl }}>Author Name</label><input value={fv('authorName')} onChange={e => setF('authorName', e.target.value)} placeholder="Full name..." style={{ ...inp }} /></div>
-                  <div><label style={{ ...lbl }}>Short Bio</label><textarea value={fv('authorBio')} onChange={e => setF('authorBio', e.target.value)} rows={3} placeholder="Author background, experience, credentials..." style={{ ...inp, resize: 'none', display: 'block' }} /></div>
-                  <div>
-                    <label style={{ ...lbl }}>Expertise</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
-                      {EXPERTISE_OPTIONS.map(tag => { const active = (fv('authorExpertise') || []).includes(tag); return <button key={tag} onClick={() => setF('authorExpertise', active ? (fv('authorExpertise') || []).filter((t: string) => t !== tag) : [...(fv('authorExpertise') || []), tag])} style={{ ...btn, padding: '5px 11px', background: active ? C.indigo : C.border, color: active ? 'white' : C.muted, border: `1px solid ${active ? C.indigo : C.border2}`, fontSize: '11px' }}>{tag}</button>; })}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ ...lbl }}>Social Profiles <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#3d5878' }}>(optional)</span></label>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#e2e8f0', fontSize: '11px', fontWeight: 700, pointerEvents: 'none' }}>𝕏</span>
-                        <input value={fv('authorTwitter')} onChange={e => setF('authorTwitter', e.target.value)} placeholder="@handle or profile URL" style={{ ...inp, paddingLeft: '30px' }} />
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                        <svg viewBox="0 0 24 24" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, fill: '#0A66C2', pointerEvents: 'none' }}><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
-                        <input value={fv('authorLinkedin')} onChange={e => setF('authorLinkedin', e.target.value)} placeholder="LinkedIn profile URL" style={{ ...inp, paddingLeft: '30px' }} />
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                        <svg viewBox="0 0 24 24" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, fill: '#26A5E4', pointerEvents: 'none' }}><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" /></svg>
-                        <input value={fv('authorTelegram')} onChange={e => setF('authorTelegram', e.target.value)} placeholder="@channel or profile" style={{ ...inp, paddingLeft: '30px' }} />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-              {modalTab === 'share' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>Toggle platforms to share when this post is published. Selected platforms will open share dialogs automatically.</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
-                    {SOCIAL_PLATFORMS.map(p => {
-                      const active = (fv('shareOn') || []).includes(p.id);
-                      return (
-                        <button key={p.id}
-                          onClick={() => setF('shareOn', active ? (fv('shareOn') || []).filter((s: string) => s !== p.id) : [...(fv('shareOn') || []), p.id])}
-                          style={{ ...btn, display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: active ? `${p.ac}15` : 'rgba(8,14,24,0.5)', color: active ? p.ac : C.muted, border: `1px solid ${active ? `${p.ac}40` : C.border2}`, textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>
-                          <p.icon />
-                          <span style={{ flex: 1 }}>{p.label}</span>
-                          {active && <svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {(fv('shareOn') || []).length > 0 && form.title && (
-                    <button
-                      onClick={() => {
-                        const postUrl = encodeURIComponent(window.location.origin + '/blog');
-                        const postTitle = encodeURIComponent(form.title);
-                        const shareUrls: Record<string, string> = {
-                          twitter:  `https://twitter.com/intent/tweet?text=${postTitle}&url=${postUrl}`,
-                          facebook: `https://www.facebook.com/sharer/sharer.php?u=${postUrl}`,
-                          linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${postUrl}`,
-                          telegram: `https://t.me/share/url?url=${postUrl}&text=${postTitle}`,
-                        };
-                        (fv('shareOn') as string[]).forEach((platform, i) => {
-                          const url = shareUrls[platform];
-                          if (url) setTimeout(() => window.open(url, '_blank', 'noopener,noreferrer,width=600,height=500'), i * 400);
-                        });
-                      }}
-                      style={{ ...btn, padding: '10px', background: 'rgba(0,200,224,0.15)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.3)`, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      <svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
-                      Share Now ({(fv('shareOn') as string[]).length} platform{(fv('shareOn') as string[]).length > 1 ? 's' : ''})
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            <div style={{ padding: '12px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setShowModal(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : editPost ? 'Save Changes' : 'Create Post'}</button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
@@ -1510,11 +1582,11 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
     });
   }, []);
 
-  const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem('admin_theme', id); };
+  const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem('admin_theme', id); applyAdminTheme(id); };
 
   const applyFont = () => {
-    const font = FONT_OPTIONS.find(f => f.id === activeFont);
-    if (font) { localStorage.setItem('admin_font', activeFont); document.body.style.fontFamily = font.stack; }
+    localStorage.setItem('admin_font', activeFont);
+    applyAdminFont(activeFont);
     setFontSaved(true); setTimeout(() => setFontSaved(false), 2000);
   };
 
@@ -1775,7 +1847,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
                 </button>
               ))}
             </div>
-            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme preference saved — reloads on next session</p>
+            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme applies instantly and is saved for future sessions</p>
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
@@ -1814,6 +1886,7 @@ export default function AdminPanel() {
   const [, navigate] = useLocation();
   const [apiUsers, setApiUsers] = useState<any[]>([]);
   const [overviewStats, setOverviewStats] = useState<any>(null);
+  const [myIpInfo, setMyIpInfo] = useState<{ ip: string; isExcluded: boolean; configuredAdminIps: string[]; geo?: { country: string; countryCode: string; region: string; city: string; isp: string } | null } | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -1833,6 +1906,8 @@ export default function AdminPanel() {
       if (usersRes.ok) setApiUsers(await usersRes.json());
       if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
+    // Always fetch admin IP (doesn't need auth)
+    fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
   }, [role]);
 
   async function handleRoleChange(userId: string, newRole: string) {
@@ -1849,7 +1924,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#07090e', color: '#3a5070', fontFamily: "'Montserrat', sans-serif", fontSize: '13px' }}>Loading…</div>;
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--admin-bg)', color: '#3a5070', fontFamily: FONT, fontSize: '13px' }}>Loading…</div>;
 
   const adminEmail = user?.email ?? '';
   const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
@@ -1880,7 +1955,7 @@ export default function AdminPanel() {
   const navBtn = item => {
     const isActive = activeTab === item.id;
     const isSoon = !item.ready;
-    const activeBg = isActive ? 'rgba(0,200,224,0.18)' : 'transparent';
+    const activeBg = isActive ? 'color-mix(in srgb, var(--admin-accent) 18%, transparent)' : 'transparent';
     const activeColor = isActive ? 'white' : isSoon ? '#2a3d54' : '#607898';
     const iconColor = isActive ? C.indigoL : isSoon ? '#1e3050' : '#3d5878';
     const handleClick = () => {
@@ -1948,6 +2023,45 @@ export default function AdminPanel() {
               icon={Globe}
             />
           </div>
+          {/* Admin IP filter notice */}
+          {myIpInfo && (
+            <div style={{
+              background: myIpInfo.isExcluded ? 'rgba(29,158,117,0.06)' : 'rgba(255,170,0,0.06)',
+              border: `1px solid ${myIpInfo.isExcluded ? 'rgba(29,158,117,0.2)' : 'rgba(255,170,0,0.25)'}`,
+              borderRadius: 6, padding: '10px 16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: myIpInfo.isExcluded ? '#1D9E75' : '#ffaa00', flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {myIpInfo.geo?.countryCode && (
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>
+                      {myIpInfo.geo.countryCode.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('')}
+                    </span>
+                  )}
+                  <div>
+                    <span style={{ fontSize: 11, color: myIpInfo.isExcluded ? '#1D9E75' : '#ffaa00', fontWeight: 600, letterSpacing: '0.05em' }}>
+                      {myIpInfo.isExcluded ? 'Admin IP — excluded from visitor stats' : 'Your IP is counted in visitor stats'}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>
+                      <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 6px', borderRadius: 3, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{myIpInfo.ip}</code>
+                      {myIpInfo.geo && (
+                        <span style={{ marginLeft: 6 }}>
+                          · {[myIpInfo.geo.city, myIpInfo.geo.region, myIpInfo.geo.country].filter(Boolean).join(', ')}
+                          {myIpInfo.geo.isp && <span style={{ color: 'rgba(255,255,255,0.25)', marginLeft: 4 }}>via {myIpInfo.geo.isp}</span>}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {!myIpInfo.isExcluded && (
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.03em' }}>
+                  Add to <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>ADMIN_IPS</code> secret to exclude your traffic
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
@@ -1985,87 +2099,108 @@ export default function AdminPanel() {
     }
   };
 
-  const sidebarW = collapsed ? '60px' : '240px';
+  const sidebarW = collapsed ? '60px' : '180px';
   const contentPad = bp.isMobile ? '14px' : '24px';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
 
-      {/* SIDEBAR */}
-      <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
-        <button onClick={() => setCollapsed(p => !p)}
-          style={{ position: 'absolute', right: '-12px', top: '30px', zIndex: 30, width: '24px', height: '24px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.muted }}>
-          <svg viewBox="0 0 24 24" style={{ width: '11px', height: '11px', transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-        </button>
-        <div style={{ padding: collapsed ? '6px 0' : '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ width: '28px', height: '28px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none">
-              <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
-              <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
-            </svg>
-          </div>
-          {!collapsed && <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '12px', letterSpacing: '0.12em', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>FSDZONES</span>}
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
-          {SIDEBAR_GROUPS.map((group, gi) => (
-            <div key={gi}>
-              {sectionLabel(group.label)}
-              {group.items.map(navBtn)}
+      {/* ── HEADER — full width, always at the very top ── */}
+      <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 92%, transparent)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+        {/* ── Left: hamburger + logo ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => setCollapsed(p => !p)}
+            aria-label="Toggle sidebar"
+            style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '5px', width: '36px', height: '36px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px', transition: 'background 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(45deg) translate(4px,4px)' : 'none' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', opacity: collapsed ? 0 : 1 }} />
+            <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(-45deg) translate(4px,-4px)' : 'none' }} />
+          </button>
+
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '26px', height: '26px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none">
+                <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
+                <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
+              </svg>
             </div>
-          ))}
+            <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '13px', letterSpacing: '0.1em', color: 'white', textTransform: 'uppercase' }}>FSDZONES</span>
+          </div>
         </div>
 
-        {/* User profile + sign out */}
-        <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0 }}>
-          {!collapsed && (
-            <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-              <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
-                {adminInitial}
-              </div>
-              <div style={{ overflow: 'hidden' }}>
-                <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
-                <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={async () => { await signOut(); navigate('/'); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
-          >
-            <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v6" />
-              <path d="M6.8 4.8a9 9 0 1 0 10.4 0" />
-            </svg>
-            {!collapsed && <span>Sign Out</span>}
+        {/* ── Right: actions ── */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
+            <Mail size={16} />
+            {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
+            <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
+          </button>
+          <div style={{ width: '1px', height: '24px', background: C.border2 }} />
+          <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
+            <Bell size={16} />
+            {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
+            <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
           </button>
         </div>
+      </header>
 
-      </aside>
+      {/* ── BODY ROW — sidebar + content, fills remaining height ── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-      {/* MAIN CONTENT */}
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'radial-gradient(ellipse at top, #0c1220 0%, #07090e 60%)', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(7,9,14,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `6px ${contentPad}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
-              <Mail size={16} />
-              {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
-              <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
-            </button>
-            <div style={{ width: '1px', height: '24px', background: C.border2 }} />
-            <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
-              <Bell size={16} />
-              {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
-              <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
+        {/* SIDEBAR */}
+        <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
+            {SIDEBAR_GROUPS.map((group, gi) => (
+              <div key={gi}>
+                {sectionLabel(group.label)}
+                {group.items.map(navBtn)}
+              </div>
+            ))}
+          </div>
+
+          {/* User profile + sign out */}
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0 }}>
+            {!collapsed && (
+              <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
+                  {adminInitial}
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                  <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
+                  <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={async () => { await signOut(); navigate('/'); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
+            >
+              <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v6" />
+                <path d="M6.8 4.8a9 9 0 1 0 10.4 0" />
+              </svg>
+              {!collapsed && <span>Sign Out</span>}
             </button>
           </div>
-        </header>
-        <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
-      </main>
+        </aside>
+
+        {/* MAIN CONTENT */}
+        <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: `radial-gradient(ellipse at top, var(--admin-card) 0%, var(--admin-bg) 60%)`, display: 'flex', flexDirection: 'column' }}>
+          <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
+        </main>
+
+      </div>
     </div>
   );
 }

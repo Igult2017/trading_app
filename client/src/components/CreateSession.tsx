@@ -82,115 +82,147 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   return (
     <>
       <style>{FONT_IMPORT}{`
-        .csf-root { font-family: 'Syne', sans-serif; }
-        .csf-input:focus { outline: none; background: rgba(29,158,117,0.06) !important; border-color: rgba(29,158,117,0.5) !important; }
-        .csf-btn:not(:disabled):hover { background: rgba(29,158,117,0.22) !important; border-color: rgba(29,158,117,0.6) !important; }
-        .csf-btn:not(:disabled):active { transform: translateY(1px); }
+        .csf-root { font-family: 'DM Mono', monospace; }
+        .csf-input { width: 100%; box-sizing: border-box; }
+        .csf-input:focus { outline: none; border-color: rgba(99,102,241,0.6) !important; background: rgba(99,102,241,0.05) !important; }
+        .csf-deploy:not(:disabled):hover { background: #5254cc !important; }
+        .csf-deploy:not(:disabled):active { transform: translateY(1px); }
       `}</style>
-      <div className="csf-root" style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
-        <div style={{
-          background: '#111113',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: 8,
-          padding: '2rem',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-            background: 'linear-gradient(90deg, #1D9E75, #5DCAA5)',
-          }} />
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(29,158,117,0.05) 0%, transparent 60%)',
-            pointerEvents: 'none',
-          }} />
+      <div className="csf-root" style={{ width: '100%', maxWidth: 460, margin: '0 auto', paddingBottom: 8 }}>
 
-          <div style={{ marginBottom: '1.75rem', position: 'relative' }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: '0.2em', color: '#1D9E75', textTransform: 'uppercase', marginBottom: 6 }}>
-              New Session
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: '#f0ede6' }}>
-              Create Session
-            </div>
+        {/* Icon + title */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+          <div style={{
+            width: 56, height: 56, background: '#4f46e5',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 16,
+          }}>
+            <PlusCircle size={26} color="#fff" strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em', color: '#ffffff', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'Syne', sans-serif" }}>
+            Create New Session
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+            System Initialisation Required
+          </div>
+        </div>
+
+        {/* Form card */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="form-create-session">
+
+          {/* Session identifier */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
+              <Clock size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
+              Session Identifier
+            </label>
+            <input
+              type="text"
+              required
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              placeholder="E.G. NASDAQ_SCALP_01"
+              className="csf-input"
+              data-testid="input-session-name"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 0,
+                padding: '13px 16px',
+                fontSize: 12,
+                fontWeight: 500,
+                color: '#ffffff',
+                fontFamily: "'DM Mono', monospace",
+                letterSpacing: '0.06em',
+                transition: 'border-color 0.2s, background 0.2s',
+              }}
+            />
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} data-testid="form-create-session">
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 8 }}>
-                <Clock size={10} style={{ color: '#1D9E75' }} />
-                Session Identifier
-              </label>
+          {/* Initial liquidity */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
+              <Wallet size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
+              Initial Liquidity
+            </label>
+            <div style={{ position: 'relative' }}>
+              <span style={{
+                position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
+                color: 'rgba(255,255,255,0.5)', fontFamily: "'DM Mono', monospace", fontSize: 13,
+              }}>$</span>
               <input
-                type="text"
-                required
-                value={sessionName}
-                onChange={(e) => setSessionName(e.target.value)}
-                placeholder="E.G. NASDAQ_SCALP_01"
+                type="number"
+                value={startingBalance}
+                onChange={(e) => setStartingBalance(e.target.value)}
+                placeholder="10000"
+                min="0"
+                step="0.01"
                 className="csf-input"
-                data-testid="input-session-name"
+                data-testid="input-starting-balance"
                 style={{
-                  width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 6, padding: '10px 14px', fontSize: 13, fontWeight: 600,
-                  color: '#f0ede6', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
-                  transition: 'border-color 0.2s, background 0.2s', boxSizing: 'border-box',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 0,
+                  padding: '13px 16px 13px 32px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: '#ffffff',
+                  fontFamily: "'DM Mono', monospace",
+                  letterSpacing: '0.06em',
+                  transition: 'border-color 0.2s, background 0.2s',
                 }}
               />
             </div>
+          </div>
 
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 8 }}>
-                <Wallet size={10} style={{ color: '#1D9E75' }} />
-                Initial Balance
-              </label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#1D9E75', fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500 }}>$</span>
-                <input
-                  type="number"
-                  value={startingBalance}
-                  onChange={(e) => setStartingBalance(e.target.value)}
-                  placeholder="10000"
-                  min="0"
-                  step="0.01"
-                  className="csf-input"
-                  data-testid="input-starting-balance"
-                  style={{
-                    width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 6, padding: '10px 14px 10px 28px', fontSize: 13, fontWeight: 600,
-                    color: '#f0ede6', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
-                    transition: 'border-color 0.2s, background 0.2s', boxSizing: 'border-box',
-                  }}
-                />
-              </div>
+          {formError && (
+            <div style={{ background: 'rgba(255,77,77,0.08)', border: '1px solid rgba(255,77,77,0.25)', padding: '10px 14px' }}>
+              <p style={{ fontSize: 11, color: '#ff7070', margin: 0 }} data-testid="text-form-error">{formError}</p>
             </div>
+          )}
 
-            {formError && (
-              <div style={{ background: 'rgba(255,77,77,0.08)', border: '1px solid rgba(255,77,77,0.25)', borderRadius: 6, padding: '10px 14px' }}>
-                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: '#ff7070', margin: 0 }} data-testid="text-form-error">{formError}</p>
-              </div>
+          {/* Deploy button */}
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className="csf-deploy"
+            data-testid="button-create-session"
+            style={{
+              width: '100%',
+              background: '#4f46e5',
+              border: 'none',
+              borderRadius: 0,
+              padding: '15px 20px',
+              color: '#ffffff',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              cursor: createMutation.isPending ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s, transform 0.1s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              opacity: createMutation.isPending ? 0.7 : 1,
+              marginTop: 4,
+            }}
+          >
+            {createMutation.isPending ? (
+              <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            ) : (
+              <>Deploy Session <ChevronRight size={13} /></>
             )}
+          </button>
+        </form>
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="csf-btn"
-              data-testid="button-create-session"
-              style={{
-                width: '100%', background: 'rgba(29,158,117,0.12)', border: '1px solid rgba(29,158,117,0.3)',
-                borderRadius: 6, padding: '11px 20px', color: '#1D9E75',
-                fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500,
-                letterSpacing: '0.1em', textTransform: 'uppercase', cursor: createMutation.isPending ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                opacity: createMutation.isPending ? 0.6 : 1,
-              }}
-            >
-              {createMutation.isPending ? (
-                <div style={{ width: 14, height: 14, border: '2px solid rgba(29,158,117,0.3)', borderTopColor: '#1D9E75', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-              ) : (
-                <>Deploy Session <ChevronRight size={13} /></>
-              )}
-            </button>
-          </form>
+        {/* Status bar */}
+        <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
+            Status: <span style={{ color: '#6366f1' }}>Ready</span>
+          </div>
+          <div style={{ width: 48, height: 2, background: '#4f46e5' }} />
         </div>
       </div>
     </>
@@ -307,7 +339,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       style={{
         background: '#111113',
         border: `1px solid ${cardBorder}`,
-        borderRadius: 6,
+        borderRadius: 0,
         position: 'relative',
         overflow: 'hidden',
         cursor: 'pointer',
@@ -319,7 +351,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
     >
       {isWinner && (
         <>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #1D9E75, #5DCAA5)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #1a6ef5, #5aadff)', zIndex: 1 }} />
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(29,158,117,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
         </>
       )}
@@ -336,7 +368,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                   onKeyDown={handleNameKeyDown}
                   data-testid={`input-session-name-${session.id}`}
                   style={{
-                    fontSize: 13, fontWeight: 700, color: '#f0ede6', background: 'transparent',
+                    fontSize: 11, fontWeight: 700, color: '#f0ede6', background: 'transparent',
                     border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
                     flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
                     textTransform: 'uppercase', padding: '2px 0', minWidth: 0,
@@ -351,7 +383,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <div
                   data-testid={`text-session-name-${session.id}`}
-                  style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: '#f0ede6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', color: '#f0ede6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
                   {session.sessionName}
                 </div>
@@ -408,7 +440,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                 onChange={e => setBalInput(e.target.value)}
                 onKeyDown={handleBalKeyDown}
                 style={{
-                  fontSize: 17, fontWeight: 700, color: '#f0ede6', background: 'transparent',
+                  fontSize: 13, fontWeight: 700, color: '#f0ede6', background: 'transparent',
                   border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
                   flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.01em', padding: '2px 0',
                 }}
@@ -423,7 +455,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
               onClick={startEdit}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#f0ede6', letterSpacing: '-0.02em', cursor: 'text' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ede6', letterSpacing: '-0.02em', cursor: 'text' }}>
                 ${startBal.toLocaleString()}
               </div>
               {balSaved && <span style={{ color: '#1D9E75', fontSize: 8, letterSpacing: '0.1em' }}>saved</span>}
@@ -452,7 +484,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
             <div key={label} style={{
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: 6,
+              borderRadius: 0,
               padding: '8px 10px',
             }}>
               <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 5 }}>
@@ -581,10 +613,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.2em', color: '#1D9E75', textTransform: 'uppercase', marginBottom: 4 }}>
               Trading Sessions
-            </div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: '#f0ede6' }}
-              data-testid="text-sessions-title">
-              Your Sessions
             </div>
           </div>
           <span style={{

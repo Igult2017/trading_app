@@ -650,6 +650,8 @@ export const blogPosts = pgTable("blog_posts", {
   imageUrl:   text("image_url").default(''),
   status:     text("status").default('Draft'),          // Published | Draft
   section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals
+  summary:    text("summary").default(''),               // bullet-point TL;DR (one bullet per line, prefixed with •)
+  videoUrl:   text("video_url").default(''),
   signalData: jsonb("signal_data"),
   authorData: jsonb("author_data"),            // { bio, expertise[], twitter, linkedin, telegram }
   createdAt:  timestamp("created_at").defaultNow(),
@@ -670,3 +672,21 @@ export const pageViews = pgTable("page_views", {
   durationSeconds: integer("duration_seconds"),
   viewedAt:        timestamp("viewed_at").defaultNow(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN ACCESS LOGS
+// ─────────────────────────────────────────────────────────────────────────────
+export const adminAccessLogs = pgTable("admin_access_logs", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:      varchar("user_id"),
+  email:       text("email"),
+  ip:          text("ip").notNull(),
+  country:     text("country"),
+  countryCode: text("country_code"),
+  region:      text("region"),
+  city:        text("city"),
+  isp:         text("isp"),
+  accessedAt:  timestamp("accessed_at").defaultNow(),
+});
+
+export type AdminAccessLog = typeof adminAccessLogs.$inferSelect;

@@ -19,6 +19,7 @@ import Journal from "@/pages/Journal";
 import AssetPage from "@/pages/AssetPage";
 import TscPage from "@/pages/TscPage";
 import BlogPage from "@/pages/BlogPage";
+import BlogPostPage from "@/pages/BlogPostPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import AuthPage from "@/pages/AuthPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
@@ -113,7 +114,7 @@ function AppRoutes() {
       <Route path="/join"          component={Join} />
       <Route path="/tsc"           component={TscPage} />
       <Route path="/blog"          component={BlogPage} />
-      <Route path="/blog/:slug"    component={BlogPage} />
+      <Route path="/blog/:slug"    component={BlogPostPage} />
       <Route path="/calendar"      component={EconomicCalendarPage} />
 
       {/* Journal — protected, has its own header (no shared header/footer) */}

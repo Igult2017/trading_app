@@ -43,3 +43,16 @@ export function safeDecrypt(encoded: string | null | undefined): string | null {
   if (!encoded) return null;
   try { return decrypt(encoded); } catch { return null; }
 }
+
+/**
+ * Safe encrypt — uses AES-256-GCM when COPY_ENCRYPTION_KEY is set,
+ * falls back to plain base64 otherwise.
+ *
+ * The Python bridge _decrypt() handles both formats:
+ *   • AES key set  → expects ivHex:tagHex:ciphertextHex  (this function's AES output)
+ *   • No AES key   → expects plain base64                (this function's fallback)
+ * Using this everywhere ensures the Python side can always decode passwords.
+ */
+export function safeEncrypt(plaintext: string): string {
+  try { return encrypt(plaintext); } catch { return Buffer.from(plaintext).toString('base64'); }
+}

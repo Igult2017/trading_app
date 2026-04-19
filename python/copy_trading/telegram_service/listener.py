@@ -55,6 +55,11 @@ class TelegramListener:
 
     @staticmethod
     def _decrypt(cipher: str) -> str:
+        """Decrypt a value stored by the Node.js server.
+
+        Node.js crypto.ts format:  ivHex:tagHex:ciphertextHex  (colon-separated hex)
+        Fallback (no key set):     plain base64.
+        """
         from ..config import ENCRYPTION_KEY
         if not ENCRYPTION_KEY:
             import base64
@@ -63,12 +68,20 @@ class TelegramListener:
             except Exception:
                 return cipher
         try:
-            import base64
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            key = bytes.fromhex(ENCRYPTION_KEY)
-            raw = base64.b64decode(cipher)
-            nonce, ct = raw[:12], raw[12:]
-            return AESGCM(key).decrypt(nonce, ct, None).decode()
+            key   = bytes.fromhex(ENCRYPTION_KEY)
+            parts = cipher.split(":")
+            if len(parts) == 3:
+                # Node.js format: ivHex:tagHex:ciphertextHex
+                nonce      = bytes.fromhex(parts[0])
+                tag        = bytes.fromhex(parts[1])
+                ciphertext = bytes.fromhex(parts[2])
+                return AESGCM(key).decrypt(nonce, ciphertext + tag, None).decode()
+            else:
+                # Legacy Python base64(nonce + ciphertext+tag) format
+                import base64
+                raw = base64.b64decode(cipher)
+                return AESGCM(key).decrypt(raw[:12], raw[12:], None).decode()
         except Exception as e:
             log.error("[TG] Decryption failed: %s", e)
             return cipher

@@ -64,7 +64,7 @@ export default function BlogPage() {
   usePageTracking('blog');
   const [activeCategory, setActiveCategory] = useState('All');
   const [darkMode, setDarkMode] = useState(true);
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [apiPosts, setApiPosts] = useState<Article[] | null>(null);
 
   useEffect(() => {
@@ -135,7 +135,7 @@ export default function BlogPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
           {/* Featured Article */}
-          <section className={`lg:col-span-8 group cursor-pointer lg:border-r lg:pr-12 transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-100'}`}>
+          <section onClick={() => navigate(`/blog/${featuredArticle.id}`)} className={`lg:col-span-8 group cursor-pointer lg:border-r lg:pr-12 transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-100'}`}>
             <div className={`relative overflow-hidden mb-8 aspect-[16/9] border transition-colors duration-700 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-stone-100 border-stone-200'}`}>
               <SafeImage
                 src={featuredArticle.image}
@@ -176,7 +176,7 @@ export default function BlogPage() {
 
               <div className="space-y-10">
                 {(sideArticles.length > 0 ? sideArticles : allPosts.slice(1)).map((art) => (
-                  <article key={art.id} className="group cursor-pointer">
+                  <article key={art.id} onClick={() => navigate(`/blog/${art.id}`)} className="group cursor-pointer">
                     <div className="flex gap-5">
                       <div className="flex-1">
                         <div className={`text-[8px] font-extrabold uppercase tracking-widest mb-2 ${isDark ? 'text-blue-500' : 'text-blue-600'}`}>{art.category}</div>
@@ -258,7 +258,7 @@ export default function BlogPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {(apiPosts ? allPosts.slice(4) : FALLBACK_ARCHIVED).map((post) => (
-              <article key={post.id} className={`group cursor-pointer p-6 border transition-all duration-300 ${isDark ? 'bg-[#1e293b]/30 border-[#334155] hover:border-blue-500' : 'bg-white border-stone-200 hover:border-stone-400'}`}>
+              <article key={post.id} onClick={() => navigate(`/blog/${post.id}`)} className={`group cursor-pointer p-6 border transition-all duration-300 ${isDark ? 'bg-[#1e293b]/30 border-[#334155] hover:border-blue-500' : 'bg-white border-stone-200 hover:border-stone-400'}`}>
                 <div className={`text-[8px] font-extrabold uppercase tracking-widest mb-3 ${isDark ? 'text-blue-500' : 'text-blue-600'}`}>
                   {post.category}
                 </div>

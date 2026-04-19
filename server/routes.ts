@@ -2,9 +2,9 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { db, pool } from "./db";
-import { userProfiles } from "@shared/schema";
+import { userProfiles, adminAccessLogs } from "@shared/schema";
 import { eq, sql as drizzleSql } from "drizzle-orm";
-import { encrypt, safeDecrypt } from "./lib/crypto";
+import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
@@ -1128,8 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { nickname, platform, brokerServer, loginId, password, role, symbolPrefix, symbolSuffix, userId } = req.body;
       if (!loginId || !password || !role || !platform) return res.status(400).json({ error: "Missing required fields: loginId, password, role, platform" });
-      // Base64 placeholder — the Python bridge replaces this with AES-256 on first connect
-      const passwordEnc = Buffer.from(password).toString("base64");
+      const passwordEnc = safeEncrypt(password);
       const account = await storage.createCopyAccount({ nickname: nickname || loginId, platform, brokerServer, loginId, passwordEnc, role, symbolPrefix, symbolSuffix, userId, isActive: true });
       const { passwordEnc: _, ...safe } = account;
       return res.status(201).json(safe);
@@ -1140,7 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { password, ...rest } = req.body;
       const updates: any = { ...rest };
-      if (password) updates.passwordEnc = Buffer.from(password).toString("base64");
+      if (password) updates.passwordEnc = safeEncrypt(password);
       const updated = await storage.updateCopyAccount(req.params.id, updates);
       if (!updated) return res.status(404).json({ error: "Account not found" });
       const { passwordEnc: _, ...safe } = updated;
@@ -1315,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         platform:     ac.platform || "MT5",
         brokerServer: ac.brokerServer,
         loginId:      ac.loginId || "unknown",
-        passwordEnc:  ac.password ? Buffer.from(ac.password).toString("base64") : "",
+        passwordEnc:  ac.password ? safeEncrypt(ac.password) : "",
         role:         role === "provider" ? "master" : "follower",
         symbolPrefix: ac.symbolPrefix,
         symbolSuffix: ac.symbolSuffix,
@@ -1342,7 +1341,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isActive:        true,
         });
         if (role === "telegram" && telegramConfig) {
-          await storage.upsertTelegramSource({ ...telegramConfig, masterId: masterRecord.id });
+          // Remap apiHash → apiHashEnc (schema field name) and encrypt it.
+          // The wizard sends { apiHash, apiId, phoneNumber, channelName, ... }
+          // The schema expects { apiHashEnc, apiId, phoneNumber, channelName, ... }
+          const { apiHash, ...tgRest } = telegramConfig;
+          await storage.upsertTelegramSource({
+            ...tgRest,
+            masterId:   masterRecord.id,
+            apiHashEnc: apiHash ? safeEncrypt(apiHash) : undefined,
+          });
         }
       }
 
@@ -1753,7 +1760,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin middleware ──────────────────────────────────────────────────────────
   // Reads role from the DB — never from the JWT — so stale or manipulated tokens
   // cannot escalate privileges.
+  // ── IP geolocation (ip-api.com — free, no key required) ────────────────────
+  async function geolocateIp(ip: string): Promise<{
+    country: string; countryCode: string; region: string; city: string; isp: string;
+  } | null> {
+    if (!ip || ip === 'unknown' || ip.startsWith('127.') || ip.startsWith('::')) return null;
+    try {
+      const res = await fetch(
+        `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (!res.ok) return null;
+      const d = await res.json() as any;
+      if (d.status !== 'success') return null;
+      return { country: d.country, countryCode: d.countryCode, region: d.regionName, city: d.city, isp: d.isp };
+    } catch {
+      return null;
+    }
+  }
+
+  // ── Log admin access (fire-and-forget) ───────────────────────────────────────
+  function logAdminAccess(userId: string, email: string, ip: string) {
+    geolocateIp(ip).then(geo => {
+      db.insert(adminAccessLogs).values({
+        userId, email, ip,
+        country:     geo?.country     ?? null,
+        countryCode: geo?.countryCode ?? null,
+        region:      geo?.region      ?? null,
+        city:        geo?.city        ?? null,
+        isp:         geo?.isp         ?? null,
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    // Option 1: ADMIN_SECRET header bypass (works without Supabase)
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (adminSecret && req.headers['x-admin-secret'] === adminSecret) {
+      const adminUser = { id: 'admin', email: process.env.ADMIN_EMAIL ?? 'admin@local' };
+      (req as any).adminUser = adminUser;
+      logAdminAccess(adminUser.id, adminUser.email, getClientIp(req));
+      return next();
+    }
+
+    // Option 2: Supabase JWT
     const authUser = await verifyToken(req.headers.authorization);
     if (!authUser) return res.status(401).json({ error: "Unauthorized" });
 
@@ -1768,6 +1818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     (req as any).adminUser = authUser;
+    logAdminAccess(authUser.id, authUser.email ?? '', getClientIp(req));
     next();
   }
 
@@ -1843,6 +1894,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
 
+      const adminIpSet = await getAllAdminIps();
+      const adminIpList = [...adminIpSet];
+      const ipFilter = adminIpList.length > 0
+        ? drizzleSql`AND (ip_address IS NULL OR ip_address != ALL(${adminIpList}::text[]))`
+        : drizzleSql``;
+
       const [supabaseResult, allPosts, roleProfiles, visitorRows] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         storage.getBlogPosts(),
@@ -1854,6 +1911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             AVG(duration_seconds)          AS avg_duration
           FROM page_views
           WHERE viewed_at >= NOW() - INTERVAL '3 months'
+          ${ipFilter}
           GROUP BY month
           ORDER BY month DESC
         `),
@@ -1934,6 +1992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signupsByMonth,
         signupsByDay,
         recentActivity,
+        adminIps: adminIpList,
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -2223,24 +2282,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Admin: real service health ────────────────────────────────────────────────
   app.get("/api/admin/health", requireAdmin, async (_req: Request, res: Response) => {
-    const checks = [];
-    try {
+    const probe = async (name: string, fn: () => Promise<void>, label?: string): Promise<any> => {
       const t = Date.now();
-      await db.execute(drizzleSql`SELECT 1`);
-      checks.push({ name: 'Database', status: 'operational', latency: `${Date.now()-t}ms`, uptime: '100%' });
-    } catch { checks.push({ name: 'Database', status: 'degraded', latency: 'error', uptime: 'N/A' }); }
+      try {
+        await fn();
+        return { name: label ?? name, status: 'operational', latency: `${Date.now()-t}ms` };
+      } catch (e: any) {
+        return { name: label ?? name, status: 'degraded', latency: 'error', error: e?.message?.slice(0,80) };
+      }
+    };
 
-    checks.push({ name: 'Auth Service', status: supabaseAdmin ? 'operational' : 'not-configured', latency: supabaseAdmin ? `${5+Math.floor(Math.random()*10)}ms` : 'N/A', uptime: supabaseAdmin ? '100%' : 'N/A' });
-    checks.push({ name: 'Cache Layer', status: 'operational', latency: '1ms', uptime: '100%' });
+    const checks = await Promise.all([
 
-    const telegramReady = (telegramNotificationService as any)?.isReady?.() ?? false;
-    checks.push({ name: 'Telegram Bot', status: telegramReady ? 'operational' : 'not-configured', latency: telegramReady ? '—' : 'N/A', uptime: telegramReady ? '99.9%' : 'N/A' });
-    checks.push({ name: 'Gemini AI', status: isGeminiConfigured() ? 'operational' : 'not-configured', latency: '—', uptime: '—' });
+      // ── Infrastructure ──────────────────────────────────────────────────
+      probe('db', async () => { await db.execute(drizzleSql`SELECT 1`); }, 'Database'),
 
-    try {
-      await pingPriceService();
-      checks.push({ name: 'Price Feed', status: 'operational', latency: '—', uptime: '99.9%' });
-    } catch { checks.push({ name: 'Price Feed', status: 'degraded', latency: 'timeout', uptime: 'N/A' }); }
+      probe('auth', async () => {
+        if (!supabaseAdmin) throw new Error('Supabase admin not configured');
+        await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+      }, 'Auth / Logins'),
+
+      probe('price-feed', async () => { await pingPriceService(); }, 'Price Feed'),
+
+      // ── App pages / features ────────────────────────────────────────────
+      probe('blog', async () => {
+        const rows = await pool.query(`SELECT id FROM blog_posts WHERE status='Published' LIMIT 1`);
+        // just checking DB table is accessible — no error = operational
+        void rows;
+      }, 'Blog'),
+
+      probe('journal', async () => {
+        await pool.query(`SELECT id FROM journal_entries LIMIT 1`);
+      }, 'Journal'),
+
+      probe('calendar', async () => {
+        const rows = await pool.query(`SELECT id FROM economic_events LIMIT 1`);
+        void rows;
+      }, 'Economic Calendar'),
+
+      probe('tsc', async () => {
+        // TSC page is static React — if DB is up and server process is alive, it's serving fine
+        if (process.uptime() < 0) throw new Error('unreachable');
+      }, 'TSC Page'),
+
+      probe('app-loading', async () => {
+        // Verify Node process is serving — measure internal round-trip
+        const t0 = Date.now();
+        await pool.query(`SELECT NOW()`);
+        if (Date.now() - t0 > 3000) throw new Error('slow response');
+      }, 'App Loading'),
+
+      // ── Services ────────────────────────────────────────────────────────
+      probe('gemini', async () => {
+        if (!isGeminiConfigured()) throw new Error('API key not set');
+      }, 'Gemini AI'),
+
+      probe('telegram', async () => {
+        const ready = (telegramNotificationService as any)?.isReady?.() ?? false;
+        if (!ready) throw new Error('not configured');
+      }, 'Telegram Bot'),
+
+      probe('cache', async () => {
+        await cacheService.get('__health_check__');
+      }, 'Cache Layer'),
+
+      probe('copy-bridge', async () => {
+        const bridgeUrl = process.env.COPY_BRIDGE_URL ?? 'http://bridge:8001';
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 2000);
+        try {
+          const r = await fetch(`${bridgeUrl}/health`, { signal: ctrl.signal });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        } finally { clearTimeout(tid); }
+      }, 'Copy Trading Bridge'),
+    ]);
 
     return res.json({ services: checks, uptimeSec: Math.floor(process.uptime()) });
   });
@@ -2302,9 +2417,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       -- add author_data column if table was created before this change
       ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS author_data JSONB;
+      -- add summary column if table was created before this change
+      ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS summary TEXT DEFAULT '';
+      -- add video_url column added for YouTube embed support
+      ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT '';
     `);
   } catch (e: any) {
     console.warn('[Blog] Could not ensure blog_posts table:', e.message);
+  }
+
+  // ── Ensure admin_access_logs table exists ─────────────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_access_logs (
+        id           VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        user_id      VARCHAR,
+        email        TEXT,
+        ip           TEXT NOT NULL,
+        country      TEXT,
+        country_code TEXT,
+        region       TEXT,
+        city         TEXT,
+        isp          TEXT,
+        accessed_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS admin_access_logs_ip_idx ON admin_access_logs (ip);
+    `);
+  } catch (e: any) {
+    console.warn('[Admin] Could not ensure admin_access_logs table:', e.message);
   }
 
   // ── Ensure user_profiles has trader profile columns ──────────────────────────
@@ -2331,6 +2471,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         viewed_at       TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS page_views_viewed_at_idx ON page_views (viewed_at);
+    `);
+    // Add ip_address column if it doesn't exist yet (migration)
+    await db.execute(drizzleSql`
+      ALTER TABLE page_views ADD COLUMN IF NOT EXISTS ip_address TEXT;
+      CREATE INDEX IF NOT EXISTS page_views_ip_idx ON page_views (ip_address);
     `);
   } catch (e: any) {
     console.warn('[PageViews] Could not ensure page_views table:', e.message);
@@ -2392,16 +2537,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     addServerLog('info', 'DB', 'admin_tasks table ready');
   } catch (e: any) { console.warn('[AdminTasks] Could not ensure table:', e.message); }
 
-  // ── Page-view tracking (public — no auth required) ──────────────────────────
+  // ── IP helpers ───────────────────────────────────────────────────────────────
+  function getClientIp(req: Request): string {
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) {
+      const first = (Array.isArray(fwd) ? fwd[0] : fwd).split(',')[0].trim();
+      if (first) return first;
+    }
+    return (req.headers['x-real-ip'] as string) ?? req.socket?.remoteAddress ?? req.ip ?? 'unknown';
+  }
+
+  function getAdminIps(): string[] {
+    const raw = process.env.ADMIN_IPS ?? '';
+    return raw.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Merged admin IP set: env var + every IP that has ever made a successful admin login.
+  // Cached for 5 minutes so page-view checks are cheap.
+  let _adminIpCache: Set<string> | null = null;
+  let _adminIpCachedAt = 0;
+  async function getAllAdminIps(): Promise<Set<string>> {
+    if (_adminIpCache && Date.now() - _adminIpCachedAt < 5 * 60 * 1000) return _adminIpCache;
+    const envIps = getAdminIps();
+    try {
+      const rows = await db.select({ ip: adminAccessLogs.ip }).from(adminAccessLogs);
+      const set = new Set<string>([...envIps, ...rows.map(r => r.ip)]);
+      _adminIpCache = set;
+      _adminIpCachedAt = Date.now();
+      return set;
+    } catch {
+      return new Set(envIps);
+    }
+  }
+
+  // ── Page-view tracking — skip admin IPs automatically ───────────────────────
   app.post("/api/track", async (req: Request, res: Response) => {
     try {
       const { page, sessionId, durationSeconds } = req.body as { page: string; sessionId?: string; durationSeconds?: number };
       if (!page?.trim()) return res.status(400).json({ error: 'page required' });
+      const ip = getClientIp(req);
+      // Don't count admin traffic in visitor stats
+      const adminIps = await getAllAdminIps();
+      if (adminIps.has(ip)) return res.json({ ok: true, skipped: true });
       await db.execute(drizzleSql`
-        INSERT INTO page_views (page, session_id, duration_seconds)
-        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null})
+        INSERT INTO page_views (page, session_id, duration_seconds, ip_address)
+        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null}, ${ip})
       `);
       return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Return the caller's IP + geolocation + whether it's excluded ─────────────
+  app.get("/api/track/my-ip", async (req: Request, res: Response) => {
+    const ip = getClientIp(req);
+    const [adminIps, geo] = await Promise.all([getAllAdminIps(), geolocateIp(ip)]);
+    res.json({ ip, isExcluded: adminIps.has(ip), configuredAdminIps: [...adminIps], geo });
+  });
+
+  // ── Admin access log (last 50 entries) ───────────────────────────────────────
+  app.get("/api/admin/access-log", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select()
+        .from(adminAccessLogs)
+        .orderBy(drizzleSql`accessed_at DESC`)
+        .limit(50);
+      return res.json(rows);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -2431,16 +2634,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Blog: single post (public) ───────────────────────────────────────────────
+  app.get("/api/blog/:id", async (req: Request, res: Response) => {
+    try {
+      const post = await storage.getBlogPostById(req.params.id);
+      if (!post) return res.status(404).json({ error: 'Post not found' });
+      return res.json(post);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Blog: create post ─────────────────────────────────────────────────────────
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
-      const { title, excerpt, content, category, author, date, readTime, imageUrl, status, section, signalData, authorData } = req.body;
+      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, status, section, signalData, authorData } = req.body;
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
       const post = await storage.createBlogPost({
         title: title.trim(),
         excerpt: excerpt ?? '',
         content: content ?? '',
+        summary: summary ?? '',
         category: category ?? 'Analysis',
         author: author || adminUser?.user_metadata?.full_name || adminUser?.email || 'Admin',
         authorId: adminUser?.id,

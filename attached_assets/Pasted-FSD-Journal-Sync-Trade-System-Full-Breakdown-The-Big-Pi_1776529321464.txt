@@ -1,0 +1,255 @@
+FSD Journal — Sync Trade System: Full Breakdown
+The Big Picture
+At its core, copy trading is a publish/subscribe problem:
+
+A Signal Provider (master) opens a trade on their broker
+That event needs to be detected, transmitted, and mirrored onto one or many Follower accounts — in milliseconds
+Telegram adds a third input source: a human in a channel types a signal in plain text, and the system parses it into a structured trade order
+The architecture has three distinct layers that handle this:
+
+┌─────────────────────────────────────────────┐
+│  FRONTEND (React + TypeScript)              │
+│  TradeSyncPage.tsx — the wizard UI          │
+│  Collects config from the user, step by step│
+└─────────────────────┬───────────────────────┘
+                      │ HTTP POST /api/copy/deploy
+┌─────────────────────▼───────────────────────┐
+│  BACKEND (Node.js + Express + Drizzle ORM)  │
+│  routes.ts — REST API                       │
+│  Stores configuration in PostgreSQL         │
+│  Verifies Supabase JWT for auth             │
+└─────────────────────┬───────────────────────┘
+                      │ Reads config from DB
+┌─────────────────────▼───────────────────────┐
+│  BRIDGE SERVICE (Python — separate process) │
+│  brokerAdapters/  — per-broker connectors   │
+│  Polls master account, mirrors to followers │
+│  (MT4/MT5 via MetaTrader API,               │
+│   Binance/Bybit/Bitget/Coinbase via REST,   │
+│   cTrader via OAuth2)                       │
+└─────────────────────────────────────────────┘
+
+Role 1 — Signal Provider (Master)
+What it means
+You are the trader being copied. You trade normally on your broker account. Every time you open, modify, or close a trade, the system mirrors that to all followers who subscribed to you.
+
+The Wizard (Frontend)
+Step 1 — Role
+The user selects "Provider". This sets data.role = 'provider' in React state, which changes the entire step sequence loaded into the wizard (STEPS_PROVIDER).
+
+Step 2 — Connect (Broker Account)
+The user enters their MT4/MT5 login ID, investor password, and broker server name (e.g. IC-Markets-Live-02).
+
+Why investor password? MT4/MT5 has two password types:
+
+Master password = full trading rights
+Investor password = read-only; can see open positions but cannot place trades
+The system uses the investor password so it can monitor trades without ever having the ability to place or close them. This is a critical security design decision.
+
+The password is sent to the Node server and stored as base64 in the database. The full AES-256-GCM encryption path (using COPY_ENCRYPTION_KEY) is used when the broker-sync routes are called with a proper Supabase JWT.
+
+Step 3 — Strategy Profile
+The user names their strategy, picks a trading style (scalping / swing / position) and market (Forex / crypto / indices). This becomes the public-facing card that followers see when browsing providers.
+
+Step 4 — Signal Limits
+Sets guardrails that followers can trust:
+
+Max lot size you'll ever broadcast
+Max simultaneous open trades
+Typical SL and TP distances in pips
+Step 5 — Notifications
+Email address + toggle switches for which events trigger an alert (new follower joined, follower stopped copying, execution failure, bridge disconnection, weekly digest).
+
+Step 6 — Risk Disclosure
+Legal confirmation layer. Until both checkboxes are ticked, the Deploy button is disabled in the final step.
+
+Step 7 — Deploy
+Calls POST /api/copy/deploy with the full payload. The server creates two database records:
+
+A copy_accounts row (the broker account)
+A copy_masters row (the strategy / provider profile)
+Returns a master.id UUID. This ID is what followers will reference.
+
+The Server Side
+// server/routes.ts — simplified
+app.post("/api/copy/deploy", async (req, res) => {
+  const account = await storage.createCopyAccount({ ... });
+  const masterRecord = await storage.createCopyMaster({
+    accountId: account.id,
+    sourceType: "mt5",
+    strategyName: masterConfig.strategyName,
+    isPublic: masterConfig.isPublic,
+    ...
+  });
+  res.json({ master: { id: masterRecord.id } });
+});
+
+Why PostgreSQL + Drizzle ORM?
+PostgreSQL gives ACID guarantees — when a follower row references a master row via foreign key, the database enforces the relationship. Drizzle ORM provides TypeScript type-safe queries, meaning the schema in shared/schema.ts is the single source of truth for both server and client.
+
+Role 2 — Follower
+What it means
+You attach your broker account to a provider's strategy. When they open a trade, your account automatically mirrors it — scaled to your account size.
+
+The Wizard (Frontend)
+Step 1 — Role → "Follower"
+Loads STEPS_FOLLOWER.
+
+Step 2 — Connect (Your Broker Account)
+Same MT4/MT5 credentials form, but this time the system needs the master password — because it actually needs to place trades on your behalf.
+
+Step 3 — Bridge Linkage
+The wizard calls GET /api/copy/masters/public and displays cards for every provider who has isPublic: true. The user selects one. This stores data.selectedProvider = master.id.
+
+Step 4 — Copy Filters
+Fine-grained control over what gets copied:
+
+Symbol whitelist/blacklist (e.g. only copy EURUSD and XAUUSD)
+Direction flip (copy BUYs as SELLs — for hedging strategies)
+Max open trades cap
+Trade delay (inject up to N seconds of delay before copying)
+Pause when provider is inactive
+Pause when drawdown exceeds X%
+Step 5 — Lot Engine
+Three sizing modes, chosen via radio buttons:
+
+Multiplier mode:  follower_lot = master_lot × multiplier
+Fixed mode:       follower_lot = fixed_value (e.g. always 0.01)
+Risk % mode:      follower_lot = (account_balance × risk%) / (SL_pips × pip_value)
+
+Risk % mode is the most sophisticated — it sizes positions based on the SL distance, so a wider stop automatically uses fewer lots. The math runs in the Python bridge.
+
+Step 6 — Protection Shield
+Daily loss limit, max drawdown %, emergency stop — these are circuit breakers. When triggered, the Python bridge pauses all copying automatically.
+
+Step 7 — Risk Disclosure + Deploy
+Same pattern. Calls POST /api/copy/deploy which creates:
+
+A copy_accounts row
+A copy_followers row with masterId pointing to the provider
+How the Python Bridge Executes the Copy
+# Pseudo-code of what the bridge does on every poll cycle
+positions = mt5.positions_get(login=master_login)
+for pos in positions:
+    if pos.ticket not in known_tickets:
+        # New trade detected
+        for follower in get_active_followers(master_id):
+            lot = calculate_lot(follower.lot_mode, pos.volume, follower)
+            if passes_filters(pos, follower):
+                mt5.order_send(
+                    symbol=remap_symbol(pos.symbol, follower),
+                    type=MT5_BUY if pos.type == 0 else MT5_SELL,
+                    volume=lot,
+                    sl=pos.sl,
+                    tp=pos.tp,
+                    comment=f"CopyOf:{pos.ticket}"
+                )
+                log_execution(follower.id, pos, result)
+
+The bridge polls the master account every 500ms–2s depending on configuration. It maintains a local state of known ticket IDs to detect new/modified/closed positions.
+
+Why MetaTrader (MT4/MT5)?
+MT4/MT5 are the industry-standard platforms. Together they cover ~80% of retail forex brokers globally. MetaTrader exposes a Python API (MetaTrader5 package) that runs on Windows or Wine on Linux, giving full programmatic access to positions, orders, and history.
+
+Role 3 — Telegram Signal Copying
+What it means
+Instead of copying from another broker account, you copy from a Telegram channel or group where a human (or bot) posts trade signals in text. The system reads those messages, parses them into structured trade data, and places the order.
+
+Why Telegram?
+Thousands of signal providers distribute their calls via Telegram — it's the dominant channel for retail forex signals. Many of these channels have no API or webhook. The only way to consume them programmatically is to act as a Telegram user (userbot) or bot.
+
+Two Integration Paths
+Path A — Userbot (Telethon library)
+Your real Telegram account logs in. This requires:
+
+API_ID and API_HASH from my.telegram.org
+Your phone number (for OTP login)
+A verification code Telegram sends to your app
+The wizard collects all four of these in StepTgAuth. After login, the Python bridge runs a Telethon client that listens for new messages in real-time using event handlers — no polling needed.
+
+Path B — Bot Token
+If the signal is delivered by a bot and you control the bot, you can use a bot token instead. Bots can only read messages in groups/channels they are members of, and they can't join private channels unless explicitly invited.
+
+The wizard accepts either path in the same StepTgAuth form.
+
+The Wizard Steps Specific to Telegram
+TgAuth → TgChannel → TgParser → TgTest
+
+TgChannel:
+User specifies @channel_username or an invite link, the channel type (public/private/group/bot), and optionally filters to one sender's messages inside a group.
+
+TgParser:
+The system needs to know the vocabulary of the specific channel. Different providers use different words. The user tells the parser:
+
+Entry keyword: "Entry" or "Buy at" or "@"
+SL keyword: "SL" or "Stop"
+TP keyword: "TP" or "Target"
+Symbol keyword: "Pair" or "Symbol"
+These keywords guide a regex-based extractor that runs on every incoming message.
+
+TgTest (the signal parser simulator):
+This is entirely client-side — no server call at all. The user pastes a real message from the channel and the clientSideParseSignal() function runs directly in the browser. It returns a structured result with confidence level (High/Medium/Low based on how many fields were found).
+
+// client/src/pages/TradeSyncPage.tsx
+function clientSideParseSignal(text: string) {
+  // 1. Detect direction (BUY/SELL/LONG/SHORT keywords)
+  // 2. Detect symbol against a known list of 50+ pairs + blocklist
+  // 3. Extract price values after the configured keywords using regex
+  // 4. Score confidence based on how many of entry/SL/TP were found
+  return { symbol, direction, entry, sl, tp1, tp2, confidence };
+}
+
+Why client-side? Two reasons:
+
+Speed — no network round-trip, instant feedback
+Privacy — the raw signal text never leaves the browser during testing
+The same parsing logic runs in Python on the server bridge for production execution.
+
+How It Flows at Runtime
+Telegram Channel
+      │  New message: "BUY EURUSD Entry: 1.0845 SL: 1.0810 TP: 1.0880"
+      │
+      ▼
+Telethon Listener (Python bridge — listens via websocket to Telegram MTProto)
+      │  on_new_message event fires
+      │
+      ▼
+Parser (Python) — same regex logic as the browser test
+      │  Produces: { symbol: "EURUSD", direction: "BUY", entry: 1.0845, sl: 1.081, tp: 1.088 }
+      │
+      ▼
+Lot Calculator — sizes the position per follower's risk settings
+      │
+      ▼
+MT5 / Broker Adapter — places the order
+      │
+      ▼
+Execution Log → stored in copy_execution_logs table
+      │
+      ▼
+Dashboard in browser polls GET /api/copy/logs/{followerId} every N seconds
+
+Why Telethon and not Telegram Bot API?
+The Bot API is simpler but has a critical limitation: a bot cannot read messages in a channel or group unless it is an admin member. Many signal channels ban bots. Telethon uses Telegram's own MTProto protocol (the same one the official app uses), so it behaves as a regular user — it can join any channel a human can join and read every message.
+
+Technology Summary Table
+Layer	Technology	Why
+UI Wizard	React + TypeScript	Component state machine maps naturally to a multi-step wizard; TypeScript catches payload shape errors at compile time
+Styling	Tailwind CSS + custom dark theme	Utility-first CSS keeps component markup self-contained; no stylesheet conflicts
+API Server	Node.js + Express	Same runtime as the frontend — TypeScript across the stack; low latency for config writes
+Database	PostgreSQL	Relational FK constraints enforce that every follower references a real master; ACID transactions prevent partial deploys
+ORM	Drizzle ORM	Type-safe queries; schema defined once in shared/schema.ts and used by both server and client
+Auth	Supabase (JWT)	Managed auth means no custom session/token code; the JWT payload contains user.id which scopes all DB queries
+Credential Encryption	AES-256-GCM (server/lib/crypto.ts)	Industry-standard authenticated encryption; the IV and auth tag prevent both decryption and tampering
+Broker Bridge	Python + MetaTrader5 library	MT5's Python API is the only official programmatic interface to MT4/MT5 accounts
+Telegram listener	Telethon (Python MTProto)	Only protocol that can read messages from channels you don't control; no admin rights required
+Crypto exchanges	CCXT / exchange REST APIs	Unified interface across Binance, Bybit, Bitget, Coinbase — same order placement code works for all
+What Happens When You Click "Deploy Terminal"
+React calls buildDeployPayload(data) — assembles the full config from all wizard steps into one object
+POST /api/copy/deploy hits the Express server
+Server validates the Supabase JWT (for authenticated routes), extracts userId
+Three DB writes happen in sequence: copy_accounts → copy_masters (if provider/telegram) → copy_followers (if follower)
+Server returns the new record IDs
+React renders the CopierDashboard component which immediately polls /api/copy/logs/{id} and /api/copy/trades/{id}
+The dashboard shows "Listening for first trade signal…" until the Python bridge (running separately) starts executing and writing log rows to the database
+The Python bridge is the only piece that must be running externally — everything else is self-contained in the Node server.
