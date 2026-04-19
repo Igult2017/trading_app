@@ -327,6 +327,7 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
 function CoverUpload({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [urlInput, setUrlInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const readFile = (file: File) => {
@@ -343,7 +344,15 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
     if (file) readFile(file);
   };
 
+  const commitUrl = () => {
+    const trimmed = urlInput.trim();
+    if (trimmed) onChange(trimmed);
+  };
+
   const onPaste = useCallback((e: ClipboardEvent) => {
+    // Only handle image paste when user is NOT typing in a text field
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
     const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
     if (item) { e.preventDefault(); readFile(item.getAsFile()!); }
   }, []);
@@ -385,9 +394,15 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
             </div>
           </div>
         )}
-        <input type="text" value={isDataUrl ? "" : value} onChange={e => onChange(e.target.value)}
-          placeholder="or paste an image URL…"
-          style={inputBase({ fontSize: 11 })} onFocus={focusOn} onBlur={focusOff} />
+        <input
+          type="text"
+          value={isDataUrl ? urlInput : value}
+          onChange={e => { setUrlInput(e.target.value); if (!isDataUrl) onChange(e.target.value); }}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (isDataUrl) commitUrl(); } }}
+          onBlur={() => { if (isDataUrl) commitUrl(); }}
+          placeholder="or paste an image URL to replace…"
+          style={inputBase({ fontSize: 11 })} onFocus={focusOn}
+        />
       </div>
     );
   }
@@ -427,9 +442,15 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
         <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
           onChange={e => { if (e.target.files?.[0]) readFile(e.target.files[0]); }} />
       </div>
-      <input type="text" value="" onChange={e => onChange(e.target.value)}
+      <input
+        type="text"
+        value={urlInput}
+        onChange={e => setUrlInput(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitUrl(); } }}
+        onBlur={commitUrl}
         placeholder="or paste an image URL…"
-        style={inputBase({ fontSize: 11 })} onFocus={focusOn} onBlur={focusOff} />
+        style={inputBase({ fontSize: 11 })} onFocus={focusOn}
+      />
     </div>
   );
 }
@@ -513,6 +534,37 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     await onSubmit({ ...form });
   };
 
+  // Convert bare URLs in pasted text to markdown links
+  const handleContentPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const raw = e.clipboardData.getData("text/plain");
+    if (!raw) return;
+
+    // Replace standalone URLs (not already in []() markdown) with [Click to read more](url)
+    const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
+    const processed = raw.replace(URL_RE, (url, offset, str) => {
+      // Check if it's already inside a markdown link: ](url)
+      const before = str.slice(Math.max(0, offset - 2), offset);
+      if (before.endsWith("](")) return url;
+      return `[Click to read more](${url})`;
+    });
+
+    // Only intercept if URLs were transformed
+    if (processed === raw) return;
+
+    e.preventDefault();
+    const ta = contentRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end   = ta.selectionEnd;
+    const next  = ta.value.slice(0, start) + processed + ta.value.slice(end);
+    set({ content: next });
+    // Restore cursor after the inserted text
+    requestAnimationFrame(() => {
+      ta.selectionStart = ta.selectionEnd = start + processed.length;
+      ta.focus();
+    });
+  }, []);
+
   const fileName = editPost ? `edit_post_${editPost.id}.md` : "new_post.md";
 
   return (
@@ -581,23 +633,16 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           </MainField>
 
           {/* Read time */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <MainField label="Read Time">
-              <input type="text" value={form.readTime} onChange={e => set({ readTime: e.target.value })}
-                placeholder="e.g. 5 min read" style={mainInput()}
-                onFocus={mainFocusOn} onBlur={mainFocusOff} />
-            </MainField>
-            <MainField label="Excerpt (brief)">
-              <input type="text" value={form.excerpt.split("\n")[0]} onChange={e => set({ excerpt: e.target.value })}
-                placeholder="Short card summary..." style={mainInput()}
-                onFocus={mainFocusOn} onBlur={mainFocusOff} />
-            </MainField>
-          </div>
+          <MainField label="Read Time">
+            <input type="text" value={form.readTime} onChange={e => set({ readTime: e.target.value })}
+              placeholder="e.g. 5 min read" style={mainInput()}
+              onFocus={mainFocusOn} onBlur={mainFocusOff} />
+          </MainField>
 
-          {/* Excerpt full */}
-          <MainField label="Full Excerpt">
+          {/* Excerpt */}
+          <MainField label="Excerpt">
             <textarea value={form.excerpt} onChange={e => set({ excerpt: e.target.value })} rows={2}
-              placeholder="Short summary shown in article cards..."
+              placeholder="Short summary shown in article cards and previews..."
               style={mainInput({ resize: "none", lineHeight: 1.65 })}
               onFocus={mainFocusOn} onBlur={mainFocusOff} />
           </MainField>
@@ -621,8 +666,9 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
               ref={contentRef}
               value={form.content}
               onChange={e => set({ content: e.target.value })}
+              onPaste={handleContentPaste}
               rows={16}
-              placeholder={"Write your article content here...\n\nUse the toolbar above for formatting:\n  **bold** · _italic_ · ## Heading · - list · > quote\n\nStart with a compelling lead paragraph..."}
+              placeholder={"Write your article content here...\n\nUse the toolbar above for formatting:\n  **bold** · _italic_ · ## Heading · - list · > quote\n\nPaste any URL and it will become a clickable link automatically.\nStart with a compelling lead paragraph..."}
               style={mainInput({ borderTop: "none", borderRadius: "0 0 7px 7px", resize: "vertical", minHeight: 260, lineHeight: 1.8, fontSize: 13.5 })}
               onFocus={e => { e.target.style.borderColor = "rgba(99,153,34,0.4)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
               onBlur={mainFocusOff}
