@@ -65,19 +65,48 @@ const INITIAL_LOGS = [
 ];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-const FONT = "'Montserrat', sans-serif";
+const ADMIN_THEMES: Record<string, Record<string, string>> = {
+  dark:     { bg:'#07090e', sidebar:'#07090e', card:'#0c1018', border:'#131c28', border2:'#1b2840', dim:'#1b2840', accent:'#00c8e0', accentL:'#33d8f0' },
+  midnight: { bg:'#000000', sidebar:'#050508', card:'#0d0d14', border:'#1a1a2e', border2:'#16213e', dim:'#16213e', accent:'#7c3aed', accentL:'#9d65f5' },
+  slate:    { bg:'#0f172a', sidebar:'#0f172a', card:'#1e293b', border:'#334155', border2:'#475569', dim:'#475569', accent:'#0ea5e9', accentL:'#38bdf8' },
+  forest:   { bg:'#052e16', sidebar:'#04200f', card:'#073b1d', border:'#166534', border2:'#15803d', dim:'#15803d', accent:'#22c55e', accentL:'#4ade80' },
+};
+
+const ADMIN_FONTS: Record<string, string> = {
+  montserrat: "'Montserrat', sans-serif",
+  onest:      "'Onest', sans-serif",
+  inter:      "'Inter', sans-serif",
+  mono:       "'DM Mono', monospace",
+};
+
+function applyAdminTheme(id: string) {
+  const t = ADMIN_THEMES[id] ?? ADMIN_THEMES.dark;
+  const r = document.documentElement;
+  Object.entries(t).forEach(([k, v]) => r.style.setProperty(`--admin-${k}`, v));
+}
+
+function applyAdminFont(id: string) {
+  const stack = ADMIN_FONTS[id] ?? ADMIN_FONTS.montserrat;
+  document.documentElement.style.setProperty('--admin-font', stack);
+}
+
+// Apply saved preferences immediately on module load
+applyAdminTheme(localStorage.getItem('admin_theme') ?? 'dark');
+applyAdminFont(localStorage.getItem('admin_font') ?? 'montserrat');
+
+const FONT = 'var(--admin-font)';
 const C = {
-  bg: '#07090e', sidebar: '#07090e', card: '#0c1018',
-  border: '#131c28', border2: '#1b2840', dim: '#1b2840',
+  bg: 'var(--admin-bg)', sidebar: 'var(--admin-sidebar)', card: 'var(--admin-card)',
+  border: 'var(--admin-border)', border2: 'var(--admin-border2)', dim: 'var(--admin-dim)',
   text: '#d0dff0', muted: '#3a5070',
-  indigo: '#00c8e0', indigoL: '#33d8f0',
+  indigo: 'var(--admin-accent)', indigoL: 'var(--admin-accentL)',
   green: '#00d48a', greenL: '#00ff9d',
   red: '#ff3060', redL: '#ff6080',
   amber: '#ffb700', amberL: '#ffd030',
   blue: '#2888f0', blueL: '#50a8f8',
 };
 const cs = { background: C.card, border: `1px solid ${C.border}` };
-const inp = { width: '100%', background: '#0a0f18', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
+const inp = { width: '100%', background: 'var(--admin-bg)', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
 const lbl = { display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
 const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.04em' };
 
@@ -1553,11 +1582,11 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
     });
   }, []);
 
-  const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem('admin_theme', id); };
+  const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem('admin_theme', id); applyAdminTheme(id); };
 
   const applyFont = () => {
-    const font = FONT_OPTIONS.find(f => f.id === activeFont);
-    if (font) { localStorage.setItem('admin_font', activeFont); document.body.style.fontFamily = font.stack; }
+    localStorage.setItem('admin_font', activeFont);
+    applyAdminFont(activeFont);
     setFontSaved(true); setTimeout(() => setFontSaved(false), 2000);
   };
 
@@ -1818,7 +1847,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
                 </button>
               ))}
             </div>
-            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme preference saved — reloads on next session</p>
+            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme applies instantly and is saved for future sessions</p>
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
