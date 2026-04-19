@@ -2057,7 +2057,7 @@ export default function AdminPanel() {
     }
   };
 
-  const sidebarW = collapsed ? '60px' : '240px';
+  const sidebarW = collapsed ? '60px' : '180px';
   const contentPad = bp.isMobile ? '14px' : '24px';
 
   return (
