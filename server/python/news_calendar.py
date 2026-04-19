@@ -21,6 +21,7 @@ import sys
 import re
 import json
 import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -28,10 +29,28 @@ HEADERS = {
     'User-Agent': (
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
         'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/120.0.0.0 Safari/537.36'
+        'Chrome/124.0.0.0 Safari/537.36'
     ),
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Upgrade-Insecure-Requests': '1',
+}
+
+TV_HEADERS = {
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/124.0.0.0 Safari/537.36'
+    ),
+    'Accept': 'application/json, text/plain, */*',
+    'Origin': 'https://www.tradingview.com',
+    'Referer': 'https://www.tradingview.com/',
 }
 
 MONTH_MAP = {
@@ -73,17 +92,106 @@ def _parse_datetime(date_str: str, year: int) -> tuple:
         return day_part, time_part, datetime.now().isoformat()
 
 
-def scrape_calendar() -> list:
-    """Newskeeper-style scrape of MyFXBook economic calendar."""
+def _tv_importance(level) -> str:
+    """Map TradingView importance int (1-3) to High/Medium/Low."""
+    try:
+        lvl = int(level)
+    except (TypeError, ValueError):
+        return 'Low'
+    return {3: 'High', 2: 'Medium', 1: 'Low'}.get(lvl, 'Low')
+
+
+def _scrape_tradingview() -> list:
+    """
+    Fetch forex economic calendar from TradingView's public JSON endpoint.
+    Covers current week + next week so the calendar is always populated.
+    """
+    from datetime import timedelta
+    now = datetime.utcnow()
+    # Fetch a 14-day window: past 2 days + next 12 days
+    date_from = (now - timedelta(days=2)).strftime('%Y-%m-%dT00:00:00.000Z')
+    date_to   = (now + timedelta(days=12)).strftime('%Y-%m-%dT23:59:59.000Z')
+    countries = 'US,EU,GB,JP,CA,AU,CH,NZ,CN'
+    url = (
+        'https://economic-calendar.tradingview.com/events'
+        f'?from={date_from}&to={date_to}&countries={countries}'
+    )
+    try:
+        resp = requests.get(url, headers=TV_HEADERS, timeout=15)
+        if resp.status_code != 200:
+            print(f'[news_calendar] TradingView HTTP {resp.status_code}', file=sys.stderr)
+            return []
+        data = resp.json()
+        events_raw = data if isinstance(data, list) else data.get('result', [])
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        results = []
+        for ev in events_raw:
+            try:
+                iso = ev.get('date', '')
+                dt  = datetime.fromisoformat(iso.replace('Z', '+00:00'))
+                date_label = f"{months[dt.month - 1]} {dt.day:02d}"
+                time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
+                currency   = ev.get('currency', ev.get('country', '?')).upper()
+                name       = (ev.get('title') or ev.get('event') or '').strip()
+                importance = _tv_importance(ev.get('importance', 1))
+                actual     = str(ev.get('actual')   or '-')
+                forecast   = str(ev.get('forecast') or '-')
+                previous   = str(ev.get('previous') or '-')
+                if not name:
+                    continue
+                results.append({
+                    'date':       date_label,
+                    'time':       time_label,
+                    'currency':   currency,
+                    'event':      name,
+                    'importance': importance,
+                    'actual':     actual,
+                    'forecast':   forecast,
+                    'previous':   previous,
+                    'eventTime':  iso,
+                    'category':   _categorize(name, currency),
+                })
+            except Exception:
+                continue
+        print(f'[news_calendar] TradingView: {len(results)} events', file=sys.stderr)
+        return results
+    except Exception as exc:
+        print(f'[news_calendar] TradingView error: {exc}', file=sys.stderr)
+        return []
+
+
+def _scrape_myfxbook() -> list:
+    """Newskeeper-style scrape of MyFXBook using cloudscraper to bypass Cloudflare."""
     url = 'https://www.myfxbook.com/forex-economic-calendar'
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
+        scraper = cloudscraper.create_scraper(
+            browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
+        )
+        resp = scraper.get(url, timeout=30)
+        print(
+            f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes)',
+            file=sys.stderr,
+        )
         if resp.status_code != 200:
-            print(f'[news_calendar] HTTP {resp.status_code}', file=sys.stderr)
+            return []
+
+        if 'Just a moment' in resp.text or 'cf-browser-verification' in resp.text:
+            print('[news_calendar] MyFXBook: Cloudflare challenge not bypassed', file=sys.stderr)
             return []
 
         soup = BeautifulSoup(resp.text, 'html.parser')
         rows = soup.find_all('tr', class_='economicCalendarRow')
+
+        if not rows:
+            title = soup.title.string if soup.title else 'none'
+            print(
+                f'[news_calendar] MyFXBook: 0 rows. Title={title!r}. '
+                f'First 300: {resp.text[:300]}',
+                file=sys.stderr,
+            )
+            return []
+
         year = datetime.now().year
         results = []
 
@@ -119,12 +227,21 @@ def scrape_calendar() -> list:
                 'category':   _categorize(name, currency),
             })
 
-        print(f'[news_calendar] scraped {len(results)} events', file=sys.stderr)
+        print(f'[news_calendar] MyFXBook: {len(results)} events', file=sys.stderr)
         return results
 
     except Exception as exc:
-        print(f'[news_calendar] scrape error: {exc}', file=sys.stderr)
+        print(f'[news_calendar] MyFXBook error: {exc}', file=sys.stderr)
         return []
+
+
+def scrape_calendar() -> list:
+    """Fetch forex calendar: MyFXBook first, TradingView fallback."""
+    events = _scrape_myfxbook()
+    if not events:
+        print('[news_calendar] Falling back to TradingView…', file=sys.stderr)
+        events = _scrape_tradingview()
+    return events
 
 
 # --------------------------------------------------------------------------- #
