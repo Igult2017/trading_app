@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { db, pool } from "./db";
-import { userProfiles } from "@shared/schema";
+import { userProfiles, adminAccessLogs } from "@shared/schema";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
@@ -1760,11 +1760,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin middleware ──────────────────────────────────────────────────────────
   // Reads role from the DB — never from the JWT — so stale or manipulated tokens
   // cannot escalate privileges.
+  // ── IP geolocation (ip-api.com — free, no key required) ────────────────────
+  async function geolocateIp(ip: string): Promise<{
+    country: string; countryCode: string; region: string; city: string; isp: string;
+  } | null> {
+    if (!ip || ip === 'unknown' || ip.startsWith('127.') || ip.startsWith('::')) return null;
+    try {
+      const res = await fetch(
+        `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (!res.ok) return null;
+      const d = await res.json() as any;
+      if (d.status !== 'success') return null;
+      return { country: d.country, countryCode: d.countryCode, region: d.regionName, city: d.city, isp: d.isp };
+    } catch {
+      return null;
+    }
+  }
+
+  // ── Log admin access (fire-and-forget) ───────────────────────────────────────
+  function logAdminAccess(userId: string, email: string, ip: string) {
+    geolocateIp(ip).then(geo => {
+      db.insert(adminAccessLogs).values({
+        userId, email, ip,
+        country:     geo?.country     ?? null,
+        countryCode: geo?.countryCode ?? null,
+        region:      geo?.region      ?? null,
+        city:        geo?.city        ?? null,
+        isp:         geo?.isp         ?? null,
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
     // Option 1: ADMIN_SECRET header bypass (works without Supabase)
     const adminSecret = process.env.ADMIN_SECRET;
     if (adminSecret && req.headers['x-admin-secret'] === adminSecret) {
-      (req as any).adminUser = { id: 'admin', email: process.env.ADMIN_EMAIL ?? 'admin@local' };
+      const adminUser = { id: 'admin', email: process.env.ADMIN_EMAIL ?? 'admin@local' };
+      (req as any).adminUser = adminUser;
+      logAdminAccess(adminUser.id, adminUser.email, getClientIp(req));
       return next();
     }
 
@@ -1783,6 +1818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     (req as any).adminUser = authUser;
+    logAdminAccess(authUser.id, authUser.email ?? '', getClientIp(req));
     next();
   }
 
@@ -2508,11 +2544,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Return the caller's IP (admin uses this to configure ADMIN_IPS) ──────────
-  app.get("/api/track/my-ip", (req: Request, res: Response) => {
+  // ── Return the caller's IP + live geolocation ───────────────────────────────
+  app.get("/api/track/my-ip", async (req: Request, res: Response) => {
     const ip = getClientIp(req);
     const adminIps = getAdminIps();
-    res.json({ ip, isExcluded: adminIps.includes(ip), configuredAdminIps: adminIps });
+    const geo = await geolocateIp(ip);
+    res.json({ ip, isExcluded: adminIps.includes(ip), configuredAdminIps: adminIps, geo });
+  });
+
+  // ── Admin access log (last 50 entries) ───────────────────────────────────────
+  app.get("/api/admin/access-log", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select()
+        .from(adminAccessLogs)
+        .orderBy(drizzleSql`accessed_at DESC`)
+        .limit(50);
+      return res.json(rows);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   // ── Blog: public list (published only) ───────────────────────────────────────

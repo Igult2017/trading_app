@@ -672,3 +672,21 @@ export const pageViews = pgTable("page_views", {
   durationSeconds: integer("duration_seconds"),
   viewedAt:        timestamp("viewed_at").defaultNow(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN ACCESS LOGS
+// ─────────────────────────────────────────────────────────────────────────────
+export const adminAccessLogs = pgTable("admin_access_logs", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:      varchar("user_id"),
+  email:       text("email"),
+  ip:          text("ip").notNull(),
+  country:     text("country"),
+  countryCode: text("country_code"),
+  region:      text("region"),
+  city:        text("city"),
+  isp:         text("isp"),
+  accessedAt:  timestamp("accessed_at").defaultNow(),
+});
+
+export type AdminAccessLog = typeof adminAccessLogs.$inferSelect;
