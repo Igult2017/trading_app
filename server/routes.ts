@@ -1858,6 +1858,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
 
+      const adminIpList = (process.env.ADMIN_IPS ?? '').split(',').map(s => s.trim()).filter(Boolean);
+      const ipFilter = adminIpList.length > 0
+        ? drizzleSql`AND (ip_address IS NULL OR ip_address != ALL(${adminIpList}::text[]))`
+        : drizzleSql``;
+
       const [supabaseResult, allPosts, roleProfiles, visitorRows] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         storage.getBlogPosts(),
@@ -1869,6 +1874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             AVG(duration_seconds)          AS avg_duration
           FROM page_views
           WHERE viewed_at >= NOW() - INTERVAL '3 months'
+          ${ipFilter}
           GROUP BY month
           ORDER BY month DESC
         `),
@@ -1949,6 +1955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signupsByMonth,
         signupsByDay,
         recentActivity,
+        adminIps: adminIpList,
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -2347,6 +2354,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       CREATE INDEX IF NOT EXISTS page_views_viewed_at_idx ON page_views (viewed_at);
     `);
+    // Add ip_address column if it doesn't exist yet (migration)
+    await db.execute(drizzleSql`
+      ALTER TABLE page_views ADD COLUMN IF NOT EXISTS ip_address TEXT;
+      CREATE INDEX IF NOT EXISTS page_views_ip_idx ON page_views (ip_address);
+    `);
   } catch (e: any) {
     console.warn('[PageViews] Could not ensure page_views table:', e.message);
   }
@@ -2407,19 +2419,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     addServerLog('info', 'DB', 'admin_tasks table ready');
   } catch (e: any) { console.warn('[AdminTasks] Could not ensure table:', e.message); }
 
+  // ── IP helpers ───────────────────────────────────────────────────────────────
+  function getClientIp(req: Request): string {
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) {
+      const first = (Array.isArray(fwd) ? fwd[0] : fwd).split(',')[0].trim();
+      if (first) return first;
+    }
+    return (req.headers['x-real-ip'] as string) ?? req.socket?.remoteAddress ?? req.ip ?? 'unknown';
+  }
+
+  function getAdminIps(): string[] {
+    const raw = process.env.ADMIN_IPS ?? '';
+    return raw.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
   // ── Page-view tracking (public — no auth required) ──────────────────────────
   app.post("/api/track", async (req: Request, res: Response) => {
     try {
       const { page, sessionId, durationSeconds } = req.body as { page: string; sessionId?: string; durationSeconds?: number };
       if (!page?.trim()) return res.status(400).json({ error: 'page required' });
+      const ip = getClientIp(req);
       await db.execute(drizzleSql`
-        INSERT INTO page_views (page, session_id, duration_seconds)
-        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null})
+        INSERT INTO page_views (page, session_id, duration_seconds, ip_address)
+        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null}, ${ip})
       `);
       return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
+  });
+
+  // ── Return the caller's IP (admin uses this to configure ADMIN_IPS) ──────────
+  app.get("/api/track/my-ip", (req: Request, res: Response) => {
+    const ip = getClientIp(req);
+    const adminIps = getAdminIps();
+    res.json({ ip, isExcluded: adminIps.includes(ip), configuredAdminIps: adminIps });
   });
 
   // ── Blog: public list (published only) ───────────────────────────────────────

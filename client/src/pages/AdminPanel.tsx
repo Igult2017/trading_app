@@ -1819,6 +1819,7 @@ export default function AdminPanel() {
   const [, navigate] = useLocation();
   const [apiUsers, setApiUsers] = useState<any[]>([]);
   const [overviewStats, setOverviewStats] = useState<any>(null);
+  const [myIpInfo, setMyIpInfo] = useState<{ ip: string; isExcluded: boolean; configuredAdminIps: string[] } | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -1838,6 +1839,8 @@ export default function AdminPanel() {
       if (usersRes.ok) setApiUsers(await usersRes.json());
       if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
+    // Always fetch admin IP (doesn't need auth)
+    fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
   }, [role]);
 
   async function handleRoleChange(userId: string, newRole: string) {
@@ -1953,6 +1956,32 @@ export default function AdminPanel() {
               icon={Globe}
             />
           </div>
+          {/* Admin IP filter notice */}
+          {myIpInfo && (
+            <div style={{
+              background: myIpInfo.isExcluded ? 'rgba(29,158,117,0.06)' : 'rgba(255,170,0,0.06)',
+              border: `1px solid ${myIpInfo.isExcluded ? 'rgba(29,158,117,0.2)' : 'rgba(255,170,0,0.25)'}`,
+              borderRadius: 6, padding: '10px 16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: myIpInfo.isExcluded ? '#1D9E75' : '#ffaa00', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: 11, color: myIpInfo.isExcluded ? '#1D9E75' : '#ffaa00', fontWeight: 600, letterSpacing: '0.05em' }}>
+                    {myIpInfo.isExcluded ? 'Your IP is excluded from visitor stats' : 'Your IP is currently counted in visitor stats'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>
+                    Your IP: <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 6px', borderRadius: 3, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{myIpInfo.ip}</code>
+                  </span>
+                </div>
+              </div>
+              {!myIpInfo.isExcluded && (
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.03em' }}>
+                  Add to <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>ADMIN_IPS</code> secret to exclude your traffic
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
