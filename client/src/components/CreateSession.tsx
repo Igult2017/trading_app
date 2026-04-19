@@ -336,7 +336,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                   onKeyDown={handleNameKeyDown}
                   data-testid={`input-session-name-${session.id}`}
                   style={{
-                    fontSize: 13, fontWeight: 700, color: '#f0ede6', background: 'transparent',
+                    fontSize: 11, fontWeight: 700, color: '#f0ede6', background: 'transparent',
                     border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
                     flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
                     textTransform: 'uppercase', padding: '2px 0', minWidth: 0,
@@ -351,7 +351,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <div
                   data-testid={`text-session-name-${session.id}`}
-                  style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: '#f0ede6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', color: '#f0ede6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
                   {session.sessionName}
                 </div>
@@ -408,7 +408,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                 onChange={e => setBalInput(e.target.value)}
                 onKeyDown={handleBalKeyDown}
                 style={{
-                  fontSize: 17, fontWeight: 700, color: '#f0ede6', background: 'transparent',
+                  fontSize: 13, fontWeight: 700, color: '#f0ede6', background: 'transparent',
                   border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
                   flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.01em', padding: '2px 0',
                 }}
@@ -423,7 +423,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
               onClick={startEdit}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#f0ede6', letterSpacing: '-0.02em', cursor: 'text' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ede6', letterSpacing: '-0.02em', cursor: 'text' }}>
                 ${startBal.toLocaleString()}
               </div>
               {balSaved && <span style={{ color: '#1D9E75', fontSize: 8, letterSpacing: '0.1em' }}>saved</span>}
