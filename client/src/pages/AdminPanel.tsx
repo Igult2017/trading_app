@@ -959,11 +959,36 @@ const BlogSection = ({ bp }) => {
     setShowModal(true);
   };
 
+  const uploadCoverImage = async (dataUrl: string): Promise<string> => {
+    if (!supabase) return dataUrl;
+    try {
+      const res  = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext  = blob.type.split('/')[1] || 'jpg';
+      const path = `covers/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data: up, error } = await supabase.storage
+        .from('blog-images')
+        .upload(path, blob, { contentType: blob.type, upsert: false });
+      if (error || !up) return dataUrl;
+      const { data: pub } = supabase.storage.from('blog-images').getPublicUrl(up.path);
+      return pub.publicUrl;
+    } catch {
+      return dataUrl;
+    }
+  };
+
   const handleEditorSubmit = async (data: BlogEditorData) => {
     if (!data.title.trim() || saving) return;
     setSaving(true);
     try {
       const headers = await getAdminHeaders(true);
+
+      // Upload base64 cover to Supabase Storage — avoids bloating the DB
+      let imageUrl = data.imageUrl || '';
+      if (imageUrl.startsWith('data:')) {
+        imageUrl = await uploadCoverImage(imageUrl);
+      }
+
       const derivedSection = CATEGORY_TO_SECTION[data.category] ?? 'blog';
       const authorData = {
         bio:       data.authorBio,
@@ -979,7 +1004,7 @@ const BlogSection = ({ bp }) => {
         category:   data.category,
         author:     data.authorName || 'Admin',
         date:       new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
-        imageUrl:   data.imageUrl || '',
+        imageUrl,
         excerpt:    data.excerpt || '',
         summary:    data.summary || '',
         content:    data.content || '',
