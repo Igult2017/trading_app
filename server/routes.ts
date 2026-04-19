@@ -2419,9 +2419,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS author_data JSONB;
       -- add summary column if table was created before this change
       ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS summary TEXT DEFAULT '';
+      -- add video_url column added for YouTube embed support
+      ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT '';
     `);
   } catch (e: any) {
     console.warn('[Blog] Could not ensure blog_posts table:', e.message);
+  }
+
+  // ── Ensure admin_access_logs table exists ─────────────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_access_logs (
+        id           VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        user_id      VARCHAR,
+        email        TEXT,
+        ip           TEXT NOT NULL,
+        country      TEXT,
+        country_code TEXT,
+        region       TEXT,
+        city         TEXT,
+        isp          TEXT,
+        accessed_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS admin_access_logs_ip_idx ON admin_access_logs (ip);
+    `);
+  } catch (e: any) {
+    console.warn('[Admin] Could not ensure admin_access_logs table:', e.message);
   }
 
   // ── Ensure user_profiles has trader profile columns ──────────────────────────
