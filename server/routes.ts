@@ -1896,25 +1896,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const adminIpSet = await getAllAdminIps();
       const adminIpList = [...adminIpSet];
-      const ipFilter = adminIpList.length > 0
-        ? drizzleSql`AND (ip_address IS NULL OR ip_address != ALL(${adminIpList}::text[]))`
-        : drizzleSql``;
 
-      const [supabaseResult, allPosts, roleProfiles, visitorRows] = await Promise.all([
+      // Build visitor query via pool.query so we can safely bind a text[] parameter
+      const visitorSql = adminIpList.length > 0
+        ? `SELECT date_trunc('month', viewed_at) AS month,
+                  COUNT(DISTINCT session_id)     AS unique_visitors,
+                  AVG(duration_seconds)          AS avg_duration
+           FROM page_views
+           WHERE viewed_at >= NOW() - INTERVAL '3 months'
+             AND (ip_address IS NULL OR ip_address != ALL($1::text[]))
+           GROUP BY month ORDER BY month DESC`
+        : `SELECT date_trunc('month', viewed_at) AS month,
+                  COUNT(DISTINCT session_id)     AS unique_visitors,
+                  AVG(duration_seconds)          AS avg_duration
+           FROM page_views
+           WHERE viewed_at >= NOW() - INTERVAL '3 months'
+           GROUP BY month ORDER BY month DESC`;
+      const visitorParams = adminIpList.length > 0 ? [adminIpList] : [];
+
+      const [supabaseResult, allPosts, roleProfiles, visitorResult] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         storage.getBlogPosts(),
         db.select({ role: userProfiles.role }).from(userProfiles),
-        db.execute(drizzleSql`
-          SELECT
-            date_trunc('month', viewed_at) AS month,
-            COUNT(DISTINCT session_id)     AS unique_visitors,
-            AVG(duration_seconds)          AS avg_duration
-          FROM page_views
-          WHERE viewed_at >= NOW() - INTERVAL '3 months'
-          ${ipFilter}
-          GROUP BY month
-          ORDER BY month DESC
-        `),
+        pool.query(visitorSql, visitorParams),
       ]);
 
       if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
@@ -1937,7 +1941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Visitor stats from page_views
-      const rows = (visitorRows as any).rows ?? (visitorRows as any) ?? [];
+      const rows = visitorResult.rows ?? [];
       const thisMonthRow = rows.find((r: any) => {
         const d = new Date(r.month);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -2343,7 +2347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }, 'Telegram Bot'),
 
       probe('cache', async () => {
-        await cacheService.get('__health_check__');
+        await cacheService.isCacheFresh();
       }, 'Cache Layer'),
 
       probe('copy-bridge', async () => {
