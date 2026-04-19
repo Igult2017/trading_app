@@ -72,11 +72,141 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'sync',        label: 'Sync Trade',      icon: SI.Sync },
     { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
+    { id: 'telegram',    label: 'Telegram Trades', icon: SI.Sync },
   ]},
   { section: null, items: [
     { id: 'settings', label: 'Settings', icon: SI.Settings, disabled: true },
   ]},
 ];
+
+// ── Telegram Trades View ──────────────────────────────────────────────────────
+const TelegramTradesView = ({ userId }: { userId?: string }) => {
+  const [trades, setTrades]   = useState<any[]>([]);
+  const [stats, setStats]     = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [marking, setMarking] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const qs = userId ? `?userId=${userId}` : '';
+      const [tRes, sRes] = await Promise.all([
+        fetch(`/api/copy/telegram-journal${qs}`),
+        fetch(`/api/copy/telegram-journal/stats${qs}`),
+      ]);
+      if (tRes.ok) setTrades(await tRes.json());
+      if (sRes.ok) setStats(await sRes.json());
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [userId]);
+
+  const setOutcome = async (id: string, outcome: 'win' | 'loss' | null) => {
+    setMarking(id);
+    try {
+      const r = await fetch(`/api/copy/telegram-journal/${id}/outcome`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome }),
+      });
+      if (r.ok) {
+        setTrades(prev => prev.map(t => t.id === id ? { ...t, manual_outcome: outcome } : t));
+        const qs = userId ? `?userId=${userId}` : '';
+        fetch(`/api/copy/telegram-journal/stats${qs}`).then(r => r.ok && r.json()).then(d => d && setStats(d));
+      }
+    } finally { setMarking(null); }
+  };
+
+  const fmtDate = (s: string) => s ? new Date(s).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtNum  = (v: any, d = 5) => v != null ? Number(v).toFixed(d) : '—';
+
+  const statBox = (label: string, value: any, color = '#94a3b8') => (
+    <div style={{ background: '#0c1117', border: '1px solid #1b2535', borderRadius: 8, padding: '14px 20px', minWidth: 100 }}>
+      <div style={{ fontSize: 10, color: '#3d5878', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value ?? '—'}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0, overflowY: 'auto' }}>
+      {/* Stats bar */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {statBox('Total Trades', stats?.total)}
+        {statBox('Wins', stats?.wins, '#34d399')}
+        {statBox('Losses', stats?.losses, '#fb7185')}
+        {statBox('Unmarked', stats?.unmarked, '#f59e0b')}
+        {statBox('Win Rate', stats?.winRate != null ? `${stats.winRate}%` : '—', '#818cf8')}
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#0c1117', border: '1px solid #1b2535', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #1b2535', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'white', fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Telegram Signal Trades</span>
+          <span style={{ fontSize: 11, color: '#3d5878' }}>{trades.length} records</span>
+        </div>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: '#3d5878' }}>Loading…</div>
+        ) : trades.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: '#3d5878', fontSize: 13 }}>No executed Telegram trades found.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: '#080d12' }}>
+                  {['Symbol','Action','Volume','Entry','SL','TP','Executed','Outcome'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#3d5878', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap', borderBottom: '1px solid #1b2535' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {trades.map((t, i) => {
+                  const outcome = t.manual_outcome as 'win' | 'loss' | null;
+                  const isBusy  = marking === t.id;
+                  return (
+                    <tr key={t.id} style={{ borderBottom: '1px solid #111820', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                      <td style={{ padding: '10px 14px', color: 'white', fontWeight: 600 }}>{t.symbol}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: t.action === 'BUY' ? 'rgba(52,211,153,0.12)' : 'rgba(251,113,133,0.12)', color: t.action === 'BUY' ? '#34d399' : '#fb7185', border: `1px solid ${t.action === 'BUY' ? 'rgba(52,211,153,0.25)' : 'rgba(251,113,133,0.25)'}` }}>{t.action}</span>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{fmtNum(t.volume, 2)}</td>
+                      <td style={{ padding: '10px 14px', color: '#94a3b8', fontFamily: 'monospace' }}>{fmtNum(t.entry_price)}</td>
+                      <td style={{ padding: '10px 14px', color: '#fb7185', fontFamily: 'monospace' }}>{fmtNum(t.stop_loss)}</td>
+                      <td style={{ padding: '10px 14px', color: '#34d399', fontFamily: 'monospace' }}>{fmtNum(t.take_profit)}</td>
+                      <td style={{ padding: '10px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(t.executed_at || t.created_at)}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {/* Tick — mark win */}
+                          <button
+                            onClick={() => setOutcome(t.id, outcome === 'win' ? null : 'win')}
+                            disabled={isBusy}
+                            title={outcome === 'win' ? 'Clear win' : 'Mark as win'}
+                            style={{ width: 28, height: 28, borderRadius: 6, border: `1.5px solid ${outcome === 'win' ? '#34d399' : '#1b2535'}`, background: outcome === 'win' ? 'rgba(52,211,153,0.15)' : 'transparent', color: outcome === 'win' ? '#34d399' : '#3d5878', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, transition: 'all 0.15s', opacity: isBusy ? 0.4 : 1 }}
+                          >✓</button>
+                          {/* X — mark loss */}
+                          <button
+                            onClick={() => setOutcome(t.id, outcome === 'loss' ? null : 'loss')}
+                            disabled={isBusy}
+                            title={outcome === 'loss' ? 'Clear loss' : 'Mark as loss'}
+                            style={{ width: 28, height: 28, borderRadius: 6, border: `1.5px solid ${outcome === 'loss' ? '#fb7185' : '#1b2535'}`, background: outcome === 'loss' ? 'rgba(251,113,133,0.15)' : 'transparent', color: outcome === 'loss' ? '#fb7185' : '#3d5878', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, transition: 'all 0.15s', opacity: isBusy ? 0.4 : 1 }}
+                          >✕</button>
+                          {/* Label */}
+                          {outcome && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: outcome === 'win' ? '#34d399' : '#fb7185', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{outcome}</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => {
   const [hov, setHov] = useState(false);
@@ -132,22 +262,25 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
   );
 };
 
-const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void }) => {
+const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void; darkMode?: boolean }) => {
   const showLabels = isMobile || open;
   const [hovered, setHovered] = useState(false);
+  const dm = darkMode ?? true;
+  const sbBg = dm ? '#010409' : '#f8fafc';
+  const sbBorder = dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.07)';
 
   const sidebarStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', top: 0, left: open ? 0 : '-280px', bottom: 0, width: 185,
-    zIndex: 50, transition: 'left 0.3s ease', background: '#010409',
+    zIndex: 50, transition: 'left 0.3s ease, background 0.3s', background: sbBg,
     display: 'flex', flexDirection: 'column',
     overflowY: 'auto', overflowX: 'hidden', fontFamily: "'Montserrat',sans-serif",
   } : {
     width: open ? 185 : 72, minWidth: open ? 185 : 72, height: '100%',
-    overflowY: 'auto', overflowX: 'hidden', background: '#010409',
+    overflowY: 'auto', overflowX: 'hidden', background: sbBg,
     display: 'flex', flexDirection: 'column', position: 'relative',
-    flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease',
+    flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease, background 0.3s',
     fontFamily: "'Montserrat',sans-serif",
-    borderRight: '1px solid rgba(255,255,255,0.04)',
+    borderRight: `1px solid ${sbBorder}`,
   };
 
   return (
@@ -725,6 +858,19 @@ export default function Journal() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('journal_dark_mode');
+      return saved === null ? true : saved === 'true';
+    }
+    return true;
+  });
+  const toggleDarkMode = () => setDarkMode(d => {
+    const next = !d;
+    localStorage.setItem('journal_dark_mode', String(next));
+    return next;
+  });
+  const dm = darkMode;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -792,7 +938,7 @@ export default function Journal() {
 
 
   return (
-    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background:'#010409', color:'#cbd5e1' }}>
+    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: dm ? '#010409' : '#f0f4f8', color: dm ? '#cbd5e1' : '#1e293b', transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
         .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
         .journal-root svg text{font-family:'Montserrat',sans-serif!important;}
@@ -803,10 +949,14 @@ export default function Journal() {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
-      <JournalHeader onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)} />
+      <JournalHeader
+        onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
+      />
 
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
-        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} />
+        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={darkMode} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
 
@@ -844,6 +994,8 @@ export default function Journal() {
             <AccountsPage openModal={true} />
           ) : activeNav === 'assets' ? (
             <AssetPage />
+          ) : activeNav === 'telegram' ? (
+            <TelegramTradesView userId={user?.id} />
           ) : (
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />

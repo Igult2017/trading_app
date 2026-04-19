@@ -39,6 +39,8 @@ function TickerTape() {
 
 interface JournalHeaderProps {
   onToggleSidebar: () => void;
+  darkMode: boolean;
+  onToggleDarkMode: () => void;
 }
 
 function ProfileDropdown({ dm, dropdownRef, displayName, avatarLetter, onLogout }: {
@@ -138,9 +140,8 @@ function ProfileDropdown({ dm, dropdownRef, displayName, avatarLetter, onLogout 
   );
 }
 
-export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
+export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -289,7 +290,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
-            <button onClick={() => setDarkMode(!dm)}
+            <button onClick={() => onToggleDarkMode()}
               style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
               <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
@@ -300,7 +301,7 @@ export default function JournalHeader({ onToggleSidebar }: JournalHeaderProps) {
 
           {/* Mobile Controls */}
           <div className="nav-mob-controls">
-            <button onClick={() => setDarkMode(!dm)}
+            <button onClick={() => onToggleDarkMode()}
               style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
               <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
