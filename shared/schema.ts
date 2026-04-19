@@ -650,6 +650,7 @@ export const blogPosts = pgTable("blog_posts", {
   imageUrl:   text("image_url").default(''),
   status:     text("status").default('Draft'),          // Published | Draft
   section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals
+  summary:    text("summary").default(''),               // bullet-point TL;DR (one bullet per line, prefixed with •)
   signalData: jsonb("signal_data"),
   authorData: jsonb("author_data"),            // { bio, expertise[], twitter, linkedin, telegram }
   createdAt:  timestamp("created_at").defaultNow(),

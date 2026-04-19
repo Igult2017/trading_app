@@ -942,6 +942,7 @@ const BlogSection = ({ bp }) => {
     setEditorInitialData({
       title:           post.title,
       excerpt:         post.excerpt || '',
+      summary:         post.summary || '',
       imageUrl:        post.imageUrl || '',
       readTime:        post.readTime || '5 min',
       content:         post.content || '',
@@ -980,6 +981,7 @@ const BlogSection = ({ bp }) => {
         date:       new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
         imageUrl:   data.imageUrl || '',
         excerpt:    data.excerpt || '',
+        summary:    data.summary || '',
         content:    data.content || '',
         readTime:   data.readTime || '5 min',
         signalData: null,

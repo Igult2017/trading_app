@@ -460,6 +460,7 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
 export interface BlogEditorData {
   title:           string;
   excerpt:         string;
+  summary:         string;
   imageUrl:        string;
   readTime:        string;
   content:         string;
@@ -484,6 +485,7 @@ interface Props {
 const DEFAULTS: BlogEditorData = {
   title:           "",
   excerpt:         "",
+  summary:         "",
   imageUrl:        "",
   readTime:        "",
   content:         "",
@@ -496,6 +498,201 @@ const DEFAULTS: BlogEditorData = {
   authorLinkedin:  "",
   authorTelegram:  "",
 };
+
+// ─── Smart bullet-point summary editor ────────────────────────────────────────
+
+function SummaryEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [focused, setFocused] = useState(false);
+
+  const lines   = value ? value.split("\n") : [];
+  const bullets = lines.filter(l => l.trim().length > 0);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    if (e.key === "Enter") {
+      const lineStart  = ta.value.lastIndexOf("\n", ta.selectionStart - 1) + 1;
+      const lineEnd    = ta.value.indexOf("\n", ta.selectionStart);
+      const currentLine = ta.value.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      const bulletMatch = currentLine.match(/^(•|-|\d+\.) /);
+      if (bulletMatch) {
+        e.preventDefault();
+        // If current bullet line is empty (just the marker), remove it and stop
+        if (currentLine.trim() === bulletMatch[0].trim()) {
+          const newVal = ta.value.slice(0, lineStart) + ta.value.slice(ta.selectionStart);
+          onChange(newVal);
+          requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = lineStart; });
+          return;
+        }
+        // Insert a new bullet on the next line
+        const prefix = bulletMatch[0];
+        const insert  = "\n" + prefix;
+        const newVal  = ta.value.slice(0, ta.selectionStart) + insert + ta.value.slice(ta.selectionEnd);
+        onChange(newVal);
+        requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = ta.selectionStart + insert.length; });
+      }
+    }
+    if (e.key === "Backspace") {
+      const lineStart = ta.value.lastIndexOf("\n", ta.selectionStart - 1) + 1;
+      const currentLine = ta.value.slice(lineStart, ta.selectionStart);
+      // If cursor is right after a bullet marker on an otherwise empty line, remove the bullet
+      if (/^(•|-|\d+\.) $/.test(currentLine)) {
+        e.preventDefault();
+        const newVal = ta.value.slice(0, lineStart) + ta.value.slice(ta.selectionStart);
+        onChange(newVal);
+        requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = lineStart; });
+      }
+    }
+  };
+
+  const insertAt = (prefix: string) => {
+    const ta = taRef.current;
+    if (!ta) return;
+    const pos    = ta.selectionStart;
+    const before = ta.value.slice(0, pos);
+    const after  = ta.value.slice(pos);
+    const needsNewline = before.length > 0 && !before.endsWith("\n");
+    const insert = (needsNewline ? "\n" : "") + prefix;
+    const newVal = before + insert + after;
+    onChange(newVal);
+    requestAnimationFrame(() => {
+      ta.selectionStart = ta.selectionEnd = pos + insert.length;
+      ta.focus();
+    });
+  };
+
+  const addBullet  = () => insertAt("• ");
+  const addNumber  = () => {
+    const count = (value.match(/^\d+\. /gm) || []).length + 1;
+    insertAt(`${count}. `);
+  };
+
+  const base: React.CSSProperties = {
+    background:   focused ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)",
+    border:       `0.5px solid ${focused ? "rgba(99,153,34,0.45)" : "rgba(255,255,255,0.1)"}`,
+    borderRadius: "0 0 8px 8px",
+    color:        "rgba(255,255,255,0.82)",
+    fontFamily:   "'Geist', system-ui, sans-serif",
+    fontSize:     13.5,
+    lineHeight:   1.9,
+    padding:      "12px 14px",
+    outline:      "none",
+    width:        "100%",
+    boxSizing:    "border-box" as const,
+    resize:       "vertical" as const,
+    minHeight:    140,
+    transition:   "border-color 0.15s, background 0.15s",
+  };
+
+  const tbtn: React.CSSProperties = {
+    background:   "rgba(255,255,255,0.05)",
+    border:       "0.5px solid rgba(255,255,255,0.12)",
+    borderRadius: 5,
+    color:        "rgba(255,255,255,0.55)",
+    fontFamily:   "'DM Mono', monospace",
+    fontSize:     11,
+    padding:      "4px 11px",
+    cursor:       "pointer",
+    transition:   "all 0.12s",
+    lineHeight:   1.4,
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Toolbar */}
+      <div style={{
+        display:        "flex",
+        alignItems:     "center",
+        gap:            6,
+        padding:        "7px 12px",
+        background:     "rgba(255,255,255,0.025)",
+        border:         "0.5px solid rgba(255,255,255,0.1)",
+        borderBottom:   "none",
+        borderRadius:   "8px 8px 0 0",
+      }}>
+        <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 4 }}>
+          insert
+        </span>
+        <button style={tbtn} onClick={addBullet}
+          onMouseEnter={e => { (e.target as any).style.background = "rgba(99,153,34,0.15)"; (e.target as any).style.color = "#a8d46f"; (e.target as any).style.borderColor = "rgba(99,153,34,0.4)"; }}
+          onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.05)"; (e.target as any).style.color = "rgba(255,255,255,0.55)"; (e.target as any).style.borderColor = "rgba(255,255,255,0.12)"; }}>
+          • Bullet
+        </button>
+        <button style={tbtn} onClick={addNumber}
+          onMouseEnter={e => { (e.target as any).style.background = "rgba(99,153,34,0.15)"; (e.target as any).style.color = "#a8d46f"; (e.target as any).style.borderColor = "rgba(99,153,34,0.4)"; }}
+          onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.05)"; (e.target as any).style.color = "rgba(255,255,255,0.55)"; (e.target as any).style.borderColor = "rgba(255,255,255,0.12)"; }}>
+          1. Numbered
+        </button>
+        <div style={{ flex: 1 }} />
+        {bullets.length > 0 && (
+          <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(99,153,34,0.6)" }}>
+            {bullets.length} {bullets.length === 1 ? "point" : "points"}
+          </span>
+        )}
+        {value.trim() && (
+          <button style={{ ...tbtn, color: "rgba(255,80,80,0.5)", borderColor: "rgba(255,80,80,0.15)" }}
+            onClick={() => onChange("")}
+            onMouseEnter={e => { (e.target as any).style.color = "rgba(255,80,80,0.85)"; (e.target as any).style.borderColor = "rgba(255,80,80,0.4)"; }}
+            onMouseLeave={e => { (e.target as any).style.color = "rgba(255,80,80,0.5)"; (e.target as any).style.borderColor = "rgba(255,80,80,0.15)"; }}>
+            clear
+          </button>
+        )}
+      </div>
+
+      {/* Editable textarea */}
+      <textarea
+        ref={taRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        rows={6}
+        placeholder={"• The key insight readers should walk away with\n• What changed in the market this week\n• Why this matters for your trading strategy\n\nPress Enter after each bullet to auto-continue. Use the toolbar to insert bullets or numbers."}
+        style={base}
+      />
+
+      {/* Live preview */}
+      {bullets.length > 0 && (
+        <div style={{
+          marginTop:    10,
+          padding:      "12px 16px",
+          background:   "rgba(99,153,34,0.04)",
+          border:       "0.5px solid rgba(99,153,34,0.18)",
+          borderRadius: 8,
+        }}>
+          <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(99,153,34,0.5)", marginBottom: 10 }}>
+            Reader preview
+          </div>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+            {bullets.map((line, i) => {
+              const text = line.replace(/^(•|-|\d+\.) /, "").trim();
+              const isNumbered = /^\d+\. /.test(line);
+              const num = isNumbered ? line.match(/^(\d+)/)?.[1] : null;
+              if (!text) return null;
+              return (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{
+                    flexShrink: 0, marginTop: 1,
+                    width: 20, height: 20, borderRadius: isNumbered ? 4 : "50%",
+                    background: "rgba(99,153,34,0.18)", border: "0.5px solid rgba(99,153,34,0.35)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: isNumbered ? 9 : 7, color: "#a8d46f", fontFamily: "'DM Mono', monospace", fontWeight: 700,
+                  }}>
+                    {isNumbered ? num : "•"}
+                  </span>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6, fontFamily: "'Geist', system-ui, sans-serif" }}>
+                    {text}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -646,6 +843,17 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
               style={mainInput({ resize: "none", lineHeight: 1.65 })}
               onFocus={mainFocusOn} onBlur={mainFocusOff} />
           </MainField>
+
+          <Divider />
+
+          {/* Article Summary */}
+          <SectionHeading>Article Summary</SectionHeading>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "'Geist', system-ui, sans-serif", marginTop: -14, marginBottom: 2, lineHeight: 1.6 }}>
+            Key takeaways shown before the full article — great for readers who skim. Each bullet or numbered point becomes a formatted list.
+          </div>
+          <SummaryEditor value={form.summary} onChange={v => set({ summary: v })} />
+
+          <Divider />
 
           {/* Cover image */}
           <MainField label="Cover Image">
