@@ -218,11 +218,11 @@ def _scrape_myfxbook() -> list:
 
 
 def scrape_calendar() -> list:
-    """Fetch forex calendar: TradingView first, MyFXBook fallback."""
-    events = _scrape_tradingview()
+    """Fetch forex calendar: MyFXBook first, TradingView fallback."""
+    events = _scrape_myfxbook()
     if not events:
-        print('[news_calendar] Falling back to MyFXBook…', file=sys.stderr)
-        events = _scrape_myfxbook()
+        print('[news_calendar] Falling back to TradingView…', file=sys.stderr)
+        events = _scrape_tradingview()
     return events
 
 
