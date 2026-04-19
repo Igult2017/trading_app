@@ -2103,101 +2103,104 @@ export default function AdminPanel() {
   const contentPad = bp.isMobile ? '14px' : '24px';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
 
-      {/* SIDEBAR */}
-      <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', height: '100vh', zIndex: 20 }}>
-        {/* top spacer that aligns with the header bar height */}
-        <div style={{ height: '49px', flexShrink: 0, borderBottom: `1px solid ${C.border}` }} />
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
-          {SIDEBAR_GROUPS.map((group, gi) => (
-            <div key={gi}>
-              {sectionLabel(group.label)}
-              {group.items.map(navBtn)}
+      {/* ── HEADER — full width, always at the very top ── */}
+      <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 92%, transparent)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+        {/* ── Left: hamburger + logo ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => setCollapsed(p => !p)}
+            aria-label="Toggle sidebar"
+            style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '5px', width: '36px', height: '36px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px', transition: 'background 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(45deg) translate(4px,4px)' : 'none' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', opacity: collapsed ? 0 : 1 }} />
+            <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(-45deg) translate(4px,-4px)' : 'none' }} />
+          </button>
+
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '26px', height: '26px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none">
+                <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
+                <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
+              </svg>
             </div>
-          ))}
+            <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '13px', letterSpacing: '0.1em', color: 'white', textTransform: 'uppercase' }}>FSDZONES</span>
+          </div>
         </div>
 
-        {/* User profile + sign out */}
-        <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0 }}>
-          {!collapsed && (
-            <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-              <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
-                {adminInitial}
-              </div>
-              <div style={{ overflow: 'hidden' }}>
-                <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
-                <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={async () => { await signOut(); navigate('/'); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
-          >
-            <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v6" />
-              <path d="M6.8 4.8a9 9 0 1 0 10.4 0" />
-            </svg>
-            {!collapsed && <span>Sign Out</span>}
+        {/* ── Right: actions ── */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
+            <Mail size={16} />
+            {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
+            <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
+          </button>
+          <div style={{ width: '1px', height: '24px', background: C.border2 }} />
+          <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
+            <Bell size={16} />
+            {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
+            <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
           </button>
         </div>
+      </header>
 
-      </aside>
+      {/* ── BODY ROW — sidebar + content, fills remaining height ── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-      {/* MAIN CONTENT */}
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: `radial-gradient(ellipse at top, var(--admin-card) 0%, var(--admin-bg) 60%)`, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'color-mix(in srgb, var(--admin-bg) 92%, transparent)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-          {/* ── Left: hamburger + logo ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              onClick={() => setCollapsed(p => !p)}
-              aria-label="Toggle sidebar"
-              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '5px', width: '36px', height: '36px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px', transition: 'background 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              {/* three lines — animate to X when collapsed */}
-              <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(45deg) translate(4px,4px)' : 'none' }} />
-              <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', opacity: collapsed ? 0 : 1 }} />
-              <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(-45deg) translate(4px,-4px)' : 'none' }} />
-            </button>
-
-            {/* Logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '26px', height: '26px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none">
-                  <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
-                  <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
-                </svg>
+        {/* SIDEBAR */}
+        <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
+            {SIDEBAR_GROUPS.map((group, gi) => (
+              <div key={gi}>
+                {sectionLabel(group.label)}
+                {group.items.map(navBtn)}
               </div>
-              <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '13px', letterSpacing: '0.1em', color: 'white', textTransform: 'uppercase' }}>FSDZONES</span>
-            </div>
+            ))}
           </div>
 
-          {/* ── Right: actions ── */}
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
-              <Mail size={16} />
-              {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
-              <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
-            </button>
-            <div style={{ width: '1px', height: '24px', background: C.border2 }} />
-            <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
-              <Bell size={16} />
-              {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
-              <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
+          {/* User profile + sign out */}
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0 }}>
+            {!collapsed && (
+              <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
+                  {adminInitial}
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                  <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
+                  <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={async () => { await signOut(); navigate('/'); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
+            >
+              <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v6" />
+                <path d="M6.8 4.8a9 9 0 1 0 10.4 0" />
+              </svg>
+              {!collapsed && <span>Sign Out</span>}
             </button>
           </div>
-        </header>
-        <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
-      </main>
+        </aside>
+
+        {/* MAIN CONTENT */}
+        <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: `radial-gradient(ellipse at top, var(--admin-card) 0%, var(--admin-bg) 60%)`, display: 'flex', flexDirection: 'column' }}>
+          <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
+        </main>
+
+      </div>
     </div>
   );
 }
