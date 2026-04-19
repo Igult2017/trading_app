@@ -1412,6 +1412,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
+  // ── Telegram journal: executed Telegram trades with manual outcome ────────────
+  app.get("/api/copy/telegram-journal", async (req: Request, res: Response) => {
+    try {
+      const { userId, limit = '200' } = req.query as Record<string, string>;
+      const rows = await pool.query(`
+        SELECT
+          ctf.id,
+          ctf.follower_id,
+          ctf.master_trade_id,
+          ctf.external_id,
+          ctf.symbol,
+          ctf.action,
+          ctf.event_type,
+          ctf.volume,
+          ctf.entry_price,
+          ctf.stop_loss,
+          ctf.take_profit,
+          ctf.closed_price,
+          ctf.status,
+          ctf.error_message,
+          ctf.executed_at,
+          ctf.created_at,
+          ctf.manual_outcome,
+          ctm.source,
+          ctm.raw_payload,
+          cf.user_id
+        FROM copy_trades_follower ctf
+        JOIN copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
+        JOIN copy_followers       cf  ON cf.id  = ctf.follower_id
+        WHERE ctm.source = 'telegram'
+          AND ctf.status = 'executed'
+          ${userId ? `AND cf.user_id = '${userId.replace(/'/g, "''")}'` : ''}
+        ORDER BY ctf.created_at DESC
+        LIMIT ${parseInt(limit) || 200}
+      `);
+      return res.json(rows.rows);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // Mark a telegram trade as win / loss / clear
+  app.patch("/api/copy/telegram-journal/:id/outcome", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { outcome } = req.body as { outcome: 'win' | 'loss' | null };
+      if (outcome !== 'win' && outcome !== 'loss' && outcome !== null) {
+        return res.status(400).json({ error: 'outcome must be win, loss, or null' });
+      }
+      await pool.query(
+        `UPDATE copy_trades_follower SET manual_outcome = $1 WHERE id = $2`,
+        [outcome, id]
+      );
+      return res.json({ ok: true, id, outcome });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  // Telegram win-rate stats for a user
+  app.get("/api/copy/telegram-journal/stats", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.query as { userId?: string };
+      const rows = await pool.query(`
+        SELECT
+          COUNT(*)                                              AS total,
+          COUNT(*) FILTER (WHERE ctf.manual_outcome = 'win')   AS wins,
+          COUNT(*) FILTER (WHERE ctf.manual_outcome = 'loss')  AS losses,
+          COUNT(*) FILTER (WHERE ctf.manual_outcome IS NULL)   AS unmarked
+        FROM copy_trades_follower ctf
+        JOIN copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
+        JOIN copy_followers       cf  ON cf.id  = ctf.follower_id
+        WHERE ctm.source = 'telegram'
+          AND ctf.status = 'executed'
+          ${userId ? `AND cf.user_id = '${userId.replace(/'/g, "''")}'` : ''}
+      `);
+      const r = rows.rows[0];
+      const marked = Number(r.wins) + Number(r.losses);
+      return res.json({
+        total:    Number(r.total),
+        wins:     Number(r.wins),
+        losses:   Number(r.losses),
+        unmarked: Number(r.unmarked),
+        winRate:  marked > 0 ? +((Number(r.wins) / marked) * 100).toFixed(1) : null,
+      });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
   // ── Broker Account Sync ───────────────────────────────────────────────────────
   // All routes require a valid Supabase JWT (Authorization: Bearer <token>).
   // Data is strictly isolated per userId extracted from the JWT.
@@ -2527,6 +2611,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try {
     await db.execute(drizzleSql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id VARCHAR`);
   } catch (e: any) { console.warn('[Notifications] Could not add user_id column:', e.message); }
+
+  // ── Ensure copy_trades_follower has manual_outcome column ─────────────────────
+  try {
+    await pool.query(`ALTER TABLE copy_trades_follower ADD COLUMN IF NOT EXISTS manual_outcome TEXT`);
+  } catch (e: any) { console.warn('[CopyTrades] Could not add manual_outcome column:', e.message); }
 
   // ── Ensure cc_agents table exists ─────────────────────────────────────────────
   try {
