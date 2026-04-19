@@ -882,10 +882,21 @@ const BlogSection = ({ bp }) => {
     return (r as any).data?.session?.access_token as string | null;
   };
 
+  const getAdminHeaders = async (withContentType = false): Promise<Record<string, string>> => {
+    const token = await getToken();
+    const headers: Record<string, string> = {};
+    if (withContentType) headers['Content-Type'] = 'application/json';
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      const secret = import.meta.env.VITE_ADMIN_SECRET;
+      if (secret) headers['X-Admin-Secret'] = secret;
+    }
+    return headers;
+  };
+
   useEffect(() => {
-    getToken().then(token => {
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+    getAdminHeaders().then(headers => {
       fetch('/api/blog/all', { headers })
         .then(r => r.ok ? r.json() : [])
         .then(data => {
@@ -928,9 +939,7 @@ const BlogSection = ({ bp }) => {
     if (!form.title.trim() || saving) return;
     setSaving(true);
     try {
-      const token = await getToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await getAdminHeaders(true);
       const f = form as any;
       // Social media handles are optional — always send safe defaults
       const authorData = {
@@ -1000,9 +1009,7 @@ const BlogSection = ({ bp }) => {
   };
 
   const handleDelete = async (id: any) => {
-    const token = await getToken();
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers = await getAdminHeaders();
     const r = await fetch(`/api/blog/${id}`, { method: 'DELETE', headers });
     if (r.ok) setPosts(p => p.filter(x => x.id !== id));
   };
@@ -1011,9 +1018,7 @@ const BlogSection = ({ bp }) => {
     const post = posts.find(x => x.id === id);
     if (!post) return;
     const newStatus = post.status === 'Published' ? 'Draft' : 'Published';
-    const token = await getToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers = await getAdminHeaders(true);
     const r = await fetch(`/api/blog/${id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: newStatus }) });
     if (r.ok) setPosts(p => p.map(x => x.id === id ? { ...x, status: newStatus } : x));
   };

@@ -1761,6 +1761,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reads role from the DB — never from the JWT — so stale or manipulated tokens
   // cannot escalate privileges.
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    // Option 1: ADMIN_SECRET header bypass (works without Supabase)
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (adminSecret && req.headers['x-admin-secret'] === adminSecret) {
+      (req as any).adminUser = { id: 'admin', email: process.env.ADMIN_EMAIL ?? 'admin@local' };
+      return next();
+    }
+
+    // Option 2: Supabase JWT
     const authUser = await verifyToken(req.headers.authorization);
     if (!authUser) return res.status(401).json({ error: "Unauthorized" });
 
