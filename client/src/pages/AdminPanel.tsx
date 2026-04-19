@@ -1005,6 +1005,7 @@ const BlogSection = ({ bp }) => {
         author:     data.authorName || 'Admin',
         date:       new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
         imageUrl,
+        videoUrl:   data.videoUrl || '',
         excerpt:    data.excerpt || '',
         summary:    data.summary || '',
         content:    data.content || '',

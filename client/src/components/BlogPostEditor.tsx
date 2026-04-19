@@ -70,6 +70,80 @@ function MainLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function extractYoutubeId(url: string): string | null {
+  if (!url.trim()) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/,
+    /^([A-Za-z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function YoutubeEmbed({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const videoId = extractYoutubeId(value);
+  return (
+    <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        {/* YouTube icon */}
+        <div style={{
+          width: 34, height: 34, borderRadius: 7, flexShrink: 0,
+          background: "rgba(255,0,0,0.12)", border: "0.5px solid rgba(255,0,0,0.25)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(255,80,80,0.9)">
+            <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/>
+            <polygon fill="#0d1117" points="9.75,15.02 15.5,12 9.75,8.98"/>
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="Paste YouTube URL or video ID…"
+          style={{
+            flex: 1, background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.1)",
+            borderRadius: 7, color: "rgba(255,255,255,0.85)", fontFamily: "'Geist',system-ui,sans-serif",
+            fontSize: 13, padding: "9px 12px", outline: "none",
+          }}
+          onFocus={e => { e.target.style.borderColor = "rgba(255,80,80,0.4)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
+          onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.background = "rgba(255,255,255,0.04)"; }}
+        />
+        {value && (
+          <button
+            onClick={() => onChange("")}
+            style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.4)", fontSize: 12, padding: "0 12px", cursor: "pointer", flexShrink: 0 }}
+          >✕</button>
+        )}
+      </div>
+
+      {/* Live preview */}
+      {videoId ? (
+        <div style={{ position: "relative" as const, paddingBottom: "56.25%", borderRadius: 8, overflow: "hidden", border: "0.5px solid rgba(255,255,255,0.1)" }}>
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}`}
+            title="YouTube preview"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ position: "absolute" as const, inset: 0, width: "100%", height: "100%", border: "none" }}
+          />
+        </div>
+      ) : value.trim() ? (
+        <div style={{ fontSize: 11, color: "rgba(255,100,100,0.7)", fontFamily: "'DM Mono',monospace" }}>
+          Invalid YouTube URL — try: youtube.com/watch?v=… or youtu.be/…
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontFamily: "'DM Mono',monospace" }}>
+          Leave blank if the post has no video version.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MainField({ label, children, style = {} }: { label: string; children: React.ReactNode; style?: any }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, ...style }}>
@@ -523,6 +597,7 @@ export interface BlogEditorData {
   excerpt:         string;
   summary:         string;
   imageUrl:        string;
+  videoUrl:        string;
   readTime:        string;
   content:         string;
   category:        string;
@@ -548,6 +623,7 @@ const DEFAULTS: BlogEditorData = {
   excerpt:         "",
   summary:         "",
   imageUrl:        "",
+  videoUrl:        "",
   readTime:        "",
   content:         "",
   category:        "Analysis",
@@ -919,6 +995,13 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           {/* Cover image */}
           <MainField label="Cover Image">
             <CoverUpload value={form.imageUrl} onChange={v => set({ imageUrl: v })} />
+          </MainField>
+
+          <Divider />
+
+          {/* YouTube embed */}
+          <MainField label="YouTube Video (optional)">
+            <YoutubeEmbed value={form.videoUrl} onChange={v => set({ videoUrl: v })} />
           </MainField>
 
           <Divider />

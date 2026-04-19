@@ -7,11 +7,21 @@ import { usePageTracking } from '@/hooks/usePageTracking';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/,
+    /^([A-Za-z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+  return null;
+}
+
 type Post = {
   id: string | number;
   title: string;
   excerpt: string;
   content: string;
+  videoUrl: string;
   category: string;
   author: string;
   date: string;
@@ -184,6 +194,7 @@ export default function BlogPostPage() {
           title:      data.title       ?? '',
           excerpt:    data.excerpt     ?? '',
           content:    data.content     ?? '',
+          videoUrl:   data.videoUrl    ?? data.video_url ?? '',
           category:   data.category    ?? 'Analysis',
           author:     data.author      ?? 'Admin',
           date:       data.date        ?? '',
@@ -323,6 +334,22 @@ export default function BlogPostPage() {
             </div>
           )}
         </header>
+
+        {/* ── YouTube embed ─────────────────────────────────────────────────── */}
+        {post.videoUrl && extractYoutubeId(post.videoUrl) && (
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: muted, marginBottom: 12 }}>Video Version</div>
+            <div style={{ position: 'relative' as const, paddingBottom: '56.25%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${border}` }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${extractYoutubeId(post.videoUrl)}`}
+                title={post.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute' as const, inset: 0, width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── Article body ──────────────────────────────────────────────────── */}
         <article
