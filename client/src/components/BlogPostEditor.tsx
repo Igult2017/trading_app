@@ -166,6 +166,86 @@ function DestItem({ item, active, onClick }: { item: any; active: boolean; onCli
 
 // ─── Sidebar author panel ─────────────────────────────────────────────────────
 
+function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: (tags: string[]) => void }) {
+  const [input, setInput] = useState("");
+  const allTags = [...new Set([...EXPERTISE_OPTIONS, ...selected.filter(t => !EXPERTISE_OPTIONS.includes(t))])];
+
+  const add = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed || selected.includes(trimmed)) return;
+    onChange([...selected, trimmed]);
+    setInput("");
+  };
+
+  const remove = (tag: string) => onChange(selected.filter(t => t !== tag));
+
+  const toggle = (tag: string) =>
+    selected.includes(tag) ? remove(tag) : onChange([...selected, tag]);
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(input); }
+    if (e.key === "Backspace" && !input && selected.length) remove(selected[selected.length - 1]);
+  };
+
+  return (
+    <div style={{ padding: "0 16px 10px" }}>
+      {/* custom input */}
+      <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
+        <input
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Add custom tag…"
+          style={inputBase({ fontSize: 11, borderRadius: 20, padding: "4px 10px" })}
+          onFocus={focusOn}
+          onBlur={e => { focusOff(e); if (input.trim()) add(input); }}
+        />
+        <button
+          onClick={() => add(input)}
+          style={{
+            background: "rgba(99,153,34,0.2)", border: "0.5px solid rgba(99,153,34,0.4)",
+            borderRadius: 20, color: "#a8d46f", fontSize: 13, cursor: "pointer",
+            padding: "2px 10px", flexShrink: 0, lineHeight: 1,
+          }}
+        >+</button>
+      </div>
+
+      {/* chips */}
+      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 5 }}>
+        {allTags.map(tag => {
+          const on = selected.includes(tag);
+          return (
+            <button key={tag} onClick={() => toggle(tag)} style={{
+              background:   on ? "rgba(99,153,34,0.2)"  : "rgba(255,255,255,0.04)",
+              border:       `0.5px solid ${on ? "rgba(99,153,34,0.55)" : "rgba(255,255,255,0.1)"}`,
+              borderRadius: 20, color: on ? "#a8d46f" : "rgba(255,255,255,0.38)",
+              fontSize: 10, fontFamily: "'Geist', system-ui, sans-serif",
+              padding: "4px 10px", cursor: "pointer", transition: "all 0.15s",
+              whiteSpace: "nowrap" as const, lineHeight: 1.4, display: "flex", alignItems: "center", gap: 4,
+            }}>
+              {on && <span style={{ fontSize: 9 }}>✓</span>}
+              {tag}
+              {on && !EXPERTISE_OPTIONS.includes(tag) && (
+                <span
+                  onClick={e => { e.stopPropagation(); remove(tag); }}
+                  style={{ marginLeft: 2, fontSize: 10, opacity: 0.6, cursor: "pointer" }}
+                >×</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {selected.length > 0 && (
+        <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(99,153,34,0.55)", marginTop: 6 }}>
+          {selected.length} selected
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial: any) => void }) {
   const raw     = (form.authorName || "").trim();
   const parts   = raw.split(/\s+/).filter(Boolean);
@@ -218,29 +298,10 @@ function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial:
       <SidebarDivider />
 
       <SidebarLabel>Expertise</SidebarLabel>
-      <div style={{ padding: "0 16px 10px", display: "flex", flexWrap: "wrap" as const, gap: 5 }}>
-        {EXPERTISE_OPTIONS.map(tag => {
-          const on = form.authorExpertise.includes(tag);
-          return (
-            <button key={tag} onClick={() => toggleExpertise(tag)} style={{
-              background:   on ? "rgba(99,153,34,0.2)"  : "rgba(255,255,255,0.04)",
-              border:       `0.5px solid ${on ? "rgba(99,153,34,0.55)" : "rgba(255,255,255,0.1)"}`,
-              borderRadius: 20, color: on ? "#a8d46f" : "rgba(255,255,255,0.38)",
-              fontSize: 10, fontFamily: "'Geist', system-ui, sans-serif",
-              padding: "4px 10px", cursor: "pointer", transition: "all 0.15s",
-              whiteSpace: "nowrap" as const, lineHeight: 1.4,
-            }}>
-              {on && <span style={{ marginRight: 4, fontSize: 9 }}>✓</span>}
-              {tag}
-            </button>
-          );
-        })}
-        {form.authorExpertise.length > 0 && (
-          <div style={{ width: "100%", fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(99,153,34,0.55)", marginTop: 3 }}>
-            {form.authorExpertise.length} selected
-          </div>
-        )}
-      </div>
+      <ExpertiseInput
+        selected={form.authorExpertise}
+        onChange={tags => onChange({ authorExpertise: tags })}
+      />
 
       <SidebarDivider />
 
