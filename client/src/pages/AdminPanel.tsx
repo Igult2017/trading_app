@@ -197,6 +197,10 @@ const Sparkline = ({ data, danger }) => {
   return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '80px', height: '32px' }}><polyline fill="none" stroke={danger ? C.red : C.indigo} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} opacity="0.8" /></svg>;
 };
 
+const _skeletonStyle = document.createElement('style');
+_skeletonStyle.textContent = '@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}';
+if (!document.head.querySelector('[data-sk]')) { _skeletonStyle.setAttribute('data-sk','1'); document.head.appendChild(_skeletonStyle); }
+
 const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
   const r = (size - sw) / 2, circ = 2 * Math.PI * r, pct = Math.min(value / max, 1), dash = pct * circ;
   const ring = pct > 0.8 ? C.red : pct > 0.6 ? C.amber : color;
@@ -707,123 +711,177 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
 };
 
 // ─── SYSTEM MONITOR ──────────────────────────────────────────────────────────
+const SERVICE_GROUPS = {
+  'Infrastructure': ['Database', 'Auth / Logins', 'Cache Layer', 'App Loading'],
+  'Features':       ['Blog', 'Journal', 'Economic Calendar', 'TSC Page'],
+  'Services':       ['Price Feed', 'Gemini AI', 'Telegram Bot', 'Copy Trading Bridge'],
+};
+
 const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
-  const [metrics, setMetrics] = useState(INITIAL_METRICS);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
-  const [services, setServices] = useState<any[]>([]);
-  const [history, setHistory] = useState({ cpu: [28, 31, 34, 30, 33, 34], memory: [58, 60, 61, 62, 60, 61], latency: [38, 45, 42, 44, 40, 42], requests: [800, 820, 847, 835, 847, 847] });
-  const [isLive, setIsLive] = useState(true);
-  const [resolvedIds, setResolvedIds] = useState(new Set(INITIAL_LOGS.filter(l => l.resolved).map(l => l.id)));
-  const timerRef = useRef<any>(null);
+  const [metrics, setMetrics]     = useState<any>(null);
+  const [logs, setLogs]           = useState<any[]>([]);
+  const [services, setServices]   = useState<any[]>([]);
+  const [history, setHistory]     = useState<any>({ cpu: [], memory: [], latency: [], requests: [] });
+  const [isLive, setIsLive]       = useState(true);
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [loadingHealth, setLoadingHealth]   = useState(true);
+  const [resolvedIds, setResolvedIds] = useState(new Set<number>());
+  const timerRef    = useRef<any>(null);
   const logTimerRef = useRef<any>(null);
 
   useEffect(() => {
     if (!isLive) { clearInterval(timerRef.current); clearInterval(logTimerRef.current); return; }
+
     const getHeaders = async () => {
       const token = await getAdminToken?.();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      return headers;
+      const h: Record<string, string> = {};
+      if (token) h['Authorization'] = `Bearer ${token}`;
+      return h;
     };
 
     const pollMetrics = async () => {
       try {
-        const headers = await getHeaders();
-        const r = await fetch('/api/admin/metrics', { headers });
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/metrics', { headers: h });
         if (r.ok) {
           const d = await r.json();
-          const cpuVal = +d.cpu ?? +d.cpuPercent ?? 0;
-          const memVal = +d.memory ?? +d.memPercent ?? 0;
-          const reqVal = +d.reqPerSec ?? 0;
-          setMetrics(prev => ({ ...prev, cpu: cpuVal, memory: memVal, uptime: +(d.uptimeSec / 3600 / 24).toFixed(2), requestsPerSec: Math.round(reqVal) }));
-          setHistory(prev => ({ cpu: [...prev.cpu.slice(-11), cpuVal], memory: [...prev.memory.slice(-11), memVal], latency: [...prev.latency.slice(-11), prev.latency[prev.latency.length-1] ?? 42], requests: [...prev.requests.slice(-11), Math.round(reqVal)] }));
+          const cpuVal = +(d.cpu ?? 0);
+          const memVal = +(d.memory ?? 0);
+          const reqVal = +(d.reqPerSec ?? 0);
+          const lat    = +(d.latency ?? 0);
+          setMetrics({ cpu: cpuVal, memory: memVal, uptime: +(d.uptimeSec / 3600 / 24).toFixed(2), requestsPerSec: Math.round(reqVal), latency: lat, errorRate: +(d.errorRate ?? 0) });
+          setHistory((prev: any) => ({
+            cpu:      [...(prev.cpu.slice(-11)),      cpuVal],
+            memory:   [...(prev.memory.slice(-11)),   memVal],
+            latency:  [...(prev.latency.slice(-11)),  lat],
+            requests: [...(prev.requests.slice(-11)), Math.round(reqVal)],
+          }));
+          setLoadingMetrics(false);
         }
       } catch {}
     };
 
     const pollHealth = async () => {
       try {
-        const headers = await getHeaders();
-        const r = await fetch('/api/admin/health', { headers });
-        if (r.ok) { const d = await r.json(); setServices(d.services ?? []); }
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/health', { headers: h });
+        if (r.ok) {
+          const d = await r.json();
+          setServices(d.services ?? []);
+          setLoadingHealth(false);
+        }
       } catch {}
     };
 
     const pollLogs = async () => {
       try {
-        const headers = await getHeaders();
-        const r = await fetch('/api/admin/logs', { headers });
+        const h = await getHeaders();
+        const r = await fetch('/api/admin/logs', { headers: h });
         if (r.ok) { const d = await r.json(); if (d.logs?.length) setLogs(d.logs.slice(0, 20)); }
       } catch {}
     };
 
     pollMetrics(); pollHealth(); pollLogs();
-    timerRef.current = setInterval(() => { pollMetrics(); }, 3000);
-    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); }, 8000);
+    timerRef.current    = setInterval(pollMetrics, 4000);
+    logTimerRef.current = setInterval(() => { pollHealth(); pollLogs(); }, 10000);
     return () => { clearInterval(timerRef.current); clearInterval(logTimerRef.current); };
   }, [isLive]);
 
-  const resolveLog = id => setResolvedIds(prev => new Set([...prev, id]));
-  const errorCount = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
-  const warnCount = logs.filter(l => l.level === 'warn' && !resolvedIds.has(l.id)).length;
-  const healthy = metrics.cpu < 80 && metrics.errorRate < 1 && metrics.latency < 100;
+  const resolveLog  = (id: number) => setResolvedIds(prev => new Set([...prev, id]));
+  const errorCount  = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
+  const warnCount   = logs.filter(l => l.level === 'warn'  && !resolvedIds.has(l.id)).length;
+  const allOk       = services.length > 0 && services.every(s => s.status === 'operational' || s.status === 'not-configured');
+  const anyDegraded = services.some(s => s.status === 'degraded');
+  const healthy     = !anyDegraded && (!metrics || (metrics.cpu < 80 && metrics.latency < 200));
+  const statusLabel = loadingHealth ? 'Checking…' : anyDegraded ? 'Degraded Performance' : allOk ? 'All Systems Operational' : 'Checking…';
   const LC = { error: { bg: 'rgba(244,63,94,0.1)', c: C.redL, b: 'rgba(244,63,94,0.2)' }, warn: { bg: 'rgba(245,158,11,0.1)', c: C.amberL, b: 'rgba(245,158,11,0.2)' }, info: { bg: C.border, c: C.muted, b: C.border2 } };
   const metricCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
+  const Skeleton = ({ w = '100%', h = 14 }: { w?: string|number; h?: number }) => (
+    <div style={{ width: w, height: h, background: 'rgba(255,255,255,0.06)', borderRadius: 4, animation: 'pulse 1.5s ease-in-out infinite' }} />
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
+      {/* ── Status banner ── */}
+      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${loadingHealth ? C.border : healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: loadingHealth ? 'transparent' : healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: healthy ? C.green : C.red }} />
-          <span style={{ color: healthy ? C.greenL : C.redL, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{healthy ? 'All Systems Operational' : 'Degraded Performance'}</span>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: loadingHealth ? C.muted : healthy ? C.green : C.red, boxShadow: loadingHealth ? 'none' : healthy ? `0 0 8px ${C.green}` : `0 0 8px ${C.red}` }} />
+          <span style={{ color: loadingHealth ? C.muted : healthy ? C.greenL : C.redL, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{statusLabel}</span>
         </div>
-        <button onClick={() => setIsLive(p => !p)} style={{ ...btn, padding: '5px 12px', background: isLive ? 'rgba(16,185,129,0.1)' : C.border, color: isLive ? C.greenL : C.muted, border: `1px solid ${isLive ? 'rgba(16,185,129,0.3)' : C.border2}`, fontSize: '11px', textTransform: 'uppercase' }}>{isLive ? 'Live' : 'Paused'}</button>
+        <button onClick={() => setIsLive(p => !p)} style={{ ...btn, padding: '5px 12px', background: isLive ? 'rgba(16,185,129,0.1)' : C.border, color: isLive ? C.greenL : C.muted, border: `1px solid ${isLive ? 'rgba(16,185,129,0.3)' : C.border2}`, fontSize: '11px', textTransform: 'uppercase' }}>{isLive ? '● Live' : '⏸ Paused'}</button>
       </div>
 
+      {/* ── Server metrics ── */}
       <div style={{ display: 'grid', gridTemplateColumns: metricCols, gap: '6px' }}>
-        {[{ label: 'CPU Usage', value: metrics.cpu, unit: '%', h: history.cpu, icon: Cpu, danger: metrics.cpu > 80 }, { label: 'Memory', value: metrics.memory, unit: '%', h: history.memory, icon: Database, danger: metrics.memory > 85 }, { label: 'Latency', value: metrics.latency, unit: 'ms', h: history.latency, icon: Zap, danger: metrics.latency > 100 }, { label: 'Req/sec', value: metrics.requestsPerSec, unit: '', h: history.requests, icon: Activity, danger: false }].map((m, i) => (
+        {[
+          { label: 'CPU Usage',  val: metrics?.cpu,            unit: '%',  icon: Cpu,      danger: (metrics?.cpu ?? 0) > 80  },
+          { label: 'Memory',     val: metrics?.memory,         unit: '%',  icon: Database, danger: (metrics?.memory ?? 0) > 85 },
+          { label: 'Latency',    val: metrics?.latency,        unit: 'ms', icon: Zap,      danger: (metrics?.latency ?? 0) > 200 },
+          { label: 'Req / sec',  val: metrics?.requestsPerSec, unit: '',   icon: Activity, danger: false },
+        ].map((m, i) => (
           <div key={i} style={{ ...cs, padding: '14px', borderColor: m.danger ? 'rgba(244,63,94,0.3)' : C.border }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <m.icon size={14} style={{ color: m.danger ? C.redL : '#3d5878' }} />
-              <GaugeRing value={m.unit === '%' ? m.value : Math.min((m.value / 2000) * 100, 100)} color={C.indigo} />
+              {loadingMetrics ? <Skeleton w={36} h={36} /> : <GaugeRing value={m.unit === '%' ? (m.val ?? 0) : Math.min(((m.val ?? 0) / 2000) * 100, 100)} color={C.indigo} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
-              <span style={{ color: m.danger ? C.redL : 'white', fontSize: '11px', fontWeight: 700 }}>{m.value}<span style={{ fontSize: '9px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+              {loadingMetrics
+                ? <Skeleton w={40} h={12} />
+                : <span style={{ color: m.danger ? C.redL : 'white', fontSize: '11px', fontWeight: 700 }}>{m.val ?? '—'}<span style={{ fontSize: '9px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+              }
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : '1fr 1fr', gap: '6px', alignItems: 'stretch' }}>
-        <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Service Status</h3>
-            <span style={{ fontSize: '10px', fontWeight: 600, color: C.muted }}>{services.length || '—'} services</span>
-          </div>
-          <div style={{ flex: 1 }}>
-            {(services.length ? services : [{ name: 'Loading…', status: 'operational', latency: '—', uptime: '—' }]).map((svc, i) => {
-              const isOk = svc.status === 'operational';
-              const isDeg = svc.status === 'degraded';
-              const dotColor = isOk ? C.green : isDeg ? C.amber : C.muted;
-              const textColor = isDeg ? C.amberL : isOk ? '#cbd5e1' : C.muted;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: isDeg ? 'rgba(245,158,11,0.04)' : 'transparent' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, boxShadow: isOk || isDeg ? `0 0 6px ${dotColor}` : 'none' }} />
-                    <span style={{ color: textColor, fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+      {/* ── Feature / service status (grouped) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : 'repeat(3,1fr)', gap: '6px' }}>
+        {Object.entries(SERVICE_GROUPS).map(([group, names]) => {
+          const groupSvcs = loadingHealth
+            ? names.map(n => ({ name: n, status: 'loading' }))
+            : names.map(n => services.find(s => s.name === n) ?? { name: n, status: 'unknown' });
+          const groupOk  = groupSvcs.every(s => s.status === 'operational' || s.status === 'not-configured');
+          const groupBad = groupSvcs.some(s => s.status === 'degraded');
+          return (
+            <div key={group} style={{ ...cs, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: loadingHealth ? C.muted : groupBad ? C.red : groupOk ? C.green : C.muted, boxShadow: loadingHealth ? 'none' : groupBad ? `0 0 5px ${C.red}` : `0 0 5px ${C.green}` }} />
+              </div>
+              {groupSvcs.map((svc: any, i: number) => {
+                const isOk   = svc.status === 'operational';
+                const isDeg  = svc.status === 'degraded';
+                const isNC   = svc.status === 'not-configured';
+                const isLoad = svc.status === 'loading';
+                const dotClr = isOk ? C.green : isDeg ? C.red : isNC ? C.amber : C.muted;
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: isDeg ? 'rgba(244,63,94,0.04)' : 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      {isLoad
+                        ? <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.muted, opacity: 0.4 }} />
+                        : <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotClr, boxShadow: (isOk || isDeg) ? `0 0 5px ${dotClr}` : 'none' }} />
+                      }
+                      <span style={{ fontSize: '12px', color: isDeg ? C.redL : isNC ? C.amberL : isLoad ? C.dim : '#cbd5e1', fontWeight: 600 }}>{svc.name}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {svc.latency && <span style={{ fontSize: '10px', fontFamily: 'monospace', color: C.dim }}>{svc.latency}</span>}
+                      {isLoad
+                        ? <Skeleton w={52} h={16} />
+                        : <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(244,63,94,0.1)' : isNC ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.redL : isNC ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(244,63,94,0.2)' : isNC ? 'rgba(245,158,11,0.2)' : C.border2}` }}>
+                            {isOk ? 'OK' : isDeg ? 'DOWN' : isNC ? 'not set' : svc.status}
+                          </span>
+                      }
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ color: C.muted, fontSize: '10px', fontFamily: 'monospace' }}>{svc.uptime}</span>
-                    <span style={{ color: isDeg ? C.amberL : '#475569', fontSize: '11px', fontFamily: 'monospace', fontWeight: isDeg ? 700 : 400 }}>{svc.latency}</span>
-                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(245,158,11,0.2)' : C.border2}` }}>{svc.status}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

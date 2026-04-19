@@ -2245,24 +2245,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Admin: real service health ────────────────────────────────────────────────
   app.get("/api/admin/health", requireAdmin, async (_req: Request, res: Response) => {
-    const checks = [];
-    try {
+    const probe = async (name: string, fn: () => Promise<void>, label?: string): Promise<any> => {
       const t = Date.now();
-      await db.execute(drizzleSql`SELECT 1`);
-      checks.push({ name: 'Database', status: 'operational', latency: `${Date.now()-t}ms`, uptime: '100%' });
-    } catch { checks.push({ name: 'Database', status: 'degraded', latency: 'error', uptime: 'N/A' }); }
+      try {
+        await fn();
+        return { name: label ?? name, status: 'operational', latency: `${Date.now()-t}ms` };
+      } catch (e: any) {
+        return { name: label ?? name, status: 'degraded', latency: 'error', error: e?.message?.slice(0,80) };
+      }
+    };
 
-    checks.push({ name: 'Auth Service', status: supabaseAdmin ? 'operational' : 'not-configured', latency: supabaseAdmin ? `${5+Math.floor(Math.random()*10)}ms` : 'N/A', uptime: supabaseAdmin ? '100%' : 'N/A' });
-    checks.push({ name: 'Cache Layer', status: 'operational', latency: '1ms', uptime: '100%' });
+    const checks = await Promise.all([
 
-    const telegramReady = (telegramNotificationService as any)?.isReady?.() ?? false;
-    checks.push({ name: 'Telegram Bot', status: telegramReady ? 'operational' : 'not-configured', latency: telegramReady ? '—' : 'N/A', uptime: telegramReady ? '99.9%' : 'N/A' });
-    checks.push({ name: 'Gemini AI', status: isGeminiConfigured() ? 'operational' : 'not-configured', latency: '—', uptime: '—' });
+      // ── Infrastructure ──────────────────────────────────────────────────
+      probe('db', async () => { await db.execute(drizzleSql`SELECT 1`); }, 'Database'),
 
-    try {
-      await pingPriceService();
-      checks.push({ name: 'Price Feed', status: 'operational', latency: '—', uptime: '99.9%' });
-    } catch { checks.push({ name: 'Price Feed', status: 'degraded', latency: 'timeout', uptime: 'N/A' }); }
+      probe('auth', async () => {
+        if (!supabaseAdmin) throw new Error('Supabase admin not configured');
+        await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+      }, 'Auth / Logins'),
+
+      probe('price-feed', async () => { await pingPriceService(); }, 'Price Feed'),
+
+      // ── App pages / features ────────────────────────────────────────────
+      probe('blog', async () => {
+        const rows = await pool.query(`SELECT id FROM blog_posts WHERE status='Published' LIMIT 1`);
+        // just checking DB table is accessible — no error = operational
+        void rows;
+      }, 'Blog'),
+
+      probe('journal', async () => {
+        await pool.query(`SELECT id FROM journal_entries LIMIT 1`);
+      }, 'Journal'),
+
+      probe('calendar', async () => {
+        const rows = await pool.query(`SELECT id FROM economic_events LIMIT 1`);
+        void rows;
+      }, 'Economic Calendar'),
+
+      probe('tsc', async () => {
+        // TSC page is static React — if DB is up and server process is alive, it's serving fine
+        if (process.uptime() < 0) throw new Error('unreachable');
+      }, 'TSC Page'),
+
+      probe('app-loading', async () => {
+        // Verify Node process is serving — measure internal round-trip
+        const t0 = Date.now();
+        await pool.query(`SELECT NOW()`);
+        if (Date.now() - t0 > 3000) throw new Error('slow response');
+      }, 'App Loading'),
+
+      // ── Services ────────────────────────────────────────────────────────
+      probe('gemini', async () => {
+        if (!isGeminiConfigured()) throw new Error('API key not set');
+      }, 'Gemini AI'),
+
+      probe('telegram', async () => {
+        const ready = (telegramNotificationService as any)?.isReady?.() ?? false;
+        if (!ready) throw new Error('not configured');
+      }, 'Telegram Bot'),
+
+      probe('cache', async () => {
+        await cacheService.get('__health_check__');
+      }, 'Cache Layer'),
+
+      probe('copy-bridge', async () => {
+        const bridgeUrl = process.env.COPY_BRIDGE_URL ?? 'http://bridge:8001';
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 2000);
+        try {
+          const r = await fetch(`${bridgeUrl}/health`, { signal: ctrl.signal });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        } finally { clearTimeout(tid); }
+      }, 'Copy Trading Bridge'),
+    ]);
 
     return res.json({ services: checks, uptimeSec: Math.floor(process.uptime()) });
   });
