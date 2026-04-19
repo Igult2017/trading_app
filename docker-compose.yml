@@ -14,7 +14,7 @@
 #
 # LOGS:
 #   docker compose logs -f mt5          # watch MT5 installation progress
-#   docker compose logs -f bridge-worker
+#   docker compose logs -f bridge
 #
 # UPDATE:
 #   docker compose pull && docker compose up -d --build
@@ -120,8 +120,11 @@ services:
       retries: 5
       start_period: 30s
 
-  # ── 5. Bridge — FastAPI control plane ────────────────────────────────────────
-  bridge-api:
+  # ── 5. Bridge — single process (FastAPI + monitors + workers) ────────────────
+  # Runs the FastAPI control plane AND all background tasks in one container.
+  # This avoids cross-container in-memory state bugs — the HTTP endpoints
+  # directly control the tasks running in the same asyncio event loop.
+  bridge:
     build:
       context: .
       dockerfile: python/copy_trading/Dockerfile
@@ -144,11 +147,15 @@ services:
       REDIS_PORT: "6379"
       MT5_BRIDGE_HOST: mt5
       MT5_BRIDGE_PORT: "8812"
+      BRIDGE_SECRET: "${BRIDGE_SECRET:-changeme_set_in_env}"
+      APP_URL: "http://app:5000"
     depends_on:
       redis:
         condition: service_healthy
       mt5:
         condition: service_healthy
+    volumes:
+      - tg_sessions:/var/lib/tradesync/tg_sessions
     networks:
       - internal
     healthcheck:
@@ -157,37 +164,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-  # ── 6. Bridge — Worker (queue consumer + MT5 executor) ───────────────────────
-  bridge-worker:
-    build:
-      context: .
-      dockerfile: python/copy_trading/Dockerfile
-    restart: unless-stopped
-    command:
-      - python
-      - -m
-      - python.copy_trading.main
-    env_file: .env
-    environment:
-      DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      MT5_BRIDGE_HOST: mt5
-      MT5_BRIDGE_PORT: "8812"
-      BRIDGE_SECRET: "${BRIDGE_SECRET:-changeme_set_in_env}"
-      APP_URL: "http://app:5000"
-    depends_on:
-      redis:
-        condition: service_healthy
-      bridge-api:
-        condition: service_healthy
-      mt5:
-        condition: service_healthy
-    volumes:
-      - tg_sessions:/var/lib/tradesync/tg_sessions
-    networks:
-      - internal
 
 # ── All containers talk on an isolated Docker bridge network ─────────────────
 # Nothing is reachable from the internet except the app on PORT and
