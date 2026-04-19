@@ -1894,7 +1894,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
 
-      const adminIpList = (process.env.ADMIN_IPS ?? '').split(',').map(s => s.trim()).filter(Boolean);
+      const adminIpSet = await getAllAdminIps();
+      const adminIpList = [...adminIpSet];
       const ipFilter = adminIpList.length > 0
         ? drizzleSql`AND (ip_address IS NULL OR ip_address != ALL(${adminIpList}::text[]))`
         : drizzleSql``;
@@ -2528,12 +2529,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return raw.split(',').map(s => s.trim()).filter(Boolean);
   }
 
-  // ── Page-view tracking (public — no auth required) ──────────────────────────
+  // Merged admin IP set: env var + every IP that has ever made a successful admin login.
+  // Cached for 5 minutes so page-view checks are cheap.
+  let _adminIpCache: Set<string> | null = null;
+  let _adminIpCachedAt = 0;
+  async function getAllAdminIps(): Promise<Set<string>> {
+    if (_adminIpCache && Date.now() - _adminIpCachedAt < 5 * 60 * 1000) return _adminIpCache;
+    const envIps = getAdminIps();
+    try {
+      const rows = await db.select({ ip: adminAccessLogs.ip }).from(adminAccessLogs);
+      const set = new Set<string>([...envIps, ...rows.map(r => r.ip)]);
+      _adminIpCache = set;
+      _adminIpCachedAt = Date.now();
+      return set;
+    } catch {
+      return new Set(envIps);
+    }
+  }
+
+  // ── Page-view tracking — skip admin IPs automatically ───────────────────────
   app.post("/api/track", async (req: Request, res: Response) => {
     try {
       const { page, sessionId, durationSeconds } = req.body as { page: string; sessionId?: string; durationSeconds?: number };
       if (!page?.trim()) return res.status(400).json({ error: 'page required' });
       const ip = getClientIp(req);
+      // Don't count admin traffic in visitor stats
+      const adminIps = await getAllAdminIps();
+      if (adminIps.has(ip)) return res.json({ ok: true, skipped: true });
       await db.execute(drizzleSql`
         INSERT INTO page_views (page, session_id, duration_seconds, ip_address)
         VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null}, ${ip})
@@ -2544,12 +2566,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Return the caller's IP + live geolocation ───────────────────────────────
+  // ── Return the caller's IP + geolocation + whether it's excluded ─────────────
   app.get("/api/track/my-ip", async (req: Request, res: Response) => {
     const ip = getClientIp(req);
-    const adminIps = getAdminIps();
-    const geo = await geolocateIp(ip);
-    res.json({ ip, isExcluded: adminIps.includes(ip), configuredAdminIps: adminIps, geo });
+    const [adminIps, geo] = await Promise.all([getAllAdminIps(), geolocateIp(ip)]);
+    res.json({ ip, isExcluded: adminIps.has(ip), configuredAdminIps: [...adminIps], geo });
   });
 
   // ── Admin access log (last 50 entries) ───────────────────────────────────────
