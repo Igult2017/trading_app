@@ -748,74 +748,54 @@ const SERVICE_GROUPS = {
 
 // ─── SYNC PERFORMANCE SECTION ────────────────────────────────────────────────
 const SyncPerformanceSection = ({ bp }: { bp: any }) => {
-  const [tab, setTab] = useState<'providers' | 'telegram' | 'followers' | 'trades'>('providers');
+  type TabId = 'overview' | 'providers' | 'telegram' | 'followers' | 'trades';
+  const [tab, setTab] = useState<TabId>('overview');
 
-  // ── Providers ──────────────────────────────────────────────────────────────
-  const [providers, setProviders]       = useState<any[]>([]);
-  const [provLoading, setProvLoading]   = useState(true);
+  // ── Shared overview data (providers + followers + tg stats in one call) ────
+  const [overview, setOverview]     = useState<any>(null);
+  const [ovLoading, setOvLoading]   = useState(true);
 
-  // ── Telegram ───────────────────────────────────────────────────────────────
-  const [tgStats, setTgStats]           = useState<any>(null);
-  const [tgTrades, setTgTrades]         = useState<any[]>([]);
-  const [tgLoading, setTgLoading]       = useState(true);
-  const [marking, setMarking]           = useState<string | null>(null);
+  // ── Telegram trade list (detailed, with outcome marking) ──────────────────
+  const [tgTrades, setTgTrades]     = useState<any[]>([]);
+  const [tgLoading, setTgLoading]   = useState(false);
+  const [tgLoaded, setTgLoaded]     = useState(false);
+  const [marking, setMarking]       = useState<string | null>(null);
 
-  // ── Followers ──────────────────────────────────────────────────────────────
-  const [followers, setFollowers]       = useState<any[]>([]);
-  const [follLoading, setFollLoading]   = useState(true);
+  // ── All copy trades (MT5 + telegram + self-copy) ───────────────────────────
+  const [allTrades, setAllTrades]   = useState<any[]>([]);
+  const [atLoading, setAtLoading]   = useState(false);
+  const [atLoaded, setAtLoaded]     = useState(false);
 
-  // ── Copy Trades ────────────────────────────────────────────────────────────
-  const [copyTrades, setCopyTrades]     = useState<any[]>([]);
-  const [ctLoading, setCtLoading]       = useState(true);
-
-  useEffect(() => { loadProviders(); }, []);
-  useEffect(() => { if (tab === 'telegram')  { loadTgStats(); loadTgTrades(); } }, [tab]);
-  useEffect(() => { if (tab === 'followers') { loadFollowers(); } }, [tab]);
-  useEffect(() => { if (tab === 'trades')    { loadCopyTrades(); } }, [tab]);
-
-  async function loadProviders() {
-    setProvLoading(true);
+  const loadOverview = async () => {
+    setOvLoading(true);
     try {
-      const r = await fetch('/api/copy/masters');
-      if (r.ok) setProviders(await r.json());
+      const r = await fetch('/api/admin/copy/overview');
+      if (r.ok) setOverview(await r.json());
     } catch {}
-    setProvLoading(false);
-  }
+    setOvLoading(false);
+  };
 
-  async function loadTgStats() {
-    try {
-      const r = await fetch('/api/copy/telegram-journal/stats');
-      if (r.ok) setTgStats(await r.json());
-    } catch {}
-  }
-
-  async function loadTgTrades() {
+  const loadTgTrades = async () => {
     setTgLoading(true);
     try {
-      const r = await fetch('/api/copy/telegram-journal?limit=200');
-      if (r.ok) setTgTrades(await r.json());
+      const r = await fetch('/api/copy/telegram-journal?limit=500');
+      if (r.ok) { setTgTrades(await r.json()); setTgLoaded(true); }
     } catch {}
     setTgLoading(false);
-  }
+  };
 
-  async function loadFollowers() {
-    setFollLoading(true);
+  const loadAllTrades = async () => {
+    setAtLoading(true);
     try {
-      const r = await fetch('/api/copy/followers');
-      if (r.ok) setFollowers(await r.json());
+      const r = await fetch('/api/admin/copy/all-trades');
+      if (r.ok) { setAllTrades(await r.json()); setAtLoaded(true); }
     } catch {}
-    setFollLoading(false);
-  }
+    setAtLoading(false);
+  };
 
-  async function loadCopyTrades() {
-    setCtLoading(true);
-    try {
-      // fetch recent follower trades across all followers
-      const r = await fetch('/api/copy/telegram-journal?limit=200');
-      if (r.ok) setCopyTrades(await r.json());
-    } catch {}
-    setCtLoading(false);
-  }
+  useEffect(() => { loadOverview(); }, []);
+  useEffect(() => { if (tab === 'telegram' && !tgLoaded) loadTgTrades(); }, [tab]);
+  useEffect(() => { if (tab === 'trades'   && !atLoaded) loadAllTrades(); }, [tab]);
 
   async function markOutcome(id: string, current: string | null, which: 'win' | 'loss') {
     const next = current === which ? null : which;
@@ -828,39 +808,41 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
       });
       if (r.ok) {
         setTgTrades(prev => prev.map(t => t.id === id ? { ...t, manual_outcome: next } : t));
-        setTgStats((prev: any) => {
-          if (!prev) return prev;
+        setOverview((prev: any) => {
+          if (!prev?.telegramStats) return prev;
+          const s         = prev.telegramStats;
           const wasWin    = current === 'win';
           const wasLoss   = current === 'loss';
-          const nowWin    = next === 'win';
-          const nowLoss   = next === 'loss';
-          const wins      = prev.wins    + (nowWin  ? 1 : 0) - (wasWin  ? 1 : 0);
-          const losses    = prev.losses  + (nowLoss ? 1 : 0) - (wasLoss ? 1 : 0);
-          const unmarked  = prev.unmarked + (next == null ? 1 : 0) - (current == null ? 1 : 0);
+          const nowWin    = next    === 'win';
+          const nowLoss   = next    === 'loss';
+          const wins      = s.wins    + (nowWin  ? 1 : 0) - (wasWin  ? 1 : 0);
+          const losses    = s.losses  + (nowLoss ? 1 : 0) - (wasLoss ? 1 : 0);
+          const unmarked  = s.unmarked + (next == null ? 1 : 0) - (current == null ? 1 : 0);
           const marked    = wins + losses;
-          return { ...prev, wins, losses, unmarked, winRate: marked > 0 ? +((wins / marked) * 100).toFixed(1) : null };
+          return { ...prev, telegramStats: { ...s, wins, losses, unmarked, winRate: marked > 0 ? +((wins / marked) * 100).toFixed(1) : null } };
         });
       }
     } catch {}
     setMarking(null);
   }
 
-  const fmt = (v: any, dp = 5) => (v == null || v === '' ? '—' : parseFloat(v).toFixed(dp));
+  const fmt     = (v: any, dp = 5) => (v == null || v === '' ? '—' : parseFloat(v).toFixed(dp));
   const fmtDate = (v: any) => v ? new Date(v).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
-  // ── Shared UI ──────────────────────────────────────────────────────────────
-  const TAB_ITEMS = [
-    { id: 'providers', label: 'Providers' },
-    { id: 'telegram',  label: 'Telegram' },
-    { id: 'followers', label: 'Followers' },
-    { id: 'trades',    label: 'Copy Trades' },
-  ] as const;
+  // ── Shared UI helpers ──────────────────────────────────────────────────────
+  const TAB_ITEMS: { id: TabId; label: string }[] = [
+    { id: 'overview',   label: 'Overview'     },
+    { id: 'providers',  label: 'Providers'    },
+    { id: 'telegram',   label: 'Telegram'     },
+    { id: 'followers',  label: 'Followers'    },
+    { id: 'trades',     label: 'All Trades'   },
+  ];
 
   const tabBar = (
-    <div style={{ display: 'flex', gap: '2px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', marginBottom: '20px', width: 'fit-content' }}>
+    <div style={{ display: 'flex', gap: '2px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', marginBottom: '20px', flexWrap: 'wrap' }}>
       {TAB_ITEMS.map(t => (
         <button key={t.id} onClick={() => setTab(t.id)}
-          style={{ ...btn, padding: '6px 14px', fontSize: '11px', background: tab === t.id ? C.indigo : 'transparent', color: tab === t.id ? '#fff' : C.muted, transition: 'all 0.15s' }}>
+          style={{ ...btn, padding: '6px 16px', fontSize: '11px', background: tab === t.id ? C.indigo : 'transparent', color: tab === t.id ? '#fff' : C.muted, transition: 'all 0.15s' }}>
           {t.label}
         </button>
       ))}
@@ -891,57 +873,122 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '12px' }}>Loading…</div>
   );
 
-  // ── Providers Tab ──────────────────────────────────────────────────────────
-  const renderProviders = () => (
-    <div>
-      {provLoading ? spinner : providers.length === 0 ? emptyState('No providers registered yet.') : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead>
-              <tr style={{ background: C.card }}>
-                {th('Strategy')} {th('Type')} {th('Market')} {th('Style')} {th('Win Rate')} {th('Trades')} {th('Followers')} {th('Status')} {th('Since')}
-              </tr>
-            </thead>
-            <tbody>
-              {providers.map((p: any) => {
-                const wr = p.winRate != null ? p.winRate : (p.totalTrades > 0 ? +((p.winCount / p.totalTrades) * 100).toFixed(1) : null);
-                const wrColor = wr == null ? C.muted : wr >= 70 ? C.green : wr >= 55 ? C.amber : C.red;
-                const isActive = p.isActive || p.is_active;
-                return (
-                  <tr key={p.id} style={{ background: 'transparent' }}>
-                    {td(p.strategyName || p.strategy_name || '—')}
-                    {td(pill(p.sourceType || p.source_type || '—', p.sourceType === 'telegram' || p.source_type === 'telegram' ? '#26A5E4' : C.indigoL))}
-                    {td((p.primaryMarket || p.primary_market || '—').toUpperCase(), true)}
-                    {td(p.tradingStyle || p.trading_style || '—')}
-                    {td(wr != null ? `${wr}%` : '—', true, wrColor)}
-                    {td((p.totalTrades ?? p.total_trades ?? 0).toLocaleString(), true)}
-                    {td((p.followerCount ?? p.follower_count ?? 0).toLocaleString(), true)}
-                    {td(pill(isActive ? 'Active' : 'Inactive', isActive ? C.green : C.muted))}
-                    {td(p.since || (p.createdAt ? new Date(p.createdAt || p.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+  const statCard = (label: string, value: any, color = C.text) => (
+    <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '14px 16px' }}>
+      <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{label}</div>
+      <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: "'DM Mono', monospace", color, lineHeight: 1 }}>{value ?? '—'}</div>
     </div>
   );
 
+  // ── Overview Tab ───────────────────────────────────────────────────────────
+  const renderOverview = () => {
+    if (ovLoading) return spinner;
+    const ov = overview;
+    const masters   = ov?.masters   ?? [];
+    const followers = ov?.followers ?? [];
+    const tg        = ov?.telegramStats ?? {};
+    const activeProviders = masters.filter((m: any) => m.is_active).length;
+    const selfCopies      = ov?.selfCopyCount ?? 0;
+    const totalTrades     = masters.reduce((s: number, m: any) => s + Number(m.total_trades ?? 0), 0);
+    const totalWins       = masters.reduce((s: number, m: any) => s + Number(m.win_count ?? 0), 0);
+    const overallWR       = totalTrades > 0 ? +((totalWins / totalTrades) * 100).toFixed(1) : null;
+    const wrColor         = overallWR == null ? C.muted : overallWR >= 70 ? C.green : overallWR >= 55 ? C.amber : C.red;
+    const tgWrColor       = tg.winRate == null ? C.muted : tg.winRate >= 70 ? C.green : tg.winRate >= 55 ? C.amber : C.red;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Top-line summary */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Platform Summary</div>
+          <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '6px' }}>
+            {statCard('Active Providers',  activeProviders,       C.indigoL)}
+            {statCard('Active Followers',  followers.filter((f: any) => f.is_active).length, C.green)}
+            {statCard('Self-Copy Active',  selfCopies,            '#f59e0b')}
+            {statCard('Total Copy Trades', totalTrades.toLocaleString(), C.text)}
+          </div>
+        </div>
+
+        {/* MT5 copy trading */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>MT5 Copy Trading</div>
+          <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '6px' }}>
+            {statCard('Total Providers',  masters.length,        C.indigoL)}
+            {statCard('Total Trades',     totalTrades.toLocaleString(), C.text)}
+            {statCard('Wins',             totalWins.toLocaleString(),   C.green)}
+            {statCard('Win Rate',         overallWR != null ? `${overallWR}%` : '—', wrColor)}
+          </div>
+        </div>
+
+        {/* Telegram signals */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Telegram Signal Performance</div>
+          <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: '6px' }}>
+            {statCard('Total',    tg.total    ?? 0, C.text)}
+            {statCard('Wins',     tg.wins     ?? 0, C.green)}
+            {statCard('Losses',   tg.losses   ?? 0, C.red)}
+            {statCard('Unmarked', tg.unmarked ?? 0, '#f59e0b')}
+            {statCard('Win Rate', tg.winRate  != null ? `${tg.winRate}%` : '—', tgWrColor)}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Providers Tab ──────────────────────────────────────────────────────────
+  const renderProviders = () => {
+    if (ovLoading) return spinner;
+    const masters = overview?.masters ?? [];
+    if (masters.length === 0) return emptyState('No providers registered yet.');
+    return (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ background: C.card }}>
+              {th('Strategy')} {th('Type')} {th('Self-Copy')} {th('Market')} {th('Style')} {th('Win Rate')} {th('Trades')} {th('Followers')} {th('Status')} {th('Since')}
+            </tr>
+          </thead>
+          <tbody>
+            {masters.map((p: any) => {
+              const trades   = Number(p.total_trades ?? 0);
+              const wins     = Number(p.win_count    ?? 0);
+              const wr       = trades > 0 ? +((wins / trades) * 100).toFixed(1) : null;
+              const wrColor  = wr == null ? C.muted : wr >= 70 ? C.green : wr >= 55 ? C.amber : C.red;
+              const isSelf   = overview?.followers?.some((f: any) => f.master_id === p.id && f.is_self_copy);
+              return (
+                <tr key={p.id} style={{ background: 'transparent' }}>
+                  {td(p.strategy_name || '—')}
+                  {td(pill(p.source_type || '—', p.source_type === 'telegram' ? '#26A5E4' : C.indigoL))}
+                  {td(isSelf ? pill('Self', '#f59e0b') : <span style={{ color: C.muted }}>—</span>)}
+                  {td((p.primary_market || '—').toUpperCase(), true)}
+                  {td(p.trading_style || '—')}
+                  {td(wr != null ? `${wr}%` : '—', true, wrColor)}
+                  {td(trades.toLocaleString(), true)}
+                  {td(Number(p.follower_count ?? 0).toLocaleString(), true)}
+                  {td(pill(p.is_active ? 'Active' : 'Inactive', p.is_active ? C.green : C.muted))}
+                  {td(p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—')}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // ── Telegram Tab ───────────────────────────────────────────────────────────
   const renderTelegram = () => {
-    const stats = tgStats;
-    const wrColor = stats?.winRate != null ? (stats.winRate >= 70 ? C.green : stats.winRate >= 55 ? C.amber : C.red) : C.muted;
+    const tg      = overview?.telegramStats ?? {};
+    const wrColor = tg.winRate != null ? (tg.winRate >= 70 ? C.green : tg.winRate >= 55 ? C.amber : C.red) : C.muted;
     return (
       <div>
         {/* Stats bar */}
         <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: '6px', marginBottom: '18px' }}>
           {[
-            { label: 'Total',    value: stats?.total    ?? '—', color: C.text },
-            { label: 'Wins',     value: stats?.wins     ?? '—', color: C.green },
-            { label: 'Losses',   value: stats?.losses   ?? '—', color: C.red },
-            { label: 'Unmarked', value: stats?.unmarked ?? '—', color: C.amber },
-            { label: 'Win Rate', value: stats?.winRate  != null ? `${stats.winRate}%` : '—', color: wrColor },
+            { label: 'Total Trades', value: tg.total    ?? 0,  color: C.text },
+            { label: 'Wins',         value: tg.wins     ?? 0,  color: C.green },
+            { label: 'Losses',       value: tg.losses   ?? 0,  color: C.red },
+            { label: 'Unmarked',     value: tg.unmarked ?? 0,  color: '#f59e0b' },
+            { label: 'Win Rate',     value: tg.winRate  != null ? `${tg.winRate}%` : '—', color: wrColor },
           ].map(s => (
             <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '12px 14px' }}>
               <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{s.label}</div>
@@ -951,17 +998,17 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
         </div>
 
         {/* Trade table */}
-        {tgLoading ? spinner : tgTrades.length === 0 ? emptyState('No Telegram trades executed yet.') : (
+        {tgLoading ? spinner : !tgLoaded ? emptyState('Loading trades…') : tgTrades.length === 0 ? emptyState('No Telegram signal trades executed yet.') : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: C.card }}>
-                  {th('Symbol')} {th('Action')} {th('Volume')} {th('Entry')} {th('SL')} {th('TP')} {th('Executed')} {th('Win / Loss')}
+                  {th('Symbol')} {th('Action')} {th('Volume')} {th('Entry')} {th('SL')} {th('TP')} {th('Executed')} {th('Outcome')}
                 </tr>
               </thead>
               <tbody>
                 {tgTrades.map((t: any) => {
-                  const outcome = t.manual_outcome;
+                  const outcome      = t.manual_outcome;
                   const isMarkingThis = marking === t.id;
                   return (
                     <tr key={t.id}>
@@ -974,17 +1021,11 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                       {td(fmtDate(t.executed_at || t.created_at))}
                       <td style={{ padding: '6px 10px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <button
-                            disabled={isMarkingThis}
-                            onClick={() => markOutcome(t.id, outcome, 'win')}
-                            title="Mark Win"
+                          <button disabled={isMarkingThis} onClick={() => markOutcome(t.id, outcome, 'win')} title="Mark Win"
                             style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: `1px solid ${outcome === 'win' ? C.green : C.border2}`, background: outcome === 'win' ? `${C.green}20` : 'transparent', color: outcome === 'win' ? C.green : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
                             ✓
                           </button>
-                          <button
-                            disabled={isMarkingThis}
-                            onClick={() => markOutcome(t.id, outcome, 'loss')}
-                            title="Mark Loss"
+                          <button disabled={isMarkingThis} onClick={() => markOutcome(t.id, outcome, 'loss')} title="Mark Loss"
                             style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: `1px solid ${outcome === 'loss' ? C.red : C.border2}`, background: outcome === 'loss' ? `${C.red}20` : 'transparent', color: outcome === 'loss' ? C.red : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
                             ✕
                           </button>
@@ -1005,63 +1046,69 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   };
 
   // ── Followers Tab ──────────────────────────────────────────────────────────
-  const renderFollowers = () => (
-    follLoading ? spinner : followers.length === 0 ? emptyState('No followers registered yet.') : (
+  const renderFollowers = () => {
+    if (ovLoading) return spinner;
+    const followers = overview?.followers ?? [];
+    if (followers.length === 0) return emptyState('No followers registered yet.');
+    return (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: C.card }}>
-              {th('Follower ID')} {th('Master ID')} {th('Lot Mode')} {th('Multiplier')} {th('Risk %')} {th('Direction')} {th('Max Trades')} {th('DD Pause')} {th('Status')} {th('Deployed')}
+              {th('Strategy')} {th('Source')} {th('Self-Copy')} {th('Lot Mode')} {th('Multiplier')} {th('Risk %')} {th('Direction')} {th('Max Trades')} {th('DD Pause')} {th('Status')} {th('Deployed')}
             </tr>
           </thead>
           <tbody>
-            {followers.map((f: any) => {
-              const isActive = f.isActive || f.is_active;
-              return (
-                <tr key={f.id}>
-                  {td(<span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>{(f.id || '').slice(0, 12)}…</span>)}
-                  {td(<span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>{(f.masterId || f.master_id || '—').slice(0, 12)}{f.masterId || f.master_id ? '…' : ''}</span>)}
-                  {td((f.lotMode || f.lot_mode || '—').toUpperCase(), true)}
-                  {td(f.lotMultiplier || f.lot_multiplier || '—', true)}
-                  {td(f.riskPercent != null ? `${f.riskPercent}%` : f.risk_percent != null ? `${f.risk_percent}%` : '—', true)}
-                  {td((f.direction || '—').toUpperCase(), true)}
-                  {td(f.maxOpenTrades ?? f.max_open_trades ?? '—', true)}
-                  {td(pill((f.pauseOnDD ?? f.pause_on_dd) ? 'Yes' : 'No', (f.pauseOnDD ?? f.pause_on_dd) ? C.amber : C.muted))}
-                  {td(pill(isActive ? 'Active' : 'Inactive', isActive ? C.green : C.muted))}
-                  {td(fmtDate(f.deployedAt || f.deployed_at))}
-                </tr>
-              );
-            })}
+            {followers.map((f: any) => (
+              <tr key={f.id}>
+                {td(f.strategy_name || '—')}
+                {td(pill(f.source_type || '—', f.source_type === 'telegram' ? '#26A5E4' : C.indigoL))}
+                {td(f.is_self_copy ? pill('Self', '#f59e0b') : <span style={{ color: C.muted }}>—</span>)}
+                {td((f.lot_mode || '—').toUpperCase(), true)}
+                {td(f.lot_multiplier ?? '—', true)}
+                {td(f.risk_percent != null ? `${f.risk_percent}%` : '—', true)}
+                {td((f.direction || '—').toUpperCase(), true)}
+                {td(f.max_open_trades ?? '—', true)}
+                {td(pill(f.pause_on_dd ? 'Yes' : 'No', f.pause_on_dd ? '#f59e0b' : C.muted))}
+                {td(pill(f.is_active ? 'Active' : 'Inactive', f.is_active ? C.green : C.muted))}
+                {td(fmtDate(f.deployed_at))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-    )
-  );
+    );
+  };
 
-  // ── Copy Trades Tab ────────────────────────────────────────────────────────
-  const renderCopyTrades = () => (
-    ctLoading ? spinner : copyTrades.length === 0 ? emptyState('No copy trades found.') : (
+  // ── All Trades Tab ─────────────────────────────────────────────────────────
+  const renderAllTrades = () => {
+    if (atLoading) return spinner;
+    if (!atLoaded) return emptyState('Loading trades…');
+    if (allTrades.length === 0) return emptyState('No executed copy trades found.');
+    return (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: C.card }}>
-              {th('Symbol')} {th('Action')} {th('Source')} {th('Volume')} {th('Entry')} {th('SL')} {th('TP')} {th('Status')} {th('Executed')}
+              {th('Symbol')} {th('Action')} {th('Source')} {th('Self-Copy')} {th('Strategy')} {th('Volume')} {th('Entry')} {th('SL')} {th('TP')} {th('Close')} {th('Executed')}
             </tr>
           </thead>
           <tbody>
-            {copyTrades.map((t: any) => {
-              const status = t.status || '—';
-              const statusColor = status === 'executed' ? C.green : status === 'failed' ? C.red : status === 'skipped' ? C.amber : C.muted;
+            {allTrades.map((t: any) => {
+              const srcColor = t.source === 'telegram' || t.source_type === 'telegram' ? '#26A5E4' : C.indigoL;
+              const srcLabel = t.source_type === 'telegram' ? 'Telegram' : t.source_type === 'mt5' ? 'MT5' : t.source ?? '—';
               return (
                 <tr key={t.id}>
                   {td(<span style={{ fontWeight: 700 }}>{t.symbol || '—'}</span>, false, C.indigoL)}
                   {td(pill(t.action || '—', t.action === 'BUY' ? C.green : C.red))}
-                  {td(pill(t.source || 'telegram', '#26A5E4'))}
+                  {td(pill(srcLabel, srcColor))}
+                  {td(t.is_self_copy ? pill('Self', '#f59e0b') : <span style={{ color: C.muted }}>—</span>)}
+                  {td(t.strategy_name || '—')}
                   {td(fmt(t.volume, 2), true)}
                   {td(fmt(t.entry_price), true)}
                   {td(fmt(t.stop_loss), true, C.red)}
                   {td(fmt(t.take_profit), true, C.green)}
-                  {td(pill(status, statusColor))}
+                  {td(fmt(t.closed_price), true)}
                   {td(fmtDate(t.executed_at || t.created_at))}
                 </tr>
               );
@@ -1069,18 +1116,24 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
           </tbody>
         </table>
       </div>
-    )
-  );
+    );
+  };
+
+  const handleRefresh = () => {
+    loadOverview();
+    if (tgLoaded) { setTgLoaded(false); loadTgTrades(); }
+    if (atLoaded) { setAtLoaded(false); loadAllTrades(); }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: C.text, letterSpacing: '0.04em', marginBottom: '2px' }}>Sync & Copy Performance</div>
-          <div style={{ fontSize: '11px', color: C.muted }}>Providers · Telegram signals · Followers · Executions</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: C.text, letterSpacing: '0.04em', marginBottom: '2px' }}>Sync &amp; Copy Performance</div>
+          <div style={{ fontSize: '11px', color: C.muted }}>All performance data — providers · self-copy · telegram signals · followers · executions</div>
         </div>
-        <button onClick={() => { loadProviders(); loadTgStats(); loadTgTrades(); loadFollowers(); loadCopyTrades(); }}
+        <button onClick={handleRefresh}
           style={{ ...btn, padding: '6px 14px', fontSize: '10px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
           ↻ Refresh
         </button>
@@ -1091,10 +1144,11 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
       {/* Content */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '16px', overflow: 'auto', flex: 1 }}>
+        {tab === 'overview'  && renderOverview()}
         {tab === 'providers' && renderProviders()}
         {tab === 'telegram'  && renderTelegram()}
         {tab === 'followers' && renderFollowers()}
-        {tab === 'trades'    && renderCopyTrades()}
+        {tab === 'trades'    && renderAllTrades()}
       </div>
     </div>
   );

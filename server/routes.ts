@@ -1496,6 +1496,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
+  // ── Admin: aggregated copy-trading overview ──────────────────────────────────
+  app.get("/api/admin/copy/all-trades", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { rows } = await pool.query(`
+        SELECT
+          ctf.id,
+          ctf.symbol,
+          ctf.action,
+          ctf.event_type,
+          ctf.volume,
+          ctf.entry_price,
+          ctf.stop_loss,
+          ctf.take_profit,
+          ctf.closed_price,
+          ctf.status,
+          ctf.error_message,
+          ctf.executed_at,
+          ctf.created_at,
+          ctf.manual_outcome,
+          ctm.source,
+          cf.user_id  AS follower_user_id,
+          cm.user_id  AS master_user_id,
+          cm.strategy_name,
+          cm.source_type,
+          CASE WHEN cf.user_id = cm.user_id THEN true ELSE false END AS is_self_copy
+        FROM copy_trades_follower ctf
+        JOIN copy_trades_master  ctm ON ctm.id  = ctf.master_trade_id
+        JOIN copy_followers      cf  ON cf.id   = ctf.follower_id
+        JOIN copy_masters        cm  ON cm.id   = cf.master_id
+        WHERE ctf.status = 'executed'
+        ORDER BY ctf.created_at DESC
+        LIMIT 500
+      `);
+      return res.json(rows);
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/admin/copy/overview", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const [mastersRes, followersRes, tgStatsRes, selfCopyRes] = await Promise.all([
+        pool.query(`
+          SELECT
+            m.id, m.strategy_name, m.source_type, m.trading_style, m.primary_market,
+            m.is_active, m.created_at, m.user_id,
+            COUNT(DISTINCT f.id) FILTER (WHERE f.is_active = true)::int  AS follower_count,
+            COUNT(t.id) FILTER (WHERE t.event_type = 'close')::int       AS total_trades,
+            COUNT(t.id) FILTER (
+              WHERE t.event_type = 'close'
+                AND t.closed_price IS NOT NULL AND t.entry_price IS NOT NULL
+                AND ((t.action='BUY' AND t.closed_price::numeric>t.entry_price::numeric)
+                  OR (t.action='SELL' AND t.closed_price::numeric<t.entry_price::numeric))
+            )::int AS win_count,
+            GREATEST(1,FLOOR(EXTRACT(EPOCH FROM (NOW()-m.created_at))/2592000))::int AS months_active
+          FROM copy_masters m
+          LEFT JOIN copy_followers f ON f.master_id = m.id
+          LEFT JOIN copy_trades_master t ON t.master_id = m.id
+          GROUP BY m.id ORDER BY m.created_at DESC
+        `),
+        pool.query(`
+          SELECT
+            cf.id, cf.user_id, cf.master_id, cf.lot_mode, cf.lot_multiplier,
+            cf.risk_percent, cf.direction, cf.max_open_trades, cf.pause_on_dd,
+            cf.is_active, cf.deployed_at, cf.created_at,
+            cm.strategy_name, cm.source_type,
+            CASE WHEN cf.user_id = cm.user_id THEN true ELSE false END AS is_self_copy
+          FROM copy_followers cf
+          JOIN copy_masters cm ON cm.id = cf.master_id
+          ORDER BY cf.created_at DESC
+        `),
+        pool.query(`
+          SELECT
+            COUNT(*)                                              AS total,
+            COUNT(*) FILTER (WHERE ctf.manual_outcome='win')     AS wins,
+            COUNT(*) FILTER (WHERE ctf.manual_outcome='loss')    AS losses,
+            COUNT(*) FILTER (WHERE ctf.manual_outcome IS NULL)   AS unmarked
+          FROM copy_trades_follower ctf
+          JOIN copy_trades_master ctm ON ctm.id = ctf.master_trade_id
+          WHERE ctm.source = 'telegram' AND ctf.status = 'executed'
+        `),
+        pool.query(`
+          SELECT COUNT(*)::int AS self_copy_count
+          FROM copy_followers cf
+          JOIN copy_masters cm ON cm.id = cf.master_id
+          WHERE cf.user_id = cm.user_id AND cf.is_active = true
+        `),
+      ]);
+
+      const tg = tgStatsRes.rows[0];
+      const tgMarked = Number(tg.wins) + Number(tg.losses);
+
+      return res.json({
+        masters:        mastersRes.rows,
+        followers:      followersRes.rows,
+        selfCopyCount:  selfCopyRes.rows[0]?.self_copy_count ?? 0,
+        telegramStats: {
+          total:    Number(tg.total),
+          wins:     Number(tg.wins),
+          losses:   Number(tg.losses),
+          unmarked: Number(tg.unmarked),
+          winRate:  tgMarked > 0 ? +((Number(tg.wins) / tgMarked) * 100).toFixed(1) : null,
+        },
+      });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  });
+
   // ── Broker Account Sync ───────────────────────────────────────────────────────
   // All routes require a valid Supabase JWT (Authorization: Bearer <token>).
   // Data is strictly isolated per userId extracted from the JWT.
