@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -22,14 +22,14 @@ export default function AuthPage() {
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
 
-  if (loading) return <LoadingScreen />;
-
   // Already authenticated — redirect immediately without showing any dialog
-  if (role) {
-    const dest = role === 'admin' ? '/admin' : '/journal';
-    navigate(dest);
-    return <LoadingScreen />;
-  }
+  useEffect(() => {
+    if (!loading && role) {
+      navigate(role === 'admin' ? '/admin' : '/journal', { replace: true });
+    }
+  }, [loading, role, navigate]);
+
+  if (loading || role) return <LoadingScreen />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,13 +50,7 @@ export default function AuthPage() {
       if (mode === 'login') {
         const { error: err, role: assignedRole } = await signIn(email, password);
         if (err) { setError(err.message); return; }
-        // Open journal in a new tab; send this auth tab back to the homepage
-        if (assignedRole === 'admin') {
-          window.open('/admin', '_blank', 'noopener,noreferrer');
-        } else {
-          window.open('/journal', '_blank', 'noopener,noreferrer');
-        }
-        navigate('/');
+        navigate(assignedRole === 'admin' ? '/admin' : '/journal', { replace: true });
       } else {
         const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName);
         if (err) { setError(err.message); return; }

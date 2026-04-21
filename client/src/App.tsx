@@ -51,8 +51,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     }
   }, [loading, session, navigate]);
 
-  if (loading) return <LoadingScreen />;
-  if (!session) return null;
+  if (loading || !session) return <LoadingScreen />;
   return <>{children}</>;
 }
 
@@ -73,8 +72,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
     }
   }, [loading, session, role, navigate]);
 
-  if (loading) return <LoadingScreen />;
-  if (!session || role !== 'admin') return null;
+  if (loading || !session || role !== 'admin') return <LoadingScreen />;
   return <>{children}</>;
 }
 
