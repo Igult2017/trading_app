@@ -35,13 +35,13 @@ const ct   = (obj: any): number       => obj?.count ?? 0;
    ATOM COMPONENTS
 ───────────────────────────────────────────────────────────────────── */
 const Mono = ({ children, size=11, color=P.muted, weight=400, upper=true, spacing='0.14em', style={} as React.CSSProperties, className='' }: any) => (
-  <span className={className} style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:weight, letterSpacing:spacing, textTransform:upper?'uppercase':'none', ...style }}>{children}</span>
+  <span className={className} style={{ fontFamily:"'DM Mono',monospace", fontSize:size, color, fontWeight:weight, letterSpacing:spacing, textTransform:upper?'uppercase':'none', ...style }}>{children}</span>
 );
 const Cond = ({ children, size=14, color=P.bright, weight=600, upper=true, style={} as React.CSSProperties, className='' }: any) => (
   <span className={className} style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:size, color, fontWeight:weight, letterSpacing:'0.06em', textTransform:upper?'uppercase':'none', lineHeight:1, ...style }}>{children}</span>
 );
 const Num = ({ children, size=9, color=P.green, style={} as React.CSSProperties }: any) => (
-  <span style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:size, color, fontWeight:400, letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
+  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:size, color, fontWeight:400, letterSpacing:'0.05em', lineHeight:1, ...style }}>{children}</span>
 );
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -318,6 +318,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   /* ── CSS ── */
   const css = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
     .mp-root,.mp-root *,.mp-root *::before,.mp-root *::after{box-sizing:border-box;margin:0;padding:0;}
     .mp-root{font-family:'Barlow',sans-serif;background:${P.bg};color:${P.body};}
     .mp-root::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px);}
@@ -335,11 +336,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     .mp-scroll::-webkit-scrollbar{width:2px;}
     .mp-scroll::-webkit-scrollbar-thumb{background:${P.line2};}
     .mp-dtable{width:100%;border-collapse:collapse;}
-    .mp-dtable th{font-family:'Share Tech Mono',monospace;font-size:9px;color:${P.dim};text-transform:uppercase;letter-spacing:0.16em;padding:7px 11px;text-align:left;border-bottom:1px solid ${P.line2};font-weight:400;}
-    .mp-dtable td{font-family:'Share Tech Mono',monospace;font-size:10px;padding:8px 11px;border-bottom:1px solid ${P.line};color:${P.bright};}
+    .mp-dtable th{font-family:'DM Mono',monospace;font-size:9px;color:${P.dim};text-transform:uppercase;letter-spacing:0.16em;padding:7px 11px;text-align:left;border-bottom:1px solid ${P.line2};font-weight:400;}
+    .mp-dtable td{font-family:'DM Mono',monospace;font-size:10px;padding:8px 11px;border-bottom:1px solid ${P.line};color:${P.bright};}
     .mp-dtable tr:last-child td{border-bottom:none;}
     .mp-dn{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.05em;}
-    .mp-select{font-family:'Share Tech Mono',monospace;font-size:9px;background:${P.bg3};color:${P.muted};border:1px solid ${P.line2};padding:2px 6px;outline:none;cursor:pointer;}
+    .mp-select{font-family:'DM Mono',monospace;font-size:9px;background:${P.bg3};color:${P.muted};border:1px solid ${P.line2};padding:2px 6px;outline:none;cursor:pointer;}
     .mp-strat-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;}
     .mp-eq-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px;}
     @media(max-width:1024px){.mp-page{padding:10px 14px;gap:10px;}.mp-g4{grid-template-columns:repeat(2,1fr);}.mp-g3{grid-template-columns:1fr;}.mp-kpi{grid-template-columns:repeat(4,1fr);}.mp-eq-grid{grid-template-columns:1fr;}.mp-strat-grid{grid-template-columns:1fr;}}
@@ -530,7 +531,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
       {isFetching && !isLoading && (
         <div style={{ display:'flex', alignItems:'center', gap:6, padding:'3px 20px', background:P.bg, borderBottom:`1px solid ${P.line}` }}>
           <div style={{ width:5, height:5, borderRadius:'50%', background:P.cyan, animation:'mp-spin 1s linear infinite', flexShrink:0 }}/>
-          <Mono size={8} color={P.dim} style={{ letterSpacing:'0.14em' }}>SYNCING LATEST DATA…</Mono>
+          <Mono size={8} color={P.dim} style={{ letterSpacing:'0.14em', fontFamily:"'Share Tech Mono',monospace" }}>SYNCING LATEST DATA…</Mono>
         </div>
       )}
 
@@ -546,11 +547,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           { l:'Net Growth',       v:netGrowthPct!=null?`${netGrowthPct>=0?'+':''}${netGrowthPct.toFixed(1)}%`:'--', s:'account growth', cls:netGrowthPct==null?'mp-kpi-neu':netGrowthPct>=0?'mp-kpi-pos':'mp-kpi-neg' },
         ].map((k,i)=>(
           <div key={i} className={`mp-kpi-cell ${k.cls}`} data-testid={`metric-kpi-${i}`}>
-            <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:6, letterSpacing:'0.16em' }}>{k.l}</Mono>
-            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5, fontStyle:'normal' }}>{k.v}</Num>
+            <Mono size={8} color={P.muted} style={{ display:'block', marginBottom:6, letterSpacing:'0.16em', fontFamily:"'Share Tech Mono',monospace" }}>{k.l}</Mono>
+            <Num color={k.cls==='mp-kpi-pos'?P.green:k.cls==='mp-kpi-neg'?P.red:P.bright} style={{ display:'block', lineHeight:1, marginBottom:5, fontStyle:'normal', fontFamily:"'Share Tech Mono',monospace" }}>{k.v}</Num>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <div style={{ width:16, height:1, background:k.cls==='mp-kpi-pos'?P.greenDim:k.cls==='mp-kpi-neg'?P.redDim:P.line2 }}/>
-              <Mono size={8} color={P.dim}>{k.s}</Mono>
+              <Mono size={8} color={P.dim} style={{ fontFamily:"'Share Tech Mono',monospace" }}>{k.s}</Mono>
             </div>
           </div>
         ))}
