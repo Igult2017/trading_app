@@ -428,6 +428,24 @@ export async function initializeDatabase() {
         metadata JSONB,
         created_at TIMESTAMP DEFAULT NOW()
       )`,
+
+      // ── Trader-AI chat persistence ────────────────────────────────────────
+      `CREATE TABLE IF NOT EXISTS ai_chats (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR NOT NULL,
+        session_id VARCHAR,
+        title TEXT NOT NULL DEFAULT 'New chat',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS ai_chat_messages (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        chat_id VARCHAR NOT NULL REFERENCES ai_chats(id) ON DELETE CASCADE,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )`,
     ];
     
     for (const statement of createTableStatements) {

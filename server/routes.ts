@@ -20,6 +20,16 @@ import { computeTFMetrics, computeTFMatrix } from "./services/tfMetricsCalculato
 import { computeStrategyAudit } from "./services/strategyAuditCalculator";
 import { computeAIAnalysis, computeAIStrategy, computeAIQuery } from "./services/aiEngineCalculator";
 import { askTraderAI } from "./services/aiQAWorker";
+import {
+  listChats     as listAIChats,
+  getChat       as getAIChat,
+  getMessages   as getAIChatMessages,
+  createChat    as createAIChat,
+  appendMessage as appendAIChatMessage,
+  renameChat    as renameAIChat,
+  deleteChat    as deleteAIChat,
+  titleFromQuestion,
+} from "./services/aiChatStore";
 import { remapJournalEntry } from "./lib/remapJournalEntry";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
@@ -1266,9 +1276,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const auth = await requireAuth(req, res);
     if (!auth) return;
     try {
-      const { messages, sessionId } = req.body as {
+      const { messages, sessionId, chatId: chatIdInput } = req.body as {
         messages: Array<{ role: string; content: string }>;
         sessionId?: string;
+        chatId?:   string;
       };
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "messages array required" });
@@ -1311,6 +1322,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn("[TraderAI] Metrics computation failed, continuing without:", mErr?.message);
       }
 
+      // Resolve / create the persistent chat record before calling the LLM
+      // so the user message is durable even if the AI call fails.
+      let chatId: string | null = chatIdInput || null;
+      if (chatId) {
+        const existing = await getAIChat(chatId, auth.id);
+        if (!existing) chatId = null;     // unknown / wrong owner — start fresh
+      }
+      if (!chatId) {
+        const created = await createAIChat(
+          auth.id,
+          sessionId || null,
+          titleFromQuestion(question),
+        );
+        chatId = created.id;
+      }
+      await appendAIChatMessage(chatId, "user", question);
+
       // Route through the warm Python QA worker — grounded in real data,
       // multi-turn aware, with metrics context for richer answers.
       try {
@@ -1320,16 +1348,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
           messages,
           metrics_context: metricsContext,
         });
-        return res.json({ reply: answer ?? "" });
+        await appendAIChatMessage(chatId, "model", answer ?? "");
+        return res.json({ reply: answer ?? "", chatId });
       } catch (engineErr: any) {
         console.error("[TraderAI] AI worker error:", engineErr?.message);
         return res.status(500).json({
-          error: engineErr?.message || "AI engine failed",
+          error:  engineErr?.message || "AI engine failed",
+          chatId,
         });
       }
     } catch (err: any) {
       console.error("[TraderAI] Error:", err.message);
       return res.status(500).json({ error: err.message || "AI request failed" });
+    }
+  });
+
+  // ── Trader-AI chat history (CRUD) ───────────────────────────────────────────
+  app.get("/api/trader-ai/chats", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const sessionId = (req.query.sessionId as string | undefined) || undefined;
+      const chats = await listAIChats(auth.id, sessionId);
+      return res.json({ chats });
+    } catch (err: any) {
+      console.error("[TraderAI] listChats error:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to list chats" });
+    }
+  });
+
+  app.get("/api/trader-ai/chats/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const chat = await getAIChat(req.params.id, auth.id);
+      if (!chat) return res.status(404).json({ error: "Chat not found" });
+      const messages = await getAIChatMessages(chat.id);
+      return res.json({ chat, messages });
+    } catch (err: any) {
+      console.error("[TraderAI] getChat error:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to load chat" });
+    }
+  });
+
+  app.post("/api/trader-ai/chats", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const { sessionId, title } = req.body as { sessionId?: string; title?: string };
+      const chat = await createAIChat(
+        auth.id,
+        sessionId || null,
+        (title && title.trim()) || "New chat",
+      );
+      return res.status(201).json({ chat });
+    } catch (err: any) {
+      console.error("[TraderAI] createChat error:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to create chat" });
+    }
+  });
+
+  app.patch("/api/trader-ai/chats/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const { title } = req.body as { title?: string };
+      if (!title || !title.trim()) {
+        return res.status(400).json({ error: "title is required" });
+      }
+      const chat = await renameAIChat(req.params.id, auth.id, title.trim());
+      if (!chat) return res.status(404).json({ error: "Chat not found" });
+      return res.json({ chat });
+    } catch (err: any) {
+      console.error("[TraderAI] renameChat error:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to rename chat" });
+    }
+  });
+
+  app.delete("/api/trader-ai/chats/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const ok = await deleteAIChat(req.params.id, auth.id);
+      if (!ok) return res.status(404).json({ error: "Chat not found" });
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("[TraderAI] deleteChat error:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to delete chat" });
     }
   });
 

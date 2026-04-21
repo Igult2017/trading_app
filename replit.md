@@ -2,6 +2,18 @@
 
 A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders.
 
+## Trader AI chat persistence (Apr 2026)
+- New tables `ai_chats` and `ai_chat_messages` created in `server/db-init.ts`.
+- Storage helpers: `server/services/aiChatStore.ts` (raw `db.execute(sql\`…\`)`).
+- Endpoints in `server/routes.ts`:
+  - `GET    /api/trader-ai/chats[?sessionId=…]` — list user's chats
+  - `GET    /api/trader-ai/chats/:id`           — load one chat with messages
+  - `POST   /api/trader-ai/chats`               — create empty chat
+  - `PATCH  /api/trader-ai/chats/:id`           — rename
+  - `DELETE /api/trader-ai/chats/:id`           — delete (cascades to messages)
+  - `POST   /api/trader-ai/chat` now accepts/returns `chatId`; persists user + assistant turns; auto-titles from first question.
+- Frontend `client/src/components/TraderAI.tsx` has a left sidebar with chat history, "New chat" button, rename + delete actions, and active-chat highlight.
+
 ## Architecture
 
 **Full-stack application:**
