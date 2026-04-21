@@ -2662,7 +2662,7 @@ export default function AdminPanel() {
 
         {/* SIDEBAR */}
         <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
+          <div style={{ flex: '0 1 auto', overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
             {SIDEBAR_GROUPS.map((group, gi) => (
               <div key={gi}>
                 {sectionLabel(group.label)}
