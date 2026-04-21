@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { authFetch } from '@/lib/queryClient';
 import { Loader2 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -307,7 +308,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const { data:metricsData, isLoading, isFetching, isError } = useQuery<{ success:boolean; metrics:any }>({
     queryKey:['/api/metrics/compute', sessionId],
     queryFn: async () => {
-      const r = await fetch(queryUrl);
+      const r = await authFetch(queryUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       return r.json();
     },

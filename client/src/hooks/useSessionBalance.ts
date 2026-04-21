@@ -21,6 +21,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { computeRunningBalance } from "@/lib/tradeCalculations";
+import { authFetch } from "@/lib/queryClient";
 
 // ── Return type ───────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
     error: sessionError,
   } = useQuery<any>({
     queryKey: ["/api/sessions", sessionId],
-    queryFn: () => fetch(`/api/sessions/${sessionId}`).then(r => {
+    queryFn: () => authFetch(`/api/sessions/${sessionId}`).then(r => {
       if (!r.ok) throw new Error(`Failed to fetch session: ${r.status}`);
       return r.json();
     }),
@@ -65,7 +66,7 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
     error: entriesError,
   } = useQuery<any[]>({
     queryKey: ["/api/journal/entries", sessionId],
-    queryFn: () => fetch(`/api/journal/entries?sessionId=${sessionId}`).then(r => {
+    queryFn: () => authFetch(`/api/journal/entries?sessionId=${sessionId}`).then(r => {
       if (!r.ok) throw new Error(`Failed to fetch entries: ${r.status}`);
       return r.json();
     }),

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { authFetch } from '@/lib/queryClient';
 import { Layout, Clock, Zap, Network, CalendarDays, ShieldCheck, TrendingDown, Activity, Loader2 } from 'lucide-react';
 
 // ── Primitive UI atoms ────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     staleTime: 2 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
     queryFn: async () => {
-      const r = await fetch(`/api/drawdown/compute?sessionId=${sessionId}`);
+      const r = await authFetch(`/api/drawdown/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       const json = await r.json();
       if (!json.success) throw new Error(json.error || 'Drawdown computation failed');

@@ -47,7 +47,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   };
 
   const callAI = async (msgs: Message[]) => {
-    const res = await fetch("/api/trader-ai/chat", {
+    const res = await authFetch("/api/trader-ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: msgs, sessionId }),

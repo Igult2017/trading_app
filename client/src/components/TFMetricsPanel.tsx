@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -479,7 +480,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
   const { data: matrixData, isLoading, isFetching } = useQuery<{ success: boolean; rows?: TFRow[] }>({
     queryKey: ['/api/tf-metrics/matrix', sessionId],
     queryFn: async () => {
-      const res = await fetch(matrixUrl!);
+      const res = await authFetch(matrixUrl!);
       if (!res.ok) throw new Error('Failed to fetch TF matrix');
       return res.json();
     },

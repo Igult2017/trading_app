@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, authFetch } from "@/lib/queryClient";
 import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
 
@@ -358,7 +358,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal/entries", sessionId],
     queryFn: async () => {
-      const r = await fetch(queryUrl);
+      const r = await authFetch(queryUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       return r.json();
     },

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ async function fetchAudit(sessionId?: string, userId?: string): Promise<AuditDat
   const p = new URLSearchParams();
   if (sessionId) p.set("sessionId", sessionId);
   if (userId) p.set("userId", userId);
-  const res = await fetch(`/api/strategy-audit/compute?${p}`);
+  const res = await authFetch(`/api/strategy-audit/compute?${p}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -767,7 +768,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
   const { data, isLoading, isError, refetch } = useQuery<AIAnalysisData>({
     queryKey:  ["aiAnalysis", sessionId, userId],
-    queryFn:   () => fetch(`/api/ai/analysis?${params}`).then(r => r.json()),
+    queryFn:   () => authFetch(`/api/ai/analysis?${params}`).then(r => r.json()),
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
@@ -889,7 +890,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
   const { data, isLoading, isError, refetch } = useQuery<AIStrategyData>({
     queryKey:  ["aiStrategy", sessionId, userId],
-    queryFn:   () => fetch(`/api/ai/strategy?${params}`).then(r => r.json()),
+    queryFn:   () => authFetch(`/api/ai/strategy?${params}`).then(r => r.json()),
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });

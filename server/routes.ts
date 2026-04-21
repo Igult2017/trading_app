@@ -116,6 +116,22 @@ function invalidateDrawdownCache(sessionId?: string, userId?: string): void {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Auth helper for user-data routes ─────────────────────────────────────────
+// Verifies a Supabase JWT and returns the authenticated user id.
+// Sends a 401 response and returns null when authentication fails so that
+// callers can simply `if (!auth) return;`.
+async function requireAuth(
+  req: Request,
+  res: Response,
+): Promise<{ id: string } | null> {
+  const user = await verifyToken(req.headers.authorization);
+  if (!user) {
+    res.status(401).json({ error: "Authentication required" });
+    return null;
+  }
+  return { id: user.id };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   addServerLog('info', 'Server', `API server started — Node ${process.version}`);
 
@@ -134,9 +150,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/trades", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const trades = await storage.getTrades(userId);
+      const trades = await storage.getTrades(auth.id);
       res.json(trades);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch trades" });
@@ -144,9 +161,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/trades/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
       const trade = await storage.getTradeById(req.params.id);
-      if (!trade) {
+      if (!trade || (trade as any).userId !== auth.id) {
         return res.status(404).json({ error: "Trade not found" });
       }
       res.json(trade);
@@ -156,9 +175,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/trades", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const validatedData = insertTradeSchema.parse(req.body);
-      const trade = await storage.createTrade(validatedData);
+      const validatedData = insertTradeSchema.parse({ ...req.body, userId: auth.id });
+      const trade = await storage.createTrade({ ...validatedData, userId: auth.id } as any);
       res.status(201).json(trade);
     } catch (error) {
       res.status(400).json({ error: "Invalid trade data" });
@@ -166,8 +187,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/trades/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const trade = await storage.updateTrade(req.params.id, req.body);
+      const existing = await storage.getTradeById(req.params.id);
+      if (!existing || (existing as any).userId !== auth.id) {
+        return res.status(404).json({ error: "Trade not found" });
+      }
+      const { userId: _ignored, ...rest } = req.body ?? {};
+      const trade = await storage.updateTrade(req.params.id, rest);
       if (!trade) {
         return res.status(404).json({ error: "Trade not found" });
       }
@@ -178,7 +206,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/trades/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
+      const existing = await storage.getTradeById(req.params.id);
+      if (!existing || (existing as any).userId !== auth.id) {
+        return res.status(404).json({ error: "Trade not found" });
+      }
       const success = await storage.deleteTrade(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Trade not found" });
@@ -191,9 +225,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- Session Routes ---
   app.get("/api/sessions", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const sessions = await storage.getSessions(userId);
+      const sessions = await storage.getSessions(auth.id);
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sessions" });
@@ -201,9 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/sessions/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
       const session = await storage.getSessionById(req.params.id);
-      if (!session) return res.status(404).json({ error: "Session not found" });
+      if (!session || session.userId !== auth.id) {
+        return res.status(404).json({ error: "Session not found" });
+      }
       res.json(session);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch session" });
@@ -214,7 +253,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Returns the current running balance for a session.
   // Used by useSessionBalance hook in the frontend.
   app.get("/api/sessions/:id/balance", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
+      const session = await storage.getSessionById(req.params.id);
+      if (!session || session.userId !== auth.id) {
+        return res.status(404).json({ error: "Session not found" });
+      }
       const summary = await getCurrentBalance(req.params.id);
       res.json(summary);
     } catch (error: any) {
@@ -224,9 +269,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/sessions", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const validatedData = insertTradingSessionSchema.parse(req.body);
-      const session = await storage.createSession(validatedData);
+      // Always bind the session to the authenticated user — never trust a
+      // client-supplied userId.
+      const validatedData = insertTradingSessionSchema.parse({
+        ...req.body,
+        userId: auth.id,
+      });
+      const session = await storage.createSession({ ...validatedData, userId: auth.id });
       res.status(201).json(session);
     } catch (error) {
       console.error("[Routes] Create session error:", error);
@@ -238,8 +290,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/sessions/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const session = await storage.updateSession(req.params.id, req.body);
+      const existing = await storage.getSessionById(req.params.id);
+      if (!existing || existing.userId !== auth.id) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      const { userId: _ignored, ...rest } = req.body ?? {};
+      const session = await storage.updateSession(req.params.id, rest);
       if (!session) return res.status(404).json({ error: "Session not found" });
       res.json(session);
     } catch (error) {
@@ -248,7 +307,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/sessions/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
+      const existing = await storage.getSessionById(req.params.id);
+      if (!existing || existing.userId !== auth.id) {
+        return res.status(404).json({ error: "Session not found" });
+      }
       const success = await storage.deleteSession(req.params.id);
       if (!success) return res.status(404).json({ error: "Session not found" });
       res.status(204).send();
@@ -316,10 +381,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/journal/entries", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
       const sessionId = req.query.sessionId as string | undefined;
-      const entries = await storage.getJournalEntries(userId, sessionId);
+      // If a sessionId is supplied, make sure the session belongs to the
+      // authenticated user before returning its entries.
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (!session || session.userId !== auth.id) {
+          return res.json([]);
+        }
+      }
+      const entries = await storage.getJournalEntries(auth.id, sessionId);
       res.json(entries);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch journal entries" });
@@ -327,9 +401,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/journal/entries/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
       const entry = await storage.getJournalEntryById(req.params.id);
-      if (!entry) {
+      if (!entry || entry.userId !== auth.id) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
       res.json(entry);
@@ -342,6 +418,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Before saving to DB, if profitLoss is missing/zero the server computes it
   // from riskPercent + outcome so monetary data is always correct in the DB.
   app.post("/api/journal/entries", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
       const decimalFields = [
         'entryPrice', 'stopLoss', 'takeProfit', 'stopLossDistance', 'takeProfitDistance',
@@ -349,7 +427,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'pipsGainedLost', 'accountBalance', 'commission', 'mae', 'mfe',
         'monetaryRisk', 'potentialReward'
       ];
-      const sanitized = { ...req.body };
+      // Always bind the entry to the authenticated user — never trust
+      // a client-supplied userId.
+      const sanitized: Record<string, any> = { ...req.body, userId: auth.id };
       for (const field of decimalFields) {
         if (sanitized[field] !== undefined && sanitized[field] !== null && sanitized[field] !== '') {
           const raw = String(sanitized[field]);
@@ -358,10 +438,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // If a sessionId is supplied, ensure it belongs to the authenticated user.
+      const sessionId = sanitized.sessionId as string | undefined;
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (!session || session.userId !== auth.id) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+      }
+
       // ── Enrich with balance if profitLoss/accountBalance are missing ──────
       // enrichTradeWithBalance is a no-op when profitLoss is already present,
       // so this is safe to call unconditionally.
-      const sessionId = sanitized.sessionId as string | undefined;
       const enriched = sessionId
         ? await enrichTradeWithBalance(sessionId, sanitized)
         : sanitized;
@@ -388,11 +476,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/journal/entries/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
       const existing = await storage.getJournalEntryById(req.params.id);
-      if (!existing) return res.status(404).json({ error: "Journal entry not found" });
+      if (!existing || existing.userId !== auth.id) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
 
-      const updates: Record<string, any> = { ...req.body };
+      const { userId: _ignored, ...rest } = req.body ?? {};
+      const updates: Record<string, any> = { ...rest };
 
       // When profitLoss is being corrected, recalculate accountBalance for this entry
       // so that the equity displayed for the trade stays consistent.
@@ -418,27 +511,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/journal/entries/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
+      const existing = await storage.getJournalEntryById(req.params.id);
+      if (!existing || existing.userId !== auth.id) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
       const success = await storage.deleteJournalEntry(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
-      metricsCache.clear();
-      calendarCache.clear();
-      drawdownCache.clear();
+      invalidateMetricsCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
+      invalidateCalendarCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
+      invalidateDrawdownCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete journal entry" });
     }
   });
 
-  app.get("/api/metrics/compute", async (req, res) => {
-    try {
-      const userId = req.query.userId as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries = await storage.getJournalEntries(userId, sessionId);
+  // ── Helper: resolve userId + sessionId for compute routes, enforcing
+  // ownership. Returns null when the session does not belong to the user.
+  async function resolveComputeScope(
+    auth: { id: string },
+    req: Request,
+  ): Promise<{ entries: any[]; startingBalance?: number; sessionId?: string } | null> {
+    const sessionId = req.query.sessionId as string | undefined;
+    let startingBalance: number | undefined;
+    if (sessionId) {
+      const session = await storage.getSessionById(sessionId);
+      if (!session || session.userId !== auth.id) return null;
+      startingBalance = parseFloat(session.startingBalance);
+    }
+    const entries = await storage.getJournalEntries(auth.id, sessionId);
+    return { entries, startingBalance, sessionId };
+  }
 
-      const key = metricsKey(userId, sessionId);
+  app.get("/api/metrics/compute", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, metrics: {}, entries: [] });
+      const { entries, startingBalance, sessionId } = scope;
+
+      const key = metricsKey(auth.id, sessionId);
       const cached = metricsCache.get(key);
       const now = Date.now();
 
@@ -450,11 +568,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(cached.result);
       }
 
-      let startingBalance: number | undefined;
-      if (sessionId) {
-        const session = await storage.getSessionById(sessionId);
-        if (session) startingBalance = parseFloat(session.startingBalance);
-      }
       const result = await computeMetrics(entries, startingBalance);
       if (result.success) {
         metricsCache.set(key, { result, entryCount: entries.length, cachedAt: now });
@@ -469,12 +582,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/calendar/compute", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries = await storage.getJournalEntries(userId, sessionId);
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, days: [] });
+      const { entries, sessionId } = scope;
 
-      const cacheKey = metricsKey(userId, sessionId);
+      const cacheKey = metricsKey(auth.id, sessionId);
       const cached = calendarCache.get(cacheKey);
       const now = Date.now();
       if (cached && cached.entryCount === entries.length && now - cached.cachedAt < CALENDAR_CACHE_TTL_MS) {
@@ -495,23 +610,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/drawdown/compute", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries = await storage.getJournalEntries(userId, sessionId);
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, drawdown: {} });
+      const { entries, startingBalance, sessionId } = scope;
 
-      const cacheKey = metricsKey(userId, sessionId);
+      const cacheKey = metricsKey(auth.id, sessionId);
       const cached = drawdownCache.get(cacheKey);
       const now = Date.now();
       if (cached && cached.entryCount === entries.length && now - cached.cachedAt < DRAWDOWN_CACHE_TTL_MS) {
         return res.json(cached.result);
       }
 
-      let startingBalance: number | undefined;
-      if (sessionId) {
-        const session = await storage.getSessionById(sessionId);
-        if (session) startingBalance = parseFloat(session.startingBalance);
-      }
       const result = await computeDrawdown(entries, startingBalance);
       if (result.success) {
         drawdownCache.set(cacheKey, { result, entryCount: entries.length, cachedAt: now });
@@ -526,15 +638,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/tf-metrics/compute", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries = await storage.getJournalEntries(userId, sessionId);
-      let startingBalance: number | undefined;
-      if (sessionId) {
-        const session = await storage.getSessionById(sessionId);
-        if (session) startingBalance = parseFloat(session.startingBalance);
-      }
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, metrics: {} });
+      const { entries, startingBalance } = scope;
       const result = await computeTFMetrics(entries, startingBalance);
       if (result.success) {
         res.json(result);
@@ -548,11 +657,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/tf-metrics/matrix", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId    = req.query.userId    as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries   = await storage.getJournalEntries(userId, sessionId);
-      const result    = await computeTFMatrix(entries);
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, matrix: {} });
+      const result = await computeTFMatrix(scope.entries);
       if (result.success) {
         res.json(result);
       } else {
@@ -565,15 +675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/strategy-audit/compute", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries = await storage.getJournalEntries(userId, sessionId);
-      let startingBalance: number | undefined;
-      if (sessionId) {
-        const session = await storage.getSessionById(sessionId);
-        if (session) startingBalance = parseFloat(session.startingBalance);
-      }
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, audit: {} });
+      const { entries, startingBalance } = scope;
       const result = await computeStrategyAudit(entries, startingBalance);
       if (result.success) {
         res.json(result);
@@ -588,11 +695,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── AI Engine — Analysis ────────────────────────────────────────────────────
   app.get("/api/ai/analysis", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId    = req.query.userId    as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries   = await storage.getJournalEntries(userId, sessionId);
-      const remapped  = entries.map((e) => remapJournalEntry(e as Record<string, any>));
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, analysis: {} });
+      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
 
       // Fetch rich metrics from the existing calculator and pass alongside trades
       let metricsContext: Record<string, any> | undefined;
@@ -611,11 +719,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── AI Engine — Strategy ────────────────────────────────────────────────────
   app.get("/api/ai/strategy", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId    = req.query.userId    as string | undefined;
-      const sessionId = req.query.sessionId as string | undefined;
-      const entries   = await storage.getJournalEntries(userId, sessionId);
-      const remapped  = entries.map((e) => remapJournalEntry(e as Record<string, any>));
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) return res.json({ success: true, strategy: {} });
+      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
 
       let metricsContext: Record<string, any> | undefined;
       try {
@@ -632,9 +741,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/analytics", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
-      const userId = req.query.userId as string | undefined;
-      const trades = await storage.getTrades(userId);
+      const trades = await storage.getTrades(auth.id);
       
       const totalTrades = trades.length;
       const winningTrades = trades.filter(t => t.outcome === 'win');
@@ -1060,6 +1170,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('[Server] Signal monitor: DISABLED');
 
   app.post("/api/trader-ai/chat", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     try {
       const { messages, sessionId } = req.body as {
         messages: Array<{ role: string; content: string }>;
@@ -1074,8 +1186,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "GEMINI_API_KEY is not configured on this server." });
       }
 
-      // Fetch and remap trade data for this session
-      const rawTrades = await storage.getJournalEntries(undefined, sessionId || undefined);
+      // Verify the session, if any, belongs to the authenticated user.
+      if (sessionId) {
+        const session = await storage.getSessionById(sessionId);
+        if (!session || session.userId !== auth.id) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+      }
+
+      // Fetch and remap trade data for this session, scoped to the user.
+      const rawTrades = await storage.getJournalEntries(auth.id, sessionId || undefined);
       const trades    = rawTrades.map((e) => remapJournalEntry(e as Record<string, any>));
 
       const question = messages[messages.length - 1].content;

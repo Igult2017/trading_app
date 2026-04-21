@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 
 const FONT   = "'Montserrat', sans-serif";
@@ -277,7 +278,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     staleTime: 2 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
     queryFn: async () => {
-      const r = await fetch(`/api/calendar/compute?sessionId=${sessionId}`);
+      const r = await authFetch(`/api/calendar/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       const json = await r.json();
       if (!json.success) throw new Error(json.error || "Calendar computation failed");

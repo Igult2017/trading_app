@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { authFetch } from '@/lib/queryClient';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
 import JournalForm from '@/components/JournalForm';
@@ -734,20 +735,21 @@ export default function Journal() {
   useEffect(() => {
     if (!activeSessionId) return;
     const sid = activeSessionId;
-    const uidParam = user?.id ? `&userId=${user.id}` : '';
     const STALE = 2 * 60 * 1000;
 
+    // The server scopes results to the authenticated user, so we no longer
+    // pass userId in the URL — relying on the Bearer token via authFetch.
     const endpoints: { queryKey: unknown[]; url: string; staleTime: number }[] = [
-      { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}${uidParam}`,    staleTime: STALE },
-      { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}${uidParam}`,   staleTime: STALE },
-      { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}${uidParam}`,   staleTime: STALE },
-      { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}${uidParam}`,  staleTime: 60_000 },
+      { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}`,    staleTime: STALE },
+      { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}`,   staleTime: STALE },
+      { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}`,   staleTime: STALE },
+      { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}`,  staleTime: 60_000 },
     ];
 
     for (const { queryKey, url, staleTime } of endpoints) {
       queryClient.prefetchQuery({
         queryKey,
-        queryFn: () => fetch(url, { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+        queryFn: () => authFetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status)),
         staleTime,
       });
     }
@@ -756,7 +758,7 @@ export default function Journal() {
   const { data: sessions = [] } = useQuery<any[]>({
     queryKey: ['/api/sessions', user?.id],
     queryFn: () => user
-      ? fetch(`/api/sessions?userId=${user.id}`, { credentials: 'include' }).then(r => r.json())
+      ? authFetch(`/api/sessions`).then(r => r.json())
       : Promise.resolve([]),
     enabled: !!user,
   });
