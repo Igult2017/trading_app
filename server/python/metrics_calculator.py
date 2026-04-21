@@ -1287,7 +1287,8 @@ def calc_instrument_phase_momentum_matrix(ctx: SharedContext) -> Dict:
     for t in ctx.trades:
         mom = _momentum_label(t.momentum_score)
         if t.instrument and t.session_phase and mom:
-            key = f"{t.instrument} · {t.session_phase} · {mom}"
+            session_label = f"{t.session} {t.session_phase}" if t.session else t.session_phase
+            key = f"{t.instrument} · {session_label} · {mom}"
             groups[key].append(t)
     return {
         k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
