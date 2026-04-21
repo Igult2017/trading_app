@@ -501,13 +501,13 @@ export default function BlogPostPage() {
         {post.videoUrl && extractYoutubeId(post.videoUrl) && (
           <div style={{ marginBottom: 40 }}>
             <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: muted, marginBottom: 12 }}>Video Version</div>
-            <div style={{ position: 'relative' as const, paddingBottom: '56.25%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${border}` }}>
+            <div style={{ width: '100%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${border}` }}>
               <iframe
                 src={`https://www.youtube.com/embed/${extractYoutubeId(post.videoUrl)}`}
                 title={post.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                style={{ position: 'absolute' as const, inset: 0, width: '100%', height: '100%', border: 'none' }}
+                style={{ display: 'block', width: '100%', aspectRatio: '16/9', border: 'none' }}
               />
             </div>
           </div>
