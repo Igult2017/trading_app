@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, PlusCircle, Wallet, Clock, ChevronRight } from 'lucide-react';
+import { Globe, Wallet, Clock, ChevronRight } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
@@ -90,14 +90,13 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
       `}</style>
       <div className="csf-root" style={{ width: '100%', maxWidth: 460, margin: '0 auto', paddingBottom: 8 }}>
 
-        {/* Icon + title */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
           <div style={{
             width: 56, height: 56, background: '#4f46e5',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             marginBottom: 16,
           }}>
-            <PlusCircle size={26} color="#fff" strokeWidth={1.5} />
+            <ChevronRight size={26} color="#fff" strokeWidth={1.5} />
           </div>
           <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em', color: '#ffffff', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'Syne', sans-serif" }}>
             Create New Session
@@ -107,10 +106,8 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           </div>
         </div>
 
-        {/* Form card */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="form-create-session">
 
-          {/* Session identifier */}
           <div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
               <Clock size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
@@ -139,7 +136,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
             />
           </div>
 
-          {/* Initial liquidity */}
           <div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
               <Wallet size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
@@ -181,7 +177,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
             </div>
           )}
 
-          {/* Deploy button */}
           <button
             type="submit"
             disabled={createMutation.isPending}
@@ -217,7 +212,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           </button>
         </form>
 
-        {/* Status bar */}
         <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
             Status: <span style={{ color: '#6366f1' }}>Ready</span>
@@ -228,6 +222,261 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
     </>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GHOST CARD SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GH = {
+  bg: "#080808",
+  surface: "#0e0e0e",
+  surfaceDeep: "#0a0a0a",
+  border: "#1c1c1c",
+  green: "#ffffff",
+  greenDim: "rgba(255,255,255,0.06)",
+  greenBorder: "rgba(255,255,255,0.2)",
+  textPrimary: "#efefef",
+  textMuted: "#3a3a3a",
+  red: "#e05555",
+};
+
+const MONO = "'DM Mono', monospace";
+
+function GhostActionBtn({ children, onClick, color }: { children: React.ReactNode; onClick: () => void; color: string }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        fontFamily: MONO, fontSize: '10px', letterSpacing: '0.08em',
+        padding: '6px 14px', cursor: 'pointer',
+        border: `1px solid ${color}`, background: 'transparent',
+        color, opacity: hov ? 0.65 : 1, transition: 'opacity 0.15s',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function GhostModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 300, fontFamily: MONO,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: GH.surface, border: `1px solid ${GH.border}`, padding: '32px', width: '380px' }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function GhostField({ label, value, onChange, type = 'text', placeholder, autoFocus }: {
+  label: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string; placeholder?: string; autoFocus?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <label style={{ display: 'block', fontSize: '9px', letterSpacing: '0.18em', color: GH.textMuted, textTransform: 'uppercase', marginBottom: '6px', fontFamily: MONO }}>
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        style={{
+          width: '100%', background: '#080808', border: `1px solid ${GH.border}`,
+          padding: '10px 12px', color: GH.textPrimary, fontFamily: MONO,
+          fontSize: '13px', letterSpacing: '0.04em', boxSizing: 'border-box',
+          outline: 'none',
+        }}
+      />
+    </div>
+  );
+}
+
+function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
+  const [name, setName] = useState('');
+  const [balance, setBalance] = useState('');
+  const [error, setError] = useState('');
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { sessionName: string; startingBalance: number }) => {
+      const res = await apiRequest('POST', '/api/sessions', data);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.details || err.error || 'Failed to create session');
+      }
+      return res.json();
+    },
+    onSuccess: (session: SessionData) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      onClose();
+      onCreated?.(session.id);
+    },
+    onError: (e: Error) => setError(e.message || 'Failed to create session.'),
+  });
+
+  const submit = () => {
+    setError('');
+    if (!name.trim()) { setError('Please enter a session name.'); return; }
+    const bal = parseFloat(balance);
+    if (!balance || isNaN(bal) || bal < 0) { setError('Please enter a valid starting balance.'); return; }
+    createMutation.mutate({ sessionName: name.trim().toUpperCase(), startingBalance: bal });
+  };
+
+  return (
+    <GhostModal onClose={onClose}>
+      <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: GH.green, textTransform: 'uppercase', marginBottom: '24px', fontFamily: MONO }}>
+        New Session
+      </div>
+      <GhostField label="Session Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ALPHA-01" autoFocus />
+      <GhostField label="Starting Balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" placeholder="5000" />
+      {error && (
+        <div style={{ fontSize: '10px', color: GH.red, marginBottom: '12px', fontFamily: MONO }}>{error}</div>
+      )}
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
+        <GhostActionBtn color="#333" onClick={onClose}>Cancel</GhostActionBtn>
+        <GhostActionBtn color={GH.green} onClick={submit}>
+          {createMutation.isPending ? '...' : 'Create'}
+        </GhostActionBtn>
+      </div>
+    </GhostModal>
+  );
+}
+
+function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => void }) {
+  const dim = '#555555';
+  const dimDeep = '#3a3a3a';
+
+  return (
+    <div
+      style={{
+        background: GH.surface,
+        border: `1px solid ${GH.border}`,
+        padding: '22px',
+        opacity,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '220px',
+        justifyContent: 'space-between',
+        fontFamily: MONO,
+      }}
+    >
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+          <span style={{ fontSize: '7px', fontWeight: '500', color: dim, letterSpacing: '0.04em', fontFamily: MONO }}>
+            — — —
+          </span>
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            fontSize: '9px', letterSpacing: '0.08em', color: dimDeep, fontFamily: MONO,
+            border: '1px solid #333333', background: 'transparent', padding: '3px 9px',
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3a3a3a', display: 'inline-block' }} />
+            inactive
+          </span>
+        </div>
+
+        <div style={{ fontSize: '10px', color: dimDeep, marginBottom: '18px', letterSpacing: '0.05em', fontFamily: MONO }}>
+          — — —
+        </div>
+
+        <div style={{ fontSize: '9px', letterSpacing: '0.08em', color: dimDeep, fontFamily: MONO, marginBottom: '4px' }}>
+          starting balance
+        </div>
+        <div style={{ fontSize: '12px', fontWeight: '500', color: dim, marginBottom: '18px', letterSpacing: '0.02em', fontFamily: MONO }}>
+          $ — —
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1px', background: GH.border }}>
+          {['p&l', 'return', 'trades'].map((label) => (
+            <div key={label} style={{ background: GH.surfaceDeep, padding: '10px' }}>
+              <div style={{ fontSize: '8px', letterSpacing: '0.1em', color: dimDeep, fontFamily: MONO, marginBottom: '5px' }}>
+                {label}
+              </div>
+              <div style={{ fontSize: '13px', color: dimDeep, fontFamily: MONO }}>—</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '18px' }}>
+        <span style={{ fontSize: '10px', color: dimDeep, letterSpacing: '0.06em', fontFamily: MONO }}>
+          no session yet
+        </span>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <GhostActionBtn color={GH.green} onClick={onCreate}>create</GhostActionBtn>
+          <GhostActionBtn color="#2a2a2a" onClick={() => {}}>delete</GhostActionBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const GHOST_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+  .ghost-dm-mono, .ghost-dm-mono *, .journal-root .ghost-dm-mono, .journal-root .ghost-dm-mono * {
+    font-family: 'DM Mono', monospace !important;
+    font-weight: 400 !important;
+    letter-spacing: normal !important;
+  }
+  .ghost-dm-mono input::placeholder { color: #252525 !important; }
+  .ghost-dm-mono input:focus { outline: none !important; border-color: #2a2a2a !important; }
+  @keyframes ghost-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+`;
+
+const GHOST_OPACITIES = [0.9, 0.7, 0.5, 0.35, 0.22];
+const TOTAL_SLOTS = 6;
+
+export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => void }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const ghostCount = GHOST_OPACITIES.length;
+
+  return (
+    <div className="ghost-dm-mono" style={{ fontFamily: MONO, padding: '28px 32px' }}>
+      <style>{GHOST_CSS}</style>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+        <span style={{ fontSize: '11px', letterSpacing: '0.22em', color: GH.green, textTransform: 'uppercase', fontFamily: MONO }}>
+          Trading Sessions
+        </span>
+        <span style={{ fontSize: '11px', letterSpacing: '0.14em', color: GH.green, border: `1px solid ${GH.green}`, padding: '5px 16px', fontFamily: MONO }}>
+          0 sessions
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+        {GHOST_OPACITIES.map((op, i) => (
+          <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
+        ))}
+      </div>
+
+      {showCreate && (
+        <GhostCreateModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(id) => { setShowCreate(false); onCreated?.(id); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION CARD (existing sessions)
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
   session: SessionData;
@@ -549,12 +798,14 @@ interface SessionsListProps {
   onSelectSession: (sessionId: string) => void;
   activeSessionId: string | null;
   onDeleteSession?: (sessionId: string) => void;
+  onCreated?: (sessionId: string) => void;
 }
 
-export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession }: SessionsListProps) => {
+export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession, onCreated }: SessionsListProps) => {
   const { data: sessions = [], isLoading } = useQuery<SessionData[]>({
     queryKey: ['/api/sessions'],
   });
+  const [showCreate, setShowCreate] = useState(false);
   const headerVis = useVisible(40);
 
   const deleteMutation = useMutation({
@@ -581,21 +832,42 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     );
   }
 
+  const ghostsNeeded = Math.max(0, TOTAL_SLOTS - sessions.length);
+  const ghosts = GHOST_OPACITIES.slice(0, ghostsNeeded);
+
   if (sessions.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 16 }}>
-        <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(29,158,117,0.06)', border: '1px solid rgba(29,158,117,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Globe size={28} style={{ color: 'rgba(29,158,117,0.4)' }} />
+      <div className="ghost-dm-mono" style={{ fontFamily: MONO, padding: '28px 8px' }}>
+        <style>{GHOST_CSS}</style>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+          <span style={{ fontSize: '11px', letterSpacing: '0.22em', color: GH.green, textTransform: 'uppercase', fontFamily: MONO }}>
+            Trading Sessions
+          </span>
+          <span style={{ fontSize: '11px', letterSpacing: '0.14em', color: GH.green, border: `1px solid ${GH.green}`, padding: '5px 16px', fontFamily: MONO }}>
+            0 sessions
+          </span>
         </div>
-        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: '#f0ede6' }} data-testid="text-no-sessions">No Sessions Yet</span>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: 'rgba(232,230,224,0.28)', letterSpacing: '0.04em', textAlign: 'center' }}>Create your first trading session to start tracking your performance</span>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+          {ghosts.map((op, i) => (
+            <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
+          ))}
+        </div>
+
+        {showCreate && (
+          <GhostCreateModal
+            onClose={() => setShowCreate(false)}
+            onCreated={(id) => { setShowCreate(false); onCreated?.(id); queryClient.invalidateQueries({ queryKey: ['/api/sessions'] }); }}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <>
-      <style>{FONT_IMPORT}{`
+      <style>{FONT_IMPORT}{GHOST_CSS}{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .sessions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
         @media (max-width: 700px) { .sessions-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -624,7 +896,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           </span>
         </div>
 
-        <div className="sessions-grid">
+        <div className="sessions-grid ghost-dm-mono">
           {sessions.map((session, i) => (
             <SessionCard
               key={session.id}
@@ -635,8 +907,18 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
               index={i}
             />
           ))}
+          {ghosts.map((op, i) => (
+            <GhostCard key={`ghost-${i}`} opacity={op} onCreate={() => setShowCreate(true)} />
+          ))}
         </div>
       </div>
+
+      {showCreate && (
+        <GhostCreateModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(id) => { setShowCreate(false); onCreated?.(id); }}
+        />
+      )}
     </>
   );
 };

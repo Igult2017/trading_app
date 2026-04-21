@@ -1,0 +1,368 @@
+import { useState } from "react";
+
+const G = {
+  bg: "#080808",
+  surface: "#0e0e0e",
+  surfaceDeep: "#0a0a0a",
+  border: "#1c1c1c",
+  green: "#ffffff",
+  greenDim: "rgba(255,255,255,0.06)",
+  greenBorder: "rgba(255,255,255,0.2)",
+  textPrimary: "#efefef",
+  textMuted: "#3a3a3a",
+  textDim: "#1e1e1e",
+  red: "#e05555",
+  shimmer: "#161616",
+  shimmerDeep: "#0d0d0d",
+};
+
+const mono = "'DM Mono', monospace";
+
+/* ─── GHOST CARD ────────────────────────────────────────────────── */
+function GhostCard({ opacity, onCreate }) {
+  const dim = "#555555";
+  const dimDeep = "#3a3a3a";
+
+  return (
+    <div
+      style={{
+        background: G.surface,
+        border: `1px solid ${G.border}`,
+        padding: "22px",
+        opacity,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "220px",
+        justifyContent: "space-between",
+      }}
+    >
+      {/* Top content */}
+      <div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+        <span style={{ fontSize: "7px", fontWeight: "500", color: dim, letterSpacing: "0.04em", fontFamily: mono }}>
+          — — —
+        </span>
+        <span style={{
+          display: "flex", alignItems: "center", gap: "5px",
+          fontSize: "9px", letterSpacing: "0.08em", color: dimDeep, fontFamily: mono,
+          border: `1px solid #333333`, background: "transparent", padding: "3px 9px",
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#3a3a3a", display: "inline-block" }} />
+          inactive
+        </span>
+      </div>
+
+      {/* Date */}
+      <div style={{ fontSize: "10px", color: dimDeep, marginBottom: "18px", letterSpacing: "0.05em", fontFamily: mono }}>
+        — — —
+      </div>
+
+      {/* Balance */}
+      <div style={{ fontSize: "9px", letterSpacing: "0.08em", color: dimDeep, fontFamily: mono, marginBottom: "4px" }}>
+        starting balance
+      </div>
+      <div style={{ fontSize: "12px", fontWeight: "500", color: dim, marginBottom: "18px", letterSpacing: "0.02em", fontFamily: mono }}>
+        $ — —
+      </div>
+
+      {/* Metrics */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1px", background: G.border, marginBottom: "0" }}>
+        {[{ label: "p&l" }, { label: "return" }, { label: "trades" }].map((m) => (
+          <div key={m.label} style={{ background: G.surfaceDeep, padding: "10px" }}>
+            <div style={{ fontSize: "8px", letterSpacing: "0.1em", color: dimDeep, fontFamily: mono, marginBottom: "5px" }}>
+              {m.label}
+            </div>
+            <div style={{ fontSize: "13px", color: dimDeep, fontFamily: mono }}>—</div>
+          </div>
+        ))}
+      </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "18px" }}>
+        <span style={{ fontSize: "10px", color: dimDeep, letterSpacing: "0.06em", fontFamily: mono }}>
+          no session yet
+        </span>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <ActionBtn color={G.green} onClick={onCreate}>create</ActionBtn>
+          <ActionBtn color="#2a2a2a" onClick={() => {}}>delete</ActionBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── REAL CARD ─────────────────────────────────────────────────── */
+function RealCard({ session, onEdit, onDelete }) {
+  const pnlColor = session.pnl === null ? G.textMuted : session.pnl >= 0 ? G.green : G.red;
+  const retColor = session.returnPct === null ? G.textMuted : session.returnPct >= 0 ? G.green : G.red;
+
+  return (
+    <div style={{ background: G.surface, border: `1px solid ${G.border}`, padding: "22px", display: "flex", flexDirection: "column", minHeight: "220px", justifyContent: "space-between" }}>
+
+      {/* Top content */}
+      <div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+        <span style={{ fontSize: "7px", fontWeight: "500", color: G.textPrimary, letterSpacing: "0.04em", fontFamily: mono }}>
+          {session.name}
+        </span>
+        <span
+          style={{
+            display: "flex", alignItems: "center", gap: "5px",
+            fontSize: "9px", letterSpacing: "0.08em", color: G.green, fontFamily: mono,
+            border: `1px solid ${G.greenBorder}`, background: G.greenDim, padding: "3px 9px",
+          }}
+        >
+          <span
+            style={{
+              width: 5, height: 5, borderRadius: "50%", background: G.green,
+              display: "inline-block", animation: "blink 1.8s ease-in-out infinite",
+            }}
+          />
+          active
+        </span>
+      </div>
+
+      {/* Date */}
+      <div style={{ fontSize: "10px", color: G.textMuted, marginBottom: "18px", letterSpacing: "0.05em" }}>
+        {session.date}
+      </div>
+
+      {/* Balance */}
+      <div style={{ fontSize: "9px", letterSpacing: "0.08em", color: G.textMuted, fontFamily: mono, marginBottom: "4px" }}>
+        starting balance
+      </div>
+      <div style={{ fontSize: "12px", fontWeight: "500", color: G.textPrimary, marginBottom: "18px", letterSpacing: "0.02em", fontFamily: mono }}>
+        ${session.balance.toLocaleString()}
+      </div>
+
+      {/* Metrics */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1px", background: G.border, marginBottom: "0" }}>
+        {[
+          { label: "P&L", val: session.pnl === null ? "—" : `$${session.pnl.toLocaleString()}`, color: pnlColor },
+          { label: "Return", val: session.returnPct === null ? "—" : `${session.returnPct.toFixed(2)}%`, color: retColor },
+          { label: "Trades", val: String(session.trades), color: session.trades > 0 ? "#aaa" : G.textMuted },
+        ].map((m) => (
+          <div key={m.label} style={{ background: G.surfaceDeep, padding: "10px" }}>
+            <div style={{ fontSize: "8px", letterSpacing: "0.1em", color: G.textMuted, fontFamily: mono, marginBottom: "5px" }}>
+              {m.label}
+            </div>
+            <div style={{ fontSize: "13px", color: m.color, fontFamily: mono }}>{m.val}</div>
+          </div>
+        ))}
+      </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "18px" }}>
+        <span style={{ fontSize: "10px", color: "#2a2a2a", letterSpacing: "0.06em" }}>
+          {session.trades === 0 ? "No trades yet" : `${session.trades} trade${session.trades > 1 ? "s" : ""}`}
+        </span>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <ActionBtn color={G.green} onClick={() => onEdit(session)}>Edit</ActionBtn>
+          <ActionBtn color="#333" onClick={() => onDelete(session)}>Delete</ActionBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ─── ACTION BUTTON ─────────────────────────────────────────────── */
+function ActionBtn({ children, onClick, color }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        fontFamily: mono, fontSize: "10px", letterSpacing: "0.08em",
+        padding: "6px 14px", cursor: "pointer",
+        border: `1px solid ${color}`, background: "transparent",
+        color, opacity: hov ? 0.65 : 1, transition: "opacity 0.15s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ─── MODAL SHELL ───────────────────────────────────────────────── */
+function Modal({ children, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 300, fontFamily: mono,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: G.surface, border: `1px solid ${G.border}`, padding: "32px", width: "380px" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ─── FIELD ─────────────────────────────────────────────────────── */
+function Field({ label, value, onChange, type = "text", placeholder, autoFocus }) {
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <label style={{ display: "block", fontSize: "9px", letterSpacing: "0.18em", color: G.textMuted, textTransform: "uppercase", marginBottom: "6px" }}>
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        style={{
+          width: "100%", background: "#080808", border: `1px solid ${G.border}`,
+          padding: "10px 12px", color: G.textPrimary, fontFamily: mono,
+          fontSize: "13px", letterSpacing: "0.04em",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─── CREATE MODAL ──────────────────────────────────────────────── */
+function CreateModal({ onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [balance, setBalance] = useState("");
+
+  const submit = () => {
+    if (!name.trim() || !balance) return;
+    onCreate({
+      id: Date.now(),
+      name: name.trim().toUpperCase(),
+      date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      balance: parseFloat(balance),
+      pnl: null,
+      returnPct: null,
+      trades: 0,
+    });
+    onClose();
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ fontSize: "11px", letterSpacing: "0.2em", color: G.green, textTransform: "uppercase", marginBottom: "24px" }}>
+        New Session
+      </div>
+      <Field label="Session Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ALPHA-01" autoFocus />
+      <Field label="Starting Balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" placeholder="5000" />
+      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" }}>
+        <ActionBtn color="#333" onClick={onClose}>Cancel</ActionBtn>
+        <ActionBtn color={G.green} onClick={submit}>Create</ActionBtn>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── EDIT MODAL ────────────────────────────────────────────────── */
+function EditModal({ session, onClose, onSave }) {
+  const [name, setName] = useState(session.name);
+  const [balance, setBalance] = useState(session.balance);
+
+  const submit = () => {
+    if (!name.trim() || !balance) return;
+    onSave({ ...session, name: name.trim().toUpperCase(), balance: parseFloat(balance) });
+    onClose();
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ fontSize: "11px", letterSpacing: "0.2em", color: G.green, textTransform: "uppercase", marginBottom: "24px" }}>
+        Edit Session
+      </div>
+      <Field label="Session Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      <Field label="Starting Balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" />
+      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" }}>
+        <ActionBtn color="#333" onClick={onClose}>Cancel</ActionBtn>
+        <ActionBtn color={G.green} onClick={submit}>Save</ActionBtn>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── DELETE MODAL ──────────────────────────────────────────────── */
+function DeleteModal({ session, onClose, onConfirm }) {
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ fontSize: "11px", letterSpacing: "0.2em", color: G.red, textTransform: "uppercase", marginBottom: "12px" }}>
+        Delete Session
+      </div>
+      <div style={{ fontSize: "12px", color: "#555", lineHeight: "1.8", marginBottom: "24px" }}>
+        Delete <span style={{ color: "#ccc" }}>{session.name}</span>? This cannot be undone.
+      </div>
+      <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+        <ActionBtn color="#333" onClick={onClose}>Cancel</ActionBtn>
+        <ActionBtn color={G.red} onClick={() => { onConfirm(session.id); onClose(); }}>Delete</ActionBtn>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── PAGE ──────────────────────────────────────────────────────── */
+export default function TradingSessions() {
+  const [sessions, setSessions] = useState([
+    { id: 1, name: "MIHI!", date: "21 Apr 2026", balance: 5000, pnl: null, returnPct: null, trades: 0 },
+  ]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const GHOST_OPACITIES = [0.9, 0.7, 0.5, 0.35, 0.22];
+  const totalSlots = 6;
+  const ghostsNeeded = Math.max(0, totalSlots - sessions.length);
+  const ghosts = GHOST_OPACITIES.slice(0, ghostsNeeded);
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #080808; }
+        input::placeholder { color: #252525; }
+        input:focus { outline: none; border-color: #2a2a2a !important; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+      `}</style>
+
+      <div style={{ fontFamily: mono, background: G.bg, minHeight: "100vh", padding: "28px 32px" }}>
+
+        {/* TOPBAR */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+          <span style={{ fontSize: "11px", letterSpacing: "0.22em", color: G.green, textTransform: "uppercase" }}>
+            Trading Sessions
+          </span>
+          <span style={{ fontSize: "11px", letterSpacing: "0.14em", color: G.green, border: `1px solid ${G.green}`, padding: "5px 16px", fontFamily: mono }}>
+            {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* GRID */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px" }}>
+          {sessions.map((s) => (
+            <RealCard key={s.id} session={s} onEdit={setEditTarget} onDelete={setDeleteTarget} />
+          ))}
+          {ghosts.map((op, i) => (
+            <GhostCard key={`ghost-${i}`} opacity={op} onCreate={() => setShowCreate(true)} />
+          ))}
+        </div>
+      </div>
+
+      {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreate={(s) => setSessions((p) => [...p, s])} />}
+      {editTarget && <EditModal session={editTarget} onClose={() => setEditTarget(null)} onSave={(s) => setSessions((p) => p.map((x) => (x.id === s.id ? s : x)))} />}
+      {deleteTarget && <DeleteModal session={deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={(id) => setSessions((p) => p.filter((x) => x.id !== id))} />}
+    </>
+  );
+}

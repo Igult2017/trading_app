@@ -11,14 +11,13 @@ import JournalForm from '@/components/JournalForm';
 import StrategyAudit from '@/components/StrategyAudit';
 import TradeVault from '@/components/TradeVault';
 import TradingCalendar from '@/components/TradingCalendar';
-import { CreateSessionForm, SessionsList } from '@/components/CreateSession';
+import { SessionsList, GhostSessionsPanel } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 import TraderAI from '@/components/TraderAI';
 import Leaderboard from '@/components/Leaderboard';
 import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
-import NoSessionPrompt from '@/components/NoSessionPrompt';
 import AssetPage from '@/pages/AssetPage';
 
 const SI = {
@@ -61,7 +60,6 @@ const NAV_SECTIONS: NavGroup[] = [
   { section: null, items: [
     { id: 'dashboard',   label: 'Dashboard',      icon: SI.Dashboard },
     { id: 'sessions',    label: 'Sessions',        icon: SI.Sessions, arrow: true },
-    { id: 'create',      label: 'Create Session',  icon: SI.CreateSession },
     { id: 'accounts',    label: 'Accounts',        icon: SI.Accounts },
     { id: 'journal',     label: 'Journal',         icon: SI.Journal },
     { id: 'vault',       label: 'Trade Vault',     icon: SI.Vault },
@@ -816,27 +814,25 @@ export default function Journal() {
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
 
           {activeNav === 'metrics' ? (
-            activeSessionId ? <MetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+            activeSessionId ? <MetricsPanel sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
           ) : activeNav === 'journal' ? (
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
             ) : (
-              <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+              <GhostSessionsPanel onCreated={handleSessionCreated} />
             )
           ) : activeNav === 'strategy' ? (
             <StrategyAudit sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'vault' ? (
-            activeSessionId ? <TradeVault sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+            activeSessionId ? <TradeVault sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
           ) : activeNav === 'calendar' ? (
-            activeSessionId ? <TradingCalendar sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+            activeSessionId ? <TradingCalendar sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
           ) : activeNav === 'sessions' ? (
-            <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} />
-          ) : activeNav === 'create' ? (
-            <CreateSessionForm onCreated={handleSessionCreated} />
+            <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} onCreated={handleSessionCreated} />
           ) : activeNav === 'tfmetrics' ? (
-            activeSessionId ? <TFMetricsPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+            activeSessionId ? <TFMetricsPanel sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
           ) : activeNav === 'drawdown' ? (
-            activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+            activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'leaderboard' ? (
@@ -853,7 +849,7 @@ export default function Journal() {
             activeSessionId ? (
               <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
             ) : (
-              <NoSessionPrompt onCreateSession={() => setActiveNav('create')} onViewSessions={() => setActiveNav('sessions')} />
+              <GhostSessionsPanel onCreated={handleSessionCreated} />
             )
           )}
         </main>
