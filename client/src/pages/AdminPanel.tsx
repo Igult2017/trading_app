@@ -1543,6 +1543,32 @@ const BlogSection = ({ bp }) => {
     setShowModal(true);
   };
 
+  // Downscale + re-encode an image data URL to keep payloads small.
+  // Most cover photos compress to < 300KB at 1600px wide / JPEG q=0.85.
+  const compressDataUrl = async (dataUrl: string, maxWidth = 1600, quality = 0.85): Promise<string> => {
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = dataUrl;
+      });
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return dataUrl;
+      ctx.drawImage(img, 0, 0, w, h);
+      const out = canvas.toDataURL('image/jpeg', quality);
+      // If somehow the result grew (e.g., tiny PNG), keep the original
+      return out.length < dataUrl.length ? out : dataUrl;
+    } catch {
+      return dataUrl;
+    }
+  };
+
   const uploadCoverImage = async (dataUrl: string): Promise<string> => {
     // Try Supabase first if configured
     if (supabase) {
@@ -1560,8 +1586,8 @@ const BlogSection = ({ bp }) => {
         }
       } catch { /* fall through */ }
     }
-    // Store data URL directly in DB — avoids filesystem dependency that breaks on restarts/migrations
-    return dataUrl;
+    // Store data URL directly in DB — compress first so the request stays well under any payload limits
+    return await compressDataUrl(dataUrl);
   };
 
   const handleEditorSubmit = async (data: BlogEditorData) => {
