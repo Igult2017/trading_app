@@ -36,11 +36,11 @@ function TickerTape() {
 }
 
 const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
+  { label: "Journal", href: "/auth" },
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
   { label: "Reviews", href: "/#reviews" },
   { label: "Economic Calendar", href: "/calendar" },
-  { label: "Journal", href: "/auth" },
   { label: "Blog", href: "/blog" },
   { label: "TSC", href: "/tsc" },
   { label: "Login", href: "/auth" },
