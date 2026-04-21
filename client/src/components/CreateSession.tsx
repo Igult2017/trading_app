@@ -358,59 +358,78 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
   return (
     <div
       style={{
-        background: GH.surface,
+        background: '#121526',
         border: `1px solid ${GH.border}`,
-        padding: '22px',
+        borderRadius: 0,
         opacity,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '220px',
-        justifyContent: 'space-between',
+        position: 'relative',
+        overflow: 'hidden',
+        minHeight: 250,
       }}
     >
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-          <span style={{ fontSize: '7px', fontWeight: '500', color: dim, letterSpacing: '0.04em' }}>
-            — — —
-          </span>
+      <div style={{ padding: '1.25rem 1.25rem 0', flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.1rem' }}>
+          <div style={{ flex: 1, minWidth: 0, marginRight: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: dim }}>
+              — — —
+            </div>
+            <div style={{ fontSize: 10, letterSpacing: '0.06em', color: dimDeep, marginTop: 3 }}>
+              — — —
+            </div>
+          </div>
           <span style={{
-            display: 'flex', alignItems: 'center', gap: '5px',
-            fontSize: '9px', letterSpacing: '0.08em', color: dimDeep,
-            border: `1px solid ${GH.border}`, background: 'transparent', padding: '3px 9px',
+            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: dim, border: `1px solid ${GH.border}`,
+            padding: '3px 10px', borderRadius: 20, background: 'transparent',
           }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#2A2E50', display: 'inline-block' }} />
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: dimDeep, display: 'inline-block' }} />
             inactive
           </span>
         </div>
 
-        <div style={{ fontSize: '10px', color: dimDeep, marginBottom: '18px', letterSpacing: '0.05em' }}>
-          — — —
+        <div style={{ height: 1, background: GH.border, marginBottom: '1rem' }} />
+
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: dimDeep, marginBottom: 4 }}>
+            Starting balance
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: dim, letterSpacing: '-0.02em' }}>
+            $ — —
+          </div>
         </div>
 
-        <div style={{ fontSize: '9px', letterSpacing: '0.08em', color: dimDeep, marginBottom: '4px' }}>
-          starting balance
-        </div>
-        <div style={{ fontSize: '12px', fontWeight: '500', color: dim, marginBottom: '18px', letterSpacing: '0.02em' }}>
-          $ — —
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1px', background: GH.border }}>
-          {['p&l', 'return', 'trades'].map((label) => (
-            <div key={label} style={{ background: GH.surfaceDeep, padding: '10px' }}>
-              <div style={{ fontSize: '8px', letterSpacing: '0.1em', color: dimDeep, marginBottom: '5px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: '1.1rem' }}>
+          {['P&L', 'Return', 'Trades'].map((label) => (
+            <div key={label} style={{
+              background: 'rgba(18,21,38,0.6)',
+              border: `1px solid ${GH.border}`,
+              borderRadius: 0,
+              padding: '8px 10px',
+            }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: dimDeep, marginBottom: 5 }}>
                 {label}
               </div>
-              <div style={{ fontSize: '13px', color: dimDeep }}>—</div>
+              <div style={{ fontSize: 11, fontWeight: 500, color: dimDeep, letterSpacing: '0.02em' }}>
+                —
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '18px' }}>
-        <span style={{ fontSize: '10px', color: dimDeep, letterSpacing: '0.06em' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 1.25rem',
+        borderTop: `1px solid ${GH.border}`,
+        marginTop: 'auto',
+      }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.05em', color: dimDeep }}>
           no session yet
         </span>
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <GhostActionBtn color={GH.green} onClick={onCreate}>create</GhostActionBtn>
           <GhostActionBtn color="#2a2a2a" onClick={() => {}}>delete</GhostActionBtn>
         </div>
