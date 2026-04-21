@@ -765,10 +765,27 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               : <Mono size={9} color={P.dim}>No session data yet</Mono>
             }
             <SubLabel>By Session Phase</SubLabel>
-            {sessionPhaseEntries.length>0
-              ? sessionPhaseEntries.map((x,i)=><Bar key={i} label={x.k} pct={x.wr} count={x.count}/>)
-              : <Mono size={9} color={P.dim}>No session phase data yet</Mono>
-            }
+            {(() => {
+              const DEFAULT_PHASES = [
+                'LONDON Open','LONDON Mid','LONDON Close',
+                'NEW YORK Open','NEW YORK Mid','NEW YORK Close',
+                'TOKYO Open','TOKYO Mid','TOKYO Close',
+              ];
+              // Build a case-insensitive map from actual data
+              const phaseMapCI: Record<string, { wr: number|null; count: number }> = {};
+              sessionPhaseEntries.forEach(x => {
+                phaseMapCI[x.k.toUpperCase()] = { wr: x.wr ?? null, count: x.count };
+              });
+              const merged = DEFAULT_PHASES.map(phase => {
+                const found = phaseMapCI[phase.toUpperCase()];
+                return { k: phase, wr: found?.wr ?? null, count: found?.count ?? 0 };
+              });
+              // Also append any extra phases in data not covered by defaults
+              const defaultKeys = new Set(DEFAULT_PHASES.map(p => p.toUpperCase()));
+              const extras = sessionPhaseEntries.filter(x => !defaultKeys.has(x.k.toUpperCase()));
+              const all = [...merged, ...extras.map(x => ({ k: x.k, wr: x.wr ?? null, count: x.count }))];
+              return all.map((x,i) => <Bar key={i} label={x.k} pct={x.wr} count={x.count}/>);
+            })()}
           </Panel>
         </div>
 
