@@ -61,7 +61,7 @@ const Panel = ({ title, accent=P.green, tag, children, style={} as React.CSSProp
       </div>
       {tag && <Mono size={8} color="#5B9BF0" style={{ fontStyle:'italic' }}>{tag}</Mono>}
     </div>
-    <div style={{ padding:12, fontFamily:"'DM Mono',monospace" }}>{children}</div>
+    <div className="mp-panel-body" style={{ padding:12 }}>{children}</div>
   </div>
 );
 
@@ -341,6 +341,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     .mp-dtable tr:last-child td{border-bottom:none;}
     .mp-dn{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.05em;}
     .mp-select{font-family:'DM Mono',monospace;font-size:9px;background:${P.bg3};color:${P.muted};border:1px solid ${P.line2};padding:2px 6px;outline:none;cursor:pointer;}
+    .mp-panel-body,.mp-panel-body *{font-family:'DM Mono',monospace !important;}
     .mp-strat-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;}
     .mp-eq-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px;}
     @media(max-width:1024px){.mp-page{padding:10px 14px;gap:10px;}.mp-g4{grid-template-columns:repeat(2,1fr);}.mp-g3{grid-template-columns:1fr;}.mp-kpi{grid-template-columns:repeat(4,1fr);}.mp-eq-grid{grid-template-columns:1fr;}.mp-strat-grid{grid-template-columns:1fr;}}
