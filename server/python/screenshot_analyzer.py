@@ -83,6 +83,17 @@ def parse_gemini_response(text):
 
 
 def derive_session(entry_time_str):
+    """
+    Derive forex session name and phase from a UTC timestamp.
+    All session boundaries use UTC (London/GMT as reference).
+
+    Session hours (UTC):
+      Sydney     : 21:00 - 00:00  (Open)
+      Tokyo      : 00:00 - 03:00  (Open)  /  03:00 - 06:00  (Mid)  /  06:00 - 07:00  (Close)
+      London     : 07:00 - 10:00  (Open)  /  10:00 - 13:00  (Mid)
+      L-NY Overlap: 13:00 - 16:00 (Open)
+      New York   : 16:00 - 19:00  (Mid)   /  19:00 - 21:00  (Close)
+    """
     if not entry_time_str:
         return {"sessionName": None, "sessionPhase": None}
     try:
@@ -95,21 +106,27 @@ def derive_session(entry_time_str):
         else:
             return {"sessionName": None, "sessionPhase": None}
 
+        # Treat timestamp as UTC — London is the reference timezone for forex sessions
         hour = dt.hour
-        if 0 <= hour < 7:
-            return {"sessionName": "Tokyo", "sessionPhase": "Active"}
-        elif 7 <= hour < 8:
-            return {"sessionName": "London", "sessionPhase": "Pre-Open"}
-        elif 8 <= hour < 12:
-            return {"sessionName": "London", "sessionPhase": "Active"}
-        elif 12 <= hour < 13:
+
+        if 21 <= hour <= 23:
+            return {"sessionName": "Sydney", "sessionPhase": "Open"}
+        elif 0 <= hour < 3:
+            return {"sessionName": "Tokyo", "sessionPhase": "Open"}
+        elif 3 <= hour < 6:
+            return {"sessionName": "Tokyo", "sessionPhase": "Mid"}
+        elif 6 <= hour < 7:
+            return {"sessionName": "Tokyo", "sessionPhase": "Close"}
+        elif 7 <= hour < 10:
+            return {"sessionName": "London", "sessionPhase": "Open"}
+        elif 10 <= hour < 13:
+            return {"sessionName": "London", "sessionPhase": "Mid"}
+        elif 13 <= hour < 16:
             return {"sessionName": "London-NY Overlap", "sessionPhase": "Open"}
-        elif 13 <= hour < 17:
-            return {"sessionName": "New York", "sessionPhase": "Active"}
-        elif 17 <= hour < 21:
+        elif 16 <= hour < 19:
+            return {"sessionName": "New York", "sessionPhase": "Mid"}
+        else:  # 19 <= hour < 21
             return {"sessionName": "New York", "sessionPhase": "Close"}
-        else:
-            return {"sessionName": "Sydney", "sessionPhase": "Active"}
     except Exception:
         return {"sessionName": None, "sessionPhase": None}
 
