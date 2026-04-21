@@ -1558,24 +1558,9 @@ const BlogSection = ({ bp }) => {
           const { data: pub } = supabase.storage.from('blog-images').getPublicUrl(up.path);
           return pub.publicUrl;
         }
-      } catch { /* fall through to server upload */ }
+      } catch { /* fall through */ }
     }
-    // Fall back to server-side upload
-    try {
-      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (!match) return dataUrl;
-      const [, mimeType, b64] = match;
-      const headers = await getAdminHeaders(true);
-      const r = await fetch('/api/upload/image', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: b64, mimeType }),
-      });
-      if (r.ok) {
-        const { url } = await r.json();
-        return url;
-      }
-    } catch { /* fall through */ }
+    // Store data URL directly in DB — avoids filesystem dependency that breaks on restarts/migrations
     return dataUrl;
   };
 
