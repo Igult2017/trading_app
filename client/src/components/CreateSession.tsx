@@ -35,7 +35,7 @@ interface CreateSessionFormProps {
 }
 
 const FONT_IMPORT = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800;900&display=swap');
 `;
 
 export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
@@ -366,6 +366,7 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
+        fontFamily: "'Montserrat', sans-serif",
       }}
     >
       <div style={{ padding: '1.25rem 1.25rem 0', flex: 1 }}>
@@ -594,6 +595,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
         transition: 'border-color 0.2s, transform 0.2s, opacity 0.4s',
         transform: visible ? (hov && !isActive ? 'translateY(-2px)' : 'translateY(0)') : 'translateY(20px)',
         opacity: visible ? 1 : 0,
+        fontFamily: "'Montserrat', sans-serif",
       }}
     >
       {isWinner && (
