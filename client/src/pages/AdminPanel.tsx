@@ -1569,6 +1569,25 @@ const BlogSection = ({ bp }) => {
     }
   };
 
+  // Walk a markdown string, find every data:image/... URI and compress each one.
+  // Keeps inline images (pasted screenshots, etc.) from blowing up the request body.
+  const compressInlineImages = async (md: string): Promise<string> => {
+    if (!md || !md.includes('data:image/')) return md;
+    const RE = /data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g;
+    const matches = Array.from(new Set(md.match(RE) || []));
+    if (matches.length === 0) return md;
+    const map = new Map<string, string>();
+    for (const url of matches) {
+      try {
+        const compressed = await compressDataUrl(url);
+        map.set(url, compressed);
+      } catch {
+        map.set(url, url);
+      }
+    }
+    return md.replace(RE, m => map.get(m) || m);
+  };
+
   const uploadCoverImage = async (dataUrl: string): Promise<string> => {
     // Try Supabase first if configured
     if (supabase) {
@@ -1610,6 +1629,10 @@ const BlogSection = ({ bp }) => {
         linkedin:  data.authorLinkedin,
         telegram:  data.authorTelegram,
       };
+      // Compress any base64 images embedded inline in the body so the request
+      // stays well under the dev-proxy / server payload limits.
+      const compressedContent = await compressInlineImages(data.content || '');
+
       const payload = {
         title:      data.title.trim(),
         section:    derivedSection,
@@ -1621,7 +1644,7 @@ const BlogSection = ({ bp }) => {
         videoUrl:   data.videoUrl || '',
         excerpt:    data.excerpt || '',
         summary:    data.summary || '',
-        content:    data.content || '',
+        content:    compressedContent,
         readTime:   data.readTime || '5 min',
         signalData: null,
         authorData,
@@ -1678,14 +1701,23 @@ const BlogSection = ({ bp }) => {
         telegram:  f.authorTelegram  || '',
       };
       const derivedSection = CATEGORY_TO_SECTION[f.category] ?? 'blog';
+
+      // Shrink any base64 images embedded in the cover or body to keep the request
+      // body well under the dev-proxy / server payload limits.
+      let coverImage = f.imageUrl || '';
+      if (coverImage.startsWith('data:image/')) {
+        coverImage = await compressDataUrl(coverImage);
+      }
+      const compressedContent = await compressInlineImages(f.content || '');
+
       const payload = {
         title: form.title.trim(), section: derivedSection, status: form.status,
         category: f.category || 'Analysis',
         author: f.authorName || 'Admin',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
-        imageUrl: f.imageUrl || '',
+        imageUrl: coverImage,
         excerpt: f.excerpt || '',
-        content: f.content || '',
+        content: compressedContent,
         readTime: f.readTime || '5 min',
         signalData: f.category === 'Trade Signals' ? form.signal : null,
         authorData,
