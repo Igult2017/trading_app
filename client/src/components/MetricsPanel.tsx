@@ -61,7 +61,7 @@ const Panel = ({ title, accent=P.green, tag, children, style={} as React.CSSProp
       </div>
       {tag && <Mono size={8} color="#5B9BF0" style={{ fontStyle:'italic' }}>{tag}</Mono>}
     </div>
-    <div style={{ padding:12 }}>{children}</div>
+    <div style={{ padding:12, fontFamily:"'DM Mono',monospace" }}>{children}</div>
   </div>
 );
 
