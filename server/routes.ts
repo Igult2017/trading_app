@@ -671,6 +671,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(cached.result);
       }
 
+      // Fast path: skip the Python spawn entirely when there are no trades.
+      if (!entries || entries.length === 0) {
+        const empty = { success: true, metrics: {} };
+        metricsCache.set(key, { result: empty, entryCount: 0, cachedAt: now });
+        return res.json(empty);
+      }
+
       const result = await computeMetrics(entries, startingBalance);
       if (result.success) {
         metricsCache.set(key, { result, entryCount: entries.length, cachedAt: now });
@@ -697,6 +704,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = Date.now();
       if (cached && cached.entryCount === entries.length && now - cached.cachedAt < CALENDAR_CACHE_TTL_MS) {
         return res.json(cached.result);
+      }
+
+      if (!entries || entries.length === 0) {
+        const empty = { success: true, days: [] };
+        calendarCache.set(cacheKey, { result: empty, entryCount: 0, cachedAt: now });
+        return res.json(empty);
       }
 
       const result = await computeCalendar(entries);
@@ -727,6 +740,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(cached.result);
       }
 
+      if (!entries || entries.length === 0) {
+        const empty = { success: true, drawdown: {} };
+        drawdownCache.set(cacheKey, { result: empty, entryCount: 0, cachedAt: now });
+        return res.json(empty);
+      }
+
       const result = await computeDrawdown(entries, startingBalance);
       if (result.success) {
         drawdownCache.set(cacheKey, { result, entryCount: entries.length, cachedAt: now });
@@ -747,6 +766,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scope = await resolveComputeScope(auth, req);
       if (!scope) return res.json({ success: true, metrics: {} });
       const { entries, startingBalance } = scope;
+      if (!entries || entries.length === 0) {
+        return res.json({ success: true, metrics: {} });
+      }
       const result = await computeTFMetrics(entries, startingBalance);
       if (result.success) {
         res.json(result);

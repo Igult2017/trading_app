@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { Loader2 } from 'lucide-react';
+import { useSessionBalance } from '@/hooks/useSessionBalance';
 
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
@@ -305,6 +306,10 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     ? `/api/metrics/compute?sessionId=${sessionId}`
     : '/api/metrics/compute';
 
+  // Avoid spawning an expensive metrics request when the session is empty.
+  const { tradeCount, isLoading: balLoading } = useSessionBalance(sessionId);
+  const hasTrades = tradeCount > 0;
+
   const { data:metricsData, isLoading, isFetching, isError } = useQuery<{ success:boolean; metrics:any }>({
     queryKey:['/api/metrics/compute', sessionId],
     queryFn: async () => {
@@ -312,7 +317,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       return r.json();
     },
-    enabled: !!sessionId,
+    enabled: !!sessionId && hasTrades,
     staleTime: 2 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
   });
@@ -356,12 +361,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
       <Mono size={11} color={P.dim} data-testid="text-metrics-no-session">No session selected — pick a session to view metrics.</Mono>
     </div>
   );
-  if (isLoading) return (
-    <div className="mp-root" style={{ minHeight:300, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:12 }}>
+  if (isLoading || (balLoading && !metricsData)) return (
+    <div className="mp-root" style={{ padding:'18px 20px', display:'flex', alignItems:'center', gap:10 }}>
       <style>{css}</style>
       <style>{`@keyframes mp-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
-      <Loader2 style={{ color:P.cyan, animation:'mp-spin 1s linear infinite', width:28, height:28 }}/>
-      <Mono size={11} color={P.dim} data-testid="text-metrics-loading">Computing metrics…</Mono>
+      <Loader2 style={{ color:P.cyan, animation:'mp-spin 1s linear infinite', width:14, height:14 }}/>
+      <Mono size={10} color={P.dim} data-testid="text-metrics-loading">Loading metrics…</Mono>
     </div>
   );
   if (isError||(metricsData&&!metricsData.success)) return (
