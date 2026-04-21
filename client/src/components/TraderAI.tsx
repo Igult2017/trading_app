@@ -3,6 +3,7 @@ import {
   Send, RotateCcw, Copy, Check, Download,
   FileText, ChevronRight, AlertCircle, User
 } from "lucide-react";
+import { authFetch } from "@/lib/queryClient";
 
 const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
