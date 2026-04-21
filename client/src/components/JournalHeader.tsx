@@ -218,7 +218,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
   return createPortal(
     <div
       ref={dropdownRef}
-      style={{ position: 'fixed', top: 92, right: 12, zIndex: 9999 }}
+      style={{ position: 'fixed', top: 104, right: 12, zIndex: 9999 }}
     >
       <div className="pc-root">
         <div className="pc-top">
