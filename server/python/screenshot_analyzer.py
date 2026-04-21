@@ -12,42 +12,59 @@ EXTRACTION_PROMPT = """You are a trading chart screenshot analyzer. Extract ALL 
 Return ONLY valid JSON with these fields (use null for anything not visible):
 
 {
-  "instrument": "e.g. EUR/USD, BTCUSD, NVDA",
+  "instrument": "e.g. EUR/USD, XAU/USD, NAS100, BTCUSD",
+  "pairCategory": "Forex or Crypto or Commodity or Index or Stock",
   "timeframe": "e.g. 4H, 1H, 15M, 1D",
   "direction": "Long or Short",
   "orderType": "Market or Limit or Stop",
   "entryPrice": number or null,
-  "stopLoss": number or null,
-  "takeProfit": number or null,
-  "stopLossDistance": number in points/pips or null,
-  "takeProfitDistance": number in points/pips or null,
-  "lotSize": number or string like "1000 units",
-  "riskReward": number or null,
-  "entryTime": "ISO datetime string or readable date",
+  "openingPrice": number or null (price at which position was opened, may equal entryPrice),
+  "closingPrice": number or null (price at which position was closed),
+  "stopLoss": number or null (stop loss price level),
+  "takeProfit": number or null (take profit price level),
+  "plannedSlPips": number or null (planned SL distance in pips before trade),
+  "plannedTpPips": number or null (planned TP distance in pips before trade),
+  "actualSlPips": number or null (actual pips lost if stopped out),
+  "actualTpPips": number or null (actual pips gained if TP hit),
+  "stopLossDistance": number or null (SL distance in pips/points as shown on chart),
+  "takeProfitDistance": number or null (TP distance in pips/points as shown on chart),
+  "lotSize": number or null (standard lot size e.g. 0.01, 1.0),
+  "units": number or null (position size in units e.g. 1000, 100000),
+  "contractSize": number or null (contract size if visible),
+  "plannedRR": number or null (planned risk-reward ratio before entry),
+  "riskReward": number or null (risk-reward ratio as shown on chart),
+  "achievedRR": number or null (actual achieved R:R based on outcome),
+  "priceExcursionR": number or null (how many R price travelled, i.e. MFE/risk),
+  "entryTime": "ISO datetime string or readable date or null",
   "exitTime": "ISO datetime string or readable date or null",
-  "dayOfWeek": "Monday/Tuesday/etc",
-  "outcome": "Win or Loss or Open",
-  "profitLossPoints": number or null,
-  "profitLossUSD": number or null,
-  "drawdownPoints": number or null (MAE),
+  "dayOfWeek": "Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday or null",
+  "outcome": "Win or Loss or BE or Open",
+  "openPLPips": number or null (open/floating P&L in pips if trade still open),
+  "closedPLPips": number or null (closed P&L in pips after trade closes),
+  "profitLossPoints": number or null (P&L in points/pips),
+  "profitLossUSD": number or null (P&L in account currency),
+  "drawdownPoints": number or null (Maximum Adverse Excursion MAE in pips),
   "drawdownUSD": number or null,
-  "runUpPoints": number or null (MFE),
+  "runUpPoints": number or null (Maximum Favorable Excursion MFE in pips),
   "runUpUSD": number or null,
-  "primaryExitReason": "Target Hit or Stop Hit or Manual or null",
+  "primaryExitReason": "Target Hit or Stop Hit or Break-Even or Manual or null",
   "chartType": "Candles or Bars or Line",
-  "spreadInfo": "any spread data visible",
-  "additionalNotes": "any other relevant data visible on chart"
+  "spreadInfo": "any spread data visible or null",
+  "additionalNotes": "any other relevant data visible on chart or null"
 }
 
 RULES:
-- Read ALL text overlays, labels, indicators on the chart
-- Look for SL/TP markers, P/L labels, position info bars
-- Check the instrument selector (top-left usually)
-- Check timeframe selector
-- Determine direction from arrow indicators or position type
-- If trade is closed, determine outcome from P/L
-- Extract dates from x-axis or replay bar
-- Be precise with numbers - copy exactly what you see
+- Read ALL text overlays, labels, indicators, position info panels on the chart
+- Look for SL/TP markers, P/L labels, position info bars, trade history panels
+- Check the instrument selector (top-left usually) for the symbol name
+- Infer pairCategory from the instrument: EUR/USD/GBP/JPY etc = Forex, BTC/ETH/crypto = Crypto, XAU/XAG/OIL = Commodity, NAS/SPX/DOW/indices = Index
+- Check timeframe selector for the timeframe
+- Determine direction from arrow indicators, Buy/Sell labels, or position type shown
+- If trade is closed, determine outcome: Win (profit), Loss (loss), BE (break-even at ~0 pips)
+- Distinguish planned values (set before trade) from actual values (result of trade)
+- If only one SL/TP distance is visible use it for both planned and actual
+- Extract entry and exit timestamps from x-axis labels, replay bar, or trade history
+- Be precise with numbers - copy exactly what you see on screen
 - Return ONLY the JSON object, no markdown formatting"""
 
 
@@ -142,30 +159,57 @@ def map_to_journal_fields(extracted):
     lot_size = normalize_lot_size(extracted.get("lotSize"))
 
     return {
+        # Instrument
         "instrument": extracted.get("instrument"),
+        "pairCategory": extracted.get("pairCategory"),
+        # Direction & order
         "direction": extracted.get("direction"),
         "orderType": extracted.get("orderType"),
+        # Prices
         "entryPrice": extracted.get("entryPrice"),
+        "openingPrice": extracted.get("openingPrice"),
+        "closingPrice": extracted.get("closingPrice"),
         "stopLoss": extracted.get("stopLoss"),
         "takeProfit": extracted.get("takeProfit"),
+        # SL/TP distances (pips)
+        "plannedSlPips": extracted.get("plannedSlPips"),
+        "plannedTpPips": extracted.get("plannedTpPips"),
+        "actualSlPips": extracted.get("actualSlPips"),
+        "actualTpPips": extracted.get("actualTpPips"),
         "stopLossDistancePips": extracted.get("stopLossDistance"),
         "takeProfitDistancePips": extracted.get("takeProfitDistance"),
+        # Position size
         "lotSize": lot_size,
+        "units": extracted.get("units"),
+        "contractSize": extracted.get("contractSize"),
+        # Risk & Reward
+        "plannedRR": extracted.get("plannedRR"),
         "riskReward": extracted.get("riskReward"),
+        "achievedRR": extracted.get("achievedRR"),
+        "priceExcursionR": extracted.get("priceExcursionR"),
+        # Time & Session
         "entryTime": extracted.get("entryTime"),
         "exitTime": extracted.get("exitTime"),
         "dayOfWeek": extracted.get("dayOfWeek"),
         "tradeDuration": duration,
-        "outcome": extracted.get("outcome"),
-        "profitLoss": extracted.get("profitLossUSD"),
-        "pipsGainedLost": extracted.get("profitLossPoints"),
-        "mae": extracted.get("drawdownPoints"),
-        "mfe": extracted.get("runUpPoints"),
-        "primaryExitReason": extracted.get("primaryExitReason"),
         "sessionName": session_info["sessionName"],
         "sessionPhase": session_info["sessionPhase"],
+        # Outcome
+        "outcome": extracted.get("outcome"),
+        "primaryExitReason": extracted.get("primaryExitReason"),
+        # P&L
+        "openPLPips": extracted.get("openPLPips"),
+        "closedPLPips": extracted.get("closedPLPips"),
+        "profitLoss": extracted.get("profitLossUSD"),
+        "pipsGainedLost": extracted.get("profitLossPoints"),
+        # Drawdown / Run-up
+        "mae": extracted.get("drawdownPoints"),
+        "mfe": extracted.get("runUpPoints"),
+        # Chart context
         "entryTF": extracted.get("timeframe"),
         "spreadAtEntry": extracted.get("spreadInfo"),
+        "additionalNotes": extracted.get("additionalNotes"),
+        # Raw response for debugging
         "aiExtractedRaw": extracted,
     }
 
