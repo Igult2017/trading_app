@@ -8,8 +8,8 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+build = ["bash", "-c", "npm ci && npx vite build && npx esbuild server/index.prod.ts --platform=node --packages=external --bundle --format=esm --outdir=dist"]
+run = ["node", "dist/index.prod.js"]
 
 [[ports]]
 localPort = 5000
