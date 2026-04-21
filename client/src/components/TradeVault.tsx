@@ -104,7 +104,7 @@ function DirectionBadge({ direction }: { direction: string }) {
   const isBearish = direction === "bearish";
 
   if (!isBullish && !isBearish) {
-    return <span style={{ color: "#3a4a6a", fontSize: 11 }}>—</span>;
+    return <span style={{ color: "#3a4a6a", fontSize: 9 }}>—</span>;
   }
 
   return (
@@ -114,7 +114,7 @@ function DirectionBadge({ direction }: { direction: string }) {
       gap: 5,
       padding: "4px 10px",
       borderRadius: 20,
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: 700,
       letterSpacing: "0.08em",
       border: "1px solid transparent",
@@ -139,14 +139,14 @@ function DirectionBadge({ direction }: { direction: string }) {
 
 function RRBadge({ rr }: { rr: string }) {
   const val = parseFloat(rr);
-  if (!rr || isNaN(val)) return <span style={{ color: "#3a4a6a", fontSize: 11 }}>—</span>;
+  if (!rr || isNaN(val)) return <span style={{ color: "#3a4a6a", fontSize: 9 }}>—</span>;
   const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
   return (
     <span style={{
       display: "inline-block",
       padding: "4px 10px",
       borderRadius: 6,
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: 700,
       letterSpacing: "0.08em",
       background: "rgba(77,166,255,0.06)",
@@ -740,7 +740,7 @@ const styles: Record<string, React.CSSProperties> = {
   th: {
     padding: "14px 20px",
     textAlign: "left" as const,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 600,
     color: "#3a4a6a",
     letterSpacing: "0.12em",
@@ -756,25 +756,25 @@ const styles: Record<string, React.CSSProperties> = {
     verticalAlign: "middle" as const,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#8899bb",
     fontWeight: 500,
   },
   timeText: {
-    fontSize: 11,
+    fontSize: 9,
     color: "#3a4a6a",
     marginTop: 2,
   },
   asset: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
-    fontSize: 13,
+    fontSize: 11,
     color: "#e8eeff",
     letterSpacing: "0.05em",
     fontStyle: "italic" as const,
   },
   strategy: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#8899bb",
   },
   sessionBadge: {
@@ -783,7 +783,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#111825",
     border: "1px solid #1e2d4a",
     borderRadius: 6,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 600,
     color: "#5b7aaa",
     letterSpacing: "0.08em",
@@ -792,7 +792,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "inline-block",
     padding: "5px 14px",
     borderRadius: 20,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 700,
     letterSpacing: "0.1em",
     border: "1px solid transparent",
@@ -815,7 +815,7 @@ const styles: Record<string, React.CSSProperties> = {
   pl: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 800,
-    fontSize: 14,
+    fontSize: 12,
   },
   overlay: {
     position: "fixed" as const,
