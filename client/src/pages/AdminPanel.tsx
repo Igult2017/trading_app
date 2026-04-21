@@ -2465,7 +2465,7 @@ export default function AdminPanel() {
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '6px 10px', justifyContent: collapsed ? 'center' : 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 400, fontSize: '12px', position: 'relative', transition: 'background 0.15s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent' }}>
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 400, fontSize: '12px', position: 'relative', transition: 'background 0.15s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent', overflow: 'hidden' }}>
         <item.icon size={14} style={{ flexShrink: 0, color: iconColor }} />
         {!collapsed && (
           <>
@@ -2483,8 +2483,8 @@ export default function AdminPanel() {
     );
   };
 
-  const sectionLabel = label => !collapsed && (
-    <p style={{ color: '#2d3d52', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', padding: '10px 12px 3px', margin: 0 }}>{label}</p>
+  const sectionLabel = label => (
+    <p style={{ color: '#2d3d52', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', padding: '10px 12px 3px', margin: 0, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
   );
 
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
@@ -2662,7 +2662,7 @@ export default function AdminPanel() {
 
         {/* SIDEBAR */}
         <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <div style={{ flex: '0 1 auto', overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
             {SIDEBAR_GROUPS.map((group, gi) => (
               <div key={gi}>
                 {sectionLabel(group.label)}
@@ -2672,21 +2672,21 @@ export default function AdminPanel() {
           </div>
 
           {/* User profile + sign out */}
-          <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0 }}>
-            {!collapsed && (
-              <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
-                  {adminInitial}
-                </div>
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+              <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
+                {adminInitial}
+              </div>
+              {!collapsed && (
                 <div style={{ overflow: 'hidden' }}>
                   <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
                   <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
             <button
               onClick={async () => { await signOut(); navigate('/'); }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: collapsed ? '8px 0' : '7px 14px', justifyContent: collapsed ? 'center' : 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s' }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 14px', justifyContent: 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s', overflow: 'hidden' }}
             >
               <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v6" />
