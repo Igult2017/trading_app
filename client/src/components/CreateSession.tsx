@@ -224,15 +224,15 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GH = {
-  bg: "#080808",
-  surface: "#0e0e0e",
-  surfaceDeep: "#0a0a0a",
-  border: "#1c1c1c",
+  bg: "#0D0F1C",
+  surface: "#121526",
+  surfaceDeep: "#0D0F1C",
+  border: "#1E2240",
   green: "#ffffff",
   greenDim: "rgba(255,255,255,0.06)",
   greenBorder: "rgba(255,255,255,0.2)",
-  textPrimary: "#efefef",
-  textMuted: "#3a3a3a",
+  textPrimary: "#D8DCF0",
+  textMuted: "#6A7299",
   red: "#e05555",
 };
 
@@ -352,8 +352,8 @@ function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreat
 }
 
 function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => void }) {
-  const dim = '#555555';
-  const dimDeep = '#3a3a3a';
+  const dim = '#4A5080';
+  const dimDeep = '#2A2E50';
 
   return (
     <div
@@ -376,9 +376,9 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
           <span style={{
             display: 'flex', alignItems: 'center', gap: '5px',
             fontSize: '9px', letterSpacing: '0.08em', color: dimDeep,
-            border: '1px solid #333333', background: 'transparent', padding: '3px 9px',
+            border: `1px solid ${GH.border}`, background: 'transparent', padding: '3px 9px',
           }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3a3a3a', display: 'inline-block' }} />
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#2A2E50', display: 'inline-block' }} />
             inactive
           </span>
         </div>
@@ -546,13 +546,13 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
   const isEditing = editingBal || editingName;
   const isWinner = hasData;
 
-  const pnlColor = !hasData ? 'rgba(232,230,224,0.25)' : pnlPositive ? '#1D9E75' : '#ff5e5e';
-  const retColor = !hasData ? 'rgba(232,230,224,0.25)' : pnlPositive ? '#1D9E75' : '#ff5e5e';
-  const tradesColor = tradeCount > 0 ? '#1D9E75' : 'rgba(232,230,224,0.25)';
+  const pnlColor = !hasData ? '#3A3F60' : pnlPositive ? '#1D9E75' : '#ff5e5e';
+  const retColor = !hasData ? '#3A3F60' : pnlPositive ? '#1D9E75' : '#ff5e5e';
+  const tradesColor = tradeCount > 0 ? '#1D9E75' : '#3A3F60';
 
   const cardBorder = isWinner
     ? (hov ? 'rgba(29,158,117,0.5)' : 'rgba(29,158,117,0.3)')
-    : (hov ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.07)');
+    : (hov ? '#252848' : '#1E2240');
 
   return (
     <div
@@ -561,7 +561,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       onMouseLeave={() => setHov(false)}
       data-testid={`card-session-${session.id}`}
       style={{
-        background: '#111113',
+        background: '#121526',
         border: `1px solid ${cardBorder}`,
         borderRadius: 0,
         position: 'relative',
@@ -600,7 +600,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                 <button onMouseDown={e => { e.preventDefault(); commitNameEdit(); }}
                   style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '2px 7px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✓</button>
                 <button onMouseDown={e => { e.preventDefault(); cancelNameEdit(); }}
-                  style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '2px 7px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✗</button>
+                  style={{ background: 'none', border: '1px solid #252848', color: '#6A7299', fontSize: 9, padding: '2px 7px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✗</button>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -618,7 +618,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                 {nameSaved && <span style={{ color: '#1D9E75', fontSize: 8, letterSpacing: '0.1em' }}>saved</span>}
               </div>
             )}
-            <div style={{ fontSize: 10, letterSpacing: '0.06em', color: 'rgba(232,230,224,0.3)', marginTop: 3 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.06em', color: '#6A7299', marginTop: 3 }}>
               {dateStr}
             </div>
           </div>
@@ -649,10 +649,10 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
           )}
         </div>
 
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: '1rem' }} />
+        <div style={{ height: 1, background: '#1E2240', marginBottom: '1rem' }} />
 
         <div style={{ marginBottom: '1rem' }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 4 }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#6A7299', marginBottom: 4 }}>
             Starting balance
           </div>
           {editingBal ? (
@@ -671,7 +671,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
               <button onMouseDown={e => { e.preventDefault(); commitEdit(); }}
                 style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✓</button>
               <button onMouseDown={e => { e.preventDefault(); cancelEdit(); }}
-                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✗</button>
+                style={{ background: 'none', border: '1px solid #252848', color: '#6A7299', fontSize: 9, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✗</button>
             </div>
           ) : (
             <div
@@ -705,12 +705,12 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
             },
           ].map(({ label, value, color }) => (
             <div key={label} style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.05)',
+              background: 'rgba(18,21,38,0.6)',
+              border: '1px solid #1E2240',
               borderRadius: 0,
               padding: '8px 10px',
             }}>
-              <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(232,230,224,0.3)', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#6A7299', marginBottom: 5 }}>
                 {label}
               </div>
               <div style={{ fontSize: 11, fontWeight: 500, color, letterSpacing: '0.02em' }}>
@@ -724,11 +724,11 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 1.25rem',
-        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderTop: '1px solid #1E2240',
       }}>
         <span style={{
           fontSize: 10, letterSpacing: '0.05em',
-          color: hasData ? 'rgba(29,158,117,0.6)' : 'rgba(232,230,224,0.2)',
+          color: hasData ? 'rgba(29,158,117,0.6)' : '#3A3F60',
         }}>
           {tradeCount === 0 ? 'No trades yet' : `${tradeCount} trade${tradeCount === 1 ? '' : 's'} logged`}
         </span>
@@ -755,9 +755,9 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
             style={{
               fontSize: 10, letterSpacing: '0.08em',
               padding: '4px 12px', borderRadius: 5, cursor: 'pointer', transition: 'all 0.15s',
-              border: `1px solid ${deleteHov ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              border: `1px solid ${deleteHov ? 'rgba(255,80,80,0.4)' : '#1E2240'}`,
               background: deleteHov ? 'rgba(255,80,80,0.08)' : 'transparent',
-              color: deleteHov ? '#ff5e5e' : 'rgba(232,230,224,0.35)',
+              color: deleteHov ? '#ff5e5e' : '#6A7299',
             }}
           >
             Delete
@@ -800,7 +800,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Loading sessions...</span>
+        <span style={{ fontSize: 10, color: '#6A7299', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Loading sessions...</span>
       </div>
     );
   }
