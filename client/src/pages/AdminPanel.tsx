@@ -1544,21 +1544,39 @@ const BlogSection = ({ bp }) => {
   };
 
   const uploadCoverImage = async (dataUrl: string): Promise<string> => {
-    if (!supabase) return dataUrl;
-    try {
-      const res  = await fetch(dataUrl);
-      const blob = await res.blob();
-      const ext  = blob.type.split('/')[1] || 'jpg';
-      const path = `covers/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { data: up, error } = await supabase.storage
-        .from('blog-images')
-        .upload(path, blob, { contentType: blob.type, upsert: false });
-      if (error || !up) return dataUrl;
-      const { data: pub } = supabase.storage.from('blog-images').getPublicUrl(up.path);
-      return pub.publicUrl;
-    } catch {
-      return dataUrl;
+    // Try Supabase first if configured
+    if (supabase) {
+      try {
+        const res  = await fetch(dataUrl);
+        const blob = await res.blob();
+        const ext  = blob.type.split('/')[1] || 'jpg';
+        const filePath = `covers/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { data: up, error } = await supabase.storage
+          .from('blog-images')
+          .upload(filePath, blob, { contentType: blob.type, upsert: false });
+        if (!error && up) {
+          const { data: pub } = supabase.storage.from('blog-images').getPublicUrl(up.path);
+          return pub.publicUrl;
+        }
+      } catch { /* fall through to server upload */ }
     }
+    // Fall back to server-side upload
+    try {
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return dataUrl;
+      const [, mimeType, b64] = match;
+      const headers = await getAdminHeaders(true);
+      const r = await fetch('/api/upload/image', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: b64, mimeType }),
+      });
+      if (r.ok) {
+        const { url } = await r.json();
+        return url;
+      }
+    } catch { /* fall through */ }
+    return dataUrl;
   };
 
   const handleEditorSubmit = async (data: BlogEditorData) => {

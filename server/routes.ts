@@ -27,6 +27,8 @@ import { interestRateScraper } from "./scrapers/interestRateScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
 import { notificationService } from "./services/notificationService";
+import fs from 'fs';
+import path from 'path';
 import { signalDetectionService } from "./services/signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService, getCachedCandleData } from "./lib/priceService";
@@ -2837,6 +2839,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(drizzleSql`accessed_at DESC`)
         .limit(50);
       return res.json(rows);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Upload image (blog cover / inline) ───────────────────────────────────────
+  app.post("/api/upload/image", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { data: b64, mimeType } = req.body as { data: string; mimeType: string };
+      if (!b64) return res.status(400).json({ error: 'data is required' });
+      const ext = (mimeType || 'image/jpeg').split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+      const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const uploadsDir = path.resolve(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(b64, 'base64'));
+      return res.json({ url: `/uploads/${filename}` });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

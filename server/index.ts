@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
@@ -51,8 +52,13 @@ function startPriceDaemon() {
 // ────────────────────────────────────────────────────────────────────────────
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Serve uploaded blog images
+const uploadsDir = path.resolve(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
 
 app.use((req, res, next) => {
   const start = Date.now();
