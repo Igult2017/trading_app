@@ -40,7 +40,7 @@ const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Pricing", href: "/#pricing" },
   { label: "Reviews", href: "/#reviews" },
   { label: "Economic Calendar", href: "/calendar" },
-  { label: "Assets", href: "/#assets" },
+  { label: "Journal", href: "/auth" },
   { label: "Blog", href: "/blog" },
   { label: "TSC", href: "/tsc" },
   { label: "Login", href: "/auth" },

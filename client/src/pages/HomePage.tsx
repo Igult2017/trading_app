@@ -150,11 +150,12 @@ export default function HomePage() {
   const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
   const calData = Array.from({ length: 35 }, () => (Math.random() - 0.45) * 900);
 
-  const navItems = ['Features', 'Pricing', 'Reviews', 'Economic Calendar', 'Assets', 'Blog', 'TSC', 'Login', 'Signup'];
+  const navItems = ['Features', 'Pricing', 'Reviews', 'Economic Calendar', 'Journal', 'Blog', 'TSC', 'Login', 'Signup'];
   const navHref = (item: string) => {
     if (item === 'TSC') return '/tsc';
     if (item === 'Blog') return '/blog';
     if (item === 'Economic Calendar') return '/calendar';
+    if (item === 'Journal') return '/auth';
     if (item === 'Login' || item === 'Signup') return '/auth';
     return `#${item.toLowerCase().replace(' ', '-')}`;
   };
