@@ -2689,9 +2689,9 @@ export default function AdminPanel() {
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(45deg) translate(4px,4px)' : 'none' }} />
-            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', opacity: collapsed ? 0 : 1 }} />
-            <span style={{ display: 'block', width: collapsed ? '14px' : '18px', height: '1.5px', background: '#607898', borderRadius: '2px', transition: 'all 0.25s', transform: collapsed ? 'rotate(-45deg) translate(4px,-4px)' : 'none' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px' }} />
           </button>
         </div>
 
