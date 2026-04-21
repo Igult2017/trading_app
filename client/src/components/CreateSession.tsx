@@ -391,12 +391,12 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
 
         <div style={{ height: 1, background: GH.border, marginBottom: '1rem' }} />
 
-        <div style={{ marginBottom: '1rem' }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: dimDeep, marginBottom: 4 }}>
-            Starting balance
+        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: dimDeep }}>
+            Balance:
           </div>
           <div style={{ fontSize: 13, fontWeight: 700, color: dim, letterSpacing: '-0.02em' }}>
-            $ — —
+            — —
           </div>
         </div>
 
@@ -676,11 +676,11 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
         <div style={{ height: 1, background: '#1E2240', marginBottom: '1rem' }} />
 
         <div style={{ marginBottom: '1rem' }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#6A7299', marginBottom: 4 }}>
-            Starting balance
-          </div>
           {editingBal ? (
             <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#6A7299' }}>
+                Balance:
+              </span>
               <input
                 ref={balInputRef}
                 value={balInput}
@@ -700,10 +700,13 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
           ) : (
             <div
               onClick={startEdit}
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}
             >
+              <span style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#6A7299' }}>
+                Balance:
+              </span>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#f0ede6', letterSpacing: '-0.02em', cursor: 'text' }}>
-                ${startBal.toLocaleString()}
+                {startBal.toLocaleString()}
               </div>
               {balSaved && <span style={{ color: '#1D9E75', fontSize: 8, letterSpacing: '0.1em' }}>saved</span>}
             </div>
