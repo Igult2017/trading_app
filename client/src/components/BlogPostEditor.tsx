@@ -408,14 +408,43 @@ function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial:
 // ─── Content toolbar ───────────────────────────────────────────────────────────
 
 function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTextAreaElement>; onUpdate: (v: string) => void }) {
-  const ins = useCallback((snippet: string) => {
+  // Wrap selection (or a placeholder) with `before`/`after` markers — for inline formatting like **bold**, _italic_
+  const wrapInline = useCallback((before: string, after: string, placeholder: string) => {
     const ta = contentRef.current;
     if (!ta) return;
     const s = ta.selectionStart, e = ta.selectionEnd;
-    ta.value = ta.value.slice(0, s) + snippet + ta.value.slice(e);
-    ta.selectionStart = ta.selectionEnd = s + snippet.length;
-    ta.focus();
-    onUpdate(ta.value);
+    const selected = ta.value.slice(s, e);
+    const inner = selected || placeholder;
+    const insert = before + inner + after;
+    const next = ta.value.slice(0, s) + insert + ta.value.slice(e);
+    onUpdate(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const cursorStart = s + before.length;
+      const cursorEnd   = cursorStart + inner.length;
+      ta.selectionStart = cursorStart;
+      ta.selectionEnd   = cursorEnd;
+    });
+  }, [contentRef, onUpdate]);
+
+  // Insert/transform a block-level chunk — for headings, lists, quotes, hr
+  // Ensures the chunk starts on its own line (adds a leading \n only if needed)
+  const insertBlock = useCallback((build: (selected: string) => string) => {
+    const ta = contentRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const selected = ta.value.slice(s, e);
+    const block = build(selected);
+    const before = ta.value.slice(0, s);
+    const needLeadingNl = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
+    const insert = needLeadingNl + block;
+    const next = before + insert + ta.value.slice(e);
+    onUpdate(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = s + insert.length;
+      ta.selectionStart = ta.selectionEnd = pos;
+    });
   }, [contentRef, onUpdate]);
 
   const tbtn: any = { background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "'DM Mono', monospace", transition: "all 0.12s", lineHeight: 1 };
@@ -424,21 +453,31 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
   const sep = <div style={{ width: 0.5, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px", flexShrink: 0 }} />;
 
   const items: any[] = [
-    { l: <b>B</b>,  a: () => ins("\n**bold text**")                          },
-    { l: <i>I</i>,  a: () => ins("\n_italic text_")                          },
-    { l: "S̶",       a: () => ins("\n~~strikethrough~~")                      },
+    { l: <b>B</b>,  a: () => wrapInline("**", "**", "bold text")                                  },
+    { l: <i>I</i>,  a: () => wrapInline("_", "_", "italic text")                                  },
+    { l: "S̶",       a: () => wrapInline("~~", "~~", "strikethrough")                              },
     null,
-    { l: "H2",      a: () => ins("\n## Heading\n")                           },
-    { l: "H3",      a: () => ins("\n### Subheading\n")                       },
+    { l: "H2",      a: () => insertBlock(sel => `## ${sel || "Heading"}\n`)                       },
+    { l: "H3",      a: () => insertBlock(sel => `### ${sel || "Subheading"}\n`)                   },
     null,
-    { l: "— list",  a: () => ins("\n- Item one\n- Item two\n- Item three\n") },
-    { l: "1. list", a: () => ins("\n1. First\n2. Second\n3. Third\n")        },
+    { l: "— list",  a: () => insertBlock(sel => sel
+        ? sel.split('\n').map(l => l.trim() ? `- ${l}` : l).join('\n') + '\n'
+        : "- Item one\n- Item two\n- Item three\n")                                                },
+    { l: "1. list", a: () => insertBlock(sel => sel
+        ? sel.split('\n').map((l, i) => l.trim() ? `${i + 1}. ${l}` : l).join('\n') + '\n'
+        : "1. First\n2. Second\n3. Third\n")                                                       },
     null,
-    { l: '" quote', a: () => ins('\n> Blockquote here\n')                    },
-    { l: "` code",  a: () => ins("\n`inline code`")                          },
-    { l: "link",    a: () => ins("\n[link text](https://)")                  },
+    { l: '" quote', a: () => insertBlock(sel => sel
+        ? sel.split('\n').map(l => `> ${l}`).join('\n') + '\n'
+        : "> Blockquote here\n")                                                                   },
+    { l: "` code",  a: () => wrapInline("`", "`", "inline code")                                  },
+    { l: "link",    a: () => {
+        const ta = contentRef.current; if (!ta) return;
+        const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+        wrapInline("[", "](https://)", sel || "link text");
+      }                                                                                            },
     null,
-    { l: "— hr",    a: () => ins("\n\n---\n\n")                              },
+    { l: "— hr",    a: () => insertBlock(() => "\n---\n\n")                                       },
   ];
 
   return (
@@ -868,22 +907,130 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     await onSubmit({ ...form });
   };
 
-  // Convert bare URLs in pasted text to markdown links
+  // Convert HTML clipboard (from Word, Google Docs, web pages) to Markdown so
+  // bolds, italics, headings, lists, links, blockquotes survive the paste.
+  const htmlToMarkdown = useCallback((html: string): string => {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    // Remove style/script and Microsoft Office VML/conditional junk
+    doc.querySelectorAll("style, script, meta, link, [aria-hidden='true']").forEach(n => n.remove());
+
+    const walk = (node: Node, listCtx: { type: 'ul' | 'ol' | null; index: number } = { type: null, index: 0 }): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        // Collapse whitespace inside text nodes (HTML semantics)
+        return (node.textContent || '').replace(/\s+/g, ' ');
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      const childMd = (ctx?: { type: 'ul' | 'ol' | null; index: number }) =>
+        Array.from(el.childNodes).map(c => walk(c, ctx ?? listCtx)).join('');
+
+      switch (tag) {
+        case 'br': return '\n';
+        case 'p':  return childMd().trim() ? `${childMd().trim()}\n\n` : '';
+        case 'h1': return `\n# ${childMd().trim()}\n\n`;
+        case 'h2': return `\n## ${childMd().trim()}\n\n`;
+        case 'h3': return `\n### ${childMd().trim()}\n\n`;
+        case 'h4': case 'h5': case 'h6': return `\n#### ${childMd().trim()}\n\n`;
+        case 'strong': case 'b': {
+          const t = childMd().trim();
+          return t ? `**${t}**` : '';
+        }
+        case 'em': case 'i': {
+          const t = childMd().trim();
+          return t ? `_${t}_` : '';
+        }
+        case 'u': return childMd();
+        case 's': case 'del': case 'strike': {
+          const t = childMd().trim();
+          return t ? `~~${t}~~` : '';
+        }
+        case 'code': {
+          const t = (el.textContent || '').trim();
+          return t ? `\`${t}\`` : '';
+        }
+        case 'pre': {
+          const t = (el.textContent || '').replace(/\n+$/, '');
+          return t ? `\n\`\`\`\n${t}\n\`\`\`\n\n` : '';
+        }
+        case 'blockquote': {
+          const inner = childMd().trim();
+          if (!inner) return '';
+          return '\n' + inner.split('\n').map(l => `> ${l}`).join('\n') + '\n\n';
+        }
+        case 'a': {
+          const href = el.getAttribute('href') || '';
+          const text = childMd().trim() || href;
+          return href ? `[${text}](${href})` : text;
+        }
+        case 'img': {
+          const src = el.getAttribute('src') || '';
+          const alt = el.getAttribute('alt') || '';
+          return src ? `![${alt}](${src})` : '';
+        }
+        case 'hr': return '\n\n---\n\n';
+        case 'ul':
+        case 'ol': {
+          const items = Array.from(el.children).filter(c => c.tagName.toLowerCase() === 'li');
+          const lines = items.map((li, i) => {
+            const inner = Array.from(li.childNodes).map(c => walk(c, { type: tag as 'ul' | 'ol', index: i })).join('').trim();
+            const marker = tag === 'ul' ? '-' : `${i + 1}.`;
+            return `${marker} ${inner}`;
+          });
+          return '\n' + lines.join('\n') + '\n\n';
+        }
+        case 'li': return childMd().trim();
+        case 'div':
+        case 'span':
+        case 'section':
+        case 'article':
+        case 'main':
+        case 'header':
+        case 'footer':
+        default: {
+          // Generic block-ish element — preserve its children
+          return childMd();
+        }
+      }
+    };
+
+    let md = walk(doc.body);
+    // Normalize: at most 2 consecutive blank lines, trim, decode &nbsp;
+    md = md
+      .replace(/\u00A0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    // Linkify any bare URLs that weren't already in [text](url) form
+    const URL_RE = /(?<![(\]])https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
+    md = md.replace(URL_RE, url => `[${url}](${url})`);
+
+    return md;
+  }, []);
+
   const handleContentPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const raw = e.clipboardData.getData("text/plain");
-    if (!raw) return;
+    const html  = e.clipboardData.getData("text/html");
+    const plain = e.clipboardData.getData("text/plain");
 
-    // Replace standalone URLs (not already in []() markdown) with [Click to read more](url)
-    const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
-    const processed = raw.replace(URL_RE, (url, offset, str) => {
-      // Check if it's already inside a markdown link: ](url)
-      const before = str.slice(Math.max(0, offset - 2), offset);
-      if (before.endsWith("](")) return url;
-      return `[Click to read more](${url})`;
-    });
+    let processed: string | null = null;
 
-    // Only intercept if URLs were transformed
-    if (processed === raw) return;
+    if (html && html.trim()) {
+      // Rich content from Word, Google Docs, web pages — convert HTML to markdown
+      processed = htmlToMarkdown(html);
+    } else if (plain) {
+      // Plain text — only intervene if there are bare URLs to linkify
+      const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
+      const linkified = plain.replace(URL_RE, (url, offset, str) => {
+        const before = str.slice(Math.max(0, offset - 2), offset);
+        if (before.endsWith("](")) return url;
+        return `[Click to read more](${url})`;
+      });
+      if (linkified !== plain) processed = linkified;
+    }
+
+    if (processed === null) return;
 
     e.preventDefault();
     const ta = contentRef.current;
@@ -892,12 +1039,11 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     const end   = ta.selectionEnd;
     const next  = ta.value.slice(0, start) + processed + ta.value.slice(end);
     set({ content: next });
-    // Restore cursor after the inserted text
     requestAnimationFrame(() => {
-      ta.selectionStart = ta.selectionEnd = start + processed.length;
+      ta.selectionStart = ta.selectionEnd = start + processed!.length;
       ta.focus();
     });
-  }, []);
+  }, [htmlToMarkdown]);
 
   const fileName = editPost ? `edit_post_${editPost.id}.md` : "new_post.md";
 
