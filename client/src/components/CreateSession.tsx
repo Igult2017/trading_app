@@ -82,7 +82,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   return (
     <>
       <style>{FONT_IMPORT}{`
-        .csf-root { font-family: 'DM Mono', monospace; }
         .csf-input { width: 100%; box-sizing: border-box; }
         .csf-input:focus { outline: none; border-color: rgba(99,102,241,0.6) !important; background: rgba(99,102,241,0.05) !important; }
         .csf-deploy:not(:disabled):hover { background: #5254cc !important; }
@@ -129,7 +128,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
                 fontSize: 12,
                 fontWeight: 500,
                 color: '#ffffff',
-                fontFamily: "'DM Mono', monospace",
                 letterSpacing: '0.06em',
                 transition: 'border-color 0.2s, background 0.2s',
               }}
@@ -144,7 +142,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
             <div style={{ position: 'relative' }}>
               <span style={{
                 position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
-                color: 'rgba(255,255,255,0.5)', fontFamily: "'DM Mono', monospace", fontSize: 13,
+                color: 'rgba(255,255,255,0.5)', fontSize: 13,
               }}>$</span>
               <input
                 type="number"
@@ -163,7 +161,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
                   fontSize: 12,
                   fontWeight: 500,
                   color: '#ffffff',
-                  fontFamily: "'DM Mono', monospace",
                   letterSpacing: '0.06em',
                   transition: 'border-color 0.2s, background 0.2s',
                 }}
@@ -189,7 +186,6 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
               borderRadius: 0,
               padding: '15px 20px',
               color: '#ffffff',
-              fontFamily: "'DM Mono', monospace",
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: '0.16em',
@@ -240,8 +236,6 @@ const GH = {
   red: "#e05555",
 };
 
-const MONO = "'DM Mono', monospace";
-
 function GhostActionBtn({ children, onClick, color }: { children: React.ReactNode; onClick: () => void; color: string }) {
   const [hov, setHov] = useState(false);
   return (
@@ -250,7 +244,7 @@ function GhostActionBtn({ children, onClick, color }: { children: React.ReactNod
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        fontFamily: MONO, fontSize: '10px', letterSpacing: '0.08em',
+        fontSize: '10px', letterSpacing: '0.08em',
         padding: '6px 14px', cursor: 'pointer',
         border: `1px solid ${color}`, background: 'transparent',
         color, opacity: hov ? 0.65 : 1, transition: 'opacity 0.15s',
@@ -268,7 +262,7 @@ function GhostModal({ children, onClose }: { children: React.ReactNode; onClose:
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 300, fontFamily: MONO,
+        zIndex: 300,
       }}
     >
       <div
@@ -287,7 +281,7 @@ function GhostField({ label, value, onChange, type = 'text', placeholder, autoFo
 }) {
   return (
     <div style={{ marginBottom: '16px' }}>
-      <label style={{ display: 'block', fontSize: '9px', letterSpacing: '0.18em', color: GH.textMuted, textTransform: 'uppercase', marginBottom: '6px', fontFamily: MONO }}>
+      <label style={{ display: 'block', fontSize: '9px', letterSpacing: '0.18em', color: GH.textMuted, textTransform: 'uppercase', marginBottom: '6px' }}>
         {label}
       </label>
       <input
@@ -298,7 +292,7 @@ function GhostField({ label, value, onChange, type = 'text', placeholder, autoFo
         autoFocus={autoFocus}
         style={{
           width: '100%', background: '#080808', border: `1px solid ${GH.border}`,
-          padding: '10px 12px', color: GH.textPrimary, fontFamily: MONO,
+          padding: '10px 12px', color: GH.textPrimary,
           fontSize: '13px', letterSpacing: '0.04em', boxSizing: 'border-box',
           outline: 'none',
         }}
@@ -339,13 +333,13 @@ function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
   return (
     <GhostModal onClose={onClose}>
-      <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: GH.green, textTransform: 'uppercase', marginBottom: '24px', fontFamily: MONO }}>
+      <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: GH.green, textTransform: 'uppercase', marginBottom: '24px' }}>
         New Session
       </div>
       <GhostField label="Session Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ALPHA-01" autoFocus />
       <GhostField label="Starting Balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" placeholder="5000" />
       {error && (
-        <div style={{ fontSize: '10px', color: GH.red, marginBottom: '12px', fontFamily: MONO }}>{error}</div>
+        <div style={{ fontSize: '10px', color: GH.red, marginBottom: '12px' }}>{error}</div>
       )}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
         <GhostActionBtn color="#333" onClick={onClose}>Cancel</GhostActionBtn>
@@ -372,17 +366,16 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
         flexDirection: 'column',
         minHeight: '220px',
         justifyContent: 'space-between',
-        fontFamily: MONO,
       }}
     >
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-          <span style={{ fontSize: '7px', fontWeight: '500', color: dim, letterSpacing: '0.04em', fontFamily: MONO }}>
+          <span style={{ fontSize: '7px', fontWeight: '500', color: dim, letterSpacing: '0.04em' }}>
             — — —
           </span>
           <span style={{
             display: 'flex', alignItems: 'center', gap: '5px',
-            fontSize: '9px', letterSpacing: '0.08em', color: dimDeep, fontFamily: MONO,
+            fontSize: '9px', letterSpacing: '0.08em', color: dimDeep,
             border: '1px solid #333333', background: 'transparent', padding: '3px 9px',
           }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3a3a3a', display: 'inline-block' }} />
@@ -390,31 +383,31 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
           </span>
         </div>
 
-        <div style={{ fontSize: '10px', color: dimDeep, marginBottom: '18px', letterSpacing: '0.05em', fontFamily: MONO }}>
+        <div style={{ fontSize: '10px', color: dimDeep, marginBottom: '18px', letterSpacing: '0.05em' }}>
           — — —
         </div>
 
-        <div style={{ fontSize: '9px', letterSpacing: '0.08em', color: dimDeep, fontFamily: MONO, marginBottom: '4px' }}>
+        <div style={{ fontSize: '9px', letterSpacing: '0.08em', color: dimDeep, marginBottom: '4px' }}>
           starting balance
         </div>
-        <div style={{ fontSize: '12px', fontWeight: '500', color: dim, marginBottom: '18px', letterSpacing: '0.02em', fontFamily: MONO }}>
+        <div style={{ fontSize: '12px', fontWeight: '500', color: dim, marginBottom: '18px', letterSpacing: '0.02em' }}>
           $ — —
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1px', background: GH.border }}>
           {['p&l', 'return', 'trades'].map((label) => (
             <div key={label} style={{ background: GH.surfaceDeep, padding: '10px' }}>
-              <div style={{ fontSize: '8px', letterSpacing: '0.1em', color: dimDeep, fontFamily: MONO, marginBottom: '5px' }}>
+              <div style={{ fontSize: '8px', letterSpacing: '0.1em', color: dimDeep, marginBottom: '5px' }}>
                 {label}
               </div>
-              <div style={{ fontSize: '13px', color: dimDeep, fontFamily: MONO }}>—</div>
+              <div style={{ fontSize: '13px', color: dimDeep }}>—</div>
             </div>
           ))}
         </div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '18px' }}>
-        <span style={{ fontSize: '10px', color: dimDeep, letterSpacing: '0.06em', fontFamily: MONO }}>
+        <span style={{ fontSize: '10px', color: dimDeep, letterSpacing: '0.06em' }}>
           no session yet
         </span>
         <div style={{ display: 'flex', gap: '6px' }}>
@@ -427,14 +420,6 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
 }
 
 const GHOST_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
-  .ghost-dm-mono, .ghost-dm-mono *, .journal-root .ghost-dm-mono, .journal-root .ghost-dm-mono * {
-    font-family: 'DM Mono', monospace !important;
-    font-weight: 400 !important;
-    letter-spacing: normal !important;
-  }
-  .ghost-dm-mono input::placeholder { color: #252525 !important; }
-  .ghost-dm-mono input:focus { outline: none !important; border-color: #2a2a2a !important; }
   @keyframes ghost-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 `;
 
@@ -445,7 +430,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
   const [showCreate, setShowCreate] = useState(false);
 
   return (
-    <div className="ghost-dm-mono" style={{ fontFamily: MONO, padding: '28px 32px' }}>
+    <div style={{ padding: '28px 32px' }}>
       <style>{GHOST_CSS}</style>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
@@ -585,7 +570,6 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
         transition: 'border-color 0.2s, transform 0.2s, opacity 0.4s',
         transform: visible ? (hov && !isActive ? 'translateY(-2px)' : 'translateY(0)') : 'translateY(20px)',
         opacity: visible ? 1 : 0,
-        fontFamily: "'DM Mono', monospace",
       }}
     >
       {isWinner && (
@@ -609,14 +593,14 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                   style={{
                     fontSize: 11, fontWeight: 700, color: '#f0ede6', background: 'transparent',
                     border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
-                    flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
+                    flex: 1, letterSpacing: '0.04em',
                     textTransform: 'uppercase', padding: '2px 0', minWidth: 0,
                   }}
                 />
                 <button onMouseDown={e => { e.preventDefault(); commitNameEdit(); }}
-                  style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '2px 7px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✓</button>
+                  style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '2px 7px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✓</button>
                 <button onMouseDown={e => { e.preventDefault(); cancelNameEdit(); }}
-                  style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '2px 7px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✗</button>
+                  style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '2px 7px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✗</button>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -681,13 +665,13 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
                 style={{
                   fontSize: 13, fontWeight: 700, color: '#f0ede6', background: 'transparent',
                   border: 'none', borderBottom: '1px solid rgba(29,158,117,0.6)', outline: 'none',
-                  flex: 1, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.01em', padding: '2px 0',
+                  flex: 1, letterSpacing: '-0.01em', padding: '2px 0',
                 }}
               />
               <button onMouseDown={e => { e.preventDefault(); commitEdit(); }}
-                style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '3px 8px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✓</button>
+                style={{ background: 'none', border: '1px solid rgba(29,158,117,0.5)', color: '#1D9E75', fontSize: 9, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✓</button>
               <button onMouseDown={e => { e.preventDefault(); cancelEdit(); }}
-                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '3px 8px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", flexShrink: 0, borderRadius: 4 }}>✗</button>
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(232,230,224,0.4)', fontSize: 9, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, borderRadius: 4 }}>✗</button>
             </div>
           ) : (
             <div
@@ -754,7 +738,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
             onMouseEnter={() => setEditHov(true)}
             onMouseLeave={() => setEditHov(false)}
             style={{
-              fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: '0.08em',
+              fontSize: 10, letterSpacing: '0.08em',
               padding: '4px 12px', borderRadius: 5, cursor: 'pointer', transition: 'all 0.15s',
               border: `1px solid ${editHov ? 'rgba(29,158,117,0.5)' : 'rgba(29,158,117,0.25)'}`,
               background: editHov ? 'rgba(29,158,117,0.1)' : 'transparent',
@@ -769,7 +753,7 @@ const SessionCard = ({ session, isActive, onSelect, onDelete, index }: {
             onMouseEnter={() => setDeleteHov(true)}
             onMouseLeave={() => setDeleteHov(false)}
             style={{
-              fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: '0.08em',
+              fontSize: 10, letterSpacing: '0.08em',
               padding: '4px 12px', borderRadius: 5, cursor: 'pointer', transition: 'all 0.15s',
               border: `1px solid ${deleteHov ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.1)'}`,
               background: deleteHov ? 'rgba(255,80,80,0.08)' : 'transparent',
@@ -816,7 +800,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Loading sessions...</span>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Loading sessions...</span>
       </div>
     );
   }
@@ -826,7 +810,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
   if (sessions.length === 0) {
     return (
-      <div className="ghost-dm-mono" style={{ fontFamily: MONO, padding: '28px 8px' }}>
+      <div style={{ padding: '28px 8px' }}>
         <style>{GHOST_CSS}</style>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
@@ -854,8 +838,8 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
         @media (max-width: 480px) { .sessions-grid { grid-template-columns: 1fr; } }
       `}</style>
 
-      <div style={{ position: 'relative', fontFamily: "'DM Mono', monospace" }}>
-        <div className="sessions-grid ghost-dm-mono">
+      <div style={{ position: 'relative' }}>
+        <div className="sessions-grid">
           {sessions.map((session, i) => (
             <SessionCard
               key={session.id}
