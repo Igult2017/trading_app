@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 type Mode = 'login' | 'signup';
 
@@ -94,6 +95,21 @@ export default function AuthPage() {
             ? 'Sign in to access your trading dashboard.'
             : 'Join FSD Journal and start tracking your trades.'}
         </p>
+
+        {!supabase && mode === 'login' && (
+          <div style={{
+            background: 'rgba(59,130,246,0.08)',
+            border: '1px solid rgba(59,130,246,0.25)',
+            borderRadius: 8,
+            padding: '10px 14px',
+            marginBottom: 16,
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.55)',
+            lineHeight: 1.6,
+          }}>
+            <span style={{ color: '#3b82f6', fontWeight: 600 }}>Admin mode</span> — use your admin email and admin secret as the password.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           {mode === 'signup' && (

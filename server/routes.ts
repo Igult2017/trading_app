@@ -1880,6 +1880,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   1. ADMIN_EMAIL env var — explicit, zero race condition.
   //   2. Atomic DB check: if no admin exists yet → first registrant becomes admin.
   //   3. Everyone else → 'user'.
+  // ── Local admin login (fallback when Supabase is not configured) ────────────
+  app.post("/api/auth/local-login", async (req: Request, res: Response) => {
+    const adminEmail  = process.env.ADMIN_EMAIL;
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminEmail || !adminSecret) {
+      return res.status(503).json({ error: 'Local auth not configured' });
+    }
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) {
+      return res.status(400).json({ error: 'email and password are required' });
+    }
+    if (email.toLowerCase() !== adminEmail.toLowerCase() || password !== adminSecret) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    return res.json({ token: adminSecret, role: 'admin', email: adminEmail });
+  });
+
   app.post("/api/auth/setup", async (req: Request, res: Response) => {
     const authUser = await verifyToken(req.headers.authorization);
     if (!authUser) return res.status(401).json({ error: "Unauthorized" });
@@ -2864,7 +2881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
-      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, status, section, signalData, authorData } = req.body;
+      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, videoUrl, status, section, signalData, authorData } = req.body;
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
       const post = await storage.createBlogPost({
         title: title.trim(),
@@ -2877,6 +2894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: date || new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
         readTime: readTime ?? '5 min',
         imageUrl: imageUrl ?? '',
+        videoUrl: videoUrl ?? '',
         status: status ?? 'Draft',
         section: section ?? 'blog',
         signalData: signalData ?? null,
