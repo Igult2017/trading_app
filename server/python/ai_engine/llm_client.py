@@ -12,7 +12,8 @@ from __future__ import annotations
 import os
 import json
 
-MODEL = "gemini-2.5-pro"
+MODEL    = "gemini-2.5-pro"      # used for analysis + strategy (deeper reasoning)
+MODEL_QA = "gemini-2.0-flash"    # used for chat — 3-5× faster, equal quality for Q&A
 
 
 def _api_key() -> str:
@@ -288,20 +289,50 @@ def _build_strategy_prompt(payload: dict) -> str:
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
-def call_llm(mode: str, payload: dict, question: str = "") -> str:
+def call_llm(
+    mode: str,
+    payload: dict,
+    question: str = "",
+    messages: list[dict] | None = None,
+) -> str:
     """
     Call Gemini and return the response as a plain string.
     mode: "analysis" | "qa" | "strategy"
     payload: serialisable dict of pre-computed findings
     question: only used in qa mode
+    messages: optional multi-turn history (qa mode only) —
+              [{"role": "user"|"model", "content": "..."}]
     """
     from google.genai import types  # type: ignore
 
+    model = MODEL
     if mode == "analysis":
-        user_content = _build_analysis_prompt(payload)
+        user_content: object = _build_analysis_prompt(payload)
     elif mode == "qa":
+        model = MODEL_QA
         local_answer = payload.pop("_local_answer", "")
-        user_content = _build_qa_prompt(question, local_answer, payload)
+        primer = _build_qa_prompt(question, local_answer, payload)
+
+        if messages and len(messages) > 1:
+            # Multi-turn: stitch the data primer in front of the most recent
+            # user message so Gemini sees both the conversation history and
+            # the freshly computed trade context.
+            history = list(messages[:-1])
+            last_user = messages[-1].get("content", question) or question
+            contents = []
+            for m in history:
+                role = "user" if m.get("role") == "user" else "model"
+                txt  = m.get("content") or ""
+                if not txt:
+                    continue
+                contents.append({"role": role, "parts": [{"text": txt}]})
+            contents.append({
+                "role":  "user",
+                "parts": [{"text": f"{primer}\n\nMy current question: {last_user}"}],
+            })
+            user_content = contents
+        else:
+            user_content = primer
     elif mode == "strategy":
         user_content = _build_strategy_prompt(payload)
     else:
@@ -310,7 +341,7 @@ def call_llm(mode: str, payload: dict, question: str = "") -> str:
     client = _client()
 
     response = client.models.generate_content(
-        model=MODEL,
+        model=model,
         contents=user_content,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTION,

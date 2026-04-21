@@ -53,9 +53,13 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: msgs, sessionId }),
     });
-    if (!res.ok) throw new Error(`${res.status}`);
-    const data = await res.json();
-    return data.reply as string;
+    let data: any = null;
+    try { data = await res.json(); } catch { /* non-JSON response */ }
+    if (!res.ok) {
+      const serverMsg = (data && (data.error || data.message)) || "";
+      throw new Error(serverMsg || `Request failed (${res.status})`);
+    }
+    return (data?.reply as string) ?? "";
   };
 
   const send = async (override?: string) => {
@@ -70,8 +74,8 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     try {
       const reply = await callAI(next);
       setMessages([...next, { role: "model", content: reply }]);
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }

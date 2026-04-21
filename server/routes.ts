@@ -19,6 +19,7 @@ import { computeDrawdown } from "./services/drawdownCalculator";
 import { computeTFMetrics, computeTFMatrix } from "./services/tfMetricsCalculator";
 import { computeStrategyAudit } from "./services/strategyAuditCalculator";
 import { computeAIAnalysis, computeAIStrategy, computeAIQuery } from "./services/aiEngineCalculator";
+import { askTraderAI } from "./services/aiQAWorker";
 import { remapJournalEntry } from "./lib/remapJournalEntry";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
@@ -1298,15 +1299,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Route through the Python AI engine (QA mode) — grounded in real data
-      const result = await computeAIQuery(trades, question);
-
-      if (!result.success) {
-        console.error("[TraderAI] AI engine error:", result.error);
-        return res.status(500).json({ error: result.error || "AI engine failed" });
+      // Pre-compute metrics so chat mode has the same rich context as the
+      // analysis / strategy panels (profit factor, expectancy, drawdown, etc.).
+      let metricsContext: Record<string, any> | undefined;
+      try {
+        const m = await computeMetrics(rawTrades);
+        if (m && m.success && (m as any).result) {
+          metricsContext = (m as any).result;
+        }
+      } catch (mErr: any) {
+        console.warn("[TraderAI] Metrics computation failed, continuing without:", mErr?.message);
       }
 
-      return res.json({ reply: result.answer ?? "" });
+      // Route through the warm Python QA worker — grounded in real data,
+      // multi-turn aware, with metrics context for richer answers.
+      try {
+        const answer = await askTraderAI({
+          trades,
+          question,
+          messages,
+          metrics_context: metricsContext,
+        });
+        return res.json({ reply: answer ?? "" });
+      } catch (engineErr: any) {
+        console.error("[TraderAI] AI worker error:", engineErr?.message);
+        return res.status(500).json({
+          error: engineErr?.message || "AI engine failed",
+        });
+      }
     } catch (err: any) {
       console.error("[TraderAI] Error:", err.message);
       return res.status(500).json({ error: err.message || "AI request failed" });

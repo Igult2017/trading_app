@@ -160,6 +160,51 @@ def _format_metrics_context(metrics: dict) -> dict:
     return useful
 
 
+# ── Q&A entry point (used by main.py and qa_worker.py) ───────────────────────
+
+def run_qa(
+    trades: list[dict],
+    question: str,
+    messages: list[dict] | None = None,
+    metrics_context: dict | None = None,
+) -> str:
+    """
+    Build the QA payload (router answer + supporting context) and call Gemini.
+    Supports multi-turn `messages` for conversational memory.
+    """
+    n           = len(trades)
+    baseline_wr = global_win_rate(trades)
+    notes       = analyze_notes(trades)
+
+    local_answer = route_query(question, trades)
+
+    payload: dict[str, Any] = {
+        "_local_answer":     local_answer,
+        "total_trades":      n,
+        "baseline_win_rate": f"{baseline_wr:.1%}",
+        "notes_coverage":    f"{notes.coverage_pct:.0f}%",
+    }
+
+    if metrics_context:
+        payload["metrics_summary"] = _format_metrics_context(metrics_context)
+
+    # Always provide a small data summary so chat mode has at least as much
+    # context as the dedicated panels.
+    patterns = analyze_patterns(trades)
+    if patterns.top_edges:
+        payload["top_edges"] = _serialise([
+            combo_to_finding(c, positive=True) for c in patterns.top_edges[:3]
+        ])
+    if patterns.top_drains:
+        payload["top_drains"] = _serialise([
+            combo_to_finding(c, positive=False) for c in patterns.top_drains[:3]
+        ])
+    if notes.emotion_correlation:
+        payload["emotion_summary"] = _serialise(notes.emotion_correlation[:3])
+
+    return call_llm("qa", payload, question=question, messages=messages)
+
+
 # ── Core orchestrator ─────────────────────────────────────────────────────────
 
 def run(
@@ -278,16 +323,12 @@ def run(
 
     # ── Q&A mode ──────────────────────────────────────────────────────────────
     elif mode == "qa":
-        local_answer = route_query(question, trades)
-        payload = {
-            "_local_answer":     local_answer,
-            "total_trades":      n,
-            "baseline_win_rate": f"{baseline_wr:.1%}",
-            "notes_coverage":    notes.coverage_pct,
-        }
-        if metrics_context:
-            payload["metrics_summary"] = _format_metrics_context(metrics_context)
-        answer = call_llm("qa", payload, question=question)
+        answer = run_qa(
+            trades=trades,
+            question=question,
+            messages=None,
+            metrics_context=metrics_context,
+        )
         return {"mode": "qa", "question": question, "answer": answer}
 
     # ── Strategy mode ─────────────────────────────────────────────────────────
