@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings, ChevronRight, Power, Flame, Shield } from 'lucide-react';
+import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext";
 
 const TICKER_DATA = [
@@ -43,98 +43,220 @@ interface JournalHeaderProps {
   onToggleDarkMode: () => void;
 }
 
-function ProfileDropdown({ dm, dropdownRef, displayName, avatarLetter, onLogout }: {
+const PROFILE_CARD_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+  .pc-root, .pc-root * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  .pc-root {
+    font-family: 'DM Mono', monospace;
+    width: 300px;
+    background: #13131f;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    overflow: hidden;
+    animation: pc-rise .4s cubic-bezier(.34,1.56,.64,1) both;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+  }
+
+  @keyframes pc-rise {
+    from { opacity: 0; transform: translateY(12px) scale(.96); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes pc-fadex {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes pc-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: .35; transform: scale(.7); }
+  }
+
+  .pc-top { padding: 20px 18px 18px; display: flex; align-items: center; gap: 14px; }
+
+  .pc-av {
+    width: 48px; height: 48px; border-radius: 8px;
+    background: #1e1b3a;
+    border: 1px solid rgba(120,100,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 500; color: #a899ff;
+    flex-shrink: 0; position: relative;
+  }
+  .pc-av-ring {
+    position: absolute; inset: -3px; border-radius: 11px;
+    border: 1.5px solid rgba(120,100,255,0.18);
+    pointer-events: none;
+  }
+
+  .pc-meta { flex: 1; min-width: 0; }
+  .pc-name {
+    font-size: 13.5px; font-weight: 500; color: #ede9ff;
+    letter-spacing: -.3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pc-pill {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
+    background: rgba(120,100,255,0.12);
+    border: 1px solid rgba(120,100,255,0.22);
+    border-radius: 3px; padding: 3px 8px;
+    font-size: 9.5px; font-weight: 500; color: #9585f5;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+  .pc-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #9585f5;
+    animation: pc-pulse 2.2s ease-in-out infinite; flex-shrink: 0;
+  }
+
+  .pc-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
+    margin: 0 18px;
+  }
+
+  .pc-streak {
+    margin: 10px 8px 6px; padding: 13px 14px;
+    background: #0f0f1a;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+    transition: background .18s, border-color .18s;
+    animation: pc-fadex .35s .1s ease both;
+  }
+  .pc-streak:hover { background: #161625; border-color: rgba(255,255,255,0.1); }
+
+  .pc-sk-ico {
+    width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
+    background: rgba(255,130,40,.1);
+    border: 1px solid rgba(255,130,40,.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pc-sk-body { flex: 1; }
+  .pc-sk-label {
+    font-size: 9px; color: rgba(255,255,255,.28);
+    letter-spacing: 1.4px; text-transform: uppercase;
+    font-family: 'DM Mono', monospace; margin-bottom: 3px;
+  }
+  .pc-sk-val { font-size: 14px; font-weight: 500; color: #ede9ff; letter-spacing: -.3px; }
+
+  .pc-chevron {
+    color: rgba(255,255,255,.18); font-size: 16px;
+    transition: all .18s; line-height: 1;
+  }
+  .pc-streak:hover .pc-chevron { color: rgba(255,255,255,.45); transform: translateX(2px); }
+
+  .pc-menu { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 1px; }
+
+  .pc-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 12px; border-radius: 5px; cursor: pointer;
+    color: rgba(255,255,255,.5); font-size: 12.5px; font-weight: 400;
+    font-family: 'DM Mono', monospace;
+    transition: all .15s; background: transparent; border: none;
+    width: 100%; text-align: left;
+    animation: pc-fadex .35s ease both;
+  }
+  .pc-item:nth-child(1) { animation-delay: .14s; }
+  .pc-item:nth-child(2) { animation-delay: .2s; }
+  .pc-item:hover { background: rgba(255,255,255,.04); color: rgba(255,255,255,.82); }
+  .pc-item.danger { color: rgba(235,80,75,.65); }
+  .pc-item.danger:hover { background: rgba(235,80,75,.07); color: rgba(235,100,95,.9); }
+
+  .pc-ico {
+    width: 30px; height: 30px; border-radius: 4px; flex-shrink: 0;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.07);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .pc-item:hover .pc-ico { background: rgba(255,255,255,.09); }
+  .pc-item.danger .pc-ico { background: rgba(235,80,75,.07); border-color: rgba(235,80,75,.15); }
+  .pc-item.danger:hover .pc-ico { background: rgba(235,80,75,.13); }
+`;
+
+const PcFlameIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M8 14c-3 0-5-2.2-5-5 0-2 1-3.5 2.5-4.5C5 6 5.5 7 6.5 7.5 6.2 6.5 6.5 5 7.5 4c0 1.5 1 2.5 1.5 3.5C9.5 6.5 9 5 9.5 3.5 11 4.5 13 6.5 13 9c0 2.8-2 5-5 5z" fill="#ff8228" opacity=".9"/>
+    <path d="M8 12.5c-1.4 0-2.5-1-2.5-2.5 0-1 .6-1.8 1.5-2.2-.1.7.2 1.4.8 1.8C7.6 9 7.8 8 8.5 7c.5.8 1 1.8 1 3 0 1.4-1 2.5-1.5 2.5z" fill="#ffb347" opacity=".8"/>
+  </svg>
+);
+
+const PcSettingsIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+);
+
+const PcLogoutIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M7 2v4" stroke="rgba(235,80,75,.85)" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M4.2 3.5A5 5 0 1 0 9.8 3.5" stroke="rgba(235,80,75,.85)" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+  </svg>
+);
+
+function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
   dm: boolean;
   dropdownRef: RefObject<HTMLDivElement>;
   displayName: string;
   avatarLetter: string;
   onLogout: () => void;
 }) {
-  const border = dm ? '#1a2d45' : '#e2e8f0';
-  const muted  = dm ? '#4a6580' : '#94a3b8';
-  const text   = dm ? '#c8d8e8' : '#0f172a';
-  const rowBg  = dm ? '#111c2d' : '#f1f5f9';
+  useEffect(() => {
+    const id = 'pc-profile-card-css';
+    if (document.getElementById(id)) return;
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = PROFILE_CARD_CSS;
+    document.head.appendChild(el);
+  }, []);
+
+  const streakDays = 1;
+  const streakLabel = streakDays === 1 ? '1 day' : `${streakDays} days`;
 
   return createPortal(
-    <div ref={dropdownRef} style={{
-      position: 'fixed', top: 92, right: 12, width: 290,
-      background: dm ? '#0d1520' : '#ffffff',
-      border: `1px solid ${border}`, borderRadius: 14,
-      boxShadow: dm ? '0 24px 64px rgba(0,0,0,0.75)' : '0 16px 48px rgba(0,0,0,0.15)',
-      overflow: 'hidden', zIndex: 9999,
-    }}>
-
-      {/* ── Hello / user header ── */}
-      <div style={{
-        padding: '14px 16px 12px',
-        background: dm ? 'linear-gradient(135deg,#0f1e35,#111c2d)' : 'linear-gradient(135deg,#f8fafc,#f1f5f9)',
-        borderBottom: `1px solid ${border}`,
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <div style={{
-          width: 42, height: 42, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#1e3a5f,#3b82f6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, fontSize: 16, fontWeight: 800, color: '#fff',
-          fontFamily: "'Montserrat',sans-serif",
-          boxShadow: '0 0 0 3px rgba(59,130,246,0.2)',
-        }}>{avatarLetter}</div>
-        <div>
-          <div style={{ fontSize: 13, color: dm ? '#94a3b8' : '#475569', fontFamily: "'Inter',sans-serif" }}>
-            Hello, <span style={{ fontWeight: 700, color: '#3b82f6' }}>{displayName}</span>
+    <div
+      ref={dropdownRef}
+      style={{ position: 'fixed', top: 92, right: 12, zIndex: 9999 }}
+    >
+      <div className="pc-root">
+        <div className="pc-top">
+          <div className="pc-av">
+            {avatarLetter}
+            <div className="pc-av-ring" />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
-            <Shield size={9} color="#3b82f6" />
-            <span style={{ fontSize: 9, fontWeight: 700, color: '#3b82f6', fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.08em', textTransform: 'uppercase' }}>Premium</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Login Streak ── */}
-      <div style={{ padding: '12px 12px 6px' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: rowBg, border: `1px solid ${dm ? '#1e3a5f' : '#e2e8f0'}`,
-          borderRadius: 10, padding: '10px 12px', cursor: 'pointer', transition: 'background 0.15s',
-        }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dm ? '#162235' : '#e2e8f0'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = rowBg; }}
-        >
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg,#1e3a5f,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Flame size={18} color="#60a5fa" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: muted, fontFamily: "'Montserrat',sans-serif", textTransform: 'uppercase' }}>Login Streak</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: text, fontFamily: "'Inter',sans-serif", marginTop: 2 }}>1 Days</div>
-          </div>
-          <ChevronRight size={15} color={muted} />
-        </div>
-      </div>
-
-      {/* ── Menu items ── */}
-      <div style={{ padding: '4px 6px 6px' }}>
-        {[
-          { icon: <Settings size={14} color={muted} />, label: 'Account settings', red: false, action: undefined },
-          { icon: <Power   size={14} color="#ef4444" strokeWidth={2.2} />, label: 'Logout', red: true, action: onLogout },
-        ].map(({ icon, label, red, action }) => (
-          <button key={label} onClick={action} style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-            padding: '9px 10px', background: 'transparent', border: 'none', borderRadius: 8,
-            cursor: 'pointer', color: red ? '#ef4444' : (dm ? '#94a3b8' : '#475569'),
-            fontSize: 13, fontFamily: "'Inter',sans-serif", fontWeight: red ? 600 : 500,
-            transition: 'background 0.15s', textAlign: 'left',
-          }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = red ? 'rgba(239,68,68,0.08)' : rowBg; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: red ? 'rgba(239,68,68,0.08)' : rowBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {icon}
+          <div className="pc-meta">
+            <div className="pc-name">{displayName}</div>
+            <div className="pc-pill">
+              <span className="pc-dot" />
+              premium
             </div>
-            {label}
-          </button>
-        ))}
-      </div>
+          </div>
+        </div>
 
+        <div className="pc-rule" />
+
+        <div className="pc-streak">
+          <div className="pc-sk-ico"><PcFlameIcon /></div>
+          <div className="pc-sk-body">
+            <div className="pc-sk-label">login streak</div>
+            <div className="pc-sk-val">{streakLabel}</div>
+          </div>
+          <span className="pc-chevron">›</span>
+        </div>
+
+        <div className="pc-menu">
+          <button className="pc-item" type="button">
+            <span className="pc-ico"><PcSettingsIcon /></span>
+            account settings
+          </button>
+          <button className="pc-item danger" type="button" onClick={onLogout}>
+            <span className="pc-ico"><PcLogoutIcon /></span>
+            logout
+          </button>
+        </div>
+      </div>
     </div>,
     document.body
   );
