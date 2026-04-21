@@ -22,7 +22,7 @@ FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Install Python, pip, and system libraries required by OpenCV, Tesseract, matplotlib
+# Install Python, pip, system libraries, and PostgreSQL client (for migration scripts)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender-dev \
     libgl1 \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install all Python dependencies the server actually uses
@@ -70,12 +71,15 @@ COPY server/python ./server/python
 COPY python ./python
 
 # Create startup script
+COPY docker-migrate.sql /app/docker-migrate.sql
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'echo "=== Environment Check ==="' >> /app/start.sh && \
     echo 'echo "NODE_ENV: $NODE_ENV"' >> /app/start.sh && \
     echo 'echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo YES || echo NO)"' >> /app/start.sh && \
     echo 'echo "GOOGLE_API_KEY set: $([ -n "$GOOGLE_API_KEY" ] && echo YES || echo NO)"' >> /app/start.sh && \
     echo 'echo "========================="' >> /app/start.sh && \
+    echo 'echo "=== Running DB migrations ==="' >> /app/start.sh && \
+    echo 'if [ -n "$DATABASE_URL" ]; then psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"; fi' >> /app/start.sh && \
     echo 'exec node dist/index.prod.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
