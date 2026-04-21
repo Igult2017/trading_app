@@ -366,7 +366,6 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
-        minHeight: 250,
       }}
     >
       <div style={{ padding: '1.25rem 1.25rem 0', flex: 1 }}>
@@ -438,6 +437,12 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
   );
 }
 
+const SESSIONS_GRID_CSS = `
+  .sessions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  @media (max-width: 700px) { .sessions-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .sessions-grid { grid-template-columns: 1fr; } }
+`;
+
 const GHOST_CSS = `
   @keyframes ghost-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 `;
@@ -449,10 +454,10 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
   const [showCreate, setShowCreate] = useState(false);
 
   return (
-    <div style={{ padding: '28px 32px' }}>
-      <style>{GHOST_CSS}</style>
+    <div style={{ position: 'relative' }}>
+      <style>{GHOST_CSS}{SESSIONS_GRID_CSS}</style>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+      <div className="sessions-grid">
         {GHOST_OPACITIES.map((op, i) => (
           <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
         ))}
@@ -829,10 +834,10 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
   if (sessions.length === 0) {
     return (
-      <div style={{ padding: '28px 8px' }}>
-        <style>{GHOST_CSS}</style>
+      <div style={{ position: 'relative' }}>
+        <style>{GHOST_CSS}{SESSIONS_GRID_CSS}</style>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+        <div className="sessions-grid">
           {ghosts.map((op, i) => (
             <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
           ))}
