@@ -49,7 +49,3 @@ expertMode = true
 [userenv]
 
 [userenv.shared]
-PYTHON_BIN = "/home/runner/workspace/.pythonlibs/bin/python3"
-ADMIN_EMAIL = "antiper@gmail.com"
-ADMIN_SECRET = "171e53bba4be675c58e0e7ba9d00c306ab6e18bf8bf8ac0e"
-VITE_ADMIN_SECRET = "171e53bba4be675c58e0e7ba9d00c306ab6e18bf8bf8ac0e"
