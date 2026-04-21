@@ -26,7 +26,7 @@ export async function initializeDatabase() {
       // Trades table
       `CREATE TABLE IF NOT EXISTS trades (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR REFERENCES users(id),
+        user_id VARCHAR,
         symbol TEXT NOT NULL,
         type TEXT NOT NULL,
         strategy TEXT NOT NULL,
@@ -53,7 +53,7 @@ export async function initializeDatabase() {
       // Trading Sessions table (CRITICAL)
       `CREATE TABLE IF NOT EXISTS trading_sessions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR REFERENCES users(id),
+        user_id VARCHAR,
         session_name TEXT NOT NULL,
         starting_balance DECIMAL(12, 2) NOT NULL,
         status TEXT DEFAULT 'active',
@@ -63,8 +63,8 @@ export async function initializeDatabase() {
       // Journal Entries table
       `CREATE TABLE IF NOT EXISTS journal_entries (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR REFERENCES users(id),
-        session_id VARCHAR REFERENCES trading_sessions(id),
+        user_id VARCHAR,
+        session_id VARCHAR,
         instrument TEXT,
         pair_category TEXT,
         direction TEXT,
@@ -267,7 +267,7 @@ export async function initializeDatabase() {
       // MT5 / broker account credentials (encrypted at rest)
       `CREATE TABLE IF NOT EXISTS copy_accounts (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR REFERENCES users(id),
+        user_id VARCHAR,
         nickname TEXT NOT NULL,
         platform TEXT NOT NULL,
         broker_server TEXT,
@@ -284,7 +284,7 @@ export async function initializeDatabase() {
       // Signal provider / master account profiles
       `CREATE TABLE IF NOT EXISTS copy_masters (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR REFERENCES users(id),
+        user_id VARCHAR,
         account_id VARCHAR REFERENCES copy_accounts(id),
         source_type TEXT NOT NULL,
         strategy_name TEXT,
@@ -328,7 +328,7 @@ export async function initializeDatabase() {
       // Follower account copy settings per master subscription
       `CREATE TABLE IF NOT EXISTS copy_followers (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR REFERENCES users(id),
+        user_id VARCHAR,
         account_id VARCHAR REFERENCES copy_accounts(id),
         master_id VARCHAR REFERENCES copy_masters(id),
         lot_mode TEXT NOT NULL DEFAULT 'mult',
