@@ -358,8 +358,8 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
   return (
     <div
       style={{
-        background: '#121526',
-        border: `1px solid ${GH.border}`,
+        background: '#0a0c16',
+        border: '1px solid #15182a',
         borderRadius: 0,
         opacity,
         display: 'flex',
