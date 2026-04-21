@@ -4,7 +4,27 @@ import { sql } from 'drizzle-orm';
 export async function initializeDatabase() {
   try {
     console.log('[Database] Initializing schema...');
-    
+
+    // Drop legacy FK constraints that reference the local users table.
+    // These break when Supabase auth UUIDs are used as user_id since they
+    // don't exist in the local users table.
+    const dropConstraints = [
+      `ALTER TABLE trading_sessions DROP CONSTRAINT IF EXISTS trading_sessions_user_id_fkey`,
+      `ALTER TABLE journal_entries  DROP CONSTRAINT IF EXISTS journal_entries_user_id_fkey`,
+      `ALTER TABLE journal_entries  DROP CONSTRAINT IF EXISTS journal_entries_session_id_fkey`,
+      `ALTER TABLE trades           DROP CONSTRAINT IF EXISTS trades_user_id_fkey`,
+      `ALTER TABLE copy_accounts    DROP CONSTRAINT IF EXISTS copy_accounts_user_id_fkey`,
+      `ALTER TABLE copy_masters     DROP CONSTRAINT IF EXISTS copy_masters_user_id_fkey`,
+      `ALTER TABLE copy_followers   DROP CONSTRAINT IF EXISTS copy_followers_user_id_fkey`,
+    ];
+    for (const stmt of dropConstraints) {
+      try {
+        await db.execute(sql.raw(stmt));
+      } catch (_) {
+        // Table may not exist yet on a fresh deploy — safe to ignore
+      }
+    }
+
     // Create all required tables with proper definitions
     const createTableStatements = [
       // Users table
