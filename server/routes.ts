@@ -223,6 +223,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Leaderboard (public — no auth required) ---
+  app.get("/api/leaderboard", async (req, res) => {
+    try {
+      const period = (req.query.period as string) || 'all';
+      let dateFilter = '';
+      if (period === 'daily')   dateFilter = `AND je.created_at >= NOW() - INTERVAL '1 day'`;
+      if (period === 'weekly')  dateFilter = `AND je.created_at >= NOW() - INTERVAL '7 days'`;
+      if (period === 'monthly') dateFilter = `AND je.created_at >= NOW() - INTERVAL '30 days'`;
+
+      const { rows } = await pool.query(`
+        SELECT
+          je.user_id,
+          up.email,
+          COUNT(*)                                                                        AS total_trades,
+          COUNT(*) FILTER (WHERE COALESCE(je.profit_loss, 0) > 0)                        AS wins,
+          ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                    AS total_pnl,
+          ROUND(CAST(
+            SUM(CASE WHEN je.profit_loss > 0 THEN je.profit_loss ELSE 0 END) /
+            NULLIF(ABS(SUM(CASE WHEN je.profit_loss < 0 THEN je.profit_loss ELSE 0 END)), 0)
+          AS numeric), 2)                                                                 AS profit_factor
+        FROM journal_entries je
+        LEFT JOIN user_profiles up ON up.id = je.user_id
+        WHERE je.profit_loss IS NOT NULL
+          ${dateFilter}
+        GROUP BY je.user_id, up.email
+        HAVING COUNT(*) >= 1
+        ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
+        LIMIT 50
+      `);
+
+      // Fetch sparkline data (last 10 trade PnL values) for each user
+      const userIds = rows.map((r: any) => r.user_id).filter(Boolean);
+      let sparklines: Record<string, number[]> = {};
+      if (userIds.length > 0) {
+        const placeholders = userIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+        const { rows: sparkRows } = await pool.query(`
+          SELECT user_id, profit_loss, created_at
+          FROM (
+            SELECT user_id, profit_loss, created_at,
+                   ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+            FROM journal_entries
+            WHERE user_id IN (${placeholders}) AND profit_loss IS NOT NULL
+          ) sub
+          WHERE rn <= 10
+          ORDER BY user_id, created_at ASC
+        `, userIds);
+
+        for (const row of sparkRows) {
+          if (!sparklines[row.user_id]) sparklines[row.user_id] = [];
+          sparklines[row.user_id].push(parseFloat(row.profit_loss));
+        }
+      }
+
+      function anonymize(email: string | null): string {
+        if (!email) return 'Trader';
+        const [local] = email.split('@');
+        const visible = local.slice(0, 3);
+        return `${visible}***`;
+      }
+
+      const leaderboard = rows.map((r: any, index: number) => {
+        const trades   = parseInt(r.total_trades);
+        const wins     = parseInt(r.wins);
+        const winRate  = trades > 0 ? Math.round((wins / trades) * 100) : 0;
+        const rawPnl   = parseFloat(r.total_pnl) || 0;
+        const pf       = parseFloat(r.profit_factor) || 0;
+        const growth   = sparklines[r.user_id] || [0];
+
+        return {
+          rank:         index + 1,
+          userId:       r.user_id,
+          name:         anonymize(r.email),
+          avatar:       anonymize(r.email).slice(0, 2).toUpperCase(),
+          pnl:          rawPnl,
+          winRate,
+          trades,
+          profitFactor: parseFloat(pf.toFixed(2)),
+          growth,
+        };
+      });
+
+      const totalPnl     = leaderboard.reduce((s: number, t: any) => s + t.pnl, 0);
+      const avgWinRate   = leaderboard.length ? Math.round(leaderboard.reduce((s: number, t: any) => s + t.winRate, 0) / leaderboard.length) : 0;
+      const totalTrades  = leaderboard.reduce((s: number, t: any) => s + t.trades, 0);
+
+      res.json({ leaderboard, summary: { totalPnl, avgWinRate, totalTrades, activeTraders: leaderboard.length } });
+    } catch (error) {
+      console.error('[Leaderboard] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    }
+  });
+
   // --- Session Routes ---
   app.get("/api/sessions", async (req, res) => {
     const auth = await requireAuth(req, res);

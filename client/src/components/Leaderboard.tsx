@@ -1,24 +1,40 @@
-import React, { useState, useMemo } from 'react';
-import { Trophy, TrendingUp, Medal, Percent } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Trophy, TrendingUp, Medal, Percent, Loader2, Users } from 'lucide-react';
 
-const mockTraders = [
-  { id: 1, name: "Sarah 'Scalper' Jenkins", avatar: "SJ", pnl: 45230.50, winRate: 68, trades: 142, profitFactor: 2.1, growth: [10, 15, 12, 18, 25, 30, 45] },
-  { id: 2, name: "Marcus Volatility",        avatar: "MV", pnl: 38100.20, winRate: 54, trades: 89,  profitFactor: 1.8, growth: [5, 8, 15, 14, 22, 35, 38] },
-  { id: 3, name: "Elena Quantum",            avatar: "EQ", pnl: 31450.00, winRate: 72, trades: 56,  profitFactor: 3.4, growth: [20, 22, 21, 25, 28, 30, 31] },
-  { id: 4, name: "David Daytrader",          avatar: "DD", pnl: 28900.75, winRate: 61, trades: 210, profitFactor: 1.5, growth: [2, 10, 8, 15, 18, 24, 28] },
-  { id: 5, name: "Crypto King",              avatar: "CK", pnl: 22100.00, winRate: 45, trades: 312, profitFactor: 1.4, growth: [40, 35, 30, 25, 20, 18, 22] },
-  { id: 6, name: "Alex Hedge",               avatar: "AH", pnl: 19500.30, winRate: 59, trades: 94,  profitFactor: 1.9, growth: [5, 7, 9, 12, 15, 18, 19] },
-  { id: 7, name: "Option Queen",             avatar: "OQ", pnl: 15200.00, winRate: 65, trades: 45,  profitFactor: 2.8, growth: [10, 12, 11, 13, 14, 15, 15] },
-  { id: 8, name: "Bullish Ben",              avatar: "BB", pnl: 12400.15, winRate: 52, trades: 128, profitFactor: 1.3, growth: [2, 4, 6, 8, 10, 11, 12] },
-];
+interface Trader {
+  rank: number;
+  userId: string;
+  name: string;
+  avatar: string;
+  pnl: number;
+  winRate: number;
+  trades: number;
+  profitFactor: number;
+  growth: number[];
+}
+
+interface Summary {
+  totalPnl: number;
+  avgWinRate: number;
+  totalTrades: number;
+  activeTraders: number;
+}
 
 const Sparkline = ({ data, color }: { data: number[]; color: string }) => {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
+  if (!data || data.length < 2) {
+    return <svg width="100%" height={30} viewBox="0 0 100 30"><line x1="0" y1="15" x2="100" y2="15" stroke={color} strokeWidth="1.5" strokeOpacity="0.3" /></svg>;
+  }
+  // Build cumulative PnL for the sparkline
+  const cumulative: number[] = [];
+  let running = 0;
+  for (const v of data) { running += v; cumulative.push(running); }
+
+  const max = Math.max(...cumulative);
+  const min = Math.min(...cumulative);
   const range = Math.max(max - min, 1);
   const W = 100, H = 30;
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * W;
+  const points = cumulative.map((d, i) => {
+    const x = (i / (cumulative.length - 1)) * W;
     const y = H - ((d - min) / range) * H;
     return `${x},${y}`;
   }).join(' ');
@@ -31,20 +47,35 @@ const Sparkline = ({ data, color }: { data: number[]; color: string }) => {
 
 export default function Leaderboard() {
   const [activeCategory, setActiveCategory] = useState<'pnl' | 'winRate' | 'profitFactor'>('pnl');
-  const [activePeriod, setActivePeriod]     = useState('Weekly');
-  const [activeMetric, setActiveMetric]     = useState('Percentage');
-  const [activeMode, setActiveMode]         = useState('Demo');
+  const [activePeriod, setActivePeriod]     = useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
+  const [traders, setTraders]               = useState<Trader[]>([]);
+  const [summary, setSummary]               = useState<Summary | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/leaderboard?period=${activePeriod}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setTraders(data.leaderboard || []);
+        setSummary(data.summary || null);
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [activePeriod]);
 
   const categories = [
-    { id: 'pnl' as const,     label: 'By PnL',      icon: <TrendingUp size={14} />, color: '#34d399' },
-    { id: 'winRate' as const, label: 'By Win Rate',  icon: <Percent size={14} />,    color: '#60a5fa' },
+    { id: 'pnl'          as const, label: 'By PnL',         icon: <TrendingUp size={14} />, color: '#34d399' },
+    { id: 'winRate'      as const, label: 'By Win Rate',     icon: <Percent size={14} />,    color: '#60a5fa' },
+    { id: 'profitFactor' as const, label: 'By Profit Factor',icon: <Trophy size={14} />,     color: '#a78bfa' },
   ];
 
   const sortedTraders = useMemo(() => {
-    const items = [...mockTraders];
-    items.sort((a, b) => b[activeCategory] - a[activeCategory]);
-    return items;
-  }, [activeCategory]);
+    return [...traders].sort((a, b) => b[activeCategory] - a[activeCategory]).map((t, i) => ({ ...t, rank: i + 1 }));
+  }, [traders, activeCategory]);
 
   const podiumTraders = useMemo(() => {
     const top3 = sortedTraders.slice(0, 3);
@@ -52,196 +83,207 @@ export default function Leaderboard() {
     return [top3[1], top3[0], top3[2]];
   }, [sortedTraders]);
 
-  const accentFor = (id: typeof activeCategory) =>
+  const accentFor = (id: string) =>
     id === 'pnl' ? '#34d399' : id === 'winRate' ? '#60a5fa' : '#a78bfa';
 
+  const fmtPnl = (v: number) => {
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '-' : '+';
+    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toFixed(1)}k`;
+    return `${sign}$${abs.toFixed(2)}`;
+  };
+
   const btnBase: React.CSSProperties = {
-    padding: '7px 16px',
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    border: '1px solid #1e293b',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-    fontFamily: 'inherit',
+    padding: '7px 16px', fontSize: 11, fontWeight: 700,
+    letterSpacing: '0.08em', border: '1px solid #1e293b',
+    cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
   };
   const btnActive: React.CSSProperties  = { ...btnBase, background: '#2563eb', color: '#fff', borderColor: '#2563eb' };
-  const btnIdle: React.CSSProperties   = { ...btnBase, background: '#0f172a', color: '#64748b' };
+  const btnIdle: React.CSSProperties    = { ...btnBase, background: '#0f172a', color: '#64748b' };
 
   return (
     <div style={{ background: '#020617', color: '#f1f5f9', padding: '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
-      <div>
 
-        {/* ── Disclaimer ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: '12px 16px', marginBottom: 16, fontSize: 11, color: '#64748b', lineHeight: 1.6 }}>
-          <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Performance data displayed here reflects live journal activity from connected user accounts. Note that some accounts may use cent-denomination funding, which can inflate figures relative to standard account sizes. All rankings exist solely for community engagement and friendly competition — they do not constitute financial advice and should not be taken as a representation of returns any individual user can expect to replicate.</span>
-        </div>
+      {/* Disclaimer */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: '12px 16px', marginBottom: 16, fontSize: 11, color: '#64748b', lineHeight: 1.6 }}>
+        <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate. User identities are anonymised.</span>
+      </div>
 
-        {/* ── Single controls row ── */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-          {/* Category pills */}
-          {categories.map(c => (
-            <button key={c.id} onClick={() => setActiveCategory(c.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${activeCategory === c.id ? c.color + '60' : '#1e293b'}`, background: activeCategory === c.id ? c.color + '18' : '#0f172a', color: activeCategory === c.id ? c.color : '#64748b', transition: 'all 0.15s' }}>
-              {c.icon}{c.label}
+      {/* Controls */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        {categories.map(c => (
+          <button key={c.id} onClick={() => setActiveCategory(c.id)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${activeCategory === c.id ? c.color + '60' : '#1e293b'}`, background: activeCategory === c.id ? c.color + '18' : '#0f172a', color: activeCategory === c.id ? c.color : '#64748b', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+            {c.icon}{c.label}
+          </button>
+        ))}
+        <div style={{ width: 1, height: 22, background: '#1e293b', margin: '0 4px' }} />
+        <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
+          {(['all', 'daily', 'weekly', 'monthly'] as const).map(p => (
+            <button key={p} onClick={() => setActivePeriod(p)} style={activePeriod === p ? btnActive : btnIdle}>
+              {p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
           ))}
-          {/* Divider */}
-          <div style={{ width: 1, height: 22, background: '#1e293b', margin: '0 4px' }} />
-          {/* Period selector */}
-          <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
-            {['Daily', 'Weekly', 'Monthly'].map(p => (
-              <button key={p} onClick={() => setActivePeriod(p)} style={activePeriod === p ? btnActive : btnIdle}>{p}</button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', background: '#0f172a', border: '1px solid #1e293b', padding: '7px 12px', gap: 10 }}>
-            <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>‹</button>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>
-              {activePeriod === 'Daily' ? 'Today' : activePeriod === 'Weekly' ? 'This Week' : 'This Month'}
-            </span>
-            <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>›</button>
-          </div>
-          {/* Divider */}
-          <div style={{ width: 1, height: 22, background: '#1e293b', margin: '0 4px' }} />
-          {/* Metric toggle */}
-          <div style={{ display: 'flex', border: '1px solid #1e293b' }}>
-            {['Percentage', 'Currency'].map(o => (
-              <button key={o} onClick={() => setActiveMetric(o)} style={activeMetric === o ? btnActive : btnIdle}>{o}</button>
-            ))}
-          </div>
-          {/* Mode toggle */}
-          <div style={{ display: 'flex', border: '1px solid #1e293b', marginLeft: 'auto' }}>
-            {['Demo', 'Real'].map(m => (
-              <button key={m} onClick={() => setActiveMode(m)} style={activeMode === m ? btnActive : btnIdle}>{m}</button>
-            ))}
-          </div>
         </div>
+      </div>
 
-        {/* ── Podium ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-          {podiumTraders.map(trader => {
-            const rank = sortedTraders.findIndex(t => t.id === trader.id) + 1;
-            const isFirst = rank === 1;
-            const podiumColor = isFirst ? '#eab308' : rank === 2 ? '#94a3b8' : '#f97316';
-            return (
-              <div key={trader.id} style={{ flex: 1, minWidth: 180, position: 'relative' }}>
-                <div style={{ background: '#0f172a', border: `1px solid ${isFirst ? 'rgba(234,179,8,0.4)' : '#1e293b'}`, padding: '16px 16px 14px', position: 'relative', overflow: 'hidden', minHeight: isFirst ? 260 : 200, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: isFirst ? '0 0 32px rgba(234,179,8,0.08)' : 'none', marginBottom: isFirst ? 14 : 0 }}>
-                  {/* rank badge */}
-                  <div style={{ position: 'absolute', top: 0, right: 0, padding: '4px 12px', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', background: podiumColor, color: isFirst ? '#000' : '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {isFirst && <Medal size={10} />} Rank #{rank}
-                  </div>
-                  {/* avatar + name */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
-                    <div style={{ position: 'relative', marginBottom: 10 }}>
-                      <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : '#94a3b8' }}>
-                        {trader.avatar}
-                      </div>
-                      {isFirst && (
-                        <div style={{ position: 'absolute', bottom: -4, right: -4, background: '#020617', padding: 3, borderRadius: '50%', border: '2px solid #eab308' }}>
-                          <Trophy size={10} color="#eab308" />
+      {/* Loading */}
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '80px 0', color: '#475569' }}>
+          <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Loading leaderboard…</span>
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Error */}
+      {!loading && error && (
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', padding: '16px 20px', color: '#f87171', fontSize: 13, marginBottom: 16 }}>
+          Failed to load leaderboard: {error}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && sortedTraders.length === 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: 14, color: '#475569' }}>
+          <Users size={40} strokeWidth={1.2} />
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#64748b', margin: 0 }}>No traders ranked yet</p>
+          <p style={{ fontSize: 12, color: '#334155', margin: 0, textAlign: 'center', maxWidth: 300 }}>Start logging trades in your journal to appear on the leaderboard.</p>
+        </div>
+      )}
+
+      {/* Podium */}
+      {!loading && !error && sortedTraders.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+            {podiumTraders.map(trader => {
+              const rank = trader.rank;
+              const isFirst = rank === 1;
+              const podiumColor = isFirst ? '#eab308' : rank === 2 ? '#94a3b8' : '#f97316';
+              return (
+                <div key={trader.userId} style={{ flex: 1, minWidth: 180, position: 'relative' }}>
+                  <div style={{ background: '#0f172a', border: `1px solid ${isFirst ? 'rgba(234,179,8,0.4)' : '#1e293b'}`, padding: '16px 16px 14px', position: 'relative', overflow: 'hidden', minHeight: isFirst ? 260 : 200, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: isFirst ? '0 0 32px rgba(234,179,8,0.08)' : 'none', marginBottom: isFirst ? 14 : 0 }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '4px 12px', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', background: podiumColor, color: isFirst ? '#000' : '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {isFirst && <Medal size={10} />} Rank #{rank}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
+                      <div style={{ position: 'relative', marginBottom: 10 }}>
+                        <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : '#94a3b8' }}>
+                          {trader.avatar}
                         </div>
-                      )}
+                        {isFirst && (
+                          <div style={{ position: 'absolute', bottom: -4, right: -4, background: '#020617', padding: 3, borderRadius: '50%', border: '2px solid #eab308' }}>
+                            <Trophy size={10} color="#eab308" />
+                          </div>
+                        )}
+                      </div>
+                      <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: isFirst ? '#fff' : '#cbd5e1', lineHeight: 1.3 }}>{trader.name}</h3>
                     </div>
-                    <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: isFirst ? '#fff' : '#cbd5e1', lineHeight: 1.3 }}>{trader.name}</h3>
-                  </div>
-                  {/* stats */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
-                    <div>
-                      <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
-                      <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: activeCategory === 'pnl' ? '#34d399' : '#cbd5e1' }}>${Math.floor(trader.pnl / 1000)}k</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
+                      <div>
+                        <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
+                        <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>{fmtPnl(trader.pnl)}</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
+                          {activeCategory === 'winRate' ? 'Win Rate' : activeCategory === 'profitFactor' ? 'P. Factor' : 'Win Rate'}
+                        </p>
+                        <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: accentFor(activeCategory) }}>
+                          {activeCategory === 'profitFactor' ? trader.profitFactor.toFixed(2) : `${trader.winRate}%`}
+                        </p>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>{activeCategory === 'winRate' ? 'Win Rate' : 'Factor'}</p>
-                      <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: accentFor(activeCategory) }}>
-                        {activeCategory === 'winRate' ? `${trader.winRate}%` : trader.profitFactor.toFixed(2)}
-                      </p>
+                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #1e293b' }}>
+                      <Sparkline data={trader.growth} color={isFirst ? '#eab308' : '#334155'} />
                     </div>
-                  </div>
-                  {/* sparkline */}
-                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #1e293b' }}>
-                    <Sparkline data={trader.growth} color={isFirst ? '#eab308' : '#334155'} />
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* ── Table ── */}
-        <div style={{ background: '#0f172a', border: '1px solid #1e293b', overflowX: 'auto', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', marginBottom: 10 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
-                {[
-                  { label: '#',             align: 'left'  as const, key: null },
-                  { label: 'Trader',        align: 'left'  as const, key: null },
-                  { label: 'PnL',           align: 'right' as const, key: 'pnl' },
-                  { label: 'Win Rate',      align: 'right' as const, key: 'winRate' },
-                  { label: 'Profit Factor', align: 'right' as const, key: 'profitFactor' },
-                  { label: 'Trades',        align: 'right' as const, key: null },
-                ].map(col => (
-                  <th key={col.label} style={{ padding: '12px 20px', fontSize: 9, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.16em', color: col.key === activeCategory ? accentFor(activeCategory as any) : '#475569', textAlign: col.align }}>
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTraders.map((trader, index) => (
-                <tr key={trader.id} style={{ borderTop: '1px solid #1e293b', transition: 'background 0.1s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(30,41,59,0.3)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={{ padding: '12px 20px' }}>
-                    <div style={{ position: 'relative', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ position: 'absolute', width: 24, height: 24, border: `1px solid ${index < 3 ? '#eab308' : '#334155'}`, background: index < 3 ? 'rgba(234,179,8,0.08)' : 'rgba(30,41,59,0.4)', transform: 'rotate(45deg)' }} />
-                      <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? '#eab308' : '#64748b' }}>{index + 1}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
-                        {trader.avatar}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: '#e2e8f0' }}>{trader.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'pnl' ? '#34d399' : '#64748b' }}>
-                    ${trader.pnl.toLocaleString()}
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'winRate' ? '#60a5fa' : '#64748b' }}>
-                    {trader.winRate}%
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? '#a78bfa' : '#64748b' }}>
-                    {trader.profitFactor.toFixed(2)}
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
-                    {trader.trades}
-                  </td>
+          {/* Table */}
+          <div style={{ background: '#0f172a', border: '1px solid #1e293b', overflowX: 'auto', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', marginBottom: 10 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
+                  {[
+                    { label: '#',             align: 'left'  as const, key: null },
+                    { label: 'Trader',        align: 'left'  as const, key: null },
+                    { label: 'PnL',           align: 'right' as const, key: 'pnl' },
+                    { label: 'Win Rate',      align: 'right' as const, key: 'winRate' },
+                    { label: 'Profit Factor', align: 'right' as const, key: 'profitFactor' },
+                    { label: 'Trades',        align: 'right' as const, key: null },
+                    { label: 'Growth',        align: 'right' as const, key: null },
+                  ].map(col => (
+                    <th key={col.label} style={{ padding: '12px 20px', fontSize: 9, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.16em', color: col.key === activeCategory ? accentFor(activeCategory) : '#475569', textAlign: col.align }}>
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
+              </thead>
+              <tbody>
+                {sortedTraders.map((trader, index) => (
+                  <tr key={trader.userId} style={{ borderTop: '1px solid #1e293b', transition: 'background 0.1s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(30,41,59,0.3)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <td style={{ padding: '12px 20px' }}>
+                      <div style={{ position: 'relative', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ position: 'absolute', width: 24, height: 24, border: `1px solid ${index < 3 ? '#eab308' : '#334155'}`, background: index < 3 ? 'rgba(234,179,8,0.08)' : 'rgba(30,41,59,0.4)', transform: 'rotate(45deg)' }} />
+                        <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? '#eab308' : '#64748b' }}>{trader.rank}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
+                          {trader.avatar}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: '#e2e8f0' }}>{trader.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'pnl' ? (trader.pnl >= 0 ? '#34d399' : '#f87171') : (trader.pnl >= 0 ? '#34d399' : '#f87171') }}>
+                      {fmtPnl(trader.pnl)}
+                    </td>
+                    <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'winRate' ? '#60a5fa' : '#64748b' }}>
+                      {trader.winRate}%
+                    </td>
+                    <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? '#a78bfa' : '#64748b' }}>
+                      {trader.profitFactor > 0 ? trader.profitFactor.toFixed(2) : '—'}
+                    </td>
+                    <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
+                      {trader.trades}
+                    </td>
+                    <td style={{ padding: '12px 20px', textAlign: 'right', width: 80 }}>
+                      <Sparkline data={trader.growth} color={trader.pnl >= 0 ? '#34d399' : '#f87171'} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Summary */}
+          {summary && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {[
+                { label: 'Total PnL',      value: fmtPnl(summary.totalPnl) },
+                { label: 'Avg Win Rate',   value: `${summary.avgWinRate}%` },
+                { label: 'Total Trades',   value: summary.totalTrades.toLocaleString() },
+                { label: 'Active Traders', value: summary.activeTraders.toString() },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid #1e293b', padding: '16px 18px', transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#334155')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e293b')}>
+                  <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px' }}>{label}</p>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>{value}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── Global Summary ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-          {[
-            { label: 'Total PnL',      value: '$245.2k' },
-            { label: 'Avg Win Rate',   value: '58.4%'   },
-            { label: 'Total Volume',   value: '1.2M'    },
-            { label: 'Active Traders', value: '42'      },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid #1e293b', padding: '16px 18px', transition: 'border-color 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#334155')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e293b')}>
-              <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px' }}>{label}</p>
-              <p style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>{value}</p>
             </div>
-          ))}
-        </div>
-
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
