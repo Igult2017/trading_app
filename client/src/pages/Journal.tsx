@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link } from 'wouter';
-import { Activity, Loader2, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import JournalHeader from '@/components/JournalHeader';
@@ -81,13 +81,8 @@ const NAV_SECTIONS: NavGroup[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => {
-  const [hov, setHov] = useState(false);
   return (
-    <div
-      style={{ position: 'relative', marginBottom: 4 }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-    >
+    <div style={{ position: 'relative', marginBottom: 4 }}>
       <button
         onClick={item.disabled ? undefined : onClick}
         data-testid={`nav-${item.id}`}
@@ -116,20 +111,6 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
           </div>
         )}
       </button>
-      {showLabels && !item.disabled && hov && (
-        <button
-          onClick={(e) => { e.stopPropagation(); window.open(`/journal?tab=${item.id}`, '_blank', 'noopener,noreferrer'); }}
-          title="Open in new tab"
-          style={{
-            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-            background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)',
-            cursor: 'pointer', color: '#38bdf8', padding: '3px 4px', borderRadius: 4,
-            display: 'flex', alignItems: 'center', lineHeight: 1,
-          }}
-        >
-          <ExternalLink size={9} strokeWidth={2.5} />
-        </button>
-      )}
     </div>
   );
 };
