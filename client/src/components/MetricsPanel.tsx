@@ -416,13 +416,6 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const durationBuckets = durationBreakdown.buckets || {};
   const timingCtxData   = durationBreakdown.timingContext || {};
 
-  if ((core.totalTrades||0)===0) return (
-    <div className="mp-root" style={{ minHeight:300, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <style>{css}</style>
-      <Mono size={11} color={P.dim} data-testid="text-metrics-empty">No trades recorded yet — add journal entries to see metrics.</Mono>
-    </div>
-  );
-
   /* ── DERIVED ── */
   const totalPL      = core.totalPL      || 0;
   const winRate      = core.winRate      || 0;
