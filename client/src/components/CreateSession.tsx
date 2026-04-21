@@ -443,20 +443,10 @@ const TOTAL_SLOTS = 6;
 
 export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => void }) {
   const [showCreate, setShowCreate] = useState(false);
-  const ghostCount = GHOST_OPACITIES.length;
 
   return (
     <div className="ghost-dm-mono" style={{ fontFamily: MONO, padding: '28px 32px' }}>
       <style>{GHOST_CSS}</style>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-        <span style={{ fontSize: '11px', letterSpacing: '0.22em', color: GH.green, textTransform: 'uppercase', fontFamily: MONO }}>
-          Trading Sessions
-        </span>
-        <span style={{ fontSize: '11px', letterSpacing: '0.14em', color: GH.green, border: `1px solid ${GH.green}`, padding: '5px 16px', fontFamily: MONO }}>
-          0 sessions
-        </span>
-      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
         {GHOST_OPACITIES.map((op, i) => (
@@ -806,7 +796,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     queryKey: ['/api/sessions'],
   });
   const [showCreate, setShowCreate] = useState(false);
-  const headerVis = useVisible(40);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -840,15 +829,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
       <div className="ghost-dm-mono" style={{ fontFamily: MONO, padding: '28px 8px' }}>
         <style>{GHOST_CSS}</style>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-          <span style={{ fontSize: '11px', letterSpacing: '0.22em', color: GH.green, textTransform: 'uppercase', fontFamily: MONO }}>
-            Trading Sessions
-          </span>
-          <span style={{ fontSize: '11px', letterSpacing: '0.14em', color: GH.green, border: `1px solid ${GH.green}`, padding: '5px 16px', fontFamily: MONO }}>
-            0 sessions
-          </span>
-        </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
           {ghosts.map((op, i) => (
             <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
@@ -875,27 +855,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
       `}</style>
 
       <div style={{ position: 'relative', fontFamily: "'DM Mono', monospace" }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 16,
-          opacity: headerVis ? 1 : 0,
-          transform: headerVis ? 'translateY(0)' : 'translateY(-10px)',
-          transition: 'opacity 0.5s ease, transform 0.5s ease',
-        }}>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: '#1D9E75', textTransform: 'uppercase', marginBottom: 4 }}>
-              Trading Sessions
-            </div>
-          </div>
-          <span style={{
-            fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: '#5DCAA5', border: '1px solid rgba(29,158,117,0.2)',
-            padding: '5px 14px', borderRadius: 20, background: 'rgba(29,158,117,0.08)',
-          }}>
-            {sessions.length} {sessions.length === 1 ? 'Session' : 'Sessions'}
-          </span>
-        </div>
-
         <div className="sessions-grid ghost-dm-mono">
           {sessions.map((session, i) => (
             <SessionCard
