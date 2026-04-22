@@ -613,12 +613,6 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
           </span>
           <span className="sc-sub">{dateStr}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 border shrink-0" style={{ borderColor: live ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.05)', background: live ? 'rgba(16,185,129,0.08)' : 'transparent' }}>
-          <span className="w-1 h-1 rounded-full" style={{ background: live ? '#10b981' : '#475569', animation: live ? 'sc-pulse 1.4s ease infinite alternate' : 'none' }} />
-          <span className="text-[8px] uppercase" style={{ letterSpacing: '0.18em', color: live ? '#10b981' : '#64748b', fontWeight: 700 }}>
-            {live ? 'live' : 'idle'}
-          </span>
-        </div>
       </div>
 
       {/* BALANCE */}
@@ -633,9 +627,6 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
         </div>
         <div className="text-[15px] text-white sc-jm" style={{ fontWeight: 700 }}>
           ${startBal.toLocaleString()}
-        </div>
-        <div className="w-full h-px sc-divider mt-3 overflow-hidden">
-          <div className="h-full transition-all duration-700" style={{ width: `${balPct}%`, background: hasData ? balBarColor : 'rgba(255,255,255,0.08)' }} />
         </div>
       </div>
 
