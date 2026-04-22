@@ -118,12 +118,13 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   // ── Derive display data from API response ──────────────────────────────────
 
   const d = result ?? null;
+  const ts = d?.topStats;
 
   const topStats = [
-    { label: 'Max Drawdown',    value: d ? fmtDd(d.topStats.maxDrawdown)    : '—', accent: '#f43f5e' },
-    { label: 'Avg. Drawdown',   value: d ? fmtDd(d.topStats.avgDrawdown)    : '—', accent: '#f59e0b' },
-    { label: 'Recovery Factor', value: d ? String(d.topStats.recoveryFactor) : '—', accent: '#10b981' },
-    { label: 'Trend Alignment', value: d ? `${d.topStats.trendAlignment}%`   : '—', accent: '#6366f1' },
+    { label: 'Max Drawdown',    value: ts ? fmtDd(ts.maxDrawdown)    : '—', accent: '#f43f5e' },
+    { label: 'Avg. Drawdown',   value: ts ? fmtDd(ts.avgDrawdown)    : '—', accent: '#f59e0b' },
+    { label: 'Recovery Factor', value: ts ? String(ts.recoveryFactor) : '—', accent: '#10b981' },
+    { label: 'Trend Alignment', value: ts ? `${ts.trendAlignment}%`   : '—', accent: '#6366f1' },
   ];
 
   // Heatmap: rows from API, strategies derived from first row's cells
