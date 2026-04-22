@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
-import { Loader2, RefreshCw, WifiOff, Cpu } from "lucide-react";
+import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -128,18 +128,42 @@ function Badge({ children, color = T.muted, border = T.line2 }: { children: Reac
   );
 }
 
-function CellTitle({ children }: { children: React.ReactNode }) {
+function L({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <span style={{ fontFamily: FONT, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.dim, fontWeight: 500, ...style }}>{children}</span>;
+}
+
+function V({ children, color = T.text, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
+  return <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color, ...style }}>{children}</span>;
+}
+
+function Sub({ children, color = T.dim, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
+  return <span style={{ fontFamily: MONO, fontSize: 9, color, fontWeight: 400, ...style }}>{children}</span>;
+}
+
+function CellTitle({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
   return (
-    <div style={{ ...mono, fontSize: 9, letterSpacing: ".2em", textTransform: "uppercase", color: T.dim, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ width: 12, height: 1, background: T.line2, display: "inline-block" }} />
-      {children}
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+      <span style={{ width: 1, height: 16, background: "rgba(255,255,255,0.10)", display: "inline-block" }} />
+      {icon && <span style={{ color: T.dim, display: "inline-flex" }}>{icon}</span>}
+      <span style={{ fontFamily: FONT, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.text, fontWeight: 700 }}>{children}</span>
     </div>
   );
 }
 
 function Cell({ children, style = {}, span }: { children: React.ReactNode; style?: React.CSSProperties; span?: number }) {
+  // Card-style cell matching drawdown panel design
+  const { borderRight: _br, borderLeft: _bl, ...rest } = style as any;
+  const accent = (style as any).borderLeft;
   return (
-    <div style={{ padding: "18px 20px", borderRight: `1px solid ${T.line}`, gridColumn: span ? `span ${span}` : undefined, ...style }}>
+    <div style={{
+      background: T.bg2,
+      border: `1px solid ${T.line}`,
+      borderRadius: 4,
+      padding: "20px 22px",
+      gridColumn: span ? `span ${span}` : undefined,
+      ...rest,
+      ...(accent ? { borderLeft: accent } : {}),
+    }}>
       {children}
     </div>
   );
@@ -148,16 +172,16 @@ function Cell({ children, style = {}, span }: { children: React.ReactNode; style
 function StatRow({ label, value, color = T.text, last = false }: { label: string; value: string | number; color?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: last ? "none" : `1px solid ${T.line}` }}>
-      <span style={{ fontSize: 12, color: T.muted, fontFamily: FONT }}>{label}</span>
-      <span style={{ ...num, fontSize: 13, color }}>{value}</span>
+      <span style={{ fontSize: 11, color: T.muted, fontFamily: FONT, fontWeight: 500 }}>{label}</span>
+      <span style={{ ...num, fontSize: 12, fontWeight: 700, color }}>{value}</span>
     </div>
   );
 }
 
 function Bar({ pct, color = T.blue }: { pct: number; color?: string }) {
   return (
-    <div style={{ height: 2, background: T.line2, width: "100%", borderRadius: 1 }}>
-      <div style={{ height: 2, background: color, width: `${Math.min(100, Math.max(0, pct))}%`, borderRadius: 1 }} />
+    <div style={{ height: 1, background: "rgba(255,255,255,0.05)", width: "100%" }}>
+      <div style={{ height: 1, background: color, width: `${Math.min(100, Math.max(0, pct))}%`, transition: "width 0.7s" }} />
     </div>
   );
 }
@@ -305,7 +329,7 @@ function Page1({ d }: { d: AuditData }) {
   return (
     <div>
       {/* Row 1 */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Executive Summary</CellTitle>
           <p style={{ fontSize: 13, color: T.muted, lineHeight: 1.75, fontFamily: FONT, fontWeight: 400 }}>
@@ -336,7 +360,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 2 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Probabilistic Edge</CellTitle>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
@@ -395,7 +419,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 3 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Weaknesses &amp; Failure Conditions</CellTitle>
           {weakness ? (
@@ -428,7 +452,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 4 */}
-      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Logical Verification</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {lvRows.map((item, i) => (
@@ -465,7 +489,7 @@ function Page2({ d }: { d: AuditData }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Variance &amp; Distribution</CellTitle>
           <StatRow label="Win Rate" value={`${v.winRate.toFixed(1)}%`} color={T.green} />
@@ -507,7 +531,7 @@ function Page2({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Trade Quality Stratification</CellTitle>
           {[
@@ -547,15 +571,15 @@ function Page2({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
-        <div style={{ padding: "18px 20px", borderRight: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <Cell>
           <CellTitle>Correlation Heatmap — Win Factors</CellTitle>
           <Heatmap factors={winFactors} corr={winCorr} instruments={instruments} isWin={true} />
-        </div>
-        <div style={{ padding: "18px 20px" }}>
+        </Cell>
+        <Cell>
           <CellTitle>Correlation Heatmap — Decay Factors</CellTitle>
           <Heatmap factors={lossFactors} corr={lossCorr} instruments={instruments} isWin={false} />
-        </div>
+        </Cell>
       </div>
     </div>
   );
@@ -583,7 +607,7 @@ function Page3({ d }: { d: AuditData }) {
 
   return (
     <div>
-      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Core Robustness</CellTitle>
         {robRows.map((row, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < robRows.length - 1 ? `1px solid ${T.line}` : "none" }}>
@@ -596,7 +620,7 @@ function Page3({ d }: { d: AuditData }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Loss Cluster Severity</CellTitle>
           <MiniGrid cols="1fr 1fr">
@@ -641,7 +665,7 @@ function Page4({ d }: { d: AuditData }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>AI Policy Suggestions</CellTitle>
           {suggestions.length > 0 ? suggestions.slice(0, 3).map((item, i) => (
@@ -672,7 +696,7 @@ function Page4({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Final Verdict &amp; Next Actions</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
           {(d.finalVerdict?.nextActions ?? []).slice(0, 2).map((action, i) => (
@@ -783,7 +807,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
     <div style={{ padding: "0 0 40px" }}>
 
       {/* Health strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Trader Archetype</CellTitle>
           <div style={{ ...mono, fontSize: 13, color: T.blue }}>{data.trader_archetype ?? "—"}</div>
@@ -807,7 +831,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       )}
 
       {/* Win / Loss profiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         {[data.win_profile, data.loss_profile].map((profile, i) => {
           const isWin = i === 0;
           const accent = isWin ? T.green : T.red;
@@ -834,7 +858,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* Findings */}
       {findings.length > 0 && (
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.line}` }}>
+        <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
           <CellTitle>Proofed Findings</CellTitle>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {findings.map((f, i) => {
@@ -856,7 +880,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       )}
 
       {/* Checklist + Risk alert */}
-      <div style={{ display: "grid", gridTemplateColumns: checklist.length && data.risk_alert ? "1fr 1fr" : "1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: checklist.length && data.risk_alert ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 12 }}>
         {checklist.length > 0 && (
           <Cell style={{ borderRight: data.risk_alert ? `1px solid ${T.line}` : "none" }}>
             <CellTitle>Pre-Trade Checklist</CellTitle>
@@ -923,7 +947,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
     <div style={{ padding: "0 0 40px" }}>
 
       {/* Entry / Avoid side by side */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Entry Conditions</CellTitle>
           {entries.length === 0
@@ -941,7 +965,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       </div>
 
       {/* Risk rules + projected edge */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>Risk Rules</CellTitle>
           {Object.entries(rules).map(([k, v], i) => (
@@ -1062,59 +1086,63 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         ::-webkit-scrollbar-thumb { background: ${T.line2}; }
       `}} />
 
-      <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT }}>
+      <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px" }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
 
-        {/* Topbar */}
-        <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", background: T.bg2, borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0, zIndex: 100, height: 52 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: T.blue2, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Cpu size={14} color="#fff" />
+          {/* HEADER — drawdown-style */}
+          <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <p style={{ fontFamily: FONT, fontSize: 9, letterSpacing: ".3em", textTransform: "uppercase", color: T.dim, fontWeight: 500, margin: 0 }}>Strategy Audit Engine</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
+                    <span style={{ fontFamily: FONT, fontSize: 7, fontWeight: 700, letterSpacing: ".2em", color: T.green, opacity: 0.7 }}>LIVE</span>
+                  </div>
+                </div>
+                <h1 style={{ fontFamily: FONT, fontSize: 26, color: T.text, lineHeight: 1, fontWeight: 800, margin: 0 }}>How Sharp Is Your Edge?</h1>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
+                {kpis.map((kpi, i) => (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <L>{kpi.label}</L>
+                    <V color={kpi.color} style={{ fontSize: 14 }}>{kpi.value}</V>
+                    <Sub>{kpi.sub}</Sub>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ ...mono, fontSize: 11, letterSpacing: ".2em" }}>
-              AUDIT<span style={{ color: T.green }}>.</span>AI
-              <span style={{ color: T.dim, fontWeight: 400, marginLeft: 8 }}>— Strategy Engine</span>
+
+            {/* Tab bar — toggle style */}
+            <div style={{ display: "inline-flex", background: "rgba(0,0,0,0.5)", padding: 4, borderRadius: 4, border: `1px solid ${T.line}`, alignSelf: "flex-start" }}>
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActive(tab.id)}
+                  style={{
+                    fontFamily: FONT, fontSize: 9, fontWeight: 600, letterSpacing: ".18em", textTransform: "uppercase",
+                    padding: "8px 16px", cursor: "pointer", border: "none", borderRadius: 3,
+                    background: active === tab.id ? "rgba(255,255,255,0.08)" : "transparent",
+                    color: active === tab.id ? T.text : T.dim, transition: "all .15s",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div style={{ display: "flex" }}>
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActive(tab.id)}
-                style={{ ...mono, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", padding: "0 18px", height: 52, cursor: "pointer", background: "none", border: "none", borderBottom: `2px solid ${active === tab.id ? T.green : "transparent"}`, color: active === tab.id ? T.text : T.dim, transition: "all .15s" }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
-            <span style={{ ...mono, fontSize: 9, letterSpacing: ".12em", color: T.green }}>LIVE</span>
-          </div>
-        </nav>
-
-        {/* KPI strip */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", borderBottom: `1px solid ${T.line}` }}>
-          {kpis.map((kpi, i) => (
-            <div key={i} style={{ padding: "14px 20px", borderRight: i < 3 ? `1px solid ${T.line}` : "none" }}>
-              <div style={{ ...mono, fontSize: 9, letterSpacing: ".18em", color: T.dim, marginBottom: 6 }}>{kpi.label.toUpperCase()}</div>
-              <div style={{ ...num, fontSize: 16, color: kpi.color, lineHeight: 1 }}>{kpi.value}</div>
-              <div style={{ ...mono, fontSize: 10, color: T.muted, marginTop: 4 }}>{kpi.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Page content */}
-        <div>
+          {/* Page content */}
+          <div>
           {active === 1 && <Page1 d={d} />}
           {active === 2 && <Page2 d={d} />}
           {active === 3 && <Page3 d={d} />}
           {active === 4 && <Page4 d={d} />}
           {active === 5 && <Page5 sessionId={sessionId} userId={userId} />}
           {active === 6 && <Page6 sessionId={sessionId} userId={userId} />}
-        </div>
+          </div>
 
+        </div>
       </div>
     </>
   );
