@@ -365,12 +365,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
       <Mono size={10} color={P.dim} data-testid="text-metrics-loading">Loading metrics…</Mono>
     </div>
   );
-  if (isError||(metricsData&&!metricsData.success)) return (
-    <div className="mp-root" style={{ minHeight:'100vh', background:P.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <style>{css}</style>
-      <Mono size={11} color={P.red} data-testid="text-metrics-error">Failed to compute metrics. Please try again.</Mono>
-    </div>
-  );
+  // Error state intentionally falls through too: render full chrome with zero
+  // defaults so a freshly-created session (no trades yet) shows the layout
+  // instead of an error message.
 
   // Empty state intentionally falls through: the page renders its full chrome
   // with zero/empty defaults so users see the layout even with no session/trades.
