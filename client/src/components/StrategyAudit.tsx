@@ -1094,7 +1094,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <p style={{ fontFamily: FONT, fontSize: 9, letterSpacing: ".3em", textTransform: "uppercase", color: T.dim, fontWeight: 500, margin: 0 }}>Strategy Audit Engine</p>
+                  <p style={{ fontFamily: FONT, fontSize: 9, letterSpacing: ".3em", textTransform: "uppercase", color: T.dim, fontWeight: 500, margin: 0 }}>your strategy breakdown</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
                     <span style={{ fontFamily: FONT, fontSize: 7, fontWeight: 700, letterSpacing: ".2em", color: T.green, opacity: 0.7 }}>LIVE</span>
