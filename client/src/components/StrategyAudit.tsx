@@ -1100,7 +1100,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         .audit-root [style*="Share Tech Mono"] { font-family: 'DM Mono', monospace !important; font-variant-numeric: tabular-nums !important; }
       `}} />
 
-      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
+      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 28px" }}>
         <div style={{ width: "100%", margin: "0 auto" }}>
 
           {/* HEADER — drawdown-style */}
