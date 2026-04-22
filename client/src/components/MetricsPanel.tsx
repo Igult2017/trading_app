@@ -355,13 +355,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   `;
 
   /* ── GUARDS ── */
-  if (!sessionId) return (
-    <div className="mp-root" style={{ minHeight:300, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <style>{css}</style>
-      <Mono size={11} color={P.dim} data-testid="text-metrics-no-session">No session selected — pick a session to view metrics.</Mono>
-    </div>
-  );
-  if (isLoading || (balLoading && !metricsData)) return (
+  if (sessionId && (isLoading || (balLoading && !metricsData))) return (
     <div className="mp-root" style={{ padding:'18px 20px', display:'flex', alignItems:'center', gap:10 }}>
       <style>{css}</style>
       <style>{`@keyframes mp-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>

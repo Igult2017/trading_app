@@ -207,18 +207,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
   // ── Loading / error / no-session states ───────────────────────────────────
 
-  if (!sessionId) {
-    return (
-      <div className="min-h-full flex items-center justify-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="text-center">
-          <p className="text-[9px] uppercase tracking-[0.3em] text-slate-600 mb-2" style={{ fontWeight: 500 }}>Drawdown Intelligence</p>
-          <p className="text-sm text-slate-500" style={{ fontWeight: 600 }}>Select a session to view drawdown analysis.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
+  if (sessionId && isLoading) {
     return (
       <div className="min-h-full flex items-center justify-center gap-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <Loader2 size={20} className="text-rose-500 animate-spin" />

@@ -601,7 +601,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320, gap:10 }}>
             <span style={{ fontFamily:MONO, fontSize:20, color:C.sep }}>◫</span>
             <span style={{ fontFamily:MONO, fontSize:11, color:C.muted, letterSpacing:'0.12em' }}>
-              {!sessionId ? 'SELECT A SESSION TO VIEW THE MATRIX' : 'NO SCENARIOS FOUND FOR THIS SESSION'}
+              NO DATA AVAILABLE
             </span>
           </div>
         ) : isMobile ? (

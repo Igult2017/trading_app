@@ -327,20 +327,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const monthOptions = MONTH_NAMES.map((n, i) => ({ value: i + 1, label: n.toUpperCase() }));
   const yearOptions  = YEARS.map(y => ({ value: y, label: String(y) }));
 
-  if (!sessionId) {
-    return (
-      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em", marginBottom: 12 }}>
-            TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
-          </div>
-          <p style={{ fontSize: 11, color: "#3A4558", fontWeight: 800 }} data-testid="text-no-session-calendar">Select or create a session to view your trading calendar.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
+  if (sessionId && isLoading) {
     return (
       <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Loader2 size={24} style={{ color: GREEN, animation: "spin 1s linear infinite" }} />

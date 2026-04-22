@@ -475,18 +475,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     updateMutation.mutate(updated);
   };
 
-  if (!sessionId) {
-    return (
-      <div className="trade-vault-root" style={styles.page}>
-        {vaultHeader("No session selected")}
-        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const, marginTop: 20 }}>
-          <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-no-session">Select or create a session to view trades.</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
+  if (sessionId && isLoading) {
     return (
       <div className="trade-vault-root" style={styles.page}>
         {vaultHeader("Loading entries...")}
