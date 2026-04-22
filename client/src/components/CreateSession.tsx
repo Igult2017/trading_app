@@ -547,7 +547,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
     <div style={{ position: 'relative' }}>
       <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}</style>
 
-      <div className="sessions-grid" style={{ gap: 16 }}>
+      <div className="sessions-grid" style={{ gap: 12 }}>
         {GHOST_OPACITIES.map((op, i) => (
           <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
         ))}
@@ -690,8 +690,8 @@ function SummaryBar({ sessions }: { sessions: SessionData[] }) {
     { label: 'Slots Remaining', value: String(slotsLeft),                     accent: slotsLeft === 0 ? '#f43f5e' : '#f59e0b' },
   ];
   return (
-    <div className="sc-card rounded mb-4 pb-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-      <div className="px-6 pt-6 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="sc-card rounded mb-3 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+      <div className="px-6 pt-6 pb-3 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <p className="text-[9px] uppercase" style={{ letterSpacing: '0.3em', color: '#475569', fontWeight: 500, fontFamily: "'Montserrat',sans-serif" }}>
@@ -759,7 +759,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
       <div style={{ position: 'relative' }}>
         <SummaryBar sessions={sessions} />
-        <div className="sessions-grid" style={{ gap: 16 }}>
+        <div className="sessions-grid" style={{ gap: 12 }}>
           {sessions.map((session) => (
             <SessionCard
               key={session.id}
