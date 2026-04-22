@@ -1095,8 +1095,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         ::-webkit-scrollbar-thumb { background: ${T.line2}; }
       `}} />
 
-      <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+      <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
+        <div style={{ width: "100%", margin: "0 auto" }}>
 
           {/* HEADER — drawdown-style */}
           <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
