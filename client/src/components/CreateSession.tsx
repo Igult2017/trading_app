@@ -488,8 +488,8 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
       {/* header */}
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-1.5">
-          <span className="text-[13px] sc-jm" style={{ color: '#334155', letterSpacing: '0.05em', fontWeight: 600 }}>— — —</span>
-          <span className="sc-sub">— —</span>
+          <span className="text-[13px] sc-jm" style={{ color: '#334155', letterSpacing: '0.05em', fontWeight: 600 }}>XX</span>
+          <span className="sc-sub">00-00</span>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-1 border" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
           <span className="w-1 h-1 rounded-full" style={{ background: '#334155' }} />
