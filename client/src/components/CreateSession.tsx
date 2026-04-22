@@ -547,7 +547,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
     <div style={{ position: 'relative' }}>
       <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}</style>
 
-      <div className="sessions-grid" style={{ gap: 12 }}>
+      <div className="sessions-grid" style={{ gap: 8 }}>
         {GHOST_OPACITIES.map((op, i) => (
           <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
         ))}
@@ -759,7 +759,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
       <div style={{ position: 'relative' }}>
         <SummaryBar sessions={sessions} />
-        <div className="sessions-grid" style={{ gap: 12 }}>
+        <div className="sessions-grid" style={{ gap: 8 }}>
           {sessions.map((session) => (
             <SessionCard
               key={session.id}
