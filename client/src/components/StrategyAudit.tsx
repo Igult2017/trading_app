@@ -1100,11 +1100,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         .audit-root [style*="Share Tech Mono"] { font-family: 'DM Mono', monospace !important; font-variant-numeric: tabular-nums !important; }
       `}} />
 
-      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 28px" }}>
+      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
         <div style={{ width: "100%", margin: "0 auto" }}>
 
           {/* HEADER — drawdown-style */}
-          <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ marginBottom: 24, padding: "0 28px 20px", borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
