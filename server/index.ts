@@ -136,6 +136,8 @@ app.use((req, res, next) => {
     
     scraperScheduler.start();
 
+    // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests
+    /*
     // Wait for the price daemon to be ready, then pre-warm the cache
     const WARMUP_SYMBOLS: Array<{ symbol: string; assetClass: string }> = [
       // Crypto
@@ -179,6 +181,7 @@ app.use((req, res, next) => {
       return getCachedMultiplePrices(WARMUP_SYMBOLS);
     }).then(() => log("[PriceCache] Warmup complete — sidebar prices ready"))
       .catch((err) => log(`[PriceCache] Warmup error: ${err}`));
+    */
   });
 
   function shutdown(signal: string) {

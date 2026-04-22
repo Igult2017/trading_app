@@ -277,6 +277,8 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
     queryFn: async () => {
       const r = await authFetch(`/api/calendar/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);

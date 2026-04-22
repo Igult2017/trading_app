@@ -320,6 +320,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     enabled: !!sessionId && hasTrades,
     staleTime: 2 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
   });
 
   /* ── CSS ── */
