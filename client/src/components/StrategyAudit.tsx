@@ -113,7 +113,7 @@ const T = {
 
 const FONT = "'Montserrat', sans-serif";
 const MONO = "'JetBrains Mono', monospace";
-const mono = { fontFamily: FONT, fontWeight: 700 as const };
+const mono = { fontFamily: MONO, fontWeight: 700 as const };
 const num  = { fontFamily: MONO, fontWeight: 400 as const };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1093,9 +1093,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: ${T.bg2}; }
         ::-webkit-scrollbar-thumb { background: ${T.line2}; }
+        .audit-root, .audit-root span, .audit-root div { font-feature-settings: "tnum" 1; }
+        .audit-root .jbmono, .audit-root [style*="JetBrains Mono"] { font-family: 'JetBrains Mono', monospace !important; }
       `}} />
 
-      <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
+      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
         <div style={{ width: "100%", margin: "0 auto" }}>
 
           {/* HEADER — drawdown-style */}
