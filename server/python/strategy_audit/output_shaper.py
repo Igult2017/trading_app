@@ -217,8 +217,13 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
     # Last-50 / last-200 expectancy from actual trade slices (not estimated)
     l50r    = edec.get("last50Expectancy")
     l200r   = edec.get("last200Expectancy")
-    r_stab  = round(min(100,max(0,rsk_con)),1)
-    e_adh   = round(min(100,max(0,100-e_exit)),1)
+    if n <= 0:
+        r_stab = 0.0
+        e_adh  = 0.0
+        cons_sc = 0.0
+    else:
+        r_stab = round(min(100, max(0, rsk_con)), 1)
+        e_adh  = round(min(100, max(0, 100 - e_exit)), 1)
     a_lbl   = "LOW RISK" if a_score<30 else "MEDIUM RISK" if a_score<60 else "HIGH RISK"
     r_ent   = "Low" if a_score<30 else "Medium" if a_score<60 else "High"
 
