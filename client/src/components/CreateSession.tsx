@@ -702,7 +702,7 @@ function SummaryBar({ sessions }: { sessions: SessionData[] }) {
               <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', color: '#10b981', opacity: 0.7, fontFamily: "'Montserrat',sans-serif" }}>LIVE</span>
             </div>
           </div>
-          <h1 className="text-2xl text-white leading-none" style={{ fontWeight: 800, fontFamily: "'Montserrat',sans-serif" }}>Your Trading Sessions</h1>
+          <h1 className="text-2xl text-white leading-none italic" style={{ fontWeight: 800, fontFamily: "'Montserrat',sans-serif" }}>create your session</h1>
         </div>
         <div className="flex flex-wrap gap-8">
           {items.map((item) => (
