@@ -356,7 +356,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   /* ── GUARDS ── */
   if (sessionId && (isLoading || (balLoading && !metricsData))) return (
-    <div className="mp-root" style={{ padding:'18px 20px', display:'flex', alignItems:'center', gap:10 }}>
+    <div className="mp-root" style={{ minHeight:'100vh', background:P.bg, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
       <style>{css}</style>
       <style>{`@keyframes mp-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
       <Loader2 style={{ color:P.cyan, animation:'mp-spin 1s linear infinite', width:14, height:14 }}/>
@@ -364,7 +364,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     </div>
   );
   if (isError||(metricsData&&!metricsData.success)) return (
-    <div className="mp-root" style={{ minHeight:300, display:'flex', alignItems:'center', justifyContent:'center' }}>
+    <div className="mp-root" style={{ minHeight:'100vh', background:P.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
       <style>{css}</style>
       <Mono size={11} color={P.red} data-testid="text-metrics-error">Failed to compute metrics. Please try again.</Mono>
     </div>
