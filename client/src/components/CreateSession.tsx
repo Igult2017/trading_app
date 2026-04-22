@@ -89,11 +89,11 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
       `}</style>
       <div className="csf-root" style={{ width: '100%', maxWidth: 460, margin: '0 auto', paddingBottom: 8 }}>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
           <div style={{
-            width: 56, height: 56, background: '#4f46e5',
+            width: 48, height: 48, background: '#4f46e5',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 16,
+            marginBottom: 10,
           }}>
             <ChevronRight size={26} color="#fff" strokeWidth={1.5} />
           </div>
@@ -208,7 +208,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           </button>
         </form>
 
-        <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
             Status: <span style={{ color: '#6366f1' }}>Ready</span>
           </div>
@@ -484,7 +484,7 @@ function DeleteSessionModal({ session, onClose, onConfirm, isPending }: {
 
 function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => void }) {
   return (
-    <div className="sc-card-dark rounded p-6 flex flex-col gap-5" style={{ opacity }}>
+    <div className="sc-card-dark rounded p-4 flex flex-col gap-3" style={{ opacity }}>
       {/* header */}
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-1.5">
@@ -505,7 +505,7 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
       </div>
 
       {/* stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {['P&L', 'Return', 'Trades'].map((label) => (
           <div key={label} className="flex flex-col gap-1.5">
             <span className="sc-label">{label}</span>
@@ -515,7 +515,7 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
       </div>
 
       {/* footer */}
-      <div className="pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+      <div className="pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
         <div className="flex justify-between items-center">
           <span className="sc-sub">no session yet</span>
           <div className="flex gap-2">
@@ -598,7 +598,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
 
   return (
     <div
-      className={`sc-card sc-card-hover sc-live-card rounded p-6 flex flex-col gap-5 ${isActive ? 'sc-card-active' : ''}`}
+      className={`sc-card sc-card-hover sc-live-card rounded p-4 flex flex-col gap-3 ${isActive ? 'sc-card-active' : ''}`}
       onClick={onSelect}
       data-testid={`card-session-${session.id}`}
     >
@@ -640,12 +640,12 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         <div className="flex flex-col gap-1.5">
           <span className="sc-label">P&L</span>
           <span className="text-[12px] sc-jm" style={{ color: pnlHexCol, fontWeight: 700 }}>{pnlVal}</span>
         </div>
-        <div className="flex flex-col gap-1.5 border-l border-r px-4" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex flex-col gap-1.5 border-l border-r px-3" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
           <span className="sc-label">Return</span>
           <span className="text-[12px] sc-jm" style={{ color: retHexCol, fontWeight: 700 }}>{retVal}</span>
         </div>
@@ -656,7 +656,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
       </div>
 
       {/* FOOTER */}
-      <div className="pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+      <div className="pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
         <div className="flex justify-between items-center">
           <span className="sc-sub">
             {tradeCount === 0 ? 'no trades yet' : `${tradeCount} trade${tradeCount !== 1 ? 's' : ''}`}
