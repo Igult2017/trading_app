@@ -241,17 +241,32 @@ const C = {
 };
 
 const SESSION_CARDS_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=JetBrains+Mono:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap');
   @keyframes sc-breathe { 0%,100%{opacity:1} 50%{opacity:0.25} }
   @keyframes sc-fadeUp {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .sc-live-card { animation: sc-fadeUp 0.35s ease both; transition: background 0.2s, border-color 0.2s; }
-  .sc-live-card:hover { background: ${C.cardHover} !important; }
-  .sc-input { font-family: ${C.mono}; }
+  @keyframes sc-pulse { from { opacity: 0.3; } to { opacity: 1; } }
+  .sc-card        { background:#0d1117; border:1px solid rgba(255,255,255,0.04); font-family:'Montserrat',sans-serif; }
+  .sc-card-dark   { background:#080a0e; border:1px solid rgba(255,255,255,0.04); font-family:'Montserrat',sans-serif; }
+  .sc-card-active { border-color: rgba(99,102,241,0.4) !important; }
+  .sc-card-hover  { transition: background 0.2s, border-color 0.2s; cursor: pointer; }
+  .sc-card-hover:hover { background:#11161e; border-color: rgba(255,255,255,0.08); }
+  .sc-divider     { background: rgba(255,255,255,0.04); }
+  .sc-jm, .sc-jm * { font-family:'JetBrains Mono',monospace !important; }
+  .sc-label       { font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#64748b; font-weight:500; font-family:'Montserrat',sans-serif; }
+  .sc-sub         { font-size:9px; color:#475569; font-weight:400; font-family:'JetBrains Mono',monospace; }
+  .sc-live-card   { animation: sc-fadeUp 0.35s ease both; }
+  .sc-input       { font-family: ${C.mono}; }
   .sc-input::placeholder { color: ${C.accentFaint}; }
   .sc-input:focus { outline: none; border-color: ${C.accentLow} !important; }
+  .sc-btn         { font-size:9px; text-transform:uppercase; letter-spacing:0.16em; font-weight:600; padding:6px 12px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:#94a3b8; cursor:pointer; transition: all 0.15s; font-family:'Montserrat',sans-serif; }
+  .sc-btn:hover   { color:#fff; border-color: rgba(255,255,255,0.2); }
+  .sc-btn-danger  { color: rgba(244,63,94,0.7); border-color: rgba(244,63,94,0.2); }
+  .sc-btn-danger:hover { color: #f43f5e; border-color: rgba(244,63,94,0.5); }
+  .sc-btn-primary { color: #6366f1; border-color: rgba(99,102,241,0.3); }
+  .sc-btn-primary:hover { color: #fff; background: #6366f1; border-color: #6366f1; }
 `;
 
 function SCStat({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -469,53 +484,42 @@ function DeleteSessionModal({ session, onClose, onConfirm, isPending }: {
 
 function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => void }) {
   return (
-    <div style={{
-      background: C.ghostBg,
-      border: `1px solid ${C.borderSoft}`,
-      padding: 22,
-      display: 'flex', flexDirection: 'column', gap: 18,
-      opacity,
-      fontFamily: C.mono,
-    }}>
+    <div className="sc-card-dark rounded p-6 flex flex-col gap-5" style={{ opacity }}>
       {/* header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 13, color: C.dimText, letterSpacing: '0.05em', fontFamily: C.mono }}>— — —</span>
-          <span style={{ fontSize: 9, color: C.accentFaint, letterSpacing: '0.06em', fontFamily: C.mono }}>— —</span>
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] sc-jm" style={{ color: '#334155', letterSpacing: '0.05em', fontWeight: 600 }}>— — —</span>
+          <span className="sc-sub">— —</span>
         </div>
-        <SCBadge live={false} />
+        <div className="flex items-center gap-1.5 px-2 py-1 border" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+          <span className="w-1 h-1 rounded-full" style={{ background: '#334155' }} />
+          <span className="text-[8px] uppercase" style={{ letterSpacing: '0.18em', color: '#475569', fontWeight: 600 }}>idle</span>
+        </div>
       </div>
 
       {/* balance */}
-      <div style={{
-        background: C.pageBg, border: `1px solid ${C.borderSoft}`,
-        padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4,
-      }}>
-        <span style={{ fontSize: 9, color: C.accentFaint, letterSpacing: '0.14em', fontFamily: C.mono }}>balance</span>
-        <span style={{ fontSize: 11, color: C.dimText, letterSpacing: '0.01em', fontFamily: C.mono }}>$ —</span>
+      <div>
+        <div className="sc-label mb-2">Balance</div>
+        <div className="text-[13px] sc-jm" style={{ color: '#334155', fontWeight: 500 }}>$ —</div>
+        <div className="w-full h-px sc-divider mt-3" />
       </div>
 
       {/* stats */}
-      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
-        {['p&l', 'return', 'trades'].map((label, i) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'stretch', gap: 0, flex: 1 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
-              <span style={{ fontSize: 9, color: C.accentFaint, letterSpacing: '0.14em', fontFamily: C.mono }}>{label}</span>
-              <span style={{ fontSize: 13, color: C.dimText, fontFamily: C.mono }}>—</span>
-            </div>
-            {i < 2 && <><div style={{ width: 16 }} /><SCDiv v /><div style={{ width: 16 }} /></>}
+      <div className="grid grid-cols-3 gap-4">
+        {['P&L', 'Return', 'Trades'].map((label) => (
+          <div key={label} className="flex flex-col gap-1.5">
+            <span className="sc-label">{label}</span>
+            <span className="text-[12px] sc-jm" style={{ color: '#334155', fontWeight: 600 }}>—</span>
           </div>
         ))}
       </div>
 
       {/* footer */}
-      <div>
-        <SCDiv />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14 }}>
-          <span style={{ fontSize: 9, color: C.accentFaint, letterSpacing: '0.06em', fontFamily: C.mono }}>no session yet</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <SCBtn label="create" onClick={onCreate} />
-            <SCBtn label="delete" dim />
+      <div className="pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex justify-between items-center">
+          <span className="sc-sub">no session yet</span>
+          <div className="flex gap-2">
+            <button className="sc-btn sc-btn-primary" onClick={onCreate}>Create</button>
           </div>
         </div>
       </div>
@@ -543,7 +547,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
     <div style={{ position: 'relative' }}>
       <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}</style>
 
-      <div className="sessions-grid" style={{ gap: 4 }}>
+      <div className="sessions-grid" style={{ gap: 16 }}>
         {GHOST_OPACITIES.map((op, i) => (
           <GhostCard key={i} opacity={op} onCreate={() => setShowCreate(true)} />
         ))}
@@ -585,67 +589,81 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
   const pnlVal = !hasData ? '—' : `${totalPnL < 0 ? '-' : ''}$${Math.abs(totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const retVal = !hasData ? '—' : `${returnPct.toFixed(2)}%`;
 
+  const live = isActive || hasData;
+  const pnlHexCol = !hasData ? '#475569' : totalPnL >= 0 ? '#10b981' : '#f43f5e';
+  const retHexCol = !hasData ? '#475569' : returnPct >= 0 ? '#10b981' : '#f43f5e';
+  const tradesHexCol = tradeCount > 0 ? '#e2e8f0' : '#475569';
+  const balPct = startBal > 0 ? Math.min(100, Math.max(0, ((startBal + totalPnL) / startBal) * 100)) : 0;
+  const balBarColor = totalPnL >= 0 ? '#10b981' : '#f43f5e';
+
   return (
     <div
-      className="sc-live-card"
+      className={`sc-card sc-card-hover sc-live-card rounded p-6 flex flex-col gap-5 ${isActive ? 'sc-card-active' : ''}`}
       onClick={onSelect}
       data-testid={`card-session-${session.id}`}
-      style={{
-        background: C.cardBg,
-        border: `1px solid ${isActive ? C.accentLow : C.border}`,
-        padding: 22,
-        display: 'flex', flexDirection: 'column', gap: 18,
-        cursor: 'pointer',
-        fontFamily: C.mono,
-      }}
     >
       {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1, marginRight: 10 }}>
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-1.5 min-w-0 flex-1 mr-3">
           <span
             data-testid={`text-session-name-${session.id}`}
-            style={{ fontSize: 13, fontWeight: 500, color: C.white, letterSpacing: '0.05em', fontFamily: C.mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            className="text-[13px] text-white truncate uppercase"
+            style={{ letterSpacing: '0.06em', fontWeight: 700, fontFamily: "'Montserrat',sans-serif" }}>
             {session.sessionName}
           </span>
-          <span style={{ fontSize: 9, color: C.dimText, letterSpacing: '0.06em', fontFamily: C.mono }}>
-            {dateStr}
+          <span className="sc-sub">{dateStr}</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-2 py-1 border shrink-0" style={{ borderColor: live ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.05)', background: live ? 'rgba(16,185,129,0.08)' : 'transparent' }}>
+          <span className="w-1 h-1 rounded-full" style={{ background: live ? '#10b981' : '#475569', animation: live ? 'sc-pulse 1.4s ease infinite alternate' : 'none' }} />
+          <span className="text-[8px] uppercase" style={{ letterSpacing: '0.18em', color: live ? '#10b981' : '#64748b', fontWeight: 700 }}>
+            {live ? 'live' : 'idle'}
           </span>
         </div>
-        <SCBadge live={isActive || hasData} />
       </div>
 
       {/* BALANCE */}
-      <div style={{
-        background: C.pageBg, border: `1px solid ${C.borderSoft}`,
-        padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4,
-      }}>
-        <span style={{ fontSize: 9, color: C.accentFaint, letterSpacing: '0.14em', fontFamily: C.mono }}>balance</span>
-        <span style={{ fontSize: 11, color: C.white, letterSpacing: '0.01em', fontFamily: C.mono }}>
+      <div>
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="sc-label">Balance</span>
+          {hasData && (
+            <span className="text-[10px] sc-jm" style={{ color: balBarColor, fontWeight: 700 }}>
+              {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
+            </span>
+          )}
+        </div>
+        <div className="text-[15px] text-white sc-jm" style={{ fontWeight: 700 }}>
           ${startBal.toLocaleString()}
-        </span>
+        </div>
+        <div className="w-full h-px sc-divider mt-3 overflow-hidden">
+          <div className="h-full transition-all duration-700" style={{ width: `${balPct}%`, background: hasData ? balBarColor : 'rgba(255,255,255,0.08)' }} />
+        </div>
       </div>
 
       {/* STATS */}
-      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
-        <SCStat label="p&l" value={pnlVal} color={pnlCol} />
-        <SCDiv v />
-        <div style={{ width: 16 }} />
-        <SCStat label="return" value={retVal} color={retCol} />
-        <SCDiv v />
-        <div style={{ width: 16 }} />
-        <SCStat label="trades" value={String(tradeCount)} color={tradesCol} />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <span className="sc-label">P&L</span>
+          <span className="text-[12px] sc-jm" style={{ color: pnlHexCol, fontWeight: 700 }}>{pnlVal}</span>
+        </div>
+        <div className="flex flex-col gap-1.5 border-l border-r px-4" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+          <span className="sc-label">Return</span>
+          <span className="text-[12px] sc-jm" style={{ color: retHexCol, fontWeight: 700 }}>{retVal}</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="sc-label">Trades</span>
+          <span className="text-[12px] sc-jm" style={{ color: tradesHexCol, fontWeight: 700 }}>{tradeCount}</span>
+        </div>
       </div>
 
       {/* FOOTER */}
-      <div>
-        <SCDiv />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14 }}>
-          <span style={{ fontSize: 9, color: C.dimText, letterSpacing: '0.06em', fontFamily: C.mono }}>
+      <div className="pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex justify-between items-center">
+          <span className="sc-sub">
             {tradeCount === 0 ? 'no trades yet' : `${tradeCount} trade${tradeCount !== 1 ? 's' : ''}`}
           </span>
-          <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-            <SCBtn label="edit" onClick={onEdit} />
-            <SCBtn label="delete" danger onClick={onDelete} testId={`button-delete-session-${session.id}`} />
+          <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+            <button className="sc-btn" onClick={onEdit}>Edit</button>
+            <button className="sc-btn sc-btn-danger" onClick={onDelete} data-testid={`button-delete-session-${session.id}`}>Delete</button>
           </div>
         </div>
       </div>
@@ -664,31 +682,37 @@ interface SessionsListProps {
 
 function SummaryBar({ sessions }: { sessions: SessionData[] }) {
   const totalBalance = sessions.reduce((a, s) => a + (parseFloat(s.startingBalance) || 0), 0);
+  const slotsLeft = Math.max(0, TOTAL_SLOTS - sessions.length);
   const items = [
-    { label: 'sessions', value: String(sessions.length) },
-    { label: 'total capital', value: `$${totalBalance.toLocaleString()}` },
-    { label: 'total trades', value: '—' },
-    { label: 'slots remaining', value: String(Math.max(0, TOTAL_SLOTS - sessions.length)) },
+    { label: 'Sessions',        value: String(sessions.length),               accent: '#6366f1' },
+    { label: 'Total Capital',   value: `$${totalBalance.toLocaleString()}`,   accent: '#10b981' },
+    { label: 'Total Trades',    value: '—',                                   accent: '#94a3b8' },
+    { label: 'Slots Remaining', value: String(slotsLeft),                     accent: slotsLeft === 0 ? '#f43f5e' : '#f59e0b' },
   ];
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-      border: `1px solid ${C.border}`, background: C.panelBg,
-      marginBottom: 10, fontFamily: C.mono,
-    }}>
-      {items.map((item, i) => (
-        <div key={item.label} style={{
-          padding: '16px 20px',
-          borderRight: i < 3 ? `1px solid ${C.borderSoft}` : 'none',
-        }}>
-          <div style={{ fontSize: 8, color: C.accentFaint, letterSpacing: '0.16em', fontFamily: C.mono, marginBottom: 6 }}>
-            {item.label}
+    <div className="sc-card rounded mb-4 pb-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+      <div className="px-6 pt-6 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <p className="text-[9px] uppercase" style={{ letterSpacing: '0.3em', color: '#475569', fontWeight: 500, fontFamily: "'Montserrat',sans-serif" }}>
+              Session Intelligence
+            </p>
+            <div className="flex items-center gap-1">
+              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981', animation: 'sc-pulse 1s ease infinite alternate' }} />
+              <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', color: '#10b981', opacity: 0.7, fontFamily: "'Montserrat',sans-serif" }}>LIVE</span>
+            </div>
           </div>
-          <div style={{ fontSize: 16, color: C.white, fontFamily: C.mono, letterSpacing: '0.02em' }}>
-            {item.value}
-          </div>
+          <h1 className="text-2xl text-white leading-none" style={{ fontWeight: 800, fontFamily: "'Montserrat',sans-serif" }}>Your Trading Sessions</h1>
         </div>
-      ))}
+        <div className="flex flex-wrap gap-8">
+          {items.map((item) => (
+            <div key={item.label} className="flex flex-col gap-1">
+              <span className="sc-label">{item.label}</span>
+              <span className="text-sm sc-jm" style={{ fontWeight: 700, color: item.accent }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -735,7 +759,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
       <div style={{ position: 'relative' }}>
         <SummaryBar sessions={sessions} />
-        <div className="sessions-grid" style={{ gap: 4 }}>
+        <div className="sessions-grid" style={{ gap: 16 }}>
           {sessions.map((session) => (
             <SessionCard
               key={session.id}
