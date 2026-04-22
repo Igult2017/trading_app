@@ -1104,9 +1104,9 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         <div style={{ width: "100%", margin: "0 auto" }}>
 
           {/* HEADER — drawdown-style */}
-          <div style={{ marginBottom: 24, padding: "0 28px 20px", borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
-              <div>
+              <div style={{ paddingLeft: 28 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <p style={{ fontFamily: FONT, fontSize: 9, letterSpacing: ".3em", textTransform: "uppercase", color: T.dim, fontWeight: 500, margin: 0 }}>your strategy breakdown</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
