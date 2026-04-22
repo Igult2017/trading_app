@@ -112,7 +112,7 @@ const T = {
 };
 
 const FONT = "'Montserrat', sans-serif";
-const MONO = "'JetBrains Mono', monospace";
+const MONO = "'DM Mono', monospace";
 const mono = { fontFamily: MONO, fontWeight: 700 as const };
 const num  = { fontFamily: MONO, fontWeight: 400 as const };
 
@@ -1087,14 +1087,17 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Share+Tech+Mono&display=swap');
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: ${T.bg2}; }
         ::-webkit-scrollbar-thumb { background: ${T.line2}; }
         .audit-root, .audit-root span, .audit-root div { font-feature-settings: "tnum" 1; }
-        .audit-root .jbmono, .audit-root [style*="JetBrains Mono"] { font-family: 'JetBrains Mono', monospace !important; }
+        .audit-root [style*="monospace"],
+        .audit-root [style*="DM Mono"],
+        .audit-root [style*="JetBrains Mono"],
+        .audit-root [style*="Share Tech Mono"] { font-family: 'DM Mono', monospace !important; font-variant-numeric: tabular-nums !important; }
       `}} />
 
       <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
