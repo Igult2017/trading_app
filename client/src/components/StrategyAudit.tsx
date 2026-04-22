@@ -610,20 +610,20 @@ function Page3({ d }: { d: AuditData }) {
       <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Core Robustness</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}`, padding: "8px 0" }}>
-          <span style={{ ...mono, fontSize: 9, letterSpacing: ".25em", color: T.dim, textTransform: "uppercase" }}>Status Bar</span>
-          <span style={{ ...mono, fontSize: 9, letterSpacing: ".25em", color: T.dim, textTransform: "uppercase", textAlign: "center" }}>Percentages</span>
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 9, letterSpacing: ".25em", color: T.dim, textTransform: "uppercase" }}>Status Bar</span>
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 9, letterSpacing: ".25em", color: T.dim, textTransform: "uppercase", textAlign: "center" }}>Percentages</span>
         </div>
         {robRows.map((row, i) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", padding: "22px 0", borderBottom: i < robRows.length - 1 ? `1px solid ${T.line}` : "none" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingRight: 24 }}>
-              <span style={{ ...mono, fontSize: 10, letterSpacing: ".18em", color: T.muted, textTransform: "uppercase" }}>{row.label}</span>
+              <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, letterSpacing: ".18em", color: T.muted, textTransform: "uppercase" }}>{row.label}</span>
               <div style={{ width: "100%", height: 3, background: T.line2, borderRadius: 1 }}>
                 <div style={{ height: 3, background: row.color, width: `${Math.min(100, row.pct)}%`, borderRadius: 1, boxShadow: `0 0 8px ${row.color}` }} />
               </div>
             </div>
-            <div style={{ textAlign: "center", ...mono }}>
-              <span style={{ fontSize: 22, fontWeight: 700, color: row.color }}>{row.pct.toFixed(1)}</span>
-              <span style={{ fontSize: 16, color: row.color, opacity: 0.5 }}>%</span>
+            <div style={{ textAlign: "center", fontFamily: MONO }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: row.color }}>{row.pct.toFixed(1)}</span>
+              <span style={{ fontSize: 8, color: row.color, opacity: 0.5 }}>%</span>
             </div>
           </div>
         ))}
