@@ -93,26 +93,26 @@ interface Props { sessionId?: string; userId?: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 const T = {
-  bg:    "#0a0a0b",
-  bg2:   "#111113",
-  bg3:   "#18181c",
-  bg4:   "#1e1e24",
-  line:  "#2a2a32",
-  line2: "#3a3a44",
-  text:  "#e8e8ec",
-  muted: "#7a7a88",
-  dim:   "#4a4a58",
-  green: "#22c97a",
-  green2:"#16a35e",
-  red:   "#e84040",
-  red2:  "#b52e2e",
-  amber: "#e8a020",
-  blue:  "#4a8fff",
-  blue2: "#2c6fd4",
+  bg:    "#080a0e",
+  bg2:   "#0d1117",
+  bg3:   "#0d1117",
+  bg4:   "#11161e",
+  line:  "rgba(255,255,255,0.04)",
+  line2: "rgba(255,255,255,0.08)",
+  text:  "#ffffff",
+  muted: "#94a3b8",
+  dim:   "#475569",
+  green: "#10b981",
+  green2:"#059669",
+  red:   "#f43f5e",
+  red2:  "#e11d48",
+  amber: "#f59e0b",
+  blue:  "#6366f1",
+  blue2: "#4f46e5",
 };
 
 const FONT = "'Montserrat', sans-serif";
-const MONO = "'Share Tech Mono', monospace";
+const MONO = "'JetBrains Mono', monospace";
 const mono = { fontFamily: FONT, fontWeight: 700 as const };
 const num  = { fontFamily: MONO, fontWeight: 400 as const };
 
