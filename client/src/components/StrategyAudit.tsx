@@ -172,7 +172,7 @@ function Cell({ children, style = {}, span }: { children: React.ReactNode; style
 function StatRow({ label, value, color = T.text, last = false }: { label: string; value: string | number; color?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: last ? "none" : `1px solid ${T.line}` }}>
-      <span style={{ fontSize: 11, color: T.muted, fontFamily: FONT, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 10, color: T.muted, fontFamily: FONT, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".14em" }}>{label}</span>
       <span style={{ ...num, fontSize: 12, fontWeight: 700, color }}>{value}</span>
     </div>
   );
@@ -932,7 +932,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
     const accent = isEntry ? T.green : T.red;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${T.line}` }}>
-        <div style={{ flex: 1, fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400 }}>{label}</div>
+        <div style={{ flex: 1, fontFamily: FONT, fontSize: 10, color: T.text, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".14em" }}>{label}</div>
         <div style={{ width: 80 }}>
           <Bar pct={wr * 100} color={accent} />
         </div>
