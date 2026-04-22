@@ -819,7 +819,14 @@ export default function Journal() {
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
             ) : (
-              <GhostSessionsPanel onCreated={handleSessionCreated} />
+              <div style={{ padding: isMobile ? '10px' : '14px 16px' }}>
+                <SessionsList
+                  onSelectSession={(id) => setActiveSessionId(id)}
+                  activeSessionId={activeSessionId}
+                  onDeleteSession={handleDeleteSession}
+                  onCreated={(id) => setActiveSessionId(id)}
+                />
+              </div>
             )
           ) : activeNav === 'strategy' ? (
             <StrategyAudit sessionId={activeSessionId ?? undefined} />
