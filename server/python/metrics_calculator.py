@@ -12,12 +12,16 @@ import sys
 import json
 import math
 import logging
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+warnings.filterwarnings("ignore")
+
 import numpy as np
+np.seterr(all="ignore")
 from scipy import stats as scipy_stats
 
 # ─────────────────────────────────────────────────────────────────────────────

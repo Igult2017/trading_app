@@ -167,7 +167,7 @@ export async function computeMetrics(
         }
       }
 
-      if (code !== 0 || stderr.trim()) {
+      if (code !== 0) {
         const msg = stderr.trim() || `Python exited with code ${code}`;
         console.error("[MetricsCalculator] Python error:", msg);
         settle({ success: false, error: msg });
