@@ -1,0 +1,99 @@
+severity: 'ERROR',
+code: '42P01',
+detail: undefined,
+hint: undefined,
+position: '312',
+internalPosition: undefined,
+internalQuery: undefined,
+where: undefined,
+schema: undefined,
+table: undefined,
+column: undefined,
+dataType: undefined,
+constraint: undefined,
+file: 'parse_relation.c',
+line: '1449',
+routine: 'parserOpenTable'
+}
+Node.js v20.20.2
+=== Environment Check ===
+NODE_ENV: production
+DATABASE_URL set: YES
+GOOGLE_API_KEY set: YES
+=========================
+=== Running DB migrations ===
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:/app/docker-migrate.sql:6: NOTICE:  constraint "trading_sessions_user_id_fkey" of relation "trading_sessions" does not exist, skipping
+psql:/app/docker-migrate.sql:7: NOTICE:  constraint "journal_entries_user_id_fkey" of relation "journal_entries" does not exist, skipping
+psql:/app/docker-migrate.sql:8: NOTICE:  constraint "journal_entries_session_id_fkey" of relation "journal_entries" does not exist, skipping
+psql:/app/docker-migrate.sql:9: NOTICE:  constraint "trades_user_id_fkey" of relation "trades" does not exist, skipping
+psql:/app/docker-migrate.sql:10: NOTICE:  constraint "copy_accounts_user_id_fkey" of relation "copy_accounts" does not exist, skipping
+psql:/app/docker-migrate.sql:11: NOTICE:  constraint "copy_masters_user_id_fkey" of relation "copy_masters" does not exist, skipping
+psql:/app/docker-migrate.sql:12: NOTICE:  constraint "copy_followers_user_id_fkey" of relation "copy_followers" does not exist, skipping
+ALTER TABLE
+Migrations complete
+[Database] Connecting to PostgreSQL...
+[Database] Database pool initialized
+[Telegram] Service is muted. Notifications disabled.
+[homepageCalendar] Warming up calendar + rates cache in background…
+[crypto] Warming up crypto data cache in background…
+[Strategies] Initializing trading strategies...
+[StrategyRegistry] Registered strategy: Smart Money Concepts (smc-v1)
+[Strategies] Registered 1 strategies (1 enabled)
+[Database] Initializing schema...
+[Database] Schema initialization complete - all tables created
+[Server] Signal monitor: DISABLED
+2:24:42 AM [express] serving on port 3000
+Starting economic calendar scheduler (scraper only)...
+MyFXBook scraper: DISABLED
+Interest rate scraper: DISABLED
+Scheduled Telegram notifications: every 5 minutes
+Signal scanning: DISABLED
+[homepageCalendar/calendar] [news_calendar] MyFXBook HTTP 403 (5712 bytes)
+[news_calendar] MyFXBook body snippet: Just a moment...
+[news_calendar] Falling back to TradingView…
+[news_calendar] TradingView: 383 events
+[news_calendar] https://www.coindesk.com/arc/outboundfeeds/rss/: not XML, skipping
+[news_calendar] https://cointelegraph.com/rss: not XML, skipping
+[news_calendar] crypto events: 10
+[homepageCalendar] Calendar cache ready (393 events)
+[homepageCalendar/rates] [news_calendar] FRED FEDFUNDS: 3.64%
+[news_calendar] USD -> 3.64% (via FRED FEDFUNDS)
+[news_calendar] FRED ECBDFR: 2.0%
+[news_calendar] EUR -> 2.0% (via FRED ECBDFR)
+[news_calendar] BoE website: 3.75%
+[news_calendar] GBP -> 3.75% (via BoE website)
+[news_calendar] BoC Valet: 2.25%
+[news_calendar] CAD -> 2.25% (via BoC Valet API)
+[news_calendar] RBA CSV: 4.75%
+[news_calendar] AUD -> 4.75% (via RBA CSV)
+[news_calendar] TE JPY (fallback): 0.75%
+[news_calendar] JPY -> 0.75% (via Trading Economics)
+[news_calendar] TE CHF (fallback): 0.0%
+[news_calendar] CHF -> 0.0% (via Trading Economics)
+[news_calendar] TE NZD (fallback): 2.25%
+[news_calendar] NZD -> 2.25% (via Trading Economics)
+[news_calendar] rates live: ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'NZD']  fallback: []
+[homepageCalendar] Rates cache ready (8 currencies)
+2:24:47 AM [express] GET /api/metrics/compute 401 in 4ms :: {"error":"Authentication required"}
+2:24:48 AM [express] GET /api/drawdown/compute 304 in 401ms :: {"success":true,"drawdown":{}}
+2:24:48 AM [express] GET /api/calendar/compute 304 in 446ms :: {"success":true,"days":[]}
+2:24:48 AM [express] GET /api/tf-metrics/matrix 304 in 677ms :: {"success":true,"rows":[]}
+[crypto/all] [crypto_data] market: 20 coins
+[crypto_data] fear/greed: 32 (Fear)
+[crypto_data] trending: 7 coins
+[crypto] Cache ready — 20 coins
+2:24:54 AM [express] GET /api/leaderboard 304 in 37ms :: {"leaderboard":[{"rank":1,"userId":null,"na…
+2:25:12 AM [express] POST /api/track 400 in 4ms :: {"error":"page required"}
+2:29:45 AM [express] POST /api/track 400 in 2ms :: {"error":"page required"}
+2:36:40 AM [express] POST /api/track 400 in 1ms :: {"error":"page required"}
+2:37:06 AM [express] GET /api/metrics/compute 401 in 1ms :: {"error":"Authentication required"}
+2:37:07 AM [express] GET /api/journal/entries 401 in 1ms :: {"error":"Authentication required"}
+2:37:11 AM [express] POST /api/track 400 in 1ms :: {"error":"page required"}
+2:38:49 AM [express] POST /api/track 400 in 7ms :: {"error":"page required"}
+2:38:53 AM [express] POST /api/track 400 in 8ms :: {"error":"page required"}
