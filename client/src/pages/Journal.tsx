@@ -522,9 +522,9 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   );
 }
 
-function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId: string; isMobile: boolean; windowWidth: number }) {
-  const metricsUrl = `/api/metrics/compute?sessionId=${sessionId}`;
-  const entriesUrl = `/api/journal/entries?sessionId=${sessionId}`;
+function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: string | null; isMobile: boolean; windowWidth: number }) {
+  const metricsUrl = sessionId ? `/api/metrics/compute?sessionId=${sessionId}` : '';
+  const entriesUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '';
 
   const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
     queryKey: ['/api/metrics/compute', sessionId],
@@ -814,7 +814,7 @@ export default function Journal() {
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
 
           {activeNav === 'metrics' ? (
-            activeSessionId ? <MetricsPanel sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
+            <MetricsPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'journal' ? (
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
@@ -824,15 +824,15 @@ export default function Journal() {
           ) : activeNav === 'strategy' ? (
             <StrategyAudit sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'vault' ? (
-            activeSessionId ? <TradeVault sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
+            <TradeVault sessionId={activeSessionId ?? undefined} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
           ) : activeNav === 'calendar' ? (
-            activeSessionId ? <TradingCalendar sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
+            <TradingCalendar sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'sessions' ? (
             <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} onCreated={handleSessionCreated} />
           ) : activeNav === 'tfmetrics' ? (
-            activeSessionId ? <TFMetricsPanel sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
+            <TFMetricsPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'drawdown' ? (
-            activeSessionId ? <DrawdownPanel sessionId={activeSessionId} /> : <GhostSessionsPanel onCreated={handleSessionCreated} />
+            <DrawdownPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'leaderboard' ? (
@@ -846,11 +846,7 @@ export default function Journal() {
           ) : activeNav === 'assets' ? (
             <AssetPage />
           ) : (
-            activeSessionId ? (
-              <DashboardView sessionId={activeSessionId} isMobile={isMobile} windowWidth={windowWidth} />
-            ) : (
-              <GhostSessionsPanel onCreated={handleSessionCreated} />
-            )
+            <DashboardView sessionId={activeSessionId ?? undefined} isMobile={isMobile} windowWidth={windowWidth} />
           )}
         </main>
       </div>
