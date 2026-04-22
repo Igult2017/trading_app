@@ -1,0 +1,501 @@
+import { useState } from "react";
+
+const FONT = "https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap";
+
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS
+───────────────────────────────────────────── */
+const C = {
+  pageBg:     "#08090d",
+  panelBg:    "#0d0e14",
+  cardBg:     "#12131a",
+  cardHover:  "#15161f",
+  ghostBg:    "#0f1018",
+  border:     "#1e2030",
+  borderSoft: "#181926",
+  accent:     "#c8cad8",
+  accentLow:  "#6b6e85",
+  accentFaint:"#2e3048",
+  white:      "#f0f1f5",
+  dimText:    "#3a3c52",
+  red:        "#e05555",
+  mono:       "'DM Mono', monospace",
+};
+
+const css = `
+  @import url('${FONT}');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: ${C.pageBg}; }
+  input, button, label { font-family: ${C.mono}; }
+  input::placeholder { color: ${C.accentFaint}; }
+  input:focus { outline: none; }
+  @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.25} }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .live-card { animation: fadeUp 0.35s ease both; }
+  .live-card:hover { background: ${C.cardHover} !important; }
+`;
+
+/* ─────────────────────────────────────────────
+   STAT BOX  (used inside cards)
+───────────────────────────────────────────── */
+function Stat({ label, value, color }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+      <span style={{ fontSize: "9px", color: C.accentFaint, letterSpacing: "0.14em", fontFamily: C.mono }}>
+        {label}
+      </span>
+      <span style={{ fontSize: "13px", color: color || C.accentLow, letterSpacing: "0.03em", fontFamily: C.mono }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   DIVIDER
+───────────────────────────────────────────── */
+const Div = ({ v }) => (
+  <div style={{
+    width: v ? "1px" : "100%",
+    height: v ? "100%" : "1px",
+    background: C.borderSoft,
+    flexShrink: 0,
+  }} />
+);
+
+/* ─────────────────────────────────────────────
+   BADGE
+───────────────────────────────────────────── */
+function Badge({ live }) {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: "5px",
+      padding: "3px 9px",
+      border: `1px solid ${live ? C.border : C.borderSoft}`,
+      background: live ? C.accentFaint : "transparent",
+    }}>
+      <span style={{
+        width: 5, height: 5, borderRadius: "50%",
+        background: live ? C.accentLow : C.dimText,
+        display: "inline-block",
+        animation: live ? "breathe 2.2s ease-in-out infinite" : "none",
+      }} />
+      <span style={{ fontSize: "9px", color: live ? C.accentLow : C.dimText, letterSpacing: "0.12em", fontFamily: C.mono }}>
+        {live ? "live" : "idle"}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   BTN
+───────────────────────────────────────────── */
+function Btn({ label, dim, danger, onClick }) {
+  const [hov, setHov] = useState(false);
+  const borderCol = danger
+    ? (hov ? C.red : "rgba(224,85,85,0.3)")
+    : dim
+    ? (hov ? C.border : C.borderSoft)
+    : (hov ? C.accentLow : C.border);
+  const textCol = danger
+    ? (hov ? C.red : "rgba(224,85,85,0.5)")
+    : dim
+    ? (hov ? C.accentLow : C.dimText)
+    : (hov ? C.accent : C.accentLow);
+
+  return (
+    <button onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        fontFamily: C.mono, fontSize: "9px", letterSpacing: "0.1em",
+        padding: "5px 13px", cursor: "pointer",
+        border: `1px solid ${borderCol}`,
+        background: "transparent", color: textCol,
+        transition: "all 0.15s",
+      }}>
+      {label}
+    </button>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   LIVE CARD
+───────────────────────────────────────────── */
+function LiveCard({ session, onEdit, onDelete }) {
+  const pnl = session.pnl;
+  const ret = session.returnPct;
+  const pnlCol = pnl === null ? C.dimText : pnl >= 0 ? C.accent : C.red;
+  const retCol = ret === null ? C.dimText : ret >= 0 ? C.accent : C.red;
+
+  return (
+    <div className="live-card" style={{
+      background: C.cardBg,
+      border: `1px solid ${C.border}`,
+      padding: "22px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "18px",
+      transition: "background 0.2s",
+    }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <span style={{ fontSize: "13px", fontWeight: "500", color: C.white, letterSpacing: "0.05em", fontFamily: C.mono }}>
+            {session.name}
+          </span>
+          <span style={{ fontSize: "9px", color: C.dimText, letterSpacing: "0.06em", fontFamily: C.mono }}>
+            {session.date}
+          </span>
+        </div>
+        <Badge live />
+      </div>
+
+      {/* ── BALANCE ── */}
+      <div style={{
+        background: C.pageBg,
+        border: `1px solid ${C.borderSoft}`,
+        padding: "14px 16px",
+        display: "flex", flexDirection: "column", gap: "4px",
+      }}>
+        <span style={{ fontSize: "9px", color: C.accentFaint, letterSpacing: "0.14em", fontFamily: C.mono }}>
+          balance
+        </span>
+        <span style={{ fontSize: "11px", fontWeight: "400", color: C.white, letterSpacing: "0.01em", fontFamily: C.mono }}>
+          ${session.balance.toLocaleString()}
+        </span>
+      </div>
+
+      {/* ── STATS ── */}
+      <div style={{ display: "flex", alignItems: "stretch", gap: "0" }}>
+        <Stat label="p&l"    value={pnl === null ? "—" : `$${pnl.toLocaleString()}`}   color={pnlCol} />
+        <Div v />
+        <div style={{ width: "16px" }} />
+        <Stat label="return" value={ret === null ? "—" : `${ret.toFixed(2)}%`}          color={retCol} />
+        <Div v />
+        <div style={{ width: "16px" }} />
+        <Stat label="trades" value={String(session.trades)}                              color={session.trades > 0 ? C.accent : C.dimText} />
+      </div>
+
+      {/* ── FOOTER ── */}
+      <div>
+        <Div />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "14px" }}>
+          <span style={{ fontSize: "9px", color: C.dimText, letterSpacing: "0.06em", fontFamily: C.mono }}>
+            {session.trades === 0 ? "no trades yet" : `${session.trades} trade${session.trades !== 1 ? "s" : ""}`}
+          </span>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <Btn label="edit"   onClick={() => onEdit(session)} />
+            <Btn label="delete" danger onClick={() => onDelete(session)} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   GHOST CARD
+───────────────────────────────────────────── */
+function GhostCard({ opacity, onCreate }) {
+  return (
+    <div style={{
+      background: C.ghostBg,
+      border: `1px solid ${C.borderSoft}`,
+      padding: "22px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "18px",
+      opacity,
+    }}>
+
+      {/* header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <span style={{ fontSize: "13px", color: C.dimText, letterSpacing: "0.05em", fontFamily: C.mono }}>— — —</span>
+          <span style={{ fontSize: "9px", color: C.accentFaint, letterSpacing: "0.06em", fontFamily: C.mono }}>— —</span>
+        </div>
+        <Badge live={false} />
+      </div>
+
+      {/* balance box */}
+      <div style={{
+        background: C.pageBg,
+        border: `1px solid ${C.borderSoft}`,
+        padding: "14px 16px",
+        display: "flex", flexDirection: "column", gap: "4px",
+      }}>
+        <span style={{ fontSize: "9px", color: C.accentFaint, letterSpacing: "0.14em", fontFamily: C.mono }}>
+          balance
+        </span>
+        <span style={{ fontSize: "11px", color: C.dimText, letterSpacing: "0.01em", fontFamily: C.mono }}>
+          $ —
+        </span>
+      </div>
+
+      {/* stats */}
+      <div style={{ display: "flex", alignItems: "stretch", gap: "0" }}>
+        {["p&l", "return", "trades"].map((label, i) => (
+          <div key={label} style={{ display: "flex", alignItems: "stretch", gap: "0", flex: 1 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "5px", flex: 1 }}>
+              <span style={{ fontSize: "9px", color: C.accentFaint, letterSpacing: "0.14em", fontFamily: C.mono }}>{label}</span>
+              <span style={{ fontSize: "13px", color: C.dimText, fontFamily: C.mono }}>—</span>
+            </div>
+            {i < 2 && <><div style={{ width: "16px" }} /><Div v /><div style={{ width: "16px" }} /></>}
+          </div>
+        ))}
+      </div>
+
+      {/* footer */}
+      <div>
+        <Div />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "14px" }}>
+          <span style={{ fontSize: "9px", color: C.accentFaint, letterSpacing: "0.06em", fontFamily: C.mono }}>
+            no session yet
+          </span>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <Btn label="create" onClick={onCreate} />
+            <Btn label="delete" dim />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   MODAL SHELL
+───────────────────────────────────────────── */
+function Modal({ title, danger, onClose, children }) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0,
+      background: "rgba(8,9,13,0.85)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: C.cardBg,
+        border: `1px solid ${C.border}`,
+        padding: "28px 28px 24px",
+        width: "360px",
+        fontFamily: C.mono,
+      }}>
+        <div style={{
+          fontSize: "10px", letterSpacing: "0.2em",
+          color: danger ? C.red : C.accentLow,
+          marginBottom: "24px",
+        }}>
+          {title}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   FIELD
+───────────────────────────────────────────── */
+function Field({ label, value, onChange, type = "text", placeholder, autoFocus }) {
+  return (
+    <div style={{ marginBottom: "14px" }}>
+      <div style={{ fontSize: "8px", color: C.accentFaint, letterSpacing: "0.16em", marginBottom: "7px", fontFamily: C.mono }}>
+        {label}
+      </div>
+      <input
+        type={type} value={value} onChange={onChange}
+        placeholder={placeholder} autoFocus={autoFocus}
+        style={{
+          width: "100%", background: C.pageBg,
+          border: `1px solid ${C.border}`,
+          padding: "10px 12px", color: C.white,
+          fontFamily: C.mono, fontSize: "12px", letterSpacing: "0.04em",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   CREATE / EDIT / DELETE MODALS
+───────────────────────────────────────────── */
+function CreateModal({ onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [bal, setBal]   = useState("");
+  const go = () => {
+    if (!name.trim() || !bal) return;
+    onCreate({
+      id: Date.now(),
+      name: name.trim().toUpperCase(),
+      date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      balance: parseFloat(bal), pnl: null, returnPct: null, trades: 0,
+    });
+    onClose();
+  };
+  return (
+    <Modal title="new session" onClose={onClose}>
+      <Field label="session name" value={name} onChange={e => setName(e.target.value)} placeholder="alpha-01" autoFocus />
+      <Field label="starting balance ($)" value={bal} onChange={e => setBal(e.target.value)} type="number" placeholder="5000" />
+      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" }}>
+        <Btn label="cancel" dim onClick={onClose} />
+        <Btn label="create" onClick={go} />
+      </div>
+    </Modal>
+  );
+}
+
+function EditModal({ session, onClose, onSave }) {
+  const [name, setName] = useState(session.name);
+  const [bal, setBal]   = useState(session.balance);
+  const go = () => {
+    if (!name.trim() || !bal) return;
+    onSave({ ...session, name: name.trim().toUpperCase(), balance: parseFloat(bal) });
+    onClose();
+  };
+  return (
+    <Modal title="edit session" onClose={onClose}>
+      <Field label="session name" value={name} onChange={e => setName(e.target.value)} autoFocus />
+      <Field label="starting balance ($)" value={bal} onChange={e => setBal(e.target.value)} type="number" />
+      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" }}>
+        <Btn label="cancel" dim onClick={onClose} />
+        <Btn label="save" onClick={go} />
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteModal({ session, onClose, onConfirm }) {
+  return (
+    <Modal title="delete session" danger onClose={onClose}>
+      <div style={{ fontSize: "11px", color: C.accentLow, lineHeight: "1.9", marginBottom: "22px", letterSpacing: "0.03em", fontFamily: C.mono }}>
+        remove <span style={{ color: C.white }}>{session.name.toLowerCase()}</span>?<br />this cannot be undone.
+      </div>
+      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+        <Btn label="cancel" dim onClick={onClose} />
+        <Btn label="delete" danger onClick={() => { onConfirm(session.id); onClose(); }} />
+      </div>
+    </Modal>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   SUMMARY BAR (top of dashboard)
+───────────────────────────────────────────── */
+function SummaryBar({ sessions }) {
+  const totalBalance = sessions.reduce((a, s) => a + s.balance, 0);
+  const totalTrades  = sessions.reduce((a, s) => a + s.trades, 0);
+  const items = [
+    { label: "sessions",        value: sessions.length },
+    { label: "total capital",   value: `$${totalBalance.toLocaleString()}` },
+    { label: "total trades",    value: totalTrades },
+    { label: "slots remaining", value: Math.max(0, 6 - sessions.length) },
+  ];
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(4, 1fr)",
+      border: `1px solid ${C.border}`,
+      background: C.panelBg,
+      marginBottom: "10px",
+    }}>
+      {items.map((item, i) => (
+        <div key={item.label} style={{
+          padding: "16px 20px",
+          borderRight: i < 3 ? `1px solid ${C.borderSoft}` : "none",
+        }}>
+          <div style={{ fontSize: "8px", color: C.accentFaint, letterSpacing: "0.16em", fontFamily: C.mono, marginBottom: "6px" }}>
+            {item.label}
+          </div>
+          <div style={{ fontSize: "16px", color: C.white, fontFamily: C.mono, letterSpacing: "0.02em" }}>
+            {item.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   PAGE
+───────────────────────────────────────────── */
+const OPACITIES = [0.8, 0.55, 0.35, 0.2, 0.1];
+const TOTAL     = 6;
+
+export default function TradingSessions() {
+  const [sessions,    setSessions]    = useState([
+    { id: 1, name: "MIHI!", date: "21 Apr 2026", balance: 5000, pnl: null, returnPct: null, trades: 0 },
+  ]);
+  const [showCreate,  setShowCreate]  = useState(false);
+  const [editTarget,  setEditTarget]  = useState(null);
+  const [delTarget,   setDelTarget]   = useState(null);
+
+  const ghostCount = Math.max(0, TOTAL - sessions.length);
+  const ghosts     = OPACITIES.slice(0, ghostCount);
+
+  return (
+    <>
+      <style>{css}</style>
+
+      <div style={{
+        fontFamily: C.mono,
+        background: C.pageBg,
+        minHeight: "100vh",
+        padding: "28px 28px 48px",
+      }}>
+
+        {/* SUMMARY */}
+        <SummaryBar sessions={sessions} />
+
+        {/* CARD GRID */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "4px",
+        }}>
+          {sessions.map(s => (
+            <LiveCard
+              key={s.id} session={s}
+              onEdit={setEditTarget}
+              onDelete={setDelTarget}
+            />
+          ))}
+          {ghosts.map((op, i) => (
+            <GhostCard
+              key={`g${i}`}
+              opacity={op}
+              onCreate={() => setShowCreate(true)}
+            />
+          ))}
+        </div>
+
+      </div>
+
+      {showCreate && (
+        <CreateModal
+          onClose={() => setShowCreate(false)}
+          onCreate={s => setSessions(p => [...p, s])}
+        />
+      )}
+      {editTarget && (
+        <EditModal
+          session={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSave={s => setSessions(p => p.map(x => x.id === s.id ? s : x))}
+        />
+      )}
+      {delTarget && (
+        <DeleteModal
+          session={delTarget}
+          onClose={() => setDelTarget(null)}
+          onConfirm={id => setSessions(p => p.filter(x => x.id !== id))}
+        />
+      )}
+    </>
+  );
+}
