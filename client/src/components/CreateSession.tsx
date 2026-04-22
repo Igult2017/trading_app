@@ -686,7 +686,7 @@ function SummaryBar({ sessions }: { sessions: SessionData[] }) {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <p className="text-[9px] uppercase" style={{ letterSpacing: '0.3em', color: '#475569', fontWeight: 500, fontFamily: "'Montserrat',sans-serif" }}>
-              Session Intelligence
+              your sessions
             </p>
             <div className="flex items-center gap-1">
               <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981', animation: 'sc-pulse 1s ease infinite alternate' }} />
