@@ -372,31 +372,8 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
     </div>
   );
 
-  // Empty state: no session selected OR session has no trades yet.
-  // Render the panel chrome with an inline empty message instead of crashing
-  // deep in the tree on undefined/empty nested metrics data.
-  if (!sessionId || (!hasTrades && !balLoading)) {
-    const msg = !sessionId
-      ? 'No session selected — pick or create a session to see metrics.'
-      : 'No trades logged yet — your metrics will appear here.';
-    return (
-      <div className="mp-root mp-page" style={{ minHeight:'100vh', background:P.bg, padding:'18px 22px', display:'flex', flexDirection:'column', gap:14 }}>
-        <style>{css}</style>
-        <div style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:12, borderBottom:`1px solid ${P.line}` }}>
-          <Mono size={9} color={P.dim} style={{ letterSpacing:'.3em', textTransform:'uppercase' }}>Performance Metrics</Mono>
-          <span style={{ width:4, height:4, borderRadius:'50%', background:P.dim }} />
-          <Mono size={8} color={P.dim} style={{ letterSpacing:'.2em', textTransform:'uppercase' }}>Idle</Mono>
-        </div>
-        <div style={{
-          flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-          border:`1px solid ${P.line}`, borderRadius:4, background:P.bg2,
-          padding:'40px 24px', minHeight:240,
-        }}>
-          <Mono size={11} color={P.dim} data-testid="text-metrics-empty">{msg}</Mono>
-        </div>
-      </div>
-    );
-  }
+  // Empty state intentionally falls through: the page renders its full chrome
+  // with zero/empty defaults so users see the layout even with no session/trades.
 
   /* ── EXTRACT ── */
   const m                   = metricsData?.metrics        || {};
