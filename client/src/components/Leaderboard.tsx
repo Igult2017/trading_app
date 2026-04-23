@@ -108,7 +108,7 @@ export default function Leaderboard() {
       {/* Disclaimer */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: '12px 16px', marginBottom: 16, fontSize: 11, color: '#64748b', lineHeight: 1.6 }}>
         <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate. User identities are anonymised.</span>
+        <span>Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate.</span>
       </div>
 
       {/* Controls */}

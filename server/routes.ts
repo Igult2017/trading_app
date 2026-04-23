@@ -314,26 +314,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Build a unique, anonymised display name for each distinct user. We
-      // prefer the user's own full_name, then fall back to the email
-      // local-part, and finally to a short hash of the user_id. A 4-char
-      // suffix from the user_id is appended so two different users that
-      // happen to share a name never collapse into one row visually.
+      // Display the trader's real name as managed in the Admin Panel
+      // (user_profiles.full_name). Fall back to the email local-part if
+      // no full name is set, and finally to a short trader id.
       function displayFor(userId: string, fullName: string | null, email: string | null): string {
-        const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
         if (fullName && fullName.trim()) {
-          const first = fullName.trim().split(/\s+/)[0];
-          return suffix ? `${first} #${suffix}` : first;
+          return fullName.trim();
         }
         if (email) {
           const [local] = email.split('@');
-          const visible = local.slice(0, 3);
-          return `${visible}***${suffix ? ` #${suffix}` : ''}`;
+          return local || email;
         }
+        const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
         return suffix ? `Trader #${suffix}` : 'Trader';
       }
 
       function avatarFor(name: string): string {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+          return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
         const cleaned = name.replace(/[^A-Za-z0-9]/g, '');
         return cleaned.slice(0, 2).toUpperCase() || 'TR';
       }
