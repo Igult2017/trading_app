@@ -532,7 +532,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
     queryKey: ['/api/metrics/compute', sessionId],
     enabled: !!sessionId,
     queryFn: async () => {
-      const r = await fetch(metricsUrl);
+      const r = await authFetch(metricsUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       return r.json();
     },
@@ -542,7 +542,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
     queryKey: ['/api/journal/entries', sessionId],
     enabled: !!sessionId,
     queryFn: async () => {
-      const r = await fetch(entriesUrl);
+      const r = await authFetch(entriesUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       return r.json();
     },
@@ -573,7 +573,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
 
   const chartData = equityCurve.length > 0
     ? [{ label: 'Start', pnl: 0 }, ...equityCurve.map((p: any) => ({ label: `#${p.tradeNumber}`, pnl: p.cumulativePL }))]
-    : Array.from({ length: 12 }, (_, i) => ({ label: `#${i}`, pnl: 0 }));
+    : [{ label: 'Start', pnl: 0 }];
 
   const recentTrades = [...entries].slice(0, 6).map((e: any) => ({
     id: e.id,
@@ -622,7 +622,9 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
             )}
           </div>
           <div style={{ height: 220, width: '100%' }}>
-            <NeonLineChart data={chartData} />
+            {equityCurve.length > 0 ? <NeonLineChart data={chartData} /> : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 11 }}>No equity data yet</div>
+            )}
           </div>
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'var(--jr-accent,#38bdf8)0a', filter: 'blur(70px)', pointerEvents: 'none' }} />
         </div>
@@ -640,21 +642,14 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
           ))}
           <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--jr-border,rgba(255,255,255,0.05))' }}>
             <p style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
-            {instEntries.length > 0
-              ? instEntries.map(([name, data]: any) => (
-                  <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ fontSize: 10, color: 'var(--jr-text,#fff)', width: 54, fontStyle: 'italic', flexShrink: 0 }}>{name}</span>
-                    <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
-                    <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', width: 16, textAlign: 'right', flexShrink: 0 }}>{data.trades}</span>
-                  </div>
-                ))
-              : Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ fontSize: 10, color: 'var(--jr-muted,rgba(100,116,139,0.35))', width: 54, fontStyle: 'italic', flexShrink: 0 }}>—</span>
-                    <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: '0%', background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
-                    <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.35))', width: 16, textAlign: 'right', flexShrink: 0 }}>0</span>
-                  </div>
-                ))}
+            {instEntries.map(([name, data]: any) => (
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 10, color: 'var(--jr-text,#fff)', width: 54, fontStyle: 'italic', flexShrink: 0 }}>{name}</span>
+                <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
+                <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', width: 16, textAlign: 'right', flexShrink: 0 }}>{data.trades}</span>
+              </div>
+            ))}
+            {instEntries.length === 0 && <p style={{ fontSize: 10, color: 'var(--jr-muted,rgba(100,116,139,0.4))' }}>No instrument data yet</p>}
           </div>
         </div>
       </div>
@@ -691,27 +686,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
                 </tbody>
               </table>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 260 }}>
-                <thead style={{ background: 'var(--jr-divider,rgba(22,27,34,0.5))' }}>
-                  <tr>{['INSTRUMENT', 'ACTION', 'NET P&L'].map((h, i) => (
-                    <th key={h} style={{ padding: '8px 14px', fontSize: 8, color: 'var(--jr-muted,rgba(100,116,139,0.6))', textTransform: 'uppercase', letterSpacing: '0.2em', textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid var(--jr-divider,rgba(255,255,255,0.04))' }}>
-                      <td style={{ padding: '8px 14px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-muted,rgba(100,116,139,0.35))' }}>—</div>
-                        <div style={{ fontSize: 8, color: 'var(--jr-muted,rgba(100,116,139,0.3))', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>—</div>
-                      </td>
-                      <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', background: 'rgba(100,116,139,0.08)', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(100,116,139,0.12)' }}>—</span>
-                      </td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 11, fontWeight: 900, color: 'var(--jr-muted,rgba(100,116,139,0.35))' }}>$0.00</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 11 }}>No trades in this session yet</div>
             )}
           </div>
         </div>
