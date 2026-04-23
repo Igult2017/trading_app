@@ -19,6 +19,8 @@ import Leaderboard from '@/components/Leaderboard';
 import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
+import JournalSettingsPanel from '@/components/JournalSettingsPanel';
+import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -73,7 +75,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
   ]},
   { section: null, items: [
-    { id: 'settings', label: 'Settings', icon: SI.Settings, disabled: true },
+    { id: 'settings', label: 'Settings', icon: SI.Settings },
   ]},
 ];
 
@@ -114,11 +116,11 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
   );
 };
 
-const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void; darkMode?: boolean }) => {
+const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, sidebarBg, accentColor }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void; darkMode?: boolean; sidebarBg?: string; accentColor?: string }) => {
   const showLabels = isMobile || open;
   const [hovered, setHovered] = useState(false);
   const dm = darkMode ?? true;
-  const sbBg = dm ? '#010409' : '#f8fafc';
+  const sbBg = sidebarBg ?? (dm ? '#010409' : '#f8fafc');
   const sbBorder = dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.07)';
 
   const sidebarStyle: React.CSSProperties = isMobile ? {
@@ -166,7 +168,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode }:
         {/* Hover accent line — sits outside the aside so it is never clipped */}
         <div style={{
           position: 'absolute', top: 20, right: 0, width: 5, height: 'calc(100% - 20px)',
-          background: hovered ? '#38bdf8' : 'transparent',
+          background: hovered ? (accentColor ?? '#38bdf8') : 'transparent',
           transition: 'background 0.22s ease',
           pointerEvents: 'none',
         }} />
@@ -700,6 +702,9 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
 export default function Journal() {
   usePageTracking('journal');
   const { user } = useAuth();
+  const { settings, setSettings } = useJournalSettings();
+  const T = THEMES[settings.theme];
+  const F = FONTS[settings.font];
   const [activeNav, setActiveNav] = useState(() => {
     if (typeof window !== 'undefined') {
       const tab = new URLSearchParams(window.location.search).get('tab');
@@ -717,12 +722,19 @@ export default function Journal() {
     }
     return true;
   });
-  const toggleDarkMode = () => setDarkMode(d => {
-    const next = !d;
-    localStorage.setItem('journal_dark_mode', String(next));
-    return next;
-  });
-  const dm = darkMode;
+  const toggleDarkMode = () => {
+    const isLight = settings.theme === 'light';
+    if (isLight) {
+      setSettings({ theme: 'navy' });
+      setDarkMode(true);
+      localStorage.setItem('journal_dark_mode', 'true');
+    } else {
+      setSettings({ theme: 'light' });
+      setDarkMode(false);
+      localStorage.setItem('journal_dark_mode', 'false');
+    }
+  };
+  const dm = T.dark;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -791,25 +803,26 @@ export default function Journal() {
 
 
   return (
-    <div style={{ fontFamily:'"Montserrat",sans-serif', height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: dm ? '#010409' : '#f0f4f8', color: dm ? '#cbd5e1' : '#1e293b', transition: 'background 0.3s, color 0.3s' }}>
+    <div style={{ fontFamily: F.stack, height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: T.bg, color: T.text, transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
-        .journal-root *{font-family:'Montserrat',sans-serif!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
-        .journal-root svg text{font-family:'Montserrat',sans-serif!important;}
+        @import url('${F.googleUrl}');
+        .journal-root *{font-family:${F.stack}!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
+        .journal-root svg text{font-family:${F.stack}!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
-        .primary-btn { background: #2563eb; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
-        .primary-btn:hover { background: #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
+        .primary-btn:hover { background: ${T.accent}cc; box-shadow: 0 0 20px ${T.accent}66; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       <JournalHeader
         onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)}
-        darkMode={darkMode}
+        darkMode={T.dark}
         onToggleDarkMode={toggleDarkMode}
       />
 
       <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
-        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={darkMode} />
+        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
 
@@ -852,6 +865,13 @@ export default function Journal() {
             <AccountsPage openModal={true} />
           ) : activeNav === 'assets' ? (
             <AssetPage />
+          ) : activeNav === 'settings' ? (
+            <JournalSettingsPanel
+              theme={settings.theme}
+              font={settings.font}
+              onThemeChange={(t) => setSettings({ theme: t })}
+              onFontChange={(f) => setSettings({ font: f })}
+            />
           ) : (
             <DashboardView sessionId={activeSessionId ?? undefined} isMobile={isMobile} windowWidth={windowWidth} />
           )}
