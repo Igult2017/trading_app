@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 export type ThemeId = 'navy' | 'midnight' | 'slate' | 'forest' | 'rose' | 'light';
-export type FontId = 'montserrat' | 'dm-mono' | 'inter' | 'space-grotesk' | 'syne';
+export type FontId = 'montserrat' | 'dm-mono' | 'inter' | 'manrope' | 'sora' | 'jetbrains-mono';
 
 export interface JournalSettings {
   theme: ThemeId;
@@ -122,16 +122,22 @@ export const FONTS: Record<FontId, FontDef> = {
     googleUrl: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
     sample: 'Aa Bb 0123',
   },
-  'space-grotesk': {
-    label: 'Space Grotesk',
-    stack: "'Space Grotesk', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap',
+  manrope: {
+    label: 'Manrope',
+    stack: "'Manrope', sans-serif",
+    googleUrl: 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap',
     sample: 'Aa Bb 0123',
   },
-  syne: {
-    label: 'Syne',
-    stack: "'Syne', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap',
+  sora: {
+    label: 'Sora',
+    stack: "'Sora', sans-serif",
+    googleUrl: 'https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap',
+    sample: 'Aa Bb 0123',
+  },
+  'jetbrains-mono': {
+    label: 'JetBrains Mono',
+    stack: "'JetBrains Mono', monospace",
+    googleUrl: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap',
     sample: 'Aa Bb 0123',
   },
 };
@@ -139,7 +145,11 @@ export const FONTS: Record<FontId, FontDef> = {
 function load(): JournalSettings {
   try {
     const raw = localStorage.getItem('journal_settings_v2');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw) as JournalSettings;
+      if (!FONTS[parsed.font]) parsed.font = 'montserrat';
+      return parsed;
+    }
   } catch {}
   return { theme: 'navy', font: 'montserrat' };
 }
