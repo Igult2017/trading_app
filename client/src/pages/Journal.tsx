@@ -829,6 +829,66 @@ export default function Journal() {
         .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
         .primary-btn:hover { background: ${T.accent}cc; box-shadow: 0 0 20px ${T.accent}66; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* ───────── Light-theme overrides ─────────
+           Many panels still ship hardcoded dark backgrounds and white text in
+           inline styles. Without these overrides the light theme would leave
+           white-on-white text and dark cards. We target the common literals. */
+        .journal-light, .journal-light main { background: ${T.bg} !important; color: ${T.text} !important; }
+        .journal-light *,
+        .journal-light *::before,
+        .journal-light *::after { border-color: ${T.border} !important; }
+
+        /* Pure-white inline text → dark slate so it's readable on light bg. */
+        .journal-light [style*="color: #fff"],
+        .journal-light [style*="color:#fff"],
+        .journal-light [style*="color: #FFF"],
+        .journal-light [style*="color:#FFF"],
+        .journal-light [style*="color: #ffffff"],
+        .journal-light [style*="color:#ffffff"],
+        .journal-light [style*="color: white"],
+        .journal-light [style*="color:white"],
+        .journal-light [style*="color: rgb(255,255,255)"],
+        .journal-light [style*="color:rgb(255,255,255)"],
+        .journal-light [style*="color: rgba(255,255,255"],
+        .journal-light [style*="color:rgba(255,255,255"] { color: ${T.text} !important; }
+
+        /* Common dark surface literals → theme surface so cards are visible. */
+        .journal-light [style*="background: #0d1117"],
+        .journal-light [style*="background:#0d1117"],
+        .journal-light [style*="background-color: #0d1117"],
+        .journal-light [style*="background-color:#0d1117"],
+        .journal-light [style*="background: #080d18"],
+        .journal-light [style*="background:#080d18"],
+        .journal-light [style*="background: #010409"],
+        .journal-light [style*="background:#010409"],
+        .journal-light [style*="background: #0d0f0e"],
+        .journal-light [style*="background:#0d0f0e"],
+        .journal-light [style*="background: #0a0e15"],
+        .journal-light [style*="background:#0a0e15"],
+        .journal-light [style*="background: #161b22"],
+        .journal-light [style*="background:#161b22"],
+        .journal-light [style*="background: rgb(13,17,23)"],
+        .journal-light [style*="background:rgb(13,17,23)"] { background: ${T.surface} !important; }
+
+        /* Dim greyish text used in panels → muted theme color. */
+        .journal-light [style*="color: #cbd5e1"],
+        .journal-light [style*="color:#cbd5e1"],
+        .journal-light [style*="color: #94a3b8"],
+        .journal-light [style*="color:#94a3b8"],
+        .journal-light [style*="color: rgba(148,163,184"],
+        .journal-light [style*="color:rgba(148,163,184"],
+        .journal-light [style*="color: rgba(203,213,225"],
+        .journal-light [style*="color:rgba(203,213,225"],
+        .journal-light [style*="color: rgba(100,116,139"],
+        .journal-light [style*="color:rgba(100,116,139"] { color: ${T.textMuted} !important; }
+
+        /* Faint white borders/dividers → theme border. */
+        .journal-light [style*="rgba(255,255,255,0.04)"],
+        .journal-light [style*="rgba(255,255,255,0.05)"],
+        .journal-light [style*="rgba(255,255,255,0.06)"],
+        .journal-light [style*="rgba(255,255,255,0.08)"],
+        .journal-light [style*="rgba(255,255,255,0.1)"] { border-color: ${T.border} !important; }
       `}</style>
 
       <JournalHeader
@@ -839,10 +899,10 @@ export default function Journal() {
         themeAccent={T.accent}
       />
 
-      <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
+      <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
-        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : undefined }}>
 
           {activeNav === 'metrics' ? (
             <MetricsPanel sessionId={activeSessionId ?? undefined} />
