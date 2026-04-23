@@ -45,6 +45,7 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_websocket:1.0.0"]
 expertMode = true
+stack = "FLASK_VANILLA_JS"
 
 [userenv]
 
