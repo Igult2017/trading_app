@@ -243,10 +243,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (period === 'weekly')  dateFilter = `AND je.created_at >= NOW() - INTERVAL '7 days'`;
       if (period === 'monthly') dateFilter = `AND je.created_at >= NOW() - INTERVAL '30 days'`;
 
+      // NOTE: rankings are per-user (NOT per-session). Each row in the result
+      // is a distinct trader keyed on journal_entries.user_id; the LEFT JOIN
+      // pulls a friendly display name from user_profiles when available.
       const { rows } = await pool.query(`
         SELECT
           je.user_id,
-          up.email,
+          MAX(up.full_name)                                                               AS full_name,
+          MAX(up.email)                                                                   AS email,
           COUNT(*)                                                                        AS total_trades,
           COUNT(*) FILTER (WHERE COALESCE(je.profit_loss, 0) > 0)                        AS wins,
           ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                    AS total_pnl,
@@ -257,8 +261,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM journal_entries je
         LEFT JOIN user_profiles up ON up.id = je.user_id
         WHERE je.profit_loss IS NOT NULL
+          AND je.user_id IS NOT NULL
           ${dateFilter}
-        GROUP BY je.user_id, up.email
+        GROUP BY je.user_id
         HAVING COUNT(*) >= 1
         ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
         LIMIT 50
@@ -287,11 +292,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      function anonymize(email: string | null): string {
-        if (!email) return 'Trader';
-        const [local] = email.split('@');
-        const visible = local.slice(0, 3);
-        return `${visible}***`;
+      // Build a unique, anonymised display name for each distinct user. We
+      // prefer the user's own full_name, then fall back to the email
+      // local-part, and finally to a short hash of the user_id. A 4-char
+      // suffix from the user_id is appended so two different users that
+      // happen to share a name never collapse into one row visually.
+      function displayFor(userId: string, fullName: string | null, email: string | null): string {
+        const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
+        if (fullName && fullName.trim()) {
+          const first = fullName.trim().split(/\s+/)[0];
+          return suffix ? `${first} #${suffix}` : first;
+        }
+        if (email) {
+          const [local] = email.split('@');
+          const visible = local.slice(0, 3);
+          return `${visible}***${suffix ? ` #${suffix}` : ''}`;
+        }
+        return suffix ? `Trader #${suffix}` : 'Trader';
+      }
+
+      function avatarFor(name: string): string {
+        const cleaned = name.replace(/[^A-Za-z0-9]/g, '');
+        return cleaned.slice(0, 2).toUpperCase() || 'TR';
       }
 
       const leaderboard = rows.map((r: any, index: number) => {
@@ -301,12 +323,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rawPnl   = parseFloat(r.total_pnl) || 0;
         const pf       = parseFloat(r.profit_factor) || 0;
         const growth   = sparklines[r.user_id] || [0];
+        const name     = displayFor(r.user_id, r.full_name, r.email);
 
         return {
           rank:         index + 1,
           userId:       r.user_id,
-          name:         anonymize(r.email),
-          avatar:       anonymize(r.email).slice(0, 2).toUpperCase(),
+          name,
+          avatar:       avatarFor(name),
           pnl:          rawPnl,
           winRate,
           trades,
