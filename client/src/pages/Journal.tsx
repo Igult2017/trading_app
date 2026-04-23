@@ -734,7 +734,16 @@ export default function Journal() {
   const dm = T.dark;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('journal_active_session_id');
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (activeSessionId) localStorage.setItem('journal_active_session_id', activeSessionId);
+    else localStorage.removeItem('journal_active_session_id');
+  }, [activeSessionId]);
   const queryClient = useQueryClient();
 
   // Prefetch all heavy panels in the background whenever a session becomes active.
@@ -769,6 +778,16 @@ export default function Journal() {
       : Promise.resolve([]),
     enabled: !!user,
   });
+
+  // If the persisted activeSessionId points to a session that no longer
+  // exists (deleted on another device, etc.), clear it so we don't keep
+  // querying for ghost data.
+  useEffect(() => {
+    if (!activeSessionId || !sessions.length) return;
+    if (!sessions.some((s: any) => s.id === activeSessionId)) {
+      setActiveSessionId(null);
+    }
+  }, [sessions, activeSessionId]);
 
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
