@@ -81,7 +81,14 @@ const NAV_SECTIONS: NavGroup[] = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean }) => {
+const NavButton = ({ item, isActive, onClick, showLabels, darkMode = true }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean; darkMode?: boolean }) => {
+  // Theme-aware palette so labels are readable on the white sidebar.
+  const activeBg     = darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.06)';
+  const hoverBg      = darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.04)';
+  const labelActive  = darkMode ? '#f1f5f9' : '#0f172a';
+  const labelIdle    = darkMode ? 'rgba(148,163,184,0.75)' : '#334155';
+  const iconActive   = '#38bdf8';
+  const iconIdle     = darkMode ? '#4da8f0' : '#1d4ed8';
   return (
     <div style={{ position: 'relative', marginBottom: 4 }}>
       <button
@@ -92,18 +99,18 @@ const NavButton = ({ item, isActive, onClick, showLabels }: { item: NavItem; isA
           width: '100%', display: 'flex', alignItems: 'center',
           justifyContent: showLabels ? 'space-between' : 'center',
           padding: showLabels ? '16px 14px' : '14px', borderRadius: 10,
-          background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+          background: isActive ? activeBg : 'transparent',
           border: 'none',
           cursor: item.disabled ? 'not-allowed' : 'pointer',
           transition: 'background 0.18s', fontFamily: "'Montserrat',sans-serif",
           opacity: item.disabled ? 0.35 : 1,
           pointerEvents: item.disabled ? 'none' : undefined,
         }}
-        onMouseEnter={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+        onMouseEnter={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = hoverBg; }}
         onMouseLeave={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'transparent'; }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-          <span style={{ color: isActive ? '#38bdf8' : '#4da8f0', flexShrink: 0, display: 'flex', transform: !showLabels ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.2s ease' }}><item.icon /></span>
-          {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? '#f1f5f9' : 'rgba(148,163,184,0.75)', whiteSpace: 'nowrap' }}>{item.label}</span>}
+          <span style={{ color: isActive ? iconActive : iconIdle, flexShrink: 0, display: 'flex', transform: !showLabels ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.2s ease' }}><item.icon /></span>
+          {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? labelActive : labelIdle, whiteSpace: 'nowrap' }}>{item.label}</span>}
         </div>
         {showLabels && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -157,7 +164,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
                 {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
                 {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
                 {group.items.map(item => (
-                  <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels}
+                  <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels} darkMode={dm}
                     onClick={() => { setActiveNav(item.id); if (isMobile) onClose(); }} />
                 ))}
               </div>
