@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, RotateCcw, Copy, Check, Download,
   FileText, ChevronRight, AlertCircle, User,
-  Plus, Trash2, MessageSquare, Pencil
+  Plus, Trash2, MessageSquare, Pencil,
+  PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import { authFetch } from "@/lib/queryClient";
 
@@ -48,6 +49,16 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   const [chatsLoading, setChatsLoading] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("traderai.sidebarCollapsed") === "1";
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("traderai.sidebarCollapsed", sidebarCollapsed ? "1" : "0");
+    } catch { /* ignore */ }
+  }, [sidebarCollapsed]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -265,16 +276,35 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       `}</style>
 
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-      <div style={{ width: 240, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.06)", background: "rgba(7,13,21,0.97)", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "12px 12px 8px" }}>
-          <button onClick={newChat}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 9, color: "white", fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)" }}
+      <div style={{ width: sidebarCollapsed ? 52 : 240, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.06)", background: "rgba(7,13,21,0.97)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
+        <div style={{ padding: "12px 10px 8px", display: "flex", alignItems: "center", gap: 6 }}>
+          {!sidebarCollapsed && (
+            <button onClick={newChat}
+              style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 9, color: "white", fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)" }}
+            >
+              <Plus size={13} />
+              <span>New chat</span>
+            </button>
+          )}
+          {sidebarCollapsed && (
+            <button onClick={newChat}
+              title="New chat"
+              style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 8, color: "white", cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)" }}
+            >
+              <Plus size={14} />
+            </button>
+          )}
+          <button onClick={() => setSidebarCollapsed(v => !v)}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            style={{ width: 32, height: 32, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(255,255,255,0.55)", cursor: "pointer" }}
+            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.85)"; }}
+            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.04)"; b.style.color = "rgba(255,255,255,0.55)"; }}
           >
-            <Plus size={13} />
-            <span>New chat</span>
+            {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
           </button>
         </div>
 
+        {!sidebarCollapsed && (
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", padding: "4px 8px 12px" }}>
           {chatsLoading && chats.length === 0 ? (
             <p style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.25)", padding: "12px 8px" }}>Loading…</p>
@@ -333,6 +363,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
             })
           )}
         </div>
+        )}
       </div>
 
       {/* ── Main column ──────────────────────────────────────────────────── */}
