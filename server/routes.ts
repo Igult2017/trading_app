@@ -243,29 +243,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (period === 'weekly')  dateFilter = `AND je.created_at >= NOW() - INTERVAL '7 days'`;
       if (period === 'monthly') dateFilter = `AND je.created_at >= NOW() - INTERVAL '30 days'`;
 
-      // NOTE: rankings are per-user (NOT per-session). Each row in the result
-      // is a distinct trader keyed on journal_entries.user_id; the LEFT JOIN
-      // pulls a friendly display name from user_profiles when available.
+      // NOTE: rankings are per-USER, not per-session. A user may have many
+      // trading sessions; we combine the performance of all their sessions
+      // into a single row.
+      //
+      // Some legacy journal_entries rows have a NULL user_id but a valid
+      // session_id, so we resolve the owning user via trading_sessions when
+      // je.user_id is missing: COALESCE(je.user_id, ts.user_id).
       const { rows } = await pool.query(`
+        WITH resolved AS (
+          SELECT
+            COALESCE(je.user_id, ts.user_id) AS user_id,
+            je.profit_loss,
+            je.created_at
+          FROM journal_entries je
+          LEFT JOIN trading_sessions ts ON ts.id = je.session_id
+          WHERE je.profit_loss IS NOT NULL
+            ${dateFilter.replace(/je\./g, 'je.')}
+        )
         SELECT
-          je.user_id,
+          r.user_id,
           MAX(up.full_name)                                                               AS full_name,
           MAX(up.email)                                                                   AS email,
           COUNT(*)                                                                        AS total_trades,
-          COUNT(*) FILTER (WHERE COALESCE(je.profit_loss, 0) > 0)                        AS wins,
-          ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                    AS total_pnl,
+          COUNT(*) FILTER (WHERE COALESCE(r.profit_loss, 0) > 0)                          AS wins,
+          ROUND(CAST(SUM(COALESCE(r.profit_loss, 0)) AS numeric), 2)                      AS total_pnl,
           ROUND(CAST(
-            SUM(CASE WHEN je.profit_loss > 0 THEN je.profit_loss ELSE 0 END) /
-            NULLIF(ABS(SUM(CASE WHEN je.profit_loss < 0 THEN je.profit_loss ELSE 0 END)), 0)
+            SUM(CASE WHEN r.profit_loss > 0 THEN r.profit_loss ELSE 0 END) /
+            NULLIF(ABS(SUM(CASE WHEN r.profit_loss < 0 THEN r.profit_loss ELSE 0 END)), 0)
           AS numeric), 2)                                                                 AS profit_factor
-        FROM journal_entries je
-        LEFT JOIN user_profiles up ON up.id = je.user_id
-        WHERE je.profit_loss IS NOT NULL
-          AND je.user_id IS NOT NULL
-          ${dateFilter}
-        GROUP BY je.user_id
+        FROM resolved r
+        LEFT JOIN user_profiles up ON up.id = r.user_id
+        WHERE r.user_id IS NOT NULL
+        GROUP BY r.user_id
         HAVING COUNT(*) >= 1
-        ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
+        ORDER BY SUM(COALESCE(r.profit_loss, 0)) DESC
         LIMIT 50
       `);
 
@@ -274,13 +286,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let sparklines: Record<string, number[]> = {};
       if (userIds.length > 0) {
         const placeholders = userIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+        // Resolve user_id via session for legacy entries with NULL user_id,
+        // so the sparkline reflects all sessions belonging to the user.
         const { rows: sparkRows } = await pool.query(`
           SELECT user_id, profit_loss, created_at
           FROM (
-            SELECT user_id, profit_loss, created_at,
-                   ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
-            FROM journal_entries
-            WHERE user_id IN (${placeholders}) AND profit_loss IS NOT NULL
+            SELECT
+              COALESCE(je.user_id, ts.user_id) AS user_id,
+              je.profit_loss,
+              je.created_at,
+              ROW_NUMBER() OVER (
+                PARTITION BY COALESCE(je.user_id, ts.user_id)
+                ORDER BY je.created_at DESC
+              ) AS rn
+            FROM journal_entries je
+            LEFT JOIN trading_sessions ts ON ts.id = je.session_id
+            WHERE COALESCE(je.user_id, ts.user_id) IN (${placeholders})
+              AND je.profit_loss IS NOT NULL
           ) sub
           WHERE rn <= 10
           ORDER BY user_id, created_at ASC
