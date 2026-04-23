@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { Menu, Moon, Sun, Globe, Bell, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext";
+import { authFetch } from "@/lib/queryClient";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -198,12 +199,15 @@ const PcLogoutIcon = () => (
   </svg>
 );
 
-function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
+function ProfileDropdown({ dropdownRef, displayName, avatarLetter, plan, loginStreak, onLogout, onAccountSettings }: {
   dm: boolean;
   dropdownRef: RefObject<HTMLDivElement>;
   displayName: string;
   avatarLetter: string;
+  plan: string;
+  loginStreak: number;
   onLogout: () => void;
+  onAccountSettings: () => void;
 }) {
   useEffect(() => {
     const id = 'pc-profile-card-css';
@@ -214,7 +218,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
     document.head.appendChild(el);
   }, []);
 
-  const streakDays = 1;
+  const streakDays = Math.max(0, loginStreak | 0);
   const streakLabel = streakDays === 1 ? '1 day' : `${streakDays} days`;
 
   return createPortal(
@@ -232,7 +236,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
             <div className="pc-name">{displayName}</div>
             <div className="pc-pill">
               <span className="pc-dot" />
-              premium
+              {(plan || 'Free').toLowerCase()}
             </div>
           </div>
         </div>
@@ -249,7 +253,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
         </div>
 
         <div className="pc-menu">
-          <button className="pc-item" type="button">
+          <button className="pc-item" type="button" onClick={onAccountSettings}>
             <span className="pc-ico"><PcSettingsIcon /></span>
             account settings
           </button>
@@ -273,11 +277,30 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
   const { user, signOut } = useAuth();
   const [, navigate] = useLocation();
+  const [profile, setProfile] = useState<{ fullName: string; plan: string; loginStreak: number } | null>(null);
 
-  const displayName = user?.user_metadata?.full_name
-    ?? user?.email?.split('@')[0]
-    ?? 'Trader';
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    let cancelled = false;
+    authFetch('/api/me/profile')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', plan: d.plan || 'Free', loginStreak: d.loginStreak || 0 }); })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const displayName = (profile?.fullName && profile.fullName.trim())
+    || user?.user_metadata?.full_name
+    || user?.email?.split('@')[0]
+    || 'Trader';
   const avatarLetter = (displayName[0] ?? 'T').toUpperCase();
+  const plan = profile?.plan || 'Free';
+  const loginStreak = profile?.loginStreak || 0;
+
+  function openAccountSettings() {
+    setProfileOpen(false);
+    navigate('/journal?tab=settings');
+  }
 
   async function handleLogout() {
     setProfileOpen(false);
@@ -406,7 +429,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)}>
                 <UserCircle2 size={18} color="#60a5fa" />
               </button>
-              {profileOpen && <ProfileDropdown dm={dm} dropdownRef={dropdownRef} displayName={displayName} avatarLetter={avatarLetter} onLogout={handleLogout} />}
+              {profileOpen && <ProfileDropdown dm={dm} dropdownRef={dropdownRef} displayName={displayName} avatarLetter={avatarLetter} plan={plan} loginStreak={loginStreak} onLogout={handleLogout} onAccountSettings={openAccountSettings} />}
             </div>
             <button className="settings-btn" title="Settings">
               <Settings size={15} />

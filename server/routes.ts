@@ -234,6 +234,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Current user profile + login streak ---
+  app.get("/api/me/profile", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const { rows: profileRows } = await pool.query(
+        `SELECT id, email, role, full_name, country, plan, status, created_at
+         FROM user_profiles WHERE id = $1 LIMIT 1`,
+        [auth.id],
+      );
+      const profile = profileRows[0] || null;
+
+      // Login streak = number of consecutive days (ending today, in UTC) the
+      // user has logged at least one journal entry. Uses je.created_at and
+      // resolves user via session for legacy NULL-user_id rows.
+      const { rows: dayRows } = await pool.query(
+        `SELECT DISTINCT (je.created_at AT TIME ZONE 'UTC')::date AS day
+         FROM journal_entries je
+         LEFT JOIN trading_sessions ts ON ts.id = je.session_id
+         WHERE COALESCE(je.user_id, ts.user_id) = $1
+         ORDER BY day DESC
+         LIMIT 365`,
+        [auth.id],
+      );
+
+      let streak = 0;
+      if (dayRows.length > 0) {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        const oneDay = 24 * 60 * 60 * 1000;
+        let cursor = today.getTime();
+        const mostRecent = new Date(dayRows[0].day).getTime();
+        // Allow streak to start either today or yesterday so a user who
+        // hasn't logged today yet still sees their current streak.
+        if (mostRecent === cursor || mostRecent === cursor - oneDay) {
+          cursor = mostRecent;
+          for (const r of dayRows) {
+            const d = new Date(r.day).getTime();
+            if (d === cursor) {
+              streak += 1;
+              cursor -= oneDay;
+            } else if (d < cursor) {
+              break;
+            }
+          }
+        }
+      }
+
+      res.json({
+        id:        auth.id,
+        email:     profile?.email ?? null,
+        fullName:  profile?.full_name ?? '',
+        plan:      profile?.plan   ?? 'Free',
+        role:      profile?.role   ?? 'user',
+        status:    profile?.status ?? 'Active',
+        country:   profile?.country ?? '',
+        loginStreak: streak,
+      });
+    } catch (err: any) {
+      console.error('[Me/Profile] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to load profile' });
+    }
+  });
+
   // --- Leaderboard (public — no auth required) ---
   app.get("/api/leaderboard", async (req, res) => {
     try {
