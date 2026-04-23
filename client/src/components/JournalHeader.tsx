@@ -41,6 +41,8 @@ interface JournalHeaderProps {
   onToggleSidebar: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  themeLabel?: string;
+  themeAccent?: string;
 }
 
 const PROFILE_CARD_CSS = `
@@ -262,7 +264,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, onLogout }: {
   );
 }
 
-export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode }: JournalHeaderProps) {
+export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeLabel, themeAccent }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -412,22 +414,58 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
-            <button onClick={() => onToggleDarkMode()}
-              style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-              </div>
+            <button
+              onClick={() => onToggleDarkMode()}
+              title="Cycle theme"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px 4px 6px',
+                borderRadius: 20,
+                border: `1px solid ${themeAccent ?? '#38bdf8'}40`,
+                background: `${themeAccent ?? '#38bdf8'}12`,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}22`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}80`; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}12`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}40`; }}
+            >
+              <div style={{ width: 14, height: 14, borderRadius: '50%', background: themeAccent ?? '#38bdf8', flexShrink: 0, boxShadow: `0 0 6px ${themeAccent ?? '#38bdf8'}80` }} />
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? '#38bdf8', whiteSpace: 'nowrap' }}>
+                {themeLabel ?? 'Theme'}
+              </span>
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>
+                <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
 
           </div>
 
           {/* Mobile Controls */}
           <div className="nav-mob-controls">
-            <button onClick={() => onToggleDarkMode()}
-              style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-              </div>
+            <button
+              onClick={() => onToggleDarkMode()}
+              title="Cycle theme"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px 4px 6px',
+                borderRadius: 20,
+                border: `1px solid ${themeAccent ?? '#38bdf8'}40`,
+                background: `${themeAccent ?? '#38bdf8'}12`,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}22`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}80`; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}12`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}40`; }}
+            >
+              <div style={{ width: 14, height: 14, borderRadius: '50%', background: themeAccent ?? '#38bdf8', flexShrink: 0, boxShadow: `0 0 6px ${themeAccent ?? '#38bdf8'}80` }} />
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? '#38bdf8', whiteSpace: 'nowrap' }}>
+                {themeLabel ?? 'Theme'}
+              </span>
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>
+                <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>

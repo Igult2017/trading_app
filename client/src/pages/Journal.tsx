@@ -187,10 +187,10 @@ const KPI_ICONS = {
 };
 
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
-  <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.05)', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
+  <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
     <div style={{ background: stat.bg, padding: 6, borderRadius: 6, color: stat.color, display: 'flex' }}><stat.Icon /></div>
     <div style={{ textAlign: 'center' }}>
-      <p style={{ fontSize: 9, color: 'rgba(148,163,184,0.7)', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
+      <p style={{ fontSize: 9, color: 'var(--jr-muted,rgba(148,163,184,0.7))', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
       <p style={{ fontSize: 13, fontWeight: 900, color: stat.color, margin: 0 }}>{stat.value}</p>
     </div>
   </div>
@@ -609,11 +609,11 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 6 }}>
-        <div style={{ background: '#080d18', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
+        <div style={{ background: 'var(--jr-chart,#080d18)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(56,189,248,0.1)', borderRadius: 8, color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}><Activity size={16} strokeWidth={3} /></div>
-              <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
+              <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--jr-accent,#38bdf8)22', borderRadius: 8, color: 'var(--jr-accent,#38bdf8)', border: '1px solid var(--jr-accent,#38bdf8)44' }}><Activity size={16} strokeWidth={3} /></div>
+              <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
               <span style={{ fontSize: 10, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
@@ -623,57 +623,57 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
           </div>
           <div style={{ height: 220, width: '100%' }}>
             {equityCurve.length > 0 ? <NeonLineChart data={chartData} /> : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No equity data yet</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 11 }}>No equity data yet</div>
             )}
           </div>
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'rgba(56,189,248,0.04)', filter: 'blur(70px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'var(--jr-accent,#38bdf8)0a', filter: 'blur(70px)', pointerEvents: 'none' }} />
         </div>
 
-        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 8 }} data-testid="panel-performance-mix">
-          <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
+        <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', padding: 20, borderRadius: 8 }} data-testid="panel-performance-mix">
+          <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
           {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
             <div key={m.label} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 9, color: 'rgba(100,116,139,0.7)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>{m.label}</span>
+                <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.7))', letterSpacing: '0.15em', textTransform: 'uppercase' }}>{m.label}</span>
                 <span style={{ fontSize: 9, color: m.color }}>{m.val}</span>
               </div>
-              <div style={{ height: 2, background: '#161b22', borderRadius: 4 }}><div style={{ height: '100%', width: m.val, background: m.color, borderRadius: 4 }} /></div>
+              <div style={{ height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4 }}><div style={{ height: '100%', width: m.val, background: m.color, borderRadius: 4 }} /></div>
             </div>
           ))}
-          <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <p style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
+          <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--jr-border,rgba(255,255,255,0.05))' }}>
+            <p style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
             {instEntries.map(([name, data]: any) => (
               <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 10, color: '#fff', width: 54, fontStyle: 'italic', flexShrink: 0 }}>{name}</span>
-                <div style={{ flex: 1, height: 2, background: '#161b22', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: '#38bdf8', borderRadius: 4 }} /></div>
-                <span style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', width: 16, textAlign: 'right', flexShrink: 0 }}>{data.trades}</span>
+                <span style={{ fontSize: 10, color: 'var(--jr-text,#fff)', width: 54, fontStyle: 'italic', flexShrink: 0 }}>{name}</span>
+                <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
+                <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', width: 16, textAlign: 'right', flexShrink: 0 }}>{data.trades}</span>
               </div>
             ))}
-            {instEntries.length === 0 && <p style={{ fontSize: 10, color: 'rgba(100,116,139,0.4)' }}>No instrument data yet</p>}
+            {instEntries.length === 0 && <p style={{ fontSize: 10, color: 'var(--jr-muted,rgba(100,116,139,0.4))' }}>No instrument data yet</p>}
           </div>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 6 }}>
-        <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
-            <Activity size={14} strokeWidth={3} style={{ color: '#38bdf8', opacity: .3 }} />
+        <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--jr-border,rgba(255,255,255,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
+            <Activity size={14} strokeWidth={3} style={{ color: 'var(--jr-accent,#38bdf8)', opacity: .3 }} />
           </div>
           <div style={{ overflowX: 'auto' }}>
             {recentTrades.length > 0 ? (
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 260 }}>
-                <thead style={{ background: 'rgba(22,27,34,0.5)' }}>
+                <thead style={{ background: 'var(--jr-divider,rgba(22,27,34,0.5))' }}>
                   <tr>{['INSTRUMENT', 'ACTION', 'NET P&L'].map((h, i) => (
-                    <th key={h} style={{ padding: '8px 14px', fontSize: 8, color: 'rgba(100,116,139,0.6)', textTransform: 'uppercase', letterSpacing: '0.2em', textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '8px 14px', fontSize: 8, color: 'var(--jr-muted,rgba(100,116,139,0.6))', textTransform: 'uppercase', letterSpacing: '0.2em', textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
                   {recentTrades.map(t => (
-                    <tr key={t.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} data-testid={`trade-row-${t.id}`}>
+                    <tr key={t.id} style={{ borderTop: '1px solid var(--jr-divider,rgba(255,255,255,0.04))' }} data-testid={`trade-row-${t.id}`}>
                       <td style={{ padding: '8px 14px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>{t.ticker}</div>
-                        <div style={{ fontSize: 8, color: 'rgba(100,116,139,0.6)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{t.date}</div>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-text,#fff)' }}>{t.ticker}</div>
+                        <div style={{ fontSize: 8, color: 'var(--jr-muted,rgba(100,116,139,0.6))', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{t.date}</div>
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'center' }}>
                         <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
@@ -686,7 +686,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
                 </tbody>
               </table>
             ) : (
-              <div style={{ padding: 40, textAlign: 'center', color: 'rgba(100,116,139,0.5)', fontSize: 11 }}>No trades in this session yet</div>
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 11 }}>No trades in this session yet</div>
             )}
           </div>
         </div>
@@ -722,17 +722,14 @@ export default function Journal() {
     }
     return true;
   });
+  const THEME_ORDER: Array<import('@/hooks/useJournalSettings').ThemeId> = ['navy','midnight','slate','forest','rose','light'];
   const toggleDarkMode = () => {
-    const isLight = settings.theme === 'light';
-    if (isLight) {
-      setSettings({ theme: 'navy' });
-      setDarkMode(true);
-      localStorage.setItem('journal_dark_mode', 'true');
-    } else {
-      setSettings({ theme: 'light' });
-      setDarkMode(false);
-      localStorage.setItem('journal_dark_mode', 'false');
-    }
+    const idx = THEME_ORDER.indexOf(settings.theme);
+    const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+    setSettings({ theme: next });
+    const nextDark = THEMES[next].dark;
+    setDarkMode(nextDark);
+    localStorage.setItem('journal_dark_mode', String(nextDark));
   };
   const dm = T.dark;
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -819,9 +816,11 @@ export default function Journal() {
         onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)}
         darkMode={T.dark}
         onToggleDarkMode={toggleDarkMode}
+        themeLabel={T.label}
+        themeAccent={T.accent}
       />
 
-      <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
+      <div className="journal-root" style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? '#0d0f0e' : undefined }}>
