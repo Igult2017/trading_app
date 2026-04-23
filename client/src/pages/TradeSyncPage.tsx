@@ -1158,7 +1158,7 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
   );
 }
 
-const StepGoLive = ({ data, role, onReset, onHome, providers }: any) => {
+const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) => {
   const [status, setStatus] = useState<'ready'|'deploying'|'success'|'error'>('ready');
   const [deployResult, setDeployResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -1253,22 +1253,70 @@ const StepGoLive = ({ data, role, onReset, onHome, providers }: any) => {
   );
 
   return (
-    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
-      <div className="w-24 h-24 rounded-full border border-blue-500/20 flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-pulse" />
-        <Rocket size={40} className="text-blue-500" strokeWidth={1.5} />
+    <div className="border border-white/5 max-w-2xl mx-auto flex flex-col items-center">
+      {/* ── Hero block ──────────────────────────────────────── */}
+      <div className="w-full p-8 md:p-16 flex flex-col items-center text-center space-y-4 border-b border-white/5">
+        <div className="w-24 h-24 rounded-full border border-blue-500/20 flex items-center justify-center relative">
+          <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-pulse" />
+          <Rocket size={40} className="text-blue-500 relative z-10" strokeWidth={1.5} />
+        </div>
+        <h2 className="text-2xl md:text-3xl font-light">System Ready</h2>
+        <p className="text-slate-500 text-sm max-w-md">{summaries[role]}</p>
       </div>
-      <h2 className="text-2xl md:text-3xl font-light">System Ready</h2>
-      <p className="text-slate-500 text-sm max-w-md">{summaries[role]}</p>
+
+      {/* ── Risk disclosure (inline) ─────────────────────────── */}
       {!canDeploy && (
-        <div className="flex items-start gap-2 text-amber-400 text-xs border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-          <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-          <span>Please complete the Risk Disclosure step before deploying.</span>
+        <div className="w-full border-b border-white/5 p-6 md:p-8 space-y-4">
+          <div className="flex items-center gap-2 text-amber-400 mb-1">
+            <AlertTriangle size={14} className="flex-shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Risk Disclosure Required</span>
+          </div>
+
+          <div className="p-4 border border-red-500/20 bg-red-500/5 space-y-2">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              {role === 'provider'
+                ? "As a signal provider, you acknowledge that followers will execute real-money trades based on your signals. TradeSync does not verify your trading strategy or guarantee follower profitability."
+                : "Copy trading involves significant risk and may not be suitable for all investors. Past performance does not guarantee future results. You may lose some or all of your invested capital."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Toggle
+              label="I have read and understand the risk warning"
+              on={data.riskAccepted ?? false}
+              onChange={(v: boolean) => setData({ ...data, riskAccepted: v })}
+            />
+            {role === 'provider' && (
+              <Toggle
+                label="I confirm I am a genuine signal provider"
+                on={data.providerConfirmed ?? false}
+                onChange={(v: boolean) => setData({ ...data, providerConfirmed: v })}
+              />
+            )}
+            <Toggle
+              label={`I confirm I am ${role === 'provider' ? 'broadcasting' : 'trading'} with funds I can afford to lose`}
+              on={data.affordConfirmed ?? false}
+              onChange={(v: boolean) => setData({ ...data, affordConfirmed: v })}
+            />
+          </div>
         </div>
       )}
-      <GlowButton active={canDeploy} onClick={handleDeploy}>
-        DEPLOY TERMINAL <ArrowRight size={14} />
-      </GlowButton>
+
+      {/* ── Deploy action ────────────────────────────────────── */}
+      <div className="w-full p-6 md:p-8 flex flex-col items-center gap-3">
+        {canDeploy && (
+          <div className="flex items-center gap-2 text-green-400 text-[10px] font-mono uppercase tracking-widest mb-2">
+            <CheckCircle2 size={13} />
+            <span>All disclosures accepted — ready to deploy</span>
+          </div>
+        )}
+        <GlowButton active={canDeploy} onClick={handleDeploy}>
+          DEPLOY TERMINAL <ArrowRight size={14} />
+        </GlowButton>
+        {!canDeploy && (
+          <p className="text-[10px] text-slate-700 font-mono mt-1">Accept all disclosures above to enable deployment.</p>
+        )}
+      </div>
     </div>
   );
 };
@@ -1340,7 +1388,7 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
       case 'tg-channel': return <StepTgChannel     data={data} setData={setData} />;
       case 'tg-parser':  return <StepTgParser      data={data} setData={setData} />;
       case 'tg-test':    return <StepTgTest        data={data} setData={setData} />;
-      case 'go-live':    return <StepGoLive        data={data} role={data.role} onReset={handleReset} onHome={onBack} />;
+      case 'go-live':    return <StepGoLive        data={data} setData={setData} role={data.role} onReset={handleReset} onHome={onBack} providers={providers} />;
       default:           return null;
     }
   };
