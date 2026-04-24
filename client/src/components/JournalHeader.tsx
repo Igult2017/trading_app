@@ -54,12 +54,22 @@ const PROFILE_CARD_CSS = `
   .pc-root {
     font-family: 'DM Mono', monospace;
     width: 300px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    overflow-x: hidden;
     background: #13131f;
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 10px;
-    overflow: hidden;
     animation: pc-rise .4s cubic-bezier(.34,1.56,.64,1) both;
     box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    -webkit-overflow-scrolling: touch;
+  }
+  .pc-root::-webkit-scrollbar { width: 6px; }
+  .pc-root::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    .pc-root { max-height: calc(100vh - 80px); }
   }
 
   @keyframes pc-rise {
