@@ -437,10 +437,13 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
 
   const longData  = directionBias.long  || {};
   const shortData = directionBias.short || {};
+  const unknownData = directionBias.unknown || {};
   const longWR    = longData.winRate    || 0;
   const shortWR   = shortData.winRate   || 0;
-  const longTrades  = longData.trades   || 0;
-  const shortTrades = shortData.trades  || 0;
+  const unknownWR = unknownData.winRate || 0;
+  const longTrades    = longData.trades    || 0;
+  const shortTrades   = shortData.trades   || 0;
+  const unknownTrades = unknownData.trades || 0;
 
   const stratEntries = Object.entries(strategyPerformance).map(([name,d]: [string,any]) => ({
     name, wr: d.winRate ?? null, trades: d.trades||0, pl: d.pl||0,
@@ -1019,9 +1022,10 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
             <div style={{ borderRight:`1px solid ${P.line2}`, padding:'10px 14px' }}>
               <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Bias</SubLabel>
               {[
-                { bias:'Bullish', ct:`${longTrades} trade${longTrades!==1?'s':''}`,   wr:`${Math.round(longWR)}%`,  c:P.green },
-                { bias:'Bearish', ct:`${shortTrades} trade${shortTrades!==1?'s':''}`, wr:`${Math.round(shortWR)}%`, c:P.red },
-              ].map((x,i)=>(
+                { bias:'Bullish', ct:`(${longTrades})`,    wr:`${Math.round(longWR)}%`,    c:P.green, show: true },
+                { bias:'Bearish', ct:`(${shortTrades})`,   wr:`${Math.round(shortWR)}%`,   c:P.red,   show: true },
+                { bias:'Unknown', ct:`(${unknownTrades})`, wr:`${Math.round(unknownWR)}%`, c:P.amber, show: unknownTrades > 0 },
+              ].filter(x=>x.show).map((x,i)=>(
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:`1px solid ${P.line}` }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <div style={{ width:3, height:3, borderRadius:'50%', background:x.c }}/>

@@ -1023,9 +1023,12 @@ def calc_direction_bias(ctx: SharedContext) -> Dict:
             "winRate": win_rate_of(grp),
             "pl":      round(sum(t.pnl for t in grp), 2),
         }
+    # Bucket every trade — anything that isn't long/short falls into "unknown"
+    # so the drill-down counts always sum to the total trades logged.
     return {
-        "long":  _dir([t for t in ctx.trades if t.direction == "long"]),
-        "short": _dir([t for t in ctx.trades if t.direction == "short"]),
+        "long":    _dir([t for t in ctx.trades if t.direction == "long"]),
+        "short":   _dir([t for t in ctx.trades if t.direction == "short"]),
+        "unknown": _dir([t for t in ctx.trades if t.direction not in ("long", "short")]),
     }
 
 
