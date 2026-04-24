@@ -1,17 +1,28 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trophy, TrendingUp, Medal, Percent, Loader2, Users } from 'lucide-react';
+import { Trophy, TrendingUp, Percent, Loader2, Users } from 'lucide-react';
 
 interface Trader {
   rank: number;
   userId: string;
   name: string;
   avatar: string;
+  country?: string;
   pnl: number;
   winRate: number;
   trades: number;
   profitFactor: number;
   growth: number[];
 }
+
+const flagEmoji = (code?: string) => {
+  if (!code || code.length !== 2) return '';
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0)));
+};
+
+const truncateName = (name: string, maxWords = 2) => {
+  const words = (name || '').trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, maxWords).join(' ');
+};
 
 interface Summary {
   totalPnl: number;
@@ -165,9 +176,17 @@ export default function Leaderboard() {
               return (
                 <div key={trader.userId} style={{ flex: 1, minWidth: 180, position: 'relative' }}>
                   <div style={{ background: '#0f172a', border: `1px solid ${isFirst ? 'rgba(234,179,8,0.4)' : '#1e293b'}`, padding: '16px 16px 14px', position: 'relative', overflow: 'hidden', minHeight: isFirst ? 260 : 200, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: isFirst ? '0 0 32px rgba(234,179,8,0.08)' : 'none', marginBottom: isFirst ? 14 : 0 }}>
-                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '4px 12px', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', background: podiumColor, color: isFirst ? '#000' : '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {isFirst && <Medal size={10} />} Rank #{rank}
+                    {/* Top-left rank diamond */}
+                    <div style={{ position: 'absolute', top: 12, left: 12, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ position: 'absolute', width: 22, height: 22, border: `1px solid ${podiumColor}`, background: isFirst ? 'rgba(234,179,8,0.12)' : 'rgba(30,41,59,0.6)', transform: 'rotate(45deg)' }} />
+                      <span style={{ position: 'relative', zIndex: 1, fontSize: 11, fontWeight: 800, color: podiumColor }}>{rank}</span>
                     </div>
+                    {/* Top-right country flag */}
+                    {trader.country && (
+                      <div title={trader.country.toUpperCase()} style={{ position: 'absolute', top: 10, right: 12, fontSize: 22, lineHeight: 1, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }}>
+                        {flagEmoji(trader.country)}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
                       <div style={{ position: 'relative', marginBottom: 10 }}>
                         <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : '#94a3b8' }}>
@@ -179,7 +198,7 @@ export default function Leaderboard() {
                           </div>
                         )}
                       </div>
-                      <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: isFirst ? '#fff' : '#cbd5e1', lineHeight: 1.3 }}>{trader.name}</h3>
+                      <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: isFirst ? '#fff' : '#cbd5e1', lineHeight: 1.3 }}>{truncateName(trader.name)}</h3>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
                       <div>
@@ -240,7 +259,12 @@ export default function Leaderboard() {
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
                           {trader.avatar}
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: '#e2e8f0' }}>{trader.name}</span>
+                        {trader.country && (
+                          <span title={trader.country.toUpperCase()} style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>
+                            {flagEmoji(trader.country)}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: '#e2e8f0' }}>{truncateName(trader.name)}</span>
                       </div>
                     </td>
                     <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'pnl' ? (trader.pnl >= 0 ? '#34d399' : '#f87171') : (trader.pnl >= 0 ? '#34d399' : '#f87171') }}>
