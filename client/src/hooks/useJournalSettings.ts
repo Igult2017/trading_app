@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 export type ThemeId = 'navy' | 'midnight' | 'slate' | 'forest' | 'rose' | 'light';
-export type FontId = 'montserrat' | 'dm-mono' | 'inter' | 'manrope' | 'sora' | 'jetbrains-mono';
+export type FontId = 'montserrat' | 'dm-mono' | 'inter' | 'manrope' | 'sora' | 'jetbrains-mono' | 'plus-jakarta-sans';
 
 export interface JournalSettings {
   theme: ThemeId;
@@ -138,6 +138,12 @@ export const FONTS: Record<FontId, FontDef> = {
     label: 'JetBrains Mono',
     stack: "'JetBrains Mono', monospace",
     googleUrl: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap',
+    sample: 'Aa Bb 0123',
+  },
+  'plus-jakarta-sans': {
+    label: 'Plus Jakarta Sans',
+    stack: "'Plus Jakarta Sans', sans-serif",
+    googleUrl: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
     sample: 'Aa Bb 0123',
   },
 };
