@@ -140,7 +140,65 @@ async function requireAuth(
     res.status(401).json({ error: "Authentication required" });
     return null;
   }
+  // Make sure this user has a profile row so the leaderboard, admin panel
+  // and other consumers can show their real name/email.
+  ensureUserProfile(user).catch((err) =>
+    console.warn('[ensureUserProfile] failed:', err?.message),
+  );
   return { id: user.id };
+}
+
+// Cache of user IDs we've already upserted this process lifetime so we don't
+// hit the database on every authenticated request.
+const _profileEnsured = new Set<string>();
+
+function extractFullName(user: any): string {
+  const meta = user?.user_metadata ?? {};
+  const candidates = [
+    meta.full_name,
+    meta.fullName,
+    meta.name,
+    [meta.first_name, meta.last_name].filter(Boolean).join(' ').trim(),
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim();
+  }
+  return '';
+}
+
+async function ensureUserProfile(user: { id: string; email?: string | null; user_metadata?: any }) {
+  if (!user?.id || _profileEnsured.has(user.id)) return;
+  const email    = (user.email ?? '').toString();
+  const fullName = extractFullName(user);
+  await pool.query(
+    `INSERT INTO user_profiles (id, email, full_name, role, status, plan)
+     VALUES ($1, $2, $3, 'user', 'Active', 'Free')
+     ON CONFLICT (id) DO UPDATE SET
+       email     = COALESCE(NULLIF(EXCLUDED.email, ''), user_profiles.email),
+       full_name = CASE
+         WHEN COALESCE(user_profiles.full_name, '') = '' THEN EXCLUDED.full_name
+         ELSE user_profiles.full_name
+       END`,
+    [user.id, email, fullName],
+  );
+  _profileEnsured.add(user.id);
+}
+
+// Backfill user_profiles rows for any user IDs missing a profile by looking
+// them up in Supabase. Used by the public leaderboard so traders show with
+// their real name/email even if they haven't visited an authed endpoint yet.
+async function backfillProfilesFromSupabase(userIds: string[]) {
+  if (!supabaseAdmin || userIds.length === 0) return;
+  await Promise.all(userIds.map(async (id) => {
+    if (_profileEnsured.has(id)) return;
+    try {
+      const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
+      if (error || !data?.user) return;
+      await ensureUserProfile(data.user as any);
+    } catch (err: any) {
+      console.warn('[backfillProfiles] lookup failed for', id, err?.message);
+    }
+  }));
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -344,6 +402,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY SUM(COALESCE(r.profit_loss, 0)) DESC
         LIMIT 50
       `);
+
+      // Backfill profiles for any user that doesn't have one yet by looking
+      // up their email + full name from Supabase. This makes the leaderboard
+      // show real names even for users who've never hit an authed endpoint.
+      const missing = rows
+        .filter((r: any) => !r.full_name && !r.email)
+        .map((r: any) => r.user_id)
+        .filter(Boolean);
+      if (missing.length > 0) {
+        await backfillProfilesFromSupabase(missing);
+        const { rows: refreshed } = await pool.query(
+          `SELECT id, email, full_name FROM user_profiles WHERE id = ANY($1::varchar[])`,
+          [missing],
+        );
+        const lookup = new Map(refreshed.map((p: any) => [p.id, p]));
+        for (const r of rows as any[]) {
+          const p = lookup.get(r.user_id);
+          if (p) {
+            r.full_name = r.full_name || p.full_name;
+            r.email     = r.email     || p.email;
+          }
+        }
+      }
 
       // Fetch sparkline data (last 10 trade PnL values) for each user
       const userIds = rows.map((r: any) => r.user_id).filter(Boolean);
