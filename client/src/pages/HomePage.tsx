@@ -177,11 +177,70 @@ export default function HomePage() {
         @media (min-width: 1025px) {
           .mob-dropdown { display:none !important; }
         }
+
+        /* ── Responsive landing-page layout ───────────────────────── */
+        .lp-nav { padding: 0 24px; }
+        .lp-section { padding: 80px 24px; }
+        .lp-section-sm { padding: 60px 24px; }
+        .lp-section-xs { padding: 48px 24px; }
+        .lp-hero-h1 { font-size: clamp(28px, 4vw, 48px); }
+        .lp-hero-p1 { font-size: 18px; }
+        .lp-hero-p2 { font-size: 16px; }
+        .lp-section-h2 { font-size: 36px; }
+        .lp-section-h2-md { font-size: 32px; }
+        .lp-section-sub { font-size: 18px; }
+        .lp-dash-card { padding: 32px; border-radius: 16px; }
+        .lp-dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .lp-dash-cell { padding: 24px; }
+        .lp-dash-stat { font-size: 32px; }
+        .lp-brokers-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px; }
+        .lp-features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+        .lp-mob-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+        .lp-pricing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .lp-testimonials-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .lp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .lp-cal-cell { font-size: 10px; }
+        .lp-stars-row { gap: 8px; flex-wrap: wrap; padding: 0 12px; text-align: center; }
+
+        @media (max-width: 1024px) {
+          .lp-pricing-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+          .lp-testimonials-grid { grid-template-columns: repeat(2, 1fr); }
+          .lp-section-h2 { font-size: 30px; }
+          .lp-section-h2-md { font-size: 26px; }
+        }
+
+        @media (max-width: 768px) {
+          .lp-nav { padding: 0 16px; }
+          .lp-section { padding: 56px 16px; }
+          .lp-section-sm { padding: 40px 16px; }
+          .lp-section-xs { padding: 32px 16px; }
+          .lp-hero-p1 { font-size: 15px; line-height: 1.6; }
+          .lp-hero-p2 { font-size: 13px; line-height: 1.7; }
+          .lp-section-h2 { font-size: 24px; }
+          .lp-section-h2-md { font-size: 22px; }
+          .lp-section-sub { font-size: 14px; }
+          .lp-dash-card { padding: 16px; border-radius: 12px; }
+          .lp-dash-grid { grid-template-columns: 1fr; gap: 10px; }
+          .lp-dash-cell { padding: 16px; }
+          .lp-dash-stat { font-size: 24px; }
+          .lp-brokers-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+          .lp-features-grid { grid-template-columns: 1fr; gap: 14px; }
+          .lp-mob-grid { grid-template-columns: 1fr; gap: 32px; }
+          .lp-pricing-grid { grid-template-columns: 1fr; gap: 14px; }
+          .lp-testimonials-grid { grid-template-columns: 1fr; gap: 14px; }
+          .lp-cal-grid { gap: 3px; }
+          .lp-cal-cell { font-size: 8px; }
+          .lp-stars-row { font-size: 12px; gap: 6px; }
+        }
+
+        @media (max-width: 420px) {
+          .lp-brokers-grid { grid-template-columns: repeat(2, 1fr); }
+        }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
         <TickerTape />
-        <nav style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
+        <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.3s' }}>
           <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
             <span style={{ color: t.logoWhite }}>FSD </span>
             <span style={{ color: '#3b82f6' }}>Journal</span>
@@ -239,21 +298,21 @@ export default function HomePage() {
       <div>
 
         {/* Hero */}
-        <section style={{ paddingTop: 80, paddingBottom: 80, textAlign: 'center', padding: '80px 24px' }}>
-          <h1 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 'clamp(28px,4vw,48px)', marginBottom: 24, color: t.text, lineHeight: 1.2 }}>
+        <section className="lp-section" style={{ textAlign: 'center' }}>
+          <h1 className="lp-hero-h1" style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, marginBottom: 24, color: t.text, lineHeight: 1.2 }}>
             A Premium Trade Journal,<br />
             <span style={{ background: 'linear-gradient(to right,#3b82f6,#2563eb)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Without The Subscription.
             </span>
           </h1>
-          <p style={{ fontSize: 18, color: t.textMuted, maxWidth: 600, margin: '0 auto 12px', lineHeight: 1.7 }}>
+          <p className="lp-hero-p1" style={{ color: t.textMuted, maxWidth: 600, margin: '0 auto 12px', lineHeight: 1.7 }}>
             A complete execution database and performance analysis system for serious traders.
           </p>
-          <p style={{ fontSize: 16, color: t.textAccent, fontWeight: 500, maxWidth: 480, margin: '0 auto 40px', lineHeight: 1.8 }}>
+          <p className="lp-hero-p2" style={{ color: t.textAccent, fontWeight: 500, maxWidth: 480, margin: '0 auto 40px', lineHeight: 1.8 }}>
             Log trades. Capture decisions. Track psychology.<br />
             Identify patterns. Refine execution. <strong style={{ color: t.text }}>Build your edge.</strong>
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 48 }}>
+          <div className="lp-stars-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 48 }}>
             <div style={{ display: 'flex' }}>{[...Array(5)].map((_,i) => <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />)}</div>
             <span style={{ color: t.textMuted, fontSize: 14 }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
           </div>
@@ -265,35 +324,35 @@ export default function HomePage() {
         </section>
 
         {/* Dashboard preview */}
-        <section style={{ padding: '60px 24px', background: t.sectionAlt }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', background: dm ? 'linear-gradient(135deg,#1e293b,#0f172a)' : '#fff', borderRadius: 16, padding: 32, border: `1px solid ${t.cardBorder}`, boxShadow: dm ? '0 25px 50px rgba(0,0,0,0.4)' : '0 10px 40px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
+        <section className="lp-section-sm" style={{ background: t.sectionAlt }}>
+          <div className="lp-dash-card" style={{ maxWidth: 1100, margin: '0 auto', background: dm ? 'linear-gradient(135deg,#1e293b,#0f172a)' : '#fff', border: `1px solid ${t.cardBorder}`, boxShadow: dm ? '0 25px 50px rgba(0,0,0,0.4)' : '0 10px 40px rgba(0,0,0,0.06)' }}>
+            <div className="lp-dash-grid" style={{ marginBottom: 20 }}>
               {[{ label:'Winrate', value:'69.67%', w:'69.67%' },{ label:'Avg Win / Avg Loss', value:'0.89', w:'45%' }].map((s,i) => (
-                <div key={i} style={{ background: t.cardBg, borderRadius: 12, padding: 24, border: `1px solid ${t.cardBorder}` }}>
+                <div key={i} className="lp-dash-cell" style={{ background: t.cardBg, borderRadius: 12, border: `1px solid ${t.cardBorder}` }}>
                   <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 8 }}>{s.label}</div>
-                  <div style={{ fontSize: 32, fontWeight: 700, color: t.statValue, marginBottom: 12 }}>{s.value}</div>
+                  <div className="lp-dash-stat" style={{ fontWeight: 700, color: t.statValue, marginBottom: 12 }}>{s.value}</div>
                   <div style={{ height: 10, background: t.progressBg, borderRadius: 5, overflow: 'hidden' }}>
                     <div style={{ width: s.w, height: '100%', background: 'linear-gradient(to right,#2563eb,#60a5fa)', borderRadius: 5 }} />
                   </div>
                 </div>
               ))}
-              <div style={{ background: t.cardBg, borderRadius: 12, padding: 24, border: `1px solid ${t.cardBorder}` }}>
+              <div className="lp-dash-cell" style={{ background: t.cardBg, borderRadius: 12, border: `1px solid ${t.cardBorder}` }}>
                 <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 8 }}>Trade Count</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: t.statValue }}>1131</div>
+                <div className="lp-dash-stat" style={{ fontWeight: 700, color: t.statValue }}>1131</div>
                 <svg viewBox="0 0 200 40" style={{ width: '100%', height: 48, marginTop: 12 }}>
                   <defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
                   <polyline points="0,30 20,25 40,28 60,20 80,22 100,18 120,15 140,20 160,17 180,15 200,12" fill="none" stroke="url(#g1)" strokeWidth="2"/>
                 </svg>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 6 }}>
+            <div className="lp-cal-grid">
               {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
                 <div key={d} style={{ textAlign: 'center', fontSize: 11, color: t.dayLabel, fontWeight: 500, paddingBottom: 4 }}>{d}</div>
               ))}
               {calData.map((profit, i) => {
                 const pos = profit > 0;
                 return (
-                  <div key={i} style={{ aspectRatio: '1', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 500, background: pos ? t.calWin : t.calLoss, border: `1px solid ${pos ? t.calWinBorder : t.calLossBorder}` }}>
+                  <div key={i} className="lp-cal-cell" style={{ aspectRatio: '1', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, background: pos ? t.calWin : t.calLoss, border: `1px solid ${pos ? t.calWinBorder : t.calLossBorder}` }}>
                     <span style={{ color: pos ? t.calWinText : t.calLossText }}>{pos ? '+' : ''}{Math.round(profit)}</span>
                   </div>
                 );
@@ -303,21 +362,21 @@ export default function HomePage() {
         </section>
 
         {/* Brokers */}
-        <section style={{ padding: '48px 24px' }}>
+        <section className="lp-section-xs">
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             <h3 style={{ ...oswald, textAlign: 'center', fontSize: 22, color: t.textMuted, marginBottom: 40 }}>Compatible with Brokers</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 24, textAlign: 'center' }}>
+            <div className="lp-brokers-grid" style={{ textAlign: 'center' }}>
               {brokers.map((b,i) => <div key={i} style={{ color: t.textMuted, fontWeight: 600, fontSize: 13 }}>{b}</div>)}
             </div>
           </div>
         </section>
 
         {/* Features */}
-        <section id="features" style={{ padding: '60px 24px', background: t.sectionAlt }}>
+        <section id="features" className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 style={{ ...oswald, fontSize: 36, textAlign: 'center', color: t.text, marginBottom: 12 }}>Unlock Powerful Insights</h2>
-            <p style={{ textAlign: 'center', color: t.textMuted, fontSize: 18, marginBottom: 48, maxWidth: 600, margin: '0 auto 48px' }}>The most comprehensive analytics dashboard that can be customised to your needs</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 24 }}>
+            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 12 }}>Unlock Powerful Insights</h2>
+            <p className="lp-section-sub" style={{ textAlign: 'center', color: t.textMuted, marginBottom: 48, maxWidth: 600, margin: '0 auto 48px' }}>The most comprehensive analytics dashboard that can be customised to your needs</p>
+            <div className="lp-features-grid">
               {features.map((f,i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: 24, borderRadius: 12, background: t.featureCardBg, border: `1px solid ${t.cardBorder}` }}>
                   <div style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', padding: 12, borderRadius: 10, flexShrink: 0, color: '#fff' }}>{f.icon}</div>
@@ -332,8 +391,8 @@ export default function HomePage() {
         </section>
 
         {/* Mobile Section */}
-        <section style={{ padding: '60px 24px' }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
+        <section className="lp-section-sm">
+          <div className="lp-mob-grid" style={{ maxWidth: 1100, margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <div style={{ width: 260, background: t.mobilePhoneBg, borderRadius: 40, border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden' }}>
                 <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -379,8 +438,8 @@ export default function HomePage() {
               </div>
             </div>
             <div>
-              <h2 style={{ ...oswald, fontSize: 32, color: t.text, marginBottom: 16, lineHeight: 1.2 }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
-              <p style={{ fontSize: 18, color: t.textMuted, marginBottom: 32 }}>Automatic import from your MT5 account makes tracking your performance easier than ever</p>
+              <h2 className="lp-section-h2-md" style={{ ...oswald, color: t.text, marginBottom: 16, lineHeight: 1.2 }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
+              <p className="lp-section-sub" style={{ color: t.textMuted, marginBottom: 32 }}>Automatic import from your MT5 account makes tracking your performance easier than ever</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {mobileFeatures.map((f,i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -394,11 +453,11 @@ export default function HomePage() {
         </section>
 
         {/* Pricing */}
-        <section id="pricing" style={{ padding: '80px 24px' }}>
+        <section id="pricing" className="lp-section">
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 style={{ ...oswald, fontSize: 36, textAlign: 'center', color: t.text, marginBottom: 12 }}>Simple, Transparent Pricing</h2>
-            <p style={{ textAlign: 'center', color: t.textMuted, fontSize: 18, marginBottom: 56 }}>Start free. Upgrade when you're ready.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20, maxWidth: 1160, margin: '0 auto' }}>
+            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 12 }}>Simple, Transparent Pricing</h2>
+            <p className="lp-section-sub" style={{ textAlign: 'center', color: t.textMuted, marginBottom: 56 }}>Start free. Upgrade when you're ready.</p>
+            <div className="lp-pricing-grid" style={{ maxWidth: 1160, margin: '0 auto' }}>
 
               {/* Free */}
               <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
@@ -509,10 +568,10 @@ export default function HomePage() {
         </section>
 
         {/* Testimonials */}
-        <section id="reviews" style={{ padding: '60px 24px', background: t.sectionAlt }}>
+        <section id="reviews" className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 style={{ ...oswald, fontSize: 36, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose FSD Journal</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
+            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose FSD Journal</h2>
+            <div className="lp-testimonials-grid">
               {testimonials.map((r,i) => (
                 <div key={i} style={{ background: t.testimonialBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 24 }}>
                   <div style={{ display: 'flex', marginBottom: 10 }}>{[...Array(r.rating)].map((_,j) => <Star key={j} className="w-4 h-4 fill-yellow-400 text-yellow-400" />)}</div>
