@@ -57,7 +57,7 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
       padding: compact ? "12px 14px" : "20px 24px", flex: 1, minWidth: 0,
     }} data-testid={`stat-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
       <div style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "#4A556A", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
-      <div style={{ fontFamily: FONT, fontSize: compact ? 16 : 26, fontWeight: 900, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
+      <div style={{ fontFamily: FONT, fontSize: compact ? 13 : 18, fontWeight: 900, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
       {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: "#3A4558", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
     </div>
   );
