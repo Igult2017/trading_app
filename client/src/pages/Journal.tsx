@@ -18,6 +18,7 @@ import TraderAI from '@/components/TraderAI';
 import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
+import Leaderboard from '@/components/Leaderboard';
 import JournalSettingsPanel from '@/components/JournalSettingsPanel';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
 
@@ -40,6 +41,7 @@ const SI = {
   FsdAi: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2L12 2z"/><path d="M19 4l.9 2.1L22 7l-2.1.9L19 10l-.9-2.1L16 7l2.1-.9L19 4z"/></svg>,
   TfMetrics: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>,
   Assets: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="2.5" height="10" rx="0.5"/><rect x="6.5" y="4" width="2.5" height="13" rx="0.5"/><rect x="11" y="9" width="2.5" height="8" rx="0.5"/><rect x="15.5" y="2" width="2.5" height="15" rx="0.5"/><rect x="20" y="6" width="2.5" height="11" rx="0.5"/><line x1="2" y1="21" x2="22" y2="21" strokeWidth="1.4"/></svg>,
+  Leaderboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v3a3 3 0 0 1-3 3"/><path d="M7 4H4v3a3 3 0 0 0 3 3"/></svg>,
 };
 
 interface NavItem {
@@ -70,6 +72,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'fsdai',       label: 'Trader AI',       icon: SI.FsdAi },
     { id: 'sync',        label: 'Sync Trade',      icon: SI.Sync },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
+    { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
   ]},
   { section: null, items: [
     { id: 'settings', label: 'Settings', icon: SI.Settings },
@@ -953,6 +956,10 @@ export default function Journal() {
             <AccountsPage openModal={true} />
           ) : activeNav === 'assets' ? (
             <AssetPage />
+          ) : activeNav === 'leaderboard' ? (
+            <div style={{ padding: isMobile ? '10px' : '14px 16px' }}>
+              <Leaderboard />
+            </div>
           ) : activeNav === 'settings' ? (
             <JournalSettingsPanel
               theme={settings.theme}
