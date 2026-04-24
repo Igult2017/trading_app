@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { THEMES, FONTS, ThemeId, FontId } from '@/hooks/useJournalSettings';
 import type { ThemeDef, FontDef } from '@/hooks/useJournalSettings';
+import { useAuth } from '@/context/AuthContext';
 
 interface Props {
   theme: ThemeId;
@@ -29,25 +31,59 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
   const T = THEMES[theme];
   const [themeHov, setThemeHov] = useState<ThemeId | null>(null);
   const [fontHov, setFontHov] = useState<FontId | null>(null);
+  const { user, signOut } = useAuth();
+  const [, navigate] = useLocation();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      navigate('/');
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
-    <div style={{
+    <div className="jsp-root" style={{
       maxWidth: 860,
       margin: '0 auto',
       padding: '40px 32px 60px',
       color: T.text,
     }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .jsp-root { padding: 20px 14px 40px !important; }
+          .jsp-title-row { gap: 10px !important; }
+          .jsp-title-bar { width: 3px !important; height: 22px !important; }
+          .jsp-title { font-size: 16px !important; letter-spacing: 0.06em !important; }
+          .jsp-subtitle { margin-left: 13px !important; font-size: 10px !important; }
+          .jsp-section { margin-bottom: 24px !important; }
+          .jsp-grid-themes { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .jsp-grid-fonts  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .jsp-font-card { padding: 12px 14px 10px !important; }
+          .jsp-font-sample { font-size: 22px !important; margin-bottom: 7px !important; }
+          .jsp-preview-card { padding: 16px 16px !important; }
+          .jsp-preview-title { font-size: 18px !important; }
+          .jsp-preview-stats { flex-wrap: wrap !important; gap: 6px !important; }
+          .jsp-preview-stat { padding: 6px 10px !important; flex: 1 1 30% !important; min-width: 0 !important; }
+          .jsp-logout-card { padding: 14px !important; }
+          .jsp-logout-btn { font-size: 11px !important; padding: 11px 14px !important; }
+        }
+      `}</style>
 
       {/* Page title */}
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-          <div style={{ width: 4, height: 28, background: T.accent }} />
-          <h1 style={{
+      <div className="jsp-section" style={{ marginBottom: 48 }}>
+        <div className="jsp-title-row" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
+          <div className="jsp-title-bar" style={{ width: 4, height: 28, background: T.accent }} />
+          <h1 className="jsp-title" style={{
             margin: 0, fontSize: 22, fontWeight: 900,
             letterSpacing: '0.08em', textTransform: 'uppercase', color: T.text,
           }}>Journal Settings</h1>
         </div>
-        <p style={{
+        <p className="jsp-subtitle" style={{
           margin: '0 0 0 18px', fontSize: 11, color: T.textMuted,
           letterSpacing: '0.06em',
         }}>
@@ -57,7 +93,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
 
       {/* ── THEME ─────────────────────────────────────────── */}
       <Section label="Theme" T={T}>
-        <div style={{
+        <div className="jsp-grid-themes" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
           gap: 12,
@@ -151,7 +187,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
 
       {/* ── FONT ──────────────────────────────────────────── */}
       <Section label="Typography" T={T}>
-        <div style={{
+        <div className="jsp-grid-fonts" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
           gap: 12,
@@ -162,6 +198,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
             return (
               <button
                 key={id}
+                className="jsp-font-card"
                 onClick={() => onFontChange(id)}
                 onMouseEnter={() => setFontHov(id)}
                 onMouseLeave={() => setFontHov(null)}
@@ -177,7 +214,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                   textAlign: 'left',
                 }}
               >
-                <div style={{
+                <div className="jsp-font-sample" style={{
                   fontSize: 28,
                   fontFamily: def.stack,
                   color: active ? T.accent : T.text,
@@ -213,7 +250,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
 
       {/* ── PREVIEW ───────────────────────────────────────── */}
       <Section label="Preview" T={T}>
-        <div style={{
+        <div className="jsp-preview-card" style={{
           background: T.surface,
           border: `1px solid ${T.border}`,
           borderRadius: 10,
@@ -224,7 +261,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
             fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase',
             color: T.accent, marginBottom: 6,
           }}>Live Preview</div>
-          <div style={{
+          <div className="jsp-preview-title" style={{
             fontSize: 24, fontWeight: 800, color: T.text,
             letterSpacing: '0.04em', lineHeight: 1.2, marginBottom: 10,
           }}>Trading Journal</div>
@@ -234,9 +271,9 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           }}>
             The quick brown fox jumps over the lazy dog. 0123456789 +$1,234.56 −$987.00
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="jsp-preview-stats" style={{ display: 'flex', gap: 8 }}>
             {[['P&L', '+$1,234', T.accent], ['WIN RATE', '67%', '#34d399'], ['TRADES', '42', T.text]].map(([label, val, color]) => (
-              <div key={label} style={{
+              <div key={label} className="jsp-preview-stat" style={{
                 background: T.bg,
                 border: `1px solid ${T.border}`,
                 borderRadius: 6,
@@ -249,6 +286,62 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           </div>
         </div>
       </Section>
+
+      {/* ── ACCOUNT — sign out ────────────────────────────── */}
+      {user && (
+        <Section label="Account" T={T}>
+          <div className="jsp-logout-card" style={{
+            background: T.surface,
+            border: `1px solid ${T.border}`,
+            borderRadius: 10,
+            padding: '20px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 16, flexWrap: 'wrap',
+          }}>
+            <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+              <div style={{
+                fontSize: 12, fontWeight: 800, color: T.text,
+                letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4,
+              }}>Sign out</div>
+              <div style={{
+                fontSize: 11, color: T.textMuted, letterSpacing: '0.02em',
+                lineHeight: 1.5, wordBreak: 'break-word',
+              }}>
+                You will be returned to the homepage. Your session data stays safe.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={signingOut}
+              className="jsp-logout-btn"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: '#ef4444',
+                color: '#ffffff',
+                border: 'none', borderRadius: 6,
+                padding: '10px 18px',
+                fontSize: 11, fontWeight: 800,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                cursor: signingOut ? 'wait' : 'pointer',
+                opacity: signingOut ? 0.6 : 1,
+                transition: 'opacity 0.15s, transform 0.15s',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { if (!signingOut) e.currentTarget.style.opacity = '0.85'; }}
+              onMouseLeave={e => { if (!signingOut) e.currentTarget.style.opacity = '1'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              {signingOut ? 'Signing out…' : 'Logout'}
+            </button>
+          </div>
+        </Section>
+      )}
 
     </div>
   );

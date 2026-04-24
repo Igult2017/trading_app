@@ -681,8 +681,30 @@ function SummaryBar({ sessions }: { sessions: SessionData[] }) {
     { label: 'Slots Remaining', value: String(slotsLeft),                     accent: slotsLeft === 0 ? '#f43f5e' : '#f59e0b' },
   ];
   return (
-    <div className="sc-card rounded mb-3 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-      <div className="px-6 pt-6 pb-3 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="sc-card sc-summary-bar rounded mb-3 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+      <style>{`
+        .sc-summary-bar .sc-sb-pad { padding: 24px 24px 12px; }
+        .sc-summary-bar .sc-sb-row { display: flex; flex-direction: column; gap: 16px; align-items: stretch; justify-content: space-between; }
+        .sc-summary-bar .sc-sb-title { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; font-style: italic; font-family: 'Montserrat',sans-serif; word-break: break-word; }
+        .sc-summary-bar .sc-sb-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
+        .sc-summary-bar .sc-sb-stat-val { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+        @media (min-width: 768px) {
+          .sc-summary-bar .sc-sb-row { flex-direction: row; align-items: flex-end; gap: 24px; }
+          .sc-summary-bar .sc-sb-title { font-size: 24px; }
+          .sc-summary-bar .sc-sb-stats { display: flex; flex-wrap: wrap; gap: 32px; }
+        }
+        @media (max-width: 640px) {
+          .sc-summary-bar .sc-sb-pad { padding: 14px 14px 10px; }
+          .sc-summary-bar .sc-sb-title { font-size: 16px; letter-spacing: 0.02em; }
+          .sc-summary-bar .sc-sb-stats { gap: 8px; }
+          .sc-summary-bar .sc-sb-stat-val { font-size: 12px; }
+        }
+        @media (max-width: 380px) {
+          .sc-summary-bar .sc-sb-title { font-size: 14px; }
+          .sc-summary-bar .sc-sb-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+      `}</style>
+      <div className="sc-sb-pad sc-sb-row">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <p className="text-[9px] uppercase" style={{ letterSpacing: '0.3em', color: '#475569', fontWeight: 500, fontFamily: "'Montserrat',sans-serif" }}>
@@ -693,13 +715,13 @@ function SummaryBar({ sessions }: { sessions: SessionData[] }) {
               <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', color: '#10b981', opacity: 0.7, fontFamily: "'Montserrat',sans-serif" }}>LIVE</span>
             </div>
           </div>
-          <h1 className="text-2xl text-white leading-none italic" style={{ fontWeight: 800, fontFamily: "'Montserrat',sans-serif" }}>create your session</h1>
+          <h1 className="sc-sb-title">create your session</h1>
         </div>
-        <div className="flex flex-wrap gap-8">
+        <div className="sc-sb-stats">
           {items.map((item) => (
-            <div key={item.label} className="flex flex-col gap-1">
+            <div key={item.label} className="flex flex-col gap-1 min-w-0">
               <span className="sc-label">{item.label}</span>
-              <span className="text-sm sc-jm" style={{ fontWeight: 700, color: item.accent }}>{item.value}</span>
+              <span className="sc-sb-stat-val sc-jm" style={{ color: item.accent }}>{item.value}</span>
             </div>
           ))}
         </div>

@@ -532,48 +532,6 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
             >{item}</a>
           ))}
-
-          {/* Account section — gives mobile users access to Dashboard / Settings / Logout */}
-          <div style={{ padding: '14px 24px 6px', fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#475569' : '#94a3b8', fontFamily: "'Montserrat',sans-serif" }}>
-            Account
-          </div>
-
-          <button
-            type="button"
-            onClick={() => { setMobileMenuOpen(false); navigate('/journal?tab=dashboard'); }}
-            style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 24px', borderTop: `1px solid ${t.navBorder}`, borderBottom: `1px solid ${t.navBorder}`, background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif" }}
-            onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-            onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-          >
-            <UserCircle2 size={15} color="#3b82f6" /> Dashboard
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setMobileMenuOpen(false); openAccountSettings(); }}
-            style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif" }}
-            onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-            onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-          >
-            <Settings size={15} color="#3b82f6" /> Account Settings
-          </button>
-
-          {user && (
-            <button
-              type="button"
-              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 24px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: '#ef4444', fontFamily: "'Montserrat',sans-serif" }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Logout
-            </button>
-          )}
         </div>
       )}
     </div>
