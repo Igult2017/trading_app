@@ -658,7 +658,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                   </div>
                   <div>
                     <p style={{ ...lbl }}>Quick Actions</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '6px' }}>
                       {[
                         { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(selectedTicket.id, selectedTicket._id) },
                         { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(selectedTicket.id, selectedTicket._id) },
@@ -2325,13 +2325,14 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>Scheduled Tasks</h3>
             <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(8,14,24,0.5)', gap: '12px' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(8,14,24,0.5)', gap: '12px', minWidth: '560px' }}>
             {['Task', 'Assignee', 'Due Date', 'Status'].map(h => (
               <span key={h} style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</span>
             ))}
           </div>
           {tasks.map((task, idx) => (
-            <div key={task.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '13px 16px', borderBottom: idx < tasks.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', gap: '12px', background: task.status === 'Complete' ? 'rgba(16,185,129,0.03)' : 'transparent' }}>
+            <div key={task.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '13px 16px', borderBottom: idx < tasks.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', gap: '12px', background: task.status === 'Complete' ? 'rgba(16,185,129,0.03)' : 'transparent', minWidth: '560px' }}>
               <p style={{ color: task.status === 'Complete' ? C.muted : 'white', fontSize: '13px', fontWeight: 600, margin: 0, textDecoration: task.status === 'Complete' ? 'line-through' : 'none' }}>{task.title}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '22px', height: '22px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
@@ -2352,6 +2353,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
 
@@ -2520,6 +2522,7 @@ export default function AdminPanel() {
     const handleClick = () => {
       if (item.id === 'journal') { window.open('/journal', '_blank', 'noopener,noreferrer'); return; }
       setActiveTab(item.id);
+      if (bp.isMobile) setCollapsed(true);
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
@@ -2661,6 +2664,8 @@ export default function AdminPanel() {
 
   const sidebarW = collapsed ? '60px' : '180px';
   const contentPad = bp.isMobile ? '14px' : '24px';
+  const isMobileDrawer = bp.isMobile;
+  const drawerOpen = isMobileDrawer && !collapsed;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
@@ -2716,10 +2721,21 @@ export default function AdminPanel() {
       </header>
 
       {/* ── BODY ROW — sidebar + content, fills remaining height ── */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+        {/* Mobile backdrop — closes the drawer when tapped */}
+        {drawerOpen && (
+          <div
+            onClick={() => setCollapsed(true)}
+            style={{ position: 'fixed', top: '49px', left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', zIndex: 25, backdropFilter: 'blur(2px)' }}
+          />
+        )}
 
         {/* SIDEBAR */}
-        <aside style={{ width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+        <aside style={isMobileDrawer
+          ? { position: 'fixed', top: '49px', left: 0, bottom: 0, width: '230px', transform: collapsed ? 'translateX(-100%)' : 'translateX(0)', transition: 'transform 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', zIndex: 30, boxShadow: collapsed ? 'none' : '8px 0 24px rgba(0,0,0,0.5)' }
+          : { width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }
+        }>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
             {SIDEBAR_GROUPS.map((group, gi) => (
               <div key={gi}>
