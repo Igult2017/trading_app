@@ -777,24 +777,29 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
 }
 
 // ── Step 3 — Context ──────────────────────────────────────────────────────────
-function Step3({ d, set, direction }: any) {
-  const regimeTouched  = useRef(false);
-  const trendTouched   = useRef(false);
+function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
+  // Track the direction the auto-derive last ran for, so we only re-derive
+  // when direction actually changes — not on every remount of this step.
+  const lastDirectionRef = useRef<string | null>(null);
 
   // Auto-derive Market Regime + Trend Direction from execution direction
   // whenever direction changes, unless the user has already set them manually.
+  // Touched flags are stored in refs owned by the parent form so they survive
+  // step navigation (Step3 unmounts when the user moves to another step).
   useEffect(() => {
+    if (lastDirectionRef.current === direction) return;
+    lastDirectionRef.current = direction;
     const derived = direction === "Short" ? "Bearish" : "Bullish";
     set((prev: any) => ({
       ...prev,
-      ...(!regimeTouched.current ? { marketRegime: derived }  : {}),
-      ...(!trendTouched.current  ? { trendDirection: derived } : {}),
+      ...(!regimeTouchedRef.current ? { marketRegime: derived }  : {}),
+      ...(!trendTouchedRef.current  ? { trendDirection: derived } : {}),
     }));
   }, [direction]);
 
   const f = (k: string) => (v: any) => {
-    if (k === "marketRegime")   regimeTouched.current = true;
-    if (k === "trendDirection") trendTouched.current  = true;
+    if (k === "marketRegime")   regimeTouchedRef.current = true;
+    if (k === "trendDirection") trendTouchedRef.current  = true;
     set((prev: any) => ({ ...prev, [k]: v }));
   };
   const SCORES: [string, string][] = [
@@ -1007,6 +1012,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [s4, setS4] = useState({ ...INIT_STEP4 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Touched flags for the Step 3 auto-derive (Market Regime / Trend Direction).
+  // Owned by the parent so they survive Step3 unmount/remount when the user
+  // navigates between steps. Reset on save so a fresh entry starts clean.
+  const regimeTouchedRef = useRef(false);
+  const trendTouchedRef  = useRef(false);
   const [savedTrade, setSavedTrade] = useState<{
     instrument: string; direction: string; outcome: string;
     profitLoss: string; pips: string; grade: string; session: string; tf: string; category: string;
@@ -1361,6 +1371,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       setS2({ ...INIT_STEP2 });
       setS3({ ...INIT_STEP3 });
       setS4({ ...INIT_STEP4 });
+      regimeTouchedRef.current = false;
+      trendTouchedRef.current  = false;
       setOcrFields(new Set());
       setStep(1);
     } catch (err: any) {
@@ -1499,7 +1511,15 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 currentBalance={currentBalance}
               />
             )}
-            {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} />}
+            {step === 3 && (
+              <Step3
+                d={s3}
+                set={setS3}
+                direction={s2.direction}
+                regimeTouchedRef={regimeTouchedRef}
+                trendTouchedRef={trendTouchedRef}
+              />
+            )}
             {step === 4 && <Step4 d={s4} set={setS4} />}
           </div>
 
