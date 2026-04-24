@@ -399,6 +399,9 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
     queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
     queryClient.invalidateQueries({ queryKey: ["/api/tf-metrics/matrix"] });
+    queryClient.invalidateQueries({ queryKey: ["strategyAudit"] });
+    queryClient.invalidateQueries({ queryKey: ["aiAnalysis"] });
+    queryClient.invalidateQueries({ queryKey: ["aiStrategy"] });
   }
 
   const updateMutation = useMutation({
