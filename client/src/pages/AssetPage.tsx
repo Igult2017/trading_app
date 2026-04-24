@@ -255,6 +255,10 @@ export default function AssetPage() {
     setChartType(t);
     localStorage.setItem("asset-chart-type", t);
   };
+
+  // Mobile responsiveness
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [mobileShowSidebar, setMobileShowSidebar] = useState(false);
   const CHART_TYPES: { id: ChartType; label: string }[] = [
     { id: "candle", label: "CANDLE" },
     { id: "ha",     label: "HA" },
@@ -275,6 +279,17 @@ export default function AssetPage() {
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Track mobile breakpoint
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setMobileShowSidebar(false);
+    };
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   // ── Background prefetch: warm server + client cache for top crypto symbols ───
@@ -380,16 +395,29 @@ export default function AssetPage() {
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: rgba(255,255,255,0.02); }
         .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .mob-instruments-fab { display: none; }
+        @media (max-width: 767px) {
+          .entry-grid { grid-template-columns: 1fr 1fr !important; }
+          .analysis-grid { grid-template-columns: 1fr !important; }
+          .asset-main-pad { padding: 12px 12px 32px !important; }
+          .asset-inner-pad { padding: 12px 12px !important; }
+          .prob-panel { flex-wrap: wrap; gap: 12px !important; }
+          .prob-btns { flex-direction: column; gap: 6px !important; width: 100%; }
+          .set-alert-btn, .share-btn { width: 100%; justify-content: center; }
+          .chart-row2 { flex-wrap: wrap; gap: 6px !important; }
+          .chart-type-pills { overflow-x: auto; flex-shrink: 1 !important; min-width: 0; }
+          .mob-instruments-fab { display: flex !important; position: fixed; bottom: 24px; right: 20px; z-index: 40; background: #7c3aed; border: none; border-radius: 28px; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; padding: 11px 18px; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
+        }
       `}</style>
 
       {/* ── Main Content ── */}
       <div className="asset-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 0 32px" }}>
 
 
-        <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="asset-inner-pad" style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* ── Entry / TP / SL / RR Panel ── */}
-          <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
+          <div className="entry-grid" style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
             {[
               {
                 label: "ENTRY",
@@ -427,7 +455,7 @@ export default function AssetPage() {
           </div>
 
           {/* ── Analysis Panels Row ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <div className="analysis-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
 
             {/* Context Alignment */}
             <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, padding: "16px" }}>
@@ -489,7 +517,7 @@ export default function AssetPage() {
           </div>
 
           {/* ── Probability Panel ── */}
-          <div style={{
+          <div className="prob-panel" style={{
             background: "#07090f",
             border: "1px solid #131d2b",
             borderRadius: 4,
@@ -535,7 +563,7 @@ export default function AssetPage() {
             </div>
 
             {/* Buttons */}
-            <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+            <div className="prob-btns" style={{ display: "flex", gap: 10, flexShrink: 0 }}>
               <button className={`set-alert-btn${alertSet ? " active" : ""}`} onClick={() => setAlertSet(!alertSet)}>
                 <Bell size={13} />
                 {alertSet ? "ALERT SET" : "SET ALERT"}
@@ -565,9 +593,9 @@ export default function AssetPage() {
             </div>
 
             {/* ── Row 2: chart controls toolbar ── */}
-            <div style={{ padding: "6px 16px", borderBottom: "1px solid #0f1923", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div className="chart-row2" style={{ padding: "6px 16px", borderBottom: "1px solid #0f1923", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               {/* Left: chart type pills */}
-              <div style={{ display: "flex", gap: 2, background: "#080c10", border: "1px solid #0f1923", borderRadius: 4, padding: 2, flexShrink: 0 }}>
+              <div className="chart-type-pills" style={{ display: "flex", gap: 2, background: "#080c10", border: "1px solid #0f1923", borderRadius: 4, padding: 2, flexShrink: 0 }}>
                 {CHART_TYPES.map(ct => {
                   const active = ct.id === chartType;
                   return (
@@ -721,15 +749,48 @@ export default function AssetPage() {
         </div>
       </div>
 
+      {/* ── Mobile backdrop ── */}
+      {isMobile && mobileShowSidebar && (
+        <div
+          onClick={() => setMobileShowSidebar(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 49 }}
+        />
+      )}
+
       {/* ── Right Sidebar ── */}
-      <div style={{ width: sidebarWidth, minWidth: 140, maxWidth: 520, background: "#0a0f16", borderLeft: "1px solid #0f1923", display: "flex", flexDirection: "column", height: "100%", position: "relative", flexShrink: 0 }}>
-        {/* Drag handle */}
+      <div style={{
+        width: isMobile ? 280 : sidebarWidth,
+        minWidth: isMobile ? undefined : 140,
+        maxWidth: isMobile ? undefined : 520,
+        background: "#0a0f16",
+        borderLeft: "1px solid #0f1923",
+        display: isMobile ? (mobileShowSidebar ? "flex" : "none") : "flex",
+        flexDirection: "column",
+        height: "100%",
+        position: isMobile ? "fixed" : "relative",
+        right: isMobile ? 0 : undefined,
+        top: isMobile ? 0 : undefined,
+        bottom: isMobile ? 0 : undefined,
+        zIndex: isMobile ? 50 : undefined,
+        flexShrink: 0,
+      }}>
+        {/* Drag handle — hidden on mobile */}
+        {!isMobile && (
         <div
           onMouseDown={handleDragStart}
           style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, cursor: "col-resize", zIndex: 10, background: "transparent" }}
           onMouseEnter={e => { e.currentTarget.style.background = "rgba(59,130,246,0.25)"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
         />
+        )}
+
+        {/* Mobile close button */}
+        {isMobile && (
+          <div style={{ padding: "10px 14px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: "#4a6580", letterSpacing: "0.12em" }}>INSTRUMENTS</span>
+            <button onClick={() => setMobileShowSidebar(false)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
+          </div>
+        )}
 
         {/* Search */}
         <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #0f1923" }}>
@@ -820,6 +881,18 @@ export default function AssetPage() {
       </div>
 
       </div>
+
+      {/* ── Mobile Instruments FAB ── */}
+      <button
+        className="mob-instruments-fab"
+        onClick={() => setMobileShowSidebar(true)}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        MARKETS
+      </button>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

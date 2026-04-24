@@ -2,6 +2,15 @@
 
 A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders.
 
+## Mobile Responsiveness (Apr 2026)
+All key pages made mobile-responsive:
+- **AssetPage** (`/assets`): Added `isMobile` state + resize listener. Right instrument sidebar converted to a fixed overlay drawer on mobile (toggled by a floating "MARKETS" button). Internal grids made responsive: Entry panel (4-col → 2×2), Analysis panels (3-col → 1-col), Probability panel wraps. CSS media query at `≤767px`.
+- **AuthPage** (`/auth`): Auth card already uses `width:100%; maxWidth:420`. Added media query to reduce card padding on very small screens.
+- **TscPage** (`/tsc`): Already uses `repeat(auto-fit, minmax(...))` grids and `flexWrap` — inherently responsive.
+- **EconomicCalendarPage** (`/calendar`): Already uses Tailwind responsive classes (`flex-col sm:flex-row`, `w-full sm:w-auto`) and `overflow-x-auto` on tables.
+- **Journal** (`/journal`): Sidebar already has `isMobile` slide-in drawer. Dashboard stats grid already uses `isMobile ? 2 : ...` columns. Charts stack to 1-col below 900px.
+- **HomePage / HomeHeader / HomeFooter**: Already fully responsive with CSS `@media` queries and hamburger menu at ≤1024px.
+
 ## Trader AI chat persistence (Apr 2026)
 - New tables `ai_chats` and `ai_chat_messages` created in `server/db-init.ts`.
 - Storage helpers: `server/services/aiChatStore.ts` (raw `db.execute(sql\`…\`)`).

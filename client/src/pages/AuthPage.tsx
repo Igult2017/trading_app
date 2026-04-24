@@ -72,7 +72,12 @@ export default function AuthPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
+      <style>{`
+        @media (max-width: 480px) {
+          .auth-card { padding: 28px 20px !important; }
+        }
+      `}</style>
+      <div className="auth-card" style={styles.card}>
         <div style={styles.brand}>
           <div style={styles.logo}>
             <span style={{ color: '#ffffff' }}>FSD</span>
