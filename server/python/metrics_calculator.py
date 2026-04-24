@@ -1287,13 +1287,16 @@ def _momentum_label(score: Optional[float]) -> Optional[str]:
 
 
 def calc_instrument_phase_momentum_matrix(ctx: SharedContext) -> Dict:
+    # Every trade is bucketed somewhere — missing pieces fall into "Unknown"
+    # so the row counts in the UI add up to the total number of trades logged.
     groups: Dict[str, List[TradeRecord]] = defaultdict(list)
     for t in ctx.trades:
-        mom = _momentum_label(t.momentum_score)
-        if t.instrument and t.session_phase and mom:
-            session_label = f"{t.session} {t.session_phase}" if t.session else t.session_phase
-            key = f"{t.instrument} · {session_label} · {mom}"
-            groups[key].append(t)
+        instrument = t.instrument or "Unknown"
+        mom = _momentum_label(t.momentum_score) or "Unknown"
+        phase = t.session_phase or "Unknown"
+        session_label = f"{t.session} {phase}" if t.session else phase
+        key = f"{instrument} · {session_label} · {mom}"
+        groups[key].append(t)
     return {
         k: {"winRate": win_rate_of(v), "count": len(v), "pl": round(sum(t.pnl for t in v), 2)}
         for k, v in sorted(groups.items())
