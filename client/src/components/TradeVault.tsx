@@ -167,20 +167,26 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
       const updated = { ...f, [field]: value };
 
       if (field === 'outcome') {
-        // Derive monetary risk from the current signed P/L
-        const currentRR = parseFloat(String(f.rr)) || 1;
-        const monetaryRisk = f.outcome === 'LOSS'
-          ? Math.abs(f.pl)
-          : Math.round((Math.abs(f.pl) / currentRR) * 100) / 100;
+        // Normalize so typing "win", "Win", "WIN" all behave the same
+        const newOutcome = String(value).trim().toUpperCase();
+        const oldOutcome = String(f.outcome).trim().toUpperCase();
 
-        if (value === 'WIN') {
-          updated.pl = Math.round(monetaryRisk * currentRR * 100) / 100;
-        } else {
-          updated.pl = -monetaryRisk;
+        // Only auto-recalc P/L when flipping between WIN ↔ LOSS
+        if ((newOutcome === 'WIN' || newOutcome === 'LOSS') && newOutcome !== oldOutcome) {
+          const currentRR = parseFloat(String(f.rr)) || 1;
+          const monetaryRisk = oldOutcome === 'LOSS'
+            ? Math.abs(f.pl)
+            : Math.round((Math.abs(f.pl) / currentRR) * 100) / 100;
+
+          if (newOutcome === 'WIN') {
+            updated.pl = Math.round(monetaryRisk * currentRR * 100) / 100;
+          } else {
+            updated.pl = -monetaryRisk;
+          }
         }
       }
 
-      if (field === 'rr' && f.outcome === 'WIN') {
+      if (field === 'rr' && String(f.outcome).trim().toUpperCase() === 'WIN') {
         // When RR changes on a WIN, scale the P/L proportionally
         const currentRR = parseFloat(String(f.rr)) || 1;
         const newRR = parseFloat(String(value)) || 1;
@@ -219,43 +225,62 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Asset</label>
-            <select value={form.asset} onChange={(e) => handleChange("asset", e.target.value)} style={styles.input} data-testid="select-asset">
-              {ASSETS.map((a) => <option key={a}>{a}</option>)}
-              {form.asset && !ASSETS.includes(form.asset) && <option key={form.asset}>{form.asset}</option>}
-            </select>
+            <input
+              type="text"
+              value={form.asset}
+              onChange={(e) => handleChange("asset", e.target.value)}
+              placeholder="e.g. EUR/USD"
+              style={styles.input}
+              data-testid="input-asset"
+            />
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Strategy</label>
-            <select value={form.strategy} onChange={(e) => handleChange("strategy", e.target.value)} style={styles.input} data-testid="select-strategy">
-              {STRATEGIES.map((s) => <option key={s}>{s}</option>)}
-              {form.strategy && !STRATEGIES.includes(form.strategy) && <option key={form.strategy}>{form.strategy}</option>}
-            </select>
+            <input
+              type="text"
+              value={form.strategy}
+              onChange={(e) => handleChange("strategy", e.target.value)}
+              placeholder="e.g. M1H1"
+              style={styles.input}
+              data-testid="input-strategy"
+            />
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Session</label>
-            <select value={form.session} onChange={(e) => handleChange("session", e.target.value)} style={styles.input} data-testid="select-session">
-              {SESSIONS.map((s) => <option key={s}>{s}</option>)}
-              {form.session && !SESSIONS.includes(form.session) && <option key={form.session}>{form.session}</option>}
-            </select>
+            <input
+              type="text"
+              value={form.session}
+              onChange={(e) => handleChange("session", e.target.value)}
+              placeholder="e.g. London"
+              style={styles.input}
+              data-testid="input-session"
+            />
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Outcome</label>
-            <select value={form.outcome} onChange={(e) => handleChange("outcome", e.target.value)} style={styles.input} data-testid="select-outcome">
-              <option>WIN</option>
-              <option>LOSS</option>
-            </select>
+            <input
+              type="text"
+              value={form.outcome}
+              onChange={(e) => handleChange("outcome", e.target.value)}
+              placeholder="WIN or LOSS"
+              style={styles.input}
+              data-testid="input-outcome"
+            />
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Direction</label>
-            <select value={form.direction} onChange={(e) => handleChange("direction", e.target.value)} style={styles.input} data-testid="select-direction">
-              <option value="">— None —</option>
-              <option value="bullish">Bullish</option>
-              <option value="bearish">Bearish</option>
-            </select>
+            <input
+              type="text"
+              value={form.direction}
+              onChange={(e) => handleChange("direction", e.target.value)}
+              placeholder="bullish / bearish"
+              style={styles.input}
+              data-testid="input-direction"
+            />
           </div>
 
           <div style={styles.formGroup}>
@@ -373,18 +398,24 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     queryClient.invalidateQueries({ queryKey: ["/api/metrics/compute"] });
     queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
     queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/tf-metrics/matrix"] });
   }
 
   const updateMutation = useMutation({
     mutationFn: async (updated: Trade) => {
+      // Normalize free-text inputs so backend / Python receive clean values
+      const normalizedOutcome = String(updated.outcome).trim().toLowerCase();
+      const normalizedDirection = updated.direction
+        ? String(updated.direction).trim().toLowerCase()
+        : null;
       const body: Record<string, unknown> = {
-        instrument: updated.asset,
-        sessionName: updated.session,
-        outcome: updated.outcome.toLowerCase(),
+        instrument: String(updated.asset).trim(),
+        sessionName: String(updated.session).trim(),
+        outcome: normalizedOutcome,
         profitLoss: String(updated.pl),
         entryTime: `${updated.date}T${updated.time}`,
-        manualFields: { strategy: updated.strategy },
-        direction: updated.direction || null,
+        manualFields: { strategy: String(updated.strategy).trim() },
+        direction: normalizedDirection,
         riskReward: updated.rr ? String(updated.rr) : null,
       };
       await apiRequest("PUT", `/api/journal/entries/${updated.id}`, body);
