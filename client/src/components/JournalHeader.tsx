@@ -394,15 +394,23 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           .nav-links { display:none !important; }
           .nav-mob-controls { display:flex !important; }
         }
+        @media (max-width: 560px) {
+          .jh-nav { padding: 0 12px !important; }
+          .jh-left { gap: 8px !important; }
+          .nav-mob-controls { gap: 6px !important; }
+        }
+        @media (max-width: 480px) {
+          .jh-logo { display: none !important; }
+        }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 500 }}>
         <TickerTape />
-        <nav style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
+        <nav className="jh-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
           {/* Left: Logo + Sidebar Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer', textTransform: 'uppercase' }}>
+          <div className="jh-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <span className="jh-logo" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer', textTransform: 'uppercase' }}>
               <span style={{ color: t.logoWhite }}>FSD </span>
               <span style={{ color: '#3b82f6' }}>Journal</span>
             </span>
@@ -500,9 +508,14 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                 <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>
-              <Menu size={18} />
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              title="Open menu"
+              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#38bdf8', flexShrink: 0, transition: 'opacity 0.15s', boxShadow: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.75'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              <Menu size={18} strokeWidth={2.5} />
             </button>
           </div>
         </nav>
