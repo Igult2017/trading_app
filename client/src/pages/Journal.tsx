@@ -720,6 +720,14 @@ export default function Journal() {
     }
     return 'dashboard';
   });
+
+  // Keep ?tab= in sync with the active section so reloads restore the correct view
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeNav);
+    window.history.replaceState(null, '', url.toString());
+  }, [activeNav]);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
