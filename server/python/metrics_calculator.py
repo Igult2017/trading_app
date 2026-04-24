@@ -1414,23 +1414,18 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         if count == 0:
             continue
 
-        # Annualise: divide count by years spanned, but cap the span at
-        # 1 year so that per_year is never smaller than the actual count.
-        # (If the data covers > 1 year the "typical year" is still at
-        # least as busy as what was observed in total.)
-        years_spanned = global_days / 365.0
-        per_year_raw  = count / years_spanned          # raw annualised figure
-        # per_year represents how many times this setup occurs in a year.
-        # An occurrence is a whole event — you can't have a fractional setup
-        # show up — so round UP to the nearest whole number and ensure the
-        # value is never less than what we've already actually observed.
-        per_year      = max(count, math.ceil(per_year_raw))
+        # Standard frequency derivation: compute per_day first, then
+        # derive every other interval from it using exact unit conversions
+        # (7 days/week, 30.44 avg days/month, 365 days/year).
+        per_day   = count / global_days
+        per_week  = per_day * 7.0
+        per_month = per_day * 30.44
+        per_year_raw = per_day * 365.0
 
-        # Derive smaller intervals from the integer per_year so the cascade
-        # remains internally consistent: year → month → week → day.
-        per_month = per_year / 12.0
-        per_week  = per_year / 52.0
-        per_day   = per_year / 365.0
+        # An occurrence is a whole event — round per_year to a whole number,
+        # but never report fewer per year than what's actually been observed
+        # (small-sample guardrail).
+        per_year = max(count, round(per_year_raw))
 
         result[setup] = {
             "count":    count,
