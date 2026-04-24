@@ -780,6 +780,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId: _ignored, ...rest } = req.body ?? {};
       const updates: Record<string, any> = { ...rest };
 
+      // ── Merge JSONB blob columns instead of replacing them ──────────────
+      // Drizzle's .set() on a JSONB column REPLACES the entire object. Without
+      // this merge, sending `manualFields: { strategy: "X" }` from the trade
+      // vault would wipe every other manual field on the entry (marketRegime,
+      // volatilityState, scores, etc.), causing those trades to fall back to
+      // "Unknown" in the metrics breakdowns.
+      for (const blobKey of ["manualFields", "aiExtracted"] as const) {
+        if (updates[blobKey] !== undefined && updates[blobKey] !== null) {
+          const incoming = updates[blobKey];
+          if (typeof incoming === "object" && !Array.isArray(incoming)) {
+            const current = (existing as any)[blobKey];
+            const base = current && typeof current === "object" && !Array.isArray(current)
+              ? current
+              : {};
+            updates[blobKey] = { ...base, ...incoming };
+          }
+        }
+      }
+
       // When profitLoss is being corrected, recalculate accountBalance for this entry
       // so that the equity displayed for the trade stays consistent.
       // Formula: balanceBefore = existingAccountBalance - existingProfitLoss
