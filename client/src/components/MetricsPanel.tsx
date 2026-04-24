@@ -667,13 +667,22 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
               <SubLabel style={{ borderTop:'none', paddingTop:0, marginTop:0 }}>Direction</SubLabel>
               <Bar label="Long"  pct={Math.round(longWR)||0}  count={longTrades}/>
               <Bar label="Short" pct={Math.round(shortWR)||0} count={shortTrades}/>
+              {unknownTrades > 0 && (
+                <Bar label="Unknown" pct={Math.round(unknownWR)||0} count={unknownTrades}/>
+              )}
               <SubLabel>HTF Bias</SubLabel>
               <Bar label="Bull"  pct={catBreakdown.htfBias?.['Bull']?.winRate  ?? null} count={ct(catBreakdown.htfBias?.['Bull'])}/>
               <Bar label="Bear"  pct={catBreakdown.htfBias?.['Bear']?.winRate  ?? null} count={ct(catBreakdown.htfBias?.['Bear'])}/>
               <Bar label="Range" pct={catBreakdown.htfBias?.['Range']?.winRate ?? null} count={ct(catBreakdown.htfBias?.['Range'])}/>
-              <SubLabel>Directional Bias</SubLabel>
-              <Bar label="Long Bias"  pct={catBreakdown.directionalBias?.['Long Bias']?.winRate  ?? null}/>
-              <Bar label="Short Bias" pct={catBreakdown.directionalBias?.['Short Bias']?.winRate ?? null}/>
+              {(() => {
+                const tagged = (ct(catBreakdown.htfBias?.['Bull']) || 0)
+                             + (ct(catBreakdown.htfBias?.['Bear']) || 0)
+                             + (ct(catBreakdown.htfBias?.['Range']) || 0);
+                const missing = Math.max(0, totalTrades - tagged);
+                return missing > 0
+                  ? <Bar label="Unknown" pct={null} count={missing}/>
+                  : null;
+              })()}
             </Scroll>
           </Panel>
 
