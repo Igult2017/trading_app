@@ -199,7 +199,7 @@ const TJ_CSS = `
 
   .sb-card { background: var(--c-bg2); border: 1px solid var(--c-border); border-radius: var(--radius-lg); padding: 10px 12px; margin-bottom: 8px; }
   .sb-card-label { font-size: 7px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 4px; }
-  .sb-pnl { font-size: 14px; font-weight: 600; line-height: 1; margin-bottom: 8px; color: var(--c-text); }
+  .sb-pnl { font-size: 12px; font-weight: 600; line-height: 1; margin-bottom: 8px; color: var(--c-text); }
   .sb-pnl.pos { color: var(--c-accent); }
   .sb-pnl.neg { color: var(--c-danger); }
 
@@ -228,7 +228,7 @@ const TJ_CSS = `
   .sb-wr-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
   .sb-wr-label { font-size: 8px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-hint); }
   .sb-wr-sub { font-size: 9px; color: var(--c-hint); }
-  .sb-wr-num { font-size: 14px; font-weight: 600; color: var(--c-accent); line-height: 1; }
+  .sb-wr-num { font-size: 12px; font-weight: 600; color: var(--c-accent); line-height: 1; }
   .sb-wr-num.zero { color: var(--c-hint); }
   .sb-bar-bg { height: 3px; background: var(--c-bg3); border-radius: 2px; overflow: hidden; margin: 5px 0 8px; }
   .sb-bar-fill { height: 3px; background: var(--c-accent); border-radius: 2px; transition: width 0.6s ease; }
@@ -243,7 +243,7 @@ const TJ_CSS = `
   .sb-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
   .sb-met { background: var(--c-bg2); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 7px 8px; }
   .sb-met-label { font-size: 7px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 2px; }
-  .sb-met-val { font-size: 13px; font-weight: 600; color: var(--c-text); }
+  .sb-met-val { font-size: 11px; font-weight: 600; color: var(--c-text); }
   .sb-met-val.pos { color: var(--c-accent); }
 
   .sb-empty { margin-top: 16px; text-align: center; padding: 20px 10px; background: var(--c-bg2); border: 1px dashed var(--c-border2); border-radius: var(--radius-lg); }
