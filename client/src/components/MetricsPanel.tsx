@@ -683,6 +683,12 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
                   ? <Bar label="Unknown" pct={null} count={missing}/>
                   : null;
               })()}
+              <SubLabel>Directional Bias</SubLabel>
+              <Bar label="Long Bias"  pct={Math.round(longWR)||0}  count={longTrades}/>
+              <Bar label="Short Bias" pct={Math.round(shortWR)||0} count={shortTrades}/>
+              {unknownTrades > 0 && (
+                <Bar label="No Bias" pct={Math.round(unknownWR)||0} count={unknownTrades}/>
+              )}
             </Scroll>
           </Panel>
 
