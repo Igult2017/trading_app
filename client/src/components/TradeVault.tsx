@@ -21,11 +21,13 @@ const CircleDownloadIcon = ({ success }: { success: boolean }) => (
 
 const VaultCell = ({ label, value, color, isMobile, first = false }: { label: string; value: string; color: string; isMobile: boolean; first?: boolean }) => (
   <div style={{
-    flex: isMobile ? 1 : "none",
+    flex: isMobile ? "1 1 33%" : "none",
     width: isMobile ? "auto" : 110,
-    padding: "10px 0",
+    minWidth: 0,
+    padding: isMobile ? "8px 4px" : "10px 0",
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
     borderLeft: first ? "none" : "1px solid #1e2535",
+    borderTop: "1px solid transparent",
   }}>
     <span style={{ fontSize: 9, fontWeight: 900, color: "#3d4d6a", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
@@ -476,7 +478,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           <div style={{ fontSize: 11, fontWeight: 900, color: "#4a5778", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
-      <div style={{ display: "flex", background: "#0d1018", border: "1px solid #1e2535", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
+      <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "#0d1018", border: "1px solid #1e2535", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
         <VaultCell label="NET P/L"  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
         <VaultCell label="WIN RATE" value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
         <VaultCell label="TRADES"   value={String(trades.length)} color="#f0f4ff" isMobile={isMobile} />
@@ -485,8 +487,9 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         <div
           onClick={trades.length > 0 ? handleExport : undefined}
           style={{
-            flex: isMobile ? 1 : "none", width: isMobile ? "auto" : 110,
-            padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+            flex: isMobile ? "1 1 33%" : "none", width: isMobile ? "auto" : 110,
+            minWidth: 0,
+            padding: isMobile ? "8px 4px" : "10px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
             borderLeft: "1px solid #1e2535",
             cursor: trades.length > 0 ? "pointer" : "default",
             opacity: trades.length > 0 ? 1 : 0.4,
@@ -525,6 +528,19 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <style>{`
         .trade-vault-root, .trade-vault-root * { box-sizing: border-box; }
         .trade-vault-root select option { background: #111520; color: #e0e6f0; }
+
+        @media (max-width: 640px) {
+          .trade-vault-root .tv-table-wrap { border-left: 0 !important; border-right: 0 !important; }
+          .trade-vault-root .tv-table th { padding: 10px 10px !important; font-size: 8.5px !important; }
+          .trade-vault-root .tv-table td { padding: 12px 10px !important; }
+          .trade-vault-root .tv-stats > div { border-top: 1px solid #1a2030; }
+          .trade-vault-root .tv-stats > div:nth-child(-n+3) { border-top: none; }
+          .trade-vault-root .tv-stats > div:nth-child(3n+1) { border-left: none !important; }
+        }
+        @media (max-width: 420px) {
+          .trade-vault-root .tv-table th { padding: 8px 8px !important; }
+          .trade-vault-root .tv-table td { padding: 10px 8px !important; }
+        }
 
         .row-hover { transition: background 0.15s ease; }
         .row-hover:hover { background: rgba(255,255,255,0.03) !important; }
@@ -582,8 +598,8 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
         </div>
       ) : (
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
+        <div className="tv-table-wrap" style={{ ...styles.tableWrapper, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table className="tv-table" style={{ ...styles.table, minWidth: 760 }}>
             <thead>
               <tr>
                 {["DATE", "ASSET", "STRATEGY", "SESSION", "DIRECTION", "RR", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
