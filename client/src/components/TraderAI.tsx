@@ -336,14 +336,6 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
               <span>New chat</span>
             </button>
           )}
-          {sidebarCollapsed && (
-            <button onClick={newChat}
-              title="New chat"
-              style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 8, color: "white", cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)" }}
-            >
-              <Plus size={14} />
-            </button>
-          )}
           <button onClick={() => setSidebarCollapsed(v => !v)}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             style={{ width: 32, height: 32, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(255,255,255,0.55)", cursor: "pointer" }}
