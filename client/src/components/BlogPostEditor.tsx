@@ -242,16 +242,38 @@ function DestItem({ item, active, onClick }: { item: any; active: boolean; onCli
 
 function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: (tags: string[]) => void }) {
   const [input, setInput] = useState("");
-  const allTags = [...new Set([...EXPERTISE_OPTIONS, ...selected.filter(t => !EXPERTISE_OPTIONS.includes(t))])];
+  const [customTags, setCustomTags] = useState<string[]>(
+    () => selected.filter(t => !EXPERTISE_OPTIONS.includes(t))
+  );
+
+  useEffect(() => {
+    setCustomTags(prev => {
+      const fromSelected = selected.filter(t => !EXPERTISE_OPTIONS.includes(t));
+      const merged = [...new Set([...prev, ...fromSelected])];
+      return merged;
+    });
+  }, [selected]);
+
+  const allTags = [...new Set([...EXPERTISE_OPTIONS, ...customTags])];
 
   const add = (tag: string) => {
     const trimmed = tag.trim();
-    if (!trimmed || selected.includes(trimmed)) return;
-    onChange([...selected, trimmed]);
+    if (!trimmed) return;
+    if (!customTags.includes(trimmed) && !EXPERTISE_OPTIONS.includes(trimmed)) {
+      setCustomTags(prev => [...prev, trimmed]);
+    }
+    if (!selected.includes(trimmed)) {
+      onChange([...selected, trimmed]);
+    }
     setInput("");
   };
 
   const remove = (tag: string) => onChange(selected.filter(t => t !== tag));
+
+  const removeCustom = (tag: string) => {
+    setCustomTags(prev => prev.filter(t => t !== tag));
+    if (selected.includes(tag)) onChange(selected.filter(t => t !== tag));
+  };
 
   const toggle = (tag: string) =>
     selected.includes(tag) ? remove(tag) : onChange([...selected, tag]);
@@ -273,14 +295,19 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
           placeholder="Add custom tag…"
           style={inputBase({ fontSize: 11, borderRadius: 20, padding: "4px 10px" })}
           onFocus={focusOn}
-          onBlur={e => { focusOff(e); if (input.trim()) add(input); }}
+          onBlur={focusOff}
         />
         <button
-          onClick={() => add(input)}
+          type="button"
+          onMouseDown={e => { e.preventDefault(); add(input); }}
+          disabled={!input.trim()}
           style={{
-            background: "rgba(99,153,34,0.2)", border: "0.5px solid rgba(99,153,34,0.4)",
-            borderRadius: 20, color: "#a8d46f", fontSize: 13, cursor: "pointer",
+            background: input.trim() ? "rgba(99,153,34,0.25)" : "rgba(255,255,255,0.05)",
+            border: `0.5px solid ${input.trim() ? "rgba(99,153,34,0.5)" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: 20, color: input.trim() ? "#a8d46f" : "rgba(255,255,255,0.25)",
+            fontSize: 13, cursor: input.trim() ? "pointer" : "not-allowed",
             padding: "2px 10px", flexShrink: 0, lineHeight: 1,
+            transition: "all 0.15s",
           }}
         >+</button>
       </div>
@@ -289,8 +316,9 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
       <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 5 }}>
         {allTags.map(tag => {
           const on = selected.includes(tag);
+          const isCustom = !EXPERTISE_OPTIONS.includes(tag);
           return (
-            <button key={tag} onClick={() => toggle(tag)} style={{
+            <button key={tag} type="button" onClick={() => toggle(tag)} style={{
               background:   on ? "rgba(99,153,34,0.2)"  : "rgba(255,255,255,0.04)",
               border:       `0.5px solid ${on ? "rgba(99,153,34,0.55)" : "rgba(255,255,255,0.1)"}`,
               borderRadius: 20, color: on ? "#a8d46f" : "rgba(255,255,255,0.38)",
@@ -300,10 +328,11 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
             }}>
               {on && <span style={{ fontSize: 9 }}>✓</span>}
               {tag}
-              {on && !EXPERTISE_OPTIONS.includes(tag) && (
+              {isCustom && (
                 <span
-                  onClick={e => { e.stopPropagation(); remove(tag); }}
+                  onClick={e => { e.stopPropagation(); removeCustom(tag); }}
                   style={{ marginLeft: 2, fontSize: 10, opacity: 0.6, cursor: "pointer" }}
+                  title="Delete custom tag"
                 >×</span>
               )}
             </button>
@@ -1107,7 +1136,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
             <input
               type="text" value={form.title} onChange={e => set({ title: e.target.value })}
               placeholder="Enter your post title..."
-              style={mainInput({ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 18, color: "rgba(255,255,255,0.92)" })}
+              style={mainInput({ fontSize: 18, color: "rgba(255,255,255,0.92)" })}
               onFocus={mainFocusOn} onBlur={mainFocusOff}
             />
           </MainField>
