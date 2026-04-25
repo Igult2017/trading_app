@@ -50,7 +50,6 @@ import {
 } from "./services/adminNotificationService";
 import fs from 'fs';
 import path from 'path';
-import { signalDetectionService } from "./services/signalDetection";
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService, getCachedCandleData } from "./lib/priceService";
 import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
