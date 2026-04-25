@@ -280,7 +280,7 @@ function VerdictBar({ d }: { d: AuditData }) {
   const next = d.finalVerdict?.nextActions?.[0] ?? "Continue monitoring";
   const maxDD = d.drawdown?.maxPeakToValley ?? 0;
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}` }}>
+    <div className="sa-verdict" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`, gap: 12, flexWrap: "wrap" }}>
       <div style={{ ...mono, fontSize: 11, letterSpacing: ".16em", color: authorized ? T.green : T.amber }}>
         {authorized ? "✓ SYSTEM AUTHORIZED — ALL STRUCTURAL CHECKS PASSED" : "⚠ SYSTEM PENDING — AWAITING CONFIRMATION"}
       </div>
@@ -454,10 +454,10 @@ function Page1({ d }: { d: AuditData }) {
       {/* Row 4 */}
       <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Logical Verification</CellTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+        <div className="sa-lv-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {lvRows.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: i < 4 ? `1px solid ${T.line}` : "none", paddingLeft: i % 2 === 1 ? 20 : 0 }}>
-              <span style={{ ...mono, fontSize: 9, color: T.blue, minWidth: 100, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{item.key}</span>
+            <div key={i} className="sa-lv-row" style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: i < 4 ? `1px solid ${T.line}` : "none", paddingLeft: i % 2 === 1 ? 20 : 0 }}>
+              <span className="sa-lv-key" style={{ ...mono, fontSize: 9, color: T.blue, minWidth: 100, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{item.key}</span>
               <span style={{ fontSize: 12, color: T.muted, lineHeight: 1.5, fontFamily: FONT, fontWeight: 400 }}>{item.val}</span>
             </div>
           ))}
@@ -1104,8 +1104,10 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
           .audit-root [style*="grid-template-columns"] {
             grid-template-columns: 1fr !important;
           }
-          .audit-root [style*="paddingLeft: 20"],
-          .audit-root [style*="padding-left: 20"] { padding-left: 0 !important; }
+          .audit-root .sa-lv-row { padding-left: 0 !important; }
+          .audit-root .sa-lv-key { min-width: 92px !important; }
+          .audit-root .sa-verdict { flex-direction: column !important; align-items: flex-start !important; }
+          .audit-root .sa-verdict > div { font-size: 10px !important; letter-spacing: .1em !important; line-height: 1.5 !important; }
         }
         @media (max-width: 768px) {
           .audit-root { padding: 14px 0 !important; }
