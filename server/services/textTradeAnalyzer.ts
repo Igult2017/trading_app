@@ -54,15 +54,103 @@ function bool(raw: string | undefined): boolean | null {
 
 /**
  * Normalise a datetime string to datetime-local format (YYYY-MM-DDTHH:mm).
- * Handles "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DDTHH:mm:ss", "N/A" etc.
+ *
+ * Supports many real-world formats users paste from MT4/MT5, cTrader,
+ * TradingView, NinjaTrader, brokers and spreadsheets:
+ *   ISO       — 2018-02-07 04:10[:ss]   /   2018-02-07T04:10[:ss]
+ *   MT4 / MT5 — 2018.02.07 04:10[:ss]
+ *   US slash  — 02/07/2018 04:10[:ss] [AM|PM]
+ *   EU slash  — 07/02/2018 04:10[:ss]
+ *   EU dot    — 07.02.2018 04:10[:ss]
+ *   Month name— Feb 07, 2018 04:10[:ss] / 7 February 2018 ...
+ *   Date only — 2018-02-07  / 2018.02.07  / 02/07/2018  (returns YYYY-MM-DDT00:00)
+ *   Time only — handled separately by normTime() and combined with a sibling date.
  */
+function pad2(n: number | string): string {
+  return String(n).padStart(2, "0");
+}
+
+function to24h(h: number, ampm?: string | null): number {
+  if (!ampm) return h;
+  const u = ampm.toUpperCase();
+  if (u === "PM" && h < 12) return h + 12;
+  if (u === "AM" && h === 12) return 0;
+  return h;
+}
+
+function isDateOnly(raw: string): boolean {
+  return /^\s*\d{1,4}[.\-\/]\d{1,2}[.\-\/]\d{1,4}\s*$/.test(raw);
+}
+
+function isTimeOnly(raw: string): boolean {
+  return /^\s*\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?\s*$/i.test(raw);
+}
+
+function normTime(raw: string | null): string | null {
+  if (!raw) return null;
+  const m = raw.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?\s*$/i);
+  if (!m) return null;
+  return `${pad2(to24h(parseInt(m[1], 10), m[3]))}:${m[2]}`;
+}
+
+function normDate(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  // YYYY[.\-\/]MM[.\-\/]DD
+  let m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/);
+  if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  // DD[.\-\/]MM[.\-\/]YYYY  or  MM[.\-\/]DD[.\-\/]YYYY  (heuristic)
+  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+  if (m) {
+    let dd = parseInt(m[1], 10);
+    let mm = parseInt(m[2], 10);
+    if (mm > 12 && dd <= 12) [dd, mm] = [mm, dd];     // clearly US-style mm/dd
+    if (dd > 12 && mm <= 12) { /* clearly EU-style */ }
+    if (dd > 12 && mm > 12) return null;              // invalid
+    return `${m[3]}-${pad2(mm)}-${pad2(dd)}`;
+  }
+  return null;
+}
+
 function normDatetime(raw: string | null): string | null {
   if (!raw) return null;
-  if (/n\/?a/i.test(raw.trim())) return null;
-  // "2018-02-07 04:10:00" or "2018-02-07T04:10:00"
-  const m = raw.match(/(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/);
-  if (m) return `${m[1]}T${m[2]}`;
+  const s = raw.trim();
+  if (!s || /n\/?a/i.test(s)) return null;
+
+  // ── Pattern A — YYYY[.\-\/]MM[.\-\/]DD[ T]HH:MM[:SS]  (ISO, MT4, MT5) ────
+  let m = s.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})[T\s]+(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (m) {
+    return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}T${pad2(m[4])}:${m[5]}`;
+  }
+
+  // ── Pattern B — DD[.\-\/]MM[.\-\/]YYYY  /  MM[.\-\/]DD[.\-\/]YYYY  + time + AM/PM ──
+  m = s.match(/(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})[T\s,]+(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if (m) {
+    let dd = parseInt(m[1], 10);
+    let mm = parseInt(m[2], 10);
+    const yy = m[3];
+    const hh = to24h(parseInt(m[4], 10), m[6]);
+    if (mm > 12 && dd <= 12) [dd, mm] = [mm, dd];     // clearly US-style mm/dd
+    if (dd > 12 && mm > 12) return null;              // invalid pair
+    return `${yy}-${pad2(mm)}-${pad2(dd)}T${pad2(hh)}:${m[5]}`;
+  }
+
+  // ── Pattern C — Date only (no time) ─────────────────────────────────────
+  const dOnly = normDate(s);
+  if (dOnly) return `${dOnly}T00:00`;
+
+  // ── Pattern D — Native Date.parse fallback (covers month-name formats) ──
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+  }
   return null;
+}
+
+/** Combine a date-only part with a time-only part into datetime-local. */
+function combineDateTime(date: string | null, time: string | null): string | null {
+  if (!date || !time) return null;
+  return `${date}T${time}`;
 }
 
 // ── Label → field map ──────────────────────────────────────────────────────
@@ -105,8 +193,8 @@ const LABEL_MAP: [RegExp, string][] = [
   [/outcome|result|trade.?result/i,              "outcome"],
   [/trade.?open|still.?open|open.?trade|whether.*open/i, "tradeIsOpen"],
   // Time & Session
-  [/entry.?time|entry.?date/i,                   "entryTime"],
-  [/exit.?time|exit.?date|close.?time/i,         "exitTime"],
+  [/entry.?(time|date|datetime|timestamp)|open(ed)?.?(time|date|at|datetime|timestamp)|date.?opened|time.?opened/i, "entryTime"],
+  [/exit.?(time|date|datetime|timestamp)|close(d)?.?(time|date|at|datetime|timestamp)|date.?closed|time.?closed/i,  "exitTime"],
   [/trade.?duration|duration/i,                  "tradeDuration"],
   [/day.?of.?week|weekday/i,                     "dayOfWeek"],
   [/session.?phase|phase/i,                      "sessionPhase"],
@@ -152,6 +240,24 @@ export function parseTradeText(text: string): {
     tpCalculatedFromRR: false, tradeIsOpenFlag: false,
   };
 
+  // Track date-only and time-only fragments separately so we can combine
+  // "Entry Date: 2024-04-25" + "Entry Time: 14:30:00" into one datetime.
+  const parts: Record<"entry" | "exit", { date: string | null; time: string | null; full: string | null }> = {
+    entry: { date: null, time: null, full: null },
+    exit:  { date: null, time: null, full: null },
+  };
+
+  const captureTimePart = (which: "entry" | "exit", raw: string) => {
+    if (isTimeOnly(raw)) {
+      parts[which].time = normTime(raw);
+    } else if (isDateOnly(raw)) {
+      parts[which].date = normDate(raw);
+    } else {
+      const full = normDatetime(raw);
+      if (full) parts[which].full = full;
+    }
+  };
+
   for (const line of text.split("\n")) {
     const trimmed = line.replace(/^[\s•\-*▸►·]+/, "").trim();
     if (!trimmed || trimmed.length < 3) continue;
@@ -168,23 +274,48 @@ export function parseTradeText(text: string): {
         case "outcome":         fields.outcome         = outcome(raw);               break;
         case "tradeIsOpen":     fields.tradeIsOpen     = bool(raw);                  break;
         case "closedPLPips":    fields.closedPLPips    = num(raw);                   break;
+        case "entryTime":       captureTimePart("entry", raw); break;
+        case "exitTime":        captureTimePart("exit",  raw); break;
         case "instrument":
         case "pairCategory":
         case "tradeDuration":
         case "dayOfWeek":
         case "sessionName":
-        case "sessionPhase":
-        case "entryTime":
-        case "exitTime":        fields[fieldName]      = str(raw);                   break;
+        case "sessionPhase":    fields[fieldName]      = str(raw);                   break;
         default:                fields[fieldName]      = num(raw) ?? str(raw);       break;
       }
       break; // matched — move to next line
     }
   }
 
-  // Normalise datetime strings to datetime-local format
-  fields.entryTime = normDatetime(fields.entryTime);
-  fields.exitTime  = normDatetime(fields.exitTime);
+  // Reconcile date/time parts → datetime-local strings
+  fields.entryTime = parts.entry.full
+    ?? combineDateTime(parts.entry.date, parts.entry.time)
+    ?? (parts.entry.date ? `${parts.entry.date}T00:00` : null);
+  fields.exitTime = parts.exit.full
+    ?? combineDateTime(parts.exit.date, parts.exit.time)
+    ?? (parts.exit.date ? `${parts.exit.date}T00:00` : null);
+
+  // Derive day-of-week from entryTime if not explicitly provided
+  if (!fields.dayOfWeek && fields.entryTime) {
+    const dt = new Date(fields.entryTime);
+    if (!isNaN(dt.getTime())) {
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      fields.dayOfWeek = days[dt.getDay()];
+    }
+  }
+
+  // Derive trade duration if both times are present and duration not given
+  if (!fields.tradeDuration && fields.entryTime && fields.exitTime) {
+    const a = new Date(fields.entryTime).getTime();
+    const b = new Date(fields.exitTime).getTime();
+    if (!isNaN(a) && !isNaN(b) && b > a) {
+      const mins = Math.round((b - a) / 60000);
+      if (mins < 60)        fields.tradeDuration = `${mins} minutes`;
+      else if (mins < 1440) fields.tradeDuration = `${Math.floor(mins / 60)}h ${mins % 60}m`;
+      else                  fields.tradeDuration = `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h`;
+    }
+  }
 
   // Propagate plannedSLPips → stopLossPips if stopLossPips missing
   if (fields.stopLossPips === null && fields.plannedSLPips !== null)
