@@ -1086,6 +1086,17 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     }
 
     setS4(prev => ({ ...prev, ...s4Updates }));
+    // Mark these autocalculated fields as "filled by the system" so the
+    // unfilled-panels reminder won't flag Performance Data / Trade Metrics
+    // when their values were derived from OCR-supplied risk %, RR, etc.
+    setOcrFields(prev => {
+      let changed = false;
+      const next = new Set(prev);
+      Object.keys(s4Updates).forEach(k => {
+        if (!next.has(k)) { next.add(k); changed = true; }
+      });
+      return changed ? next : prev;
+    });
   }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, currentBalance]);
 
   // Format a numeric RR value as "1:X" string
