@@ -166,15 +166,15 @@ const LABEL_MAP: [RegExp, string][] = [
   [/opening.?price|open.?price/i,                "openingPrice"],
   [/closing.?price|close.?price/i,               "closingPrice"],
   // SL — specific variants before generic
-  [/stop.?loss.?price|sl.?price/i,               "stopLoss"],
   [/actual.?sl.?pips?|actual.?stop.?loss.?pips?/i, "actualSLPips"],
   [/planned.?sl.?pips?|planned.?stop.?loss.?pips?/i, "plannedSLPips"],
   [/stop.?loss.?pips?|sl.?pips?|sl.?dist/i,     "stopLossPips"],
+  [/stop.?loss.?price|sl.?price|^\s*stop.?loss\s*$|^\s*sl\s*$/i, "stopLoss"],
   // TP — specific variants before generic
-  [/take.?profit.?price|tp.?price/i,             "takeProfit"],
   [/actual.?tp.?pips?|actual.?take.?profit.?pips?/i, "actualTPPips"],
   [/planned.?tp.?pips?|planned.?take.?profit.?pips?/i, "plannedTPPips"],
   [/take.?profit.?pips?|tp.?pips?|tp.?dist/i,   "takeProfitPips"],
+  [/take.?profit.?price|tp.?price|^\s*take.?profit\s*$|^\s*tp\s*$/i, "takeProfit"],
   // Position size
   [/lot.?size|lots?$/i,                          "lotSize"],
   [/units?$/i,                                   "units"],
