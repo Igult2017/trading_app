@@ -1464,24 +1464,24 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
         <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.03),transparent_40%)]">
 
           {/* HEADER */}
-          <header className="relative h-14 md:h-20 border-b border-white/5 flex items-center px-4 md:px-12 justify-between flex-shrink-0">
+          <header className="h-14 md:h-20 border-b border-white/5 flex items-center px-4 md:px-12 justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
               <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest hidden sm:block">TradeSync Terminal</span>
               <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest sm:hidden">TradeSync</span>
             </div>
-            {/* Manage dashboards — center */}
-            <div className="hidden md:flex items-center gap-1.5 absolute left-1/2 -translate-x-1/2">
-              <button onClick={() => onOpenDashboard('provider')}
-                className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
-                <Radio size={10} /> Manage Provider
-              </button>
-              <button onClick={() => onOpenDashboard('follower')}
-                className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
-                <Users size={10} /> Manage Follower
-              </button>
-            </div>
             <div className="flex items-center gap-2">
+              {/* Manage dashboards */}
+              <div className="hidden md:flex items-center gap-1.5 mr-3 pr-3 border-r border-white/10">
+                <button onClick={() => onOpenDashboard('provider')}
+                  className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
+                  <Radio size={10} /> Manage Provider
+                </button>
+                <button onClick={() => onOpenDashboard('follower')}
+                  className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
+                  <Users size={10} /> Manage Follower
+                </button>
+              </div>
               {/* Role tabs */}
               <div className="hidden sm:flex items-center gap-1.5">
                 {['follower','provider','self','telegram'].map(r => (
