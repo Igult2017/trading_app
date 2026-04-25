@@ -1335,7 +1335,7 @@ const STEP_TITLES: any = {
 // ═══════════════════════════════════════════════════════════════════════════════
 // COPIER WIZARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function CopierWizard({ onBack }: { onBack: () => void }) {
+function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenDashboard: (tab: 'provider' | 'follower') => void }) {
   const [step, setStep]               = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({
@@ -1464,11 +1464,22 @@ function CopierWizard({ onBack }: { onBack: () => void }) {
         <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.03),transparent_40%)]">
 
           {/* HEADER */}
-          <header className="h-14 md:h-20 border-b border-white/5 flex items-center px-4 md:px-12 justify-between flex-shrink-0">
+          <header className="relative h-14 md:h-20 border-b border-white/5 flex items-center px-4 md:px-12 justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
               <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest hidden sm:block">TradeSync Terminal</span>
               <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest sm:hidden">TradeSync</span>
+            </div>
+            {/* Manage dashboards — center */}
+            <div className="hidden md:flex items-center gap-1.5 absolute left-1/2 -translate-x-1/2">
+              <button onClick={() => onOpenDashboard('provider')}
+                className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
+                <Radio size={10} /> Manage Provider
+              </button>
+              <button onClick={() => onOpenDashboard('follower')}
+                className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
+                <Users size={10} /> Manage Follower
+              </button>
             </div>
             <div className="flex items-center gap-2">
               {/* Role tabs */}
@@ -1552,10 +1563,6 @@ const landingStyles = `
   .ts-hero h1 { font-family:'Montserrat',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:800; line-height:1.1; margin-bottom:20px; background:linear-gradient(135deg,#fff 40%,var(--ts-blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .ts-hero p { font-size:clamp(0.9rem,2vw,1.05rem); color:var(--ts-muted); line-height:1.7; max-width:440px; margin-bottom:32px; }
   .ts-hero-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
-  .ts-hero-manage { margin-top:18px; padding-top:18px; border-top:1px solid var(--ts-border); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .ts-hero-manage-label { color:var(--ts-muted); font-size:0.78rem; font-weight:500; letter-spacing:0.01em; margin-right:4px; }
-  .ts-hero-manage-btn { display:inline-flex; align-items:center; gap:6px; background:transparent; color:var(--ts-text); border:1px solid var(--ts-border); padding:7px 12px; font-size:0.75rem; font-weight:600; cursor:pointer; transition:all 0.15s; font-family:inherit; }
-  .ts-hero-manage-btn:hover { border-color:var(--ts-blue); color:var(--ts-blue); background:rgba(96,165,250,0.06); }
   .ts-btn-primary { background:var(--ts-blue); color:#fff; border:none; padding:13px 28px; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:8px; }
   .ts-btn-primary:hover { background:var(--ts-blue-bright); transform:translateY(-1px); }
   .ts-btn-ghost { background:transparent; color:var(--ts-muted); border:1px solid var(--ts-border); padding:13px 24px; font-size:1rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
@@ -1739,8 +1746,8 @@ export default function TradeSyncPage() {
     setVotes(prev => ({ ...prev, [name]:{ count:prev[name].voted?prev[name].count-1:prev[name].count+1, voted:!prev[name].voted } }));
   };
 
-  if (showCopier) return <CopierWizard onBack={() => setShowCopier(false)} />;
   if (showDashboard) return <CopyManagementDashboard initialTab={showDashboard} onBack={() => setShowDashboard(null)} />;
+  if (showCopier) return <CopierWizard onBack={() => setShowCopier(false)} onOpenDashboard={(tab) => setShowDashboard(tab)} />;
 
   const PlatformCard = ({ p }: { p: typeof platformsRow1[0] }) => (
     <div className="ts-platform-card">
@@ -1778,15 +1785,6 @@ export default function TradeSyncPage() {
             <div className="ts-hero-actions">
               <button className="ts-btn-primary" onClick={() => setShowCopier(true)}>Start Now →</button>
               <button className="ts-btn-ghost" onClick={() => document.getElementById('ts-learn-more')?.scrollIntoView({ behavior:'smooth' })}>Learn More</button>
-            </div>
-            <div className="ts-hero-manage">
-              <span className="ts-hero-manage-label">Already set up? Manage your terminals:</span>
-              <button className="ts-hero-manage-btn" onClick={() => setShowDashboard('provider')}>
-                <Radio size={12} /> Provider Dashboard
-              </button>
-              <button className="ts-hero-manage-btn" onClick={() => setShowDashboard('follower')}>
-                <Users size={12} /> Follower Dashboard
-              </button>
             </div>
           </div>
           <div className="ts-hero-visual">
