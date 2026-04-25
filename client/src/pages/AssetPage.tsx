@@ -398,6 +398,8 @@ export default function AssetPage() {
         .mob-instruments-fab { display: none; }
         @media (max-width: 767px) {
           .entry-grid { grid-template-columns: 1fr 1fr !important; }
+          .entry-grid > div:nth-child(2n) { border-right: none !important; }
+          .entry-grid > div:nth-child(-n+2) { border-bottom: 1px solid #0f1923; }
           .analysis-grid { grid-template-columns: 1fr !important; }
           .asset-main-pad { padding: 12px 12px 32px !important; }
           .asset-inner-pad { padding: 12px 12px !important; }
