@@ -1218,51 +1218,63 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     }
   }, [applyAnalyzedFields]);
 
-  // Sections we want to remind the user about if they're left blank.
-  // We only flag a section when ALL of its key user-supplied fields are empty —
-  // a partially-filled section is treated as intentional.
+  // Sections we want to remind the user about if they look untouched.
+  // A section is flagged as "unfilled" when EVERY one of its listed fields
+  // still matches its INIT default — i.e. the user hasn't changed anything
+  // in that panel (whether it's text inputs OR dropdowns / radios / scores).
+  // Partially edited panels are treated as intentional and not flagged.
   const getUnfilledSections = (): { step: number; name: string }[] => {
-    const isEmpty = (v: any) =>
-      v === undefined ||
-      v === null ||
-      v === "" ||
-      (typeof v === "string" && v.trim() === "");
-    const allEmpty = (...vs: any[]) => vs.every(isEmpty);
-    const out: { step: number; name: string }[] = [];
+    const eq = (a: any, b: any) => {
+      // Treat null / undefined / "" as equivalent for "empty" comparison
+      const norm = (v: any) =>
+        v === undefined || v === null || (typeof v === "string" && v.trim() === "")
+          ? ""
+          : v;
+      return norm(a) === norm(b);
+    };
+    const untouched = (state: any, init: any, fields: string[]) =>
+      fields.every(f => eq(state[f], init[f]));
 
-    // ── Step 1 ────────────────────────────────────────────────────────────
-    if (allEmpty(s1.thesis, s1.trigger, s1.invalidationLogic, s1.expectedBehavior))
-      out.push({ step: 1, name: "Core Thesis" });
-    if (allEmpty(s1.openTradesCount, s1.totalRiskOpen))
-      out.push({ step: 1, name: "Pre-Entry State Check" });
+    const sections: {
+      step: number;
+      name: string;
+      state: any;
+      init: any;
+      fields: string[];
+    }[] = [
+      // ── Step 1 ────────────────────────────────────────────────────────
+      { step: 1, name: "Core Thesis",            state: s1, init: INIT_STEP1, fields: ["thesis","trigger","invalidationLogic","expectedBehavior"] },
+      { step: 1, name: "Pre-Entry State Check",  state: s1, init: INIT_STEP1, fields: ["energyLevel","focusLevel","confidenceAtEntry","externalDistraction","openTradesCount","totalRiskOpen","correlatedExposure"] },
+      { step: 1, name: "Classification & Quality", state: s1, init: INIT_STEP1, fields: ["setupTag","tradeGrade"] },
+      { step: 1, name: "Rule Governance",        state: s1, init: INIT_STEP1, fields: ["setupFullyValid","anyRuleBroken","ruleBroken"] },
+      { step: 1, name: "Impulse Control Check",  state: s1, init: INIT_STEP1, fields: ["impulseCheckFOMO","impulseCheckRevenge","impulseCheckBored","impulseCheckEmotional"] },
 
-    // ── Step 2 ────────────────────────────────────────────────────────────
-    if (!s2.screenshot && !s2.exitScreenshot)
-      out.push({ step: 2, name: "Trade Screenshots" });
-    if (allEmpty(s2.instrument, s2.entryPrice, s2.lotSize, s2.stopLoss, s2.takeProfit))
-      out.push({ step: 2, name: "Position Details" });
-    if (allEmpty(s2.entryTime, s2.exitTime, s2.tradeDuration))
-      out.push({ step: 2, name: "Timing & Duration" });
-    if (allEmpty(s2.exitStrategy))
-      out.push({ step: 2, name: "Entry & Trade Management" });
+      // ── Step 2 ────────────────────────────────────────────────────────
+      { step: 2, name: "Trade Screenshots",      state: s2, init: INIT_STEP2, fields: ["screenshot","exitScreenshot"] },
+      { step: 2, name: "Position Details",       state: s2, init: INIT_STEP2, fields: ["instrument","pairCategory","direction","lotSize","entryPrice","stopLoss","takeProfit","riskPercent","orderType","outcome"] },
+      { step: 2, name: "Timing & Duration",      state: s2, init: INIT_STEP2, fields: ["entryTime","exitTime","dayOfWeek","tradeDuration"] },
+      { step: 2, name: "Timeframe Analysis",     state: s2, init: INIT_STEP2, fields: ["entryTF","analysisTF","contextTF"] },
+      { step: 2, name: "Entry & Trade Management", state: s2, init: INIT_STEP2, fields: ["entryMethod","exitStrategy","managementType","riskHeat","breakEvenApplied","trailingStopApplied"] },
 
-    // ── Step 3 ────────────────────────────────────────────────────────────
-    if (allEmpty(s3.higherTFContext, s3.analysisTFContext, s3.entryTFContext, s3.otherConfluences))
-      out.push({ step: 3, name: "Higher Timeframe Context" });
-    if (allEmpty(s3.timingContext, s3.candlePattern, s3.primarySignals, s3.secondarySignals, s3.indicatorState, s3.liquidityTargets))
-      out.push({ step: 3, name: "Technical Signals" });
+      // ── Step 3 ────────────────────────────────────────────────────────
+      { step: 3, name: "Market Environment",     state: s3, init: INIT_STEP3, fields: ["marketRegime","trendDirection","volatilityState","liquidity","newsEnvironment","sessionName","sessionPhase","atrAtEntry"] },
+      { step: 3, name: "Higher Timeframe Context", state: s3, init: INIT_STEP3, fields: ["htfBias","htfKeyLevelPresent","trendAlignment","multitimeframeAlignment","higherTFContext","analysisTFContext","entryTFContext","otherConfluences"] },
+      { step: 3, name: "Technical Signals",      state: s3, init: INIT_STEP3, fields: ["timingContext","candlePattern","primarySignals","secondarySignals","indicatorState","liquidityTargets"] },
+      { step: 3, name: "Key Level Analysis",     state: s3, init: INIT_STEP3, fields: ["keyLevelRespect","keyLevelType","momentumValidity","targetLogicClarity"] },
+      { step: 3, name: "Setup Quality Scores",   state: s3, init: INIT_STEP3, fields: ["marketAlignment","setupClarity","entryPrecision","confluence","timingQuality","signalValidation"] },
 
-    // ── Step 4 ────────────────────────────────────────────────────────────
-    if (allEmpty(s4.pipsGainedLost, s4.profitLoss, s4.accountBalance, s4.commission))
-      out.push({ step: 4, name: "Performance Data" });
-    if (allEmpty(s4.plannedEntry, s4.plannedSL, s4.plannedTP, s4.actualEntry, s4.actualSL, s4.actualTP))
-      out.push({ step: 4, name: "Planning vs Execution" });
-    if (allEmpty(s4.mae, s4.mfe, s4.monetaryRisk, s4.potentialReward, s4.plannedRR, s4.achievedRR))
-      out.push({ step: 4, name: "Trade Metrics" });
-    if (allEmpty(s4.whatWorked, s4.whatFailed, s4.adjustments, s4.notes))
-      out.push({ step: 4, name: "Trade Debrief" });
+      // ── Step 4 ────────────────────────────────────────────────────────
+      { step: 4, name: "Exit Causation",         state: s4, init: INIT_STEP4, fields: ["primaryExitReason"] },
+      { step: 4, name: "Performance Data",       state: s4, init: INIT_STEP4, fields: ["pipsGainedLost","profitLoss","accountBalance","commission"] },
+      { step: 4, name: "Planning vs Execution",  state: s4, init: INIT_STEP4, fields: ["plannedEntry","plannedSL","plannedTP","actualEntry","actualSL","actualTP"] },
+      { step: 4, name: "Trade Metrics",          state: s4, init: INIT_STEP4, fields: ["mae","mfe","monetaryRisk","potentialReward","plannedRR","achievedRR"] },
+      { step: 4, name: "Psychological State",    state: s4, init: INIT_STEP4, fields: ["emotionalState","focusStressLevel","rulesFollowed","confidenceLevel","postTradeEmotion","consecutiveTradeCount","worthRepeating","recencyBiasFlag"] },
+      { step: 4, name: "Trade Debrief",          state: s4, init: INIT_STEP4, fields: ["whatWorked","whatFailed","adjustments","notes"] },
+    ];
 
-    return out;
+    return sections
+      .filter(s => untouched(s.state, s.init, s.fields))
+      .map(({ step, name }) => ({ step, name }));
   };
 
   const handleSave = async (forceSubmit: boolean = false) => {
