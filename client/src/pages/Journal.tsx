@@ -619,7 +619,16 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
         <div style={{ background: 'var(--jr-chart,#080d18)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} data-testid="chart-equity-curve">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--jr-accent,#38bdf8)22', borderRadius: 8, color: 'var(--jr-accent,#38bdf8)', border: '1px solid var(--jr-accent,#38bdf8)44' }}><Activity size={16} strokeWidth={3} /></div>
+              <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--jr-accent,#38bdf8)22', borderRadius: 8, color: 'var(--jr-accent,#38bdf8)', border: '1px solid var(--jr-accent,#38bdf8)44' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 3v18h18" />
+                  <path d="M3 6h1.5" />
+                  <path d="M3 11h1.5" />
+                  <path d="M3 16h1.5" />
+                  <path d="M5 18 c1.2 0 1.8 -1 2.4 -3 c0.6 -2.5 1.2 -7 2.6 -7 c1.4 0 2 4.5 2.6 7 c0.6 2 1.2 3 2.4 3" />
+                  <path d="M11 18 c1.2 0 1.8 -1 2.4 -3 c0.6 -2.5 1.2 -7 2.6 -7 c1.4 0 2 4.5 2.6 7 c0.6 2 1.2 3 2.4 3" />
+                </svg>
+              </div>
               <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
