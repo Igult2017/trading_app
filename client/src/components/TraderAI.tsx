@@ -53,6 +53,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("traderai.sidebarCollapsed") === "1";
   });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -262,7 +263,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   };
 
   return (
-    <div style={{ display: "flex", height: "calc(100dvh - 130px)", background: "#070d15", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", fontFamily: F }}>
+    <div className="traderai-root" style={{ display: "flex", height: "calc(100dvh - 130px)", background: "#070d15", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", fontFamily: F, position: "relative" }}>
 
       <style>{`
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
@@ -273,10 +274,59 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         .traderai-ta::placeholder{color:rgba(255,255,255,0.2);font-family:'Montserrat',sans-serif;}
         .traderai-chatrow .traderai-chatactions{opacity:0;transition:opacity .15s}
         .traderai-chatrow:hover .traderai-chatactions{opacity:1}
+
+        /* ── Mobile optimisation ─────────────────────────────────────── */
+        @media (max-width: 640px) {
+          .traderai-root { height: calc(100dvh - 110px) !important; border-radius: 8px !important; }
+
+          /* Sidebar slides out as an overlay; hidden by default */
+          .traderai-sidebar {
+            position: absolute !important;
+            top: 0; left: 0; bottom: 0;
+            width: 80vw !important; max-width: 280px;
+            z-index: 30;
+            transform: translateX(-100%);
+            transition: transform 0.22s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          }
+          .traderai-sidebar.is-open { transform: translateX(0); }
+          .traderai-sidebar-collapsed { display: none !important; }
+          .traderai-sidebar-backdrop {
+            position: absolute; inset: 0; z-index: 20;
+            background: rgba(0,0,0,0.45);
+          }
+
+          /* Header tightens up */
+          .traderai-header { padding: 0 10px !important; height: 46px !important; }
+          .traderai-subtitle { display: none !important; }
+          .traderai-headerbtn-label { display: none !important; }
+          .traderai-headerbtn { padding: 6px !important; min-width: 28px; justify-content: center !important; }
+
+          /* Empty state — single column suggestions */
+          .traderai-empty-grid { grid-template-columns: 1fr !important; max-width: 100% !important; }
+          .traderai-empty-wrap { padding: 20px 14px !important; }
+          .traderai-empty-title { font-size: 18px !important; }
+          .traderai-empty-sub { font-size: 12px !important; margin-bottom: 18px !important; }
+
+          /* Tighter message padding */
+          .traderai-msglist { padding: 16px 12px 6px !important; }
+
+          /* Input bar */
+          .traderai-inputwrap { padding: 8px 10px 10px !important; }
+          .traderai-inputbox  { padding: 6px 6px 6px 10px !important; }
+
+          /* Mobile-only sidebar toggle button shown in header */
+          .traderai-mobile-toggle { display: inline-flex !important; }
+        }
+        .traderai-mobile-toggle { display: none; }
       `}</style>
 
+      {/* Mobile sidebar backdrop */}
+      {mobileSidebarOpen && <div className="traderai-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />}
+
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-      <div style={{ width: sidebarCollapsed ? 52 : 240, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.06)", background: "rgba(7,13,21,0.97)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
+      <div className={`traderai-sidebar ${mobileSidebarOpen ? "is-open" : ""} ${sidebarCollapsed ? "traderai-sidebar-collapsed" : ""}`}
+        style={{ width: sidebarCollapsed ? 52 : 240, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.06)", background: "rgba(7,13,21,0.97)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
         <div style={{ padding: "12px 10px 8px", display: "flex", alignItems: "center", gap: 6 }}>
           {!sidebarCollapsed && (
             <button onClick={newChat}
@@ -370,26 +420,34 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <button
+              className="traderai-mobile-toggle"
+              onClick={() => setMobileSidebarOpen(true)}
+              title="Open chats"
+              style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+            >
+              <PanelLeftOpen size={14} />
+            </button>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <AtomAI size={14} color="white" />
             </div>
             <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}>Trader AI</span>
-            <span style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
+            <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
           </div>
           {messages.length > 0 && (
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
               {[
                 { label: "Export", icon: <FileText size={12} />, action: exportChat },
                 { label: "Clear",  icon: <RotateCcw size={12} />, action: newChat },
               ].map(({ label, icon, action }) => (
-                <button key={label} onClick={action}
+                <button key={label} onClick={action} className="traderai-headerbtn" title={label}
                   style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
                   onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; }}
                   onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "rgba(255,255,255,0.45)"; }}
                 >
-                  {icon}<span>{label}</span>
+                  {icon}<span className="traderai-headerbtn-label">{label}</span>
                 </button>
               ))}
             </div>
@@ -399,17 +457,17 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         {/* Scrollable messages / empty state */}
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {messages.length === 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "32px 20px", textAlign: "center" }}>
+            <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "32px 20px", textAlign: "center" }}>
               <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 0 48px rgba(99,102,241,0.25)" }}>
                 <AtomAI size={22} color="white" />
               </div>
-              <h2 style={{ fontFamily: F, fontSize: 21, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 8, lineHeight: 1.2 }}>
+              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 21, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 8, lineHeight: 1.2 }}>
                 How can I analyse<br />your trades today?
               </h2>
-              <p style={{ fontFamily: F, fontSize: 13, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, maxWidth: 340, marginBottom: 28, fontWeight: 400 }}>
+              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 13, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, maxWidth: 340, marginBottom: 28, fontWeight: 400 }}>
                 Connected to your TradeLog database. Ask me anything about your performance, patterns, and edge.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%", maxWidth: 600 }}>
+              <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%", maxWidth: 600 }}>
                 {SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => send(s)}
                     style={{ padding: "13px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "rgba(255,255,255,0.55)", fontSize: 12, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 8 }}
@@ -425,7 +483,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
               </div>
             </div>
           ) : (
-            <div style={{ padding: "24px 20px 8px" }}>
+            <div className="traderai-msglist" style={{ padding: "24px 20px 8px" }}>
               {messages.map((msg, idx) => (
                 <div key={idx} style={{ marginBottom: 28, display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: msg.role === "user" ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg, #6366f1, #8b5cf6)", border: msg.role === "user" ? "1px solid rgba(255,255,255,0.09)" : "none", marginTop: 2 }}>
@@ -482,14 +540,14 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         </div>
 
         {/* Input bar */}
-        <div style={{ flexShrink: 0, padding: "12px 16px 14px", background: "rgba(7,13,21,0.97)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="traderai-inputwrap" style={{ flexShrink: 0, padding: "12px 16px 14px", background: "rgba(7,13,21,0.97)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           {error && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, marginBottom: 8 }}>
               <AlertCircle size={12} color="#f87171" />
               <span style={{ fontFamily: F, fontSize: 12, color: "#f87171" }}>{error}</span>
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 8px 8px 14px", transition: "border-color 0.15s, box-shadow 0.15s" }}
+          <div className="traderai-inputbox" style={{ display: "flex", alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 8px 8px 14px", transition: "border-color 0.15s, box-shadow 0.15s" }}
             onFocusCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = "rgba(99,102,241,0.45)"; d.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)"; }}
             onBlurCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = "rgba(255,255,255,0.09)"; d.style.boxShadow = "none"; }}
           >
