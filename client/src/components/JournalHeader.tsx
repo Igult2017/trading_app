@@ -390,22 +390,30 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           color: ${t.iconColor};
         }
         .settings-btn:hover { background: ${dm ? '#0c1219' : '#cbd5e1'} !important; }
+        .jh-sidebar-mobile { display: none; }
         @media (max-width: 1024px) {
           .nav-links { display:none !important; }
           .nav-mob-controls { display:flex !important; }
+          .jh-sidebar-desktop { display: none !important; }
+          .jh-sidebar-mobile  { display: flex !important; }
+        }
+        @media (max-width: 768px) {
+          .jh-ticker { display: none !important; }
+          .jh-mobile-theme { display: none !important; }
         }
         @media (max-width: 560px) {
-          .jh-nav { padding: 0 12px !important; }
+          .jh-nav { padding: 0 12px !important; height: 54px !important; }
           .jh-left { gap: 8px !important; }
-          .nav-mob-controls { gap: 6px !important; }
+          .nav-mob-controls { gap: 4px !important; }
+          .jh-logo { font-size: 15px !important; }
         }
-        @media (max-width: 480px) {
-          .jh-logo { display: none !important; }
+        @media (max-width: 360px) {
+          .jh-logo { font-size: 13px !important; }
         }
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 500 }}>
-        <TickerTape />
+        <div className="jh-ticker"><TickerTape /></div>
         <nav className="jh-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
           {/* Left: Logo + Sidebar Toggle */}
@@ -415,6 +423,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               <span style={{ color: '#3b82f6' }}>Journal</span>
             </span>
             <button
+              className="jh-sidebar-desktop"
               onClick={onToggleSidebar}
               title="Toggle sidebar"
               style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#38bdf8', flexShrink: 0, transition: 'opacity 0.15s', boxShadow: 'none' }}
@@ -485,6 +494,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           {/* Mobile Controls */}
           <div className="nav-mob-controls">
             <button
+              className="jh-mobile-theme"
               onClick={() => onToggleDarkMode()}
               title="Cycle theme"
               style={{
@@ -507,6 +517,16 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>
                 <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
+            </button>
+            <button
+              className="jh-sidebar-mobile"
+              onClick={onToggleSidebar}
+              title="Toggle sidebar"
+              style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#38bdf8', flexShrink: 0, transition: 'opacity 0.15s', boxShadow: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.75'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              <Menu size={18} strokeWidth={2.5} />
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
