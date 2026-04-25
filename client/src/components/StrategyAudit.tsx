@@ -1098,6 +1098,35 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         .audit-root [style*="DM Mono"],
         .audit-root [style*="JetBrains Mono"],
         .audit-root [style*="Share Tech Mono"] { font-family: 'DM Mono', monospace !important; font-variant-numeric: tabular-nums !important; }
+
+        /* ── Responsive collapse: stack all multi-column grids on small screens ── */
+        @media (max-width: 900px) {
+          .audit-root [style*="grid-template-columns"] {
+            grid-template-columns: 1fr !important;
+          }
+          .audit-root [style*="paddingLeft: 20"],
+          .audit-root [style*="padding-left: 20"] { padding-left: 0 !important; }
+        }
+        @media (max-width: 768px) {
+          .audit-root { padding: 14px 0 !important; }
+          .audit-root h1 { font-size: 20px !important; line-height: 1.15 !important; }
+          .audit-root h2 { font-size: 15px !important; }
+          .audit-root [style*="padding: 24px"],
+          .audit-root [style*="padding:24px"] { padding: 16px !important; }
+          .audit-root [style*="padding: 20px"],
+          .audit-root [style*="padding:20px"] { padding: 14px !important; }
+          .audit-root [style*="padding: 18px"] { padding: 12px !important; }
+          .audit-root [style*="gap: 28"],
+          .audit-root [style*="gap:28"] { gap: 14px !important; }
+          .audit-root [style*="gap: 24"],
+          .audit-root [style*="gap:24"] { gap: 12px !important; }
+        }
+        @media (max-width: 520px) {
+          .audit-root { padding: 10px 0 !important; }
+          .audit-root h1 { font-size: 18px !important; }
+          .audit-root [style*="padding: 16px"],
+          .audit-root [style*="padding:16px"] { padding: 12px !important; }
+        }
       `}} />
 
       <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
