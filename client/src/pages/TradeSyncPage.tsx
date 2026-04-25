@@ -5,6 +5,7 @@ import {
   Rocket, Info, AlertTriangle, Filter, Hash, Send, Zap,
   MessageSquare, GitMerge, Menu, X,
 } from 'lucide-react';
+import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');`;
@@ -1551,6 +1552,10 @@ const landingStyles = `
   .ts-hero h1 { font-family:'Montserrat',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:800; line-height:1.1; margin-bottom:20px; background:linear-gradient(135deg,#fff 40%,var(--ts-blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .ts-hero p { font-size:clamp(0.9rem,2vw,1.05rem); color:var(--ts-muted); line-height:1.7; max-width:440px; margin-bottom:32px; }
   .ts-hero-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .ts-hero-manage { margin-top:18px; padding-top:18px; border-top:1px solid var(--ts-border); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .ts-hero-manage-label { color:var(--ts-muted); font-size:0.78rem; font-weight:500; letter-spacing:0.01em; margin-right:4px; }
+  .ts-hero-manage-btn { display:inline-flex; align-items:center; gap:6px; background:transparent; color:var(--ts-text); border:1px solid var(--ts-border); padding:7px 12px; font-size:0.75rem; font-weight:600; cursor:pointer; transition:all 0.15s; font-family:inherit; }
+  .ts-hero-manage-btn:hover { border-color:var(--ts-blue); color:var(--ts-blue); background:rgba(96,165,250,0.06); }
   .ts-btn-primary { background:var(--ts-blue); color:#fff; border:none; padding:13px 28px; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:8px; }
   .ts-btn-primary:hover { background:var(--ts-blue-bright); transform:translateY(-1px); }
   .ts-btn-ghost { background:transparent; color:var(--ts-muted); border:1px solid var(--ts-border); padding:13px 24px; font-size:1rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
@@ -1721,6 +1726,7 @@ const faqs = [
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function TradeSyncPage() {
   const [showCopier, setShowCopier] = useState(false);
+  const [showDashboard, setShowDashboard] = useState<null | 'provider' | 'follower'>(null);
   const [billing, setBilling] = useState<"monthly"|"yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number|null>(null);
   const [votes, setVotes] = useState<Record<string,{count:number;voted:boolean}>>(() => {
@@ -1734,6 +1740,7 @@ export default function TradeSyncPage() {
   };
 
   if (showCopier) return <CopierWizard onBack={() => setShowCopier(false)} />;
+  if (showDashboard) return <CopyManagementDashboard initialTab={showDashboard} onBack={() => setShowDashboard(null)} />;
 
   const PlatformCard = ({ p }: { p: typeof platformsRow1[0] }) => (
     <div className="ts-platform-card">
@@ -1771,6 +1778,15 @@ export default function TradeSyncPage() {
             <div className="ts-hero-actions">
               <button className="ts-btn-primary" onClick={() => setShowCopier(true)}>Start Now →</button>
               <button className="ts-btn-ghost" onClick={() => document.getElementById('ts-learn-more')?.scrollIntoView({ behavior:'smooth' })}>Learn More</button>
+            </div>
+            <div className="ts-hero-manage">
+              <span className="ts-hero-manage-label">Already set up? Manage your terminals:</span>
+              <button className="ts-hero-manage-btn" onClick={() => setShowDashboard('provider')}>
+                <Radio size={12} /> Provider Dashboard
+              </button>
+              <button className="ts-hero-manage-btn" onClick={() => setShowDashboard('follower')}>
+                <Users size={12} /> Follower Dashboard
+              </button>
             </div>
           </div>
           <div className="ts-hero-visual">
