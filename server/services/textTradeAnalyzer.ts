@@ -78,71 +78,122 @@ function to24h(h: number, ampm?: string | null): number {
   return h;
 }
 
+function formatDt(dt: Date): string {
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+}
+
+// Strip noise that confuses parsers: leading weekday + trailing timezone
+function stripNoise(s: string): string {
+  // Remove leading weekday names (full or abbreviated, with optional comma)
+  let cleaned = s.replace(
+    /^\s*(mon(day)?|tue(s(day)?)?|wed(nesday)?|thu(rs(day)?)?|fri(day)?|sat(urday)?|sun(day)?)[,\s]+/i,
+    ""
+  );
+  // Remove trailing timezone abbreviations / offsets / "Z"
+  cleaned = cleaned.replace(
+    /\s*(?:Z|UTC|GMT|EST|EDT|CST|CDT|MST|MDT|PST|PDT|JST|BST|CET|CEST|EET|EEST|AEST|AEDT|IST|HKT|SGT|KST|NZST|NZDT|MSK|GMT[+-]\d{1,4}|UTC[+-]\d{1,4}|[+-]\d{2}:?\d{2})\s*$/i,
+    ""
+  );
+  return cleaned.trim();
+}
+
 function isDateOnly(raw: string): boolean {
   return /^\s*\d{1,4}[.\-\/]\d{1,2}[.\-\/]\d{1,4}\s*$/.test(raw);
 }
 
 function isTimeOnly(raw: string): boolean {
-  return /^\s*\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?\s*$/i.test(raw);
+  // 14:30, 14:30:00, 2:30 PM, 14h30, 14.30
+  return /^\s*\d{1,2}[:.h]\d{2}(?:[:.]\d{2})?\s*(AM|PM)?\s*$/i.test(raw);
 }
 
 function normTime(raw: string | null): string | null {
   if (!raw) return null;
-  const m = raw.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?\s*$/i);
+  const m = raw.trim().match(/^(\d{1,2})[:.h](\d{2})(?:[:.]\d{2})?\s*(AM|PM)?\s*$/i);
   if (!m) return null;
   return `${pad2(to24h(parseInt(m[1], 10), m[3]))}:${m[2]}`;
 }
 
+// Convert 2-digit year to 4-digit (assume 21st century if <70, else 20th)
+function expandYear(yy: string): string {
+  if (yy.length === 4) return yy;
+  const n = parseInt(yy, 10);
+  return n < 70 ? `20${pad2(n)}` : `19${pad2(n)}`;
+}
+
 function normDate(raw: string | null): string | null {
   if (!raw) return null;
-  const s = raw.trim();
+  const s = stripNoise(raw.trim());
   // YYYY[.\-\/]MM[.\-\/]DD
   let m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/);
   if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
-  // DD[.\-\/]MM[.\-\/]YYYY  or  MM[.\-\/]DD[.\-\/]YYYY  (heuristic)
-  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+  // YYYYMMDD compact
+  m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // DD[.\-\/ ]MM[.\-\/ ]YY(YY)  or MM[.\-\/]DD[.\-\/]YY(YY) (heuristic)
+  m = s.match(/^(\d{1,2})[.\-\/\s](\d{1,2})[.\-\/\s](\d{2,4})$/);
   if (m) {
     let dd = parseInt(m[1], 10);
     let mm = parseInt(m[2], 10);
+    const yy = expandYear(m[3]);
     if (mm > 12 && dd <= 12) [dd, mm] = [mm, dd];     // clearly US-style mm/dd
-    if (dd > 12 && mm <= 12) { /* clearly EU-style */ }
     if (dd > 12 && mm > 12) return null;              // invalid
-    return `${m[3]}-${pad2(mm)}-${pad2(dd)}`;
+    return `${yy}-${pad2(mm)}-${pad2(dd)}`;
   }
   return null;
 }
 
 function normDatetime(raw: string | null): string | null {
   if (!raw) return null;
-  const s = raw.trim();
-  if (!s || /n\/?a/i.test(s)) return null;
+  const original = raw.trim();
+  if (!original || /^n\/?a$/i.test(original)) return null;
 
-  // ── Pattern A — YYYY[.\-\/]MM[.\-\/]DD[ T]HH:MM[:SS]  (ISO, MT4, MT5) ────
-  let m = s.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})[T\s]+(\d{1,2}):(\d{2})(?::\d{2})?/);
-  if (m) {
-    return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}T${pad2(m[4])}:${m[5]}`;
+  // ── Unix timestamp (10 sec / 13 ms digits) ────────────────────────────
+  if (/^\d{10}$/.test(original)) {
+    const dt = new Date(parseInt(original, 10) * 1000);
+    if (!isNaN(dt.getTime())) return formatDt(dt);
+  }
+  if (/^\d{13}$/.test(original)) {
+    const dt = new Date(parseInt(original, 10));
+    if (!isNaN(dt.getTime())) return formatDt(dt);
   }
 
-  // ── Pattern B — DD[.\-\/]MM[.\-\/]YYYY  /  MM[.\-\/]DD[.\-\/]YYYY  + time + AM/PM ──
-  m = s.match(/(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})[T\s,]+(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  const s = stripNoise(original);
+
+  // ── A — YYYY[.\-\/]MM[.\-\/]DD[ T,]+HH[:.h]MM[:.SS] ─────────────────
+  let m = s.match(
+    /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})[T\s,]+(\d{1,2})[:.h](\d{2})(?:[:.]\d{1,2})?(?:\.\d+)?\s*(AM|PM)?/i
+  );
+  if (m) {
+    const hh = to24h(parseInt(m[4], 10), m[6]);
+    return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}T${pad2(hh)}:${m[5]}`;
+  }
+
+  // ── B — DD/MM/YYYY (or MM/DD/YYYY) + time + optional AM/PM ───────────
+  m = s.match(
+    /(\d{1,2})[.\-\/\s](\d{1,2})[.\-\/\s](\d{2,4})[T\s,]+(\d{1,2})[:.h](\d{2})(?:[:.]\d{1,2})?\s*(AM|PM)?/i
+  );
   if (m) {
     let dd = parseInt(m[1], 10);
     let mm = parseInt(m[2], 10);
-    const yy = m[3];
+    const yy = expandYear(m[3]);
     const hh = to24h(parseInt(m[4], 10), m[6]);
     if (mm > 12 && dd <= 12) [dd, mm] = [mm, dd];     // clearly US-style mm/dd
-    if (dd > 12 && mm > 12) return null;              // invalid pair
+    if (dd > 12 && mm > 12) return null;              // invalid
     return `${yy}-${pad2(mm)}-${pad2(dd)}T${pad2(hh)}:${m[5]}`;
   }
 
-  // ── Pattern C — Date only (no time) ─────────────────────────────────────
+  // ── C — Compact YYYYMMDD[T]HHMM[SS] ──────────────────────────────────
+  m = s.match(/^(\d{4})(\d{2})(\d{2})T?(\d{2})(\d{2})(\d{2})?$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}`;
+
+  // ── D — Date only (no time) ──────────────────────────────────────────
   const dOnly = normDate(s);
   if (dOnly) return `${dOnly}T00:00`;
 
-  // ── Pattern D — Native Date.parse fallback (covers month-name formats) ──
-  const dt = new Date(s);
-  if (!isNaN(dt.getTime())) {
-    return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+  // ── E — Native Date.parse fallback (month-name etc.) ─────────────────
+  for (const candidate of [s, original]) {
+    const dt = new Date(candidate);
+    if (!isNaN(dt.getTime()) && dt.getFullYear() > 1970) return formatDt(dt);
   }
   return null;
 }
@@ -159,25 +210,25 @@ function combineDateTime(date: string | null, time: string | null): string | nul
 
 const LABEL_MAP: [RegExp, string][] = [
   // Trade identification
-  [/instrument|symbol|pair$/i,                   "instrument"],
+  [/^(instrument|symbol|pair|asset|ticker|currency|market)\b/i, "instrument"],
   [/pair.?category|category|asset.?class/i,      "pairCategory"],
-  [/direction|side|type.*(long|short)/i,         "direction"],
-  [/entry.?price/i,                              "entryPrice"],
-  [/opening.?price|open.?price/i,                "openingPrice"],
-  [/closing.?price|close.?price/i,               "closingPrice"],
+  [/^(direction|side|action|position(.?type)?|order.?type|trade.?type|type)\b/i, "direction"],
+  // entryPrice — bare "entry"/"open"/"opened" allowed ONLY when not followed by time/date/datetime/etc
+  [/^(entry.?price|opening.?price|open.?price|fill(ed)?.?price|in.?price|buy.?(price|@)|sell.?(price|@)|entry(?!\s*(time|date|datetime|timestamp|dt|on|day))\b|opened(?!\s*(time|date|datetime|timestamp|dt|on|at|day))\b|open(?!\s*(time|date|datetime|timestamp|dt|on|at|p[\/\s]?l|pnl|day))\b)/i, "entryPrice"],
+  [/^(closing.?price|close.?price|out.?price|exit.?price|exit(?!\s*(time|date|datetime|timestamp|dt|on|day))\b|closed(?!\s*(time|date|datetime|timestamp|dt|on|at|day))\b|close(?!\s*(time|date|datetime|timestamp|dt|on|at|p[\/\s]?l|pnl|day))\b)/i, "closingPrice"],
   // SL — specific variants before generic
   [/actual.?sl.?pips?|actual.?stop.?loss.?pips?/i, "actualSLPips"],
   [/planned.?sl.?pips?|planned.?stop.?loss.?pips?/i, "plannedSLPips"],
   [/stop.?loss.?pips?|sl.?pips?|sl.?dist/i,     "stopLossPips"],
-  [/stop.?loss.?price|sl.?price|^\s*stop.?loss\s*$|^\s*sl\s*$/i, "stopLoss"],
+  [/^(stop.?loss(.?price)?|stoploss|sl(.?price)?|stop|s\/l)\b/i, "stopLoss"],
   // TP — specific variants before generic
   [/actual.?tp.?pips?|actual.?take.?profit.?pips?/i, "actualTPPips"],
   [/planned.?tp.?pips?|planned.?take.?profit.?pips?/i, "plannedTPPips"],
   [/take.?profit.?pips?|tp.?pips?|tp.?dist/i,   "takeProfitPips"],
-  [/take.?profit.?price|tp.?price|^\s*take.?profit\s*$|^\s*tp\s*$/i, "takeProfit"],
+  [/^(take.?profit(.?price)?|takeprofit|tp(.?price)?|target|t\/p)\b/i, "takeProfit"],
   // Position size
-  [/lot.?size|lots?$/i,                          "lotSize"],
-  [/units?$/i,                                   "units"],
+  [/^(lot.?size|lots?|size|volume|qty|quantity|amount)\b/i, "lotSize"],
+  [/^units?\b/i,                                 "units"],
   [/contract.?size/i,                            "contractSize"],
   // P&L — open vs closed kept separate
   [/closed.?p[\s\/]?l|closed.?pnl/i,            "closedPLPips"],
@@ -188,14 +239,14 @@ const LABEL_MAP: [RegExp, string][] = [
   [/price.?excursion|excursion.?r/i,             "priceExcursionR"],
   [/achieved.?rr|actual.?rr/i,                   "achievedRR"],
   [/planned.?rr/i,                               "plannedRR"],
-  [/risk.?reward|r[\s:]?r|rr$/i,                "riskReward"],
+  [/risk.?reward|r[\s:\/]?r|rr$|reward.?ratio/i, "riskReward"],
   // Outcome
-  [/outcome|result|trade.?result/i,              "outcome"],
-  [/trade.?open|still.?open|open.?trade|whether.*open/i, "tradeIsOpen"],
-  // Time & Session
-  [/entry.?(time|date|datetime|timestamp)|open(ed)?.?(time|date|at|datetime|timestamp)|date.?opened|time.?opened/i, "entryTime"],
-  [/exit.?(time|date|datetime|timestamp)|close(d)?.?(time|date|at|datetime|timestamp)|date.?closed|time.?closed/i,  "exitTime"],
-  [/trade.?duration|duration/i,                  "tradeDuration"],
+  [/^(outcome|result|trade.?result|status|win\/loss|w\/l)\b/i, "outcome"],
+  [/trade.?open|still.?open|open.?trade|whether.*open|is.?open/i, "tradeIsOpen"],
+  // Time & Session — wide alias coverage
+  [/^(entry.?(time|date|datetime|timestamp|dt)?|open(ed)?(.?(time|date|at|datetime|timestamp|on))?|date.?opened|time.?opened|fill(ed)?.?time|in.?time|from|start(.?time)?)\b/i, "entryTime"],
+  [/^(exit.?(time|date|datetime|timestamp|dt)?|close(d)?(.?(time|date|at|datetime|timestamp|on))?|date.?closed|time.?closed|out.?time|to|end(.?time)?|finish(.?time)?)\b/i, "exitTime"],
+  [/trade.?duration|duration|holding.?time|time.?in.?trade/i, "tradeDuration"],
   [/day.?of.?week|weekday/i,                     "dayOfWeek"],
   [/session.?phase|phase/i,                      "sessionPhase"],
   [/session.?(name)?|trading.?session/i,         "sessionName"],
@@ -285,6 +336,85 @@ export function parseTradeText(text: string): {
         default:                fields[fieldName]      = num(raw) ?? str(raw);       break;
       }
       break; // matched — move to next line
+    }
+  }
+
+  // ── Free-form fallback ──────────────────────────────────────────────
+  // For unlabeled inline pastes (e.g. "EUR/USD BUY @ 1.0850 SL 1.0820 TP 1.0900 0.5 lot")
+  // scan the entire text for inline patterns to fill in missing fields.
+  // We only fill nulls — never overwrite values found by the labeled pass.
+  const flat = text.replace(/\s+/g, " ");
+
+  if (!fields.instrument) {
+    // Forex pair (with or without slash) or 3-5 letter ticker
+    const sym = flat.match(/\b([A-Z]{3}[\/\.\-]?[A-Z]{3})\b/) // forex
+             ?? flat.match(/\b(XAU|XAG|BTC|ETH|SOL|US30|US100|US500|NAS100|SPX500|GER30|GER40|UK100|JPN225)[\/\-]?[A-Z]{0,3}\b/i)
+             ?? flat.match(/\$([A-Z]{1,5})\b/); // $TSLA style
+    if (sym) fields.instrument = sym[1].toUpperCase();
+  }
+
+  if (!fields.direction) {
+    if (/\b(buy|long|bullish)\b/i.test(flat))       fields.direction = "Long";
+    else if (/\b(sell|short|bearish)\b/i.test(flat)) fields.direction = "Short";
+  }
+
+  if (!fields.outcome) {
+    if (/\b(break\s?even|b\/?e)\b/i.test(flat))       fields.outcome = "Break Even";
+    else if (/\b(win|won|profit(?:able)?|tp\s*hit)\b/i.test(flat))   fields.outcome = "Win";
+    else if (/\b(loss|lost|losing|sl\s*hit)\b/i.test(flat))          fields.outcome = "Loss";
+  }
+
+  if (fields.entryPrice == null) {
+    const m = flat.match(/(?:@|at|entry|fill(?:ed)?|opened?\s*(?:at|@)?)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
+    if (m) fields.entryPrice = parseFloat(m[1]);
+  }
+
+  if (fields.stopLoss == null && fields.stopLossPips == null) {
+    const m = flat.match(/\b(?:sl|s\/l|stop(?:\s?loss)?)\b\s*[:=@]?\s*(\d+(?:\.\d+)?)/i);
+    if (m) {
+      const v = parseFloat(m[1]);
+      // Heuristic: large numbers w/ decimals are price, small ints are pips
+      if (v >= 1 && Number.isInteger(v) && v <= 999) fields.stopLossPips = v;
+      else fields.stopLoss = v;
+    }
+  }
+
+  if (fields.takeProfit == null && fields.takeProfitPips == null) {
+    const m = flat.match(/\b(?:tp|t\/p|take(?:\s?profit)?|target)\b\s*[:=@]?\s*(\d+(?:\.\d+)?)/i);
+    if (m) {
+      const v = parseFloat(m[1]);
+      if (v >= 1 && Number.isInteger(v) && v <= 9999) fields.takeProfitPips = v;
+      else fields.takeProfit = v;
+    }
+  }
+
+  if (fields.lotSize == null) {
+    const m = flat.match(/(\d+(?:\.\d+)?)\s*lots?\b/i)
+           ?? flat.match(/\blots?\s*[:=]?\s*(\d+(?:\.\d+)?)/i)
+           ?? flat.match(/\b(?:size|volume|qty|quantity)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
+    if (m) fields.lotSize = parseFloat(m[1]);
+  }
+
+  if (fields.riskReward == null) {
+    const m = flat.match(/\b(?:rr|r\s*[:\/]\s*r|risk[\s\/-]?reward)\s*[:=]?\s*1?\s*[:\/]?\s*(\d+(?:\.\d+)?)/i);
+    if (m) fields.riskReward = parseFloat(m[1]);
+  }
+
+  // Free-form datetime extraction — try to find any date+time pattern in the
+  // text if no entry/exit times were captured. Look for two distinct
+  // datetimes (first = entry, second = exit).
+  if (!parts.entry.full && !parts.entry.date && !parts.entry.time) {
+    const dtRegex = /\b(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}(?:[T\s,]+\d{1,2}[:.h]\d{2}(?:[:.]\d{2})?)?|\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4}(?:[T\s,]+\d{1,2}[:.h]\d{2}(?:[:.]\d{2})?)?)\b/g;
+    const found: string[] = [];
+    let mm: RegExpExecArray | null;
+    while ((mm = dtRegex.exec(flat)) !== null) found.push(mm[1]);
+    if (found.length >= 1) {
+      const e = normDatetime(found[0]);
+      if (e) parts.entry.full = e;
+    }
+    if (found.length >= 2 && !parts.exit.full && !parts.exit.date && !parts.exit.time) {
+      const x = normDatetime(found[1]);
+      if (x) parts.exit.full = x;
     }
   }
 
