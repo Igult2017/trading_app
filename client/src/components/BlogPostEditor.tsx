@@ -531,7 +531,9 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
+  const [zoneFocused, setZoneFocused] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const zoneRef = useRef<HTMLDivElement>(null);
 
   const readFile = (file: File) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -547,23 +549,40 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
     if (file) readFile(file);
   };
 
+  // Extract any image from a clipboard event; returns true if an image was used
+  const extractImage = (clipboardData: DataTransfer | null): boolean => {
+    const item = Array.from(clipboardData?.items || []).find(i => i.type.startsWith("image/"));
+    if (item) {
+      const file = item.getAsFile();
+      if (file) { readFile(file); return true; }
+    }
+    return false;
+  };
+
+  // React onPaste — works on the focused dropzone or URL input
+  const onLocalPaste = (e: React.ClipboardEvent) => {
+    if (extractImage(e.clipboardData)) e.preventDefault();
+  };
+
   const commitUrl = () => {
     const trimmed = urlInput.trim();
     if (trimmed) onChange(trimmed);
   };
 
-  const onPaste = useCallback((e: ClipboardEvent) => {
-    // Only handle image paste when user is NOT typing in a text field
+  // Global window paste — fallback when focus is elsewhere (title, content, etc)
+  // but only when no other text field has focus to avoid hijacking text pastes.
+  const onGlobalPaste = useCallback((e: ClipboardEvent) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-    const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
-    if (item) { e.preventDefault(); readFile(item.getAsFile()!); }
+    const tag = target?.tagName;
+    const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+    if (isEditable) return;
+    if (extractImage(e.clipboardData)) e.preventDefault();
   }, []);
 
   useEffect(() => {
-    window.addEventListener("paste", onPaste as any);
-    return () => window.removeEventListener("paste", onPaste as any);
-  }, [onPaste]);
+    window.addEventListener("paste", onGlobalPaste as any);
+    return () => window.removeEventListener("paste", onGlobalPaste as any);
+  }, [onGlobalPaste]);
 
   const isDataUrl = value?.startsWith("data:");
   const isUrl     = value && !isDataUrl;
@@ -603,7 +622,8 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
           onChange={e => { setUrlInput(e.target.value); if (!isDataUrl) onChange(e.target.value); }}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (isDataUrl) commitUrl(); } }}
           onBlur={() => { if (isDataUrl) commitUrl(); }}
-          placeholder="or paste an image URL to replace…"
+          onPaste={onLocalPaste}
+          placeholder="or paste an image (or URL) to replace…"
           style={inputBase({ fontSize: 11 })} onFocus={focusOn}
         />
       </div>
@@ -613,14 +633,19 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
   return (
     <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
       <div
-        onClick={() => fileRef.current?.click()}
+        ref={zoneRef}
+        tabIndex={0}
+        onClick={() => { zoneRef.current?.focus(); fileRef.current?.click(); }}
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
+        onPaste={onLocalPaste}
+        onFocus={() => setZoneFocused(true)}
+        onBlur={() => setZoneFocused(false)}
         style={{
-          borderRadius: 8, cursor: "pointer", transition: "all 0.18s",
-          border: `1.5px dashed ${dragging ? "rgba(99,153,34,0.7)" : "rgba(255,255,255,0.1)"}`,
-          background: dragging ? "rgba(99,153,34,0.07)" : "rgba(255,255,255,0.02)",
+          borderRadius: 8, cursor: "pointer", transition: "all 0.18s", outline: "none",
+          border: `1.5px dashed ${dragging || zoneFocused ? "rgba(99,153,34,0.7)" : "rgba(255,255,255,0.1)"}`,
+          background: dragging || zoneFocused ? "rgba(99,153,34,0.07)" : "rgba(255,255,255,0.02)",
           padding: "24px 20px",
           display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 10,
         }}
@@ -631,7 +656,7 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
         </svg>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 13, color: dragging ? "rgba(168,212,111,0.9)" : "rgba(255,255,255,0.55)", fontWeight: 500, transition: "color 0.18s" }}>
-            {dragging ? "Drop to set as cover" : "Upload cover image"}
+            {dragging ? "Drop to set as cover" : zoneFocused ? "Press ⌘/Ctrl+V to paste image" : "Upload cover image"}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>
             drag & drop · click to browse · ctrl+v to paste
@@ -651,7 +676,8 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
         onChange={e => setUrlInput(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitUrl(); } }}
         onBlur={commitUrl}
-        placeholder="or paste an image URL…"
+        onPaste={onLocalPaste}
+        placeholder="or paste an image (or URL)…"
         style={inputBase({ fontSize: 11 })} onFocus={focusOn}
       />
     </div>
