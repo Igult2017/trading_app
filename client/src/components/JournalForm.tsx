@@ -1024,6 +1024,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [analyzing, setAnalyzing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrFields, setOcrFields] = useState<Set<string>>(new Set());
+  const [unfilledSections, setUnfilledSections] = useState<{ step: number; name: string }[] | null>(null);
 
   const { data: tradesData } = useQuery<any[]>({
     queryKey: ["/api/journal/entries"],
@@ -1217,7 +1218,62 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     }
   }, [applyAnalyzedFields]);
 
-  const handleSave = async () => {
+  // Sections we want to remind the user about if they're left blank.
+  // We only flag a section when ALL of its key user-supplied fields are empty —
+  // a partially-filled section is treated as intentional.
+  const getUnfilledSections = (): { step: number; name: string }[] => {
+    const isEmpty = (v: any) =>
+      v === undefined ||
+      v === null ||
+      v === "" ||
+      (typeof v === "string" && v.trim() === "");
+    const allEmpty = (...vs: any[]) => vs.every(isEmpty);
+    const out: { step: number; name: string }[] = [];
+
+    // ── Step 1 ────────────────────────────────────────────────────────────
+    if (allEmpty(s1.thesis, s1.trigger, s1.invalidationLogic, s1.expectedBehavior))
+      out.push({ step: 1, name: "Core Thesis" });
+    if (allEmpty(s1.openTradesCount, s1.totalRiskOpen))
+      out.push({ step: 1, name: "Pre-Entry State Check" });
+
+    // ── Step 2 ────────────────────────────────────────────────────────────
+    if (!s2.screenshot && !s2.exitScreenshot)
+      out.push({ step: 2, name: "Trade Screenshots" });
+    if (allEmpty(s2.instrument, s2.entryPrice, s2.lotSize, s2.stopLoss, s2.takeProfit))
+      out.push({ step: 2, name: "Position Details" });
+    if (allEmpty(s2.entryTime, s2.exitTime, s2.tradeDuration))
+      out.push({ step: 2, name: "Timing & Duration" });
+    if (allEmpty(s2.exitStrategy))
+      out.push({ step: 2, name: "Entry & Trade Management" });
+
+    // ── Step 3 ────────────────────────────────────────────────────────────
+    if (allEmpty(s3.higherTFContext, s3.analysisTFContext, s3.entryTFContext, s3.otherConfluences))
+      out.push({ step: 3, name: "Higher Timeframe Context" });
+    if (allEmpty(s3.timingContext, s3.candlePattern, s3.primarySignals, s3.secondarySignals, s3.indicatorState, s3.liquidityTargets))
+      out.push({ step: 3, name: "Technical Signals" });
+
+    // ── Step 4 ────────────────────────────────────────────────────────────
+    if (allEmpty(s4.pipsGainedLost, s4.profitLoss, s4.accountBalance, s4.commission))
+      out.push({ step: 4, name: "Performance Data" });
+    if (allEmpty(s4.plannedEntry, s4.plannedSL, s4.plannedTP, s4.actualEntry, s4.actualSL, s4.actualTP))
+      out.push({ step: 4, name: "Planning vs Execution" });
+    if (allEmpty(s4.mae, s4.mfe, s4.monetaryRisk, s4.potentialReward, s4.plannedRR, s4.achievedRR))
+      out.push({ step: 4, name: "Trade Metrics" });
+    if (allEmpty(s4.whatWorked, s4.whatFailed, s4.adjustments, s4.notes))
+      out.push({ step: 4, name: "Trade Debrief" });
+
+    return out;
+  };
+
+  const handleSave = async (forceSubmit: boolean = false) => {
+    if (!forceSubmit) {
+      const unfilled = getUnfilledSections();
+      if (unfilled.length > 0) {
+        setUnfilledSections(unfilled);
+        return;
+      }
+    }
+    setUnfilledSections(null);
     setSaving(true);
     setSaveError(null);
     try {
@@ -1495,6 +1551,113 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             );
           })()}
 
+          {/* ── Unfilled-sections reminder modal ── */}
+          {unfilledSections && unfilledSections.length > 0 && (
+            <div
+              onClick={() => setUnfilledSections(null)}
+              style={{
+                position: "absolute", inset: 0, zIndex: 50,
+                background: "rgba(4,8,14,0.78)", backdropFilter: "blur(4px)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: 20,
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  width: "100%", maxWidth: 460,
+                  background: "#0c1422", border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 14, padding: "22px 22px 18px",
+                  boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+                  fontFamily: "var(--c-font, 'Inter', sans-serif)",
+                  color: "rgba(255,255,255,0.92)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 8,
+                    background: "rgba(245,158,11,0.15)",
+                    border: "1px solid rgba(245,158,11,0.35)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fbbf24", fontWeight: 700, fontSize: 14,
+                  }}>!</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                    Some panels are still empty
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.55, marginBottom: 14 }}>
+                  These sections look untouched. Tap any one to jump to it, or submit the entry as-is.
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16, maxHeight: 260, overflowY: "auto" }}>
+                  {unfilledSections.map((u, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setStep(u.step); setUnfilledSections(null); setSaved(false); }}
+                      style={{
+                        textAlign: "left",
+                        padding: "10px 12px",
+                        background: "rgba(255,255,255,0.035)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                        borderRadius: 9,
+                        color: "rgba(255,255,255,0.85)",
+                        fontFamily: "inherit",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        transition: "background 0.15s, border-color 0.15s",
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.10)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(99,102,241,0.35)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.035)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+                    >
+                      <span>{u.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>
+                        Step {u.step} →
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => setUnfilledSections(null)}
+                    style={{
+                      padding: "9px 14px",
+                      background: "transparent",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 8,
+                      color: "rgba(255,255,255,0.75)",
+                      fontFamily: "inherit",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Go back &amp; fill
+                  </button>
+                  <button
+                    onClick={() => { setUnfilledSections(null); handleSave(true); }}
+                    style={{
+                      padding: "9px 14px",
+                      background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                      border: "none",
+                      borderRadius: 8,
+                      color: "white",
+                      fontFamily: "inherit",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Submit anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="tj-progress-bar">
             <div className="tj-progress-fill" style={{ width: `${(step / STEPS_DEF.length) * 100}%` }} />
           </div>
@@ -1550,7 +1713,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             <div className="tj-btn-row">
               {step < STEPS_DEF.length
                 ? <button className="tj-btn primary" onClick={() => { setStep(s => s + 1); setSaved(false); }}>Next →</button>
-                : <button className="tj-btn primary" onClick={handleSave} disabled={saving}>
+                : <button className="tj-btn primary" onClick={() => handleSave(false)} disabled={saving}>
                     {saving ? "Saving…" : "✓ Save Entry"}
                   </button>
               }
