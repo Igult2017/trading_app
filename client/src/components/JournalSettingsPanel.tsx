@@ -70,7 +70,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           .jsp-preview-stats { flex-wrap: wrap !important; gap: 6px !important; }
           .jsp-preview-stat { padding: 6px 10px !important; flex: 1 1 30% !important; min-width: 0 !important; }
           .jsp-logout-card { padding: 14px !important; }
-          .jsp-logout-btn { font-size: 11px !important; padding: 11px 14px !important; }
+          .jsp-logout-btn { width: 40px !important; height: 40px !important; }
         }
       `}</style>
 
@@ -315,28 +315,28 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
               onClick={handleLogout}
               disabled={signingOut}
               className="jsp-logout-btn"
+              title={signingOut ? 'Signing out…' : 'Logout'}
+              aria-label={signingOut ? 'Signing out' : 'Logout'}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 background: '#ef4444',
                 color: '#ffffff',
-                border: 'none', borderRadius: 6,
-                padding: '10px 18px',
-                fontSize: 11, fontWeight: 800,
-                letterSpacing: '0.12em', textTransform: 'uppercase',
+                border: 'none', borderRadius: '50%',
+                width: 44, height: 44, padding: 0,
                 cursor: signingOut ? 'wait' : 'pointer',
                 opacity: signingOut ? 0.6 : 1,
-                transition: 'opacity 0.15s, transform 0.15s',
+                transition: 'opacity 0.15s, transform 0.15s, box-shadow 0.15s',
                 fontFamily: 'inherit',
                 flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(239,68,68,0.25)',
               }}
-              onMouseEnter={e => { if (!signingOut) e.currentTarget.style.opacity = '0.85'; }}
-              onMouseLeave={e => { if (!signingOut) e.currentTarget.style.opacity = '1'; }}
+              onMouseEnter={e => { if (!signingOut) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239,68,68,0.4)'; } }}
+              onMouseLeave={e => { if (!signingOut) { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.25)'; } }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
                 <line x1="12" y1="2" x2="12" y2="12"/>
               </svg>
-              {signingOut ? 'Signing out…' : 'Logout'}
             </button>
           </div>
         </Section>
