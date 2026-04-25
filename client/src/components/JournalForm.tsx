@@ -405,6 +405,130 @@ function Inp({ label, sub, type = "text", placeholder, value, onChange, onBlur, 
   );
 }
 
+// ── Smart datetime parser ────────────────────────────────────────────────
+// Accepts almost any user-pasted format and normalises to YYYY-MM-DDTHH:mm
+// (the canonical value the rest of the form / backend already expects).
+//   ISO        2026-04-25 09:30        2026-04-25T09:30:00
+//   MT4/MT5    2026.04.25 09:30
+//   US slash   04/25/2026 9:30 AM      4/25/26 09:30
+//   EU slash   25/04/2026 09:30
+//   EU dot     25.04.2026 09:30
+//   Month name April 25, 2026 09:30    25 Apr 2026 9:30 am
+//   Date only  2026-04-25              25/04/2026          → T00:00
+//   Time only  09:30                                       → today's date
+function pad2(n: number | string): string { return String(n).padStart(2, "0"); }
+function to24h(h: number, ampm?: string | null): number {
+  if (!ampm) return h;
+  const u = ampm.toUpperCase();
+  if (u === "PM" && h < 12) return h + 12;
+  if (u === "AM" && h === 12) return 0;
+  return h;
+}
+function parseSmartDateTime(raw: string): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s) return null;
+
+  // Already in canonical form — accept as-is (allow seconds)
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}`;
+
+  // YYYY[.\-\/]MM[.\-\/]DD [T ]HH:MM[:SS] [AM|PM]   (ISO, MT4, MT5)
+  m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})[T\s]+(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (m) {
+    const hh = to24h(parseInt(m[4], 10), m[6]);
+    return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}T${pad2(hh)}:${m[5]}`;
+  }
+
+  // DD[.\-\/]MM[.\-\/]YYYY  /  MM[.\-\/]DD[.\-\/]YYYY  + time + AM/PM
+  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})[T\s,]+(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (m) {
+    let dd = parseInt(m[1], 10);
+    let mm = parseInt(m[2], 10);
+    let yy = m[3];
+    if (yy.length === 2) yy = (parseInt(yy, 10) >= 70 ? "19" : "20") + yy;
+    const hh = to24h(parseInt(m[4], 10), m[7]);
+    if (mm > 12 && dd <= 12) [dd, mm] = [mm, dd];
+    if (dd > 12 && mm > 12) return null;
+    return `${yy}-${pad2(mm)}-${pad2(dd)}T${pad2(hh)}:${m[5]}`;
+  }
+
+  // Date only: YYYY-MM-DD or DD/MM/YYYY
+  m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/);
+  if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}T00:00`;
+  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})$/);
+  if (m) {
+    let dd = parseInt(m[1], 10);
+    let mm = parseInt(m[2], 10);
+    let yy = m[3];
+    if (yy.length === 2) yy = (parseInt(yy, 10) >= 70 ? "19" : "20") + yy;
+    if (mm > 12 && dd <= 12) [dd, mm] = [mm, dd];
+    if (dd > 12 && mm > 12) return null;
+    return `${yy}-${pad2(mm)}-${pad2(dd)}T00:00`;
+  }
+
+  // Time only → today's date
+  m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (m) {
+    const now = new Date();
+    const hh = to24h(parseInt(m[1], 10), m[3]);
+    return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}T${pad2(hh)}:${m[2]}`;
+  }
+
+  // Native Date.parse fallback (handles month-name formats, RFC, etc.)
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+  }
+  return null;
+}
+
+// Smart datetime input — type any format, parses on blur, stores YYYY-MM-DDTHH:mm.
+// Shows a friendly readable form when not focused; user's raw input while editing.
+function DateTimeInput({ label, value, onChange, ocrFilled }: any) {
+  const [draft, setDraft] = useState<string>("");
+  const [focused, setFocused] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+
+  // Pretty label for the canonical value when not focused
+  const display = (() => {
+    if (focused) return draft;
+    if (!value) return "";
+    const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return String(value);
+    return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+  })();
+
+  const commit = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) { onChange(""); setInvalid(false); return; }
+    const parsed = parseSmartDateTime(trimmed);
+    if (parsed) { onChange(parsed); setInvalid(false); }
+    else        { setInvalid(true); }
+  };
+
+  return (
+    <Field label={label} sub="Type any format — e.g. 25/04/2026 09:30, Apr 25 2026 9:30am, 2026.04.25 09:30" ocrFilled={ocrFilled}>
+      <input
+        className="tj-input"
+        type="text"
+        placeholder="dd/mm/yyyy hh:mm"
+        value={display}
+        style={invalid ? { borderColor: "#ef4444" } : undefined}
+        onFocus={() => { setDraft(display); setFocused(true); }}
+        onChange={e => { setDraft(e.target.value); setInvalid(false); }}
+        onBlur={() => { commit(draft); setFocused(false); }}
+        onKeyDown={e => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
+      />
+      {invalid && (
+        <div style={{ fontSize: "11px", color: "#ef4444", marginTop: 4 }}>
+          Couldn't recognise that date/time — try e.g. 25/04/2026 09:30
+        </div>
+      )}
+    </Field>
+  );
+}
+
 function Sel({ label, sub, options, value, onChange, ocrFilled }: any) {
   const notInList = value != null && value !== "" && !options.includes(value);
   const [otherMode, setOtherMode] = useState(notInList);
@@ -741,8 +865,47 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
       <div className="tj-section">
         <div className="tj-section-label">Timing &amp; Duration</div>
         <div className="tj-grid tj-g4">
-          <Inp label="Entry Time" type="datetime-local" value={d.entryTime} onChange={f("entryTime")} ocrFilled={ocrFields?.has("entryTime")} />
-          <Inp label="Exit Time" type="datetime-local" value={d.exitTime} onChange={f("exitTime")} ocrFilled={ocrFields?.has("exitTime")} />
+          <DateTimeInput
+            label="Entry Time"
+            value={d.entryTime}
+            ocrFilled={ocrFields?.has("entryTime")}
+            onChange={(v: string) => set((prev: any) => {
+              const next: any = { ...prev, entryTime: v };
+              const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+              if (v) {
+                const dt = new Date(v);
+                if (!isNaN(dt.getTime())) next.dayOfWeek = days[dt.getDay()];
+              }
+              if (v && prev.exitTime) {
+                const a = new Date(v).getTime(), b = new Date(prev.exitTime).getTime();
+                if (!isNaN(a) && !isNaN(b) && b > a) {
+                  const mins = Math.round((b - a) / 60000);
+                  next.tradeDuration = mins < 60 ? `${mins} minutes`
+                    : mins < 1440 ? `${Math.floor(mins/60)}h ${mins%60}m`
+                    : `${Math.floor(mins/1440)}d ${Math.floor((mins%1440)/60)}h`;
+                }
+              }
+              return next;
+            })}
+          />
+          <DateTimeInput
+            label="Exit Time"
+            value={d.exitTime}
+            ocrFilled={ocrFields?.has("exitTime")}
+            onChange={(v: string) => set((prev: any) => {
+              const next: any = { ...prev, exitTime: v };
+              if (v && prev.entryTime) {
+                const a = new Date(prev.entryTime).getTime(), b = new Date(v).getTime();
+                if (!isNaN(a) && !isNaN(b) && b > a) {
+                  const mins = Math.round((b - a) / 60000);
+                  next.tradeDuration = mins < 60 ? `${mins} minutes`
+                    : mins < 1440 ? `${Math.floor(mins/60)}h ${mins%60}m`
+                    : `${Math.floor(mins/1440)}d ${Math.floor((mins%1440)/60)}h`;
+                }
+              }
+              return next;
+            })}
+          />
           <Sel label="Day of Week" options={["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]} value={d.dayOfWeek} onChange={f("dayOfWeek")} />
           <Inp label="Trade Duration" placeholder="2h 30m" value={d.tradeDuration} onChange={f("tradeDuration")} />
         </div>
