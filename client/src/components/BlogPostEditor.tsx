@@ -905,6 +905,13 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
   const [form, setForm]     = useState<BlogEditorData>({ ...DEFAULTS, ...initialData });
   const contentRef          = useRef<HTMLTextAreaElement>(null);
 
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   useEffect(() => {
     setForm({ ...DEFAULTS, ...initialData });
   }, [JSON.stringify(initialData)]);
@@ -1089,12 +1096,13 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       {/* ── Topbar ── */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 20px", height: 46, background: "#0d1117",
+        gap: 8,
+        padding: isMobile ? "0 12px" : "0 20px", height: 46, background: "#0d1117",
         borderBottom: "0.5px solid rgba(255,255,255,0.07)", flexShrink: 0,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
           <TrafficDots />
-          <span style={{ marginLeft: 6, fontSize: 12, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em" }}>
+          <span style={{ marginLeft: 6, fontSize: 12, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {fileName}
           </span>
         </div>
@@ -1102,14 +1110,19 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       </div>
 
       {/* ── Body ── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" as const : "row" as const, flex: 1, overflow: "hidden", minHeight: 0 }}>
 
         {/* ── Sidebar ── */}
         <div style={{
-          width: 240, minWidth: 240, background: "#0d1117",
-          borderRight: "0.5px solid rgba(255,255,255,0.07)",
+          width: isMobile ? "100%" : 240,
+          minWidth: isMobile ? 0 : 240,
+          maxHeight: isMobile ? 220 : "none",
+          background: "#0d1117",
+          borderRight: isMobile ? "none" : "0.5px solid rgba(255,255,255,0.07)",
+          borderBottom: isMobile ? "0.5px solid rgba(255,255,255,0.07)" : "none",
           display: "flex", flexDirection: "column" as const,
           overflowY: "auto" as const, padding: "16px 0 0",
+          flexShrink: 0,
         }}>
           <SidebarLabel style={{ padding: "0 16px 5px" }}>Destination</SidebarLabel>
           {BLOG_CATEGORIES.map(item => (
@@ -1127,7 +1140,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
         </div>
 
         {/* ── Main content area ── */}
-        <div style={{ flex: 1, overflowY: "auto" as const, padding: "28px 32px", display: "flex", flexDirection: "column" as const, gap: 22 }}>
+        <div style={{ flex: 1, overflowY: "auto" as const, padding: isMobile ? "20px 14px" : "28px 32px", display: "flex", flexDirection: "column" as const, gap: 22, minWidth: 0 }}>
 
           <SectionHeading>Post Details</SectionHeading>
 
@@ -1207,8 +1220,13 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
 
       {/* ── Footer ── */}
       <div style={{
-        padding: "14px 28px", borderTop: "0.5px solid rgba(255,255,255,0.07)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: isMobile ? "12px 14px" : "14px 28px",
+        borderTop: "0.5px solid rgba(255,255,255,0.07)",
+        display: "flex",
+        flexDirection: isMobile ? "column" as const : "row" as const,
+        alignItems: isMobile ? "stretch" as const : "center",
+        justifyContent: "space-between",
+        gap: isMobile ? 12 : 0,
         background: "#0d1117", flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
@@ -1228,7 +1246,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, justifyContent: isMobile ? "stretch" : "flex-end" }}>
           <button
             onClick={onCancel}
             style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.12)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 13, padding: "7px 16px", cursor: "pointer", transition: "all 0.15s" }}
