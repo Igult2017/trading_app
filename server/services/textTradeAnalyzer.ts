@@ -157,7 +157,27 @@ function normDatetime(raw: string | null): string | null {
     if (!isNaN(dt.getTime())) return formatDt(dt);
   }
 
-  const s = stripNoise(original);
+  let s = stripNoise(original);
+  // Normalize natural-language connectors so "DATE at TIME" / "TIME on DATE" work
+  s = s.replace(/\s+(?:at|on|@)\s+/gi, " ").replace(/\s*,\s*/g, " ").replace(/\s+/g, " ").trim();
+
+  // ── PRE — TIME first, then DATE  ("19:51 11 March 2020" / "19:51 11/03/2020")
+  // Split off a leading time, parse the rest as a date, then combine.
+  let timeFirst = s.match(/^(\d{1,2})[:.h](\d{2})(?:[:.](\d{1,2}))?\s*(AM|PM)?\s+(.+)$/i);
+  if (timeFirst) {
+    const hh = pad2(to24h(parseInt(timeFirst[1], 10), timeFirst[4]));
+    const mm = timeFirst[2];
+    const datePart = timeFirst[5].trim();
+    // Try numeric forms first, then native Date.parse for month names
+    const ymd = normDate(datePart) ?? (() => {
+      const dt = new Date(datePart);
+      if (!isNaN(dt.getTime()) && dt.getFullYear() > 1970) {
+        return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+      }
+      return null;
+    })();
+    if (ymd) return `${ymd}T${hh}:${mm}`;
+  }
 
   // ── A — YYYY[.\-\/]MM[.\-\/]DD[ T,]+HH[:.h]MM[:.SS] ─────────────────
   let m = s.match(
@@ -194,6 +214,22 @@ function normDatetime(raw: string | null): string | null {
   for (const candidate of [s, original]) {
     const dt = new Date(candidate);
     if (!isNaN(dt.getTime()) && dt.getFullYear() > 1970) return formatDt(dt);
+  }
+
+  // ── F — Last resort: split into date-like and time-like halves & combine
+  const tMatch = s.match(/(\d{1,2})[:.h](\d{2})(?:[:.](\d{1,2}))?\s*(AM|PM)?/i);
+  if (tMatch) {
+    const hh = pad2(to24h(parseInt(tMatch[1], 10), tMatch[4]));
+    const mm = tMatch[2];
+    const dateRest = (s.slice(0, tMatch.index!) + " " + s.slice(tMatch.index! + tMatch[0].length)).trim();
+    const ymd = normDate(dateRest) ?? (() => {
+      const dt = new Date(dateRest);
+      if (!isNaN(dt.getTime()) && dt.getFullYear() > 1970) {
+        return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+      }
+      return null;
+    })();
+    if (ymd) return `${ymd}T${hh}:${mm}`;
   }
   return null;
 }
