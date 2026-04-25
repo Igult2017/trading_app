@@ -16,11 +16,6 @@ type Article = {
   image: string;
 };
 
-const FEATURE_IMAGE_URL = "https://picsum.photos/seed/macro1/1200/800";
-const YEN_IMAGE_URL = "https://picsum.photos/seed/forex1/800/600";
-const AI_IMAGE_URL = "https://picsum.photos/seed/tech1/800/600";
-const DEFI_IMAGE_URL = "https://picsum.photos/seed/crypto1/800/600";
-
 function SafeImage({ src, alt, className, isDark }: { src: string; alt: string; className: string; isDark: boolean }) {
   const [error, setError] = useState(false);
 
@@ -42,22 +37,6 @@ function SafeImage({ src, alt, className, isDark }: { src: string; alt: string; 
   );
 }
 
-const FALLBACK_ARTICLES: Article[] = [
-  { id: 1, title: "The Liquidity Trap: Why macro cycles are shortening in 2024", excerpt: "The traditional four-year market cycle is dead. We explore how algorithmic high-frequency trading and retail momentum have compressed the time between peak and trough.", category: "Analysis", author: "Julian Thorne", date: "Feb 06", readTime: "12 min", image: FEATURE_IMAGE_URL },
-  { id: 2, title: "The Yen Paradox: Japan's Final Stand against Inflation", excerpt: "As the BoJ nears a historic pivot, we analyze the structural impact on the global carry trade.", category: "Forex", author: "Elena Rossi", date: "Feb 05", readTime: "8 min", image: YEN_IMAGE_URL },
-  { id: 3, title: "Silicon Valley's AI moat: Hardware vs. Software", excerpt: "Where the real value lies in the current tech rally: Analyzing the semiconductor supply chain.", category: "Equities", author: "Marcus Chen", date: "Feb 04", readTime: "6 min", image: AI_IMAGE_URL },
-  { id: 4, title: "DeFi 2.0: The Institutional Adoption Curve", excerpt: "How traditional banking rails are quietly merging with blockchain liquidity pools.", category: "Digital Assets", author: "Sarah Wu", date: "Feb 03", readTime: "10 min", image: DEFI_IMAGE_URL },
-];
-
-const FALLBACK_ARCHIVED = [
-  { id: 5, title: "Understanding Market Volatility in Bear Markets", category: "Analysis", author: "Michael Torres", date: "Jan 28", readTime: "7 min" },
-  { id: 6, title: "The Rise of Algorithmic Trading Strategies", category: "Backtested Strategies", author: "Lisa Chen", date: "Jan 25", readTime: "9 min" },
-  { id: 7, title: "EUR/USD: Technical Analysis and Outlook", category: "Forex", author: "David Kumar", date: "Jan 22", readTime: "5 min" },
-  { id: 8, title: "Tech Sector Rotation: Where's the Smart Money?", category: "Equities", author: "Amanda Zhang", date: "Jan 18", readTime: "8 min" },
-  { id: 9, title: "NFT Markets: The Post-Hype Reality", category: "Digital Assets", author: "Carlos Rivera", date: "Jan 15", readTime: "6 min" },
-  { id: 10, title: "Momentum Trading: A Backtested Approach", category: "Backtested Strategies", author: "Rachel Park", date: "Jan 12", readTime: "11 min" },
-];
-
 const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 
 export default function BlogPage() {
@@ -65,13 +44,17 @@ export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [darkMode, setDarkMode] = useState(true);
   const [location, navigate] = useLocation();
-  const [apiPosts, setApiPosts] = useState<Article[] | null>(null);
+  const [apiPosts, setApiPosts] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/blog')
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok ? r.json() : [])
       .then((data: any[] | null) => {
-        if (!data || data.length === 0) return;
+        if (!data || !Array.isArray(data)) {
+          setApiPosts([]);
+          return;
+        }
         setApiPosts(data.map(p => ({
           id:       p.id,
           title:    p.title,
@@ -80,21 +63,23 @@ export default function BlogPage() {
           author:   p.author ?? 'Admin',
           date:     p.date ?? '',
           readTime: p.readTime ?? p.read_time ?? '5 min',
-          image:    p.imageUrl ?? p.image_url ?? `https://picsum.photos/seed/${p.id}/800/600`,
+          image:    p.imageUrl ?? p.image_url ?? '',
         })));
       })
-      .catch(() => {});
+      .catch(() => setApiPosts([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  const allPosts = apiPosts ?? FALLBACK_ARTICLES;
+  const allPosts = apiPosts;
   const isDark = darkMode;
 
   const filteredArticles = activeCategory === 'All'
     ? allPosts
     : allPosts.filter(a => a.category === activeCategory);
 
-  const featuredArticle = filteredArticles[0] ?? allPosts[0];
-  const sideArticles = filteredArticles.slice(1);
+  const featuredArticle = filteredArticles[0];
+  const sideArticles = filteredArticles.slice(1, 4);
+  const archivedArticles = filteredArticles.slice(4);
 
   return (
     <div
@@ -131,7 +116,29 @@ export default function BlogPage() {
           ))}
         </nav>
 
+        {/* Empty / loading states */}
+        {loading && (
+          <div className={`text-center py-24 text-[11px] font-bold uppercase tracking-[0.25em] ${isDark ? 'text-slate-500' : 'text-stone-400'}`}>
+            Loading posts…
+          </div>
+        )}
+
+        {!loading && allPosts.length === 0 && (
+          <div className={`text-center py-24 border ${isDark ? 'border-[#1e293b] text-slate-500' : 'border-stone-200 text-stone-400'}`}>
+            <Archive size={28} className="mx-auto mb-4 opacity-50" />
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.25em] mb-2">No posts yet</div>
+            <div className="text-[10px] font-medium opacity-70">Check back soon for new articles.</div>
+          </div>
+        )}
+
+        {!loading && allPosts.length > 0 && filteredArticles.length === 0 && (
+          <div className={`text-center py-24 text-[11px] font-bold uppercase tracking-[0.25em] ${isDark ? 'text-slate-500' : 'text-stone-400'}`}>
+            No posts in “{activeCategory}”.
+          </div>
+        )}
+
         {/* Layout Grid */}
+        {!loading && featuredArticle && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
           {/* Featured Article */}
@@ -225,26 +232,10 @@ export default function BlogPage() {
             </div>
           </aside>
         </div>
-
-        {/* Market Ticker */}
-        <div className={`mt-20 border-y-2 py-4 overflow-hidden whitespace-nowrap flex items-center transition-colors duration-700 ${isDark ? 'bg-[#0a101f] border-[#1e293b]' : 'bg-white border-stone-200'}`}>
-          <div className="blog-animate-marquee space-x-16 text-[10px] font-extrabold tracking-[0.15em] w-full">
-            <span>S&P 500 <span className="text-emerald-500 ml-1">+0.42%</span></span>
-            <span>NASDAQ <span className="text-emerald-500 ml-1">+1.12%</span></span>
-            <span>USD/JPY <span className="text-rose-500 ml-1">-0.15%</span></span>
-            <span>GOLD <span className="text-emerald-500 ml-1">+0.22%</span></span>
-            <span>BTC <span className="text-emerald-500 ml-1">+2.45%</span></span>
-            <span>EUR/USD <span className="text-rose-500 ml-1">-0.05%</span></span>
-            <span>S&P 500 <span className="text-emerald-500 ml-1">+0.42%</span></span>
-            <span>NASDAQ <span className="text-emerald-500 ml-1">+1.12%</span></span>
-            <span>USD/JPY <span className="text-rose-500 ml-1">-0.15%</span></span>
-            <span>GOLD <span className="text-emerald-500 ml-1">+0.22%</span></span>
-            <span>BTC <span className="text-emerald-500 ml-1">+2.45%</span></span>
-            <span>EUR/USD <span className="text-rose-500 ml-1">-0.05%</span></span>
-          </div>
-        </div>
+        )}
 
         {/* Archive Section */}
+        {archivedArticles.length > 0 && (
         <section className="mt-20">
           <div className={`flex items-center gap-3 border-b-4 pb-3 mb-10 transition-colors duration-700 ${isDark ? 'border-blue-500' : 'border-stone-900'}`}>
             <Archive size={20} className={isDark ? 'text-blue-400' : 'text-stone-900'} />
@@ -257,7 +248,7 @@ export default function BlogPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {(apiPosts ? allPosts.slice(4) : FALLBACK_ARCHIVED).map((post) => (
+            {archivedArticles.map((post) => (
               <article key={post.id} onClick={() => navigate(`/blog/${post.id}`)} className={`group cursor-pointer p-6 border transition-all duration-300 ${isDark ? 'bg-[#1e293b]/30 border-[#334155] hover:border-blue-500' : 'bg-white border-stone-200 hover:border-stone-400'}`}>
                 <div className={`text-[8px] font-extrabold uppercase tracking-widest mb-3 ${isDark ? 'text-blue-500' : 'text-blue-600'}`}>
                   {post.category}
@@ -275,13 +266,8 @@ export default function BlogPage() {
               </article>
             ))}
           </div>
-
-          <div className="mt-10 text-center">
-            <button className={`px-8 py-3 text-[10px] font-extrabold uppercase tracking-[0.2em] border-2 transition-all ${isDark ? 'border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white' : 'border-stone-900 text-stone-900 hover:bg-stone-900 hover:text-white'}`}>
-              Load More Posts
-            </button>
-          </div>
         </section>
+        )}
       </main>
 
       <HomeFooter />
