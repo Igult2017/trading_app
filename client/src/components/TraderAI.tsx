@@ -263,7 +263,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   };
 
   return (
-    <div className="traderai-root" style={{ display: "flex", height: "calc(100dvh - 130px)", background: "#070d15", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", fontFamily: F, position: "relative" }}>
+    <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: "#070d15", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
 
       <style>{`
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
@@ -277,7 +277,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
 
         /* ── Mobile optimisation ─────────────────────────────────────── */
         @media (max-width: 640px) {
-          .traderai-root { height: calc(100dvh - 110px) !important; border-radius: 8px !important; }
+          .traderai-root { height: 100% !important; min-height: calc(100dvh - 64px) !important; border-radius: 0 !important; }
 
           /* Sidebar slides out as an overlay; hidden by default */
           .traderai-sidebar {
