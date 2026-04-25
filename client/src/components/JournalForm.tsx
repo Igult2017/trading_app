@@ -1232,8 +1232,13 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           : v;
       return norm(a) === norm(b);
     };
+    // A field counts as "touched" if either:
+    //   1. its current value differs from the INIT default, OR
+    //   2. it was filled by OCR / pasted-text analysis (tracked in ocrFields)
+    // A section is "untouched" only when ALL of its fields are still at their
+    // defaults AND none of them were autofilled.
     const untouched = (state: any, init: any, fields: string[]) =>
-      fields.every(f => eq(state[f], init[f]));
+      fields.every(f => eq(state[f], init[f]) && !ocrFields.has(f));
 
     const sections: {
       step: number;
