@@ -121,19 +121,41 @@ const TJ_CSS = `
   @media (max-width: 900px) { .tj-classify-row { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 540px) { .tj-classify-row { grid-template-columns: 1fr; } }
 
-  /* ── Sticky Strategy chip ── */
-  .tj-sticky-wrap { display: flex; flex-direction: column; gap: 6px; }
-  .tj-sticky-input { display: flex; align-items: center; gap: 6px; background: var(--c-bg2); border: 1px solid var(--c-border2); border-radius: 999px; padding: 4px 4px 4px 12px; transition: border-color 0.15s, background 0.15s; }
-  .tj-sticky-input:focus-within { border-color: var(--c-accent); background: var(--c-bg3); }
-  .tj-sticky-input input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--c-text); font-size: 12px; padding: 4px 0; }
-  .tj-sticky-input input::placeholder { color: var(--c-hint); }
-  .tj-sticky-add { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--c-border2); background: var(--c-bg3); color: var(--c-muted); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.12s; }
-  .tj-sticky-add:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent3); }
-  .tj-sticky-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; background: var(--c-accent3); border: 1px solid var(--c-accent); border-radius: 999px; color: var(--c-accent); font-size: 12px; font-weight: 600; max-width: 100%; }
-  .tj-sticky-chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tj-sticky-x { width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.06); color: var(--c-muted); font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.12s; }
-  .tj-sticky-x:hover { background: var(--c-danger); color: #fff; }
-  .tj-sticky-hint { font-size: 9px; color: var(--c-hint); letter-spacing: 0.05em; }
+  /* ── Sticky chip (matches .tj-input / .tj-select shape) ── */
+  .tj-sticky-box {
+    background: var(--c-bg2); border: 1px solid var(--c-border2); border-radius: var(--radius);
+    padding: 3px 4px 3px 11px; min-height: 32px;
+    display: flex; align-items: center; gap: 6px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .tj-sticky-box:focus-within { border-color: var(--c-accent); background: var(--c-bg3); }
+  .tj-sticky-box.is-active { background: var(--c-accent3); border-color: var(--c-accent); }
+  .tj-sticky-box input {
+    flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;
+    color: var(--c-text); font-size: 12px; padding: 0;
+  }
+  .tj-sticky-box input::placeholder { color: var(--c-hint); }
+  .tj-sticky-box select {
+    flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;
+    color: var(--c-text); font-size: 12px; padding: 0 18px 0 0; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234d5e50' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right center;
+  }
+  .tj-sticky-name {
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 12px; font-weight: 600; color: var(--c-accent); letter-spacing: 0.01em;
+  }
+  .tj-sticky-btn {
+    width: 22px; height: 22px; border-radius: var(--radius);
+    border: 1px solid var(--c-border2); background: var(--c-bg3);
+    color: var(--c-muted); font-size: 14px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: all 0.12s;
+  }
+  .tj-sticky-btn:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent3); }
+  .tj-sticky-btn.danger:hover { border-color: var(--c-danger); color: var(--c-danger); background: rgba(232,84,84,0.08); }
 
   .tj-strip { background: rgba(61,220,132,0.06); border: 1px solid rgba(61,220,132,0.15); border-radius: var(--radius); padding: 8px 12px; font-size: 11px; color: var(--c-muted); margin-bottom: 14px; }
   .tj-strip.warn { background: rgba(240,165,0,0.06); border-color: rgba(240,165,0,0.2); color: var(--c-warn); }
@@ -617,71 +639,89 @@ function Txt({ label, value, onChange, placeholder, rows = 3 }: any) {
   );
 }
 
-function StickyStrategy({ d, set }: { d: any; set: (updater: (prev: any) => any) => void }) {
-  const STORAGE_KEY = "fsd:stickyStrategy";
+// Reusable sticky-pin component. Lives inside a `.tj-sticky-box` whose
+// dimensions and styling mirror the surrounding `.tj-input` / `.tj-select`
+// fields, so it sits flush in the form grid. When `options` is provided it
+// renders as a select (e.g. Setup Tag); otherwise as a free-text input
+// (e.g. Strategy). One sub-line replaces the old double helper text.
+function StickyChip({
+  storageKey, label, value, options, onChoose,
+}: {
+  storageKey: string;
+  label: string;
+  value: string;
+  options?: string[];
+  onChoose: (v: string) => void;
+}) {
   const [draft, setDraft] = useState("");
   const [sticky, setSticky] = useState<string>(() => {
-    try { return sessionStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
+    try { return sessionStorage.getItem(storageKey) || ""; } catch { return ""; }
   });
 
-  // When a sticky exists and the form's Strategy field is empty, pre-fill it.
+  // When a sticky exists and the linked form field is empty, pre-fill it.
   useEffect(() => {
-    if (sticky && !d.strategyVersionId) {
-      set((prev: any) => ({ ...prev, strategyVersionId: sticky }));
-    }
+    if (sticky && !value) onChoose(sticky);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sticky]);
 
   const apply = (raw: string) => {
-    const v = raw.trim();
+    const v = (raw || "").trim();
     if (!v) return;
-    try { sessionStorage.setItem(STORAGE_KEY, v); } catch {}
+    try { sessionStorage.setItem(storageKey, v); } catch {}
     setSticky(v);
     setDraft("");
-    set((prev: any) => ({ ...prev, strategyVersionId: v }));
+    onChoose(v);
   };
 
   const clear = () => {
-    try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+    try { sessionStorage.removeItem(storageKey); } catch {}
     setSticky("");
   };
 
+  const tid = storageKey.replace(/[^a-z0-9]+/gi, "-");
+
   return (
-    <Field label="Active Strategy" sub="Sticky for this session">
-      <div className="tj-sticky-wrap">
+    <Field label={label} sub={sticky ? "Auto-fills until removed" : "Pin once, reuse all session"}>
+      <div className={`tj-sticky-box${sticky ? " is-active" : ""}`}>
         {sticky ? (
-          <span className="tj-sticky-chip" data-testid="sticky-strategy-chip">
-            <span className="tj-sticky-chip-name" title={sticky}>{sticky}</span>
+          <>
+            <span className="tj-sticky-name" title={sticky} data-testid={`${tid}-chip`}>{sticky}</span>
             <button
               type="button"
-              className="tj-sticky-x"
+              className="tj-sticky-btn danger"
               onClick={clear}
-              aria-label="Remove active strategy"
-              data-testid="sticky-strategy-remove"
+              aria-label={`Clear ${label}`}
+              data-testid={`${tid}-remove`}
             >×</button>
-          </span>
+          </>
+        ) : options ? (
+          <select
+            value=""
+            onChange={e => apply(e.target.value)}
+            data-testid={`${tid}-select`}
+          >
+            <option value="">Select to pin…</option>
+            {options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
         ) : (
-          <div className="tj-sticky-input">
+          <>
             <input
               type="text"
-              placeholder="Add custom tag…"
+              placeholder="Type to pin…"
               value={draft}
               onChange={e => setDraft(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); apply(draft); } }}
-              data-testid="sticky-strategy-input"
+              data-testid={`${tid}-input`}
             />
             <button
               type="button"
-              className="tj-sticky-add"
+              className="tj-sticky-btn"
               onClick={() => apply(draft)}
-              aria-label="Save active strategy"
-              data-testid="sticky-strategy-add"
+              aria-label={`Pin ${label}`}
+              data-testid={`${tid}-add`}
             >+</button>
-          </div>
+          </>
         )}
-        <span className="tj-sticky-hint">
-          {sticky ? "Auto-fills Strategy until removed" : "Set once, reuse for the session"}
-        </span>
       </div>
     </Field>
   );
@@ -886,7 +926,21 @@ function Step1({ d, set }: any) {
             <Inp label="Strategy" placeholder="e.g., Supply & Demand, Breakout…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
             <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
           </div>
-          <StickyStrategy d={d} set={set} />
+          <div className="tj-grid" style={{ gap: 10 }}>
+            <StickyChip
+              storageKey="fsd:stickyStrategy"
+              label="Active Strategy"
+              value={d.strategyVersionId}
+              onChoose={(v) => set((prev: any) => ({ ...prev, strategyVersionId: v }))}
+            />
+            <StickyChip
+              storageKey="fsd:stickySetup"
+              label="Active Setup"
+              value={d.setupTag}
+              options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]}
+              onChoose={(v) => set((prev: any) => ({ ...prev, setupTag: v }))}
+            />
+          </div>
           <Sel label="Trade Grade" options={["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"]} value={d.tradeGrade} onChange={f("tradeGrade")} />
         </div>
       </div>
