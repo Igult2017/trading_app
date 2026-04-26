@@ -111,6 +111,25 @@ const TJ_CSS = `
   .tj-upload-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
   .tj-upload-btn.danger:hover { border-color: var(--c-danger); color: var(--c-danger); }
 
+  /* ── Classification row (Strategy stack | Sticky | Trade Grade) ── */
+  .tj-classify-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 900px) { .tj-classify-row { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 540px) { .tj-classify-row { grid-template-columns: 1fr; } }
+
+  /* ── Sticky Strategy chip ── */
+  .tj-sticky-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .tj-sticky-input { display: flex; align-items: center; gap: 6px; background: var(--c-bg2); border: 1px solid var(--c-border2); border-radius: 999px; padding: 4px 4px 4px 12px; transition: border-color 0.15s, background 0.15s; }
+  .tj-sticky-input:focus-within { border-color: var(--c-accent); background: var(--c-bg3); }
+  .tj-sticky-input input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--c-text); font-size: 12px; padding: 4px 0; }
+  .tj-sticky-input input::placeholder { color: var(--c-hint); }
+  .tj-sticky-add { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--c-border2); background: var(--c-bg3); color: var(--c-muted); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.12s; }
+  .tj-sticky-add:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent3); }
+  .tj-sticky-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; background: var(--c-accent3); border: 1px solid var(--c-accent); border-radius: 999px; color: var(--c-accent); font-size: 12px; font-weight: 600; max-width: 100%; }
+  .tj-sticky-chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tj-sticky-x { width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.06); color: var(--c-muted); font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.12s; }
+  .tj-sticky-x:hover { background: var(--c-danger); color: #fff; }
+  .tj-sticky-hint { font-size: 9px; color: var(--c-hint); letter-spacing: 0.05em; }
+
   .tj-strip { background: rgba(61,220,132,0.06); border: 1px solid rgba(61,220,132,0.15); border-radius: var(--radius); padding: 8px 12px; font-size: 11px; color: var(--c-muted); margin-bottom: 14px; }
   .tj-strip.warn { background: rgba(240,165,0,0.06); border-color: rgba(240,165,0,0.2); color: var(--c-warn); }
   .tj-strip.danger { background: rgba(232,84,84,0.06); border-color: rgba(232,84,84,0.2); color: var(--c-danger); }
@@ -593,6 +612,76 @@ function Txt({ label, value, onChange, placeholder, rows = 3 }: any) {
   );
 }
 
+function StickyStrategy({ d, set }: { d: any; set: (updater: (prev: any) => any) => void }) {
+  const STORAGE_KEY = "fsd:stickyStrategy";
+  const [draft, setDraft] = useState("");
+  const [sticky, setSticky] = useState<string>(() => {
+    try { return sessionStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
+  });
+
+  // When a sticky exists and the form's Strategy field is empty, pre-fill it.
+  useEffect(() => {
+    if (sticky && !d.strategyVersionId) {
+      set((prev: any) => ({ ...prev, strategyVersionId: sticky }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sticky]);
+
+  const apply = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    try { sessionStorage.setItem(STORAGE_KEY, v); } catch {}
+    setSticky(v);
+    setDraft("");
+    set((prev: any) => ({ ...prev, strategyVersionId: v }));
+  };
+
+  const clear = () => {
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+    setSticky("");
+  };
+
+  return (
+    <Field label="Active Strategy" sub="Sticky for this session">
+      <div className="tj-sticky-wrap">
+        {sticky ? (
+          <span className="tj-sticky-chip" data-testid="sticky-strategy-chip">
+            <span className="tj-sticky-chip-name" title={sticky}>{sticky}</span>
+            <button
+              type="button"
+              className="tj-sticky-x"
+              onClick={clear}
+              aria-label="Remove active strategy"
+              data-testid="sticky-strategy-remove"
+            >×</button>
+          </span>
+        ) : (
+          <div className="tj-sticky-input">
+            <input
+              type="text"
+              placeholder="Add custom tag…"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); apply(draft); } }}
+              data-testid="sticky-strategy-input"
+            />
+            <button
+              type="button"
+              className="tj-sticky-add"
+              onClick={() => apply(draft)}
+              aria-label="Save active strategy"
+              data-testid="sticky-strategy-add"
+            >+</button>
+          </div>
+        )}
+        <span className="tj-sticky-hint">
+          {sticky ? "Auto-fills Strategy until removed" : "Set once, reuse for the session"}
+        </span>
+      </div>
+    </Field>
+  );
+}
+
 function Radio({ label, options, value, onChange }: any) {
   return (
     <Field label={label}>
@@ -761,11 +850,12 @@ function Step1({ d, set }: any) {
 
       <div className="tj-section">
         <div className="tj-section-label">Classification &amp; Quality</div>
-        <div className="tj-grid tj-g2">
+        <div className="tj-classify-row">
           <div className="tj-grid" style={{ gap: 10 }}>
             <Inp label="Strategy" placeholder="e.g., Supply & Demand, Breakout…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
             <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
           </div>
+          <StickyStrategy d={d} set={set} />
           <Sel label="Trade Grade" options={["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"]} value={d.tradeGrade} onChange={f("tradeGrade")} />
         </div>
       </div>
