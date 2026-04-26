@@ -117,9 +117,10 @@ const TJ_CSS = `
   .tj-upload-btn.danger:hover { border-color: var(--c-danger); color: var(--c-danger); }
 
   /* ── Classification row (Strategy stack | Sticky | Trade Grade) ── */
-  .tj-classify-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
-  @media (max-width: 900px) { .tj-classify-row { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 540px) { .tj-classify-row { grid-template-columns: 1fr; } }
+  .tj-classify-quad { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; }
+  .tj-classify-grade { margin-top: 12px; max-width: 320px; }
+  @media (max-width: 1100px) { .tj-classify-quad { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 540px)  { .tj-classify-quad { grid-template-columns: 1fr; } .tj-classify-grade { max-width: none; } }
 
   /* ── Sticky chip (matches .tj-input / .tj-select shape) ── */
   .tj-sticky-box {
@@ -921,26 +922,23 @@ function Step1({ d, set }: any) {
 
       <div className="tj-section">
         <div className="tj-section-label">Classification &amp; Quality</div>
-        <div className="tj-classify-row">
-          <div className="tj-grid" style={{ gap: 10 }}>
-            <Inp label="Strategy" placeholder="e.g., Supply & Demand, Breakout…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
-            <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
-          </div>
-          <div className="tj-grid" style={{ gap: 10 }}>
-            <StickyChip
-              storageKey="fsd:stickyStrategy"
-              label="Active Strategy"
-              value={d.strategyVersionId}
-              onChoose={(v) => set((prev: any) => ({ ...prev, strategyVersionId: v }))}
-            />
-            <StickyChip
-              storageKey="fsd:stickySetup"
-              label="Active Setup"
-              value={d.setupTag}
-              options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]}
-              onChoose={(v) => set((prev: any) => ({ ...prev, setupTag: v }))}
-            />
-          </div>
+        <div className="tj-classify-quad">
+          <Inp label="Strategy" placeholder="e.g., Supply & Demand, Breakout…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
+          <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
+          <StickyChip
+            storageKey="fsd:stickyStrategy"
+            label="Active Strategy"
+            value={d.strategyVersionId}
+            onChoose={(v) => set((prev: any) => ({ ...prev, strategyVersionId: v }))}
+          />
+          <StickyChip
+            storageKey="fsd:stickySetup"
+            label="Active Setup"
+            value={d.setupTag}
+            onChoose={(v) => set((prev: any) => ({ ...prev, setupTag: v }))}
+          />
+        </div>
+        <div className="tj-classify-grade">
           <Sel label="Trade Grade" options={["A - Textbook","B - Solid","C - Acceptable","D - Marginal","F - Poor"]} value={d.tradeGrade} onChange={f("tradeGrade")} />
         </div>
       </div>
