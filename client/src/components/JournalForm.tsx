@@ -682,6 +682,32 @@ function StickyStrategy({ d, set }: { d: any; set: (updater: (prev: any) => any)
   );
 }
 
+function StickyTF({ storageKey, label, options, value, onChange }: {
+  storageKey: string;
+  label: string;
+  options: string[];
+  value: any;
+  onChange: (v: any) => void;
+}) {
+  // On mount: if a previously chosen TF is saved for this session, restore it.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+      if (saved && options.includes(saved) && saved !== value) {
+        onChange(saved);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleChange = (v: string) => {
+    try { sessionStorage.setItem(storageKey, v); } catch {}
+    onChange(v);
+  };
+
+  return <Sel label={label} options={options} value={value} onChange={handleChange} />;
+}
+
 function Radio({ label, options, value, onChange }: any) {
   return (
     <Field label={label}>
@@ -1004,9 +1030,9 @@ function Step2({ d, set, onScreenshotUpload, analyzing, ocrFields, currentBalanc
       <div className="tj-section">
         <div className="tj-section-label">Timeframe Analysis</div>
         <div className="tj-grid tj-g3">
-          <Sel label="Entry TF" options={["1M","3M","5M","15M","30MIN"]} value={d.entryTF} onChange={f("entryTF")} />
-          <Sel label="Analysis TF" options={["15M","30MIN","1HR","2HR","4HR"]} value={d.analysisTF} onChange={f("analysisTF")} />
-          <Sel label="Context TF" options={["1W","1D","4HR"]} value={d.contextTF} onChange={f("contextTF")} />
+          <StickyTF storageKey="fsd:tf:entry"    label="Entry TF"    options={["1M","3M","5M","15M","30MIN"]}  value={d.entryTF}    onChange={f("entryTF")} />
+          <StickyTF storageKey="fsd:tf:analysis" label="Analysis TF" options={["15M","30MIN","1HR","2HR","4HR"]} value={d.analysisTF} onChange={f("analysisTF")} />
+          <StickyTF storageKey="fsd:tf:context"  label="Context TF"  options={["1W","1D","4HR"]}                value={d.contextTF}  onChange={f("contextTF")} />
         </div>
       </div>
 
