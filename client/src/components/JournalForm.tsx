@@ -1,4 +1,9 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import {
+  Check as CheckIcon, ArrowRight, RotateCcw,
+  TrendingUp, TrendingDown, Minus,
+  Timer, Globe2, Box, BookOpen, Zap,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
@@ -1787,72 +1792,140 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             const pnlStr   = hasPnl
               ? `${pnlNum >= 0 ? "+" : ""}$${Math.abs(pnlNum).toFixed(2)}`
               : savedTrade.outcome === "Win" ? "Win" : savedTrade.outcome === "Loss" ? "Loss" : "BE";
+            const outcomeColor = isWin
+              ? "text-emerald-400"
+              : isLoss ? "text-rose-400" : "text-amber-400";
+            const OutcomeIcon = isWin ? TrendingUp : isLoss ? TrendingDown : Minus;
+            const accentBar = isWin
+              ? "border-l-emerald-500"
+              : isLoss ? "border-l-rose-500" : "border-l-amber-500";
+            const dimResultText = isWin
+              ? "text-emerald-500/40"
+              : isLoss ? "text-rose-500/40" : "text-amber-500/40";
+
+            const resultSummary = hasPnl
+              ? `${pnlNum >= 0 ? "+" : "−"}$${Math.abs(pnlNum).toFixed(2)}${hasPips ? ` · ${pipsNum >= 0 ? "+" : ""}${pipsNum.toFixed(1)} pips` : ""}`
+              : hasPips
+                ? `${pipsNum >= 0 ? "+" : ""}${pipsNum.toFixed(1)} pips`
+                : "Outcome recorded";
+
+            const tradeData = [
+              { label: "Outcome",   value: savedTrade.outcome,  Icon: OutcomeIcon, iconColor: outcomeColor,    valueColor: outcomeColor },
+              { label: "Grade",     value: savedTrade.grade,    Icon: BookOpen,    iconColor: "text-blue-400" },
+              { label: "Session",   value: savedTrade.session,  Icon: Globe2,      iconColor: "text-purple-400" },
+              { label: "Timeframe", value: savedTrade.tf,       Icon: Timer,       iconColor: "text-amber-400" },
+              { label: "Category",  value: savedTrade.category, Icon: Box,         iconColor: "text-indigo-400" },
+              { label: "Entries",   value: "+1 logged",         Icon: Zap,         iconColor: "text-slate-400" },
+            ];
+
             return (
-              <div className="tj-success-overlay">
-                <div className="tj-success-icon-wrap">
-                  <span className="tj-success-check">✓</span>
-                </div>
-                <div className="tj-success-title">Trade Logged</div>
-                <div className="tj-success-sub">Entry recorded · form has been reset</div>
+              <div className="tj-success-overlay" style={{ padding: 0, background: "#0a0a0b" }}>
+                <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:ital,wght@1,400;1,600;1,700;1,800&display=swap');
+                  .tj-success-poppins-italic { font-family: 'Poppins', sans-serif; font-style: italic; }
+                  .tj-success-overlay-v2 { font-family: 'Montserrat', sans-serif; }
+                `}</style>
 
-                <div className="tj-success-card">
-                  <div className="tj-success-card-header">
-                    <span className="tj-success-instrument">{savedTrade.instrument}</span>
-                    <span className={`tj-success-dir ${dirCls}`}>{savedTrade.direction}</span>
-                  </div>
+                <div className="tj-success-overlay-v2 min-h-full w-full flex items-center justify-center p-6 tracking-tight text-slate-200 overflow-y-auto">
+                  <div className="max-w-lg w-full animate-in fade-in zoom-in-95 duration-500">
+                    <div className="bg-[#111114] border-2 border-white/10 rounded-md overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
 
-                  <div className="tj-success-pnl-row">
-                    <span className={`tj-success-pnl ${pnlCls}`}>{pnlStr}</span>
-                    {hasPips && (
-                      <span className="tj-success-pnl-label">
-                        {pipsNum >= 0 ? "+" : ""}{pipsNum.toFixed(1)} pips
-                      </span>
-                    )}
-                  </div>
+                      {/* Header */}
+                      <div className="p-8 pb-0 flex flex-col items-center">
+                        <div className="flex items-center gap-3">
+                          <h1 className="tj-success-poppins-italic text-sm font-bold tracking-tight text-white leading-none">
+                            Trade successfully logged
+                          </h1>
+                          <div className="w-8 h-8 rounded-md bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                            <CheckIcon className="w-4 h-4 text-[#0a0a0b]" strokeWidth={4} />
+                          </div>
+                        </div>
+                        <p className="text-slate-500 text-[8px] font-semibold mt-2 uppercase tracking-wide">
+                          Entry confirmed in journal
+                        </p>
+                      </div>
 
-                  <div className="tj-success-grid">
-                    <div className="tj-success-cell">
-                      <div className="tj-success-cell-label">Outcome</div>
-                      <div className={`tj-success-outcome ${outCls}`}>{savedTrade.outcome}</div>
-                    </div>
-                    <div className="tj-success-cell">
-                      <div className="tj-success-cell-label">Grade</div>
-                      <div className="tj-success-cell-val">{savedTrade.grade}</div>
-                    </div>
-                    <div className="tj-success-cell">
-                      <div className="tj-success-cell-label">Session</div>
-                      <div className="tj-success-cell-val">{savedTrade.session}</div>
-                    </div>
-                    <div className="tj-success-cell">
-                      <div className="tj-success-cell-label">Timeframe</div>
-                      <div className="tj-success-cell-val">{savedTrade.tf}</div>
-                    </div>
-                    <div className="tj-success-cell" style={{ borderBottom: "none" }}>
-                      <div className="tj-success-cell-label">Category</div>
-                      <div className="tj-success-cell-val">{savedTrade.category}</div>
-                    </div>
-                    <div className="tj-success-cell" style={{ borderBottom: "none" }}>
-                      <div className="tj-success-cell-label">Entries</div>
-                      <div className="tj-success-cell-val" style={{ color: "var(--c-hint)" }}>
-                        +1 logged
+                      {/* Divider */}
+                      <div className="mx-8 mt-8 border-t-2 border-white/5"></div>
+
+                      {/* Position meta bar */}
+                      <div className="px-8 py-3 flex items-center justify-between bg-white/[0.01]">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1 h-1 bg-emerald-500"></div>
+                          <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">
+                            {savedTrade.instrument || "Position details"}
+                          </span>
+                        </div>
+                        <span className={`px-2 py-0.5 text-[8px] font-black text-white rounded-sm uppercase tracking-wider ${
+                          dirCls === "long" ? "bg-blue-600" : "bg-rose-600"
+                        }`}>
+                          {savedTrade.direction}
+                        </span>
+                      </div>
+
+                      {/* Net result */}
+                      <div className="px-8 pb-6">
+                        <div className={`mb-4 bg-white/[0.03] border-l-2 ${accentBar} rounded-sm p-4`}>
+                          <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">
+                            Net result
+                          </span>
+                          <div className="text-xl font-black text-white mt-0.5 flex items-baseline gap-2 tracking-tighter">
+                            <span className={outcomeColor}>{pnlStr}</span>
+                            <span className={`text-[9px] font-semibold tracking-tight uppercase ${dimResultText}`}>
+                              {resultSummary}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {tradeData.map((item, idx) => {
+                            const Icon = item.Icon;
+                            return (
+                              <div
+                                key={idx}
+                                className="bg-[#18181b] p-3 border border-white/5 hover:border-white/20 transition-all group"
+                                data-testid={`trade-success-cell-${item.label.toLowerCase()}`}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="p-0.5 bg-white/5 rounded-sm group-hover:bg-white/10">
+                                    <Icon className={`w-3 h-3 ${item.iconColor}`} />
+                                  </div>
+                                  <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">
+                                    {item.label}
+                                  </span>
+                                </div>
+                                <div className={`text-xs font-extrabold tracking-tight leading-none ${item.valueColor || "text-white"}`}>
+                                  {item.value || "—"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Footer actions */}
+                      <div className="flex border-t-2 border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => { setSaved(false); setSavedTrade(null); }}
+                          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[9px] py-3 transition-all active:brightness-90 flex items-center justify-center gap-2 uppercase tracking-wider"
+                          data-testid="trade-success-log-another"
+                        >
+                          <RotateCcw className="w-3 h-3" strokeWidth={3} />
+                          Log another
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setSaved(false); setSavedTrade(null); }}
+                          className="flex-1 bg-[#1c1c21] hover:bg-[#25252b] text-white font-black text-[9px] py-3 border-l-2 border-white/10 transition-all active:brightness-90 flex items-center justify-center gap-2 uppercase tracking-wider"
+                          data-testid="trade-success-done"
+                        >
+                          Done
+                          <ArrowRight className="w-3 h-3" strokeWidth={3} />
+                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="tj-success-actions">
-                  <button
-                    className="tj-success-btn primary"
-                    onClick={() => { setSaved(false); setSavedTrade(null); }}
-                  >
-                    + Log Another Trade
-                  </button>
-                  <button
-                    className="tj-success-btn ghost"
-                    onClick={() => { setSaved(false); setSavedTrade(null); }}
-                  >
-                    Done
-                  </button>
                 </div>
               </div>
             );
