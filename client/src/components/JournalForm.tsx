@@ -527,7 +527,7 @@ function DateTimeInput({ label, value, onChange, ocrFilled }: any) {
   };
 
   return (
-    <Field label={label} sub="Type any format — e.g. 25/04/2026 09:30, Apr 25 2026 9:30am, 2026.04.25 09:30" ocrFilled={ocrFilled}>
+    <Field label={label} ocrFilled={ocrFilled}>
       <input
         className="tj-input"
         type="text"
