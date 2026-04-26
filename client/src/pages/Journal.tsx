@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -373,20 +373,25 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   // Default to most recent month that has trades
   const defaultMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : null;
   const [activeMonthKey, setActiveMonthKey] = useState<string | null>(defaultMonth);
+  const userNavigatedRef = useRef(false);
 
-  // Keep activeMonthKey in sync if entries change and current key disappears
+  // Auto-follow the latest month whenever new entries arrive — UNLESS the user
+  // has manually navigated to a different month (then we leave them where they are).
   useEffect(() => {
-    if (!activeMonthKey && defaultMonth) {
+    if (!defaultMonth) return;
+    if (userNavigatedRef.current) return;
+    if (activeMonthKey !== defaultMonth) {
       setActiveMonthKey(defaultMonth);
     }
-  }, [defaultMonth]);
+  }, [defaultMonth, activeMonthKey]);
 
   const activeIdx = activeMonthKey ? sortedMonths.indexOf(activeMonthKey) : -1;
   const canPrev = activeIdx > 0;
   const canNext = activeIdx < sortedMonths.length - 1;
 
-  const prev = () => canPrev && setActiveMonthKey(sortedMonths[activeIdx - 1]);
-  const next = () => canNext && setActiveMonthKey(sortedMonths[activeIdx + 1]);
+  const goTo = (mk: string) => { userNavigatedRef.current = true; setActiveMonthKey(mk); };
+  const prev = () => canPrev && goTo(sortedMonths[activeIdx - 1]);
+  const next = () => canNext && goTo(sortedMonths[activeIdx + 1]);
 
   // Parse active month
   const activeYear = activeMonthKey ? parseInt(activeMonthKey.split('-')[0], 10) : new Date().getFullYear();
@@ -449,7 +454,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
                 {sortedMonths.map(mk => (
                   <button
                     key={mk}
-                    onClick={() => setActiveMonthKey(mk)}
+                    onClick={() => goTo(mk)}
                     style={{
                       width: mk === activeMonthKey ? 16 : 5,
                       height: 5, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
