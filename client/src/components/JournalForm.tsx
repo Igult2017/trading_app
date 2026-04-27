@@ -1875,18 +1875,17 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 <style>{`
                   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:ital,wght@1,400;1,600;1,700;1,800&display=swap');
 
-                  /* Lock fonts inside the overlay so no global CSS can override them */
-                  .tj-success-v3,
-                  .tj-success-v3 *,
-                  .tj-success-v3 h1,
-                  .tj-success-v3 p,
-                  .tj-success-v3 span,
-                  .tj-success-v3 div,
-                  .tj-success-v3 button {
+                  /* Lock fonts inside the overlay — selector chained 3x to outrank
+                     the journal form's '.tj-root.tj-root *' monospace override. */
+                  .tj-success-v3.tj-success-v3.tj-success-v3,
+                  .tj-success-v3.tj-success-v3.tj-success-v3 * {
                     font-family: 'Montserrat', sans-serif !important;
+                    font-feature-settings: normal !important;
+                    font-variant-ligatures: normal !important;
+                    letter-spacing: normal;
                   }
-                  .tj-success-v3 .poppins-italic,
-                  .tj-success-v3 .poppins-italic * {
+                  .tj-success-v3.tj-success-v3.tj-success-v3 .poppins-italic,
+                  .tj-success-v3.tj-success-v3.tj-success-v3 .poppins-italic * {
                     font-family: 'Poppins', sans-serif !important;
                     font-style: italic !important;
                   }
