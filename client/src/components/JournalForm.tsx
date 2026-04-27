@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Check as CheckIcon, ArrowRight, RotateCcw,
   TrendingUp, TrendingDown, Minus,
@@ -1830,8 +1831,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       <div className="tj-page">
         {/* ── Form column ── */}
         <div className="tj-shell" style={{ position: "relative" }}>
-          {/* ── Success overlay ── */}
-          {saved && savedTrade && (() => {
+          {/* ── Success overlay (rendered in a portal, fully isolated from .tj-root) ── */}
+          {saved && savedTrade && createPortal((() => {
             const pnlNum   = parseFloat(savedTrade.profitLoss);
             const pipsNum  = parseFloat(savedTrade.pips);
             const hasPnl   = savedTrade.profitLoss !== "" && !isNaN(pnlNum);
@@ -1871,26 +1872,38 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             ];
 
             return (
-              <div className="tj-success-overlay tj-success-v3" style={{ padding: 0, background: "#0a0a0b" }}>
+              <div
+                className="tj-success-v3"
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  background: "#0a0a0b",
+                  overflowY: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <style>{`
                   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:ital,wght@1,400;1,600;1,700;1,800&display=swap');
 
-                  /* Lock fonts inside the overlay — selector chained 3x to outrank
-                     the journal form's '.tj-root.tj-root *' monospace override. */
-                  .tj-success-v3.tj-success-v3.tj-success-v3,
-                  .tj-success-v3.tj-success-v3.tj-success-v3 * {
+                  /* Hard reset — wipe ANY inherited / global styles from the host page.
+                     The overlay is rendered in a portal at <body>, so nothing from
+                     .tj-root (monospace font, zero margin/padding, etc.) reaches it. */
+                  .tj-success-v3, .tj-success-v3 *, .tj-success-v3 *::before, .tj-success-v3 *::after {
                     font-family: 'Montserrat', sans-serif !important;
                     font-feature-settings: normal !important;
                     font-variant-ligatures: normal !important;
-                    letter-spacing: normal;
+                    box-sizing: border-box;
                   }
-                  .tj-success-v3.tj-success-v3.tj-success-v3 .poppins-italic,
-                  .tj-success-v3.tj-success-v3.tj-success-v3 .poppins-italic * {
+                  .tj-success-v3 .poppins-italic,
+                  .tj-success-v3 .poppins-italic * {
                     font-family: 'Poppins', sans-serif !important;
                     font-style: italic !important;
                   }
 
-                  /* Small-screen optimization (typography stays untouched) */
+                  /* Small-screen optimization (typography untouched) */
                   @media (max-width: 480px) {
                     .tj-success-v3 .tj-pad-x { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
                     .tj-success-v3 .tj-pad-t { padding-top: 1.25rem !important; }
@@ -2001,7 +2014,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 </div>
               </div>
             );
-          })()}
+          })(), document.body)}
 
           {/* ── Unfilled-sections reminder modal ── */}
           {unfilledSections && unfilledSections.length > 0 && (
