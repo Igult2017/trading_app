@@ -1871,36 +1871,61 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             ];
 
             return (
-              <div className="tj-success-overlay" style={{ padding: 0, background: "#0a0a0b" }}>
-                <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:ital,wght@1,400;1,600;1,700;1,800&display=swap');
-                  .tj-success-poppins-italic { font-family: 'Poppins', sans-serif; font-style: italic; }
-                  .tj-success-overlay-v2 { font-family: 'Montserrat', sans-serif; }
+              <div className="tj-success-overlay tj-success-v3" style={{ padding: 0, background: "#0a0a0b" }}>
+                <style>{`
+                  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:ital,wght@1,400;1,600;1,700;1,800&display=swap');
+
+                  /* Lock fonts inside the overlay so no global CSS can override them */
+                  .tj-success-v3,
+                  .tj-success-v3 *,
+                  .tj-success-v3 h1,
+                  .tj-success-v3 p,
+                  .tj-success-v3 span,
+                  .tj-success-v3 div,
+                  .tj-success-v3 button {
+                    font-family: 'Montserrat', sans-serif !important;
+                  }
+                  .tj-success-v3 .poppins-italic,
+                  .tj-success-v3 .poppins-italic * {
+                    font-family: 'Poppins', sans-serif !important;
+                    font-style: italic !important;
+                  }
+
+                  /* Small-screen optimization (typography stays untouched) */
+                  @media (max-width: 480px) {
+                    .tj-success-v3 .tj-pad-x { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+                    .tj-success-v3 .tj-pad-t { padding-top: 1.25rem !important; }
+                    .tj-success-v3 .tj-pad-b { padding-bottom: 1.25rem !important; }
+                    .tj-success-v3 .tj-mx    { margin-left: 1.25rem !important; margin-right: 1.25rem !important; }
+                    .tj-success-v3 .tj-mt    { margin-top: 1.25rem !important; }
+                    .tj-success-v3 .tj-outer-pad { padding: 0.75rem !important; }
+                  }
                 `}</style>
 
-                <div className="tj-success-overlay-v2 min-h-full w-full flex items-center justify-center p-6 tracking-tight text-slate-200 overflow-y-auto">
+                <div className="tj-outer-pad min-h-full w-full flex items-center justify-center p-6 tracking-tight text-slate-200 overflow-y-auto">
                   <div className="max-w-lg w-full animate-in fade-in zoom-in-95 duration-500">
+
+                    {/* Unified Card Container */}
                     <div className="bg-[#111114] border-2 border-white/10 rounded-md overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
 
-                      {/* Header */}
-                      <div className="p-8 pb-0 flex flex-col items-center">
+                      {/* Updated Success Header: Text first, then Tick to the right */}
+                      <div className="tj-pad-x tj-pad-t p-8 pb-0 flex flex-col items-center">
                         <div className="flex items-center gap-3">
-                          <h1 className="tj-success-poppins-italic text-sm font-bold tracking-tight text-white leading-none">
+                          <h1 className="poppins-italic text-sm font-bold tracking-tight text-white leading-none">
                             Trade successfully logged
                           </h1>
                           <div className="w-8 h-8 rounded-md bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                             <CheckIcon className="w-4 h-4 text-[#0a0a0b]" strokeWidth={4} />
                           </div>
                         </div>
-                        <p className="text-slate-500 text-[8px] font-semibold mt-2 uppercase tracking-wide">
-                          Entry confirmed in journal
-                        </p>
+                        <p className="text-slate-500 text-[8px] font-semibold mt-2 uppercase tracking-wide">Entry confirmed in journal</p>
                       </div>
 
                       {/* Divider */}
-                      <div className="mx-8 mt-8 border-t-2 border-white/5"></div>
+                      <div className="tj-mx tj-mt mx-8 mt-8 border-t-2 border-white/5"></div>
 
-                      {/* Position meta bar */}
-                      <div className="px-8 py-3 flex items-center justify-between bg-white/[0.01]">
+                      {/* Position Meta Bar */}
+                      <div className="tj-pad-x px-8 py-3 flex items-center justify-between bg-white/[0.01]">
                         <div className="flex items-center gap-1.5">
                           <div className="w-1 h-1 bg-emerald-500"></div>
                           <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">
@@ -1914,21 +1939,19 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                         </span>
                       </div>
 
-                      {/* Net result */}
-                      <div className="px-8 pb-6">
+                      {/* Main Visual Display */}
+                      <div className="tj-pad-x tj-pad-b px-8 pb-6">
                         <div className={`mb-4 bg-white/[0.03] border-l-2 ${accentBar} rounded-sm p-4`}>
-                          <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">
-                            Net result
-                          </span>
+                          <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">Net result</span>
                           <div className="text-xl font-black text-white mt-0.5 flex items-baseline gap-2 tracking-tighter">
-                            <span className={outcomeColor}>{pnlStr}</span>
+                            <span className={outcomeColor}>{savedTrade.outcome || "—"}</span>
                             <span className={`text-[9px] font-semibold tracking-tight uppercase ${dimResultText}`}>
                               {resultSummary}
                             </span>
                           </div>
                         </div>
 
-                        {/* Stats grid */}
+                        {/* Grid Stats */}
                         <div className="grid grid-cols-2 gap-1.5">
                           {tradeData.map((item, idx) => {
                             const Icon = item.Icon;
@@ -1942,9 +1965,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                                   <div className="p-0.5 bg-white/5 rounded-sm group-hover:bg-white/10">
                                     <Icon className={`w-3 h-3 ${item.iconColor}`} />
                                   </div>
-                                  <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">
-                                    {item.label}
-                                  </span>
+                                  <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">{item.label}</span>
                                 </div>
                                 <div className={`text-xs font-extrabold tracking-tight leading-none ${item.valueColor || "text-white"}`}>
                                   {item.value || "—"}
@@ -1955,7 +1976,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                         </div>
                       </div>
 
-                      {/* Footer actions */}
+                      {/* Card Footer Actions */}
                       <div className="flex border-t-2 border-white/10">
                         <button
                           type="button"
