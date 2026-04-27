@@ -661,10 +661,14 @@ function StickyChip({
   });
 
   // When a sticky exists and the linked form field is empty, pre-fill it.
+  // Includes `value` in deps so that after the form resets (e.g. right after
+  // saving a trade and clicking "Log another"), the manual Strategy / Setup
+  // Tag fields auto-repopulate from the active session-level pin instead of
+  // staying blank.
   useEffect(() => {
     if (sticky && !value) onChoose(sticky);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sticky]);
+  }, [sticky, value]);
 
   const apply = (raw: string) => {
     const v = (raw || "").trim();

@@ -413,13 +413,24 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       const normalizedDirection = updated.direction
         ? String(updated.direction).trim().toLowerCase()
         : null;
+      // The vault table displays whichever of these three exists first:
+      //   manual.setupTag → manual.strategyVersionId → manual.strategy
+      // (see journalEntryToTrade above). When the user edits the Strategy
+      // field in this modal we have to overwrite all three; otherwise the
+      // older setupTag / strategyVersionId values shadow the edit and the
+      // row keeps showing the previous strategy after Save Changes.
+      const newStrategy = String(updated.strategy).trim();
       const body: Record<string, unknown> = {
         instrument: String(updated.asset).trim(),
         sessionName: String(updated.session).trim(),
         outcome: normalizedOutcome,
         profitLoss: String(updated.pl),
         entryTime: `${updated.date}T${updated.time}`,
-        manualFields: { strategy: String(updated.strategy).trim() },
+        manualFields: {
+          strategy: newStrategy,
+          strategyVersionId: newStrategy,
+          setupTag: newStrategy,
+        },
         direction: normalizedDirection,
         riskReward: updated.rr ? String(updated.rr) : null,
       };
