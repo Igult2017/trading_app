@@ -1403,13 +1403,22 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         if t.setup_type and t.trade_date is None:
             no_date_counts[t.setup_type] += 1
 
-    # Use only dates from trades that have a setup_type so that old
-    # trades without a recorded setup don't artificially inflate the
-    # date range and deflate every per-year figure.
-    setup_dates_all = [d for dates in groups.values() for d in dates]
-    if not setup_dates_all:
+    # Probabilistic frequency: P(setup occurs in a given period) = count / active_days.
+    # The denominator is the SESSION's active trading window — from the first
+    # recorded trade (any setup) to the most recent trade or today, whichever
+    # is later. Using the whole session window (rather than the min/max of
+    # dates for one setup) gives a true probability across the user's trading
+    # history, even for setups they only used in part of the session.
+    all_trade_dates = [
+        t.trade_date for t in ctx.trades if t.trade_date is not None
+    ]
+    if not all_trade_dates:
         return {}
-    global_days = max(1, (max(setup_dates_all) - min(setup_dates_all)).days + 1)
+    first_date = min(all_trade_dates)
+    last_date  = max(all_trade_dates)
+    today = datetime.now(first_date.tzinfo) if first_date.tzinfo else datetime.now()
+    end_date = max(last_date, today)
+    active_days = max(1, (end_date - first_date).days + 1)
 
     all_setups = set(groups.keys()) | set(no_date_counts.keys())
     result = {}
@@ -1420,22 +1429,17 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         if count == 0:
             continue
 
-        # Standard frequency derivation: compute per_day first, then
-        # derive every other interval from it using exact unit conversions
-        # (7 days/week, 30.44 avg days/month, 365 days/year).
-        per_day   = count / global_days
+        # Compute per_day first, then derive every other interval from it
+        # using exact unit conversions (7 days/week, 30.44 avg days/month,
+        # 365 days/year). All four numbers are consistent floats.
+        per_day   = count / active_days
         per_week  = per_day * 7.0
         per_month = per_day * 30.44
-        per_year_raw = per_day * 365.0
-
-        # An occurrence is a whole event — round per_year to a whole number,
-        # but never report fewer per year than what's actually been observed
-        # (small-sample guardrail).
-        per_year = max(count, round(per_year_raw))
+        per_year  = per_day * 365.0
 
         result[setup] = {
             "count":    count,
-            "perYear":  int(per_year),
+            "perYear":  round(per_year,  2),
             "perMonth": round(per_month, 2),
             "perWeek":  round(per_week,  3),
             "perDay":   round(per_day,   4),
