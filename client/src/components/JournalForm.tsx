@@ -1638,6 +1638,15 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   };
 
   const handleSave = async (forceSubmit: boolean = false) => {
+    // Hard requirement: every trade needs a real entry time. Without it the
+    // calendar / metrics have no real date to plot the trade against
+    // (especially for backtest entries that aren't logged on the same day
+    // they actually happened). Cannot be bypassed by "save anyway".
+    if (!s2.entryTime) {
+      setSaveError("Entry Time is required — please set the date/time the trade actually occurred (Step 2 → Timing & Duration). This is what places the trade on the activity calendar and in time-based metrics.");
+      setStep(2);
+      return;
+    }
     if (!forceSubmit) {
       const unfilled = getUnfilledSections();
       if (unfilled.length > 0) {

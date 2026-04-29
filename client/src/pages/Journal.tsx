@@ -317,7 +317,11 @@ function parseTradeDate(raw: string | null | undefined): { year: number; month: 
 
 // Get the best date string from a journal entry row
 function getEntryDateStr(entry: any): string | null {
-  return entry.entryTime || entry.entryTimeUTC || entry.openedAt || entry.tradeDate || entry.createdAt || null;
+  // IMPORTANT: do NOT fall through to entry.createdAt — that's the row-insert
+  // timestamp, which would dump every undated trade onto the day it was logged
+  // (so a 2020 backtest entry with no entryTime would wrongly appear "today"
+  // on the calendar). Trades without a real trade timestamp are skipped.
+  return entry.entryTime || entry.entryTimeUTC || entry.openedAt || entry.tradeDate || null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
