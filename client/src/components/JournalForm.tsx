@@ -660,13 +660,16 @@ function StickyChip({
     try { return sessionStorage.getItem(storageKey) || ""; } catch { return ""; }
   });
 
-  // When a sticky exists and the linked form field is empty, pre-fill it.
-  // Includes `value` in deps so that after the form resets (e.g. right after
-  // saving a trade and clicking "Log another"), the manual Strategy / Setup
-  // Tag fields auto-repopulate from the active session-level pin instead of
-  // staying blank.
+  // Auto-fill the linked manual field from the active session pin:
+  //  • after the form resets (value becomes empty) — re-fill from sticky.
+  //  • whenever the user changes the pin itself — push the new pinned
+  //    value into the manual field so it always mirrors the active pin
+  //    until the user changes the active pin again.
+  const prevSticky = useRef(sticky);
   useEffect(() => {
-    if (sticky && !value) onChoose(sticky);
+    const stickyChanged = prevSticky.current !== sticky;
+    prevSticky.current = sticky;
+    if (sticky && (!value || stickyChanged)) onChoose(sticky);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sticky, value]);
 
@@ -1299,7 +1302,7 @@ const INIT_STEP1 = {
   thesis: "", trigger: "", invalidationLogic: "", expectedBehavior: "",
   energyLevel: 3, focusLevel: 3, confidenceAtEntry: 3,
   externalDistraction: "No", openTradesCount: "", totalRiskOpen: "", correlatedExposure: "No",
-  strategyVersionId: "", setupTag: "Breakout", tradeGrade: "A - Textbook",
+  strategyVersionId: "", setupTag: "", tradeGrade: "A - Textbook",
   setupFullyValid: "Yes", anyRuleBroken: "No", ruleBroken: "",
   impulseCheckFOMO: false, impulseCheckRevenge: false, impulseCheckBored: false, impulseCheckEmotional: false,
 };
