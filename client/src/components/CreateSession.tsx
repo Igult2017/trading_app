@@ -488,7 +488,7 @@ function GhostCard({ opacity, onCreate }: { opacity: number; onCreate: () => voi
       {/* header */}
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-1.5">
-          <span className="text-[13px] sc-jm" style={{ color: '#334155', letterSpacing: '0.05em', fontWeight: 600 }}>XX</span>
+          <span className="text-[13px] sc-jm" style={{ color: '#334155', letterSpacing: '0.05em', fontWeight: 600 }}>UNTITLED</span>
           <span className="sc-sub">00-00</span>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-1 border" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
@@ -685,22 +685,22 @@ function SummaryBar({ sessions }: { sessions: SessionData[] }) {
       <style>{`
         .sc-summary-bar .sc-sb-pad { padding: 24px 24px 12px; }
         .sc-summary-bar .sc-sb-row { display: flex; flex-direction: column; gap: 16px; align-items: stretch; justify-content: space-between; }
-        .sc-summary-bar .sc-sb-title { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; font-style: italic; font-family: 'Montserrat',sans-serif; word-break: break-word; }
+        .sc-summary-bar .sc-sb-title { font-size: 13px; font-weight: 500; color: #94a3b8; line-height: 1.2; font-style: normal; font-family: 'Montserrat',sans-serif; letter-spacing: 0.02em; text-transform: none; word-break: break-word; }
         .sc-summary-bar .sc-sb-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
         .sc-summary-bar .sc-sb-stat-val { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
         @media (min-width: 768px) {
           .sc-summary-bar .sc-sb-row { flex-direction: row; align-items: flex-end; gap: 24px; }
-          .sc-summary-bar .sc-sb-title { font-size: 24px; }
+          .sc-summary-bar .sc-sb-title { font-size: 13px; }
           .sc-summary-bar .sc-sb-stats { display: flex; flex-wrap: wrap; gap: 32px; }
         }
         @media (max-width: 640px) {
           .sc-summary-bar .sc-sb-pad { padding: 14px 14px 10px; }
-          .sc-summary-bar .sc-sb-title { font-size: 16px; letter-spacing: 0.02em; }
+          .sc-summary-bar .sc-sb-title { font-size: 12px; letter-spacing: 0.02em; }
           .sc-summary-bar .sc-sb-stats { gap: 8px; }
           .sc-summary-bar .sc-sb-stat-val { font-size: 12px; }
         }
         @media (max-width: 380px) {
-          .sc-summary-bar .sc-sb-title { font-size: 14px; }
+          .sc-summary-bar .sc-sb-title { font-size: 11px; }
           .sc-summary-bar .sc-sb-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
         }
       `}</style>
