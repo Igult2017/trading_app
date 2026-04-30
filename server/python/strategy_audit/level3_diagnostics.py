@@ -114,11 +114,33 @@ def _execution_asymmetry(trades: list[dict]) -> dict:
     wins   = [t for t in trades if t.get("win") is True]
     losses = [t for t in trades if t.get("win") is False]
 
-    win_rr_vals  = [t["rr_float"] for t in wins   if t.get("rr_float") and t["rr_float"] > 0]
-    loss_rr_vals = [t["rr_float"] for t in losses  if t.get("rr_float") and t["rr_float"] > 0]
+    # ── Avg Win in R ─────────────────────────────────────────────────────────
+    # Prefer pnl / monetary_risk (true realised R). Fall back to the structural
+    # achieved-RR ("rr_float") if dollar risk isn't recorded.
+    win_r_realised = []
+    for t in wins:
+        pnl = t.get("pnl")
+        risk = t.get("monetary_risk")
+        if pnl is not None and risk and risk > 0:
+            win_r_realised.append(pnl / risk)
+    if not win_r_realised:
+        win_r_realised = [t["rr_float"] for t in wins if t.get("rr_float") and t["rr_float"] > 0]
+    avg_win_rr = safe_mean(win_r_realised) if win_r_realised else 0.0
 
-    avg_win_rr  = safe_mean(win_rr_vals)  if win_rr_vals  else 0.0
-    avg_loss_rr = safe_mean(loss_rr_vals) if loss_rr_vals else 0.0
+    # ── Avg Loss in R ────────────────────────────────────────────────────────
+    # Same approach for losses (use abs so it's reported as a positive R figure).
+    # If no risk data is present at all, default to 1.0R — the conventional
+    # "stop hit = 1R lost" assumption — rather than 0, which would be
+    # misleadingly absent.
+    loss_r_realised = []
+    for t in losses:
+        pnl = t.get("pnl")
+        risk = t.get("monetary_risk")
+        if pnl is not None and risk and risk > 0:
+            loss_r_realised.append(abs(pnl) / risk)
+    if not loss_r_realised:
+        loss_r_realised = [t["rr_float"] for t in losses if t.get("rr_float") and t["rr_float"] > 0]
+    avg_loss_rr = safe_mean(loss_r_realised) if loss_r_realised else (1.0 if losses else 0.0)
 
     asymmetry_score = (avg_win_rr / max(avg_loss_rr, 0.01)) if avg_win_rr > 0 else 0.0
 

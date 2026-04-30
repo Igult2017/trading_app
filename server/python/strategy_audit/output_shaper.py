@@ -249,7 +249,7 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         "conditionalEdge":{"liquidityGap":liq_gap,"nonQualified":non_qual},
         "edgeTransferability": round(edge_trf,1),
         "coreRobustness":{"ruleStability":r_stab,"executionAdherence":e_adh,"monteCarloStability":round(cons_sc,1)},
-        "probabilisticEdge":{"baseRate":wr,"kelly":round(kelly,2),"avgWin":aw_rr if aw_rr>0 else es.get("avgWin"),"avgLoss":al_rr if al_rr>0 else es.get("avgLoss")},
+        "probabilisticEdge":{"baseRate":wr,"kelly":round(kelly,2),"avgWin":aw_rr,"avgLoss":al_rr},
         "riskMetrics":   {"maxLossStreak":max_ls,"fiveLossProbability":fl_prob,"timeInDrawdown":t_in_dd},
         "edgeComponents":{"winRateContribution":wr_con,"riskRewardContribution":rr_con},
         "lossCluster":   {"avgLength":avg_cl,"worstDD":worst_dd,"clusterFrequency":cl_freq,"clusterDates":cl_dates},
