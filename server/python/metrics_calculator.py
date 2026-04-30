@@ -316,6 +316,31 @@ def _coerce_float(value: Any) -> Optional[float]:
         return None
 
 
+def _coerce_rr(value: Any) -> Optional[float]:
+    """
+    Parse a Risk:Reward value that may arrive as a number or a string.
+    Accepts "1:2.5", "2.5", "1:2", " 1 : 2.0 " and returns the reward
+    multiple as a float. Returns None for blanks / unparseable input.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        v = float(value)
+        return None if (math.isnan(v) or math.isinf(v)) else v
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        if ":" in s:
+            s = s.split(":")[-1].strip()
+        try:
+            v = float(s)
+            return None if (math.isnan(v) or math.isinf(v)) else v
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def _coerce_bool(value: Any) -> Optional[bool]:
     if value is None:
         return None
@@ -611,8 +636,8 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         risk_heat=cat("riskHeat"),
         mae=_coerce_float(g("mae")),
         mfe=_coerce_float(g("mfe")),
-        planned_rr=_coerce_float(g("plannedRR")),
-        achieved_rr=_coerce_float(g("achievedRR")),
+        planned_rr=_coerce_rr(g("plannedRR")) or _coerce_rr(raw.get("planned_rr")),
+        achieved_rr=_coerce_rr(g("achievedRR")) or _coerce_rr(raw.get("achieved_rr")),
         sl_distance=sl_dist,
         tp_distance=tp_dist,
         spread_at_entry=_coerce_float(g("spreadAtEntry")) or _coerce_float(raw.get("spread_at_entry")),
