@@ -1231,7 +1231,7 @@ function Step4({ d, set }: any) {
     <>
       <div className="tj-section">
         <div className="tj-section-label">Exit Causation</div>
-        <Sel label="Primary Exit Reason" options={["Target Hit","Stop Hit","Time Exit","Structure Change","News","Emotional Exit"]} value={d.primaryExitReason} onChange={f("primaryExitReason")} />
+        <Sel label="Primary Exit Reason" options={["Target Hit","Partial TP","Stop Hit","Time Exit","Structure Change","News","Emotional Exit"]} value={d.primaryExitReason} onChange={f("primaryExitReason")} />
       </div>
 
       <div className="tj-section">
@@ -1442,6 +1442,40 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       return changed ? next : prev;
     });
   }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, currentBalance]);
+
+  // ── Auto-fill Primary Exit Reason from Outcome (+ RR comparison for Wins) ──
+  // Loss            → Stop Hit
+  // BE              → Structure Change
+  // Win, RR matches → Target Hit
+  // Win, RR differs → Partial TP
+  // Re-runs only when outcome / planned RR / achieved RR change, so a manual
+  // override stays in place until one of those inputs changes again.
+  useEffect(() => {
+    const outcome = s2.outcome as "Win" | "Loss" | "BE";
+    let reason: string | null = null;
+
+    if (outcome === "Loss") {
+      reason = "Stop Hit";
+    } else if (outcome === "BE") {
+      reason = "Structure Change";
+    } else if (outcome === "Win") {
+      const planned  = parseRR(s4.plannedRR);
+      const achieved = parseRR(s4.achievedRR);
+      if (achieved > 0 && planned > 0) {
+        reason = Math.abs(achieved - planned) < 0.01 ? "Target Hit" : "Partial TP";
+      }
+    }
+
+    if (reason && reason !== s4.primaryExitReason) {
+      setS4(prev => ({ ...prev, primaryExitReason: reason! }));
+      setOcrFields(prev => {
+        if (prev.has("primaryExitReason")) return prev;
+        const next = new Set(prev);
+        next.add("primaryExitReason");
+        return next;
+      });
+    }
+  }, [s2.outcome, s4.plannedRR, s4.achievedRR]);
 
   // Format a numeric RR value as "1:X" string
   const fmtRR = (v: any): string | null => {
