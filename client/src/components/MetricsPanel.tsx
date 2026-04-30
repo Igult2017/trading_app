@@ -453,7 +453,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   const instrEntries = Object.entries(instrumentBreakdown).map(([pair,d]: [string,any]) => ({
     pair, wr: Math.round(d.winRate||0), loss: 100-Math.round(d.winRate||0),
   }));
-  const dayEntries  = Object.entries(dayOfWeekBreakdown).map(([day,d]: [string,any]) => ({ day, wr: Math.round((d as any).winRate||0) }));
+  const dayEntries  = Object.entries(dayOfWeekBreakdown).map(([day,d]: [string,any]) => ({ day, wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const tfEntries   = Object.entries(tfEntry).map(([tf,d]: [string,any])              => ({ tf,  wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const sessEntries = Object.entries(sessionBreakdown).map(([name,d]: [string,any])   => ({ name, wr: Math.round((d as any).winRate||0), count: (d as any).count||0 }));
   const exitEntries = Object.entries(exitAnalysis).map(([reason,d]: [string,any])     => ({ reason, pct: Math.round((d as any).winRate||0), ct: (d as any).count||0 }));
@@ -809,7 +809,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
           {/* Day of Week */}
           <Panel title="Day of Week" accent={P.amber} tag="WIN% · R EXPECTANCY">
             {dayEntries.length>0
-              ? dayEntries.map((x,i)=><Bar key={i} label={x.day} pct={x.wr||null}/>)
+              ? dayEntries.map((x,i)=><Bar key={i} label={x.day} pct={x.wr||null} count={x.count}/>)
               : (['Monday','Tuesday','Wednesday','Thursday','Friday']).map((d,i)=><Bar key={i} label={d} pct={null}/>)
             }
           </Panel>
