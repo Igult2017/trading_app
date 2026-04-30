@@ -1462,7 +1462,9 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       const planned  = parseRR(s4.plannedRR);
       const achieved = parseRR(s4.achievedRR);
       if (achieved > 0 && planned > 0) {
-        reason = Math.abs(achieved - planned) < 0.01 ? "Target Hit" : "Partial TP";
+        // Achieved >= Planned (within tolerance) → full TP hit (or beyond).
+        // Achieved <  Planned                   → closed early = Partial TP.
+        reason = achieved + 0.01 >= planned ? "Target Hit" : "Partial TP";
       }
     }
 
