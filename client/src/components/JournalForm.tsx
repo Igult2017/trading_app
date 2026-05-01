@@ -6,7 +6,19 @@ import { calcDollarRisk } from "@/lib/tradeCalculations";
 
 // ─── Obsidian font isolation (scoped, beats any global !important) ────────────
 const OBS_CSS = `
-  .obs-jf, .obs-jf * {
+  .obs-jf,
+  .obs-jf *,
+  .obs-jf input,
+  .obs-jf textarea,
+  .obs-jf select,
+  .obs-jf button,
+  .obs-jf label,
+  .obs-jf span,
+  .obs-jf p,
+  .obs-jf div,
+  .obs-jf a,
+  .obs-jf h1, .obs-jf h2, .obs-jf h3, .obs-jf h4, .obs-jf h5, .obs-jf h6,
+  .obs-jf [class*="font-"] {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
                  "Liberation Mono", "Courier New", monospace !important;
     box-sizing: border-box;
@@ -1271,7 +1283,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="obs-jf flex flex-col lg:flex-row bg-[#09090b] text-[#d4d4d8]" style={{ minHeight:"100%", height:"100%" }}>
+    <div className="obs-jf font-mono flex flex-col lg:flex-row bg-[#09090b] text-[#d4d4d8]" style={{ minHeight:"100%", height:"100%", fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
       <style dangerouslySetInnerHTML={{ __html: OBS_CSS }} />
 
       {/* ── Form column ──────────────────────────────────────────────────── */}
