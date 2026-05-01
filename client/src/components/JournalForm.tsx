@@ -54,14 +54,26 @@ function computeStats(entries: any[], startingBalance?: number) {
   const wins   = trades.filter(t => t.outcome === "Win");
   const losses = trades.filter(t => t.outcome === "Loss");
   const pnls   = trades.map(t => t.pnl);
-  const netPnL = pnls.reduce((a, b) => a + b, 0);
+  const pnlSum = pnls.reduce((a, b) => a + b, 0);
+
+  // Use session starting balance if provided; otherwise fall back to first trade's balance
+  const sb = startingBalance ?? (trades[0]?.balance || 0);
+
+  // End balance: prefer last trade's recorded accountBalance (reliable dollar figure)
+  const lastBalance = trades[trades.length - 1]?.balance || 0;
+  const eb = lastBalance > 0 ? lastBalance : sb + pnlSum;
+
+  // Net P&L: derive from balance tracking when available (avoids pips-vs-dollars mismatch)
+  // If no trade has a recorded accountBalance, fall back to summing profitLoss values
+  const hasBalanceTracking = trades.some(t => t.balance > 0);
+  const netPnL = hasBalanceTracking && sb > 0 ? eb - sb : pnlSum;
+
+  // Gross win/loss: use individual trade P&Ls (these are per-trade figures, not cumulative)
   const grossWin  = wins.map(t => t.pnl).reduce((a, b) => a + b, 0);
   const grossLoss = Math.abs(losses.map(t => t.pnl).reduce((a, b) => a + b, 0));
   const pf        = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
   const winRate   = (wins.length / trades.length) * 100;
   const commissions = trades.reduce((a, t) => a + t.commission, 0);
-  const sb = startingBalance ?? (trades[0]?.balance || 0);
-  const eb = trades[trades.length - 1]?.balance || sb + netPnL;
   const growth = sb > 0 ? ((eb - sb) / sb) * 100 : 0;
   const rrTs  = trades.filter(t => t.achievedRR);
   const avgRR = rrTs.length ? rrTs.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTs.length : 0;
