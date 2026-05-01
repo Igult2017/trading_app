@@ -329,29 +329,73 @@ export class TelegramNotificationService {
 
   async sendTradingSignalNotification(signal: {
     symbol: string;
-    type: 'buy' | 'sell';
-    entry: number;
+    type: string;
+    entryPrice: number;
     stopLoss: number;
     takeProfit: number;
-    confidence: number;
+    overallConfidence: number;
     strategy?: string;
+    riskRewardRatio?: number;
+    timeframe?: string;
+    entryType?: string;
+    trend?: string;
+    htfTimeframe?: string;
+    zoneType?: string;
+    zoneTimeframe?: string;
+    refinedTimeframe?: string;
+    assetClass?: string;
   }): Promise<{ sent: number; failed: number }> {
     if (!this.bot) {
       return { sent: 0, failed: 0 };
     }
 
+    const direction = signal.type === 'buy' ? 'BUY' : 'SELL';
     const typeIcon = signal.type === 'buy' ? '🟢' : '🔴';
-    const riskReward = Math.abs((signal.takeProfit - signal.entry) / (signal.entry - signal.stopLoss)).toFixed(2);
 
-    const message = `${typeIcon} *${signal.symbol}* - ${signal.type.toUpperCase()}
+    const rr = signal.riskRewardRatio
+      ? signal.riskRewardRatio.toFixed(2)
+      : Math.abs(
+          (signal.takeProfit - signal.entryPrice) /
+          (signal.entryPrice - signal.stopLoss)
+        ).toFixed(2);
 
-Entry: ${signal.entry}
-Stop Loss: ${signal.stopLoss}
-Take Profit: ${signal.takeProfit}
-Risk/Reward: 1:${riskReward}
-Confidence: ${signal.confidence}%
-${signal.strategy ? `Strategy: ${signal.strategy}` : ''}`;
+    const confidenceBar = signal.overallConfidence >= 80
+      ? '🔥 High'
+      : signal.overallConfidence >= 65
+      ? '⚡ Moderate'
+      : '⚠️ Low';
 
+    const lines: string[] = [
+      `${typeIcon} *${signal.symbol}* — ${direction}`,
+      ``,
+      `📍 Entry:      \`${signal.entryPrice}\``,
+      `🛑 Stop Loss:  \`${signal.stopLoss}\``,
+      `🎯 Take Profit:\`${signal.takeProfit}\``,
+      `📊 R:R         1:${rr}`,
+      ``,
+      `🧠 Confidence: ${signal.overallConfidence}% (${confidenceBar})`,
+    ];
+
+    if (signal.strategy) {
+      lines.push(`📐 Strategy:   ${signal.strategy}`);
+    }
+    if (signal.timeframe) {
+      lines.push(`⏱ Timeframe:  ${signal.timeframe}`);
+    }
+    if (signal.entryType) {
+      lines.push(`🔍 Entry Type: ${signal.entryType.replace(/_/g, ' ')}`);
+    }
+    if (signal.trend && signal.htfTimeframe) {
+      lines.push(`📈 HTF Trend:  ${signal.trend.toUpperCase()} (${signal.htfTimeframe})`);
+    }
+    if (signal.zoneType && signal.zoneTimeframe) {
+      lines.push(`🗺 Zone:       ${signal.zoneType} @ ${signal.zoneTimeframe}`);
+    }
+    if (signal.assetClass) {
+      lines.push(`🏷 Asset:      ${signal.assetClass}`);
+    }
+
+    const message = lines.join('\n');
     return this.broadcastMessage(message, { parse_mode: 'Markdown' });
   }
 
