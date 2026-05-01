@@ -1354,7 +1354,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
 
         {/* Scrollable form */}
         <div className="flex-1 overflow-y-auto obs-scrollbar">
-          <div className="px-6 py-8 max-w-3xl">
+          <div className="px-6 py-8 w-full">
             {saveError && (
               <div className="mb-5 p-3 border-l-2 border-rose-500/60 bg-rose-500/[0.06] text-xs text-rose-400">
                 {saveError}
