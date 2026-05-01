@@ -298,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!auth) return;
     try {
       const { rows: profileRows } = await pool.query(
-        `SELECT id, email, role, full_name, country, plan, status, created_at
+        `SELECT id, email, role, full_name, country, plan, status, avatar_url, created_at
          FROM user_profiles WHERE id = $1 LIMIT 1`,
         [auth.id],
       );
@@ -341,18 +341,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
-        id:        auth.id,
-        email:     profile?.email ?? null,
-        fullName:  profile?.full_name ?? '',
-        plan:      profile?.plan   ?? 'Free',
-        role:      profile?.role   ?? 'user',
-        status:    profile?.status ?? 'Active',
-        country:   profile?.country ?? '',
+        id:          auth.id,
+        email:       profile?.email ?? null,
+        fullName:    profile?.full_name ?? '',
+        plan:        profile?.plan   ?? 'Free',
+        role:        profile?.role   ?? 'user',
+        status:      profile?.status ?? 'Active',
+        country:     profile?.country ?? '',
+        avatarUrl:   profile?.avatar_url ?? null,
         loginStreak: streak,
       });
     } catch (err: any) {
       console.error('[Me/Profile] Error:', err?.message);
       res.status(500).json({ error: 'Failed to load profile' });
+    }
+  });
+
+  // --- Avatar upload ---
+  app.post("/api/me/avatar", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const { avatarUrl } = req.body;
+      if (!avatarUrl || typeof avatarUrl !== 'string') {
+        return res.status(400).json({ error: 'Invalid avatar data' });
+      }
+      if (!avatarUrl.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Must be an image data URL' });
+      }
+      if (avatarUrl.length > 300000) {
+        return res.status(400).json({ error: 'Image too large. Please use a smaller image.' });
+      }
+      await pool.query(
+        `UPDATE user_profiles SET avatar_url = $1 WHERE id = $2`,
+        [avatarUrl, auth.id]
+      );
+      res.json({ success: true, avatarUrl });
+    } catch (err: any) {
+      console.error('[Me/Avatar] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to save avatar' });
     }
   });
 

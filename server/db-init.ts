@@ -460,6 +460,21 @@ export async function initializeDatabase() {
       }
     }
 
+    // ── Column additions for existing tables (safe — IF NOT EXISTS) ──────────
+    const columnAdditions = [
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name  TEXT DEFAULT ''`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country    TEXT DEFAULT ''`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan       TEXT DEFAULT 'Free'`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'Active'`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate   TEXT DEFAULT ''`,
+    ];
+    for (const stmt of columnAdditions) {
+      try {
+        await db.execute(sql.raw(stmt));
+      } catch (_) {}
+    }
+
     // ── Indexes & constraints added after table creation ─────────────────────
     const indexStatements = [
       // Deduplication constraint: prevents the same master signal from being

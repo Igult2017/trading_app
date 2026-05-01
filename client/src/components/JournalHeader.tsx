@@ -210,15 +210,18 @@ const PcLogoutIcon = () => (
   </svg>
 );
 
-function ProfileDropdown({ dropdownRef, displayName, avatarLetter, plan, loginStreak, onLogout, onAccountSettings }: {
+function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, loginStreak, onLogout, onAccountSettings, onUploadAvatar, uploading }: {
   dm: boolean;
   dropdownRef: RefObject<HTMLDivElement>;
   displayName: string;
   avatarLetter: string;
+  avatarUrl: string | null;
   plan: string;
   loginStreak: number;
   onLogout: () => void;
   onAccountSettings: () => void;
+  onUploadAvatar: () => void;
+  uploading: boolean;
 }) {
   useEffect(() => {
     const id = 'pc-profile-card-css';
@@ -239,9 +242,31 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, plan, loginSt
     >
       <div className="pc-root">
         <div className="pc-top">
-          <div className="pc-av">
-            {avatarLetter}
+          <div
+            className="pc-av"
+            onClick={onUploadAvatar}
+            title="Click to change photo"
+            style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
+          >
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+              : avatarLetter
+            }
             <div className="pc-av-ring" />
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: 8,
+              background: uploading ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.2s',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.42)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = uploading ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)'; }}
+            >
+              {uploading
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'fsd-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              }
+            </div>
           </div>
           <div className="pc-meta">
             <div className="pc-name">{displayName}</div>
@@ -279,26 +304,76 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, plan, loginSt
   );
 }
 
+function resizeImageToDataUrl(file: File, maxSize = 220): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.88));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeLabel, themeAccent }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dm = darkMode;
 
   const { user, signOut } = useAuth();
   const [, navigate] = useLocation();
-  const [profile, setProfile] = useState<{ fullName: string; plan: string; loginStreak: number } | null>(null);
+  const [profile, setProfile] = useState<{ fullName: string; plan: string; loginStreak: number; avatarUrl: string | null } | null>(null);
 
   useEffect(() => {
     if (!user) { setProfile(null); return; }
     let cancelled = false;
     authFetch('/api/me/profile')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', plan: d.plan || 'Free', loginStreak: d.loginStreak || 0 }); })
-      .catch(() => { /* ignore */ });
+      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', plan: d.plan || 'Free', loginStreak: d.loginStreak || 0, avatarUrl: d.avatarUrl || null }); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setAvatarUploading(true);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      const res = await authFetch('/api/me/avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatarUrl: dataUrl }),
+      });
+      if (res.ok) {
+        setProfile(prev => prev ? { ...prev, avatarUrl: dataUrl } : prev);
+      }
+    } catch (_) {}
+    setAvatarUploading(false);
+  }
+
+  function triggerAvatarUpload() {
+    fileInputRef.current?.click();
+  }
 
   const displayName = (profile?.fullName && profile.fullName.trim())
     || user?.user_metadata?.full_name
@@ -307,6 +382,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const avatarLetter = (displayName[0] ?? 'T').toUpperCase();
   const plan = profile?.plan || 'Free';
   const loginStreak = profile?.loginStreak || 0;
+  const avatarUrl = profile?.avatarUrl || null;
 
   function openAccountSettings() {
     setProfileOpen(false);
@@ -372,6 +448,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   return (
     <div>
       <style>{`
+        @keyframes fsd-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         .nav-a { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
@@ -454,10 +531,27 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
             <div ref={profileRef} style={{ position: 'relative' }}>
-              <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)}>
-                <UserCircle2 size={18} color="#60a5fa" />
+              <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)} style={{ padding: 0, overflow: 'hidden' }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                  : <UserCircle2 size={18} color="#60a5fa" />
+                }
               </button>
-              {profileOpen && <ProfileDropdown dm={dm} dropdownRef={dropdownRef} displayName={displayName} avatarLetter={avatarLetter} plan={plan} loginStreak={loginStreak} onLogout={handleLogout} onAccountSettings={openAccountSettings} />}
+              {profileOpen && (
+                <ProfileDropdown
+                  dm={dm}
+                  dropdownRef={dropdownRef}
+                  displayName={displayName}
+                  avatarLetter={avatarLetter}
+                  avatarUrl={avatarUrl}
+                  plan={plan}
+                  loginStreak={loginStreak}
+                  onLogout={handleLogout}
+                  onAccountSettings={openAccountSettings}
+                  onUploadAvatar={triggerAvatarUpload}
+                  uploading={avatarUploading}
+                />
+              )}
             </div>
             <button className="settings-btn" title="Settings">
               <Settings size={15} />
@@ -555,6 +649,14 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           ))}
         </div>
       )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }

@@ -210,6 +210,7 @@ export const userProfiles = pgTable("user_profiles", {
   plan:      text("plan").default('Free'),
   status:    text("status").default('Active'),
   winRate:   text("win_rate").default(''),
+  avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
