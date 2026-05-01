@@ -786,7 +786,10 @@ function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance
 
   return (
     <div className="w-full lg:w-[260px] xl:w-[260px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
-      <div className="p-4 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
+      {/* 2px spacer — matches the progress bar on the form side */}
+      <div className="h-[2px] bg-[#18181b] flex-shrink-0" />
+      {/* Header — h-[52px] matches the tab-nav button height on the form side */}
+      <div className="h-[52px] px-4 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-[#4e8cff] rounded-full animate-pulse" />
           <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Session</h2>
