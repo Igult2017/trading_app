@@ -49,7 +49,19 @@ function entryToStat(e: any) {
 const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2);
 
 function computeStats(entries: any[], startingBalance?: number) {
-  if (!entries.length) return null;
+  // A session exists from the moment it's created — if we have a starting balance
+  // but no trades yet, return a zeroed stats object anchored to that balance
+  // so the sidebar is meaningful from session creation, not only after the first trade.
+  if (!entries.length) {
+    if (!startingBalance) return null;
+    return {
+      netPnL: 0, winRate: 0, wins: 0, losses: 0, total: 0,
+      profitFactor: "0.00", commissions: 0,
+      startBalance: startingBalance, endBalance: startingBalance, growth: 0,
+      avgRR: "0.00", expectancy: "0.00",
+      buys: 0, sells: 0, bestTrade: 0, worstTrade: 0,
+    };
+  }
   const trades = entries.map(entryToStat);
   const wins   = trades.filter(t => t.outcome === "Win");
   const losses = trades.filter(t => t.outcome === "Loss");
@@ -825,7 +837,7 @@ function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance
             </div>
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm text-right">
               <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">End</div>
-              <div className="text-xs text-white">${stats ? stats.endBalance.toFixed(2) : "0.00"}</div>
+              <div className="text-xs text-white">${stats ? stats.endBalance.toFixed(2) : (startingBalance?.toFixed(2) ?? "0.00")}</div>
             </div>
           </div>
           <div className="flex justify-between text-[10px] px-3 py-2 bg-[#0c0c0e]/50 border border-[#18181b] rounded-sm">
