@@ -748,8 +748,8 @@ function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance
   const has = entries.length > 0;
 
   return (
-    <div className="w-full lg:w-[340px] xl:w-[380px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
-      <div className="p-6 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
+    <div className="w-full lg:w-[260px] xl:w-[260px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
+      <div className="p-4 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-[#4e8cff] rounded-full animate-pulse" />
           <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Session</h2>
@@ -759,7 +759,7 @@ function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto obs-scrollbar p-6 space-y-8 pb-10">
+      <div className="flex-1 overflow-y-auto obs-scrollbar p-4 space-y-6 pb-10">
 
         <div className="space-y-3">
           <div className="text-[9px] font-bold text-[#3f3f46] uppercase tracking-[0.2em]">Net P&amp;L</div>
