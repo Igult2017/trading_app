@@ -519,7 +519,6 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                 <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <Notifications dm={dm} />
             <button
               className="jh-sidebar-mobile"
               onClick={onToggleSidebar}
