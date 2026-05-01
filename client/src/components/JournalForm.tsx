@@ -1,10 +1,4 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
-import {
-  Check as CheckIcon, ArrowRight, RotateCcw,
-  TrendingUp, TrendingDown, Minus,
-  Timer, Globe2, Box, BookOpen, Zap,
-} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
@@ -1355,16 +1349,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [s3, setS3] = useState({ ...INIT_STEP3 });
   const [s4, setS4] = useState({ ...INIT_STEP4 });
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   // Touched flags for the Step 3 auto-derive (Market Regime / Trend Direction).
   // Owned by the parent so they survive Step3 unmount/remount when the user
   // navigates between steps. Reset on save so a fresh entry starts clean.
   const regimeTouchedRef = useRef(false);
   const trendTouchedRef  = useRef(false);
-  const [savedTrade, setSavedTrade] = useState<{
-    instrument: string; direction: string; outcome: string;
-    profitLoss: string; pips: string; grade: string; session: string; tf: string; category: string;
-  } | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrFields, setOcrFields] = useState<Set<string>>(new Set());
@@ -1847,18 +1836,6 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
-      setSavedTrade({
-        instrument: f2.instrument || "—",
-        direction:  f2.direction  || "Long",
-        outcome:    f2.outcome    || "Win",
-        profitLoss: f4.profitLoss,
-        pips:       f4.pipsGainedLost,
-        grade:      f1.tradeGrade || "—",
-        session:    f3.sessionName || "—",
-        tf:         f2.entryTF    || "—",
-        category:   f2.pairCategory || "—",
-      });
-      setSaved(true);
       setS1({ ...INIT_STEP1 });
       setS2({ ...INIT_STEP2 });
       setS3({ ...INIT_STEP3 });
@@ -1883,190 +1860,6 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       <div className="tj-page">
         {/* ── Form column ── */}
         <div className="tj-shell" style={{ position: "relative" }}>
-          {/* ── Success overlay (rendered in a portal, fully isolated from .tj-root) ── */}
-          {saved && savedTrade && createPortal((() => {
-            const pnlNum   = parseFloat(savedTrade.profitLoss);
-            const pipsNum  = parseFloat(savedTrade.pips);
-            const hasPnl   = savedTrade.profitLoss !== "" && !isNaN(pnlNum);
-            const hasPips  = savedTrade.pips !== "" && !isNaN(pipsNum);
-            const isWin    = savedTrade.outcome === "Win";
-            const isLoss   = savedTrade.outcome === "Loss";
-            const pnlCls   = isWin ? "pos" : isLoss ? "neg" : "be";
-            const outCls   = isWin ? "win" : isLoss ? "loss" : "be";
-            const dirCls   = savedTrade.direction === "Long" ? "long" : "short";
-            const pnlStr   = hasPnl
-              ? `${pnlNum >= 0 ? "+" : ""}$${Math.abs(pnlNum).toFixed(2)}`
-              : savedTrade.outcome === "Win" ? "Win" : savedTrade.outcome === "Loss" ? "Loss" : "BE";
-            const outcomeColor = isWin
-              ? "text-emerald-400"
-              : isLoss ? "text-rose-400" : "text-amber-400";
-            const OutcomeIcon = isWin ? TrendingUp : isLoss ? TrendingDown : Minus;
-            const accentBar = isWin
-              ? "border-l-emerald-500"
-              : isLoss ? "border-l-rose-500" : "border-l-amber-500";
-            const dimResultText = isWin
-              ? "text-emerald-500/40"
-              : isLoss ? "text-rose-500/40" : "text-amber-500/40";
-
-            const resultSummary = hasPnl
-              ? `${pnlNum >= 0 ? "+" : "−"}$${Math.abs(pnlNum).toFixed(2)}${hasPips ? ` · ${pipsNum >= 0 ? "+" : ""}${pipsNum.toFixed(1)} pips` : ""}`
-              : hasPips
-                ? `${pipsNum >= 0 ? "+" : ""}${pipsNum.toFixed(1)} pips`
-                : "Outcome recorded";
-
-            const tradeData = [
-              { label: "Outcome",   value: savedTrade.outcome,  Icon: OutcomeIcon, iconColor: outcomeColor,    valueColor: outcomeColor },
-              { label: "Grade",     value: savedTrade.grade,    Icon: BookOpen,    iconColor: "text-blue-400" },
-              { label: "Session",   value: savedTrade.session,  Icon: Globe2,      iconColor: "text-purple-400" },
-              { label: "Timeframe", value: savedTrade.tf,       Icon: Timer,       iconColor: "text-amber-400" },
-              { label: "Category",  value: savedTrade.category, Icon: Box,         iconColor: "text-indigo-400" },
-              { label: "Entries",   value: "+1 logged",         Icon: Zap,         iconColor: "text-slate-400" },
-            ];
-
-            return (
-              <div
-                className="tj-success-v3"
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 9999,
-                  background: "#0a0a0b",
-                  overflowY: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <style>{`
-                  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:ital,wght@1,400;1,600;1,700;1,800&display=swap');
-
-                  /* Hard reset — wipe ANY inherited / global styles from the host page.
-                     The overlay is rendered in a portal at <body>, so nothing from
-                     .tj-root (monospace font, zero margin/padding, etc.) reaches it. */
-                  .tj-success-v3, .tj-success-v3 *, .tj-success-v3 *::before, .tj-success-v3 *::after {
-                    font-family: 'Montserrat', sans-serif !important;
-                    font-feature-settings: normal !important;
-                    font-variant-ligatures: normal !important;
-                    box-sizing: border-box;
-                  }
-                  .tj-success-v3 .poppins-italic,
-                  .tj-success-v3 .poppins-italic * {
-                    font-family: 'Poppins', sans-serif !important;
-                    font-style: italic !important;
-                  }
-
-                  /* Small-screen optimization (typography untouched) */
-                  @media (max-width: 480px) {
-                    .tj-success-v3 .tj-pad-x { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
-                    .tj-success-v3 .tj-pad-t { padding-top: 1.25rem !important; }
-                    .tj-success-v3 .tj-pad-b { padding-bottom: 1.25rem !important; }
-                    .tj-success-v3 .tj-mx    { margin-left: 1.25rem !important; margin-right: 1.25rem !important; }
-                    .tj-success-v3 .tj-mt    { margin-top: 1.25rem !important; }
-                    .tj-success-v3 .tj-outer-pad { padding: 0.75rem !important; }
-                  }
-                `}</style>
-
-                <div className="tj-outer-pad min-h-full w-full flex items-center justify-center p-6 tracking-tight text-slate-200 overflow-y-auto">
-                  <div className="max-w-lg w-full animate-in fade-in zoom-in-95 duration-500">
-
-                    {/* Unified Card Container */}
-                    <div className="bg-[#111114] border-2 border-white/10 rounded-md overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
-
-                      {/* Updated Success Header: Text first, then Tick to the right */}
-                      <div className="tj-pad-x tj-pad-t p-8 pb-0 flex flex-col items-center">
-                        <div className="flex items-center gap-3">
-                          <h1 className="poppins-italic text-sm font-bold tracking-tight text-white leading-none">
-                            Trade successfully logged
-                          </h1>
-                          <div className="w-8 h-8 rounded-md bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                            <CheckIcon className="w-4 h-4 text-[#0a0a0b]" strokeWidth={4} />
-                          </div>
-                        </div>
-                        <p className="text-slate-500 text-[8px] font-semibold mt-2 uppercase tracking-wide">Entry confirmed in journal</p>
-                      </div>
-
-                      {/* Divider */}
-                      <div className="tj-mx tj-mt mx-8 mt-8 border-t-2 border-white/5"></div>
-
-                      {/* Position Meta Bar */}
-                      <div className="tj-pad-x px-8 py-3 flex items-center justify-between bg-white/[0.01]">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1 h-1 bg-emerald-500"></div>
-                          <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">
-                            {savedTrade.instrument || "Position details"}
-                          </span>
-                        </div>
-                        <span className={`px-2 py-0.5 text-[8px] font-black text-white rounded-sm uppercase tracking-wider ${
-                          dirCls === "long" ? "bg-blue-600" : "bg-rose-600"
-                        }`}>
-                          {savedTrade.direction}
-                        </span>
-                      </div>
-
-                      {/* Main Visual Display */}
-                      <div className="tj-pad-x tj-pad-b px-8 pb-6">
-                        <div className={`mb-4 bg-white/[0.03] border-l-2 ${accentBar} rounded-sm p-4`}>
-                          <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">Net result</span>
-                          <div className="text-xl font-black text-white mt-0.5 flex items-baseline gap-2 tracking-tighter">
-                            <span className={outcomeColor}>{savedTrade.outcome || "—"}</span>
-                            <span className={`text-[9px] font-semibold tracking-tight uppercase ${dimResultText}`}>
-                              {resultSummary}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Grid Stats */}
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {tradeData.map((item, idx) => {
-                            const Icon = item.Icon;
-                            return (
-                              <div
-                                key={idx}
-                                className="bg-[#18181b] p-3 border border-white/5 hover:border-white/20 transition-all group"
-                                data-testid={`trade-success-cell-${item.label.toLowerCase()}`}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="p-0.5 bg-white/5 rounded-sm group-hover:bg-white/10">
-                                    <Icon className={`w-3 h-3 ${item.iconColor}`} />
-                                  </div>
-                                  <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">{item.label}</span>
-                                </div>
-                                <div className={`text-xs font-extrabold tracking-tight leading-none ${item.valueColor || "text-white"}`}>
-                                  {item.value || "—"}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Card Footer Actions */}
-                      <div className="flex border-t-2 border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => { setSaved(false); setSavedTrade(null); }}
-                          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[9px] py-3 transition-all active:brightness-90 flex items-center justify-center gap-2 uppercase tracking-wider"
-                          data-testid="trade-success-log-another"
-                        >
-                          <RotateCcw className="w-3 h-3" strokeWidth={3} />
-                          Log another
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setSaved(false); setSavedTrade(null); }}
-                          className="flex-1 bg-[#1c1c21] hover:bg-[#25252b] text-white font-black text-[9px] py-3 border-l-2 border-white/10 transition-all active:brightness-90 flex items-center justify-center gap-2 uppercase tracking-wider"
-                          data-testid="trade-success-done"
-                        >
-                          Done
-                          <ArrowRight className="w-3 h-3" strokeWidth={3} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })(), document.body)}
 
           {/* ── Unfilled-sections reminder modal ── */}
           {unfilledSections && unfilledSections.length > 0 && (
