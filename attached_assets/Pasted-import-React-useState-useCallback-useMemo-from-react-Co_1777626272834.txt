@@ -1,0 +1,912 @@
+import React, { useState, useCallback, useMemo } from 'react';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const SETUP_TAGS = ['Breakout','Pullback','Reversal','Continuation','Range','VWAP Reclaim','EMA Bounce','Structure Break','Liquidity Sweep','Fair Value Gap','Supply/Demand','News Play','OB Rejection','Imbalance Fill'];
+const SIGNAL_TAGS = ['EMA Cross','RSI Divergence','MACD Signal','Volume Spike','Price Action','Support/Resistance','Fibonacci','Trendline Break','Order Block','Imbalance','CHoCH','BOS','VWAP','Delta Divergence'];
+const CANDLE_PATTERNS = ['Engulfing','Pin Bar','Inside Bar','Doji','Hammer','Shooting Star','Morning Star','Evening Star','Marubozu','Three Soldiers','Dark Cloud','Harami','Tweezer Top','Tweezer Bottom'];
+const EMOTIONS_LIST = ['Calm','Confident','Anxious','Excited','Hesitant','Overconfident','Frustrated','Focused','Distracted','Fearful','Greedy','Neutral','Rushed','Patient'];
+const POST_EMOTIONS = ['Satisfied','Frustrated','Relieved','Regret','Proud','Neutral','Angry','Overjoyed','Indifferent','Motivated'];
+
+// ─── Stats computation ────────────────────────────────────────────────────────
+function computeStats(trades) {
+  if (!trades.length) return null;
+  const wins = trades.filter(t => t.outcome === 'Win');
+  const losses = trades.filter(t => t.outcome === 'Loss');
+  const pnls = trades.map(t => parseFloat(t.pnl) || 0);
+  const netPnL = pnls.reduce((a, b) => a + b, 0);
+  const winPnLs = wins.map(t => parseFloat(t.pnl) || 0);
+  const lossPnLs = losses.map(t => parseFloat(t.pnl) || 0);
+  const grossWin = winPnLs.reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(lossPnLs.reduce((a, b) => a + b, 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 999 : 0;
+  const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
+  const commissions = trades.reduce((a, t) => a + (parseFloat(t.commission) || 0), 0);
+  const startBalance = parseFloat(trades[0]?.balance) || 0;
+  const endBalance = parseFloat(trades[trades.length - 1]?.balance) || 0;
+  const growth = startBalance > 0 ? ((endBalance - startBalance) / startBalance) * 100 : 0;
+  const rrTrades = trades.filter(t => t.achievedRR);
+  const avgRR = rrTrades.length ? rrTrades.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTrades.length : 0;
+  const avgWin = wins.length ? grossWin / wins.length : 0;
+  const avgLoss = losses.length ? grossLoss / losses.length : 0;
+  const expectancy = (winRate / 100) * avgWin - (1 - winRate / 100) * avgLoss;
+  return {
+    netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
+    profitFactor: profitFactor.toFixed(2), commissions, startBalance, endBalance, growth,
+    avgRR: avgRR.toFixed(2), expectancy: expectancy.toFixed(2),
+    buys: trades.filter(t => t.direction === 'Long').length,
+    sells: trades.filter(t => t.direction === 'Short').length,
+    bestTrade: pnls.length ? Math.max(...pnls) : 0,
+    worstTrade: pnls.length ? Math.min(...pnls) : 0,
+  };
+}
+const fmtUsd = n => (n >= 0 ? '+' : '-') + '$' + Math.abs(n).toFixed(2);
+
+// ─── Obsidian design primitives ───────────────────────────────────────────────
+
+const SectionLabel = ({ children }) => (
+  <div className="flex items-center gap-3 pb-3 mb-5 border-b border-[#18181b]">
+    <div className="w-[2px] h-3 bg-[#4e8cff] flex-shrink-0" />
+    <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#4e8cff]">{children}</h3>
+  </div>
+);
+
+const FieldLabel = ({ children }) => (
+  <div className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] mb-2">{children}</div>
+);
+
+// Text area
+const Txt = ({ label, value, onChange, placeholder, rows = 3, danger }) => (
+  <div className="group space-y-2">
+    <label className={`text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] ${danger ? 'group-focus-within:text-rose-500' : 'group-focus-within:text-white'} transition-colors`}>
+      {label}
+    </label>
+    <textarea
+      rows={rows} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder || ''}
+      className={`w-full bg-[#0c0c0e] border border-[#18181b] ${danger ? 'focus:border-rose-500/30' : 'focus:border-[#4e8cff]/50'} p-4 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#27272a] text-sm leading-relaxed transition-all resize-none font-mono tracking-tight`}
+    />
+  </div>
+);
+
+// Text input
+const Inp = ({ label, type = 'text', value, onChange, placeholder }) => (
+  <div className="group space-y-2">
+    <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+    <input
+      type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder || ''}
+      className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 px-3 py-2.5 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#27272a] text-sm transition-all font-mono tracking-tight"
+    />
+  </div>
+);
+
+// Select / dropdown
+const Sel = ({ label, options, value, onChange }) => (
+  <div className="group space-y-2">
+    <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+    <select
+      value={value || ''} onChange={e => onChange(e.target.value)}
+      className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 px-3 py-2.5 rounded-sm outline-none text-[#e4e4e7] text-sm transition-all font-mono appearance-none cursor-pointer"
+      style={{ backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 10px center', paddingRight:28 }}
+    >
+      <option value="">— select —</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  </div>
+);
+
+// Radio pill group
+const Radio = ({ label, options, value, onChange }) => (
+  <div className="space-y-2">
+    <FieldLabel>{label}</FieldLabel>
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => (
+        <button key={o} type="button" onClick={() => onChange(o)}
+          className={`px-3 py-1.5 text-[11px] font-mono border rounded-sm transition-all ${
+            value === o
+              ? 'bg-[#4e8cff]/10 border-[#4e8cff]/70 text-[#4e8cff] font-bold'
+              : 'bg-[#0c0c0e] border-[#27272a] text-[#71717a] hover:border-[#4e8cff]/30 hover:text-[#a1a1aa]'
+          }`}
+        >{o}</button>
+      ))}
+    </div>
+  </div>
+);
+
+// Multi-select rounded tags (blue)
+const Tags = ({ label, options, value = [], onChange }) => {
+  const toggle = o => onChange(value.includes(o) ? value.filter(x => x !== o) : [...value, o]);
+  return (
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map(o => {
+          const sel = value.includes(o);
+          return (
+            <button key={o} type="button" onClick={() => toggle(o)}
+              className={`px-2.5 py-1 text-[10px] font-mono border rounded-full transition-all ${
+                sel
+                  ? 'bg-[#4e8cff]/10 border-[#4e8cff]/60 text-[#4e8cff]'
+                  : 'bg-[#0c0c0e] border-[#27272a] text-[#71717a] hover:border-[#3f3f46] hover:text-[#a1a1aa]'
+              }`}
+            >{o}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Multi-select flags (red / danger)
+const Flags = ({ label, options, value = [], onChange }) => {
+  const toggle = o => onChange(value.includes(o) ? value.filter(x => x !== o) : [...value, o]);
+  return (
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex flex-wrap gap-2">
+        {options.map(o => {
+          const sel = value.includes(o);
+          return (
+            <button key={o} type="button" onClick={() => toggle(o)}
+              className={`px-3 py-1.5 text-[11px] font-mono border rounded-sm transition-all font-semibold tracking-wide ${
+                sel
+                  ? 'bg-rose-500/10 border-rose-500/60 text-rose-400'
+                  : 'bg-[#0c0c0e] border-[#27272a] text-[#71717a] hover:border-rose-500/40 hover:text-rose-400/70'
+              }`}
+            >{o}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Star rating — obsidian diamond style
+const Stars = ({ label, value = 0, onChange, max = 5 }) => (
+  <div className="space-y-2">
+    <FieldLabel>{label}</FieldLabel>
+    <div className="flex gap-1.5">
+      {Array.from({ length: max }).map((_, i) => (
+        <button key={i} type="button" onClick={() => onChange(i + 1)}
+          className={`w-5 h-5 border rounded-sm transition-all hover:border-[#4e8cff] text-[10px] flex items-center justify-center font-bold ${
+            i < value
+              ? 'bg-[#4e8cff]/15 border-[#4e8cff] text-[#4e8cff]'
+              : 'bg-[#0c0c0e] border-[#27272a] text-[#3f3f46]'
+          }`}
+        >◆</button>
+      ))}
+    </div>
+  </div>
+);
+
+// Dot score rows (1–5)
+const Dots = ({ name, value = 0, onChange, max = 5 }) => (
+  <div className="flex items-center gap-4 py-1.5 border-b border-[#18181b]/60 last:border-0">
+    <span className="text-[11px] text-[#71717a] font-mono min-w-[170px] flex-shrink-0">{name}</span>
+    <div className="flex gap-1.5">
+      {Array.from({ length: max }).map((_, i) => (
+        <button key={i} type="button" onClick={() => onChange(i + 1)}
+          className={`w-4 h-4 rounded-full border transition-all ${i < value ? 'bg-[#4e8cff] border-[#4e8cff]' : 'bg-[#0c0c0e] border-[#27272a] hover:border-[#4e8cff]/50'}`}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+// Slider
+const Slider = ({ label, min = 1, max = 5, step = 1, value, onChange, suffix = '' }) => (
+  <div className="space-y-2">
+    <FieldLabel>{label}</FieldLabel>
+    <div className="flex items-center gap-3">
+      <input type="range" min={min} max={max} step={step} value={value || min}
+        onChange={e => onChange(Number(e.target.value))}
+        className="flex-1 cursor-pointer"
+      />
+      <span className="text-[13px] font-bold text-[#4e8cff] font-mono min-w-[40px] text-right">
+        {value || min}{suffix}
+      </span>
+    </div>
+  </div>
+);
+
+// Triplet (3 inputs with sub-labels)
+const Triplet = ({ label, fields, data = {}, onChange }) => (
+  <div className="space-y-2">
+    <FieldLabel>{label}</FieldLabel>
+    <div className="grid grid-cols-3 gap-2">
+      {fields.map(f => (
+        <div key={f.key}>
+          <input
+            type={f.type || 'text'} placeholder={f.ph || ''} value={data[f.key] || ''}
+            onChange={e => onChange({ ...data, [f.key]: e.target.value })}
+            className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 px-2.5 py-2 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#27272a] text-xs font-mono transition-all"
+          />
+          <div className="text-[8px] text-[#3f3f46] text-center mt-1 uppercase tracking-widest font-mono">{f.label}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// File upload with preview
+const Upload = ({ label, value, onChange }) => {
+  const handleFile = e => { const f = e.target.files[0]; if (f) onChange({ file:f, url:URL.createObjectURL(f), name:f.name }); };
+  return (
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="relative border border-dashed border-[#27272a] hover:border-[#4e8cff]/40 rounded-sm p-5 flex flex-col items-center justify-center gap-2 bg-[#0c0c0e] transition-all cursor-pointer min-h-[80px]">
+        <input type="file" accept="image/*" onChange={handleFile} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+        {!value ? (
+          <>
+            <span className="text-[18px] text-[#3f3f46] leading-none font-mono select-none">↑</span>
+            <span className="text-[9px] text-[#3f3f46] font-mono uppercase tracking-[0.2em]">upload screenshot</span>
+          </>
+        ) : (
+          <>
+            <img src={value.url} alt="" className="max-w-full max-h-[120px] object-contain rounded-sm" />
+            <span className="text-[10px] text-[#4e8cff] font-mono">{value.name}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Info / quote box — obsidian terminal style
+const InfoBox = ({ children }) => (
+  <div className="p-4 border-l-2 border-[#4e8cff]/30 bg-[#4e8cff]/[0.04] mb-5">
+    <p className="text-[11px] text-[#5fb391] leading-relaxed font-mono tracking-tight">
+      <span className="text-[#4e8cff]/50 mr-2 select-none">//</span>{children}
+    </p>
+  </div>
+);
+
+// Warning strip — terminal style
+const Strip = ({ children }) => (
+  <div className="p-3 border-l-2 border-rose-500/50 bg-rose-500/[0.04] mb-4 flex items-center gap-2">
+    <span className="text-rose-500/60 font-mono text-[10px] font-bold select-none flex-shrink-0">!!</span>
+    <p className="text-[11px] text-rose-400/70 font-mono tracking-tight">{children}</p>
+  </div>
+);
+
+// ─── Checkbox primitive ───────────────────────────────────────────────────────
+const Checkbox = ({ label, checked, onChange }) => (
+  <label className="flex items-center gap-3 cursor-pointer group py-2 px-3 hover:bg-[#0c0c0e] border border-transparent hover:border-[#18181b] rounded-sm transition-all">
+    <div className="w-4 h-4 border border-[#3f3f46] rounded-sm bg-[#09090b] flex-shrink-0 flex items-center justify-center group-hover:border-[#4e8cff]/50 transition-colors relative">
+      <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+      {checked && <span className="text-[9px] text-[#4e8cff] font-bold leading-none pointer-events-none">✓</span>}
+    </div>
+    <span className="text-[11px] font-bold text-[#71717a] group-hover:text-[#a1a1aa] transition-colors uppercase tracking-widest font-mono">{label}</span>
+  </label>
+);
+
+// Sticky chip display
+const Chip = ({ label, value }) => (
+  <div className="space-y-2">
+    <FieldLabel>{label}</FieldLabel>
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#4e8cff]/10 border border-[#4e8cff]/40 rounded-sm">
+      <span className="text-[11px] font-mono text-[#4e8cff] font-bold">{value || '—'}</span>
+    </div>
+  </div>
+);
+
+// ─── Step 1 — Decision ────────────────────────────────────────────────────────
+function Step1({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  return (
+    <div className="space-y-10">
+
+      {/* S1: Core Thesis */}
+      <section>
+        <SectionLabel>Core Thesis</SectionLabel>
+        <InfoBox>Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution.</InfoBox>
+        <div className="space-y-5">
+          <Txt label="Trade Thesis" value={d.thesis} onChange={f('thesis')} placeholder="What is the core reasoning behind this trade?" rows={3} />
+          <Txt label="Entry Trigger" value={d.trigger} onChange={f('trigger')} placeholder="What specifically triggered your entry?" rows={2} />
+          <Txt label="Invalidation Logic" value={d.invalidation} onChange={f('invalidation')} placeholder="What would make this setup invalid?" rows={2} danger />
+          <Txt label="Expected Behavior" value={d.expected} onChange={f('expected')} placeholder="How do you expect price to move?" rows={2} />
+        </div>
+      </section>
+
+      {/* S2: Pre-Entry State Check */}
+      <section>
+        <SectionLabel>Pre-Entry State Check</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Slider label="Energy Level" min={1} max={5} value={d.energy} onChange={f('energy')} suffix="/5" />
+          <Slider label="Focus Level" min={1} max={5} value={d.focus} onChange={f('focus')} suffix="/5" />
+          <Slider label="Confidence at Entry" min={1} max={5} value={d.confidenceEntry} onChange={f('confidenceEntry')} suffix="/5" />
+          <Radio label="External Distraction" options={['No','Yes']} value={d.externalDistraction} onChange={f('externalDistraction')} />
+          <Inp label="Open Trades Count" type="number" placeholder="0" value={d.openTrades} onChange={f('openTrades')} />
+          <Inp label="Total Risk Open %" type="number" placeholder="2.0" value={d.totalRiskOpen} onChange={f('totalRiskOpen')} />
+          <Radio label="Correlated Exposure" options={['No','Yes']} value={d.correlatedExposure} onChange={f('correlatedExposure')} />
+        </div>
+      </section>
+
+      {/* S3: Classification & Quality */}
+      <section>
+        <SectionLabel>Classification & Quality</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Inp label="Strategy" placeholder="e.g. ICT Breaker Block" value={d.strategy} onChange={f('strategy')} />
+          <Sel label="Setup Tag" options={['Breakout','Reversal','Continuation','Range Bound','Trend Following','Momentum','Pullback']} value={d.setupTag} onChange={f('setupTag')} />
+          <Chip label="Active Strategy" value={d.strategy} />
+          <Chip label="Active Setup" value={d.setupTag} />
+          <Sel label="Trade Grade" options={['A — Textbook','B — Solid','C — Acceptable','D — Marginal','F — Poor']} value={d.grade} onChange={f('grade')} />
+        </div>
+      </section>
+
+      {/* S4: Rule Governance */}
+      <section>
+        <SectionLabel>Rule Governance</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Radio label="Setup Fully Valid" options={['Yes','No','Partial']} value={d.setupValid} onChange={f('setupValid')} />
+          <Radio label="Any Rule Broken?" options={['No','Yes']} value={d.ruleBroken} onChange={f('ruleBroken')} />
+          {d.ruleBroken === 'Yes' && (
+            <div className="lg:col-span-2">
+              <Inp label="Which Rule?" placeholder="Describe the rule that was broken..." value={d.whichRule} onChange={f('whichRule')} />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* S5: Impulse Control Check */}
+      <section>
+        <SectionLabel>Impulse Control Check</SectionLabel>
+        <Strip>Flag any emotional or reactive impulses before committing to this trade.</Strip>
+        <div className="space-y-1">
+          <Checkbox label="Entering due to FOMO" checked={d.impFomo} onChange={f('impFomo')} />
+          <Checkbox label="Revenge trading after a loss" checked={d.impRevenge} onChange={f('impRevenge')} />
+          <Checkbox label="Trading out of boredom" checked={d.impBored} onChange={f('impBored')} />
+          <Checkbox label="Emotionally compromised" checked={d.impEmotional} onChange={f('impEmotional')} />
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+// ─── Step 2 — Execution ───────────────────────────────────────────────────────
+function Step2({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+
+  // Auto-derive day of week and duration from entry/exit times
+  const handleEntryTime = v => {
+    const updates = { ...d, entryTime: v };
+    if (v) {
+      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      updates.dayOfWeek = days[new Date(v).getDay()];
+    }
+    if (v && d.exitTime) {
+      const diff = Math.round((new Date(d.exitTime) - new Date(v)) / 60000);
+      if (diff > 0) updates.duration = diff >= 60 ? `${Math.floor(diff/60)}h ${diff%60}m` : `${diff}m`;
+    }
+    set(updates);
+  };
+  const handleExitTime = v => {
+    const updates = { ...d, exitTime: v };
+    if (v && d.entryTime) {
+      const diff = Math.round((new Date(v) - new Date(d.entryTime)) / 60000);
+      if (diff > 0) updates.duration = diff >= 60 ? `${Math.floor(diff/60)}h ${diff%60}m` : `${diff}m`;
+    }
+    set(updates);
+  };
+
+  return (
+    <div className="space-y-10">
+
+      {/* S1: Trade Screenshots */}
+      <section>
+        <SectionLabel>Trade Screenshots</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Upload label="Entry / Setup Screenshot" value={d.entryScreenshot} onChange={f('entryScreenshot')} />
+          <Upload label="Exit Chart Screenshot" value={d.exitScreenshot} onChange={f('exitScreenshot')} />
+        </div>
+      </section>
+
+      {/* S2: Position Details */}
+      <section>
+        <SectionLabel>Position Details</SectionLabel>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <Inp label="Instrument" placeholder="EURUSD" value={d.instrument} onChange={f('instrument')} />
+          <Sel label="Pair Category" options={['Major','Minor','Exotic','Index','Crypto','Commodity']} value={d.pairCategory} onChange={f('pairCategory')} />
+          <Radio label="Direction" options={['Long','Short']} value={d.direction} onChange={f('direction')} />
+          <Inp label="Lot Size" type="number" placeholder="0.10" value={d.lotSize} onChange={f('lotSize')} />
+          <Inp label="Entry Price" type="number" placeholder="1.09250" value={d.entryPrice} onChange={f('entryPrice')} />
+          <Inp label="Stop Loss" type="number" placeholder="1.09100" value={d.stopLoss} onChange={f('stopLoss')} />
+          <Inp label="SL Distance (Pips)" type="number" placeholder="15" value={d.slPips} onChange={f('slPips')} />
+          <Inp label="Take Profit" type="number" placeholder="1.09600" value={d.takeProfit} onChange={f('takeProfit')} />
+          <Inp label="TP Distance (Pips)" type="number" placeholder="35" value={d.tpPips} onChange={f('tpPips')} />
+          <Inp label="Risk %" type="number" placeholder="1.0" value={d.riskPct} onChange={f('riskPct')} />
+          <Sel label="Order Type" options={['Market','Limit','Stop','Stop-Limit']} value={d.orderType} onChange={f('orderType')} />
+          <Radio label="Outcome" options={['Win','Loss','BE']} value={d.outcome} onChange={f('outcome')} />
+        </div>
+        {/* Session balance + risk strip */}
+        <div className="mt-4 flex gap-3 flex-wrap">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0c0c0e] border border-[#18181b] rounded-sm flex-1 min-w-[160px]">
+            <span className="text-[8px] text-[#3f3f46] uppercase tracking-widest font-bold font-mono">Balance</span>
+            <span className="text-[12px] text-white font-mono font-bold ml-auto">{d.balance ? '$' + parseFloat(d.balance).toFixed(2) : '—'}</span>
+          </div>
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0c0c0e] border border-[#18181b] rounded-sm flex-1 min-w-[160px]">
+            <span className="text-[8px] text-[#3f3f46] uppercase tracking-widest font-bold font-mono">Risk Amount</span>
+            <span className="text-[12px] text-rose-400 font-mono font-bold ml-auto">
+              {d.balance && d.riskPct ? '-$' + (parseFloat(d.balance) * parseFloat(d.riskPct) / 100).toFixed(2) : '—'}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* S3: Timing & Duration */}
+      <section>
+        <SectionLabel>Timing & Duration</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Inp label="Entry Time" type="datetime-local" value={d.entryTime} onChange={handleEntryTime} />
+          <Inp label="Exit Time" type="datetime-local" value={d.exitTime} onChange={handleExitTime} />
+          <Sel label="Day of Week" options={['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']} value={d.dayOfWeek} onChange={f('dayOfWeek')} />
+          <Inp label="Trade Duration" placeholder="Auto-calculated" value={d.duration} onChange={f('duration')} />
+        </div>
+      </section>
+
+      {/* S4: Timeframe Analysis */}
+      <section>
+        <SectionLabel>Timeframe Analysis</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Sel label="Entry TF" options={['1M','3M','5M','15M','30MIN']} value={d.entryTF} onChange={f('entryTF')} />
+          <Sel label="Analysis TF" options={['15M','30MIN','1HR','2HR','4HR']} value={d.analysisTF} onChange={f('analysisTF')} />
+          <Sel label="Context TF" options={['1W','1D','4HR']} value={d.contextTF} onChange={f('contextTF')} />
+        </div>
+      </section>
+
+      {/* S5: Entry & Trade Management */}
+      <section>
+        <SectionLabel>Entry & Trade Management</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Sel label="Entry Method" options={['Market','Limit','Stop']} value={d.entryMethod} onChange={f('entryMethod')} />
+          <Inp label="Exit Strategy" placeholder="e.g. Scale out at 1R, close at 2R" value={d.exitStrategy} onChange={f('exitStrategy')} />
+          <Sel label="Management Type" options={['Rule-based','Discretionary','Hybrid']} value={d.mgmtType} onChange={f('mgmtType')} />
+          <Sel label="Risk Heat" options={['Low','Medium','High']} value={d.riskHeat} onChange={f('riskHeat')} />
+          <Inp label="Spread at Entry (Pips)" type="number" placeholder="1.2" value={d.spread} onChange={f('spread')} />
+          <Inp label="Strategy Version" placeholder="v2.3" value={d.stratVersion} onChange={f('stratVersion')} />
+          <div className="lg:col-span-2 space-y-1">
+            <Checkbox label="Break-Even Applied" checked={d.breakevenApplied} onChange={f('breakevenApplied')} />
+            <Checkbox label="Trailing Stop Applied" checked={d.trailingStop} onChange={f('trailingStop')} />
+          </div>
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+// ─── Step 3 — Context ─────────────────────────────────────────────────────────
+function Step3({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  const SCORES = [
+    ['marketAlign','Market Alignment'],
+    ['setupClarity','Setup Clarity'],
+    ['entryPrecision','Entry Precision'],
+    ['confluence','Confluence'],
+    ['timingQuality','Timing Quality'],
+    ['signalValidation','Signal Validation'],
+  ];
+  return (
+    <div className="space-y-10">
+
+      {/* S1: Market Environment */}
+      <section>
+        <SectionLabel>Market Environment</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Sel label="Market Regime" options={['Bullish','Bearish','Ranging']} value={d.regime} onChange={f('regime')} />
+          <Sel label="Trend Direction" options={['Bullish','Bearish','Sideways']} value={d.trendDir} onChange={f('trendDir')} />
+          <Sel label="Volatility" options={['Low','Normal','High']} value={d.volatility} onChange={f('volatility')} />
+          <Sel label="Liquidity" options={['Low','Normal','High']} value={d.liquidity} onChange={f('liquidity')} />
+          <Sel label="News Environment" options={['Clear','Minor','Major']} value={d.news} onChange={f('news')} />
+          <Sel label="Session" options={['London','New York','Tokyo','Sydney','Overlap']} value={d.session} onChange={f('session')} />
+          <Sel label="Session Phase" options={['Open','Mid','Close']} value={d.sessionPhase} onChange={f('sessionPhase')} />
+          <Inp label="ATR at Entry" type="number" placeholder="35.0" value={d.atr} onChange={f('atr')} />
+        </div>
+      </section>
+
+      {/* S2: Higher Timeframe Context */}
+      <section>
+        <SectionLabel>Higher Timeframe Context</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Radio label="HTF Bias" options={['Bull','Bear','Range']} value={d.htfBias} onChange={f('htfBias')} />
+          <Radio label="HTF Key Level Present" options={['Yes','No']} value={d.htfKeyLevel} onChange={f('htfKeyLevel')} />
+          <Radio label="Trend Alignment" options={['Yes','No']} value={d.trendAlignment} onChange={f('trendAlignment')} />
+          <Radio label="MTF Alignment" options={['Yes','No']} value={d.mtfAlignment} onChange={f('mtfAlignment')} />
+          <div className="lg:col-span-2 space-y-5">
+            <Txt label="Higher TF Context" value={d.htfContext} onChange={f('htfContext')} placeholder="Weekly / Daily bias and key levels..." />
+            <Txt label="Analysis TF Context" value={d.analysisTFContext} onChange={f('analysisTFContext')} placeholder="4H / 1H structure overview..." />
+            <Txt label="Entry TF Context" value={d.entryTFContext} onChange={f('entryTFContext')} placeholder="15M / 5M entry setup details..." />
+            <Txt label="Other Confluences" value={d.otherConfl} onChange={f('otherConfl')} placeholder="Any additional confluences..." />
+          </div>
+        </div>
+      </section>
+
+      {/* S3: Technical Signals */}
+      <section>
+        <SectionLabel>Technical Signals</SectionLabel>
+        <div className="space-y-5">
+          <Inp label="Timing Context" placeholder="e.g. Kill zone, London open push..." value={d.timingCtx} onChange={f('timingCtx')} />
+          <Inp label="Candle Pattern" placeholder="e.g. Engulfing, Pin Bar, Doji..." value={d.candlePattern} onChange={f('candlePattern')} />
+          <Txt label="Primary Signals" value={d.primarySignals} onChange={f('primarySignals')} placeholder="Describe the primary technical signals..." rows={2} />
+          <Txt label="Secondary Signals" value={d.secondarySignals} onChange={f('secondarySignals')} placeholder="Describe any secondary signals..." rows={2} />
+          <Inp label="Indicator State" placeholder="RSI 62, MACD bullish cross, above 50 EMA..." value={d.indicatorState} onChange={f('indicatorState')} />
+          <Txt label="Liquidity Targets" value={d.liquidityTargets} onChange={f('liquidityTargets')} placeholder="Identify nearby liquidity pools, equal highs/lows, order blocks..." rows={2} />
+        </div>
+      </section>
+
+      {/* S4: Key Level Analysis */}
+      <section>
+        <SectionLabel>Key Level Analysis</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Radio label="Key Level Respect" options={['Yes','No','Partial']} value={d.keyLevelRespect} onChange={f('keyLevelRespect')} />
+          <Sel label="Key Level Type" options={['Support','Resistance','Pivot','Fib Level']} value={d.keyLevelType} onChange={f('keyLevelType')} />
+          <Radio label="Momentum Validity" options={['Strong','Moderate','Weak']} value={d.momentumValidity} onChange={f('momentumValidity')} />
+          <Radio label="Target Logic Clarity" options={['High','Medium','Low']} value={d.targetClarity} onChange={f('targetClarity')} />
+        </div>
+      </section>
+
+      {/* S5: Setup Quality Scores */}
+      <section>
+        <SectionLabel>Setup Quality Scores (1–5)</SectionLabel>
+        <div className="mt-1">
+          {SCORES.map(([k, name]) => <Dots key={k} name={name} value={d[k]} onChange={v => f(k)(v)} />)}
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+// ─── Step 4 — Review ──────────────────────────────────────────────────────────
+function Step4({ d, set }) {
+  const f = k => v => set({ ...d, [k]: v });
+  return (
+    <div className="space-y-10">
+
+      {/* S1: Exit Causation */}
+      <section>
+        <SectionLabel>Exit Causation</SectionLabel>
+        <Sel
+          label="Primary Exit Reason"
+          options={['Target Hit','Partial TP','Stop Hit','Time Exit','Structure Change','News','Emotional Exit']}
+          value={d.exitReason}
+          onChange={f('exitReason')}
+        />
+      </section>
+
+      {/* S2: Performance Data */}
+      <section>
+        <SectionLabel>Performance Data</SectionLabel>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Inp label="Pips / Points" type="number" placeholder="25" value={d.pips} onChange={f('pips')} />
+          <Inp label="P&L Amount $" type="number" placeholder="+250.00" value={d.pnl} onChange={f('pnl')} />
+          <Inp label="Account Balance" type="number" placeholder="10000.00" value={d.balance} onChange={f('balance')} />
+          <Inp label="Commission / Fees" type="number" placeholder="3.50" value={d.commission} onChange={f('commission')} />
+        </div>
+      </section>
+
+      {/* S3: Planning vs Execution */}
+      <section>
+        <SectionLabel>Planning vs Execution</SectionLabel>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <Inp label="Planned Entry" type="number" placeholder="1.09250" value={d.plannedEntry} onChange={f('plannedEntry')} />
+          <Inp label="Planned SL" type="number" placeholder="1.09100" value={d.plannedSL} onChange={f('plannedSL')} />
+          <Inp label="Planned TP" type="number" placeholder="1.09600" value={d.plannedTP} onChange={f('plannedTP')} />
+          <Inp label="Actual Entry" type="number" placeholder="1.09260" value={d.actualEntry} onChange={f('actualEntry')} />
+          <Inp label="Actual SL" type="number" placeholder="1.09090" value={d.actualSL} onChange={f('actualSL')} />
+          <Inp label="Actual TP" type="number" placeholder="1.09590" value={d.actualTP} onChange={f('actualTP')} />
+        </div>
+      </section>
+
+      {/* S4: Trade Metrics */}
+      <section>
+        <SectionLabel>Trade Metrics</SectionLabel>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <Inp label="MAE — Max Adverse Excursion" placeholder="e.g. 12 pips" value={d.mae} onChange={f('mae')} />
+          <Inp label="MFE — Max Favorable Excursion" placeholder="e.g. 38 pips" value={d.mfe} onChange={f('mfe')} />
+          <Inp label="Monetary Risk $" type="number" placeholder="100.00" value={d.monetaryRisk} onChange={f('monetaryRisk')} />
+          <Inp label="Potential Reward $" type="number" placeholder="250.00" value={d.potentialReward} onChange={f('potentialReward')} />
+          <Inp label="Planned R:R" placeholder="1:2" value={d.plannedRR} onChange={f('plannedRR')} />
+          <Inp label="Achieved R:R" placeholder="1:1.5" value={d.achievedRR} onChange={f('achievedRR')} />
+        </div>
+      </section>
+
+      {/* S5: Psychological State */}
+      <section>
+        <SectionLabel>Psychological State</SectionLabel>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Sel label="Emotional State" options={['Calm','Anxious','FOMO','Confident','Fearful','Neutral']} value={d.emotionalState} onChange={f('emotionalState')} />
+          <Sel label="Focus / Stress" options={['Low','Medium','High']} value={d.focusStress} onChange={f('focusStress')} />
+          <Inp label="Rules Followed %" type="number" placeholder="80" value={d.rulesFollowed} onChange={f('rulesFollowed')} />
+          <Slider label="Confidence Level" min={1} max={5} value={d.confidence} onChange={f('confidence')} suffix="/5" />
+          <Sel label="Post-Trade Emotion" options={['Neutral','Relieved','Euphoric','Frustrated','Regretful','Calm','Anxious']} value={d.postEmotion} onChange={f('postEmotion')} />
+          <Inp label="Consecutive Trade Count" type="number" placeholder="3" value={d.consecutiveTrades} onChange={f('consecutiveTrades')} />
+          <div className="lg:col-span-2 space-y-1">
+            <Checkbox label="Worth repeating this setup" checked={d.worthRepeating} onChange={f('worthRepeating')} />
+            <Checkbox label="Recency bias — influenced by last trade" checked={d.recencyBias} onChange={f('recencyBias')} />
+          </div>
+        </div>
+      </section>
+
+      {/* S6: Trade Debrief */}
+      <section>
+        <SectionLabel>Trade Debrief</SectionLabel>
+        <div className="space-y-5">
+          <Txt label="What Worked" value={d.whatWorked} onChange={f('whatWorked')} placeholder="Describe what went well in this trade..." />
+          <Txt label="What Failed" value={d.whatFailed} onChange={f('whatFailed')} placeholder="Describe what went wrong or could be improved..." />
+          <Txt label="Future Adjustments" value={d.adjustments} onChange={f('adjustments')} placeholder="What would you do differently next time?" />
+          <Txt label="Additional Notes" rows={4} value={d.notes} onChange={f('notes')} placeholder="Any additional observations, ideas, market context, or lessons learned..." />
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+const StatItem = ({ label, value, colorCls }) => (
+  <div className="flex justify-between items-center group py-1 border-b border-[#18181b] last:border-0">
+    <span className="text-[10px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] group-hover:text-[#71717a] transition-colors">{label}</span>
+    <span className={`text-[11px] lg:text-xs font-mono font-bold ${colorCls || 'text-white'}`}>{value}</span>
+  </div>
+);
+
+const StatBox = ({ label, value, colorCls }) => (
+  <div className="bg-[#0c0c0e] border border-[#18181b] p-3 lg:p-4 rounded-sm space-y-1">
+    <span className="text-[7px] lg:text-[8px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] block">{label}</span>
+    <div className={`text-[11px] lg:text-xs font-mono font-bold ${colorCls || 'text-white'}`}>{value}</div>
+  </div>
+);
+
+function Sidebar({ trades }) {
+  const stats = useMemo(() => computeStats(trades), [trades]);
+  const has = trades.length > 0;
+
+  return (
+    <div className="w-full lg:w-[380px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
+      {/* Header */}
+      <div className="p-6 lg:p-8 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-1.5 bg-[#4e8cff] animate-pulse" />
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Session</h2>
+        </div>
+        <span className="text-[9px] lg:text-[10px] font-mono font-bold text-emerald-500">
+          {stats ? (stats.growth >= 0 ? '+' : '') + stats.growth.toFixed(1) + '%' : '+0.0%'} Portfolio Growth
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-8 custom-scrollbar pb-28 lg:pb-10">
+
+        {/* Net P&L block */}
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div className="text-[9px] font-bold text-[#3f3f46] uppercase tracking-[0.2em]">Net P&L</div>
+            <div className={`text-[12px] lg:text-[13px] font-mono font-bold tabular-nums ${
+              has ? (stats.netPnL > 0 ? 'text-emerald-400' : stats.netPnL < 0 ? 'text-rose-400' : 'text-white') : 'text-white'
+            }`}>
+              {stats ? fmtUsd(stats.netPnL) : '$0.00'}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 lg:p-4 bg-[#0c0c0e] border border-[#18181b] rounded-sm">
+              <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1.5">Start Balance</div>
+              <div className="text-[12px] lg:text-[13px] font-mono text-[#a1a1aa]">${stats ? stats.startBalance.toFixed(2) : '0.00'}</div>
+            </div>
+            <div className="p-3 lg:p-4 bg-[#0c0c0e] border border-[#18181b] rounded-sm text-right">
+              <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1.5">End Balance</div>
+              <div className="text-[12px] lg:text-[13px] font-mono text-white">${stats ? stats.endBalance.toFixed(2) : '0.00'}</div>
+            </div>
+          </div>
+          <div className="flex justify-between items-center text-[10px] font-mono px-4 py-3 bg-[#0c0c0e]/50 border border-[#18181b] rounded-sm">
+            <span className="text-[#3f3f46] uppercase tracking-widest font-bold">Fees & Comm</span>
+            <span className="text-rose-500 font-bold">{stats ? '-$' + stats.commissions.toFixed(2) : '$0.00'}</span>
+          </div>
+        </div>
+
+        {/* Trading stats */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-[#18181b]">
+            <div className="w-[2px] h-3 bg-[#3f3f46] flex-shrink-0" />
+            <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#3f3f46]">Trading Stats</h3>
+          </div>
+          <div className="px-1">
+            <StatItem label="Buys" value={has ? stats.buys : 0} />
+            <StatItem label="Sells" value={has ? stats.sells : 0} />
+            <StatItem label="Total Trades" value={has ? stats.total : 0} />
+            <StatItem label="Best Trade" value={has ? fmtUsd(stats.bestTrade) : '$0.00'} colorCls={has && stats.bestTrade > 0 ? 'text-emerald-400' : undefined} />
+            <StatItem label="Worst Trade" value={has ? fmtUsd(stats.worstTrade) : '$0.00'} colorCls={has && stats.worstTrade < 0 ? 'text-rose-400' : undefined} />
+          </div>
+        </section>
+
+        {/* Win rate bar */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-[2px] h-3 bg-[#3f3f46] flex-shrink-0" />
+              <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#3f3f46]">Win Rate</h3>
+            </div>
+            <span className="text-xs font-mono text-white">{has ? Math.round(stats.winRate) + '%' : '0%'}</span>
+          </div>
+          <div className="h-[2px] w-full bg-[#18181b]">
+            <div className="h-full bg-[#4e8cff] shadow-[0_0_10px_#3b82f6] transition-all duration-500"
+              style={{ width: has ? stats.winRate + '%' : '0%' }} />
+          </div>
+          <div className="flex justify-between text-[9px] font-mono font-bold tracking-[0.1em]">
+            <span className="text-[#4e8cff] uppercase">Wins {String(has ? stats.wins : 0).padStart(2,'0')}</span>
+            <span className="text-[#3f3f46]">{has ? stats.wins + ' OF ' + stats.total : '0 OF 0'}</span>
+            <span className="text-rose-500 uppercase">Losses {String(has ? stats.losses : 0).padStart(2,'0')}</span>
+          </div>
+        </section>
+
+        {/* Metric grid */}
+        <section className="grid grid-cols-2 gap-3">
+          <StatBox label="PROFIT FACTOR" value={has ? stats.profitFactor : '0'} colorCls={has && parseFloat(stats.profitFactor) > 1 ? 'text-emerald-400' : undefined} />
+          <StatBox label="EXPECTANCY" value={has ? stats.expectancy : '0'} colorCls={has && parseFloat(stats.expectancy) > 0 ? 'text-emerald-400' : undefined} />
+          <StatBox label="AVG R:R" value={has ? stats.avgRR : '0'} colorCls={has && parseFloat(stats.avgRR) > 0 ? 'text-emerald-400' : undefined} />
+          <StatBox label="W / L" value={has ? stats.wins + '/' + stats.losses : '0/0'} />
+        </section>
+
+        {/* History button */}
+        <button className="w-full flex items-center justify-center gap-3 p-4 border border-[#18181b] hover:border-[#3f3f46] text-[#3f3f46] hover:text-white transition-all rounded-sm bg-[#0c0c0e]/30">
+          <span className="text-[9px] font-bold uppercase tracking-[0.3em]">Session History</span>
+          <span className="text-[13px] leading-none">↺</span>
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+const STEP_CONFIG = [
+  { n:1, label:'DECISION',  Component:Step1, key:'step1' },
+  { n:2, label:'EXECUTION', Component:Step2, key:'step2' },
+  { n:3, label:'CONTEXT',   Component:Step3, key:'step3' },
+  { n:4, label:'REVIEW',    Component:Step4, key:'step4' },
+];
+
+export default function TradingJournal({ onSave, trades: initialTrades = [] }) {
+  const [step, setStep] = useState(1);
+  const [data, setData] = useState({ step1:{}, step2:{}, step3:{}, step4:{} });
+  const [savedTrades, setSavedTrades] = useState(initialTrades);
+  const [activeTab, setActiveTab] = useState('form');
+
+  const setStepData = useCallback(key => val => setData(prev => ({...prev,[key]:val})), []);
+
+  const handleExport = () => {
+    const e = { timestamp: new Date().toISOString(), ...data.step1, ...data.step2, ...data.step3, ...data.step4 };
+    delete e.entryScreenshot; delete e.exitScreenshot;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(e,null,2)], {type:'application/json'}));
+    a.download = `trade-${e.instrument||'journal'}-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  };
+
+  const handleSave = () => {
+    const entry = {...data.step1,...data.step2,...data.step3,...data.step4};
+    setSavedTrades(prev => [...prev, entry]);
+    if (onSave) onSave(data);
+    setData({ step1:{}, step2:{}, step3:{}, step4:{} });
+    setStep(1);
+  };
+
+  const cur = STEP_CONFIG[step - 1];
+
+  return (
+    <div className="flex flex-col lg:flex-row h-screen bg-[#09090b] text-[#d4d4d8] font-mono overflow-hidden">
+
+      {/* ── Form column ─────────────────────────────────────────────────────── */}
+      <main className={`flex-1 min-w-0 flex flex-col overflow-hidden bg-[#09090b] border-r border-[#18181b] ${activeTab === 'stats' ? 'hidden lg:flex' : 'flex'}`}>
+
+        {/* Progress bar */}
+        <div className="h-[2px] bg-[#18181b] flex-shrink-0">
+          <div className="h-full bg-[#4e8cff] shadow-[0_0_10px_#3b82f6] transition-all duration-500"
+            style={{ width:`${(step/STEP_CONFIG.length)*100}%` }} />
+        </div>
+
+        {/* Step nav — aligned to same max-w as form */}
+        <nav className="flex-shrink-0 border-b border-[#18181b]/50 overflow-x-auto no-scrollbar">
+          <div className="px-6 lg:px-12 flex items-center space-x-1">
+            {STEP_CONFIG.map((s, idx) => (
+              <React.Fragment key={s.n}>
+                <button
+                  onClick={() => setStep(s.n)}
+                  className={`flex items-center space-x-2 lg:space-x-3 text-[9px] lg:text-[10px] uppercase tracking-[0.2em] font-bold transition-all whitespace-nowrap py-4 border-b-2 -mb-px ${
+                    step === s.n ? 'text-[#4e8cff] border-[#4e8cff]' : 'text-[#3f3f46] hover:text-[#71717a] border-transparent'
+                  }`}
+                >
+                  <span className={`w-5 h-5 lg:w-6 lg:h-6 rounded-full flex items-center justify-center text-[8px] lg:text-[9px] border flex-shrink-0 transition-all ${
+                    step === s.n ? 'bg-[#4e8cff] text-[#0d0f10] border-[#4e8cff]' :
+                    step > s.n  ? 'bg-[#0c0c0e] text-[#4e8cff] border-[#4e8cff]/40' :
+                                  'border-[#18181b] bg-[#0c0c0e] text-[#3f3f46]'
+                  }`}>
+                    {step > s.n ? '✓' : s.n}
+                  </span>
+                  <span className={step === s.n ? 'block' : 'hidden md:block'}>{s.label}</span>
+                </button>
+                {idx < STEP_CONFIG.length - 1 && (
+                  <div className="w-6 lg:w-10 h-[1px] bg-[#18181b] mx-1 flex-shrink-0" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </nav>
+
+        {/* Scrollable form body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="px-6 lg:px-12 py-8 lg:py-10">
+            <cur.Component d={data[cur.key]} set={setStepData(cur.key)} />
+            <div className="h-8" />
+          </div>
+        </div>
+
+        {/* Footer nav — aligned to same max-w as form */}
+        <div className="flex-shrink-0 border-t border-[#18181b] bg-[#09090b]">
+          <div className="px-6 lg:px-12 py-5 flex justify-between items-center">
+
+            {step > 1 ? (
+              <button onClick={() => setStep(s => s - 1)}
+                className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold text-[#3f3f46] hover:text-white transition-colors font-mono">
+                <span className="text-sm leading-none">←</span> Prev
+              </button>
+            ) : <div />}
+
+            <div className="flex items-center gap-4">
+
+              {step < STEP_CONFIG.length ? (
+                <button onClick={() => setStep(s => s + 1)}
+                  className="flex items-center gap-3 text-white hover:text-[#4e8cff] transition-all uppercase tracking-[0.3em] font-bold text-[10px] lg:text-[11px] group">
+                  <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full border border-[#18181b] flex items-center justify-center group-hover:border-[#4e8cff] transition-all bg-[#0c0c0e]">
+                    <span className="text-sm leading-none group-hover:translate-x-0.5 transition-transform inline-block">→</span>
+                  </div>
+                  Next
+                </button>
+              ) : (
+                <button onClick={handleSave}
+                  className="flex items-center gap-3 text-white hover:text-[#4e8cff] transition-all uppercase tracking-[0.3em] font-bold text-[10px] lg:text-[11px] group">
+                  <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full border border-[#18181b] flex items-center justify-center group-hover:border-[#4e8cff] transition-all bg-[#0c0c0e]">
+                    <span className="text-sm leading-none group-hover:scale-110 transition-transform inline-block">+</span>
+                  </div>
+                  Commit Entry
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      </main>
+
+      {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
+      <aside className={`w-full lg:w-auto bg-[#09090b] flex flex-col h-full overflow-hidden ${activeTab === 'form' ? 'hidden lg:flex' : 'flex'}`}>
+        <Sidebar trades={savedTrades} />
+      </aside>
+
+      {/* ── Mobile tab bar ────────────────────────────────────────────────────── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#09090b]/90 backdrop-blur-lg border-t border-[#18181b] flex items-center justify-around py-3 px-4 z-50">
+        <button onClick={() => setActiveTab('form')}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'form' ? 'text-[#4e8cff]' : 'text-[#3f3f46]'}`}>
+          <span className="text-[18px] leading-none">⊞</span>
+          <span className="text-[8px] font-bold uppercase tracking-widest">Entry</span>
+        </button>
+        <button onClick={() => setActiveTab('stats')}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'stats' ? 'text-[#4e8cff]' : 'text-[#3f3f46]'}`}>
+          <span className="text-[18px] leading-none">▦</span>
+          <span className="text-[8px] font-bold uppercase tracking-widest">Stats</span>
+        </button>
+      </nav>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 2px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #18181b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #27272a; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        textarea::placeholder, input::placeholder { opacity: 0.3; }
+        input[type=range] { accent-color: #4e8cff; }
+        select option { background: #0c0c0e; color: #e4e4e7; }
+        @media (max-width: 1024px) { textarea, input, select { font-size: 16px !important; } }
+      `}} />
+    </div>
+  );
+}
