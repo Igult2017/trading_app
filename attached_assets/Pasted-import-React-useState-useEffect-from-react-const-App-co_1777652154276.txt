@@ -1,0 +1,87 @@
+import React, { useState, useEffect } from 'react';
+
+const App = () => {
+  const [progress, setProgress] = useState(0);
+
+  // Link to Montserrat and DM Mono fonts
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Montserrat:wght@400;500;600;700&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }, []);
+
+  useEffect(() => {
+    let timer;
+    
+    timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          return 0; // Set to loop automatically since controls are removed
+        }
+        // Smoothly vary the increments for a more "human" feel
+        const increment = Math.random() * 2.5; 
+        return prev + increment;
+      });
+    }, 80);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div 
+      className="min-h-screen bg-[#0B0F1A] flex flex-col items-center justify-center antialiased text-slate-200 p-4"
+      style={{ fontFamily: "'Montserrat', sans-serif" }}
+    >
+      {/* Main Content Area */}
+      <div className="w-full max-w-md text-center relative">
+        
+        {/* Spinner Section */}
+        <div className="relative mb-10 flex justify-center">
+          <div className="relative w-24 h-24">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle
+                cx="48"
+                cy="48"
+                r="44"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="transparent"
+                className="text-slate-800/50"
+              />
+              <circle
+                cx="48"
+                cy="48"
+                r="44"
+                stroke="currentColor"
+                strokeWidth="4"
+                strokeDasharray={276.5}
+                strokeDashoffset={276.5 - (276.5 * progress) / 100}
+                strokeLinecap="round"
+                fill="transparent"
+                className="text-blue-500 transition-all duration-300 ease-out shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+              />
+            </svg>
+            {/* Inner spinning element for continuous motion feel */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-10 h-10 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Progress Area */}
+        <div className="flex flex-col items-center gap-3">
+          {/* Progress bar */}
+          <div className="w-56 h-1 bg-slate-900 rounded-full overflow-hidden border border-slate-800/30">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;

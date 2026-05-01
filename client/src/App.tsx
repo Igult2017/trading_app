@@ -27,13 +27,11 @@ import AdminPanel from "@/pages/AdminPanel";
 import AccountsPage from "@/pages/AccountsPage";
 import NotFound from "@/pages/not-found";
 
+import TradingLoader from "@/components/TradingLoader";
+
 // ── Shared loading screen ─────────────────────────────────────────────────────
 function LoadingScreen() {
-  return (
-    <div style={{ minHeight: '100vh', background: '#0D0F14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#4AE8D8', fontSize: 14, fontFamily: 'monospace' }}>Loading…</div>
-    </div>
-  );
+  return <TradingLoader fullScreen message="Connecting to your journal…" />;
 }
 
 // ── Route guards ─────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import TradingLoader from '@/components/TradingLoader';
 
 type Mode = 'login' | 'signup';
 
@@ -204,11 +205,7 @@ export default function AuthPage() {
 }
 
 function LoadingScreen() {
-  return (
-    <div style={{ minHeight: '100vh', background: '#020817', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#3b82f6', fontSize: 14, fontFamily: 'monospace' }}>Loading…</div>
-    </div>
-  );
+  return <TradingLoader fullScreen message="Verifying your session…" />;
 }
 
 const C = {

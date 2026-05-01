@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
+import TradingLoader from "@/components/TradingLoader";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -774,12 +775,7 @@ function ConfBadge({ level }: { level: string }) {
 }
 
 function AILoadingState({ label }: { label: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 14 }}>
-      <Loader2 style={{ width: 20, height: 20, color: T.blue, animation: "spin 1s linear infinite" }} />
-      <span style={{ ...mono, fontSize: 10, letterSpacing: ".18em", color: T.muted, textTransform: "uppercase" }}>{label}</span>
-    </div>
-  );
+  return <TradingLoader message={label} size="md" />;
 }
 
 function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
@@ -1042,11 +1038,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   const F = { fontFamily: FONT };
 
   if (!queryEnabled || isLoading) return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", ...F }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Loader2 style={{ width: 16, height: 16, color: T.blue, animation: "spin 1s linear infinite" }} />
-        <span style={{ fontSize: 11, color: T.muted, letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 700 }}>Analysing your trades…</span>
-      </div>
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <TradingLoader message="Analysing your trades…" />
     </div>
   );
 

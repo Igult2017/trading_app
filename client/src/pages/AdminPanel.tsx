@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import TradingLoader from '@/components/TradingLoader';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -2484,7 +2485,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--admin-bg)', color: '#3a5070', fontFamily: FONT, fontSize: '13px' }}>Loading…</div>;
+  if (loading) return <TradingLoader fullScreen message="Loading admin panel…" />;
 
   const adminEmail = user?.email ?? '';
   const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;

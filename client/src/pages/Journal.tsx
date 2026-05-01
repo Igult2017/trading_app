@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import TradingLoader from '@/components/TradingLoader';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -610,12 +611,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
 
   if (metricsLoading || entriesLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 80 }}>
-        <Loader2 size={24} style={{ color: '#38bdf8', animation: 'spin 1s linear infinite' }} />
-        <span style={{ marginLeft: 12, fontSize: 12, color: 'rgba(148,163,184,0.7)' }}>Loading dashboard...</span>
-      </div>
-    );
+    return <TradingLoader message="Building your dashboard…" />;
   }
 
   return (

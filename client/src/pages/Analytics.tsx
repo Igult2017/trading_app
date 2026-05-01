@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
+import TradingLoader from '@/components/TradingLoader';
 
 interface Analytics {
   totalTrades: number;
@@ -19,13 +20,7 @@ export default function Analytics() {
   });
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8 text-muted-foreground">
-          Loading analytics...
-        </div>
-      </div>
-    );
+    return <TradingLoader message="Loading analytics…" />;
   }
 
   if (!analytics) {
