@@ -216,6 +216,7 @@ function StickyChip({ storageKey, label, value, options, onChoose }: {
   storageKey: string; label: string; value: string; options?: string[]; onChoose: (v: string) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [typingCustom, setTypingCustom] = useState(false);
   const [sticky, setSticky] = useState<string>(() => {
     try { return sessionStorage.getItem(storageKey) || ""; } catch { return ""; }
   });
@@ -232,13 +233,44 @@ function StickyChip({ storageKey, label, value, options, onChoose }: {
     try { sessionStorage.setItem(storageKey, v); } catch {}
     setSticky(v);
     setDraft("");
+    setTypingCustom(false);
     onChoose(v);
   };
 
   const clear = () => {
     try { sessionStorage.removeItem(storageKey); } catch {}
     setSticky("");
+    setTypingCustom(false);
+    setDraft("");
   };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value;
+    if (!v) return;
+    if (v === "__other__") {
+      setTypingCustom(true);
+      setDraft("");
+    } else {
+      apply(v);
+    }
+  };
+
+  // Text-input row (used both when no options, and when "Other…" is chosen from the dropdown)
+  const textInputRow = (
+    <div className="flex gap-1">
+      <input autoFocus type="text" placeholder="Type to pin…" value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); apply(draft); } }}
+        className="flex-1 bg-[#0c0c0e] border border-[#4e8cff]/40 focus:border-[#4e8cff]/80 px-3 py-2 rounded-sm outline-none text-[#e4e4e7] text-xs transition-all"
+      />
+      {typingCustom && (
+        <button type="button" onClick={() => { setTypingCustom(false); setDraft(""); }}
+          className="px-2.5 py-2 bg-[#0c0c0e] border border-[#27272a] rounded-sm text-[#3f3f46] hover:text-white text-xs transition-all">↩</button>
+      )}
+      <button type="button" onClick={() => apply(draft)} disabled={!draft.trim()}
+        className="px-2.5 py-2 bg-[#0c0c0e] border border-[#27272a] hover:border-[#4e8cff]/50 rounded-sm text-[#3f3f46] hover:text-[#4e8cff] disabled:opacity-30 text-xs transition-all">pin</button>
+    </div>
+  );
 
   return (
     <div className="space-y-1.5">
@@ -249,24 +281,17 @@ function StickyChip({ storageKey, label, value, options, onChoose }: {
           <button type="button" onClick={clear}
             className="ml-1 text-[#4e8cff]/60 hover:text-rose-400 text-xs leading-none transition-colors">×</button>
         </div>
-      ) : options ? (
-        <select value="" onChange={e => apply(e.target.value)}
+      ) : options && !typingCustom ? (
+        <select value="" onChange={handleSelectChange}
           className="w-full bg-[#0c0c0e] border border-[#27272a] focus:border-[#4e8cff]/50 px-3 py-2 rounded-sm outline-none text-[#71717a] text-xs transition-all appearance-none cursor-pointer"
           style={{ backgroundImage: OBS_ARROW, backgroundRepeat:"no-repeat", backgroundPosition:"right 10px center", paddingRight:28 }}
         >
           <option value="">Select to pin…</option>
           {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
-          <option value="Other">Other…</option>
+          <option value="__other__">Other…</option>
         </select>
       ) : (
-        <div className="flex gap-1">
-          <input type="text" placeholder="Type to pin…" value={draft} onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); apply(draft); } }}
-            className="flex-1 bg-[#0c0c0e] border border-[#27272a] focus:border-[#4e8cff]/50 px-3 py-2 rounded-sm outline-none text-[#e4e4e7] text-xs transition-all"
-          />
-          <button type="button" onClick={() => apply(draft)}
-            className="px-2.5 py-2 bg-[#0c0c0e] border border-[#27272a] hover:border-[#4e8cff]/50 rounded-sm text-[#3f3f46] hover:text-[#4e8cff] text-xs transition-all">pin</button>
-        </div>
+        textInputRow
       )}
       <div className="text-[8px] text-[#27272a] uppercase tracking-widest">
         {sticky ? "Auto-fills until removed" : "Pin once, reuse all session"}
