@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,8 @@ export default function TradeHistory() {
     return true;
   };
 
-  if (isLoading) {
+  const showTradeLoader = useDelayedLoading(isLoading);
+  if (showTradeLoader) {
     return (
       <Card data-testid="card-trade-journal">
         <CardHeader>
@@ -52,10 +54,8 @@ export default function TradeHistory() {
             Trading Journal
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            Loading journal entries...
-          </div>
+        <CardContent style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+          <TradingLoader size="sm" message="Loading journal entries…" />
         </CardContent>
       </Card>
     );

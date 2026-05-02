@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
-import { Loader2 } from 'lucide-react';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
@@ -357,12 +357,11 @@ export default function MetricsPanel({ sessionId }: { sessionId?:string|null }) 
   `;
 
   /* ── GUARDS ── */
-  if (sessionId && (isLoading || (balLoading && !metricsData))) return (
-    <div className="mp-root" style={{ minHeight:'100vh', background:P.bg, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+  const showMetricsLoader = useDelayedLoading(!!sessionId && (isLoading || (balLoading && !metricsData)));
+  if (showMetricsLoader) return (
+    <div className="mp-root" style={{ minHeight:'100vh', background:P.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
       <style>{css}</style>
-      <style>{`@keyframes mp-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
-      <Loader2 style={{ color:P.cyan, animation:'mp-spin 1s linear infinite', width:14, height:14 }}/>
-      <Mono size={10} color={P.dim} data-testid="text-metrics-loading">Loading metrics…</Mono>
+      <TradingLoader size="sm" message="Loading metrics…" />
     </div>
   );
   // Error state intentionally falls through too: render full chrome with zero

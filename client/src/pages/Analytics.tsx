@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
-import TradingLoader from '@/components/TradingLoader';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 
 interface Analytics {
   totalTrades: number;
@@ -19,7 +19,8 @@ export default function Analytics() {
     queryKey: ['/api/analytics'],
   });
 
-  if (isLoading) {
+  const showAnalyticsLoader = useDelayedLoading(isLoading);
+  if (showAnalyticsLoader) {
     return <TradingLoader message="Loading analytics…" />;
   }
 

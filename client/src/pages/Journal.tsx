@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import TradingLoader from '@/components/TradingLoader';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -610,7 +610,8 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
   const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 6);
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
 
-  if (metricsLoading || entriesLoading) {
+  const showDashLoader = useDelayedLoading(metricsLoading || entriesLoading);
+  if (showDashLoader) {
     return <TradingLoader message="Building your dashboard…" />;
   }
 

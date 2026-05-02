@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
-import { Loader2 } from "lucide-react";
+import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 
 const FONT   = "'Montserrat', sans-serif";
 const GREEN  = "#00E5A0";
@@ -329,11 +329,11 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const monthOptions = MONTH_NAMES.map((n, i) => ({ value: i + 1, label: n.toUpperCase() }));
   const yearOptions  = YEARS.map(y => ({ value: y, label: String(y) }));
 
-  if (sessionId && isLoading) {
+  const showCalendarLoader = useDelayedLoading(!!sessionId && isLoading);
+  if (showCalendarLoader) {
     return (
       <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Loader2 size={24} style={{ color: GREEN, animation: "spin 1s linear infinite" }} />
-        <span style={{ marginLeft: 12, fontSize: 11, color: "#3A4558", fontWeight: 800 }}>Loading calendar data...</span>
+        <TradingLoader size="sm" message="Loading calendar…" />
       </div>
     );
   }

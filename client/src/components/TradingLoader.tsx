@@ -13,6 +13,20 @@ const MESSAGES = [
   "Preparing your journal…",
 ];
 
+/**
+ * Gate a loading indicator behind a delay so fast/cached data
+ * never triggers the spinner at all (avoids flash on preloaded content).
+ */
+export function useDelayedLoading(isLoading: boolean, delay = 150): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!isLoading) { setShow(false); return; }
+    const t = setTimeout(() => setShow(true), delay);
+    return () => clearTimeout(t);
+  }, [isLoading, delay]);
+  return show;
+}
+
 interface TradingLoaderProps {
   message?: string;
   fullScreen?: boolean;
@@ -30,8 +44,9 @@ export default function TradingLoader({
   useEffect(() => {
     const ticker = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) return 0;
-        return prev + Math.random() * 2.5;
+        if (prev >= 90) return prev;
+        const remaining = 90 - prev;
+        return prev + remaining * 0.045 + 0.25;
       });
     }, 80);
     return () => clearInterval(ticker);
@@ -90,7 +105,6 @@ export default function TradingLoader({
         </div>
       )}
 
-      {/* Ring + inner spinner */}
       <div style={{ position: "relative", width: dim, height: dim }}>
         <svg
           width={dim}
@@ -143,7 +157,6 @@ export default function TradingLoader({
         </div>
       </div>
 
-      {/* Progress bar */}
       <div
         style={{
           width: barW,
@@ -165,7 +178,6 @@ export default function TradingLoader({
         />
       </div>
 
-      {/* Message */}
       {size !== "sm" && (
         <p
           style={{
