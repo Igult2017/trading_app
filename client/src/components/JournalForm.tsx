@@ -23,7 +23,12 @@ const OBS_CSS = `
                  "Liberation Mono", "Courier New", monospace !important;
     box-sizing: border-box;
   }
-  .obs-jf input[type=range] { accent-color: #4e8cff; }
+  .obs-jf input[type=range] { accent-color: #4e8cff; -webkit-appearance: none; appearance: none; height: 4px; background: linear-gradient(to right, #4e8cff calc(var(--val, 50%)), #27272a calc(var(--val, 50%))); border-radius: 99px; outline: none; }
+  .obs-jf input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: none; box-shadow: 0 0 0 2px rgba(78,140,255,0.25); }
+  .obs-jf input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: none; box-shadow: 0 0 0 2px rgba(78,140,255,0.25); }
+  .obs-jf input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; }
+  .obs-jf input[type=range]::-moz-range-track { height: 4px; border-radius: 99px; background: #27272a; }
+  .obs-jf input[type=range]::-moz-range-progress { height: 4px; border-radius: 99px; background: #4e8cff; }
   .obs-jf select option { background: #0c0c0e; color: #e4e4e7; }
   .obs-jf textarea::placeholder, .obs-jf input::placeholder { opacity: 0.35; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar { width: 2px; }
