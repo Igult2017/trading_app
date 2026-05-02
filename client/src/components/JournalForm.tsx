@@ -23,12 +23,12 @@ const OBS_CSS = `
                  "Liberation Mono", "Courier New", monospace !important;
     box-sizing: border-box;
   }
-  .obs-jf input[type=range] { accent-color: #4e8cff; -webkit-appearance: none; appearance: none; height: 4px; background: linear-gradient(to right, #4e8cff calc(var(--val, 50%)), #27272a calc(var(--val, 50%))); border-radius: 99px; outline: none; }
-  .obs-jf input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: none; box-shadow: 0 0 0 2px rgba(78,140,255,0.25); }
-  .obs-jf input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: none; box-shadow: 0 0 0 2px rgba(78,140,255,0.25); }
-  .obs-jf input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; }
+  .obs-jf input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; outline: none; cursor: pointer; width: 100%; }
+  .obs-jf input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: linear-gradient(to right, #4e8cff var(--pct, 50%), #27272a var(--pct, 50%)); }
+  .obs-jf input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: 2px solid #0c0c0e; box-shadow: 0 0 0 1px rgba(78,140,255,0.4); margin-top: -4px; }
   .obs-jf input[type=range]::-moz-range-track { height: 4px; border-radius: 99px; background: #27272a; }
   .obs-jf input[type=range]::-moz-range-progress { height: 4px; border-radius: 99px; background: #4e8cff; }
+  .obs-jf input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: 2px solid #0c0c0e; box-sizing: border-box; }
   .obs-jf select option { background: #0c0c0e; color: #e4e4e7; }
   .obs-jf textarea::placeholder, .obs-jf input::placeholder { opacity: 0.35; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar { width: 2px; }
@@ -204,16 +204,22 @@ const Dots = ({ name, value = 0, onChange, max = 5 }: any) => (
   </div>
 );
 
-const Slider = ({ label, min = 1, max = 5, step = 1, value, onChange, suffix = "" }: any) => (
+const Slider = ({ label, min = 1, max = 5, step = 1, value, onChange, suffix = "" }: any) => {
+  const v = value ?? min;
+  const pct = ((v - min) / (max - min)) * 100;
+  return (
   <div className="space-y-1.5">
     <FieldLabel>{label}</FieldLabel>
     <div className="flex items-center gap-3">
-      <input type="range" min={min} max={max} step={step} value={value ?? min}
-        onChange={e => onChange(Number(e.target.value))} className="flex-1 cursor-pointer" />
-      <span className="text-xs font-bold text-[#4e8cff] min-w-[36px] text-right">{value ?? min}{suffix}</span>
+      <input type="range" min={min} max={max} step={step} value={v}
+        onChange={e => onChange(Number(e.target.value))}
+        className="flex-1 cursor-pointer"
+        style={{ '--pct': `${pct}%` } as React.CSSProperties} />
+      <span className="text-xs font-bold text-[#4e8cff] min-w-[36px] text-right">{v}{suffix}</span>
     </div>
   </div>
-);
+  );
+};
 
 const InfoBox = ({ children }: { children: React.ReactNode }) => (
   <div className="p-4 border-l-2 border-[#4e8cff]/30 bg-[#4e8cff]/[0.04] mb-5">
