@@ -2741,6 +2741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const auth = await requireAuth(req, res);
     if (!auth) return;
     try {
+      const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY && process.env.VITE_STRIPE_PRICE_ID);
       const { rows } = await pool.query(
         `SELECT subscription_status, subscription_ends_at, journal_access_ends_at, journal_access_granted_by
          FROM user_profiles WHERE id = $1 LIMIT 1`,
@@ -2750,16 +2751,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = Date.now();
       const subEnds = p.subscription_ends_at ? new Date(p.subscription_ends_at).getTime() : null;
       const journalEnds = p.journal_access_ends_at ? new Date(p.journal_access_ends_at).getTime() : null;
+      const paidAccess = Boolean(
+        (p.subscription_status && p.subscription_status !== 'free' && (!subEnds || subEnds > now)) ||
+        (journalEnds && journalEnds > now)
+      );
       res.json({
         subscriptionStatus: p.subscription_status ?? 'free',
         subscriptionEndsAt: p.subscription_ends_at ?? null,
         journalAccessEndsAt: p.journal_access_ends_at ?? null,
         journalAccessGrantedBy: p.journal_access_granted_by ?? null,
-        hasJournalAccess: Boolean(
-          (p.subscription_status && p.subscription_status !== 'free' && (!subEnds || subEnds > now)) ||
-          (journalEnds && journalEnds > now)
-        ),
-        stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY && process.env.VITE_STRIPE_PRICE_ID),
+        stripeConfigured,
+        hasJournalAccess: stripeConfigured ? paidAccess : true,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
