@@ -2548,7 +2548,10 @@ export default function AdminPanel() {
         fetch('/api/admin/users', { headers: hdrs }),
         fetch('/api/admin/stats', { headers: hdrs }),
       ]);
-      if (usersRes.ok) setApiUsers(await usersRes.json());
+      if (usersRes.ok) {
+        const users = await usersRes.json();
+        setApiUsers(Array.isArray(users) ? users : []);
+      }
       if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
     // Always fetch admin IP (doesn't need auth)
