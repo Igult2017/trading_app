@@ -2999,7 +2999,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stack: err?.stack ?? null,
         raw: err,
       });
-      return res.status(500).json({ error: err?.message ?? "Failed to load tickets" });
+      return res.status(500).json({
+        error: "Admin tickets query failed",
+        detail: err?.message ?? "Failed to load tickets",
+      });
     }
   });
 
@@ -3022,7 +3025,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stack: err?.stack ?? null,
         raw: err,
       });
-      return res.status(500).json({ error: err?.message ?? "Failed to update ticket" });
+      return res.status(500).json({
+        error: "Admin ticket update failed",
+        detail: err?.message ?? "Failed to update ticket",
+      });
     }
   });
 
@@ -3126,7 +3132,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stack: err?.stack ?? null,
         raw: err,
       });
-      return res.status(500).json({ error: err?.message ?? "Failed to load campaign stats" });
+      return res.status(500).json({
+        error: "Campaign stats query failed",
+        detail: err?.message ?? "Failed to load campaign stats",
+      });
     }
   });
 
