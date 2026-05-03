@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { THEMES, FONTS, ThemeId, FontId } from '@/hooks/useJournalSettings';
+import { THEMES, FONTS, JOURNAL_PANELS, ThemeId, FontId } from '@/hooks/useJournalSettings';
 import type { ThemeDef, FontDef } from '@/hooks/useJournalSettings';
 import { useAuth } from '@/context/AuthContext';
 
@@ -9,6 +9,8 @@ interface Props {
   font: FontId;
   onThemeChange: (t: ThemeId) => void;
   onFontChange: (f: FontId) => void;
+  hiddenPanels: string[];
+  onTogglePanel: (id: string) => void;
 }
 
 const Section = ({ label, children, T }: { label: string; children: React.ReactNode; T: ThemeDef }) => (
@@ -27,7 +29,7 @@ const Section = ({ label, children, T }: { label: string; children: React.ReactN
   </div>
 );
 
-export default function JournalSettingsPanel({ theme, font, onThemeChange, onFontChange }: Props) {
+export default function JournalSettingsPanel({ theme, font, onThemeChange, onFontChange, hiddenPanels, onTogglePanel }: Props) {
   const T = THEMES[theme];
   const [themeHov, setThemeHov] = useState<ThemeId | null>(null);
   const [fontHov, setFontHov] = useState<FontId | null>(null);
@@ -285,6 +287,72 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
             ))}
           </div>
         </div>
+      </Section>
+
+      {/* ── JOURNAL FORM PANELS ───────────────────────────── */}
+      <Section label="Journal Form Panels" T={T}>
+        <p style={{ fontSize: 11, color: T.textMuted, marginBottom: 20, letterSpacing: '0.03em', lineHeight: 1.6 }}>
+          Mute panels you don't use. Muted panels are hidden from the journal form. Critical panels (marked&nbsp;
+          <span style={{ color: T.accent, fontWeight: 700 }}>required</span>) cannot be hidden.
+        </p>
+        {[1, 2, 3, 4].map(step => {
+          const stepPanels = JOURNAL_PANELS.filter(p => p.step === step);
+          const stepLabel = stepPanels[0]?.stepLabel ?? '';
+          return (
+            <div key={step} style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 10 }}>
+                Step {step} — {stepLabel}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {stepPanels.map(panel => {
+                  const hidden = hiddenPanels.includes(panel.id);
+                  const disabled = !!panel.critical;
+                  return (
+                    <div
+                      key={panel.id}
+                      onClick={() => !disabled && onTogglePanel(panel.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        background: T.surface,
+                        border: `1px solid ${hidden ? T.border : T.border}`,
+                        borderRadius: 8,
+                        cursor: disabled ? 'default' : 'pointer',
+                        opacity: disabled ? 0.55 : 1,
+                        transition: 'opacity 0.15s',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 12, color: hidden ? T.textMuted : T.text, fontWeight: 600, letterSpacing: '0.02em' }}>
+                          {panel.label}
+                        </span>
+                        {panel.critical && (
+                          <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.accent, padding: '1px 6px', border: `1px solid ${T.accent}40`, borderRadius: 4 }}>
+                            required
+                          </span>
+                        )}
+                      </div>
+                      {/* Toggle switch */}
+                      <div style={{
+                        position: 'relative', width: 36, height: 20, flexShrink: 0,
+                        background: (!hidden && !disabled) ? T.accent : T.border,
+                        borderRadius: 10, transition: 'background 0.2s',
+                      }}>
+                        <div style={{
+                          position: 'absolute', top: 3, left: hidden || disabled ? 3 : 19,
+                          width: 14, height: 14, borderRadius: '50%',
+                          background: '#fff', transition: 'left 0.2s',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </Section>
 
       {/* ── ACCOUNT — sign out ────────────────────────────── */}

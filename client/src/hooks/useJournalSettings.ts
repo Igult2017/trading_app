@@ -6,7 +6,33 @@ export type FontId = 'montserrat' | 'dm-mono' | 'inter' | 'manrope' | 'sora' | '
 export interface JournalSettings {
   theme: ThemeId;
   font: FontId;
+  hiddenPanels: string[];
 }
+
+// All toggleable panel IDs with their labels, grouped by step
+export const JOURNAL_PANELS: { step: number; stepLabel: string; id: string; label: string; critical?: boolean }[] = [
+  { step: 1, stepLabel: 'Decision',  id: 'core-thesis',     label: 'Core Thesis' },
+  { step: 1, stepLabel: 'Decision',  id: 'pre-entry-state', label: 'Pre-Entry State Check' },
+  { step: 1, stepLabel: 'Decision',  id: 'classification',  label: 'Classification & Quality' },
+  { step: 1, stepLabel: 'Decision',  id: 'rule-governance', label: 'Rule Governance' },
+  { step: 1, stepLabel: 'Decision',  id: 'impulse-control', label: 'Impulse Control Check' },
+  { step: 2, stepLabel: 'Execution', id: 'screenshots',      label: 'Trade Screenshots' },
+  { step: 2, stepLabel: 'Execution', id: 'position-details', label: 'Position Details', critical: true },
+  { step: 2, stepLabel: 'Execution', id: 'timing-duration',  label: 'Timing & Duration' },
+  { step: 2, stepLabel: 'Execution', id: 'tf-analysis',      label: 'Timeframe Analysis' },
+  { step: 2, stepLabel: 'Execution', id: 'entry-management', label: 'Entry & Trade Management' },
+  { step: 3, stepLabel: 'Context',   id: 'market-env',       label: 'Market Environment' },
+  { step: 3, stepLabel: 'Context',   id: 'htf-context',      label: 'Higher Timeframe Context' },
+  { step: 3, stepLabel: 'Context',   id: 'tech-signals',     label: 'Technical Signals' },
+  { step: 3, stepLabel: 'Context',   id: 'key-level',        label: 'Key Level Analysis' },
+  { step: 3, stepLabel: 'Context',   id: 'quality-scores',   label: 'Setup Quality Scores' },
+  { step: 4, stepLabel: 'Review',    id: 'exit-causation',   label: 'Exit Causation', critical: true },
+  { step: 4, stepLabel: 'Review',    id: 'perf-data',        label: 'Performance Data', critical: true },
+  { step: 4, stepLabel: 'Review',    id: 'plan-vs-exec',     label: 'Planning vs Execution' },
+  { step: 4, stepLabel: 'Review',    id: 'trade-metrics',    label: 'Trade Metrics' },
+  { step: 4, stepLabel: 'Review',    id: 'psych-state',      label: 'Psychological State' },
+  { step: 4, stepLabel: 'Review',    id: 'trade-debrief',    label: 'Trade Debrief' },
+];
 
 export interface ThemeDef {
   label: string;
@@ -154,10 +180,11 @@ function load(): JournalSettings {
     if (raw) {
       const parsed = JSON.parse(raw) as JournalSettings;
       if (!FONTS[parsed.font]) parsed.font = 'montserrat';
+      if (!Array.isArray(parsed.hiddenPanels)) parsed.hiddenPanels = [];
       return parsed;
     }
   } catch {}
-  return { theme: 'navy', font: 'montserrat' };
+  return { theme: 'navy', font: 'montserrat', hiddenPanels: [] };
 }
 
 export function useJournalSettings() {

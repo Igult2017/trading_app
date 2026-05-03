@@ -436,11 +436,13 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
 }
 
 // ─── Step 1 — Decision ────────────────────────────────────────────────────────
-function Step1({ d, set }: any) {
+function Step1({ d, set, hiddenPanels }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
+  const H = hiddenPanels as string[];
   return (
     <div className="space-y-10">
 
+      {!H.includes('core-thesis') && (
       <section>
         <SectionLabel>Core Thesis</SectionLabel>
         <InfoBox>Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution.</InfoBox>
@@ -451,7 +453,9 @@ function Step1({ d, set }: any) {
           <Txt label="Expected Behavior" value={d.expectedBehavior} onChange={f("expectedBehavior")} placeholder="How do you expect price to move?" rows={2} />
         </div>
       </section>
+      )}
 
+      {!H.includes('pre-entry-state') && (
       <section>
         <SectionLabel>Pre-Entry State Check</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -464,7 +468,9 @@ function Step1({ d, set }: any) {
           <Radio label="Correlated Exposure"   options={["No","Yes"]}       value={d.correlatedExposure}   onChange={f("correlatedExposure")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('classification') && (
       <section>
         <SectionLabel>Classification &amp; Quality</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -480,7 +486,9 @@ function Step1({ d, set }: any) {
           </div>
         </div>
       </section>
+      )}
 
+      {!H.includes('rule-governance') && (
       <section>
         <SectionLabel>Rule Governance</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -493,7 +501,9 @@ function Step1({ d, set }: any) {
           )}
         </div>
       </section>
+      )}
 
+      {!H.includes('impulse-control') && (
       <section>
         <SectionLabel>Impulse Control Check</SectionLabel>
         <Strip>Flag any emotional or reactive impulses before committing to this trade.</Strip>
@@ -504,14 +514,16 @@ function Step1({ d, set }: any) {
           <Checkbox label="Emotionally compromised"        checked={d.impulseCheckEmotional}  onChange={f("impulseCheckEmotional")} />
         </div>
       </section>
+      )}
 
     </div>
   );
 }
 
 // ─── Step 2 — Execution ───────────────────────────────────────────────────────
-function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
+function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPanels }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
+  const H = hiddenPanels as string[];
 
   const handleEntryTime = (v: string) => {
     const updates: any = { entryTime: v };
@@ -542,6 +554,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
   return (
     <div className="space-y-10">
 
+      {!H.includes('screenshots') && (
       <section>
         <SectionLabel>Trade Screenshots</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -555,6 +568,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
             analyzing={analyzing} />
         </div>
       </section>
+      )}
 
       <section>
         <SectionLabel>Position Details</SectionLabel>
@@ -584,6 +598,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
         </div>
       </section>
 
+      {!H.includes('timing-duration') && (
       <section>
         <SectionLabel>Timing &amp; Duration</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -593,7 +608,9 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
           <Inp label="Trade Duration" placeholder="Auto-calculated" value={d.tradeDuration} onChange={f("tradeDuration")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('tf-analysis') && (
       <section>
         <SectionLabel>Timeframe Analysis</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -602,7 +619,9 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
           <StickyTF storageKey="fsd:tf:context"  label="Context TF"  options={["1W","1D","4HR"]}                 value={d.contextTF}  onChange={f("contextTF")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('entry-management') && (
       <section>
         <SectionLabel>Entry &amp; Trade Management</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -618,13 +637,14 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
           <Checkbox label="Trailing Stop Applied" checked={d.trailingStopApplied} onChange={f("trailingStopApplied")} />
         </div>
       </section>
+      )}
 
     </div>
   );
 }
 
 // ─── Step 3 — Context ─────────────────────────────────────────────────────────
-function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
+function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPanels }: any) {
   const lastDirectionRef = useRef<string | null>(null);
   const htfTouchedRef = useRef(false);
 
@@ -656,9 +676,12 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
     ["signalValidation","Signal Validation"],
   ];
 
+  const H = hiddenPanels as string[];
+
   return (
     <div className="space-y-10">
 
+      {!H.includes('market-env') && (
       <section>
         <SectionLabel>Market Environment</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -672,7 +695,9 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
           <Inp label="ATR at Entry" type="number" placeholder="0.0045"                     value={d.atrAtEntry}     onChange={f("atrAtEntry")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('htf-context') && (
       <section>
         <SectionLabel>Higher Timeframe Context</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
@@ -688,7 +713,9 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
           <Txt label="Other Confluences"    value={d.otherConfluences}   onChange={f("otherConfluences")}   placeholder="Any additional confluences…" rows={2} />
         </div>
       </section>
+      )}
 
+      {!H.includes('tech-signals') && (
       <section>
         <SectionLabel>Technical Signals</SectionLabel>
         <div className="space-y-4">
@@ -702,7 +729,9 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
           <Txt label="Liquidity Targets" value={d.liquidityTargets} onChange={f("liquidityTargets")} placeholder="Nearby liquidity pools, equal highs/lows, order blocks…" rows={2} />
         </div>
       </section>
+      )}
 
+      {!H.includes('key-level') && (
       <section>
         <SectionLabel>Key Level Analysis</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -712,7 +741,9 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
           <Radio label="Target Logic Clarity"  options={["High","Medium","Low"]}     value={d.targetLogicClarity} onChange={f("targetLogicClarity")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('quality-scores') && (
       <section>
         <SectionLabel>Setup Quality Scores (1–5)</SectionLabel>
         <div className="mt-1">
@@ -721,14 +752,16 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
           ))}
         </div>
       </section>
+      )}
 
     </div>
   );
 }
 
 // ─── Step 4 — Review ──────────────────────────────────────────────────────────
-function Step4({ d, set }: any) {
+function Step4({ d, set, hiddenPanels }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
+  const H = hiddenPanels as string[];
   return (
     <div className="space-y-10">
 
@@ -749,6 +782,7 @@ function Step4({ d, set }: any) {
         </div>
       </section>
 
+      {!H.includes('plan-vs-exec') && (
       <section>
         <SectionLabel>Planning vs Execution</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -760,7 +794,9 @@ function Step4({ d, set }: any) {
           <Inp label="Actual TP"      type="number" placeholder="1.09590" value={d.actualTP}     onChange={f("actualTP")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('trade-metrics') && (
       <section>
         <SectionLabel>Trade Metrics</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -772,7 +808,9 @@ function Step4({ d, set }: any) {
           <Inp label="Achieved R:R"  placeholder="1:1.5"                 value={d.achievedRR}    onChange={f("achievedRR")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('psych-state') && (
       <section>
         <SectionLabel>Psychological State</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -788,7 +826,9 @@ function Step4({ d, set }: any) {
           <Checkbox label="Recency bias — influenced by last trade" checked={d.recencyBiasFlag} onChange={f("recencyBiasFlag")} />
         </div>
       </section>
+      )}
 
+      {!H.includes('trade-debrief') && (
       <section>
         <SectionLabel>Trade Debrief</SectionLabel>
         <div className="space-y-4">
@@ -798,6 +838,7 @@ function Step4({ d, set }: any) {
           <Txt label="Additional Notes"    value={d.notes}       onChange={f("notes")}       placeholder="Any additional observations, ideas, or lessons learned…" rows={4} />
         </div>
       </section>
+      )}
 
     </div>
   );
@@ -962,6 +1003,19 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [saving, setSaving]       = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Read hidden panels from persisted settings — no need for a separate subscription;
+  // the settings page writes to the same key so changes are picked up on next form mount.
+  const hiddenPanels: string[] = (() => {
+    try {
+      const raw = localStorage.getItem('journal_settings_v2');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.hiddenPanels)) return parsed.hiddenPanels;
+      }
+    } catch {}
+    return [];
+  })();
   const [ocrFields, setOcrFields] = useState<Set<string>>(new Set());
   const [unfilledSections, setUnfilledSections] = useState<{ step: number; name: string }[] | null>(null);
   const [mobileTab, setMobileTab] = useState<"form"|"stats">("form");
@@ -1426,10 +1480,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 {saveError}
               </div>
             )}
-            {step === 1 && <Step1 d={s1} set={setS1} />}
-            {step === 2 && <Step2 d={s2} set={setS2} onScreenshotUpload={handleScreenshotUpload} analyzing={analyzing} currentBalance={currentBalance} />}
-            {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} regimeTouchedRef={regimeTouchedRef} trendTouchedRef={trendTouchedRef} />}
-            {step === 4 && <Step4 d={s4} set={setS4} />}
+            {step === 1 && <Step1 d={s1} set={setS1} hiddenPanels={hiddenPanels} />}
+            {step === 2 && <Step2 d={s2} set={setS2} onScreenshotUpload={handleScreenshotUpload} analyzing={analyzing} currentBalance={currentBalance} hiddenPanels={hiddenPanels} />}
+            {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} regimeTouchedRef={regimeTouchedRef} trendTouchedRef={trendTouchedRef} hiddenPanels={hiddenPanels} />}
+            {step === 4 && <Step4 d={s4} set={setS4} hiddenPanels={hiddenPanels} />}
             <div className="h-8" />
           </div>
         </div>

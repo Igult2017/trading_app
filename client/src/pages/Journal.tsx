@@ -981,6 +981,11 @@ export default function Journal() {
               font={settings.font}
               onThemeChange={(t) => setSettings({ theme: t })}
               onFontChange={(f) => setSettings({ font: f })}
+              hiddenPanels={settings.hiddenPanels ?? []}
+              onTogglePanel={(id) => {
+                const cur = settings.hiddenPanels ?? [];
+                setSettings({ hiddenPanels: cur.includes(id) ? cur.filter(p => p !== id) : [...cur, id] });
+              }}
             />
           ) : (
             <DashboardView sessionId={activeSessionId ?? undefined} isMobile={isMobile} windowWidth={windowWidth} />
