@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs } from "@shared/schema";
-import { eq, sql as drizzleSql } from "drizzle-orm";
+import { eq, desc, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
