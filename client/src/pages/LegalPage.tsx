@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 const SECTIONS = ['Privacy Policy', 'Terms of Service', 'Contact & Support'] as const;
 type Section = typeof SECTIONS[number];
@@ -275,20 +277,7 @@ export default function LegalPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#080c10', fontFamily: "'Montserrat', sans-serif" }}>
-      {/* Top nav */}
-      <div style={{ background: '#080c10', borderBottom: '1px solid #0f1923', padding: '16px 24px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em' }}>
-              <span style={{ color: '#ffffff' }}>FSDZONES</span>
-              <span style={{ color: '#4da8f0' }}>.COM</span>
-            </span>
-          </Link>
-          <span style={{ color: '#2a3a4a', fontSize: 16 }}>/</span>
-          <span style={{ color: '#4a6580', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em' }}>{active.toUpperCase()}</span>
-        </div>
-      </div>
-
+      <Header />
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px 80px' }}>
         {/* Tab strip */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 40, background: '#0c1219', borderRadius: 10, padding: 4, border: '1px solid #172233' }}>
@@ -330,6 +319,7 @@ export default function LegalPage() {
           {active === 'Contact & Support' && <ContactContent />}
         </div>
       </div>
+      <Footer isDark />
     </div>
   );
 }
