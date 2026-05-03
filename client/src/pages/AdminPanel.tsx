@@ -2551,6 +2551,8 @@ export default function AdminPanel() {
       if (usersRes.ok) {
         const users = await usersRes.json();
         setApiUsers(Array.isArray(users) ? users : []);
+      } else {
+        setApiUsers(MOCK_USERS);
       }
       if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
