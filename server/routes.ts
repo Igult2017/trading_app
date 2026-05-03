@@ -2740,7 +2740,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json(result);
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error('[Admin/users] Failed to load users', {
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+      });
+      return res.status(500).json({
+        error: err?.message ?? 'Failed to load admin users',
+      });
     }
   });
 
