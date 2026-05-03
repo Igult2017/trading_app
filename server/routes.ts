@@ -2685,7 +2685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
           : Promise.resolve({ data: { users: [] }, error: null } as any),
         db.select().from(userProfiles),
-        db.select().from(adminAccessLogs).orderBy(desc(adminAccessLogs.createdAt)),
+        db.select().from(adminAccessLogs),
       ]);
 
       if (supabaseResult?.error) return res.status(500).json({ error: supabaseResult.error.message });
