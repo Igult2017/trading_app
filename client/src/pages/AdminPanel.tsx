@@ -745,7 +745,10 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <Users size={13} style={{ color: '#3d5878' }} />
             </div>
             {apiUsers.length === 0 ? (
-              <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '13px' }}>No users found.</div>
+              <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '13px' }}>
+                {usersLoadError ?? 'No users found.'}
+                {!usersLoadError && overviewStats?.totalUsers > 0 ? ` (${overviewStats.totalUsers} total in stats)` : ''}
+              </div>
             ) : apiUsers.slice(0, 5).map((u, idx) => {
               const isAdmin = u.role === 'admin';
               const displayName = (u.full_name || u.email?.split('@')[0] || 'User') as string;
@@ -2527,6 +2530,7 @@ export default function AdminPanel() {
   const [apiUsers, setApiUsers] = useState<any[]>([]);
   const [overviewStats, setOverviewStats] = useState<any>(null);
   const [myIpInfo, setMyIpInfo] = useState<{ ip: string; isExcluded: boolean; configuredAdminIps: string[]; geo?: { country: string; countryCode: string; region: string; city: string; isp: string } | null } | null>(null);
+  const [usersLoadError, setUsersLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -2546,6 +2550,10 @@ export default function AdminPanel() {
       if (usersRes.ok) {
         const users = await usersRes.json();
         setApiUsers(Array.isArray(users) ? users : []);
+        setUsersLoadError(null);
+      } else {
+        const err = await usersRes.json().catch(() => ({} as any));
+        setUsersLoadError(err.error ?? `Failed to load users (${usersRes.status})`);
       }
       if (statsRes.ok) setOverviewStats(await statsRes.json());
     }).catch(() => {});
