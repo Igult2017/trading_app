@@ -171,8 +171,8 @@ async function ensureUserProfile(user: { id: string; email?: string | null; user
   const email    = (user.email ?? '').toString();
   const fullName = extractFullName(user);
   await pool.query(
-    `INSERT INTO user_profiles (id, email, full_name, role, status, plan)
-     VALUES ($1, $2, $3, 'user', 'Active', 'Free')
+    `INSERT INTO user_profiles (id, email, full_name, role, status, plan, country)
+     VALUES ($1, $2, $3, 'user', 'Active', 'Free', '')
      ON CONFLICT (id) DO UPDATE SET
        email     = COALESCE(NULLIF(EXCLUDED.email, ''), user_profiles.email),
        full_name = CASE
@@ -2987,8 +2987,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const newStatus = action === 'unban' ? 'Active' : 'Banned';
     try {
       await db.execute(drizzleSql`
-        INSERT INTO user_profiles (id, email, role, status)
-        VALUES (${userId}, '', 'user', ${newStatus})
+        INSERT INTO user_profiles (id, email, role, status, country)
+        VALUES (${userId}, '', 'user', ${newStatus}, '')
         ON CONFLICT (id) DO UPDATE SET status = ${newStatus}
       `);
       addServerLog('warn', 'Admin', `User ${userId} ${newStatus === 'Banned' ? 'banned' : 'unbanned'} by admin`);

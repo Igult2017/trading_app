@@ -40,6 +40,7 @@ export async function initializeDatabase() {
         id VARCHAR PRIMARY KEY,
         email TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'user',
+        country TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW()
       )`,
       
