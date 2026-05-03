@@ -2543,20 +2543,36 @@ export default function AdminPanel() {
     const token = session?.access_token;
     if (!token) return;
     const hdrs = { Authorization: `Bearer ${token}` };
-    Promise.all([
-      fetch('/api/admin/users', { headers: hdrs }),
-      fetch('/api/admin/stats', { headers: hdrs }),
-    ]).then(async ([usersRes, statsRes]) => {
-      if (usersRes.ok) {
-        const users = await usersRes.json();
-        setApiUsers(Array.isArray(users) ? users : []);
-        setUsersLoadError(null);
-      } else {
-        const err = await usersRes.json().catch(() => ({} as any));
-        setUsersLoadError(err.error ?? `Failed to load users (${usersRes.status})`);
+    const loadAdminData = async () => {
+      try {
+        const [usersRes, statsRes] = await Promise.all([
+          fetch('/api/admin/users', { headers: hdrs }),
+          fetch('/api/admin/stats', { headers: hdrs }),
+        ]);
+
+        if (usersRes.ok) {
+          const users = await usersRes.json();
+          setApiUsers(Array.isArray(users) ? users : []);
+          setUsersLoadError(null);
+        } else {
+          const err = await usersRes.json().catch(() => ({} as any));
+          setUsersLoadError(err.error ?? `Failed to load users (${usersRes.status})`);
+        }
+
+        if (statsRes.ok) {
+          setOverviewStats(await statsRes.json());
+        } else {
+          const err = await statsRes.json().catch(() => ({} as any));
+          console.warn('[AdminPanel] Failed to load admin stats', err.error ?? statsRes.statusText);
+        }
+      } catch (err: any) {
+        const message = err?.message ?? 'Unexpected error loading admin data';
+        setUsersLoadError(message);
+        console.error('[AdminPanel] Admin data load failed', err);
       }
-      if (statsRes.ok) setOverviewStats(await statsRes.json());
-    }).catch(() => {});
+    };
+
+    loadAdminData();
     // Always fetch admin IP (doesn't need auth)
     fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
   }, [role, session]);
