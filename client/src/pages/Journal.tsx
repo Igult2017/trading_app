@@ -322,7 +322,7 @@ function getEntryDateStr(entry: any): string | null {
   // timestamp, which would dump every undated trade onto the day it was logged
   // (so a 2020 backtest entry with no entryTime would wrongly appear "today"
   // on the calendar). Trades without a real trade timestamp are skipped.
-  return entry.entryTime || entry.entryTimeUTC || entry.openedAt || entry.tradeDate || null;
+  return entry.entryTime || entry.exitTime || entry.entryTimeUTC || entry.openedAt || entry.tradeDate || entry.createdAt || null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -379,6 +379,12 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   const defaultMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : null;
   const [activeMonthKey, setActiveMonthKey] = useState<string | null>(defaultMonth);
   const userNavigatedRef = useRef(false);
+
+  useEffect(() => {
+    if (defaultMonth && !userNavigatedRef.current) {
+      setActiveMonthKey(defaultMonth);
+    }
+  }, [defaultMonth]);
 
   // Auto-follow the latest month whenever new entries arrive — UNLESS the user
   // has manually navigated to a different month (then we leave them where they are).
