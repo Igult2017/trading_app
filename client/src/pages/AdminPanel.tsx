@@ -530,6 +530,10 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const [sendingReply, setSendingReply] = useState(false);
   const [careError, setCareError] = useState<string | null>(null);
 
+  const safeTicketUser = (ticket: any) => (typeof ticket?.user === 'string' && ticket.user.trim() ? ticket.user : 'Unknown User');
+  const safeTicketEmail = (ticket: any) => (typeof ticket?.email === 'string' ? ticket.email : '');
+  const safeTicketId = (ticket: any) => (typeof ticket?.id === 'string' && ticket.id.trim() ? ticket.id : 'TK-UNKNOWN');
+
   useEffect(() => {
     const load = async () => {
       const token = await getAdminToken?.();
@@ -691,24 +695,25 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
             </div>
           </div>
           {filtered.map((ticket, idx) => {
-            const pc = PC[ticket.priority];
-            const CI = ChanIcon[ticket.channel];
-            const sel = selectedTicket?.id === ticket.id;
+            const priority = PC[ticket?.priority] || PC.Medium;
+            const channelKey = ticket?.channel && ChanIcon[ticket.channel as keyof typeof ChanIcon] ? ticket.channel : 'email';
+            const CI = ChanIcon[channelKey as keyof typeof ChanIcon] || Mail;
+            const sel = selectedTicket?.id === ticket?.id;
             const isLast = idx === filtered.length - 1;
             return (
-              <div key={ticket.id} onClick={() => setSelectedTicket(sel ? null : ticket)}
+              <div key={safeTicketId(ticket)} onClick={() => setSelectedTicket(sel ? null : ticket)}
                 style={{ padding: '13px 16px', borderBottom: isLast ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: sel ? 'rgba(0,200,224,0.07)' : 'transparent', borderLeft: `3px solid ${sel ? C.indigo : 'transparent'}`, transition: 'background 0.15s' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em' }}>{ticket.id}</span>
-                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: pc.bg, color: pc.c, border: `1px solid ${pc.b}`, letterSpacing: '0.05em' }}>{ticket.priority}</span>
+                      <span style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em' }}>{safeTicketId(ticket)}</span>
+                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: priority.bg, color: priority.c, border: `1px solid ${priority.b}`, letterSpacing: '0.05em' }}>{ticket?.priority || 'Medium'}</span>
                     </div>
-                    <p style={{ color: 'white', fontSize: '13px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.subject}</p>
-                    <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{ticket.user} · {ticket.created}</p>
+                    <p style={{ color: 'white', fontSize: '13px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket?.subject || 'No subject'}</p>
+                    <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{safeTicketUser(ticket)} · {ticket?.created || '—'}</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', marginLeft: '12px', flexShrink: 0 }}>
-                    <span style={{ color: SC[ticket.status], fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket.status}</span>
+                    <span style={{ color: SC[ticket?.status as keyof typeof SC] || C.muted, fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket?.status || 'Open'}</span>
                     <CI size={12} style={{ color: C.dim }} />
                   </div>
                 </div>
@@ -724,30 +729,30 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <>
                 <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ color: '#3d5878', fontSize: '10px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{selectedTicket.id}</p>
-                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket.subject}</p>
+                    <p style={{ color: '#3d5878', fontSize: '10px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{safeTicketId(selectedTicket)}</p>
+                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket?.subject || 'No subject'}</p>
                   </div>
                   <button onClick={() => setSelectedTicket(null)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', marginLeft: '8px' }}><X size={15} /></button>
                 </div>
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ background: 'rgba(8,14,24,0.6)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `3px solid ${C.indigo}` }}>
                     <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                      {selectedTicket.user.split(' ').map(n => n[0]).join('')}
+                      {safeTicketUser(selectedTicket).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{selectedTicket.user}</p>
-                      <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{selectedTicket.email}</p>
+                      <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{safeTicketUser(selectedTicket)}</p>
+                      <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{safeTicketEmail(selectedTicket)}</p>
                     </div>
-                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', background: selectedTicket.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket.status], border: `1px solid ${SC[selectedTicket.status]}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket.status}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', background: selectedTicket?.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket?.status as keyof typeof SC] || C.muted, border: `1px solid ${(SC[selectedTicket?.status as keyof typeof SC] || C.muted)}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket?.status || 'Open'}</span>
                   </div>
                   <div>
                     <p style={{ ...lbl }}>Quick Actions</p>
                     <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '6px' }}>
                       {[
-                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(selectedTicket.id, selectedTicket._id) },
-                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(selectedTicket.id, selectedTicket._id) },
-                        { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => setActionUser({ name: selectedTicket.user, userId: selectedTicket.userId }) },
-                        { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket._id) await fetch(`/api/admin/tickets/${selectedTicket._id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
+                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(safeTicketId(selectedTicket), selectedTicket?._id) },
+                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(safeTicketId(selectedTicket), selectedTicket?._id) },
+                        { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => selectedTicket?.userId ? setActionUser({ name: safeTicketUser(selectedTicket), userId: selectedTicket.userId }) : setCareError('This ticket has no user id to ban') },
+                        { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket?._id) await fetch(`/api/admin/tickets/${selectedTicket._id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket?.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
                       ].map((b, i) => (
                         <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           <b.icon size={13} />{b.label}
