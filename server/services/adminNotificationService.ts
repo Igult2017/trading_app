@@ -8,7 +8,7 @@ export interface AdminNotification {
   category: AdminNotifCategory;
   title: string;
   body: string;
-  meta?: string;
+  meta: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -44,7 +44,7 @@ export async function getAdminNotifications(limit = 60): Promise<AdminNotificati
       ORDER BY created_at DESC
       LIMIT ${limit}
     `);
-    return (r.rows ?? []) as AdminNotification[];
+    return ((r.rows ?? []) as unknown) as AdminNotification[];
   } catch {
     return [];
   }
@@ -60,7 +60,7 @@ export async function getAdminUnreadCounts(): Promise<{ messages: number; alerts
     `);
     const rows = (r.rows ?? []) as { category: string; cnt: number }[];
     const messages = rows.filter(r => r.category === 'message').reduce((s, r) => s + Number(r.cnt), 0);
-    const alerts   = rows.filter(r => r.category !== 'message').reduce((s, r) => s + Number(r.cnt), 0);
+    const alerts = rows.filter(r => r.category !== 'message').reduce((s, r) => s + Number(r.cnt), 0);
     return { messages, alerts, total: messages + alerts };
   } catch {
     return { messages: 0, alerts: 0, total: 0 };

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AdminNotification, AdminUnreadCounts } from './types';
+import type { AdminNotification, AdminUnreadCounts, AdminNotifCategory } from './types';
 import { ADMIN_NOTIF_REFETCH_MS } from './constants';
 
 async function adminFetch(path: string, opts?: RequestInit) {
@@ -25,7 +25,7 @@ export function useAdminNotifications() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [counts, setCounts] = useState<AdminUnreadCounts>({ messages: 0, alerts: 0, total: 0 });
   const [loading, setLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -42,27 +42,17 @@ export function useAdminNotifications() {
   useEffect(() => {
     fetchAll();
     timerRef.current = setInterval(fetchAll, ADMIN_NOTIF_REFETCH_MS);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [fetchAll]);
 
   const markRead = useCallback(async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    setCounts(prev => {
-      const n = notifications.find(x => x.id === id);
-      if (!n || n.is_read) return prev;
-      const isMsg = n.category === 'message';
-      return {
-        ...prev,
-        messages: isMsg ? Math.max(0, prev.messages - 1) : prev.messages,
-        alerts: !isMsg ? Math.max(0, prev.alerts - 1) : prev.alerts,
-        total: Math.max(0, prev.total - 1),
-      };
-    });
     await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'PATCH' });
     fetchAll();
-  }, [notifications, fetchAll]);
+  }, [fetchAll]);
 
-  const markAllRead = useCallback(async (category?: string) => {
+  const markAllRead = useCallback(async (category?: AdminNotifCategory) => {
     const path = category
       ? `/api/admin/notifications/read-all?category=${category}`
       : '/api/admin/notifications/read-all';
@@ -71,12 +61,11 @@ export function useAdminNotifications() {
   }, [fetchAll]);
 
   const deleteOne = useCallback(async (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
     await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
     fetchAll();
   }, [fetchAll]);
 
-  const clearAll = useCallback(async (category?: string) => {
+  const clearAll = useCallback(async (category?: AdminNotifCategory) => {
     const path = category
       ? `/api/admin/notifications/clear?category=${category}`
       : '/api/admin/notifications/clear';
