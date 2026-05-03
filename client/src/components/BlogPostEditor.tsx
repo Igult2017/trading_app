@@ -249,12 +249,12 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
   useEffect(() => {
     setCustomTags(prev => {
       const fromSelected = selected.filter(t => !EXPERTISE_OPTIONS.includes(t));
-      const merged = [...new Set([...prev, ...fromSelected])];
+      const merged = Array.from(new Set([...prev, ...fromSelected]));
       return merged;
     });
   }, [selected]);
 
-  const allTags = [...new Set([...EXPERTISE_OPTIONS, ...customTags])];
+  const allTags = Array.from(new Set([...EXPERTISE_OPTIONS, ...customTags]));
 
   const add = (tag: string) => {
     const trimmed = tag.trim();
@@ -476,6 +476,25 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
     });
   }, [contentRef, onUpdate]);
 
+  const insertImage = useCallback(() => {
+    const ta = contentRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const e = ta.selectionEnd;
+    const selected = ta.value.slice(s, e).trim();
+    const alt = selected || "image";
+    const insert = `![${alt}](https://)`;
+    const next = ta.value.slice(0, s) + insert + ta.value.slice(e);
+    onUpdate(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const cursorStart = s + 2;
+      const cursorEnd = cursorStart + alt.length;
+      ta.selectionStart = cursorStart;
+      ta.selectionEnd = cursorEnd;
+    });
+  }, [contentRef, onUpdate]);
+
   const tbtn: any = { background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "'DM Mono', monospace", transition: "all 0.12s", lineHeight: 1 };
   const ho = (e: any) => { e.target.style.background = "rgba(255,255,255,0.07)"; e.target.style.color = "rgba(255,255,255,0.85)"; };
   const uo = (e: any) => { e.target.style.background = "none"; e.target.style.color = "rgba(255,255,255,0.4)"; };
@@ -505,6 +524,7 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
         const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
         wrapInline("[", "](https://)", sel || "link text");
       }                                                                                            },
+    { l: "img",     a: insertImage                                                                     },
     null,
     { l: "— hr",    a: () => insertBlock(() => "\n---\n\n")                                       },
   ];
@@ -680,6 +700,87 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
         placeholder="or paste an image (or URL)…"
         style={inputBase({ fontSize: 11 })} onFocus={focusOn}
       />
+    </div>
+  );
+}
+
+function renderInlineText(text: string) {
+  const nodes: React.ReactNode[] = [];
+  const re = /(!)?\[([^\]]*)\]\(([^)]+)\)|\*\*([^*]+)\*\*|_([^_]+)_|`([^`]+)`|(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) nodes.push(text.slice(last, match.index));
+    if (match[1] === '!') {
+      nodes.push(
+        <img
+          key={`${match.index}-img`}
+          src={match[3]}
+          alt={match[2] || 'image'}
+          style={{ maxWidth: '100%', borderRadius: 8, display: 'block', margin: '10px 0' }}
+        />,
+      );
+    } else if (match[4]) {
+      nodes.push(<strong key={`${match.index}-b`}>{match[4]}</strong>);
+    } else if (match[5]) {
+      nodes.push(<em key={`${match.index}-i`}>{match[5]}</em>);
+    } else if (match[6]) {
+      nodes.push(<code key={`${match.index}-c`}>{match[6]}</code>);
+    } else if (match[7]) {
+      nodes.push(
+        <a key={`${match.index}-a`} href={match[7]} target="_blank" rel="noreferrer">
+          {match[7]}
+        </a>,
+      );
+    } else {
+      nodes.push(match[0]);
+    }
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function ContentPreview({ value }: { value: string }) {
+  const blocks = value.split(/\n{2,}/);
+  return (
+    <div style={{ marginTop: 12, padding: 14, border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)', marginBottom: 10 }}>
+        Live content preview
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {blocks.map((block, i) => {
+          const trimmed = block.trim();
+          if (!trimmed) return null;
+          if (/^!\[[^\]]*\]\([^)]+\)$/.test(trimmed)) {
+            const m = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+            return m ? (
+              <img key={i} src={m[2]} alt={m[1] || 'image'} style={{ maxWidth: '100%', borderRadius: 10, display: 'block' }} />
+            ) : null;
+          }
+          if (/^#{1,6}\s/.test(trimmed)) {
+            const level = trimmed.match(/^(#{1,6})\s/)?.[1].length ?? 1;
+            const Tag = (`h${Math.min(level, 6)}` as keyof JSX.IntrinsicElements);
+            return <Tag key={i} style={{ margin: 0, color: 'rgba(255,255,255,0.92)' }}>{renderInlineText(trimmed.replace(/^#{1,6}\s/, ''))}</Tag>;
+          }
+          if (/^>\s?/.test(trimmed)) {
+            return (
+              <blockquote key={i} style={{ margin: 0, padding: '10px 14px', borderLeft: '3px solid rgba(99,153,34,0.45)', background: 'rgba(99,153,34,0.05)', color: 'rgba(255,255,255,0.72)', borderRadius: 6 }}>
+                {renderInlineText(trimmed.replace(/^>\s?/, ''))}
+              </blockquote>
+            );
+          }
+          if (/^(\-|\d+\.)\s/m.test(trimmed)) {
+            const items = trimmed.split('\n').filter(Boolean);
+            return (
+              <ul key={i} style={{ margin: 0, paddingLeft: 18, color: 'rgba(255,255,255,0.72)' }}>
+                {items.map((item, idx) => <li key={idx}>{renderInlineText(item.replace(/^(\-|\d+\.)\s/, ''))}</li>)}
+              </ul>
+            );
+          }
+          return <p key={i} style={{ margin: 0, color: 'rgba(255,255,255,0.8)', lineHeight: 1.8 }}>{renderInlineText(trimmed)}</p>;
+        })}
+      </div>
     </div>
   );
 }
@@ -1075,6 +1176,30 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
   const handleContentPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const html  = e.clipboardData.getData("text/html");
     const plain = e.clipboardData.getData("text/plain");
+    const imageItem = Array.from(e.clipboardData.items || []).find(item => item.type.startsWith("image/"));
+
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      if (file) {
+        e.preventDefault();
+        const reader = new FileReader();
+        reader.onload = () => {
+          const ta = contentRef.current;
+          if (!ta) return;
+          const start = ta.selectionStart;
+          const end = ta.selectionEnd;
+          const next = ta.value.slice(0, start) + `![pasted image](${reader.result as string})` + ta.value.slice(end);
+          set({ content: next });
+          requestAnimationFrame(() => {
+            ta.focus();
+            const pos = start + `![pasted image](`.length + String(reader.result).length + 1;
+            ta.selectionStart = ta.selectionEnd = pos;
+          });
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
 
     let processed: string | null = null;
 
@@ -1105,7 +1230,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       ta.selectionStart = ta.selectionEnd = start + processed!.length;
       ta.focus();
     });
-  }, [htmlToMarkdown]);
+  }, [htmlToMarkdown, contentRef]);
 
   const fileName = editPost ? `edit_post_${editPost.id}.md` : "new_post.md";
 
@@ -1240,6 +1365,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
               onBlur={mainFocusOff}
             />
           </div>
+          <ContentPreview value={form.content} />
 
         </div>
       </div>
