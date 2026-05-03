@@ -156,13 +156,14 @@ const BarGraph = ({ data, labels, xAxisLabel }) => {
   const padLeft = 46, padRight = 12, padTop = 16, padBot = 52;
   const chartW = w - padLeft - padRight;
   const chartH = h - padTop - padBot;
-  const max = Math.max(...data);
+  const safeData = Array.isArray(data) ? data.map(v => Number(v) || 0) : [];
+  const max = Math.max(1, ...safeData);
   const rawStep = max / 4;
   const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
   const step = Math.ceil(rawStep / mag) * mag;
   const yTicks = Array.from({ length: 5 }, (_, i) => i * step);
   const yMax = yTicks[yTicks.length - 1];
-  const barW = chartW / data.length;
+  const barW = chartW / Math.max(safeData.length, 1);
   const gap = barW * 0.28;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '210px', overflow: 'visible' }}>
@@ -194,7 +195,7 @@ const BarGraph = ({ data, labels, xAxisLabel }) => {
       </text>
       <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + chartH} stroke="#1b2840" strokeWidth="1" />
       <line x1={padLeft} y1={padTop + chartH} x2={padLeft + chartW} y2={padTop + chartH} stroke="#1b2840" strokeWidth="1" />
-      {data.map((v, i) => {
+      {safeData.map((v, i) => {
         const barH = (v / yMax) * chartH;
         const x = padLeft + i * barW + gap / 2;
         const y = padTop + chartH - barH;
