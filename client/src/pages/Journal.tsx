@@ -508,17 +508,19 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
               const day = i + 1;
               const status = dayStatuses[day];
               const c = cellColor(status);
+              const isToday = activeYear === now.getFullYear() && activeMonth === now.getMonth() + 1 && day === now.getDate();
               return (
                 <div
                   key={day}
+                  title={isToday ? 'Today' : undefined}
                   style={{
                     aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: 4, fontSize: 9, fontWeight: 900,
-                    background: c.bg, color: c.color,
-                    border: `1px solid ${c.border}`,
-                    opacity: status ? 1 : 0.5,
+                    background: isToday && !status ? 'rgba(56,189,248,0.08)' : c.bg,
+                    color: isToday ? '#38bdf8' : c.color,
+                    border: isToday ? '1.5px solid #38bdf8' : `1px solid ${c.border}`,
+                    opacity: 1,
                     transition: 'all 0.15s',
-                    cursor: status ? 'default' : 'default',
                   }}>
                   {day}
                 </div>
