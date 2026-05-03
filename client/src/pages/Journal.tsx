@@ -6,6 +6,8 @@ import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
+import { useEntitlement } from '@/hooks/useEntitlement';
+import JournalPaywall from '@/components/JournalPaywall';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
 import JournalForm from '@/components/JournalForm';
@@ -730,6 +732,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
 export default function Journal() {
   usePageTracking('journal');
   const { user } = useAuth();
+  const { hasJournalAccess, stripeConfigured, loading: entitlementLoading } = useEntitlement();
   const { settings, setSettings } = useJournalSettings();
   const T = THEMES[settings.theme];
   const F = FONTS[settings.font];
@@ -853,6 +856,20 @@ export default function Journal() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // ── Paywall gate ───────────────────────────────────────────────────────────
+  // Show a loading state while entitlement is being resolved so we don't
+  // flash the paywall for users who do have access.
+  if (entitlementLoading) {
+    return (
+      <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020817' }}>
+        <TradingLoader message="Loading your journal…" />
+      </div>
+    );
+  }
+
+  if (!hasJournalAccess) {
+    return <JournalPaywall stripeConfigured={stripeConfigured} />;
+  }
 
   return (
     <div style={{ fontFamily: F.stack, height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: T.bg, color: T.text, transition: 'background 0.3s, color 0.3s' }}>

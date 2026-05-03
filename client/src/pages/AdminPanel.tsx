@@ -276,6 +276,27 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [grantAccessUserId, setGrantAccessUserId] = useState<string | null>(null);
+  const [grantAccessDays, setGrantAccessDays] = useState('30');
+  const [grantingAccess, setGrantingAccess] = useState(false);
+
+  const handleGrantJournalAccess = async () => {
+    if (!grantAccessUserId) return;
+    const days = parseInt(grantAccessDays, 10);
+    if (!days || days < 1) return;
+    setGrantingAccess(true);
+    const token = await getAdminToken();
+    if (token) {
+      await fetch(`/api/admin/users/${grantAccessUserId}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ journalAccessDays: String(days) }),
+      });
+    }
+    setGrantingAccess(false);
+    setGrantAccessUserId(null);
+    setGrantAccessDays('30');
+  };
 
   const filtered = apiUsers.filter(u =>
     (u.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -398,6 +419,8 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                           style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.amberL, border: 'none', fontSize: '12px' }}>
                           {u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
                         </button>
+                        <button onClick={() => { setGrantAccessUserId(u.id); setGrantAccessDays('30'); setMenuOpenId(null); }}
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.greenL, border: 'none', fontSize: '12px' }}>Grant Journal Access</button>
                         <button onClick={() => { setEditUser(u); setMenuOpenId(null); }}
                           style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: '#607898', border: 'none', fontSize: '12px' }}>Edit Profile</button>
                       </div>
@@ -414,6 +437,36 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
           </tbody>
         </table>
       </div>
+
+      {/* Grant Journal Access modal */}
+      {grantAccessUserId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '24px', border: `1px solid ${C.border2}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '16px', margin: 0 }}>Grant Journal Access</h3>
+              <button onClick={() => setGrantAccessUserId(null)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
+            </div>
+            <p style={{ color: '#607898', fontSize: '12px', marginBottom: '16px', lineHeight: 1.5 }}>
+              Grant this user access to the journal for a specified number of days, starting from now.
+            </p>
+            <label style={{ ...lbl }}>Number of Days</label>
+            <input
+              type="number"
+              min="1"
+              max="3650"
+              value={grantAccessDays}
+              onChange={e => setGrantAccessDays(e.target.value)}
+              style={{ ...inp, marginBottom: '20px' }}
+            />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setGrantAccessUserId(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleGrantJournalAccess} disabled={grantingAccess} style={{ ...btn, flex: 1, padding: '10px', background: C.green, color: 'white', border: 'none', fontSize: '13px', opacity: grantingAccess ? 0.6 : 1 }}>
+                {grantingAccess ? 'Granting…' : 'Grant Access'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Profile modal */}
       {editUser && (

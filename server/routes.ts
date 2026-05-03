@@ -307,7 +307,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!auth) return;
     try {
       const { rows: profileRows } = await pool.query(
-        `SELECT id, email, role, full_name, country, plan, status, avatar_url, created_at
+        `SELECT id, email, role, full_name, country, plan, status, avatar_url, created_at,
+                subscription_status, subscription_ends_at, journal_access_ends_at, journal_access_granted_by
          FROM user_profiles WHERE id = $1 LIMIT 1`,
         [auth.id],
       );
