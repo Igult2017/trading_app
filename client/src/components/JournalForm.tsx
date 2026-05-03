@@ -47,7 +47,7 @@ function entryToStat(e: any) {
   const direction = dir === "long" ? "Long" : "Short";
   const commission = parseFloat((e.manualFields as any)?.commission ?? (e.commission ?? 0)) || 0;
   const balance = parseFloat(e.accountBalance) || 0;
-  const achievedRR = e.riskReward ? String(e.riskReward) : "";
+  const achievedRR = e.riskReward ? String(e.riskReward) : String((e.manualFields as any)?.achievedRR ?? "");
   return { outcome, pnl, direction, commission, balance, achievedRR };
 }
 
@@ -78,12 +78,12 @@ function computeStats(entries: any[], startingBalance?: number) {
 
   // End balance: prefer last trade's recorded accountBalance (reliable dollar figure)
   const lastBalance = trades[trades.length - 1]?.balance || 0;
-  const eb = lastBalance > 0 ? lastBalance : sb + pnlSum;
+  const eb = lastBalance > 0 ? lastBalance : sb + pnlSum - commissions;
 
   // Net P&L: derive from balance tracking when available (avoids pips-vs-dollars mismatch)
   // If no trade has a recorded accountBalance, fall back to summing profitLoss values
   const hasBalanceTracking = trades.some(t => t.balance > 0);
-  const netPnL = hasBalanceTracking && sb > 0 ? eb - sb : pnlSum;
+  const netPnL = hasBalanceTracking && sb > 0 ? eb - sb : pnlSum - commissions;
 
   // Gross win/loss: use individual trade P&Ls (these are per-trade figures, not cumulative)
   const grossWin  = wins.map(t => t.pnl).reduce((a, b) => a + b, 0);
