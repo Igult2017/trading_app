@@ -29,13 +29,6 @@ function useBreakpoint() {
 }
 
 // ─── MOCK DATA ───────────────────────────────────────────────────────────────
-const MOCK_USERS = [
-  { id: 1, name: 'Alex Thompson', email: 'alex@example.com', plan: 'Pro', status: 'Active', winRate: '68%', lastLogin: '2h ago', tickets: 2, country: 'US' },
-  { id: 2, name: 'Sarah Chen', email: 'sarah.c@trading.io', plan: 'Free', status: 'Inactive', winRate: '42%', lastLogin: '3d ago', tickets: 0, country: 'SG' },
-  { id: 3, name: 'Marcus Miller', email: 'marcus@fx.net', plan: 'Enterprise', status: 'Active', winRate: '71%', lastLogin: '15m ago', tickets: 1, country: 'DE' },
-  { id: 4, name: 'Elena Rodriguez', email: 'elena.r@crypto.com', plan: 'Pro', status: 'Banned', winRate: '55%', lastLogin: '1w ago', tickets: 5, country: 'MX' },
-];
-
 const MOCK_POSTS = [
   { id: 1, title: 'Weekly Market Recap: CPI Volatility', author: 'Admin', date: '2023-10-24', status: 'Published', section: 'blog' },
   { id: 2, title: 'Top 5 Psychological Biases in Trading', author: 'Admin', date: '2023-10-22', status: 'Draft', section: 'blog' },
@@ -751,7 +744,9 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
               <Users size={13} style={{ color: '#3d5878' }} />
             </div>
-            {apiUsers.slice(0, 5).map((u, idx) => {
+            {apiUsers.length === 0 ? (
+              <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '13px' }}>No users found.</div>
+            ) : apiUsers.slice(0, 5).map((u, idx) => {
               const isAdmin = u.role === 'admin';
               const displayName = (u.full_name || u.email?.split('@')[0] || 'User') as string;
               const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -2551,8 +2546,6 @@ export default function AdminPanel() {
       if (usersRes.ok) {
         const users = await usersRes.json();
         setApiUsers(Array.isArray(users) ? users : []);
-      } else {
-        setApiUsers(MOCK_USERS);
       }
       if (statsRes.ok) setOverviewStats(await statsRes.json());
     });
