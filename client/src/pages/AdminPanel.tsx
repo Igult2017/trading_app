@@ -2018,10 +2018,10 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
               <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>Loading stats…</p>
             </div>
           ) : [
-            { label: 'In-App Sent', value: stats.inAppSent?.toLocaleString() ?? '0', change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(stats.sentChangePct ?? 0, 100) },
-            { label: 'Read Rate',   value: `${stats.readRate ?? 0}%`, change: stats.readChange ?? '—', up: (stats.readRate ?? 0) > 0, icon: TrendingUp, pct: stats.readRate ?? 0 },
-            { label: 'Campaigns',   value: stats.campaignCount?.toString() ?? '0', change: '30d', up: true, icon: Megaphone, pct: Math.min((stats.campaignCount ?? 0) * 10, 100) },
-            { label: 'Email / Push', value: 'N/A', change: 'config needed', up: false, icon: AlertTriangle, pct: 0 },
+            { label: 'In-App Sent', value: Number(stats.inAppSent ?? 0).toLocaleString(), change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(Number(stats.sentChangePct ?? 0), 100) },
+            { label: 'Read Rate',   value: `${Number(stats.readRate ?? 0).toFixed(1)}%`, change: stats.readChange ?? '—', up: (stats.readRate ?? 0) > 0, icon: TrendingUp, pct: Math.min(Number(stats.readRate ?? 0), 100) },
+            { label: 'Campaigns',   value: String(stats.campaignCount ?? 0), change: '30d', up: (stats.campaignCount ?? 0) > 0, icon: Megaphone, pct: Math.min(Number(stats.campaignCount ?? 0) * 10, 100) },
+            { label: 'Email / Push', value: stats.emailNote ? 'Ready' : 'N/A', change: stats.emailNote ?? 'config needed', up: Boolean(stats.emailNote), icon: AlertTriangle, pct: stats.emailNote ? 100 : 0 },
           ].map((s, i, arr) => (
             <div key={i} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {/* Top row */}
