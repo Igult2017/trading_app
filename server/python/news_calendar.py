@@ -21,9 +21,13 @@ import sys
 import re
 import json
 import requests
-import cloudscraper
 from bs4 import BeautifulSoup
 from datetime import datetime
+
+try:
+    import cloudscraper
+except Exception:
+    cloudscraper = None
 
 HEADERS = {
     'User-Agent': (
@@ -164,6 +168,9 @@ def _scrape_tradingview() -> list:
 def _scrape_myfxbook() -> list:
     """Newskeeper-style scrape of MyFXBook using cloudscraper to bypass Cloudflare."""
     url = 'https://www.myfxbook.com/forex-economic-calendar'
+    if cloudscraper is None:
+        print('[news_calendar] cloudscraper unavailable; skipping MyFXBook', file=sys.stderr)
+        return []
     try:
         scraper = cloudscraper.create_scraper(
             browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}

@@ -338,13 +338,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     );
   }
 
-  if (isError) {
-    return (
-      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ fontSize: 11, color: RED, fontWeight: 800 }} data-testid="text-calendar-error">Failed to load calendar data. Please try again.</p>
-      </div>
-    );
-  }
+  const hasCalendarData = Object.keys(data).length > 0;
 
   return (
     <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad }}>
@@ -463,14 +457,14 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
 
       {/* ── CALENDAR GRID ── */}
       <div style={{ border: `2px solid ${BORDER}`, position: "relative" }}>
-        {!hasData && (
+        {!hasCalendarData && (
           <div style={{
             position: "absolute", inset: 0, zIndex: 10,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             background: "rgba(10,13,20,0.82)", gap: 10,
           }}>
             <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "#2A3A55" }}>NO DATA FOR THIS PERIOD</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "#2A3A55" }}>NO CALENDAR DATA AVAILABLE</div>
           </div>
         )}
 
