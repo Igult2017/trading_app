@@ -2730,12 +2730,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json(result);
     } catch (err: any) {
-      console.error('[Admin/users] Failed to load users', {
-        message: err?.message ?? String(err),
+      const message = err?.message ?? String(err);
+      if (message.includes("desc")) {
+        console.error("[Admin/users] ORDER BY error detected:", err);
+      }
+      if (message.includes("syntax error")) {
+        console.error("[Admin/users] SQL syntax issue:", err);
+      }
+      console.error("[Admin/users] Failed to load users", {
+        message,
         stack: err?.stack ?? null,
+        raw: err,
       });
       return res.status(500).json({
-        error: err?.message ?? 'Failed to load admin users',
+        error: "Admin users query failed",
+        detail: message,
       });
     }
   });
