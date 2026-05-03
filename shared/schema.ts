@@ -667,6 +667,20 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: tru
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
 
+export const blogComments = pgTable("blog_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull().references(() => blogPosts.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  message: text("message").notNull(),
+  reply: text("reply"),
+  repliedAt: timestamp("replied_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBlogCommentSchema = createInsertSchema(blogComments).omit({ id: true, createdAt: true });
+export type InsertBlogComment = z.infer<typeof insertBlogCommentSchema>;
+export type BlogComment = typeof blogComments.$inferSelect;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE VIEWS
 // ─────────────────────────────────────────────────────────────────────────────

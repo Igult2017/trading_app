@@ -3705,13 +3705,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/blog/:id/comments", async (req: Request, res: Response) => {
     try {
-      const result = await db.execute(drizzleSql`
-        SELECT id, name, message, reply, replied_at, created_at
-        FROM blog_comments
-        WHERE post_id = ${req.params.id}
-        ORDER BY created_at DESC
-      `);
-      return res.json((result as any).rows ?? result);
+      const comments = await storage.getBlogComments(req.params.id);
+      return res.json(comments);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -3721,19 +3716,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name = '', message = '' } = req.body as { name?: string; message?: string };
       if (!message.trim()) return res.status(400).json({ error: 'message is required' });
-      const result = await db.execute(drizzleSql`
-        INSERT INTO blog_comments (post_id, name, message)
-        VALUES (${req.params.id}, ${name.trim() || 'Anonymous'}, ${message.trim()})
-        RETURNING id, name, message, reply, replied_at, created_at
-      `);
-      const row = (result as any).rows?.[0] ?? result;
+      const comment = await storage.createBlogComment({
+        postId: req.params.id,
+        name: name.trim() || 'Anonymous',
+        message: message.trim(),
+        reply: null,
+        repliedAt: null,
+      } as any);
       createAdminNotification({
         category: 'comment',
         title: 'New blog comment',
         body: `${name.trim() || 'Anonymous'} commented on a blog post`,
         meta: { post_id: req.params.id, name: name.trim() || 'Anonymous' },
       }).catch(() => {});
-      return res.status(201).json(row);
+      return res.status(201).json(comment);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -3743,15 +3739,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { reply = '' } = req.body as { reply?: string };
       if (!reply.trim()) return res.status(400).json({ error: 'reply is required' });
-      const result = await db.execute(drizzleSql`
-        UPDATE blog_comments
-        SET reply = ${reply.trim()},
-            replied_at = NOW()
-        WHERE id = ${req.params.id}::uuid
-        RETURNING id, post_id, name, message, reply, replied_at, created_at
-      `);
-      const row = (result as any).rows?.[0] ?? result;
-      return res.json(row);
+      const updated = await storage.updateBlogCommentReply(req.params.id, reply.trim());
+      return res.json(updated);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
