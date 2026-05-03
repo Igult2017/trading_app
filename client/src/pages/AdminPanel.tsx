@@ -831,7 +831,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
               <Users size={13} style={{ color: '#3d5878' }} />
             </div>
-            {usersLoadError && (
+            {typeof usersLoadError !== 'undefined' && usersLoadError && (
               <div style={{ padding: '12px 16px', color: '#fca5a5', fontSize: '12px', borderBottom: `1px solid ${C.border}`, background: 'rgba(220,38,38,0.08)' }}>
                 <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Load error</div>
                 <div>{usersLoadError}</div>
@@ -839,8 +839,8 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
             )}
             {apiUsers.length === 0 ? (
               <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '13px' }}>
-                {usersLoadError ? 'Unable to show users until the error above is fixed.' : 'No users found.'}
-                {!usersLoadError && overviewStats?.totalUsers > 0 ? ` (${overviewStats.totalUsers} total in stats)` : ''}
+                {typeof usersLoadError !== 'undefined' && usersLoadError ? 'Unable to show users until the error above is fixed.' : 'No users found.'}
+                {!(typeof usersLoadError !== 'undefined' && usersLoadError) && overviewStats?.totalUsers > 0 ? ` (${overviewStats.totalUsers} total in stats)` : ''}
               </div>
             ) : apiUsers.slice(0, 5).map((u, idx) => {
               const isAdmin = u.role === 'admin';
