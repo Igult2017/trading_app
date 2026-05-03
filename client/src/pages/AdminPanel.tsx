@@ -528,6 +528,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const [actionUser, setActionUser] = useState(null);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [sendingReply, setSendingReply] = useState(false);
+  const [careError, setCareError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -572,49 +573,78 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const ChanIcon = { email: Mail, chat: MessageSquare, phone: Phone };
 
   const handleResolve = async (displayId: string, dbId: number) => {
-    const token = await getAdminToken?.();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (dbId) {
-      await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Resolved' }) }).catch(() => {});
+    try {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (dbId) {
+        const r = await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Resolved' }) });
+        if (!r.ok) setCareError(`Failed to resolve ticket (${r.status})`);
+      } else {
+        setCareError('This ticket is missing its database id');
+      }
+      setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Resolved' } : t));
+      if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Resolved' }));
+    } catch (err: any) {
+      setCareError(err?.message ?? 'Failed to resolve ticket');
     }
-    setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Resolved' } : t));
-    if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Resolved' }));
   };
 
   const handleEscalate = async (displayId: string, dbId: number) => {
-    const token = await getAdminToken?.();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (dbId) await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Escalated', priority: 'Critical' }) }).catch(() => {});
-    setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Escalated', priority: 'Critical' } : t));
-    if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Escalated', priority: 'Critical' }));
+    try {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (dbId) {
+        const r = await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Escalated', priority: 'Critical' }) });
+        if (!r.ok) setCareError(`Failed to escalate ticket (${r.status})`);
+      } else {
+        setCareError('This ticket is missing its database id');
+      }
+      setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Escalated', priority: 'Critical' } : t));
+      if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Escalated', priority: 'Critical' }));
+    } catch (err: any) {
+      setCareError(err?.message ?? 'Failed to escalate ticket');
+    }
   };
 
   const handleBanUser = async (userId: string) => {
-    const token = await getAdminToken?.();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    await fetch(`/api/admin/users/${userId}/ban`, { method: 'PATCH', headers, body: JSON.stringify({ action: 'ban' }) }).catch(() => {});
-    setActionUser(null);
+    try {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const r = await fetch(`/api/admin/users/${userId}/ban`, { method: 'PATCH', headers, body: JSON.stringify({ action: 'ban' }) });
+      if (!r.ok) setCareError(`Failed to ban user (${r.status})`);
+      setActionUser(null);
+    } catch (err: any) {
+      setCareError(err?.message ?? 'Failed to ban user');
+    }
   };
 
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedTicket || sendingReply) return;
     setSendingReply(true);
-    const token = await getAdminToken?.();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (selectedTicket._id) {
-      const r = await fetch(`/api/admin/tickets/${selectedTicket._id}`, {
-        method: 'PATCH', headers,
-        body: JSON.stringify({ reply: replyText, status: 'In Progress' }),
-      }).catch(() => null);
-      if (r?.ok) {
-        setTickets(p => p.map(t => t.id === selectedTicket.id ? { ...t, reply: replyText, status: 'In Progress' } : t));
-        setSelectedTicket((p: any) => ({ ...p, reply: replyText, status: 'In Progress' }));
-        setReplyText('');
+    try {
+      const token = await getAdminToken?.();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (selectedTicket._id) {
+        const r = await fetch(`/api/admin/tickets/${selectedTicket._id}`, {
+          method: 'PATCH', headers,
+          body: JSON.stringify({ reply: replyText, status: 'In Progress' }),
+        });
+        if (r.ok) {
+          setTickets(p => p.map(t => t.id === selectedTicket.id ? { ...t, reply: replyText, status: 'In Progress' } : t));
+          setSelectedTicket((p: any) => ({ ...p, reply: replyText, status: 'In Progress' }));
+          setReplyText('');
+        } else {
+          setCareError(`Failed to send reply (${r.status})`);
+        }
+      } else {
+        setCareError('Selected ticket is missing its database id');
       }
+    } catch (err: any) {
+      setCareError(err?.message ?? 'Failed to send reply');
     }
     setSendingReply(false);
   };
@@ -624,6 +654,11 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+      {careError && (
+        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '12px' }}>
+          {careError}
+        </div>
+      )}
       {/* ── STAT CARDS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '3px' }}>
         {[
