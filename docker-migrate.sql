@@ -20,8 +20,12 @@ DECLARE
   r text[];
 BEGIN
   FOREACH r SLICE 1 IN ARRAY pairs LOOP
+    RAISE NOTICE 'Checking % for constraint %', r[1], r[2];
     IF to_regclass(r[1]) IS NOT NULL THEN
+      RAISE NOTICE 'Dropping constraint % on %', r[2], r[1];
       EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', r[1], r[2]);
+    ELSE
+      RAISE NOTICE 'Skipping %, table does not exist yet', r[1];
     END IF;
   END LOOP;
 END $$;

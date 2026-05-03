@@ -2512,9 +2512,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/setup", async (req: Request, res: Response) => {
     const authUser = await verifyToken(req.headers.authorization);
-    if (!authUser) return res.status(401).json({ error: "Unauthorized" });
+    if (!authUser) {
+      console.warn('[Auth/setup] Unauthorized request', {
+        hasAuthHeader: Boolean(req.headers.authorization),
+        authPrefix: req.headers.authorization?.slice(0, 20) ?? null,
+      });
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     try {
+      console.log('[Auth/setup] start', { id: authUser.id, email: authUser.email ?? null });
       // ── 1. Check if this user already has a profile ───────────────────────
       const existing = await db
         .select({ role: userProfiles.role })
@@ -2524,6 +2531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (existing.length > 0) {
         const existingRole = existing[0].role as 'admin' | 'user';
+        console.log('[Auth/setup] existing profile found', { id: authUser.id, role: existingRole });
         // Sync Supabase app_metadata so the client JWT stays accurate
         if (supabaseAdmin) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
@@ -2549,11 +2557,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             drizzleSql`SELECT COUNT(*)::int AS cnt FROM user_profiles WHERE role = 'admin' FOR UPDATE`
           );
           const adminCount = (countResult.rows?.[0] as any)?.cnt ?? 0;
+          console.log('[Auth/setup] admin count', { adminCount });
           if (Number(adminCount) === 0) assignedRole = 'admin';
         });
       }
 
       // ── 3. Insert the profile ─────────────────────────────────────────────
+      console.log('[Auth/setup] inserting profile', { id: authUser.id, email, role: assignedRole });
       await db.insert(userProfiles).values({
         id:    authUser.id,
         email,
@@ -2576,11 +2586,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }).catch(() => {});
       }
 
+      console.log('[Auth/setup] success', { id: authUser.id, role: assignedRole });
       return res.json({
         role: assignedRole,
         ...(assignedRole === 'admin' ? { message: 'Admin role granted.' } : {}),
       });
     } catch (err: any) {
+      console.error('[Auth/setup] failed', {
+        id: authUser.id,
+        email: authUser.email ?? null,
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+      });
       return res.status(500).json({ error: err.message });
     }
   });

@@ -19,9 +19,11 @@ export async function initializeDatabase() {
     ];
     for (const stmt of dropConstraints) {
       try {
+        console.log(`[Database] Running constraint cleanup: ${stmt}`);
         await db.execute(sql.raw(stmt));
-      } catch (_) {
-        // Table may not exist yet on a fresh deploy — safe to ignore
+        console.log(`[Database] Constraint cleanup OK`);
+      } catch (err: any) {
+        console.warn(`[Database] Constraint cleanup skipped/failed: ${err?.message ?? String(err)}`);
       }
     }
 
@@ -470,6 +472,7 @@ export async function initializeDatabase() {
     
     for (const statement of createTableStatements) {
       try {
+        console.log(`[Database] Creating statement: ${statement.slice(0, 90)}...`);
         await db.execute(sql.raw(statement));
       } catch (err) {
         const error = err as any;
@@ -495,8 +498,11 @@ export async function initializeDatabase() {
     ];
     for (const stmt of columnAdditions) {
       try {
+        console.log(`[Database] Applying column change: ${stmt}`);
         await db.execute(sql.raw(stmt));
-      } catch (_) {}
+      } catch (err: any) {
+        console.warn(`[Database] Column change skipped/failed: ${err?.message ?? String(err)}`);
+      }
     }
 
     // ── Indexes & constraints added after table creation ─────────────────────
@@ -509,6 +515,7 @@ export async function initializeDatabase() {
 
     for (const stmt of indexStatements) {
       try {
+        console.log(`[Database] Creating index: ${stmt}`);
         await db.execute(sql.raw(stmt));
       } catch (err) {
         const error = err as any;
