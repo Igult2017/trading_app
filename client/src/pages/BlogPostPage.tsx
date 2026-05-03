@@ -646,7 +646,7 @@ export default function BlogPostPage() {
               <div key={c.id} style={{ background: cardBg, border: `1px solid ${border}`, padding: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                   <strong>{c.name || 'Anonymous'}</strong>
-                  <span style={{ color: muted, fontSize: 11 }}>{new Date(c.created_at).toLocaleString()}</span>
+                  <span style={{ color: muted, fontSize: 11 }}>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</span>
                 </div>
                 <div style={{ color: isDark ? '#cbd5e1' : '#374151', lineHeight: 1.7 }}>{c.message}</div>
                 {c.reply && (
