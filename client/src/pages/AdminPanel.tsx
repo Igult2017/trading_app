@@ -2551,6 +2551,14 @@ export default function AdminPanel() {
 
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
   const dashMainCols = bp.isDesktop ? '2fr 1fr' : '1fr';
+  const formatChange = (v: any) => (v == null ? '—' : `${Number(v) > 0 ? '+' : ''}${v}%`);
+  const formatSession = (secs: number | null | undefined) => {
+    if (secs == null || Number.isNaN(Number(secs))) return '—';
+    const total = Math.max(0, Math.round(Number(secs)));
+    const mins = Math.floor(total / 60);
+    const secsR = total % 60;
+    return mins > 0 ? `${mins}m ${secsR}s` : `${secsR}s`;
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -2567,14 +2575,14 @@ export default function AdminPanel() {
             <StatCard
               title="Monthly Visitors"
               value={overviewStats ? (overviewStats.monthlyVisitors >= 1000 ? `${(overviewStats.monthlyVisitors / 1000).toFixed(1)}k` : String(overviewStats.monthlyVisitors)) : '—'}
-              change={overviewStats?.visitorChange != null ? `+${overviewStats.visitorChange}%` : 'Tracking…'}
+              change={formatChange(overviewStats?.visitorChange)}
               trend="up"
               icon={TrendingUp}
             />
             <StatCard
               title="Avg. Session"
-              value={overviewStats?.avgSessionSeconds != null ? `${Math.floor(overviewStats.avgSessionSeconds / 60)}m ${overviewStats.avgSessionSeconds % 60}s` : '—'}
-              change={overviewStats?.avgSessionSeconds != null ? 'This month' : 'Collecting…'}
+              value={formatSession(overviewStats?.avgSessionSeconds)}
+              change={overviewStats?.avgSessionSeconds != null ? 'This month' : '—'}
               trend="up"
               icon={Clock}
             />
