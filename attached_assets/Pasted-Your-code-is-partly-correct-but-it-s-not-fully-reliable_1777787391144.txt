@@ -1,0 +1,113 @@
+Your code is partly correct, but it’s not fully reliable for catching UI/runtime errors, which is why you “don’t see any error messages”.
+
+Here’s what’s actually going on:
+
+🔴 Problems in your current approach
+1. ❌ React render errors are NOT reliably caught by window.onerror
+
+React errors (especially in components) often bypass window.addEventListener('error') depending on the phase.
+
+So this won’t catch:
+
+React render crashes
+State update crashes inside components
+Errors inside React event handlers
+2. ❌ Your guard blocks useful errors
+if (event?.error?.stack || event?.message)
+
+This condition is unnecessary and can hide real issues in some cases. Even valid errors may not populate both fields consistently.
+
+3. ❌ Promise rejection handling is incomplete
+event.reason?.message || String(reason)
+
+If reason is:
+
+a string → OK
+an object without .message → OK
+but sometimes it’s a nested error, so you lose stack info completely
+4. ❌ You are not logging anything
+
+You only set state:
+
+setRenderError(...)
+
+If the UI doesn’t render renderError, you will see NOTHING.
+
+So it may actually be working — but invisible.
+
+🟡 Why you “don’t see errors”
+
+Most likely one of these:
+
+You never render renderError
+Errors are happening in React boundary (not window)
+Errors are caught elsewhere before reaching window
+Promise rejection isn't triggered
+Component re-renders overwrite state
+✅ Better + reliable version
+
+This version fixes visibility + logging + completeness:
+
+const [renderError, setRenderError] = useState<string | null>(null);
+
+useEffect(() => {
+  const handleError = (event: ErrorEvent) => {
+    console.error("[Global Error]", event.error || event.message);
+
+    setRenderError(
+      event.error?.message ||
+      event.message ||
+      "Customer Care crashed"
+    );
+  };
+
+  const handleRejection = (event: PromiseRejectionEvent) => {
+    console.error("[Unhandled Promise Rejection]", event.reason);
+
+    const reason = event.reason;
+
+    setRenderError(
+      reason?.message ||
+      (typeof reason === "string" ? reason : JSON.stringify(reason)) ||
+      "Customer Care crashed"
+    );
+  };
+
+  window.addEventListener("error", handleError);
+  window.addEventListener("unhandledrejection", handleRejection);
+
+  return () => {
+    window.removeEventListener("error", handleError);
+    window.removeEventListener("unhandledrejection", handleRejection);
+  };
+}, []);
+🔥 What you are STILL missing (important)
+
+If you want real React error catching, you need:
+
+✔ Error Boundary (required)
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error("[React ErrorBoundary]", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <h2>Something broke: {this.state.error?.message}</h2>;
+    }
+
+    return this.props.children;
+  }
+}
+🧠 Key insight
+
+Your current code catches only:
+
+global JS errors
+unhandled promises

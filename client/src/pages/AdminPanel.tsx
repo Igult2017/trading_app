@@ -100,6 +100,28 @@ const C = {
   amber: '#ffb700', amberL: '#ffd030',
   blue: '#2888f0', blueL: '#50a8f8',
 };
+class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error?.message || 'Customer Care crashed' };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[CustomerCareErrorBoundary]', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '12px 16px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', color: '#fca5a5', fontSize: '12px' }}>
+          Customer Care render error: {this.state.error || 'Customer Care crashed'}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 const cs = { background: C.card, border: `1px solid ${C.border}` };
 const inp = { width: '100%', background: 'var(--admin-bg)', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
 const lbl = { display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
@@ -676,7 +698,8 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const mainCols = bp.isDesktop ? '1fr 1fr' : '1fr';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+    <CustomerCareErrorBoundary>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
       {renderError && (
         <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '12px' }}>
           Customer Care render error: {renderError}
@@ -859,7 +882,8 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </CustomerCareErrorBoundary>
   );
 };
 
