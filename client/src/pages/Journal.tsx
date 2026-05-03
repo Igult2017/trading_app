@@ -377,10 +377,19 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
     return { tradeMap, sortedMonths };
   }, [entries]);
 
-  // Always start on today's month — real calendar navigation, not trade-bucket nav.
+  // Start on the latest month that has trades; fall back to today if no trades yet.
   const now = new Date();
   const todayMk = `${now.getFullYear()}-${now.getMonth() + 1}`;
-  const [activeMonthKey, setActiveMonthKey] = useState<string>(todayMk);
+  const latestTradeMk = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : todayMk;
+  const [activeMonthKey, setActiveMonthKey] = useState<string>(latestTradeMk);
+
+  // When entries load/change and the user hasn't manually navigated, follow the latest trade month.
+  const userNavigatedRef = useRef(false);
+  useEffect(() => {
+    if (!userNavigatedRef.current && sortedMonths.length > 0) {
+      setActiveMonthKey(sortedMonths[sortedMonths.length - 1]);
+    }
+  }, [sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helpers
   const mkToYM = (mk: string): [number, number] => { const [y, m] = mk.split('-').map(Number); return [y, m]; };
@@ -388,10 +397,10 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   const mkNum   = (mk: string) => { const [y, m] = mkToYM(mk); return y * 12 + m; };
 
   // Can't navigate into the future
-  const canPrev = mkNum(activeMonthKey) > mkNum('2020-1');
+  const canPrev = mkNum(activeMonthKey) > mkNum('2000-1');
   const canNext = mkNum(activeMonthKey) < mkNum(todayMk);
 
-  const goTo = (mk: string) => setActiveMonthKey(mk);
+  const goTo = (mk: string) => { userNavigatedRef.current = true; setActiveMonthKey(mk); };
   const prev = () => {
     const [y, m] = mkToYM(activeMonthKey);
     goTo(ymToMk(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1));
