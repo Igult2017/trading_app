@@ -397,7 +397,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   const mkNum   = (mk: string) => { const [y, m] = mkToYM(mk); return y * 12 + m; };
 
   // Can't navigate into the future
-  const canPrev = mkNum(activeMonthKey) > mkNum('2000-1');
+  const canPrev = mkNum(activeMonthKey) > mkNum('2018-1');
   const canNext = mkNum(activeMonthKey) < mkNum(todayMk);
 
   const goTo = (mk: string) => { userNavigatedRef.current = true; setActiveMonthKey(mk); };
