@@ -318,7 +318,7 @@ const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   zimbabwe: 'ZW',
 };
 
-const countryFlag = (country?: string) => {
+const flagEmoji = (country?: string) => {
   if (!country) return '';
   const cleaned = country.trim().toLowerCase();
   const code = COUNTRY_NAME_TO_CODE[cleaned] ?? cleaned.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
@@ -1027,7 +1027,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                   </div>
                   {u.country && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px', flexShrink: 0 }}>
-                      <span style={{ fontSize: '14px', lineHeight: 1 }}>{countryFlag(u.country)}</span>
+                      <span style={{ fontSize: '14px', lineHeight: 1 }}>{flagEmoji(u.country)}</span>
                       <span style={{ color: '#8aa0c2', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{u.country}</span>
                     </div>
                   )}
