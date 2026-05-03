@@ -27,6 +27,7 @@ interface NewFooterProps {
 
 export default function NewFooter({ isDark }: NewFooterProps) {
   const borderColor = isDark ? 'border-white/10' : 'border-black/10';
+  const supportHref = '/support';
 
   return (
     <footer className={`${isDark ? 'bg-[#0d1117]' : 'bg-[#f0f2f5]'} border-t ${borderColor} pt-20 pb-10 px-6 overflow-hidden relative transition-colors`}>
@@ -97,7 +98,7 @@ export default function NewFooter({ isDark }: NewFooterProps) {
             <div className={`flex gap-6 text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               <a href="#" className="hover:text-blue-500 transition-colors" data-testid="link-privacy">Privacy Policy</a>
               <a href="#" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-terms">Terms of Service</a>
-              <a href="#" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-contact">Contact</a>
+              <a href={supportHref} className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-contact">Support</a>
             </div>
           </div>
         </div>
