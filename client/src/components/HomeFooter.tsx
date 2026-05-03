@@ -19,11 +19,15 @@ const RESOURCES = [
   { label: 'SESSION CLOCK (TSC)', href: '/tsc' },
   { label: 'ECONOMIC CALENDAR', href: '/calendar' },
   { label: 'TRADERS BLOG', href: '/blog' },
-  { label: 'SUPPORT', href: '/support' },
   { label: 'COPIER', href: '#' },
 ];
 
-const LEGAL = ['PRIVACY POLICY', 'TERMS OF SERVICE'];
+const LEGAL = [
+  { label: 'PRIVACY POLICY', href: '/legal' },
+  { label: 'SUPPORT', href: '/legal' },
+  { label: 'TERMS OF SERVICE', href: '/legal' },
+  { label: 'CONTACT', href: '/legal' },
+];
 
 const linkStyle: React.CSSProperties = {
   fontFamily: "'Montserrat',sans-serif",
@@ -132,12 +136,12 @@ export default function HomeFooter() {
             </span>
             <div className="hf-legal">
               {LEGAL.map(item => (
-                <a key={item} href="#"
+                <Link key={item.label} href={item.href}
                   style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: '0.1em', color: '#4a6580', textDecoration: 'none', transition: 'color 0.2s', whiteSpace: 'nowrap' }}
                   onMouseEnter={e => e.currentTarget.style.color = '#c8d8e8'}
                   onMouseLeave={e => e.currentTarget.style.color = '#4a6580'}>
-                  {item}
-                </a>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>

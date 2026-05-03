@@ -22,6 +22,7 @@ import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import SupportPage from "@/pages/SupportPage";
+import LegalPage from "@/pages/LegalPage";
 import AuthPage from "@/pages/AuthPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import AdminPanel from "@/pages/AdminPanel";
@@ -114,6 +115,7 @@ function AppRoutes() {
       <Route path="/blog/:slug"    component={BlogPostPage} />
       <Route path="/calendar"      component={EconomicCalendarPage} />
       <Route path="/support"       component={SupportPage} />
+      <Route path="/legal"         component={LegalPage} />
 
       {/* Journal — protected, has its own header (no shared header/footer) */}
       <Route path="/journal">
