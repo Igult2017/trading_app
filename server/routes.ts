@@ -3373,14 +3373,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const fwd = req.headers['x-forwarded-for'];
     if (fwd) {
       const first = (Array.isArray(fwd) ? fwd[0] : fwd).split(',')[0].trim();
-      if (first) return first;
+      if (first) return normalizeIp(first);
     }
-    return (req.headers['x-real-ip'] as string) ?? req.socket?.remoteAddress ?? req.ip ?? 'unknown';
+    return normalizeIp((req.headers['x-real-ip'] as string) ?? req.socket?.remoteAddress ?? req.ip ?? 'unknown');
+  }
+
+  function normalizeIp(ip: string): string {
+    return ip
+      .trim()
+      .replace(/^::ffff:/, '')
+      .replace(/^\[|\]$/g, '')
+      .toLowerCase();
   }
 
   function getAdminIps(): string[] {
     const raw = process.env.ADMIN_IPS ?? '';
-    return raw.split(',').map(s => s.trim()).filter(Boolean);
+    return raw.split(',').map(s => normalizeIp(s)).filter(Boolean);
   }
 
   // Merged admin IP set: env var + every IP that has ever made a successful admin login.
@@ -3392,7 +3400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const envIps = getAdminIps();
     try {
       const rows = await db.select({ ip: adminAccessLogs.ip }).from(adminAccessLogs);
-      const set = new Set<string>([...envIps, ...rows.map(r => r.ip)]);
+      const set = new Set<string>([...envIps, ...rows.map(r => normalizeIp(r.ip))]);
       _adminIpCache = set;
       _adminIpCachedAt = Date.now();
       return set;
@@ -3409,7 +3417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ip = getClientIp(req);
       // Don't count admin traffic in visitor stats
       const adminIps = await getAllAdminIps();
-      if (adminIps.has(ip)) return res.json({ ok: true, skipped: true });
+      if (adminIps.has(normalizeIp(ip))) return res.json({ ok: true, skipped: true });
       await db.execute(drizzleSql`
         INSERT INTO page_views (page, session_id, duration_seconds, ip_address)
         VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null}, ${ip})
@@ -3424,7 +3432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/track/my-ip", async (req: Request, res: Response) => {
     const ip = getClientIp(req);
     const [adminIps, geo] = await Promise.all([getAllAdminIps(), geolocateIp(ip)]);
-    res.json({ ip, isExcluded: adminIps.has(ip), configuredAdminIps: [...adminIps], geo });
+    res.json({ ip, isExcluded: adminIps.has(normalizeIp(ip)), configuredAdminIps: [...adminIps], geo });
   });
 
   // ── Admin access log (last 50 entries) ───────────────────────────────────────
