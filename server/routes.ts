@@ -2653,10 +2653,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin: list all users ─────────────────────────────────────────────────────
   app.get("/api/admin/users", requireAdmin, async (_req: Request, res: Response) => {
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
-
       const [supabaseResult, dbProfiles, recentAccessLogs] = await Promise.all([
-        supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+        supabaseAdmin
+          ? supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+          : Promise.resolve({ data: { users: [] }, error: null } as any),
         db.select({
           id: userProfiles.id, role: userProfiles.role,
           country: userProfiles.country, plan: userProfiles.plan,
@@ -2671,7 +2671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .orderBy(desc(adminAccessLogs.createdAt)),
       ]);
 
-      if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
+      if (supabaseResult?.error) return res.status(500).json({ error: supabaseResult.error.message });
 
       const profileMap = new Map(dbProfiles.map(p => [p.id, p]));
       const countryBackfillMap = new Map<string, string>();
@@ -2681,7 +2681,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const result = supabaseResult.data.users.map(u => {
+      const supabaseUsers = supabaseResult?.data?.users ?? [];
+      const dbOnlyUsers = dbProfiles
+        .filter(p => !supabaseUsers.some((u: any) => u.id === p.id))
+        .map(p => ({
+          id: p.id,
+          email: '',
+          user_metadata: {},
+          created_at: null,
+          last_sign_in_at: null,
+        }));
+
+      const result = [...supabaseUsers, ...dbOnlyUsers].map((u: any) => {
         const profile = profileMap.get(u.id);
         const country = profile?.country || countryBackfillMap.get(u.id) || '';
         return {
