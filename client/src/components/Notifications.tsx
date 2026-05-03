@@ -237,7 +237,7 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
   return createPortal(
     <div
       ref={panelRef}
-      style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9998 }}
+      style={{ position: 'fixed', top: pos.top + 12, right: pos.right, zIndex: 9998 }}
     >
       <style>{PANEL_CSS}</style>
       <div className="np-root">
