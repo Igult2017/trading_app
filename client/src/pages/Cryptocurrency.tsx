@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 import { TrendingUp, TrendingDown, Activity, Globe, Flame, BarChart2, DollarSign, Cpu } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ export default function Cryptocurrency() {
   const fg       = data?.fearGreed ?? ({} as FearGreedData);
   const trending = data?.trending  ?? [];
 
-  const loading = isLoading;
+  const showLoading = useDelayedLoading(isLoading);
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4 md:p-6">
@@ -181,14 +182,11 @@ export default function Cryptocurrency() {
           </div>
         </div>
 
-        {loading && (
-          <div className="flex items-center gap-3 py-12 justify-center text-muted-foreground">
-            <Activity className="w-5 h-5 animate-pulse" />
-            <span>Fetching live crypto data…</span>
+        {showLoading ? (
+          <div className="py-12 flex justify-center">
+            <TradingLoader message="Fetching live crypto data…" />
           </div>
-        )}
-
-        {!loading && (
+        ) : (
           <>
             {/* ── Global Stats Row ─────────────────────────────────────── */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">

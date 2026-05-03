@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import SignalCard from '@/components/SignalCard';
 import WatchlistCard from '@/components/WatchlistCard';
 import SectionHeader from '@/components/SectionHeader';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 import { Zap, Bookmark } from 'lucide-react';
 
 export default function MajorPairs() {
@@ -17,6 +18,8 @@ export default function MajorPairs() {
 
   const forexSignals = allSignals.filter(s => s.assetClass === 'forex');
   const watchlistItems = pendingSetups.filter(s => !s.readyForSignal && s.assetClass === 'forex');
+  const showSignalsLoader = useDelayedLoading(signalsLoading);
+  const showWatchlistLoader = useDelayedLoading(setupsLoading);
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
@@ -30,8 +33,10 @@ export default function MajorPairs() {
               variant="active"
             />
             <div className="flex flex-col">
-              {signalsLoading ? (
-                <div className="p-8 text-center text-muted-foreground">Loading signals...</div>
+              {showSignalsLoader ? (
+                <div className="p-8 flex justify-center">
+                  <TradingLoader size="sm" message="Loading signals…" />
+                </div>
               ) : forexSignals.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">No active forex signals</div>
               ) : (
@@ -52,8 +57,10 @@ export default function MajorPairs() {
               variant="pending"
             />
             <div className="flex flex-col">
-              {setupsLoading ? (
-                <div className="p-8 text-center text-muted-foreground">Loading watchlist...</div>
+              {showWatchlistLoader ? (
+                <div className="p-8 flex justify-center">
+                  <TradingLoader size="sm" message="Loading watchlist…" />
+                </div>
               ) : watchlistItems.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">No instruments being monitored</div>
               ) : (

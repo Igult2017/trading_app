@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, authFetch } from "@/lib/queryClient";
 import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
+import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 
 const CircleDownloadIcon = ({ success }: { success: boolean }) => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -523,12 +524,14 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     updateMutation.mutate(updated);
   };
 
-  if (sessionId && isLoading) {
+  const showLoader = useDelayedLoading(!!sessionId && isLoading);
+
+  if (showLoader) {
     return (
       <div className="trade-vault-root" style={styles.page}>
         {vaultHeader("Loading entries...")}
-        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const, marginTop: 20 }}>
-          <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-loading">Loading trade data...</div>
+        <div style={{ ...styles.tableWrapper, padding: 40, display: "flex", justifyContent: "center", marginTop: 20 }}>
+          <TradingLoader size="sm" message="Loading trade data…" />
         </div>
       </div>
     );
