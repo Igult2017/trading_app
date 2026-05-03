@@ -2700,16 +2700,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (supabaseResult?.error) return res.status(500).json({ error: supabaseResult.error.message });
 
-      const profileMap = new Map(dbProfiles.map(p => [p.id, p]));
+      const safeProfiles = Array.isArray(dbProfiles) ? dbProfiles : [];
+      const safeAccessLogs = Array.isArray(recentAccessLogs) ? recentAccessLogs : [];
+      const profileMap = new Map(safeProfiles.map(p => [p.id, p]));
       const countryBackfillMap = new Map<string, string>();
-      for (const log of recentAccessLogs) {
+      for (const log of safeAccessLogs) {
         if (!countryBackfillMap.has(log.userId) && log.country) {
           countryBackfillMap.set(log.userId, log.country);
         }
       }
 
-      const supabaseUsers = supabaseResult?.data?.users ?? [];
-      const dbOnlyUsers = dbProfiles
+      const supabaseUsers = Array.isArray(supabaseResult?.data?.users) ? supabaseResult.data.users : [];
+      const dbOnlyUsers = safeProfiles
         .filter(p => !supabaseUsers.some((u: any) => u.id === p.id))
         .map(p => ({
           id: p.id,
