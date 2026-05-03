@@ -626,21 +626,24 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance }: any) {
 // ─── Step 3 — Context ─────────────────────────────────────────────────────────
 function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef }: any) {
   const lastDirectionRef = useRef<string | null>(null);
+  const htfTouchedRef = useRef(false);
 
   useEffect(() => {
     if (lastDirectionRef.current === direction) return;
     lastDirectionRef.current = direction;
-    const derived = direction === "Short" ? "Bearish" : "Bullish";
+    const derived = direction === "Short" ? "Bear" : "Bull";
     set((prev: any) => ({
       ...prev,
-      ...(!regimeTouchedRef.current ? { marketRegime: derived }  : {}),
-      ...(!trendTouchedRef.current  ? { trendDirection: derived } : {}),
+      ...(!regimeTouchedRef.current ? { marketRegime: derived === "Bull" ? "Bullish" : "Bearish" } : {}),
+      ...(!trendTouchedRef.current  ? { trendDirection: derived === "Bull" ? "Bullish" : "Bearish" } : {}),
+      ...(!htfTouchedRef.current ? { htfBias: derived } : {}),
     }));
   }, [direction]);
 
   const f = (k: string) => (v: any) => {
     if (k === "marketRegime")   regimeTouchedRef.current = true;
     if (k === "trendDirection") trendTouchedRef.current  = true;
+    if (k === "htfBias") htfTouchedRef.current = true;
     set((prev: any) => ({ ...prev, [k]: v }));
   };
 
