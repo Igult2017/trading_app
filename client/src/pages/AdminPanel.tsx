@@ -1889,7 +1889,7 @@ const BlogSection = ({ bp }) => {
 };
 
 // ─── MARKETING SECTION ───────────────────────────────────────────────────────
-const MarketingSection = ({ bp, getAdminToken = null }) => {
+const UpdatesSection = ({ bp, getAdminToken = null }) => {
   const [activeChannels, setActiveChannels] = useState(['In-App']);
   const [audience, setAudience] = useState('all');
   const [subject, setSubject] = useState('');
@@ -2495,7 +2495,7 @@ export default function AdminPanel() {
     { label: 'Core',             items: [{ id: 'dashboard',     label: 'Overview',        icon: Layers,        ready: true }] },
     { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: Users,         ready: true }] },
     { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: HeadphonesIcon, badge: openTickets, ready: true }] },
-    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'marketing', label: 'Marketing', icon: Megaphone, ready: true }] },
+    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
     { label: 'Journal',          items: [{ id: 'journal',       label: 'Open Journal',    icon: BookOpen,      ready: true }] },
@@ -2506,7 +2506,7 @@ export default function AdminPanel() {
     users: 'User Accounts', 'user-activity': 'User Activity', roles: 'Roles & Permissions', flagged: 'Blocked / Flagged',
     'customer-care': 'Customer Care', feedback: 'User Feedback',
     reported: 'Reported Content', 'audit-logs': 'Audit Logs', 'data-mgmt': 'Data Management',
-    blog: 'Blogpost', marketing: 'Marketing', announcements: 'Announcements',
+    blog: 'Blogpost', updates: 'Updates', announcements: 'Announcements',
     'system-monitor': 'System Monitor', 'usage-metrics': 'Usage Metrics', 'error-logs': 'Error Logs',
     billing: 'Plans & Billing', promotions: 'Promotions',
     settings: 'System Settings', api: 'API & Integrations', 'feature-flags': 'Feature Flags', security: 'Security Settings',
@@ -2580,8 +2580,8 @@ export default function AdminPanel() {
             />
             <StatCard
               title="MRR"
-              value="—"
-              change="No billing data"
+              value={overviewStats?.mrr != null ? `$${Number(overviewStats.mrr).toLocaleString()}` : '—'}
+              change={overviewStats?.mrrChange != null ? `+${overviewStats.mrrChange}%` : 'No billing data'}
               trend="up"
               icon={Globe}
             />
@@ -2654,7 +2654,7 @@ export default function AdminPanel() {
 
       case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'blog': return <BlogSection bp={bp} />;
-      case 'marketing': return <MarketingSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'updates': return <UpdatesSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
