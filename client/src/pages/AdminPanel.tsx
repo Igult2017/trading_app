@@ -521,6 +521,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
 
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
 const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
+  const [renderError, setRenderError] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [replyText, setReplyText] = useState('');
@@ -560,6 +561,24 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
       setLoadingTickets(false);
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => {
+      if (event?.error?.stack || event?.message) {
+        setRenderError(event.error?.message || event.message || 'Customer Care crashed');
+      }
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      setRenderError(reason?.message || String(reason) || 'Customer Care crashed');
+    };
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
   }, []);
 
   const openCount = tickets.filter(t => t.status === 'Open').length;
@@ -658,6 +677,11 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+      {renderError && (
+        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '12px' }}>
+          Customer Care render error: {renderError}
+        </div>
+      )}
       {careError && (
         <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '12px' }}>
           {careError}
