@@ -483,7 +483,7 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
     const e = ta.selectionEnd;
     const selected = ta.value.slice(s, e).trim();
     const alt = selected || "image";
-    const insert = `![${alt}](https://)`;
+    const insert = `![${alt}](https://){Caption here}`;
     const next = ta.value.slice(0, s) + insert + ta.value.slice(e);
     onUpdate(next);
     requestAnimationFrame(() => {
@@ -706,30 +706,36 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
 
 function renderInlineText(text: string) {
   const nodes: React.ReactNode[] = [];
-  const re = /(!)?\[([^\]]*)\]\(([^)]+)\)|\*\*([^*]+)\*\*|_([^_]+)_|`([^`]+)`|(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+  const re = /(!)?\[([^\]]*)\]\(([^)]+)\)(?:\{([^\}]*)\})?|\*\*([^*]+)\*\*|_([^_]+)_|`([^`]+)`|(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
     if (match.index > last) nodes.push(text.slice(last, match.index));
     if (match[1] === '!') {
       nodes.push(
-        <img
-          key={`${match.index}-img`}
-          src={match[3]}
-          alt={match[2] || 'image'}
-          style={{ maxWidth: '100%', borderRadius: 8, display: 'block', margin: '10px 0' }}
-        />,
+        <figure key={`${match.index}-fig`} style={{ margin: '10px 0' }}>
+          <img
+            src={match[3]}
+            alt={match[2] || 'image'}
+            style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }}
+          />
+          {match[4] && (
+            <figcaption style={{ marginTop: 6, fontSize: 11, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
+              {match[4]}
+            </figcaption>
+          )}
+        </figure>,
       );
-    } else if (match[4]) {
-      nodes.push(<strong key={`${match.index}-b`}>{match[4]}</strong>);
     } else if (match[5]) {
-      nodes.push(<em key={`${match.index}-i`}>{match[5]}</em>);
+      nodes.push(<strong key={`${match.index}-b`}>{match[5]}</strong>);
     } else if (match[6]) {
-      nodes.push(<code key={`${match.index}-c`}>{match[6]}</code>);
+      nodes.push(<em key={`${match.index}-i`}>{match[6]}</em>);
     } else if (match[7]) {
+      nodes.push(<code key={`${match.index}-c`}>{match[7]}</code>);
+    } else if (match[8]) {
       nodes.push(
-        <a key={`${match.index}-a`} href={match[7]} target="_blank" rel="noreferrer">
-          {match[7]}
+        <a key={`${match.index}-a`} href={match[8]} target="_blank" rel="noreferrer">
+          {match[8]}
         </a>,
       );
     } else {
@@ -1188,7 +1194,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           if (!ta) return;
           const start = ta.selectionStart;
           const end = ta.selectionEnd;
-          const next = ta.value.slice(0, start) + `![pasted image](${reader.result as string})` + ta.value.slice(end);
+          const next = ta.value.slice(0, start) + `![pasted image](${reader.result as string}){Pasted image}` + ta.value.slice(end);
           set({ content: next });
           requestAnimationFrame(() => {
             ta.focus();
