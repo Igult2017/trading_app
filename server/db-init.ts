@@ -505,6 +505,25 @@ export async function initializeDatabase() {
       }
     }
 
+    // ── blog_comments (depends on blog_posts existing first) ─────────────────
+    try {
+      await db.execute(sql.raw(`
+        CREATE TABLE IF NOT EXISTS blog_comments (
+          id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          post_id     VARCHAR NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+          name        TEXT NOT NULL,
+          message     TEXT NOT NULL,
+          reply       TEXT,
+          replied_at  TIMESTAMP,
+          created_at  TIMESTAMP DEFAULT NOW()
+        )
+      `));
+      await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_blog_comments_post_id ON blog_comments (post_id)`));
+      console.log('[Database] blog_comments table ready');
+    } catch (e: any) {
+      console.warn('[Database] Could not ensure blog_comments table:', e.message);
+    }
+
     // ── Indexes & constraints added after table creation ─────────────────────
     const indexStatements = [
       // Deduplication constraint: prevents the same master signal from being
