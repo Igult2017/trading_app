@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { ArrowLeft, Clock, Calendar, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -35,6 +35,13 @@ type Post = {
     linkedin?: string;
     telegram?: string;
   } | null;
+};
+
+type Comment = {
+  id: string;
+  name: string;
+  message: string;
+  created_at: string;
 };
 
 // ── Minimal markdown renderer (no external deps) ──────────────────────────────
@@ -338,6 +345,11 @@ export default function BlogPostPage() {
   const [darkMode, setDarkMode] = useState(true);
   const [post, setPost]         = useState<Post | null>(null);
   const [related, setRelated]   = useState<Post[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentName, setCommentName] = useState('');
+  const [commentMessage, setCommentMessage] = useState('');
+  const [commentSending, setCommentSending] = useState(false);
+  const [commentError, setCommentError] = useState('');
   const [loading, setLoading]   = useState(true);
   const [notFound, setNotFound] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -348,6 +360,7 @@ export default function BlogPostPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
+    setComments([]);
     fetch(`/api/blog/${id}`)
       .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
       .then((data: any) => {
@@ -366,10 +379,14 @@ export default function BlogPostPage() {
           authorData: data.authorData  ?? data.author_data ?? null,
         });
         // load related posts
-        return fetch('/api/blog');
+        return Promise.all([
+          fetch('/api/blog'),
+          fetch(`/api/blog/${id}/comments`),
+        ]);
       })
-      .then(r => r?.ok ? r.json() : [])
-      .then((all: any[]) => {
+      .then(async ([postsRes, commentsRes]) => {
+        const all = postsRes?.ok ? await postsRes.json() : [];
+        const commentData = commentsRes?.ok ? await commentsRes.json() : [];
         if (!all) return;
         setRelated(
           all
@@ -384,10 +401,34 @@ export default function BlogPostPage() {
               status: p.status, authorData: null,
             }))
         );
+        setComments(Array.isArray(commentData) ? commentData : []);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const submitComment = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!id || !commentMessage.trim()) return;
+    setCommentSending(true);
+    setCommentError('');
+    try {
+      const r = await fetch(`/api/blog/${id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: commentName.trim(), message: commentMessage.trim() }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed to post comment');
+      const saved = await r.json();
+      setComments(p => [saved, ...p]);
+      setCommentName('');
+      setCommentMessage('');
+    } catch (err: any) {
+      setCommentError(err.message || 'Failed to post comment');
+    } finally {
+      setCommentSending(false);
+    }
+  };
 
   const bg      = isDark ? '#0f172a' : '#FDFCFB';
   const text     = isDark ? '#f1f5f9' : '#1a1a1a';
@@ -578,6 +619,38 @@ export default function BlogPostPage() {
             </div>
           </section>
         )}
+
+        <section style={{ marginTop: 64 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <MessageCircle size={18} color={accentL} />
+            <h2 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.4rem', fontWeight: 900, color: text, margin: 0 }}>Comments</h2>
+          </div>
+          <form onSubmit={submitComment} style={{ background: cardBg, border: `1px solid ${border}`, padding: 20, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your name" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
+              <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your email (optional)" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
+            </div>
+            <textarea value={commentMessage} onChange={e => setCommentMessage(e.target.value)} placeholder="Share your thoughts..." rows={4} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none', marginBottom: 12 }} />
+            <button type="submit" disabled={commentSending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: accent, color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+              <Send size={14} />
+              {commentSending ? 'Posting...' : 'Post Comment'}
+            </button>
+            {commentError && <div style={{ marginTop: 10, color: '#f87171', fontSize: 12 }}>{commentError}</div>}
+          </form>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {comments.length === 0 ? (
+              <div style={{ color: muted, fontSize: 13 }}>No comments yet.</div>
+            ) : comments.map(c => (
+              <div key={c.id} style={{ background: cardBg, border: `1px solid ${border}`, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                  <strong>{c.name || 'Anonymous'}</strong>
+                  <span style={{ color: muted, fontSize: 11 }}>{new Date(c.created_at).toLocaleString()}</span>
+                </div>
+                <div style={{ color: isDark ? '#cbd5e1' : '#374151', lineHeight: 1.7 }}>{c.message}</div>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
 
       <HomeFooter />

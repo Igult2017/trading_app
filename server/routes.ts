@@ -3567,6 +3567,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/blog/:id/comments", async (req: Request, res: Response) => {
+    try {
+      const result = await db.execute(drizzleSql`
+        SELECT id, name, message, created_at
+        FROM blog_comments
+        WHERE post_id = ${req.params.id}
+        ORDER BY created_at DESC
+      `);
+      return res.json((result as any).rows ?? result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/blog/:id/comments", async (req: Request, res: Response) => {
+    try {
+      const { name = '', message = '' } = req.body as { name?: string; message?: string };
+      if (!message.trim()) return res.status(400).json({ error: 'message is required' });
+      const result = await db.execute(drizzleSql`
+        INSERT INTO blog_comments (post_id, name, message)
+        VALUES (${req.params.id}, ${name.trim() || 'Anonymous'}, ${message.trim()})
+        RETURNING id, name, message, created_at
+      `);
+      const row = (result as any).rows?.[0] ?? result;
+      createAdminNotification({
+        category: 'comment',
+        title: 'New blog comment',
+        body: `${name.trim() || 'Anonymous'} commented on a blog post`,
+        meta: { post_id: req.params.id, name: name.trim() || 'Anonymous' },
+      }).catch(() => {});
+      return res.status(201).json(row);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Blog: create post ─────────────────────────────────────────────────────────
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
