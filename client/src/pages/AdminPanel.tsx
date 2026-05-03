@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 import TradingLoader from '@/components/TradingLoader';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
@@ -2444,6 +2445,35 @@ export default function AdminPanel() {
   const [collapsed, setCollapsed] = useState(false);
   const openTickets = MOCK_TICKETS.filter(t => t.status === 'Open').length;
 
+  // ── Admin notifications (Messages + Alerts) ───────────────────────────────
+  const adminNotifs = useAdminNotifications();
+  const [notifPanelOpen, setNotifPanelOpen] = useState<'messages' | 'alerts' | null>(null);
+  const msgBtnRef = useRef<HTMLButtonElement>(null);
+  const alertBtnRef = useRef<HTMLButtonElement>(null);
+  const notifPanelRef = useRef<HTMLDivElement>(null);
+  const [notifPanelPos, setNotifPanelPos] = useState({ top: 49, right: 8 });
+
+  const openNotifPanel = useCallback((mode: 'messages' | 'alerts') => {
+    const ref = mode === 'messages' ? msgBtnRef : alertBtnRef;
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setNotifPanelPos({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right - 4) });
+    }
+    setNotifPanelOpen(p => p === mode ? null : mode);
+  }, []);
+
+  useEffect(() => {
+    if (!notifPanelOpen) return;
+    const handler = (e: MouseEvent) => {
+      const inPanel = notifPanelRef.current?.contains(e.target as Node);
+      const inMsg   = msgBtnRef.current?.contains(e.target as Node);
+      const inAlert = alertBtnRef.current?.contains(e.target as Node);
+      if (!inPanel && !inMsg && !inAlert) setNotifPanelOpen(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [notifPanelOpen]);
+
   const { user, session, role, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
   const [apiUsers, setApiUsers] = useState<any[]>([]);
@@ -2673,23 +2703,50 @@ export default function AdminPanel() {
 
         {/* ── Right: actions ── */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+          <button
+            ref={msgBtnRef}
+            onClick={() => openNotifPanel('messages')}
+            style={{ ...btn, background: notifPanelOpen === 'messages' ? 'rgba(0,200,224,0.1)' : 'rgba(8,14,24,0.6)', color: notifPanelOpen === 'messages' ? C.indigoL : '#607898', border: `1px solid ${notifPanelOpen === 'messages' ? C.border2 : C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s', position: 'relative' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
+            onMouseLeave={e => { if (notifPanelOpen !== 'messages') { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; } }}
+          >
             <Mail size={16} />
             {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
-            <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>3</span>
+            {adminNotifs.counts.messages > 0 && (
+              <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
+                {adminNotifs.counts.messages > 99 ? '99+' : adminNotifs.counts.messages}
+              </span>
+            )}
           </button>
           <div style={{ width: '1px', height: '24px', background: C.border2 }} />
-          <button style={{ ...btn, background: 'rgba(8,14,24,0.6)', color: '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}
+          <button
+            ref={alertBtnRef}
+            onClick={() => openNotifPanel('alerts')}
+            style={{ ...btn, background: notifPanelOpen === 'alerts' ? 'rgba(244,63,94,0.08)' : 'rgba(8,14,24,0.6)', color: notifPanelOpen === 'alerts' ? '#ff6080' : '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s', position: 'relative' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; }}>
+            onMouseLeave={e => { if (notifPanelOpen !== 'alerts') { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; } }}
+          >
             <Bell size={16} />
             {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
-            <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>5</span>
+            {adminNotifs.counts.alerts > 0 && (
+              <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
+                {adminNotifs.counts.alerts > 99 ? '99+' : adminNotifs.counts.alerts}
+              </span>
+            )}
           </button>
         </div>
       </header>
+
+      {/* ── Admin notification dropdown panel ── */}
+      {notifPanelOpen && (
+        <AdminNotificationsPanel
+          panelRef={notifPanelRef}
+          pos={notifPanelPos}
+          mode={notifPanelOpen}
+          hook={adminNotifs}
+          onClose={() => setNotifPanelOpen(null)}
+        />
+      )}
 
       {/* ── BODY ROW — sidebar + content, fills remaining height ── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>

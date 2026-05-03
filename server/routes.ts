@@ -38,6 +38,15 @@ import { interestRateScraper } from "./scrapers/interestRateScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
 import { notificationService } from "./services/notificationService";
+import {
+  createAdminNotification,
+  getAdminNotifications,
+  getAdminUnreadCounts,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  deleteAdminNotification,
+  clearAdminNotifications,
+} from "./services/adminNotificationService";
 import fs from 'fs';
 import path from 'path';
 import { signalDetectionService } from "./services/signalDetection";
@@ -2553,6 +2562,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      if (assignedRole === 'user') {
+        createAdminNotification({
+          category: 'signup',
+          title: 'New user signed up',
+          body: `${email || 'Unknown email'} just created an account.`,
+          meta: { userId: authUser.id, email },
+        }).catch(() => {});
+      }
+
       return res.json({
         role: assignedRole,
         ...(assignedRole === 'admin' ? { message: 'Admin role granted.' } : {}),
@@ -2853,6 +2871,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         RETURNING *
       `);
       const row = (result as any).rows?.[0] ?? result;
+      createAdminNotification({
+        category: 'message',
+        title: `New ticket: ${subject.trim()}`,
+        body: `From ${user_name || 'Anonymous'} (${user_email || 'no email'}) — ${priority} priority`,
+        meta: { user_name, user_email, priority, channel },
+      }).catch(() => {});
       return res.status(201).json(row);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -2919,6 +2943,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         VALUES ('Admin', 'admin@system', ${`Campaign: ${subject || 'Broadcast'}`}, ${`Sent to ${targets.length} users via ${channels.join(', ')}`}, 'Low', 'email', 'Resolved')
       `);
 
+      createAdminNotification({
+        category: 'campaign',
+        title: `Campaign sent: ${subject || 'Broadcast'}`,
+        body: `Sent to ${targets.length} users via ${channels.join(', ')}. In-app: ${notifCount} notifications created.`,
+        meta: { targets: targets.length, channels, audience },
+      }).catch(() => {});
       return res.json({ ok: true, sent: targets.length, notificationsCreated: notifCount, emailNote: channels.includes('Email') ? 'Email delivery requires SMTP configuration (SMTP_HOST, SMTP_USER, SMTP_PASS env vars)' : undefined });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -2980,6 +3010,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: notification CRUD ──────────────────────────────────────────────────
+  app.get("/api/admin/notifications", requireAdmin, async (_req: Request, res: Response) => {
+    return res.json(await getAdminNotifications(80));
+  });
+
+  app.get("/api/admin/notifications/counts", requireAdmin, async (_req: Request, res: Response) => {
+    return res.json(await getAdminUnreadCounts());
+  });
+
+  app.patch("/api/admin/notifications/:id/read", requireAdmin, async (req: Request, res: Response) => {
+    await markAdminNotificationRead(req.params.id);
+    return res.json({ ok: true });
+  });
+
+  app.patch("/api/admin/notifications/read-all", requireAdmin, async (req: Request, res: Response) => {
+    const cat = req.query.category as string | undefined;
+    await markAllAdminNotificationsRead(cat as any);
+    return res.json({ ok: true });
+  });
+
+  app.delete("/api/admin/notifications/:id", requireAdmin, async (req: Request, res: Response) => {
+    await deleteAdminNotification(req.params.id);
+    return res.json({ ok: true });
+  });
+
+  app.delete("/api/admin/notifications/clear", requireAdmin, async (req: Request, res: Response) => {
+    const cat = req.query.category as string | undefined;
+    await clearAdminNotifications(cat as any);
+    return res.json({ ok: true });
+  });
+
   // ── Admin: ban / unban user ───────────────────────────────────────────────────
   app.patch("/api/admin/users/:userId/ban", requireAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;
@@ -2992,6 +3053,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ON CONFLICT (id) DO UPDATE SET status = ${newStatus}
       `);
       addServerLog('warn', 'Admin', `User ${userId} ${newStatus === 'Banned' ? 'banned' : 'unbanned'} by admin`);
+      createAdminNotification({
+        category: 'alert',
+        title: `User ${newStatus === 'Banned' ? 'banned' : 'unbanned'}`,
+        body: `User ID ${userId} status changed to ${newStatus}.`,
+        meta: { userId, status: newStatus },
+      }).catch(() => {});
       return res.json({ ok: true, userId, status: newStatus });
     } catch (err: any) {
       addServerLog('error', 'Admin', `Ban user failed: ${err.message}`);

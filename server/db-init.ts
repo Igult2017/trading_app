@@ -447,6 +447,16 @@ export async function initializeDatabase() {
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       )`,
+
+      `CREATE TABLE IF NOT EXISTS admin_notifications (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        category TEXT NOT NULL DEFAULT 'alert',
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        meta TEXT,
+        is_read BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )`,
     ];
     
     for (const statement of createTableStatements) {
