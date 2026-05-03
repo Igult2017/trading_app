@@ -137,7 +137,7 @@ const PANEL_CSS = `
   .np-item.unread { padding-left: 20px; }
 `;
 
-type TabKey = 'all' | 'signals' | 'calendar' | 'emails' | 'updates' | 'marketing';
+type TabKey = 'all' | 'signals' | 'calendar' | 'emails' | 'updates';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode; types: string[] }[] = [
   { key: 'all',       label: 'All',       icon: <Bell size={10} />,       types: [] },
@@ -145,7 +145,6 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode; types: string[]
   { key: 'calendar',  label: 'Calendar',  icon: <Calendar size={10} />,   types: ['economic_event', 'trading_session'] },
   { key: 'emails',    label: 'Emails',    icon: <Mail size={10} />,       types: ['email'] },
   { key: 'updates',   label: 'Updates',   icon: <Zap size={10} />,        types: ['update'] },
-  { key: 'marketing', label: 'Marketing', icon: <Megaphone size={10} />,  types: ['marketing'] },
 ];
 
 const TYPE_META: Record<string, { color: string; bg: string; label: string }> = {
@@ -154,7 +153,6 @@ const TYPE_META: Record<string, { color: string; bg: string; label: string }> = 
   trading_session: { color: '#38bdf8', bg: 'rgba(56,189,248,0.10)',  label: 'Session' },
   email:           { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)',  label: 'Email' },
   update:          { color: '#a78bfa', bg: 'rgba(167,139,250,0.10)', label: 'Update' },
-  marketing:       { color: '#f97316', bg: 'rgba(249,115,22,0.10)',  label: 'Marketing' },
 };
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -163,7 +161,6 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   trading_session: <Calendar size={14} />,
   email:           <Mail size={14} />,
   update:          <Zap size={14} />,
-  marketing:       <Megaphone size={14} />,
 };
 
 function getMeta(type: string) {
@@ -298,7 +295,6 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
                  tab === 'calendar'  ? <Calendar size={28} /> :
                  tab === 'emails'    ? <Mail size={28} /> :
                  tab === 'updates'   ? <Zap size={28} /> :
-                 tab === 'marketing' ? <Megaphone size={28} /> :
                  <Bell size={28} />}
               </div>
               <div className="np-empty-text">
