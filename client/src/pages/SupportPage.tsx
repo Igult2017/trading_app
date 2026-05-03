@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
+import HomeHeader from '@/components/HomeHeader';
+import HomeFooter from '@/components/HomeFooter';
 
 export default function SupportPage() {
   const [form, setForm] = useState({
@@ -9,6 +12,8 @@ export default function SupportPage() {
   });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState('');
+  const [darkMode, setDarkMode] = useState(true);
+  const [location] = useLocation();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -30,8 +35,9 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#080c10] text-white px-6 py-20">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-[#080c10] text-white">
+      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
+      <div className="max-w-3xl mx-auto px-6 py-20">
         <h1 className="text-4xl font-black uppercase tracking-tight mb-4">Customer Support</h1>
         <p className="text-slate-400 mb-8">Send a ticket and our customer care team will handle it from the admin panel.</p>
         <form onSubmit={onSubmit} className="rounded-2xl border border-white/10 bg-white/5 p-6 grid gap-4">
@@ -46,6 +52,7 @@ export default function SupportPage() {
           {status === 'error' && <p className="text-red-400 text-sm">{error}</p>}
         </form>
       </div>
+      <HomeFooter />
     </div>
   );
 }
