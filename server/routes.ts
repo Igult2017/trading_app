@@ -3578,7 +3578,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/track", async (req: Request, res: Response) => {
     try {
       const { page, sessionId, durationSeconds } = req.body as { page: string; sessionId?: string; durationSeconds?: number };
-      if (!page?.trim()) return res.status(400).json({ error: 'page required' });
+      if (!page?.trim()) {
+        console.warn('[Track] Missing page', {
+          body: req.body ?? null,
+          contentType: req.headers['content-type'] ?? null,
+          ip: getClientIp(req),
+        });
+        return res.status(400).json({ error: 'page required' });
+      }
       const ip = getClientIp(req);
       // Don't count admin traffic in visitor stats
       const adminIps = await getAllAdminIps();

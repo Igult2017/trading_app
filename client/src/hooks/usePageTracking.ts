@@ -16,20 +16,25 @@ export function usePageTracking(page: string) {
 
   useEffect(() => {
     const sessionId = getSessionId();
+    const trackingPage = page?.trim();
+    if (!trackingPage) {
+      console.warn('[PageTracking] Missing page name', { page });
+      return;
+    }
     startRef.current = Date.now();
 
     // Record page view
     fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page, sessionId }),
+      body: JSON.stringify({ page: trackingPage, sessionId }),
     }).catch(() => {});
 
     // Record duration on unmount / page hide
     const recordDuration = () => {
       const durationSeconds = Math.round((Date.now() - startRef.current) / 1000);
       if (durationSeconds < 2) return; // ignore bounces
-      navigator.sendBeacon('/api/track', JSON.stringify({ page, sessionId, durationSeconds }));
+      navigator.sendBeacon('/api/track', JSON.stringify({ page: trackingPage, sessionId, durationSeconds }));
     };
 
     window.addEventListener('beforeunload', recordDuration);
