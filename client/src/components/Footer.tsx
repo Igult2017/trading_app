@@ -96,9 +96,10 @@ export default function NewFooter({ isDark }: NewFooterProps) {
               </div>
             </div>
             <div className={`flex gap-6 text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              <a href="#" className="hover:text-blue-500 transition-colors" data-testid="link-privacy">Privacy Policy</a>
-              <a href="#" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-terms">Terms of Service</a>
-              <a href={supportHref} className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-contact">Support</a>
+              <a href="/legal" className="hover:text-blue-500 transition-colors" data-testid="link-privacy">Privacy Policy</a>
+              <a href="/legal" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-terms">Terms of Service</a>
+              <a href="/legal" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`} data-testid="link-contact">Contact</a>
+              <a href="/legal" className={`${isDark ? 'hover:text-white' : 'hover:text-black'} transition-colors`}>Support</a>
             </div>
           </div>
         </div>
