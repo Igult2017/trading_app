@@ -318,12 +318,29 @@ const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   zimbabwe: 'ZW',
 };
 
-const flagEmoji = (country?: string) => {
+const countryToIso = (country?: string): string => {
   if (!country) return '';
-  const cleaned = country.trim().toLowerCase();
-  const code = COUNTRY_NAME_TO_CODE[cleaned] ?? cleaned.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-  if (!code || code.length !== 2) return '';
-  return String.fromCodePoint(...code.split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+  const trimmed = country.trim();
+  if (/^[A-Za-z]{2}$/.test(trimmed)) return trimmed.toLowerCase();
+  const cleaned = trimmed.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+  const code = COUNTRY_NAME_TO_CODE[cleaned] ?? COUNTRY_NAME_TO_CODE[cleaned.replace(/\s+/g, '')];
+  return code ? code.toLowerCase() : '';
+};
+
+const FlagImg = ({ country, size = 20 }: { country?: string; size?: number }) => {
+  const code = countryToIso(country);
+  if (!code) return <span style={{ fontSize: size * 0.7, color: '#3d5878' }}>🌐</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/w${size}/${code}.png`}
+      srcSet={`https://flagcdn.com/w${size * 2}/${code}.png 2x`}
+      width={size}
+      alt={country}
+      title={country}
+      style={{ display: 'inline-block', verticalAlign: 'middle', borderRadius: '2px', objectFit: 'cover', flexShrink: 0 }}
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
 };
 
 // ─── MINI COMPONENTS ─────────────────────────────────────────────────────────
@@ -564,7 +581,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                   <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
                     {u.country ? (
                       <span style={{ color: '#9ab4cc', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '16px' }}>{flagEmoji(u.country)}</span> {u.country.toUpperCase()}
+                        <FlagImg country={u.country} size={20} /> {u.country.toUpperCase()}
                       </span>
                     ) : <span style={{ color: '#1b2840', fontSize: '12px' }}>—</span>}
                   </td>
@@ -1027,7 +1044,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                   </div>
                   {u.country && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px', flexShrink: 0 }}>
-                      <span style={{ fontSize: '14px', lineHeight: 1 }}>{flagEmoji(u.country)}</span>
+                      <FlagImg country={u.country} size={18} />
                       <span style={{ color: '#8aa0c2', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{u.country}</span>
                     </div>
                   )}
