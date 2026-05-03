@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs, type BrokerAccount, type InsertBrokerAccount, type SyncedTrade, type InsertSyncedTrade, brokerAccounts, syncedTrades, type BlogPost, type InsertBlogPost, blogPosts } from "@shared/schema";
+import { type User, type InsertUser, type Trade, type InsertTrade, type EconomicEvent, type InsertEconomicEvent, type TradingSignal, type InsertTradingSignal, type PendingSetup, type InsertPendingSetup, type InterestRate, type InsertInterestRate, type JournalEntry, type InsertJournalEntry, type TradingSession, type InsertTradingSession, trades, users, tradingSignals, pendingSetups, interestRates, journalEntries, tradingSessions, type CopyAccount, type InsertCopyAccount, type CopyMaster, type InsertCopyMaster, type TelegramSignalSource, type InsertTelegramSignalSource, type CopyFollower, type InsertCopyFollower, type CopyTradeMaster, type InsertCopyTradeMaster, type CopyTradeFollower, type InsertCopyTradeFollower, type CopyExecutionLog, type InsertCopyExecutionLog, copyAccounts, copyMasters, telegramSignalSources, copyFollowers, copyTradesMaster, copyTradesFollower, copyExecutionLogs, type BrokerAccount, type InsertBrokerAccount, type SyncedTrade, type InsertSyncedTrade, brokerAccounts, syncedTrades, type BlogPost, type InsertBlogPost, blogPosts, type BlogComment, type InsertBlogComment, blogComments } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -122,6 +122,9 @@ export interface IStorage {
   createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
   updateBlogPost(id: string, post: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
   deleteBlogPost(id: string): Promise<boolean>;
+  getBlogComments(postId: string): Promise<BlogComment[]>;
+  createBlogComment(comment: InsertBlogComment): Promise<BlogComment>;
+  updateBlogCommentReply(id: string, reply: string): Promise<BlogComment | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -883,6 +886,23 @@ export class DbStorage implements IStorage {
   async deleteBlogPost(id: string): Promise<boolean> {
     const r = await db.delete(blogPosts).where(eq(blogPosts.id, id)).returning();
     return r.length > 0;
+  }
+
+  async getBlogComments(postId: string): Promise<BlogComment[]> {
+    return await db.select().from(blogComments).where(eq(blogComments.postId, postId)).orderBy(desc(blogComments.createdAt));
+  }
+
+  async createBlogComment(comment: InsertBlogComment): Promise<BlogComment> {
+    const r = await db.insert(blogComments).values({ ...comment, id: randomUUID() }).returning();
+    return r[0];
+  }
+
+  async updateBlogCommentReply(id: string, reply: string): Promise<BlogComment | undefined> {
+    const r = await db.update(blogComments)
+      .set({ reply, repliedAt: new Date() })
+      .where(eq(blogComments.id, id))
+      .returning();
+    return r[0];
   }
 }
 

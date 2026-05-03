@@ -3722,9 +3722,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: message.trim(),
         reply: null,
         repliedAt: null,
-      } as any);
+      });
       createAdminNotification({
-        category: 'comment',
+        category: 'message',
         title: 'New blog comment',
         body: `${name.trim() || 'Anonymous'} commented on a blog post`,
         meta: { post_id: req.params.id, name: name.trim() || 'Anonymous' },
