@@ -2650,27 +2650,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
 
-      const [supabaseResult, dbProfiles] = await Promise.all([
+      const [supabaseResult, dbProfiles, recentAccessLogs] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         db.select({
           id: userProfiles.id, role: userProfiles.role,
           country: userProfiles.country, plan: userProfiles.plan,
           status: userProfiles.status, winRate: userProfiles.winRate,
         }).from(userProfiles),
+        db.select({
+          userId: adminAccessLogs.userId,
+          country: adminAccessLogs.country,
+          createdAt: adminAccessLogs.createdAt,
+        })
+          .from(adminAccessLogs)
+          .orderBy(desc(adminAccessLogs.createdAt)),
       ]);
 
       if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
 
       const profileMap = new Map(dbProfiles.map(p => [p.id, p]));
+      const countryBackfillMap = new Map<string, string>();
+      for (const log of recentAccessLogs) {
+        if (!countryBackfillMap.has(log.userId) && log.country) {
+          countryBackfillMap.set(log.userId, log.country);
+        }
+      }
 
       const result = supabaseResult.data.users.map(u => {
         const profile = profileMap.get(u.id);
+        const country = profile?.country || countryBackfillMap.get(u.id) || '';
         return {
           id:              u.id,
           email:           u.email ?? '',
           full_name:       u.user_metadata?.full_name ?? '',
           role:            profile?.role ?? 'user',
-          country:         profile?.country ?? '',
+          country,
           plan:            profile?.plan ?? 'Free',
           status:          profile?.status ?? 'Active',
           win_rate:        profile?.winRate ?? '',
