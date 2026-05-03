@@ -2594,45 +2594,6 @@ export default function AdminPanel() {
               icon={Globe}
             />
           </div>
-          {/* Admin IP filter notice */}
-          {myIpInfo && (
-            <div style={{
-              background: myIpInfo.isExcluded ? 'rgba(29,158,117,0.06)' : 'rgba(255,170,0,0.06)',
-              border: `1px solid ${myIpInfo.isExcluded ? 'rgba(29,158,117,0.2)' : 'rgba(255,170,0,0.25)'}`,
-              borderRadius: 6, padding: '10px 16px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: myIpInfo.isExcluded ? '#1D9E75' : '#ffaa00', flexShrink: 0 }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  {myIpInfo.geo?.countryCode && (
-                    <span style={{ fontSize: 18, lineHeight: 1 }}>
-                      {myIpInfo.geo.countryCode.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('')}
-                    </span>
-                  )}
-                  <div>
-                    <span style={{ fontSize: 11, color: myIpInfo.isExcluded ? '#1D9E75' : '#ffaa00', fontWeight: 600, letterSpacing: '0.05em' }}>
-                      {myIpInfo.isExcluded ? 'Admin IP — excluded from visitor stats' : 'Your IP is counted in visitor stats'}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>
-                      <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 6px', borderRadius: 3, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{myIpInfo.ip}</code>
-                      {myIpInfo.geo && (
-                        <span style={{ marginLeft: 6 }}>
-                          · {[myIpInfo.geo.city, myIpInfo.geo.region, myIpInfo.geo.country].filter(Boolean).join(', ')}
-                          {myIpInfo.geo.isp && <span style={{ color: 'rgba(255,255,255,0.25)', marginLeft: 4 }}>via {myIpInfo.geo.isp}</span>}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              {!myIpInfo.isExcluded && (
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.03em' }}>
-                  Add to <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>ADMIN_IPS</code> secret to exclude your traffic
-                </div>
-              )}
-            </div>
-          )}
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
