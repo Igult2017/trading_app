@@ -2758,7 +2758,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const bp = useBreakpoint();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('admin_active_tab') || 'dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const openTickets = MOCK_TICKETS.filter(t => t.status === 'Open').length;
 
@@ -2894,6 +2894,7 @@ export default function AdminPanel() {
     const handleClick = () => {
       if (item.id === 'journal') { window.open('/journal', '_blank', 'noopener,noreferrer'); return; }
       setActiveTab(item.id);
+      localStorage.setItem('admin_active_tab', item.id);
       if (bp.isMobile) setCollapsed(true);
     };
     return (
