@@ -859,6 +859,12 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                       <span style={{ color: statusColor, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{u.role}</span>
                     </div>
                   </div>
+                  {u.country && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '14px', lineHeight: 1 }}>{flagEmoji(u.country)}</span>
+                      <span style={{ color: '#8aa0c2', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{u.country}</span>
+                    </div>
+                  )}
                   <Eye size={11} style={{ color: '#3d5878', flexShrink: 0 }} />
                 </div>
               );
