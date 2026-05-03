@@ -2994,7 +2994,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await db.execute(drizzleSql`SELECT * FROM support_tickets ORDER BY created_at DESC`);
       return res.json((result as any).rows ?? result);
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error("[Admin/tickets] Failed to load tickets", {
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+        raw: err,
+      });
+      return res.status(500).json({ error: err?.message ?? "Failed to load tickets" });
     }
   });
 
@@ -3012,7 +3017,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
       return res.json({ ok: true });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error("[Admin/tickets] Failed to update ticket", {
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+        raw: err,
+      });
+      return res.status(500).json({ error: err?.message ?? "Failed to update ticket" });
     }
   });
 
@@ -3111,7 +3121,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         readChangePct: readRate,
       });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error("[Admin/campaign-stats] Failed to load stats", {
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+        raw: err,
+      });
+      return res.status(500).json({ error: err?.message ?? "Failed to load campaign stats" });
     }
   });
 
