@@ -41,6 +41,8 @@ type Comment = {
   id: string;
   name: string;
   message: string;
+  reply?: string | null;
+  replied_at?: string | null;
   created_at: string;
 };
 
@@ -628,7 +630,7 @@ export default function BlogPostPage() {
           <form onSubmit={submitComment} style={{ background: cardBg, border: `1px solid ${border}`, padding: 20, marginBottom: 24 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your name" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
-              <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your email (optional)" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
+              <div />
             </div>
             <textarea value={commentMessage} onChange={e => setCommentMessage(e.target.value)} placeholder="Share your thoughts..." rows={4} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none', marginBottom: 12 }} />
             <button type="submit" disabled={commentSending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: accent, color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
@@ -647,6 +649,12 @@ export default function BlogPostPage() {
                   <span style={{ color: muted, fontSize: 11 }}>{new Date(c.created_at).toLocaleString()}</span>
                 </div>
                 <div style={{ color: isDark ? '#cbd5e1' : '#374151', lineHeight: 1.7 }}>{c.message}</div>
+                {c.reply && (
+                  <div style={{ marginTop: 12, padding: 12, borderLeft: `3px solid ${accent}`, background: isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: accentL, marginBottom: 6 }}>Admin reply</div>
+                    <div style={{ color: isDark ? '#e2e8f0' : '#1f2937', lineHeight: 1.7 }}>{c.reply}</div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
