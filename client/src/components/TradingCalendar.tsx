@@ -264,6 +264,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const now = new Date();
   const [date, setDate]         = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [flashKey, setFlashKey] = useState(0);
+  const [manualNavigation, setManualNavigation] = useState(false);
   const width    = useWindowWidth();
   const isMobile = width < 480;
   const isTablet = width >= 480 && width < 768;
@@ -288,14 +289,14 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     },
   });
 
-  // Auto-navigate to the most recent month that has data when the result first loads.
+  // Auto-navigate to the most recent month that has data unless the user has
+  // manually navigated away from it.
   useEffect(() => {
     if (!calendarResult?.availableMonths?.length) return;
     const last = calendarResult.availableMonths[calendarResult.availableMonths.length - 1];
     const [y, m] = last.split("-").map(Number);
-    if (!isNaN(y) && !isNaN(m)) setDate({ year: y, month: m });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calendarResult]);
+    if (!isNaN(y) && !isNaN(m) && !manualNavigation) setDate({ year: y, month: m });
+  }, [calendarResult?.availableMonths, manualNavigation]);
 
   const allCalendarData = calendarResult?.calendarData || {};
   const key      = `${date.year}-${date.month}`;
@@ -316,6 +317,7 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
     let m = month, y = year;
     if (m > 12) { m = 1; y++; }
     if (m < 1)  { m = 12; y--; }
+    setManualNavigation(true);
     setDate({ year: y, month: m });
     setFlashKey(k => k + 1);
   }
