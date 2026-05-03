@@ -1023,7 +1023,6 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
             {apiUsers.length === 0 ? (
               <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '13px' }}>
                 {typeof usersLoadError !== 'undefined' && usersLoadError ? 'Unable to show users until the error above is fixed.' : 'No users found.'}
-                {!(typeof usersLoadError !== 'undefined' && usersLoadError) && overviewStats?.totalUsers > 0 ? ` (${overviewStats.totalUsers} total in stats)` : ''}
               </div>
             ) : apiUsers.slice(0, 5).map((u, idx) => {
               const isAdmin = u.role === 'admin';
@@ -2956,14 +2955,14 @@ export default function AdminPanel() {
           <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
             <StatCard
               title="Total Traders"
-              value={overviewStats ? overviewStats.totalUsers.toLocaleString() : '—'}
-              change={overviewStats?.userChange != null ? `+${overviewStats.userChange}%` : '—'}
+              value={typeof overviewStats?.totalUsers === 'number' ? overviewStats.totalUsers.toLocaleString() : '—'}
+              change={typeof overviewStats?.userChange === 'number' ? `+${overviewStats.userChange}%` : '—'}
               trend="up"
               icon={Users}
             />
             <StatCard
               title="Monthly Visitors"
-              value={overviewStats ? (overviewStats.monthlyVisitors >= 1000 ? `${(overviewStats.monthlyVisitors / 1000).toFixed(1)}k` : String(overviewStats.monthlyVisitors)) : '—'}
+              value={typeof overviewStats?.monthlyVisitors === 'number' ? (overviewStats.monthlyVisitors >= 1000 ? `${(overviewStats.monthlyVisitors / 1000).toFixed(1)}k` : String(overviewStats.monthlyVisitors)) : '—'}
               change={formatChange(overviewStats?.visitorChange)}
               trend="up"
               icon={TrendingUp}
