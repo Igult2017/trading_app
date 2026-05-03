@@ -5,8 +5,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import HomeHeader from "@/components/HomeHeader";
+import HomeFooter from "@/components/HomeFooter";
 import HomePage from "@/pages/HomePage";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
@@ -80,7 +80,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 function InnerPages() {
   return (
     <div className="flex flex-col min-h-screen w-full">
-      <Header />
+      <HomeHeader darkMode={true} setDarkMode={() => {}} activePath={undefined} />
       <main className="flex-1 bg-background">
         <Switch>
           <Route path="/history"     component={TradeHistoryPage} />
@@ -96,7 +96,7 @@ function InnerPages() {
           <Route component={NotFound} />
         </Switch>
       </main>
-      <Footer />
+      <HomeFooter />
     </div>
   );
 }

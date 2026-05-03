@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'wouter';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import { Link, useLocation } from 'wouter';
+import HomeHeader from '@/components/HomeHeader';
+import HomeFooter from '@/components/HomeFooter';
 
 const SECTIONS = ['Privacy Policy', 'Terms of Service', 'Contact & Support'] as const;
 type Section = typeof SECTIONS[number];
@@ -274,10 +274,12 @@ function ContactContent() {
 
 export default function LegalPage() {
   const [active, setActive] = useState<Section>('Privacy Policy');
+  const [location] = useLocation();
+  const [darkMode, setDarkMode] = useState(true);
 
   return (
     <div style={{ minHeight: '100vh', background: '#080c10', fontFamily: "'Montserrat', sans-serif" }}>
-      <Header />
+      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px 80px' }}>
         {/* Tab strip */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 40, background: '#0c1219', borderRadius: 10, padding: 4, border: '1px solid #172233' }}>
@@ -319,7 +321,7 @@ export default function LegalPage() {
           {active === 'Contact & Support' && <ContactContent />}
         </div>
       </div>
-      <Footer isDark />
+      <HomeFooter />
     </div>
   );
 }
