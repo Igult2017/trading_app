@@ -1,0 +1,34 @@
+[Admin/users] Failed to load users {
+message: 'Cannot convert undefined or null to object',
+stack: 'TypeError: Cannot convert undefined or null to object\n' +
+'    at Function.entries ()\n' +
+'    at orderSelectedFields (file:///app/node_modules/drizzle-orm/utils.js:53:17)\n' +
+'    at file:///app/node_modules/drizzle-orm/utils.js:63:22\n' +
+'    at Array.reduce ()\n' +
+'    at orderSelectedFields (file:///app/node_modules/drizzle-orm/utils.js:53:33)\n' +
+'    at file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:684:26\n' +
+'    at Object.startActiveSpan (file:///app/node_modules/drizzle-orm/tracing.js:8:14)\n' +
+'    at PgSelectBase._prepare (file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:683:19)\n' +
+'    at file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:708:19\n' +
+'    at Object.startActiveSpan (file:///app/node_modules/drizzle-orm/tracing.js:8:14)\n' +
+'    at PgSelectBase.execute (file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:707:19)\n' +
+'    at PgSelectBase.then (file:///app/node_modules/drizzle-orm/query-promise.js:21:17)\n' +
+'    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)'
+}
+[Admin/users] Failed to load users {
+message: 'Cannot convert undefined or null to object',
+stack: 'TypeError: Cannot convert undefined or null to object\n' +
+'    at Function.entries ()\n' +
+'    at orderSelectedFields (file:///app/node_modules/drizzle-orm/utils.js:53:17)\n' +
+'    at file:///app/node_modules/drizzle-orm/utils.js:63:22\n' +
+'    at Array.reduce ()\n' +
+'    at orderSelectedFields (file:///app/node_modules/drizzle-orm/utils.js:53:33)\n' +
+'    at file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:684:26\n' +
+'    at Object.startActiveSpan (file:///app/node_modules/drizzle-orm/tracing.js:8:14)\n' +
+'    at PgSelectBase._prepare (file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:683:19)\n' +
+'    at file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:708:19\n' +
+'    at Object.startActiveSpan (file:///app/node_modules/drizzle-orm/tracing.js:8:14)\n' +
+'    at PgSelectBase.execute (file:///app/node_modules/drizzle-orm/pg-core/query-builders/select.js:707:19)\n' +
+'    at PgSelectBase.then (file:///app/node_modules/drizzle-orm/query-promise.js:21:17)\n' +
+'    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)'
+}
