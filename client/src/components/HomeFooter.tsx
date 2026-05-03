@@ -19,10 +19,11 @@ const RESOURCES = [
   { label: 'SESSION CLOCK (TSC)', href: '/tsc' },
   { label: 'ECONOMIC CALENDAR', href: '/calendar' },
   { label: 'TRADERS BLOG', href: '/blog' },
+  { label: 'SUPPORT', href: '/support' },
   { label: 'COPIER', href: '#' },
 ];
 
-const LEGAL = ['PRIVACY POLICY', 'TERMS OF SERVICE', 'CONTACT'];
+const LEGAL = ['PRIVACY POLICY', 'TERMS OF SERVICE'];
 
 const linkStyle: React.CSSProperties = {
   fontFamily: "'Montserrat',sans-serif",
