@@ -377,38 +377,32 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
     return { tradeMap, sortedMonths };
   }, [entries]);
 
-  // Default to most recent month that has trades
-  const defaultMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : null;
-  const [activeMonthKey, setActiveMonthKey] = useState<string | null>(defaultMonth);
-  const userNavigatedRef = useRef(false);
+  // Always start on today's month — real calendar navigation, not trade-bucket nav.
+  const now = new Date();
+  const todayMk = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  const [activeMonthKey, setActiveMonthKey] = useState<string>(todayMk);
 
-  useEffect(() => {
-    if (defaultMonth && !userNavigatedRef.current) {
-      setActiveMonthKey(defaultMonth);
-    }
-  }, [defaultMonth]);
+  // Helpers
+  const mkToYM = (mk: string): [number, number] => { const [y, m] = mk.split('-').map(Number); return [y, m]; };
+  const ymToMk = (y: number, m: number) => `${y}-${m}`;
+  const mkNum   = (mk: string) => { const [y, m] = mkToYM(mk); return y * 12 + m; };
 
-  // Auto-follow the latest month whenever new entries arrive — UNLESS the user
-  // has manually navigated to a different month (then we leave them where they are).
-  useEffect(() => {
-    if (!defaultMonth) return;
-    if (userNavigatedRef.current) return;
-    if (activeMonthKey !== defaultMonth) {
-      setActiveMonthKey(defaultMonth);
-    }
-  }, [defaultMonth, activeMonthKey]);
+  // Can't navigate into the future
+  const canPrev = mkNum(activeMonthKey) > mkNum('2020-1');
+  const canNext = mkNum(activeMonthKey) < mkNum(todayMk);
 
-  const activeIdx = activeMonthKey ? sortedMonths.indexOf(activeMonthKey) : -1;
-  const canPrev = activeIdx > 0;
-  const canNext = activeIdx < sortedMonths.length - 1;
-
-  const goTo = (mk: string) => { userNavigatedRef.current = true; setActiveMonthKey(mk); };
-  const prev = () => canPrev && goTo(sortedMonths[activeIdx - 1]);
-  const next = () => canNext && goTo(sortedMonths[activeIdx + 1]);
+  const goTo = (mk: string) => setActiveMonthKey(mk);
+  const prev = () => {
+    const [y, m] = mkToYM(activeMonthKey);
+    goTo(ymToMk(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1));
+  };
+  const next = () => {
+    const [y, m] = mkToYM(activeMonthKey);
+    goTo(ymToMk(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1));
+  };
 
   // Parse active month
-  const activeYear = activeMonthKey ? parseInt(activeMonthKey.split('-')[0], 10) : new Date().getFullYear();
-  const activeMonth = activeMonthKey ? parseInt(activeMonthKey.split('-')[1], 10) : new Date().getMonth() + 1;
+  const [activeYear, activeMonth] = mkToYM(activeMonthKey);
 
   // Calendar grid
   const daysInMonth = new Date(activeYear, activeMonth, 0).getDate();
@@ -444,12 +438,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
         <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
       </div>
 
-      {sortedMonths.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(100,116,139,0.5)', fontSize: 10 }}>
-          No trade data yet
-        </div>
-      ) : (
-        <>
+      <>
           {/* Month navigator */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <button
@@ -462,22 +451,24 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
               <p style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
-              {/* Month dot indicators */}
-              <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 5 }}>
-                {sortedMonths.map(mk => (
-                  <button
-                    key={mk}
-                    onClick={() => goTo(mk)}
-                    style={{
-                      width: mk === activeMonthKey ? 16 : 5,
-                      height: 5, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
-                      background: mk === activeMonthKey ? '#38bdf8' : 'rgba(56,189,248,0.25)',
-                      transition: 'all 0.2s',
-                    }}
-                    title={(() => { const [y,m]=mk.split('-'); return `${MONTH_NAMES[parseInt(m)-1]} ${y}`; })()}
-                  />
-                ))}
-              </div>
+              {/* Dot indicators — one per month that has trades; click to jump */}
+              {sortedMonths.length > 0 && (
+                <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 5 }}>
+                  {sortedMonths.map(mk => (
+                    <button
+                      key={mk}
+                      onClick={() => goTo(mk)}
+                      style={{
+                        width: mk === activeMonthKey ? 16 : 5,
+                        height: 5, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
+                        background: mk === activeMonthKey ? '#38bdf8' : 'rgba(56,189,248,0.25)',
+                        transition: 'all 0.2s',
+                      }}
+                      title={(() => { const [y,m]=mk.split('-'); return `${MONTH_NAMES[parseInt(m)-1]} ${y}`; })()}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             <button
               onClick={next}
@@ -543,8 +534,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
               </span>
             </div>
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }
