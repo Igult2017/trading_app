@@ -22,7 +22,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function makeLocalSession(email: string): { session: Session; user: User; role: 'admin' } {
+function makeLocalSession(email: string, token = 'local-admin-token'): { session: Session; user: User; role: 'admin' } {
   const fakeUser = {
     id: 'local-admin',
     email,
@@ -33,7 +33,7 @@ function makeLocalSession(email: string): { session: Session; user: User; role: 
   } as unknown as User;
 
   const fakeSession = {
-    access_token: 'local-admin-token',
+    access_token: token,
     refresh_token: '',
     expires_in: 86400,
     token_type: 'bearer',
@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(LOCAL_ADMIN_KEY);
       if (stored) {
         try {
-          const { email } = JSON.parse(stored) as { email: string };
-          const { session: s, user: u, role: r } = makeLocalSession(email);
+          const { email, token } = JSON.parse(stored) as { email: string; token?: string };
+          const { session: s, user: u, role: r } = makeLocalSession(email, token);
           setSession(s);
           setUser(u);
           setRole(r);
@@ -141,10 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const err = await res.json().catch(() => ({})) as { error?: string };
           return { error: new Error(err.error ?? 'Invalid credentials'), role: null };
         }
-        const data = await res.json() as { role: string; email: string };
+        const data = await res.json() as { role: string; email: string; token?: string };
         const assignedRole: 'admin' | 'user' = data.role === 'admin' ? 'admin' : 'user';
-        localStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({ email: data.email }));
-        const { session: s, user: u } = makeLocalSession(data.email);
+        localStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({ email: data.email, token: data.token }));
+        const { session: s, user: u } = makeLocalSession(data.email, data.token);
         setSession(s);
         setUser(u);
         setRole(assignedRole);

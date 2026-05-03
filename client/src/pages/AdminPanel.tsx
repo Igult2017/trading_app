@@ -2536,30 +2536,29 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (role !== 'admin') return;
-    supabase?.auth.getSession().then(async ({ data: { session: s } }) => {
-      if (!s) return;
-      const hdrs = { Authorization: `Bearer ${s.access_token}` };
-      const [usersRes, statsRes] = await Promise.all([
-        fetch('/api/admin/users', { headers: hdrs }),
-        fetch('/api/admin/stats', { headers: hdrs }),
-      ]);
+    const token = session?.access_token;
+    if (!token) return;
+    const hdrs = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch('/api/admin/users', { headers: hdrs }),
+      fetch('/api/admin/stats', { headers: hdrs }),
+    ]).then(async ([usersRes, statsRes]) => {
       if (usersRes.ok) {
         const users = await usersRes.json();
         setApiUsers(Array.isArray(users) ? users : []);
       }
       if (statsRes.ok) setOverviewStats(await statsRes.json());
-    });
+    }).catch(() => {});
     // Always fetch admin IP (doesn't need auth)
     fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
-  }, [role]);
+  }, [role, session]);
 
   async function handleRoleChange(userId: string, newRole: string) {
-    const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
-    const s = (r as any).data.session;
-    if (!s) return;
+    const token = session?.access_token;
+    if (!token) return;
     await fetch(`/api/admin/users/${userId}/role`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ role: newRole }),
     });
     setApiUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
@@ -2703,13 +2702,13 @@ export default function AdminPanel() {
         </div>
       );
 
-      case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => session?.access_token ?? null} />;
       case 'blog': return <BlogSection bp={bp} />;
-      case 'updates': return <UpdatesSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
-      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
-      case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'updates': return <UpdatesSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
+      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => session?.access_token ?? null} />;
+      case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
-      case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => { const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } })); return (r as any).data?.session?.access_token ?? null; }} />;
+      case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
 
     }
   };

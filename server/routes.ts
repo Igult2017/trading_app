@@ -2622,9 +2622,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
-    // Option 1: ADMIN_SECRET header bypass (works without Supabase)
+    // Option 1: ADMIN_SECRET bypass — accepts both X-Admin-Secret header and
+    // Bearer <adminSecret> token (so local-login clients work without Supabase)
     const adminSecret = process.env.ADMIN_SECRET;
-    if (adminSecret && req.headers['x-admin-secret'] === adminSecret) {
+    const bearerToken = req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.slice(7)
+      : null;
+    if (
+      adminSecret &&
+      (
+        req.headers['x-admin-secret'] === adminSecret ||
+        (!supabaseAdmin && bearerToken === adminSecret)
+      )
+    ) {
       const adminUser = { id: 'admin', email: process.env.ADMIN_EMAIL ?? 'admin@local' };
       (req as any).adminUser = adminUser;
       logAdminAccess(adminUser.id, adminUser.email, getClientIp(req));
