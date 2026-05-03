@@ -78,6 +78,7 @@ function computeStats(entries: any[], startingBalance?: number) {
 
   // End balance: prefer last trade's recorded accountBalance (reliable dollar figure)
   const lastBalance = trades[trades.length - 1]?.balance || 0;
+  const commissions = trades.reduce((a, t) => a + t.commission, 0);
   const eb = lastBalance > 0 ? lastBalance : sb + pnlSum - commissions;
 
   // Net P&L: derive from balance tracking when available (avoids pips-vs-dollars mismatch)
@@ -90,7 +91,6 @@ function computeStats(entries: any[], startingBalance?: number) {
   const grossLoss = Math.abs(losses.map(t => t.pnl).reduce((a, b) => a + b, 0));
   const pf        = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
   const winRate   = (wins.length / trades.length) * 100;
-  const commissions = trades.reduce((a, t) => a + t.commission, 0);
   const growth = sb > 0 ? ((eb - sb) / sb) * 100 : 0;
   const rrTs  = trades.filter(t => t.achievedRR);
   const avgRR = rrTs.length ? rrTs.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTs.length : 0;
@@ -817,7 +817,7 @@ const StatBox = ({ label, value, colorCls }: any) => (
 
 function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance?: number }) {
   const stats = useMemo(() => computeStats(entries, startingBalance), [entries, startingBalance]);
-  const has = entries.length > 0;
+  const has = !!stats && stats.total > 0;
 
   return (
     <div className="w-full lg:w-[260px] xl:w-[260px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
