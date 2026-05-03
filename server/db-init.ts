@@ -40,7 +40,16 @@ export async function initializeDatabase() {
         id VARCHAR PRIMARY KEY,
         email TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'user',
+        full_name TEXT DEFAULT '',
         country TEXT DEFAULT '',
+        plan TEXT DEFAULT 'Free',
+        subscription_status TEXT DEFAULT 'free',
+        subscription_ends_at TIMESTAMP,
+        journal_access_ends_at TIMESTAMP,
+        journal_access_granted_by VARCHAR,
+        status TEXT DEFAULT 'Active',
+        win_rate TEXT DEFAULT '',
+        avatar_url TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       )`,
       
@@ -477,6 +486,10 @@ export async function initializeDatabase() {
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name  TEXT DEFAULT ''`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country    TEXT DEFAULT ''`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan       TEXT DEFAULT 'Free'`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free'`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMP`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_ends_at TIMESTAMP`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_granted_by VARCHAR`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'Active'`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate   TEXT DEFAULT ''`,
     ];

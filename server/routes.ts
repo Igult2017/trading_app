@@ -354,6 +354,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email:       profile?.email ?? null,
         fullName:    profile?.full_name ?? '',
         plan:        profile?.plan   ?? 'Free',
+        subscriptionStatus: profile?.subscription_status ?? 'free',
+        subscriptionEndsAt: profile?.subscription_ends_at ?? null,
+        journalAccessEndsAt: profile?.journal_access_ends_at ?? null,
+        journalAccessGrantedBy: profile?.journal_access_granted_by ?? null,
         role:        profile?.role   ?? 'user',
         status:      profile?.status ?? 'Active',
         country:     profile?.country ?? '',
@@ -2702,23 +2706,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin: update trader profile (plan, status, country, win_rate) ─────────────
   app.patch("/api/admin/users/:userId/profile", requireAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;
-    const { country, plan, status, win_rate } = req.body as Record<string, string>;
+    const { country, plan, status, win_rate, subscriptionStatus, journalAccessDays } = req.body as Record<string, string>;
     const allowed = ['Free', 'Pro', 'Enterprise'];
     const allowedStatus = ['Active', 'Inactive', 'Banned'];
     if (plan && !allowed.includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
     if (status && !allowedStatus.includes(status)) return res.status(400).json({ error: 'Invalid status' });
     try {
+      if (journalAccessDays) {
+        const days = Math.max(1, Math.min(3650, parseInt(journalAccessDays, 10) || 0));
+        await db.update(userProfiles)
+          .set({
+            journalAccessEndsAt: drizzleSql`NOW() + (${days} || ' days')::interval`,
+            journalAccessGrantedBy: ((req as any).adminUser?.id ?? 'admin') as any,
+          } as any)
+          .where(eq(userProfiles.id, userId));
+      }
       await db.update(userProfiles)
         .set({
           ...(country !== undefined && { country }),
           ...(plan    !== undefined && { plan }),
           ...(status  !== undefined && { status }),
+          ...(subscriptionStatus !== undefined && { subscriptionStatus }),
           ...(win_rate !== undefined && { winRate: win_rate }),
         })
         .where(eq(userProfiles.id, userId));
       return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/me/entitlement", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const { rows } = await pool.query(
+        `SELECT subscription_status, subscription_ends_at, journal_access_ends_at, journal_access_granted_by
+         FROM user_profiles WHERE id = $1 LIMIT 1`,
+        [auth.id],
+      );
+      const p = rows[0] || {};
+      const now = Date.now();
+      const subEnds = p.subscription_ends_at ? new Date(p.subscription_ends_at).getTime() : null;
+      const journalEnds = p.journal_access_ends_at ? new Date(p.journal_access_ends_at).getTime() : null;
+      res.json({
+        subscriptionStatus: p.subscription_status ?? 'free',
+        subscriptionEndsAt: p.subscription_ends_at ?? null,
+        journalAccessEndsAt: p.journal_access_ends_at ?? null,
+        journalAccessGrantedBy: p.journal_access_granted_by ?? null,
+        hasJournalAccess: Boolean(
+          (p.subscription_status && p.subscription_status !== 'free' && (!subEnds || subEnds > now)) ||
+          (journalEnds && journalEnds > now)
+        ),
+        stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY && process.env.VITE_STRIPE_PRICE_ID),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 
