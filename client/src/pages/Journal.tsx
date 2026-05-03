@@ -396,8 +396,11 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   const ymToMk = (y: number, m: number) => `${y}-${m}`;
   const mkNum   = (mk: string) => { const [y, m] = mkToYM(mk); return y * 12 + m; };
 
-  // Can't navigate into the future
-  const canPrev = mkNum(activeMonthKey) > mkNum('2018-1');
+  // Floor = earliest trade month (or Jan of that year); ceiling = today
+  const earliestTradeMk = sortedMonths.length > 0 ? sortedMonths[0] : todayMk;
+  const [ey] = mkToYM(earliestTradeMk);
+  const floorMk = `${ey}-1`;
+  const canPrev = mkNum(activeMonthKey) > mkNum(floorMk);
   const canNext = mkNum(activeMonthKey) < mkNum(todayMk);
 
   const goTo = (mk: string) => { userNavigatedRef.current = true; setActiveMonthKey(mk); };
