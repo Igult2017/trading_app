@@ -3036,13 +3036,10 @@ export default function AdminPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '26px', height: '26px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none">
-                <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#4F8EF7" />
-                <path d="M12 6.5L17.5 12L12 17.5L6.5 12L12 6.5Z" fill="#07090e" />
-              </svg>
-            </div>
-            <span style={{ fontWeight: 800, fontStyle: 'italic', fontSize: '13px', letterSpacing: '0.1em', color: 'white', textTransform: 'uppercase' }}>FSDZONES</span>
+            <span style={{ fontWeight: 700, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif" }}>
+              <span style={{ color: '#ffffff' }}>myfm</span>
+              <span style={{ color: '#3b82f6' }}> | journal</span>
+            </span>
           </div>
 
           <button

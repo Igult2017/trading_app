@@ -80,12 +80,9 @@ export default function AuthPage() {
       `}</style>
       <div className="auth-card" style={styles.card}>
         <div style={styles.brand}>
-          <div style={styles.logo}>
-            <span style={{ color: '#ffffff' }}>FSD</span>
-          </div>
           <span style={styles.brandName}>
-            <span style={{ color: '#ffffff' }}>FSD </span>
-            <span style={{ color: '#3b82f6' }}>Journal</span>
+            <span style={{ color: '#ffffff' }}>myfm</span>
+            <span style={{ color: '#3b82f6' }}> | journal</span>
           </span>
         </div>
 
@@ -93,7 +90,7 @@ export default function AuthPage() {
         <p style={styles.sub}>
           {mode === 'login'
             ? 'Sign in to access your trading dashboard.'
-            : 'Join FSD Journal and start tracking your trades.'}
+            : 'Join myfm | journal and start tracking your trades.'}
         </p>
 
         {!supabase && mode === 'login' && (

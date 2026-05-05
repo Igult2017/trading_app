@@ -241,9 +241,9 @@ export default function HomePage() {
       <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
         <TickerTape />
         <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.3s' }}>
-          <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
-            <span style={{ color: t.logoWhite }}>FSD </span>
-            <span style={{ color: '#3b82f6' }}>Journal</span>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
+            <span style={{ color: t.logoWhite }}>myfm</span>
+            <span style={{ color: '#3b82f6' }}> | journal</span>
           </span>
           <div className="nav-links">
             {navItems.map(item => {
@@ -396,8 +396,8 @@ export default function HomePage() {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <div style={{ width: 260, background: t.mobilePhoneBg, borderRadius: 40, border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden' }}>
                 <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ ...oswald, fontSize: 10, letterSpacing: '0.05em' }}>
-                    <span style={{ color: t.text }}>FSD </span><span style={{ color: '#3b82f6' }}>Journal</span>
+                  <span style={{ ...oswald, fontSize: 10, letterSpacing: '0.01em' }}>
+                    <span style={{ color: t.text }}>myfm</span><span style={{ color: '#3b82f6' }}> | journal</span>
                   </span>
                   <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg,#2563eb,#60a5fa)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <TrendingUp size={13} color="white" />
