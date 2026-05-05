@@ -86,9 +86,9 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       <TickerTape />
 
       <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", transition: "background 0.3s" }}>
-        <Link href="/" style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: "pointer", textDecoration: "none" }}>
-          <span style={{ color: logoWhite }}>FSD </span>
-          <span style={{ color: "#3b82f6" }}>Journal</span>
+        <Link href="/" style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.01em", fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: "pointer", textDecoration: "none" }}>
+          <span style={{ color: logoWhite }}>myfm</span>
+          <span style={{ color: "#3b82f6" }}> | journal</span>
         </Link>
 
         <div className="hh-nav-links">

@@ -38,7 +38,7 @@ function PrivacyContent() {
   return (
     <div>
       <Para>
-        Effective Date: January 1, 2025. FSDZONES.COM ("we", "us", or "our") is committed to protecting your privacy.
+        Effective Date: January 1, 2025. myfm | journal ("we", "us", or "our") is committed to protecting your privacy.
         This Privacy Policy explains how we collect, use, and safeguard your information when you visit our website and use our services.
       </Para>
 
@@ -93,7 +93,7 @@ function PrivacyContent() {
 
       <Heading>Contact</Heading>
       <Para>
-        For privacy-related inquiries, please contact us via our Support page or email <strong style={{ color: '#3b82f6' }}>privacy@fsdzones.com</strong>.
+        For privacy-related inquiries, please contact us via our Support page or email <strong style={{ color: '#3b82f6' }}>privacy@myfmjournal.com</strong>.
       </Para>
     </div>
   );
@@ -103,24 +103,24 @@ function TermsContent() {
   return (
     <div>
       <Para>
-        Effective Date: January 1, 2025. By accessing or using FSDZONES.COM, you agree to be bound by these Terms of Service.
+        Effective Date: January 1, 2025. By accessing or using myfm | journal, you agree to be bound by these Terms of Service.
         Please read them carefully before using our platform.
       </Para>
 
       <Heading>Acceptance of Terms</Heading>
       <Para>
-        By creating an account or using any part of our services, you agree to these Terms. If you do not agree, you must not use FSDZONES.COM.
+        By creating an account or using any part of our services, you agree to these Terms. If you do not agree, you must not use myfm | journal.
       </Para>
 
       <Heading>Description of Service</Heading>
       <Para>
-        FSDZONES.COM provides an online trading journal, analytics tools, market session clock, economic calendar, and educational content.
+        myfm | journal provides an online trading journal, analytics tools, market session clock, economic calendar, and educational content.
         Our services are intended for informational and record-keeping purposes only.
       </Para>
 
       <Heading>Risk Disclaimer</Heading>
       <Para>
-        Trading financial instruments involves substantial risk of loss and is not suitable for every investor. FSDZONES.COM provides
+        Trading financial instruments involves substantial risk of loss and is not suitable for every investor. myfm | journal provides
         educational content and analytical tools for informational purposes only. Nothing on this platform constitutes financial,
         investment, or trading advice. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
       </Para>
@@ -144,14 +144,14 @@ function TermsContent() {
 
       <Heading>Intellectual Property</Heading>
       <Para>
-        All content on FSDZONES.COM, including text, graphics, logos, software, and data analysis tools, is the property of FSDZONES.COM
+        All content on myfm | journal, including text, graphics, logos, software, and data analysis tools, is the property of myfm | journal
         and is protected by applicable intellectual property laws. You may not reproduce, distribute, or create derivative works without our
         express written permission.
       </Para>
 
       <Heading>Limitation of Liability</Heading>
       <Para>
-        FSDZONES.COM shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from
+        myfm | journal shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from
         your use of or inability to use our services, including but not limited to trading losses, data loss, or service interruptions.
       </Para>
 
@@ -224,7 +224,7 @@ function ContactContent() {
       <Para>
         Have a question, found a bug, or need help with your account? Fill in the form below and our customer care team
         will respond as soon as possible. You can also reach us directly at{' '}
-        <strong style={{ color: '#3b82f6' }}>support@fsdzones.com</strong>.
+        <strong style={{ color: '#3b82f6' }}>support@myfmjournal.com</strong>.
       </Para>
 
       <Heading>Frequently Asked Questions</Heading>
@@ -314,7 +314,7 @@ export default function LegalPage() {
             {active}
           </h1>
           <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#2563eb', marginBottom: 32, marginTop: 0 }}>
-            FSDZONES.COM — LAST UPDATED MAY 2025
+            MYFM | JOURNAL — LAST UPDATED MAY 2025
           </p>
           {active === 'Privacy Policy' && <PrivacyContent />}
           {active === 'Terms of Service' && <TermsContent />}

@@ -138,11 +138,11 @@ export default function HomePage() {
 
   const testimonials = [
     { name: "Alex M.", text: "The dashboard is incredibly customizable and very convenient to use.", rating: 5 },
-    { name: "Jordan K.", text: "I love how FSD Journal helps me track my performance and improve my strategies.", rating: 5 },
+    { name: "Jordan K.", text: "I love how myfm | journal helps me track my performance and improve my strategies.", rating: 5 },
     { name: "Sarah T.", text: "This tool is fantastic, the user interface could be even more intuitive.", rating: 5 },
-    { name: "Michael R.", text: "FSD Journal has changed the way I analyze my trading operations.", rating: 5 },
+    { name: "Michael R.", text: "myfm | journal has changed the way I analyze my trading operations.", rating: 5 },
     { name: "Emily W.", text: "An excellent tool for traders. Easy to use and very comprehensive.", rating: 5 },
-    { name: "David P.", text: "I've tried other journaling platforms, but FSD Journal is by far the best!", rating: 5 },
+    { name: "David P.", text: "I've tried other journaling platforms, but myfm | journal is by far the best!", rating: 5 },
     { name: "Jessica L.", text: "The stats dashboard is so detailed and customizable. It's made a huge difference to my trading.", rating: 5 },
     { name: "Chris N.", text: "The community features have helped me connect with other traders and share strategies.", rating: 5 }
   ];
@@ -570,7 +570,7 @@ export default function HomePage() {
         {/* Testimonials */}
         <section id="reviews" className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose FSD Journal</h2>
+            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose myfm | journal</h2>
             <div className="lp-testimonials-grid">
               {testimonials.map((r,i) => (
                 <div key={i} style={{ background: t.testimonialBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 24 }}>

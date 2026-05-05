@@ -35,7 +35,7 @@ export default function NewFooter({ isDark }: NewFooterProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
           <div className="space-y-6">
             <div className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-black'}`}>
-              FSDZONES<span className="text-blue-500">.COM</span>
+              <span className="text-white">myfm</span><span className="text-blue-500"> | journal</span>
             </div>
             <div className="flex items-center gap-4 pt-2">
               <a href="#" className={`${isDark ? 'text-slate-400 hover:text-[#1DA1F2]' : 'text-slate-500 hover:text-[#1DA1F2]'} transition-colors`} data-testid="link-twitter"><Twitter size={18} fill="currentColor" stroke="none" /></a>
@@ -89,10 +89,10 @@ export default function NewFooter({ isDark }: NewFooterProps) {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
             <div className="space-y-2">
               <div className={`text-[9px] uppercase tracking-[0.2em] font-bold ${isDark ? 'text-slate-600' : 'text-slate-500'}`}>
-                &copy; {new Date().getFullYear()} FSDZONES.COM | ALL RIGHTS RESERVED
+                &copy; {new Date().getFullYear()} MYFM | JOURNAL — ALL RIGHTS RESERVED
               </div>
               <div className={`text-[8px] max-w-2xl uppercase leading-relaxed font-bold ${isDark ? 'text-slate-700' : 'text-slate-400'}`}>
-                Risk Warning: Trading financial markets involves significant risk. FSDZONES provides educational content and data analytics for informational purposes only. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
+                Risk Warning: Trading financial markets involves significant risk. myfm | journal provides educational content and data analytics for informational purposes only. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
               </div>
             </div>
             <div className={`flex gap-6 text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>

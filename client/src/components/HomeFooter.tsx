@@ -61,9 +61,9 @@ export default function HomeFooter() {
           <div>
             <div style={{ marginBottom: 28 }}>
               <Link href="/" style={{ textDecoration: 'none' }}>
-                <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif" }}>
-                  <span style={{ color: '#ffffff' }}>FSDZONES</span>
-                  <span style={{ color: '#4da8f0' }}>.COM</span>
+                <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif" }}>
+                  <span style={{ color: '#ffffff' }}>myfm</span>
+                  <span style={{ color: '#3b82f6' }}> | journal</span>
                 </span>
               </Link>
             </div>
@@ -132,7 +132,7 @@ export default function HomeFooter() {
         <div style={{ borderTop: '1px solid #0f1923', padding: '24px 0 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="hf-bottom">
             <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: '0.1em', color: '#4a6580' }}>
-              © {new Date().getFullYear()} FSDZONES.COM | ALL RIGHTS RESERVED
+              © {new Date().getFullYear()} MYFM | JOURNAL — ALL RIGHTS RESERVED
             </span>
             <div className="hf-legal">
               {LEGAL.map(item => (
@@ -146,7 +146,7 @@ export default function HomeFooter() {
             </div>
           </div>
           <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 9, letterSpacing: '0.06em', color: '#2a3a4a', lineHeight: 1.6, margin: 0 }}>
-            RISK WARNING: TRADING FINANCIAL MARKETS INVOLVES SIGNIFICANT RISK. FSDZONES PROVIDES EDUCATIONAL CONTENT AND DATA ANALYTICS FOR INFORMATIONAL PURPOSES ONLY. PAST PERFORMANCE IS NOT INDICATIVE OF FUTURE RESULTS. NEVER TRADE WITH MONEY YOU CANNOT AFFORD TO LOSE.
+            RISK WARNING: TRADING FINANCIAL MARKETS INVOLVES SIGNIFICANT RISK. MYFM | JOURNAL PROVIDES EDUCATIONAL CONTENT AND DATA ANALYTICS FOR INFORMATIONAL PURPOSES ONLY. PAST PERFORMANCE IS NOT INDICATIVE OF FUTURE RESULTS. NEVER TRADE WITH MONEY YOU CANNOT AFFORD TO LOSE.
           </p>
         </div>
       </div>
