@@ -322,11 +322,38 @@ def _detect_mime(raw_data_uri):
     return "image/jpeg"
 
 
+import sys as _sys
+
+# Preferred model order — updated whenever Google releases / deprecates models.
+# The auto-discovery fallback below will catch anything not listed here.
 _MODEL_FALLBACK_CHAIN = [
-    "gemini-1.5-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-pro",
     "gemini-1.5-pro",
 ]
+
+
+def _discover_models(client):
+    """Query the API for all available generative models as a last resort."""
+    try:
+        discovered = []
+        for m in client.models.list():
+            name = getattr(m, "name", "") or ""
+            model_id = name.replace("models/", "")
+            if not model_id.startswith("gemini"):
+                continue
+            if any(skip in model_id for skip in ("embedding", "aqa", "tts")):
+                continue
+            discovered.append(model_id)
+        # Flash models first (faster / cheaper), then pro
+        flash = [m for m in discovered if "flash" in m]
+        pro   = [m for m in discovered if "pro" in m and "flash" not in m]
+        return flash + pro
+    except Exception:
+        return []
 
 
 def analyze_image(image_data):
@@ -342,37 +369,54 @@ def analyze_image(image_data):
     image_bytes = base64.b64decode(image_data)
     client = genai.Client(api_key=api_key)
 
-    # Build model list: explicit override (if set) then stable fallback chain
+    # Build deduplicated candidate list
     override = os.environ.get("GEMINI_MODEL_OVERRIDE", "").strip()
-    models = ([override] + _MODEL_FALLBACK_CHAIN) if override else _MODEL_FALLBACK_CHAIN
+    candidates = ([override] + _MODEL_FALLBACK_CHAIN) if override else list(_MODEL_FALLBACK_CHAIN)
     seen, deduped = set(), []
-    for m in models:
-        if m not in seen:
+    for m in candidates:
+        if m and m not in seen:
             seen.add(m)
             deduped.append(m)
 
     last_err = None
-    for model in deduped:
-        try:
-            response = client.models.generate_content(
-                model=model,
-                contents=[
-                    EXTRACTION_PROMPT,
-                    genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                ],
-            )
-            extracted = parse_gemini_response(response.text)
-            return map_to_journal_fields(extracted)
-        except Exception as exc:
-            last_err = exc
-            msg = str(exc)
-            # Only fall through on model-availability errors
-            is_model_err = any(k in msg.lower() for k in ("not found", "deprecated", "not supported", "404"))
-            if not is_model_err:
-                raise
-            print(f"[GeminiScreenshot] Model {model!r} unavailable ({msg[:80]}), trying next…", flush=True)
+    tried_discovery = False
 
-    raise last_err or RuntimeError("All Gemini models failed")
+    while True:
+        for model in deduped:
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=[
+                        EXTRACTION_PROMPT,
+                        genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                    ],
+                )
+                extracted = parse_gemini_response(response.text)
+                return map_to_journal_fields(extracted)
+            except Exception as exc:
+                last_err = exc
+                msg = str(exc)
+                is_model_err = any(k in msg.lower() for k in ("not found", "deprecated", "not supported", "404"))
+                if not is_model_err:
+                    raise  # auth / quota / network — don't retry
+                # IMPORTANT: print to stderr so stdout stays clean JSON
+                print(f"[GeminiScreenshot] Model {model!r} unavailable ({msg[:100]}), trying next…",
+                      file=_sys.stderr, flush=True)
+
+        # All candidates exhausted — try auto-discovery once
+        if tried_discovery:
+            break
+        tried_discovery = True
+        discovered = _discover_models(client)
+        # Add any models not already tried
+        new_models = [m for m in discovered if m not in seen]
+        if not new_models:
+            break
+        print(f"[GeminiScreenshot] Trying {len(new_models)} auto-discovered models…",
+              file=_sys.stderr, flush=True)
+        deduped = new_models
+
+    raise last_err or RuntimeError("No working Gemini model found for this API key")
 
 
 def run_cli():

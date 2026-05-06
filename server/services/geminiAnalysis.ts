@@ -16,13 +16,43 @@ function getAIClient(): GoogleGenAI {
 }
 
 // ── Model fallback chain ──────────────────────────────────────────────────────
-// Stable GA models first; if the requested model is unavailable (deprecated,
-// preview expired, quota hit) we automatically retry with the next one.
+// Ordered by preference — flash first (fast/cheap), then pro.
+// Auto-discovery runs after all these are exhausted.
 const MODEL_FALLBACK_CHAIN = [
-  "gemini-1.5-flash",
-  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-preview-05-20",
+  "gemini-2.5-flash",
+  "gemini-2.5-pro-preview-05-06",
+  "gemini-2.5-pro",
   "gemini-1.5-pro",
-] as const;
+];
+
+function isModelError(msg: string): boolean {
+  return (
+    msg.includes("not found") ||
+    msg.includes("deprecated") ||
+    msg.includes("not supported") ||
+    msg.includes("404")
+  );
+}
+
+async function discoverModels(ai: GoogleGenAI): Promise<string[]> {
+  try {
+    const discovered: string[] = [];
+    const result = await ai.models.list();
+    for await (const m of result as any) {
+      const id: string = (m.name ?? "").replace("models/", "");
+      if (!id.startsWith("gemini")) continue;
+      if (["embedding", "aqa", "tts"].some(s => id.includes(s))) continue;
+      discovered.push(id);
+    }
+    const flash = discovered.filter(m => m.includes("flash"));
+    const pro   = discovered.filter(m => m.includes("pro") && !m.includes("flash"));
+    return [...flash, ...pro];
+  } catch {
+    return [];
+  }
+}
 
 type GenerateParams = {
   preferredModel?: string;
@@ -33,35 +63,41 @@ type GenerateParams = {
 async function generateWithFallback(params: GenerateParams): Promise<string> {
   const ai = getAIClient();
 
-  // Build deduplicated list: preferred first, then fallbacks
-  const candidates = params.preferredModel
+  // Build deduplicated candidate list
+  const seed = params.preferredModel
     ? [params.preferredModel, ...MODEL_FALLBACK_CHAIN]
     : [...MODEL_FALLBACK_CHAIN];
   const seen = new Set<string>();
-  const models = candidates.filter(m => { if (seen.has(m)) return false; seen.add(m); return true; });
+  let models = seed.filter(m => { if (seen.has(m)) return false; seen.add(m); return true; });
 
   let lastError: Error | null = null;
-  for (const model of models) {
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        config: params.config,
-        contents: params.contents,
-      });
-      return response.text ?? "";
-    } catch (err: any) {
-      lastError = err;
-      const msg: string = err?.message ?? "";
-      // Only fall through to next model for availability/deprecation errors.
-      // Auth and quota errors are propagated immediately.
-      const isModelError =
-        msg.includes("not found") ||
-        msg.includes("deprecated") ||
-        msg.includes("not supported") ||
-        msg.includes("404");
-      if (!isModelError) throw err;
-      console.warn(`[Gemini] Model "${model}" unavailable (${msg.slice(0, 100)}), trying next…`);
+  let triedDiscovery = false;
+
+  while (true) {
+    for (const model of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          config: params.config,
+          contents: params.contents,
+        });
+        return response.text ?? "";
+      } catch (err: any) {
+        lastError = err;
+        const msg: string = err?.message ?? "";
+        if (!isModelError(msg)) throw err; // auth / quota — don't retry
+        console.warn(`[Gemini] Model "${model}" unavailable (${msg.slice(0, 100)}), trying next…`);
+      }
     }
+
+    // All candidates exhausted — try auto-discovery once
+    if (triedDiscovery) break;
+    triedDiscovery = true;
+    const discovered = await discoverModels(ai);
+    models = discovered.filter(m => !seen.has(m));
+    if (models.length === 0) break;
+    console.warn(`[Gemini] Trying ${models.length} auto-discovered model(s)…`);
+    models.forEach(m => seen.add(m));
   }
   throw lastError ?? new Error("All Gemini models failed");
 }
