@@ -401,9 +401,9 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
   }, [value, applyPaste]);
 
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-col h-full gap-1.5">
       <FieldLabel>{label}</FieldLabel>
-      <div className={`relative border border-dashed rounded-sm flex flex-col items-center justify-center gap-2 bg-[#0c0c0e] transition-all cursor-pointer min-h-[90px] ${value ? "border-emerald-500/30 p-0" : "border-[#27272a] hover:border-[#4e8cff]/40 p-5"}`}>
+      <div className={`relative border border-dashed rounded-sm flex flex-col items-center justify-center gap-2 bg-[#0c0c0e] transition-all cursor-pointer flex-1 min-h-[90px] ${value ? "border-emerald-500/30 p-0" : "border-[#27272a] hover:border-[#4e8cff]/40 p-5"}`}>
         {!value && (
           <div ref={editRef} contentEditable suppressContentEditableWarning
             onPaste={applyPaste as any}
@@ -415,9 +415,9 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
         <input type="file" id={inputId} accept="image/*" onChange={handleFile}
           style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
         {value ? (
-          <div className="p-2 w-full">
-            <img src={value} alt="chart" className="w-full max-h-[140px] object-contain rounded-sm" />
-            <div className="flex gap-2 mt-2">
+          <div className="p-2 w-full h-full flex flex-col">
+            <img src={value} alt="chart" className="w-full flex-1 object-contain rounded-sm" style={{ minHeight: 0 }} />
+            <div className="flex gap-2 mt-2 flex-shrink-0">
               <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all">↺ Replace</label>
               <button type="button" onClick={() => onChange(null)}
                 className="flex-1 text-[9px] text-rose-400 border border-rose-500/30 rounded-sm py-1 hover:bg-rose-500/5 transition-all">✕ Remove</button>
@@ -557,7 +557,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
       {!H.includes('screenshots') && (
       <section>
         <SectionLabel>Trade Screenshots</SectionLabel>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
           <UploadBox label="Entry / Setup Screenshot" value={d.screenshot} inputId="obs-entry-ss"
             onChange={(v: any) => onScreenshotUpload("screenshot", v)}
             onPasteText={(t: any) => onScreenshotUpload("screenshot-text", t)}
