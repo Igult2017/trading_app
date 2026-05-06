@@ -225,7 +225,7 @@ Provide your validation in the exact JSON format specified.
 `);
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       config: {
         systemInstruction: SIGNAL_VALIDATION_INSTRUCTION,
         responseMimeType: "application/json",
@@ -295,7 +295,7 @@ export async function quickMarketScan(
     const formattedData = formatPriceDataForGemini(priceData);
     
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       config: {
         systemInstruction: MARKET_SCAN_INSTRUCTION,
         responseMimeType: "application/json",
@@ -368,7 +368,7 @@ export async function testGeminiConnection(): Promise<{ success: boolean; messag
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: "Respond with exactly: 'SMC validation ready'",
     });
     

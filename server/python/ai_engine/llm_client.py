@@ -12,8 +12,8 @@ from __future__ import annotations
 import os
 import json
 
-MODEL    = "gemini-2.5-pro"      # used for analysis + strategy (deeper reasoning)
-MODEL_QA = "gemini-2.0-flash"    # used for chat — 3-5× faster, equal quality for Q&A
+MODEL    = "gemini-1.5-pro"       # used for analysis + strategy (deeper reasoning)
+MODEL_QA = "gemini-1.5-flash"    # used for chat — fast, stable GA model
 
 
 def _api_key() -> str:

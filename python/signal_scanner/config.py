@@ -42,7 +42,7 @@ class GeminiConfig:
     """Gemini AI validation configuration."""
     api_key: str = os.environ.get("GOOGLE_API_KEY", "")
     enabled: bool = bool(os.environ.get("GOOGLE_API_KEY"))
-    model: str = "gemini-2.0-flash"
+    model: str = "gemini-1.5-flash"
     timeout: float = 30.0
 
 

@@ -333,7 +333,7 @@ def analyze_image(image_data):
 
     client = genai.Client(api_key=GOOGLE_API_KEY)
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         contents=[
             EXTRACTION_PROMPT,
             genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
