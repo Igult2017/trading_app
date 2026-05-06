@@ -1,73 +1,76 @@
-# FSD Journal
+# FSD Journal (myfm | journal)
 
 A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders.
 
-## Mobile Responsiveness (Apr 2026)
-All key pages made mobile-responsive:
-- **AssetPage** (`/assets`): Added `isMobile` state + resize listener. Right instrument sidebar converted to a fixed overlay drawer on mobile (toggled by a floating "MARKETS" button). Internal grids made responsive: Entry panel (4-col → 2×2), Analysis panels (3-col → 1-col), Probability panel wraps. CSS media query at `≤767px`.
-- **AuthPage** (`/auth`): Auth card already uses `width:100%; maxWidth:420`. Added media query to reduce card padding on very small screens.
-- **TscPage** (`/tsc`): Already uses `repeat(auto-fit, minmax(...))` grids and `flexWrap` — inherently responsive.
-- **EconomicCalendarPage** (`/calendar`): Already uses Tailwind responsive classes (`flex-col sm:flex-row`, `w-full sm:w-auto`) and `overflow-x-auto` on tables.
-- **Journal** (`/journal`): Sidebar already has `isMobile` slide-in drawer. Dashboard stats grid already uses `isMobile ? 2 : ...` columns. Charts stack to 1-col below 900px.
-- **HomePage / HomeHeader / HomeFooter**: Already fully responsive with CSS `@media` queries and hamburger menu at ≤1024px.
+## Run & Operate
 
-## Trader AI chat persistence (Apr 2026)
-- New tables `ai_chats` and `ai_chat_messages` created in `server/db-init.ts`.
-- Storage helpers: `server/services/aiChatStore.ts` (raw `db.execute(sql\`…\`)`).
-- Endpoints in `server/routes.ts`:
-  - `GET    /api/trader-ai/chats[?sessionId=…]` — list user's chats
-  - `GET    /api/trader-ai/chats/:id`           — load one chat with messages
-  - `POST   /api/trader-ai/chats`               — create empty chat
-  - `PATCH  /api/trader-ai/chats/:id`           — rename
-  - `DELETE /api/trader-ai/chats/:id`           — delete (cascades to messages)
-  - `POST   /api/trader-ai/chat` now accepts/returns `chatId`; persists user + assistant turns; auto-titles from first question.
-- Frontend `client/src/components/TraderAI.tsx` has a left sidebar with chat history, "New chat" button, rename + delete actions, and active-chat highlight.
+- **Dev**: `npm run dev` — starts Express + Vite HMR on port 5000
+- **Build**: `npm run build` — bundles frontend (Vite) + backend (esbuild) into `dist/`
+- **Production**: `node dist/index.js`
+- **DB push**: `npm run db:push` (drizzle-kit push)
+- **Typecheck**: `npm run check`
 
-## Architecture
+Required env vars:
+- `DATABASE_URL` — PostgreSQL connection (auto-set by Replit DB)
+- `ADMIN_EMAIL` — admin login email (set)
+- `ADMIN_SECRET` — admin login password/token (set)
+- `GOOGLE_API_KEY` — Google Gemini AI (optional; AI features disabled without it)
+- `TELEGRAM_BOT_TOKEN` — Telegram notifications (optional)
+- `PYTHON_BIN` — Python executable path (set)
 
-**Full-stack application:**
-- **Frontend**: React 18 + TypeScript + Vite, Tailwind CSS, Radix UI, TanStack Query, Wouter routing
-- **Backend**: Node.js + Express, TypeScript (tsx in dev), Drizzle ORM
-- **Database**: PostgreSQL (Replit built-in), managed with Drizzle Kit
-- **Python Services**: Flask-based internal services for OCR, analytics, price daemon
+## Stack
 
-## Running the App
+- **Frontend**: React 18 + TypeScript + Vite, Tailwind CSS v3, Radix UI, TanStack Query, Wouter routing
+- **Backend**: Node.js + Express + TypeScript (tsx in dev, esbuild in prod)
+- **ORM**: Drizzle ORM + node-postgres
+- **Database**: Replit built-in PostgreSQL
+- **AI**: Google Gemini via `@google/genai`
+- **Python Services**: price daemon, OCR analyzer, signal scanner (called as subprocesses)
 
-The app starts with `npm run dev` which runs `tsx server/index.ts`.
+## Where things live
 
-- Server listens on port 5000 (set via `PORT` env var)
-- In development, Vite middleware is mounted on the Express server for HMR
-- In production, built static files are served from `server/public`
+- `server/index.ts` — Express entry point
+- `server/routes.ts` — All API routes (~3900 lines)
+- `server/db.ts` — DB connection (Drizzle + pg pool)
+- `server/db-init.ts` — Schema auto-creation on startup
+- `shared/schema.ts` — Drizzle ORM schema (source of truth)
+- `client/src/main.tsx` — React entry point
+- `client/src/App.tsx` — Routing + providers
+- `client/src/context/AuthContext.tsx` — Auth state (Supabase or local fallback)
+- `server/lib/supabaseAdmin.ts` — Server-side Supabase client (nullable)
 
-## Key Files
+## Architecture decisions
 
-| Path | Description |
-|------|-------------|
-| `server/index.ts` | Main Express server entry point |
-| `server/routes.ts` | All API route definitions |
-| `server/db.ts` | Database connection (Drizzle + pg) |
-| `server/db-init.ts` | Schema initialization on startup |
-| `shared/schema.ts` | Drizzle ORM schema definitions |
-| `client/src/main.tsx` | React app entry point |
-| `client/src/App.tsx` | Routing and layout |
-| `server/python/price_daemon.py` | Python price service (optional) |
+- **Auth dual-mode**: Supabase auth when `VITE_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` are set; falls back to local admin login via `ADMIN_EMAIL`/`ADMIN_SECRET` env vars. Currently running in local-only mode on Replit.
+- **DB auto-init**: Tables are created via raw SQL in `server/db-init.ts` at startup (not Drizzle migrations), making the app self-bootstrapping.
+- **Python as subprocesses**: Price daemon and AI/OCR scripts are spawned as child processes from Node; price daemon is currently disabled at startup (commented out).
+- **Single port**: Both API and static/Vite frontend served on port 5000.
+- **Graceful degradation**: Missing `GOOGLE_API_KEY` or Supabase credentials produce warnings, not crashes — AI and auth features degrade gracefully.
 
-## Environment Variables
+## Product
 
-- `DATABASE_URL` - PostgreSQL connection string (set by Replit database integration)
-- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - Individual DB credentials
-- `PORT` - Server port (default 5000)
-- `PYTHON_BIN` - Path to Python executable
-- `GOOGLE_API_KEY` - For AI features: Trader AI chat, screenshot OCR, signal analysis
-- `TELEGRAM_BOT_TOKEN` - For Telegram notifications (optional)
+- Trading journal: log trades, capture decisions, track psychology
+- Performance analytics: metrics, drawdown, timeframe analysis, strategy audit
+- Trader AI chat: Gemini-powered Q&A with chat history persistence
+- Economic calendar: live events scraped from multiple sources
+- Market data: live prices, crypto data, interest rates
+- Signal detection and copy trading infrastructure
+- Admin panel for user management
 
-## Database
+## User preferences
 
-Uses Replit's built-in PostgreSQL. Tables are auto-created on startup via `server/db-init.ts`.
+- Keep price daemon disabled at startup (too slow / resource-heavy for Replit dev)
+- Signal monitor disabled by default
 
-To push schema changes: `npm run db:push`
+## Gotchas
 
-## Deployment
+- `server/db-init.ts` runs raw SQL DDL on every startup — idempotent (`IF NOT EXISTS`) so safe
+- Blog comments table creation fails if `blog_posts` table doesn't exist yet — non-fatal, handled with try/catch
+- Supabase console warnings on startup are expected when running in local auth mode
+- `npm run build` also runs `uv sync` for Python deps — ensure `uv` is available
 
-Build: `npm run build` (builds Vite frontend + bundles server with esbuild)
-Run: `node dist/index.js`
+## Pointers
+
+- DB skill: `.local/skills/database/SKILL.md`
+- Workflows skill: `.local/skills/workflows/SKILL.md`
+- Env secrets skill: `.local/skills/environment-secrets/SKILL.md`
