@@ -40,8 +40,8 @@ Return ONLY valid JSON with these fields (use null for anything not visible):
   "riskReward": number or null,
   "achievedRR": number or null,
   "priceExcursionR": number or null,
-  "entryTime": "YYYY-MM-DDTHH:MM:SS or null",
-  "exitTime": "YYYY-MM-DDTHH:MM:SS or null",
+  "entryTime": "YYYY-MM-DDTHH:mm:ss or null",
+  "exitTime": "YYYY-MM-DDTHH:mm:ss or null",
   "brokerTimezone": number or null,
   "dayOfWeek": "Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday or null",
   "outcome": "Win or Loss or BE or Open",
@@ -68,12 +68,20 @@ TIMESTAMPS (entryTime / exitTime):
 - The times shown are broker local time, NOT UTC. Most MT4/MT5 brokers use UTC+2 (winter) or UTC+3 (summer). Detect the timezone from any visible label and set brokerTimezone; default to 2 if unclear
 - Return null only if the value genuinely cannot be found anywhere on the image — do not skip it
 
+OUTCOME — determine this from ANY of the following visible evidence (do not return null if any evidence exists):
+- Profit/loss value visible (positive number = Win, negative number = Loss, ~zero = BE)
+- Green P&L color = Win, Red P&L color = Loss
+- "TP hit" / "Take profit" label = Win
+- "SL hit" / "Stop loss" label = Loss
+- Trade result text: "profit", "gain", "won" = Win; "loss", "stopped" = Loss
+- Return exactly "Win", "Loss", "BE", or "Open" (active trade, no result yet)
+- Never return null if the chart shows a closed trade with any P&L indicator
+
 OTHER RULES:
 - Read ALL text overlays, labels, indicators, position info panels
 - Check instrument selector (usually top-left) for symbol
 - Check timeframe selector for timeframe
 - Determine direction from Buy/Sell labels, arrows, or position type
-- If trade is closed: Win (profit > 0), Loss (loss < 0), BE (≈0 pips)
 - Be precise with numbers — copy exactly what you see
 - Return ONLY the JSON object, no markdown fences`;
 
@@ -185,6 +193,16 @@ function deriveSession(entryTimeStr: string | null, tzOffset: number | null): { 
   return                                            { sessionName: "New York", sessionPhase: "Close" };
 }
 
+function normalizeOutcome(raw: any): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (s === "win")  return "Win";
+  if (s === "loss") return "Loss";
+  if (s === "be" || s === "break-even" || s === "breakeven" || s === "break even") return "BE";
+  if (s === "open") return "Open";
+  return null;
+}
+
 function normalizeLotSize(raw: any): number | null {
   if (raw == null) return null;
   if (typeof raw === "number") return raw;
@@ -233,9 +251,9 @@ function mapToJournalFields(extracted: Record<string, any>): Record<string, any>
     exitTime:               extracted.exitTime             ?? null,
     dayOfWeek:              extracted.dayOfWeek            ?? null,
     tradeDuration:          duration,
+    outcome:                normalizeOutcome(extracted.outcome),
     sessionName:            session.sessionName,
     sessionPhase:           session.sessionPhase,
-    outcome:                extracted.outcome              ?? null,
     primaryExitReason:      extracted.primaryExitReason    ?? null,
     openPLPips:             extracted.openPLPips           ?? null,
     closedPLPips:           extracted.closedPLPips         ?? null,

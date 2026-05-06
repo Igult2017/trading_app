@@ -1151,9 +1151,22 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     const tpPipVal = fields.takeProfitDistancePips ?? fields.takeProfitPips ?? fields.plannedTpPips ?? fields.plannedTPPips ?? fields.actualTpPips;
     set2("stopLossDistancePips",   slPipVal != null ? String(slPipVal) : null);
     set2("takeProfitDistancePips", tpPipVal != null ? String(tpPipVal) : null);
-    set2("outcome",                fields.outcome);
-    set2("entryTime",              fields.entryTime);
-    set2("exitTime",               fields.exitTime);
+    // Normalize outcome: accept any casing; drop "Open" (no matching radio option)
+    const rawOutcome = fields.outcome ? String(fields.outcome).trim().toLowerCase() : null;
+    const normalOutcome = rawOutcome === "win"  ? "Win"
+      : rawOutcome === "loss" ? "Loss"
+      : (rawOutcome === "be" || rawOutcome === "break-even" || rawOutcome === "breakeven") ? "BE"
+      : null;
+    if (normalOutcome) set2("outcome", normalOutcome);
+
+    // Strip seconds from timestamps — datetime-local inputs only accept "YYYY-MM-DDTHH:mm"
+    const toDatetimeLocal = (v: any): string | null => {
+      if (v == null || v === "") return null;
+      const m = String(v).match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+      return m ? m[1] : String(v);
+    };
+    set2("entryTime",              toDatetimeLocal(fields.entryTime));
+    set2("exitTime",               toDatetimeLocal(fields.exitTime));
     set2("dayOfWeek",              fields.dayOfWeek);
     set2("tradeDuration",          fields.tradeDuration != null ? String(fields.tradeDuration) : null);
     set2("entryTF",                fields.entryTF);
