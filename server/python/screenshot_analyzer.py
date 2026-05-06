@@ -37,7 +37,7 @@ Return ONLY valid JSON with these fields (use null for anything not visible):
   "priceExcursionR": number or null (how many R price travelled, i.e. MFE/risk),
   "entryTime": "YYYY-MM-DDTHH:MM:SS — combine the full date label from x-axis near entry candle with the time shown. MUST be this exact format.",
   "exitTime": "YYYY-MM-DDTHH:MM:SS — combine the full date label from x-axis near exit candle or replay bar with the time shown. MUST be this exact format.",
-  "brokerTimezone": number or null (UTC offset the broker uses — e.g. 2 for UTC+2, 3 for UTC+3, 0 for UTC. Check for timezone labels or clues on chart. Most MT4/MT5 brokers use UTC+2 winter / UTC+3 summer. Return null only if completely unknown.),
+  "brokerTimezone": number or null (UTC offset the broker uses — e.g. 0 for UTC/GMT/London, 2 for UTC+2 EET, 3 for UTC+3 EEST. Look for timezone labels, GMT/UTC markers, or clues in the chart header. If none are visible, return 0 — London UTC is a common broker default and all forex sessions are referenced to it.),
   "dayOfWeek": "Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday or null",
   "outcome": "Win or Loss or BE or Open",
   "openPLPips": number or null (open/floating P&L in pips if trade still open),
