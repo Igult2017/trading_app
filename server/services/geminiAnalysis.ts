@@ -1,13 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 
-// Initialize Gemini AI with user's API key (GOOGLE_API_KEY is canonical)
+// Initialize Gemini AI with the project API key
 const ai = new GoogleGenAI({
-  apiKey:
-    process.env.GOOGLE_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_GEMINI_API_KEY ||
-    "",
+  apiKey: process.env.GOOGLE_API_KEY || "",
 });
 
 // Gemini as ASSISTANT to our SMC Strategy - validates and verifies signals with chart analysis
@@ -361,13 +357,13 @@ export async function quickMarketScan(
 
 // Check if Gemini API is configured
 export function isGeminiConfigured(): boolean {
-  return !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  return !!process.env.GOOGLE_API_KEY;
 }
 
 // Test Gemini connection
 export async function testGeminiConnection(): Promise<{ success: boolean; message: string }> {
   if (!isGeminiConfigured()) {
-    return { success: false, message: 'GEMINI_API_KEY (or GOOGLE_API_KEY) not configured' };
+    return { success: false, message: 'GOOGLE_API_KEY not configured' };
   }
 
   try {

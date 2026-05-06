@@ -1559,9 +1559,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "messages array required" });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+      const apiKey = process.env.GOOGLE_API_KEY || "";
       if (!apiKey) {
-        return res.status(503).json({ error: "GEMINI_API_KEY is not configured on this server." });
+        return res.status(503).json({ error: "GOOGLE_API_KEY is not configured on this server." });
       }
 
       // Verify the session, if any, belongs to the authenticated user.

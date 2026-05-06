@@ -13,22 +13,8 @@ import { PYTHON_BIN } from "./lib/pythonBin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// ── API key bridge ───────────────────────────────────────────────────────────
-// GOOGLE_API_KEY is the canonical key (set in Hostinger / Replit secrets).
-// All aliases are synced from it so every TS service and spawned Python
-// process finds the key regardless of which env var name it reads.
-{
-  const resolved =
-    process.env.GOOGLE_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_GEMINI_API_KEY ||
-    "";
-  if (resolved) {
-    process.env.GOOGLE_API_KEY        = resolved;
-    process.env.GEMINI_API_KEY        = resolved;
-    process.env.GOOGLE_GEMINI_API_KEY = resolved;
-  }
-}
+// ── API key ──────────────────────────────────────────────────────────────────
+// GOOGLE_API_KEY is the only key used. Nothing to bridge.
 
 /** Poll the price daemon until it responds, then resolve. */
 async function waitForDaemon(maxWaitMs = 30_000, intervalMs = 500): Promise<void> {
