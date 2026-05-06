@@ -5,7 +5,9 @@ import re
 from datetime import datetime, timedelta
 from google import genai
 
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+def _get_api_key() -> str:
+    """Read the API key fresh from the environment each time it is needed."""
+    return os.environ.get("GOOGLE_API_KEY", "")
 
 EXTRACTION_PROMPT = """You are a trading chart screenshot analyzer. Extract ALL visible trading data from this chart screenshot.
 
@@ -321,7 +323,8 @@ def _detect_mime(raw_data_uri):
 
 
 def analyze_image(image_data):
-    if not GOOGLE_API_KEY:
+    api_key = _get_api_key()
+    if not api_key:
         raise ValueError("GOOGLE_API_KEY not set")
 
     mime_type = _detect_mime(image_data)
@@ -332,7 +335,7 @@ def analyze_image(image_data):
     image_bytes = base64.b64decode(image_data)
 
     model = os.environ.get("GEMINI_MODEL_OVERRIDE") or "gemini-1.5-flash"
-    client = genai.Client(api_key=GOOGLE_API_KEY)
+    client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=model,
         contents=[
@@ -351,7 +354,7 @@ def run_cli():
     if not image_data:
         print(json.dumps({"success": False, "error": "No image data"}))
         sys.exit(1)
-    if not GOOGLE_API_KEY:
+    if not _get_api_key():
         print(json.dumps({"success": False, "error": "GOOGLE_API_KEY not set"}))
         sys.exit(1)
     try:

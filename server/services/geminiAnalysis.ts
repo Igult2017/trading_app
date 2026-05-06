@@ -1,12 +1,73 @@
 import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 
-// Initialize Gemini AI with the project API key
-const ai = new GoogleGenAI({
-  apiKey: process.env.GOOGLE_API_KEY || "",
-});
+// ── Lazy client factory ───────────────────────────────────────────────────────
+// The client is created fresh on every call so GOOGLE_API_KEY is always read
+// from the current environment. No import-time initialisation needed.
 
-// Gemini as ASSISTANT to our SMC Strategy - validates and verifies signals with chart analysis
+function getAIClient(): GoogleGenAI {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "GOOGLE_API_KEY is not set. Add it to your environment variables to enable AI features.",
+    );
+  }
+  return new GoogleGenAI({ apiKey });
+}
+
+// ── Model fallback chain ──────────────────────────────────────────────────────
+// Stable GA models first; if the requested model is unavailable (deprecated,
+// preview expired, quota hit) we automatically retry with the next one.
+const MODEL_FALLBACK_CHAIN = [
+  "gemini-1.5-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-pro",
+] as const;
+
+type GenerateParams = {
+  preferredModel?: string;
+  config?: Record<string, any>;
+  contents: any;
+};
+
+async function generateWithFallback(params: GenerateParams): Promise<string> {
+  const ai = getAIClient();
+
+  // Build deduplicated list: preferred first, then fallbacks
+  const candidates = params.preferredModel
+    ? [params.preferredModel, ...MODEL_FALLBACK_CHAIN]
+    : [...MODEL_FALLBACK_CHAIN];
+  const seen = new Set<string>();
+  const models = candidates.filter(m => { if (seen.has(m)) return false; seen.add(m); return true; });
+
+  let lastError: Error | null = null;
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        config: params.config,
+        contents: params.contents,
+      });
+      return response.text ?? "";
+    } catch (err: any) {
+      lastError = err;
+      const msg: string = err?.message ?? "";
+      // Only fall through to next model for availability/deprecation errors.
+      // Auth and quota errors are propagated immediately.
+      const isModelError =
+        msg.includes("not found") ||
+        msg.includes("deprecated") ||
+        msg.includes("not supported") ||
+        msg.includes("404");
+      if (!isModelError) throw err;
+      console.warn(`[Gemini] Model "${model}" unavailable (${msg.slice(0, 100)}), trying next…`);
+    }
+  }
+  throw lastError ?? new Error("All Gemini models failed");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const SIGNAL_VALIDATION_INSTRUCTION = `Role: You are an expert Smart Money Concepts (SMC) analyst validating trading signals. You will receive:
 1. A chart image showing price action with marked zones
 2. Our analysis explaining what we observed
@@ -58,7 +119,6 @@ Output Format (JSON only):
   "reasoning": "explain what you see on the chart and whether it matches our analysis"
 }`;
 
-// Quick market scan instruction for screening
 const MARKET_SCAN_INSTRUCTION = `Role: You are a quick market scanner for Smart Money Concepts.
 Analyze the price data and identify if there are potential SMC setups forming.
 Look for: supply/demand zones, liquidity pools, potential CHoCH, FVGs.
@@ -88,7 +148,7 @@ export interface SignalValidationResult {
   recommendation: 'proceed' | 'caution' | 'skip';
   reasoning: string;
   error?: string;
-  isFallback?: boolean; // True ONLY when Gemini is unavailable and we use strategy signal as-is
+  isFallback?: boolean;
 }
 
 export interface MarketScanResult {
@@ -130,10 +190,9 @@ export interface SignalToValidate {
   zones?: { type: string; top: number; bottom: number }[];
 }
 
-// Format price data for Gemini
 function formatPriceDataForGemini(priceData: PriceData[]): string {
   return priceData.map(data => {
-    const recentCandles = data.candles.slice(-30); // Last 30 candles
+    const recentCandles = data.candles.slice(-30);
     const lastCandle = recentCandles[recentCandles.length - 1];
     return `
 === ${data.symbol} - ${data.timeframe} ===
@@ -141,22 +200,20 @@ Current Price: ${lastCandle?.close || 'N/A'}
 Last Update: ${lastCandle?.date || 'N/A'}
 
 Recent Candles (newest first):
-${recentCandles.reverse().slice(0, 15).map(c => 
+${recentCandles.reverse().slice(0, 15).map(c =>
   `${c.date}: O:${c.open.toFixed(5)} H:${c.high.toFixed(5)} L:${c.low.toFixed(5)} C:${c.close.toFixed(5)}`
 ).join('\n')}
 `;
   }).join('\n\n');
 }
 
-// Format signal for validation
 function formatSignalForValidation(signal: SignalToValidate): string {
   let zonesText = '';
   if (signal.zones && signal.zones.length > 0) {
-    zonesText = `\nIdentified Zones:\n${signal.zones.map(z => 
+    zonesText = `\nIdentified Zones:\n${signal.zones.map(z =>
       `- ${z.type}: ${z.bottom.toFixed(5)} - ${z.top.toFixed(5)}`
     ).join('\n')}`;
   }
-
   return `
 === SIGNAL TO VALIDATE ===
 Symbol: ${signal.symbol}
@@ -172,24 +229,17 @@ ${zonesText}
 `;
 }
 
-/**
- * Validate a signal generated by our SMC strategy
- * Gemini acts as a second opinion to enhance accuracy
- * Receives multiple timeframe charts for verification
- */
 export async function validateSignalWithGemini(
   signal: SignalToValidate,
   priceData: PriceData[],
-  chartImagePaths?: string[]
+  chartImagePaths?: string[],
 ): Promise<SignalValidationResult> {
   try {
     const formattedData = formatPriceDataForGemini(priceData);
     const formattedSignal = formatSignalForValidation(signal);
-    
-    // Build content array
+
     const contents: any[] = [];
-    
-    // Add all chart images (multi-timeframe) if provided
+
     if (chartImagePaths && chartImagePaths.length > 0) {
       const chartLabels = ['HTF Context (1D/H4)', 'Zone Identification (M15/M30)', 'Entry Confirmation (M5/M1)'];
       for (let i = 0; i < chartImagePaths.length; i++) {
@@ -197,17 +247,12 @@ export async function validateSignalWithGemini(
         if (fs.existsSync(chartPath)) {
           const imageBytes = fs.readFileSync(chartPath);
           const mimeType = chartPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
-          contents.push({
-            inlineData: {
-              data: imageBytes.toString('base64'),
-              mimeType,
-            },
-          });
+          contents.push({ inlineData: { data: imageBytes.toString('base64'), mimeType } });
           contents.push(`Chart ${i + 1}: ${chartLabels[i] || `Timeframe ${i + 1}`}`);
         }
       }
     }
-    
+
     contents.push(`
 Please validate this trading signal by verifying ALL the charts above:
 
@@ -224,8 +269,7 @@ ${formattedData}
 Provide your validation in the exact JSON format specified.
 `);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+    const text = await generateWithFallback({
       config: {
         systemInstruction: SIGNAL_VALIDATION_INSTRUCTION,
         responseMimeType: "application/json",
@@ -235,7 +279,6 @@ Provide your validation in the exact JSON format specified.
       contents,
     });
 
-    const text = response.text;
     if (text) {
       try {
         const result = JSON.parse(text);
@@ -247,7 +290,7 @@ Provide your validation in the exact JSON format specified.
           recommendation: result.recommendation || 'caution',
           reasoning: result.reasoning || '',
         };
-      } catch (parseError) {
+      } catch {
         return {
           validated: true,
           confidenceAdjustment: 0,
@@ -258,7 +301,7 @@ Provide your validation in the exact JSON format specified.
         };
       }
     }
-    
+
     return {
       validated: false,
       confidenceAdjustment: 0,
@@ -269,33 +312,27 @@ Provide your validation in the exact JSON format specified.
     };
   } catch (error) {
     console.error('Gemini validation error:', error);
-    // ONLY when Gemini is unavailable (error): fallback to strategy signal as-is
     return {
       validated: true,
       confidenceAdjustment: 0,
       concerns: ['Gemini validation unavailable - using strategy signal as fallback'],
       strengths: [],
-      recommendation: 'proceed', // Fallback: proceed with strategy signal
-      reasoning: 'Gemini service unavailable - FALLBACK: using strategy signal as-is',
+      recommendation: 'proceed',
+      reasoning: 'Gemini service unavailable — fallback: using strategy signal as-is',
       error: error instanceof Error ? error.message : 'Unknown error',
-      isFallback: true, // Flag to indicate this is a fallback response
+      isFallback: true,
     };
   }
 }
 
-/**
- * Quick market scan to pre-screen instruments
- * Helps identify which markets have potential setups
- */
 export async function quickMarketScan(
   symbol: string,
-  priceData: PriceData[]
+  priceData: PriceData[],
 ): Promise<MarketScanResult> {
   try {
     const formattedData = formatPriceDataForGemini(priceData);
-    
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+
+    const text = await generateWithFallback({
       config: {
         systemInstruction: MARKET_SCAN_INSTRUCTION,
         responseMimeType: "application/json",
@@ -305,7 +342,6 @@ export async function quickMarketScan(
       contents: `Quick scan for ${symbol}:\n${formattedData}`,
     });
 
-    const text = response.text;
     if (text) {
       try {
         const result = JSON.parse(text);
@@ -330,7 +366,7 @@ export async function quickMarketScan(
         };
       }
     }
-    
+
     return {
       hasSetup: false,
       direction: 'NEUTRAL',
@@ -355,43 +391,35 @@ export async function quickMarketScan(
   }
 }
 
-// Check if Gemini API is configured
 export function isGeminiConfigured(): boolean {
   return !!process.env.GOOGLE_API_KEY;
 }
 
-// Test Gemini connection
 export async function testGeminiConnection(): Promise<{ success: boolean; message: string }> {
   if (!isGeminiConfigured()) {
     return { success: false, message: 'GOOGLE_API_KEY not configured' };
   }
-
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+    const text = await generateWithFallback({
       contents: "Respond with exactly: 'SMC validation ready'",
     });
-    
-    const text = response.text || '';
     if (text.toLowerCase().includes('ready')) {
       return { success: true, message: 'Gemini API connected successfully' };
     }
-    return { success: true, message: `Gemini responded: ${text.slice(0, 50)}...` };
+    return { success: true, message: `Gemini responded: ${text.slice(0, 50)}…` };
   } catch (error) {
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : 'Connection failed' 
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Connection failed',
     };
   }
 }
 
-// Legacy exports for backward compatibility with routes
 export async function analyzeWithGemini(
   symbol: string,
   priceData: PriceData[],
-  chartImagePath?: string
+  chartImagePath?: string,
 ): Promise<any> {
-  // Convert to validation format
   const dummySignal: SignalToValidate = {
     symbol,
     direction: 'BUY',
@@ -403,12 +431,9 @@ export async function analyzeWithGemini(
     entryType: 'analysis_request',
     reasoning: 'Full analysis requested',
   };
-  
-  // Wrap single path in array for new signature
   const chartPaths = chartImagePath ? [chartImagePath] : undefined;
   const validation = await validateSignalWithGemini(dummySignal, priceData, chartPaths);
   const scan = await quickMarketScan(symbol, priceData);
-  
   return {
     validation,
     marketScan: scan,
@@ -418,12 +443,10 @@ export async function analyzeWithGemini(
 
 export async function quickAnalyzeWithGemini(
   symbol: string,
-  priceData: PriceData[]
+  priceData: PriceData[],
 ): Promise<{ direction: 'BUY' | 'SELL' | 'HOLD'; confidence: number; reasoning: string } | null> {
   const scan = await quickMarketScan(symbol, priceData);
-  
   if (scan.error) return null;
-  
   return {
     direction: scan.direction === 'NEUTRAL' ? 'HOLD' : scan.direction,
     confidence: scan.hasSetup ? 60 : 30,
