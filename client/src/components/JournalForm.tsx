@@ -1115,8 +1115,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     set2("entryPrice",             fields.entryPrice != null ? String(fields.entryPrice) : null);
     set2("stopLoss",               fields.stopLoss != null ? String(fields.stopLoss) : null);
     set2("takeProfit",             fields.takeProfit != null ? String(fields.takeProfit) : null);
-    set2("stopLossDistancePips",   fields.stopLossDistancePips != null ? String(fields.stopLossDistancePips) : null);
-    set2("takeProfitDistancePips", fields.takeProfitDistancePips != null ? String(fields.takeProfitDistancePips) : null);
+    const slPipVal = fields.stopLossDistancePips ?? fields.stopLossPips ?? fields.plannedSLPips ?? fields.plannedSlPips ?? fields.actualSlPips;
+    const tpPipVal = fields.takeProfitDistancePips ?? fields.takeProfitPips ?? fields.plannedTpPips ?? fields.plannedTPPips ?? fields.actualTpPips;
+    set2("stopLossDistancePips",   slPipVal != null ? String(slPipVal) : null);
+    set2("takeProfitDistancePips", tpPipVal != null ? String(tpPipVal) : null);
     set2("outcome",                fields.outcome);
     set2("entryTime",              fields.entryTime);
     set2("exitTime",               fields.exitTime);

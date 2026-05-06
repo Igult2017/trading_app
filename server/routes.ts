@@ -12,6 +12,7 @@ import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
+import { analyzeScreenshotWithGemini, isGeminiScreenshotAvailable } from "./services/geminiScreenshotAnalyzer";
 import { parseTradeText } from "./services/textTradeAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
@@ -696,11 +697,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No image provided" });
       }
 
+      // Normalize timestamps to YYYY-MM-DDTHH:MM format required by datetime-local inputs.
+      // OCR pipeline returns space-separated 'YYYY-MM-DD HH:MM'; Gemini may include seconds.
+      const normTs = (s: any): any => {
+        if (!s || typeof s !== "string") return s;
+        return s.replace(" ", "T").substring(0, 16);
+      };
+
+      // Field normalization applied to any result (OCR or Gemini).
+      // Bridges naming differences between the two pipelines and the frontend form.
+      const normalizeFields = (f: Record<string, any>): Record<string, any> => {
+        // Pips: OCR uses stopLossPips / takeProfitPips; frontend reads stopLossDistancePips / takeProfitDistancePips
+        if (f.stopLossDistancePips == null && f.stopLossPips != null)   f.stopLossDistancePips   = f.stopLossPips;
+        if (f.takeProfitDistancePips == null && f.takeProfitPips != null) f.takeProfitDistancePips = f.takeProfitPips;
+        // Timestamps: must be YYYY-MM-DDTHH:MM for datetime-local inputs
+        f.entryTime = normTs(f.entryTime);
+        f.exitTime  = normTs(f.exitTime);
+        return f;
+      };
+
+      // ── Prefer Gemini when GOOGLE_API_KEY is available ──────────────────────
+      if (isGeminiScreenshotAvailable()) {
+        log("[Screenshot] Using Gemini vision extraction");
+        const geminiResult = await analyzeScreenshotWithGemini(image);
+        if (geminiResult.success && geminiResult.fields) {
+          geminiResult.fields = normalizeFields(geminiResult.fields);
+          const f = geminiResult.fields;
+          log(`[Gemini fields] instrument:${f.instrument} direction:${f.direction} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
+          return res.json(geminiResult);
+        }
+        log(`[Screenshot] Gemini failed (${geminiResult.error}), falling back to OCR`);
+      }
+
+      // ── Fallback: local OCR pipeline ────────────────────────────────────────
       const ocrResult = await analyzeScreenshotWithOCR(image);
 
-      if (ocrResult.success) {
-        const f = ocrResult.fields || {};
-        console.log("[OCR fields] stopLossPoints:", f.stopLossPoints, "stopLossPips:", f.stopLossPips, "takeProfitPoints:", f.takeProfitPoints, "takeProfitPips:", f.takeProfitPips, "instrument:", f.instrument, "pairCategory:", f.pairCategory);
+      if (ocrResult.success && ocrResult.fields) {
+        ocrResult.fields = normalizeFields(ocrResult.fields);
+        const f = ocrResult.fields;
+        log(`[OCR fields] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
         return res.json(ocrResult);
       }
 
@@ -728,17 +763,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/journal/analyze-screenshot/status", async (_req, res) => {
     try {
-      const ocrAvailable = await isOCRAvailable();
+      const geminiAvailable = isGeminiScreenshotAvailable();
+      const ocrAvailable    = await isOCRAvailable();
 
       res.json({
+        gemini: {
+          available: geminiAvailable,
+          provider: "Google Gemini Vision",
+          note: geminiAvailable
+            ? "Active — best for full chart screenshots with timestamps and P&L panels"
+            : "Set GOOGLE_API_KEY to enable Gemini vision extraction",
+        },
         ocr: {
           available: ocrAvailable,
           provider: "Tesseract OCR",
           note: ocrAvailable
-            ? "Active — best for screenshots with visible text labels"
+            ? "Available as fallback — calibrated for JForex dark-theme screenshots"
             : "Tesseract or Python dependencies not installed",
         },
-        activeMethod: ocrAvailable ? "ocr" : "none",
+        activeMethod: geminiAvailable ? "gemini" : ocrAvailable ? "ocr" : "none",
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to check analysis status" });
