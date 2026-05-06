@@ -718,15 +718,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // ── Prefer Gemini when GOOGLE_API_KEY is available ──────────────────────
       if (isGeminiScreenshotAvailable()) {
-        log("[Screenshot] Using Gemini vision extraction");
+        console.log("[Screenshot] Using Gemini vision extraction");
         const geminiResult = await analyzeScreenshotWithGemini(image);
         if (geminiResult.success && geminiResult.fields) {
           geminiResult.fields = normalizeFields(geminiResult.fields);
           const f = geminiResult.fields;
-          log(`[Gemini fields] instrument:${f.instrument} direction:${f.direction} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
-          return res.json(geminiResult);
+          console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
+          return res.json({ ...geminiResult, method: "gemini", confidence: "high" });
         }
-        log(`[Screenshot] Gemini failed (${geminiResult.error}), falling back to OCR`);
+        console.error(`[Screenshot] Gemini failed: ${geminiResult.error} — falling back to OCR`);
+        // Return gemini error to client so user sees it; still try OCR below
       }
 
       // ── Fallback: local OCR pipeline ────────────────────────────────────────
@@ -735,13 +736,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (ocrResult.success && ocrResult.fields) {
         ocrResult.fields = normalizeFields(ocrResult.fields);
         const f = ocrResult.fields;
-        log(`[OCR fields] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
-        return res.json(ocrResult);
+        console.log(`[OCR] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
+        return res.json({ ...ocrResult, method: "ocr", confidence: "medium" });
       }
 
-      return res.status(500).json({
-        error: "Screenshot analysis failed",
+      return res.status(422).json({
+        error: isGeminiScreenshotAvailable()
+          ? "Gemini analysis failed and OCR fallback also failed. Check server logs for details."
+          : "Screenshot analysis failed. No recognisable trade data found.",
         details: ocrResult.error,
+        method: isGeminiScreenshotAvailable() ? "gemini" : "ocr",
       });
     } catch (error) {
       console.error("[Routes] Screenshot analysis error:", error);

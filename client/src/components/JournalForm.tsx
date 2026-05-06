@@ -415,19 +415,32 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
         <input type="file" id={inputId} accept="image/*" onChange={handleFile}
           style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
         {value ? (
-          <div className="p-2 w-full h-full flex flex-col">
+          <div className="p-2 w-full h-full flex flex-col relative">
             <img src={value} alt="chart" className="w-full flex-1 object-contain rounded-sm" style={{ minHeight: 0 }} />
-            <div className="flex gap-2 mt-2 flex-shrink-0">
-              <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all">↺ Replace</label>
-              <button type="button" onClick={() => onChange(null)}
-                className="flex-1 text-[9px] text-rose-400 border border-rose-500/30 rounded-sm py-1 hover:bg-rose-500/5 transition-all">✕ Remove</button>
-            </div>
+            {analyzing && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-sm gap-1.5">
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4e8cff" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4e8cff"/></svg>
+                <span className="text-[9px] text-[#4e8cff] uppercase tracking-[0.15em]">Analyzing…</span>
+              </div>
+            )}
+            {!analyzing && (
+              <div className="flex gap-2 mt-2 flex-shrink-0">
+                <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all">↺ Replace</label>
+                <button type="button" onClick={() => onChange(null)}
+                  className="flex-1 text-[9px] text-rose-400 border border-rose-500/30 rounded-sm py-1 hover:bg-rose-500/5 transition-all">✕ Remove</button>
+              </div>
+            )}
           </div>
         ) : (
           <>
             <span className="text-[20px] text-[#3f3f46] leading-none select-none">↑</span>
             <span className="text-[9px] text-[#3f3f46] uppercase tracking-[0.2em]">click or paste screenshot</span>
-            {analyzing && <span className="text-[9px] text-[#4e8cff] mt-1">Analyzing…</span>}
+            {analyzing && (
+              <span className="flex items-center gap-1 text-[9px] text-[#4e8cff] mt-1">
+                <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4e8cff" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4e8cff"/></svg>
+                Analyzing…
+              </span>
+            )}
           </>
         )}
       </div>
@@ -567,6 +580,20 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
             onPasteText={(t: any) => onScreenshotUpload("exitScreenshot-text", t)}
             analyzing={analyzing} />
         </div>
+
+        {/* Analysis status / error feedback */}
+        {d.ocrValidation && (
+          <div className="mt-3 flex items-start gap-2 rounded-sm border border-rose-500/30 bg-rose-500/5 px-3 py-2">
+            <span className="text-rose-400 text-[11px] leading-tight mt-px">⚠</span>
+            <span className="text-[11px] text-rose-300 leading-tight">{d.ocrValidation}</span>
+          </div>
+        )}
+        {d.ocrConfidence && !d.ocrValidation && (
+          <div className="mt-3 flex items-center gap-2 rounded-sm border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+            <span className="text-emerald-400 text-[11px]">✓</span>
+            <span className="text-[11px] text-emerald-300">Extracted with <strong>{d.ocrConfidence}</strong></span>
+          </div>
+        )}
       </section>
       )}
 
@@ -1201,12 +1228,23 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       setS2(prev => ({ ...prev, [field]: value }));
       if (value && typeof value === "string" && value.startsWith("data:image")) {
         setAnalyzing(true);
+        setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: "" }));
         try {
           const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
           const res = await raw.json();
-          if (res?.fields) applyAnalyzedFields(res.fields, res.confidence ?? "high");
-        } catch {}
-        finally { setAnalyzing(false); }
+          if (res?.fields) {
+            applyAnalyzedFields(res.fields, res.confidence ?? "high");
+            const methodLabel = res.method === "gemini" ? "Gemini Vision" : "OCR";
+            setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: "" }));
+          } else if (res?.error) {
+            setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: `Analysis failed: ${res.error}` }));
+          }
+        } catch (err: any) {
+          const msg = err?.message ?? "Network error — could not reach the analysis service";
+          setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: `Error: ${msg}` }));
+        } finally {
+          setAnalyzing(false);
+        }
       }
     } else if (field === "screenshot-text" || field === "exitScreenshot-text") {
       setAnalyzing(true);
@@ -1214,8 +1252,12 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         const raw = await apiRequest("POST", "/api/journal/analyze-text", { text: value });
         const res = await raw.json();
         if (res?.fields) applyAnalyzedFields(res.fields, "text input");
-      } catch {}
-      finally { setAnalyzing(false); }
+        else if (res?.error) setS2(prev => ({ ...prev, ocrValidation: `Text parse error: ${res.error}` }));
+      } catch (err: any) {
+        setS2(prev => ({ ...prev, ocrValidation: `Error: ${err?.message ?? "Unknown error"}` }));
+      } finally {
+        setAnalyzing(false);
+      }
     }
   }, [applyAnalyzedFields]);
 
