@@ -17,17 +17,16 @@ MODEL_QA = "gemini-2.0-flash"    # used for chat — 3-5× faster, equal quality
 
 
 def _api_key() -> str:
-    """Resolve the Gemini API key — accepts any of the common env var names."""
+    """Resolve the API key — GOOGLE_API_KEY is canonical; aliases are accepted too."""
     key = (
+        os.environ.get("GOOGLE_API_KEY") or
         os.environ.get("GEMINI_API_KEY") or
         os.environ.get("GOOGLE_GEMINI_API_KEY") or
-        os.environ.get("GOOGLE_API_KEY") or
         ""
     )
     if not key:
         raise RuntimeError(
-            "Gemini API key not found. Set GEMINI_API_KEY, GOOGLE_GEMINI_API_KEY, "
-            "or GOOGLE_API_KEY in your environment before starting the server."
+            "API key not found. Set GOOGLE_API_KEY in your environment before starting the server."
         )
     return key
 

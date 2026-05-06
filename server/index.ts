@@ -13,19 +13,20 @@ import { PYTHON_BIN } from "./lib/pythonBin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// ── Gemini API key bridge ────────────────────────────────────────────────────
-// Normalise all Gemini key variants into GEMINI_API_KEY so every part of the
-// app (TypeScript services + spawned Python processes) finds it in one place.
+// ── API key bridge ───────────────────────────────────────────────────────────
+// GOOGLE_API_KEY is the canonical key (set in Hostinger / Replit secrets).
+// All aliases are synced from it so every TS service and spawned Python
+// process finds the key regardless of which env var name it reads.
 {
   const resolved =
+    process.env.GOOGLE_API_KEY ||
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
     "";
   if (resolved) {
+    process.env.GOOGLE_API_KEY        = resolved;
     process.env.GEMINI_API_KEY        = resolved;
     process.env.GOOGLE_GEMINI_API_KEY = resolved;
-    process.env.GOOGLE_API_KEY        = resolved;
   }
 }
 

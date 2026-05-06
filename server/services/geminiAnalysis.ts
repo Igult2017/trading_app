@@ -1,12 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 
-// Initialize Gemini AI with user's API key
+// Initialize Gemini AI with user's API key (GOOGLE_API_KEY is canonical)
 const ai = new GoogleGenAI({
   apiKey:
+    process.env.GOOGLE_API_KEY ||
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
     "",
 });
 

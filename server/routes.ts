@@ -1527,7 +1527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/gemini/status", async (req, res) => {
     try {
       const isConfigured = isGeminiConfigured();
-      if (!isConfigured) return res.json({ configured: false, connected: false, message: "GEMINI_API_KEY (or GOOGLE_API_KEY) not configured" });
+      if (!isConfigured) return res.json({ configured: false, connected: false, message: "GOOGLE_API_KEY not configured" });
       const connectionTest = await testGeminiConnection();
       res.json({ configured: true, connected: connectionTest.success, message: connectionTest.message });
     } catch (error) {

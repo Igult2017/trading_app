@@ -58,7 +58,7 @@ The app starts with `npm run dev` which runs `tsx server/index.ts`.
 - `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - Individual DB credentials
 - `PORT` - Server port (default 5000)
 - `PYTHON_BIN` - Path to Python executable
-- `GOOGLE_GEMINI_API_KEY` / `GEMINI_API_KEY` - For AI signal analysis (optional)
+- `GOOGLE_API_KEY` - For AI features: Trader AI chat, screenshot OCR, signal analysis (canonical key; `GEMINI_API_KEY` / `GOOGLE_GEMINI_API_KEY` are accepted aliases)
 - `TELEGRAM_BOT_TOKEN` - For Telegram notifications (optional)
 
 ## Database
