@@ -13,6 +13,22 @@ import { PYTHON_BIN } from "./lib/pythonBin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+// ── Gemini API key bridge ────────────────────────────────────────────────────
+// Normalise all Gemini key variants into GEMINI_API_KEY so every part of the
+// app (TypeScript services + spawned Python processes) finds it in one place.
+{
+  const resolved =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    "";
+  if (resolved) {
+    process.env.GEMINI_API_KEY        = resolved;
+    process.env.GOOGLE_GEMINI_API_KEY = resolved;
+    process.env.GOOGLE_API_KEY        = resolved;
+  }
+}
+
 /** Poll the price daemon until it responds, then resolve. */
 async function waitForDaemon(maxWaitMs = 30_000, intervalMs = 500): Promise<void> {
   const deadline = Date.now() + maxWaitMs;

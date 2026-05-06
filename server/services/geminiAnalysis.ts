@@ -2,7 +2,13 @@ import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 
 // Initialize Gemini AI with user's API key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "" });
+const ai = new GoogleGenAI({
+  apiKey:
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    "",
+});
 
 // Gemini as ASSISTANT to our SMC Strategy - validates and verifies signals with chart analysis
 const SIGNAL_VALIDATION_INSTRUCTION = `Role: You are an expert Smart Money Concepts (SMC) analyst validating trading signals. You will receive:
