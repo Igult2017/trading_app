@@ -424,9 +424,9 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
               </div>
             )}
             {!analyzing && (
-              <div className="flex gap-2 mt-2 flex-shrink-0">
+              <div className="flex gap-2 mt-2 flex-shrink-0" style={{ position: "relative", zIndex: 10 }}>
                 <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all">↺ Replace</label>
-                <button type="button" onClick={() => onChange(null)}
+                <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
                   className="flex-1 text-[9px] text-rose-400 border border-rose-500/30 rounded-sm py-1 hover:bg-rose-500/5 transition-all">✕ Remove</button>
               </div>
             )}
