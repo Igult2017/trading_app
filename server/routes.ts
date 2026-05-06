@@ -134,6 +134,35 @@ function invalidateDrawdownCache(sessionId?: string, userId?: string): void {
     drawdownCache.clear();
   }
 }
+
+// ── AI response in-memory cache ───────────────────────────────────────────────
+// Prevents hitting Gemini on every page visit — same trade count = cached reply.
+// TTL: 30 minutes. Invalidated automatically when trade count changes.
+interface AICacheEntry {
+  result: any;
+  entryCount: number;
+  cachedAt: number;
+}
+const aiCache = new Map<string, AICacheEntry>();
+const AI_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function aiCacheKey(type: "analysis" | "strategy", userId?: string, sessionId?: string): string {
+  return `${type}:${userId ?? ""}:${sessionId ?? ""}`;
+}
+
+function getAICache(type: "analysis" | "strategy", userId?: string, sessionId?: string, currentCount?: number): any | null {
+  const key = aiCacheKey(type, userId, sessionId);
+  const entry = aiCache.get(key);
+  if (!entry) return null;
+  const expired = Date.now() - entry.cachedAt > AI_CACHE_TTL_MS;
+  const stale   = currentCount !== undefined && entry.entryCount !== currentCount;
+  if (expired || stale) { aiCache.delete(key); return null; }
+  return entry.result;
+}
+
+function setAICache(type: "analysis" | "strategy", result: any, userId?: string, sessionId?: string, entryCount?: number): void {
+  aiCache.set(aiCacheKey(type, userId, sessionId), { result, entryCount: entryCount ?? 0, cachedAt: Date.now() });
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Auth helper for user-data routes ─────────────────────────────────────────
@@ -1077,9 +1106,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scope = await resolveComputeScope(auth, req);
       if (!scope) return res.json({ success: true, analysis: {} });
-      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
+      const sessionId = req.query.sessionId as string | undefined;
+      const entryCount = scope.entries.length;
 
-      // Fetch rich metrics from the existing calculator and pass alongside trades
+      // Return cached result if trades haven't changed
+      const cached = getAICache("analysis", auth.id, sessionId, entryCount);
+      if (cached) { console.log("[AI] Analysis cache hit"); return res.json(cached); }
+
+      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
       let metricsContext: Record<string, any> | undefined;
       try {
         const m = await computeMetrics(remapped);
@@ -1087,6 +1121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch { /* non-fatal — AI works without metrics context */ }
 
       const result = await computeAIAnalysis(remapped, metricsContext);
+      if (result.success) setAICache("analysis", result, auth.id, sessionId, entryCount);
       res.json(result);
     } catch (error) {
       console.error("[Routes] AI analysis error:", error);
@@ -1101,8 +1136,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scope = await resolveComputeScope(auth, req);
       if (!scope) return res.json({ success: true, strategy: {} });
-      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
+      const sessionId = req.query.sessionId as string | undefined;
+      const entryCount = scope.entries.length;
 
+      // Return cached result if trades haven't changed
+      const cached = getAICache("strategy", auth.id, sessionId, entryCount);
+      if (cached) { console.log("[AI] Strategy cache hit"); return res.json(cached); }
+
+      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
       let metricsContext: Record<string, any> | undefined;
       try {
         const m = await computeMetrics(remapped);
@@ -1110,6 +1151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch { /* non-fatal */ }
 
       const result = await computeAIStrategy(remapped, metricsContext);
+      if (result.success) setAICache("strategy", result, auth.id, sessionId, entryCount);
       res.json(result);
     } catch (error) {
       console.error("[Routes] AI strategy error:", error);

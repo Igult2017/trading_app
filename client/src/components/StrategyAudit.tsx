@@ -790,18 +790,40 @@ function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
   );
 }
 
+function AIGate({ label, description, onRun }: { label: string; description: string; onRun: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 20, padding: "40px 24px" }}>
+      <Brain style={{ width: 36, height: 36, color: T.blue, opacity: 0.7 }} />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ ...mono, fontSize: 11, color: T.text, letterSpacing: ".18em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
+        <p style={{ fontFamily: FONT, fontSize: 12, color: T.muted, maxWidth: 400, lineHeight: 1.7, fontWeight: 400 }}>{description}</p>
+        <p style={{ fontFamily: FONT, fontSize: 11, color: T.dim, marginTop: 8 }}>Results are cached — repeated visits won't re-call the API if your trades haven't changed.</p>
+      </div>
+      <button onClick={onRun} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 24px", background: T.blue2, color: T.text, border: `1px solid ${T.blue}40`, borderRadius: 3, cursor: "pointer", ...mono, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase" }}>
+        <Sparkles style={{ width: 13, height: 13 }} /> Run Analysis
+      </button>
+    </div>
+  );
+}
+
 function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   const params = new URLSearchParams();
   if (sessionId) params.set("sessionId", sessionId);
   if (userId)    params.set("userId",    userId);
 
+  const [requested, setRequested] = useState(false);
+
   const { data, isLoading, isError, refetch } = useQuery<AIAnalysisData>({
     queryKey:  ["aiAnalysis", sessionId, userId],
     queryFn:   () => authFetch(`/api/ai/analysis?${params}`).then(r => r.json()),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
+    enabled:   requested,
     retry: 1,
   });
 
+  if (!requested) return (
+    <AIGate label="AI Performance Analysis" description="Analyses your win/loss profiles, behavioural patterns, and pre-trade checklist from your logged trades." onRun={() => setRequested(true)} />
+  );
   if (isLoading) return <AILoadingState label="Running AI analysis…" />;
   if (isError || !data?.success || data?.error) return <AIErrorState msg={data?.error ?? "AI analysis failed"} retry={refetch} />;
 
@@ -917,13 +939,19 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   if (sessionId) params.set("sessionId", sessionId);
   if (userId)    params.set("userId",    userId);
 
+  const [requested, setRequested] = useState(false);
+
   const { data, isLoading, isError, refetch } = useQuery<AIStrategyData>({
     queryKey:  ["aiStrategy", sessionId, userId],
     queryFn:   () => authFetch(`/api/ai/strategy?${params}`).then(r => r.json()),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
+    enabled:   requested,
     retry: 1,
   });
 
+  if (!requested) return (
+    <AIGate label="AI Strategy Builder" description="Derives entry conditions, avoid conditions, and risk rules from your confirmed trading patterns." onRun={() => setRequested(true)} />
+  );
   if (isLoading) return <AILoadingState label="Building AI strategy…" />;
   if (isError || !data?.success || data?.error) return <AIErrorState msg={data?.error ?? "AI strategy failed"} retry={refetch} />;
 
