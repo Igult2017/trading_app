@@ -1109,13 +1109,18 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     const set3 = (k: string, v: any) => { if (v != null && v !== "") { s3Up[k] = v; filled.add(k); } };
     const set4 = (k: string, v: any) => { if (v != null && v !== "") { s4Up[k] = v; filled.add(k); } };
 
+    // ── Step 2: Instrument & Position ───────────────────────────────────────────
     set2("instrument",             fields.instrument);
+    set2("pairCategory",           fields.pairCategory);
     set2("direction",              fields.direction);
+    set2("orderType",              fields.orderType);
     set2("lotSize",                fields.lotSize != null ? String(fields.lotSize) : null);
     set2("entryPrice",             fields.entryPrice != null ? String(fields.entryPrice) : null);
     set2("stopLoss",               fields.stopLoss != null ? String(fields.stopLoss) : null);
     set2("takeProfit",             fields.takeProfit != null ? String(fields.takeProfit) : null);
-    const slPipVal = fields.stopLossDistancePips ?? fields.stopLossPips ?? fields.plannedSLPips ?? fields.plannedSlPips ?? fields.actualSlPips;
+    // Pips: Gemini returns stopLossDistancePips / takeProfitDistancePips after map_to_journal_fields;
+    // OCR returns stopLossPips / takeProfitPips — check both as fallback
+    const slPipVal = fields.stopLossDistancePips ?? fields.stopLossPips ?? fields.plannedSlPips ?? fields.plannedSLPips ?? fields.actualSlPips;
     const tpPipVal = fields.takeProfitDistancePips ?? fields.takeProfitPips ?? fields.plannedTpPips ?? fields.plannedTPPips ?? fields.actualTpPips;
     set2("stopLossDistancePips",   slPipVal != null ? String(slPipVal) : null);
     set2("takeProfitDistancePips", tpPipVal != null ? String(tpPipVal) : null);
@@ -1124,6 +1129,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     set2("exitTime",               fields.exitTime);
     set2("dayOfWeek",              fields.dayOfWeek);
     set2("tradeDuration",          fields.tradeDuration != null ? String(fields.tradeDuration) : null);
+    set2("entryTF",                fields.entryTF);
+    set2("spreadAtEntry",          fields.spreadAtEntry != null ? String(fields.spreadAtEntry) : null);
 
     // Frontend fallback: compute duration if Python couldn't (timestamp format issues)
     if (!s2Up.tradeDuration && s2Up.entryTime && s2Up.exitTime) {
@@ -1135,14 +1142,15 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       }
     }
 
+    // ── Step 3: Session ──────────────────────────────────────────────────────
     if (fields.sessionName) {
       const sn = String(fields.sessionName).toLowerCase();
-      if (/london/.test(sn) && /new.?york|us/.test(sn)) set3("sessionName","Overlap");
-      else if (/london/.test(sn))                        set3("sessionName","London");
-      else if (/new.?york|us|ny/.test(sn))               set3("sessionName","New York");
-      else if (/tokyo|asian|asia/.test(sn))              set3("sessionName","Tokyo");
-      else if (/sydney|aus/.test(sn))                    set3("sessionName","Sydney");
-      else if (/overlap/.test(sn))                       set3("sessionName","Overlap");
+      if (/overlap/.test(sn))                             set3("sessionName","Overlap");
+      else if (/london/.test(sn) && /new.?york|us/.test(sn)) set3("sessionName","Overlap");
+      else if (/london/.test(sn))                         set3("sessionName","London");
+      else if (/new.?york|us|ny/.test(sn))                set3("sessionName","New York");
+      else if (/tokyo|asian|asia/.test(sn))               set3("sessionName","Tokyo");
+      else if (/sydney|aus/.test(sn))                     set3("sessionName","Sydney");
     }
     if (fields.sessionPhase) {
       const sp = String(fields.sessionPhase).toLowerCase();
@@ -1151,27 +1159,35 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       else if (/close|late|end/.test(sp)) set3("sessionPhase","Close");
     }
 
-    set4("plannedEntry", fields.entryPrice  != null ? String(fields.entryPrice)  : null);
-    set4("plannedSL",    fields.stopLoss    != null ? String(fields.stopLoss)    : null);
-    set4("plannedTP",    fields.takeProfit  != null ? String(fields.takeProfit)  : null);
-    set4("actualEntry",  fields.entryPrice  != null ? String(fields.entryPrice)  : null);
-    set4("actualSL",     fields.stopLoss    != null ? String(fields.stopLoss)    : null);
-    set4("actualTP",     fields.closingPrice != null ? String(fields.closingPrice) : (fields.takeProfit != null ? String(fields.takeProfit) : null));
-    if (fields.drawdownPoints != null) set4("mae", `${fields.drawdownPoints} pts`);
-    if (fields.runUpPoints    != null) set4("mfe", `${fields.runUpPoints} pts`);
+    // ── Step 4: Review / P&L ────────────────────────────────────────────────
+    set4("primaryExitReason", fields.primaryExitReason);
+    set4("plannedEntry", fields.entryPrice    != null ? String(fields.entryPrice)    : null);
+    set4("plannedSL",    fields.stopLoss      != null ? String(fields.stopLoss)      : null);
+    set4("plannedTP",    fields.takeProfit    != null ? String(fields.takeProfit)    : null);
+    set4("actualEntry",  fields.openingPrice  != null ? String(fields.openingPrice)  : (fields.entryPrice != null ? String(fields.entryPrice) : null));
+    set4("actualSL",     fields.stopLoss      != null ? String(fields.stopLoss)      : null);
+    set4("actualTP",     fields.closingPrice  != null ? String(fields.closingPrice)  : (fields.takeProfit != null ? String(fields.takeProfit) : null));
+    set4("profitLoss",   fields.profitLoss    != null ? String(fields.profitLoss)    : null);
+    // mae/mfe: Python's map_to_journal_fields renames drawdownPoints→mae, runUpPoints→mfe
+    const maeVal = fields.mae ?? fields.drawdownPoints;
+    const mfeVal = fields.mfe ?? fields.runUpPoints;
+    if (maeVal != null) set4("mae", `${maeVal} pts`);
+    if (mfeVal != null) set4("mfe", `${mfeVal} pts`);
     if (fields.plannedRR  != null) set4("plannedRR",  fmtRR(fields.plannedRR));
+    if (fields.riskReward != null && fields.plannedRR == null) set4("plannedRR", fmtRR(fields.riskReward));
     if (fields.achievedRR != null) set4("achievedRR", fmtRR(fields.achievedRR));
 
+    // Pips gained/lost: prefer direct closed P&L, fall back to calculated from SL/TP distance
     const isLoss   = fields.outcome === "Loss";
     const slPips   = fields.stopLossDistancePips ?? fields.actualSlPips ?? fields.plannedSlPips;
     const openPL   = fields.openPLPips;
     const closedPL = fields.closedPLPips;
-    const actualTP = fields.actualTpPips;
+    const actualTpPips = fields.actualTpPips;
     let pips: string | null = null;
-    if (isLoss && slPips != null)               pips = String(-Math.abs(slPips));
-    else if (openPL  != null && openPL  !== 0)  pips = String(openPL);
-    else if (closedPL != null && closedPL !== 0) pips = String(closedPL);
-    else if (actualTP != null)                   pips = String(actualTP);
+    if (closedPL != null && closedPL !== 0)       pips = String(closedPL);
+    else if (openPL != null && openPL !== 0)       pips = String(openPL);
+    else if (isLoss && slPips != null)             pips = String(-Math.abs(slPips));
+    else if (actualTpPips != null)                 pips = String(actualTpPips);
     if (pips != null) set4("pipsGainedLost", pips);
 
     setS2(prev => ({ ...prev, ...s2Up, ocrConfidence: confidence, ocrValidation: "" }));

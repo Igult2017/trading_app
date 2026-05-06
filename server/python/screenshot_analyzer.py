@@ -305,9 +305,26 @@ def map_to_journal_fields(extracted):
     }
 
 
+def _detect_mime(raw_data_uri):
+    """Return the MIME type from a data URI prefix, or default to image/jpeg."""
+    if raw_data_uri.startswith("data:"):
+        header = raw_data_uri[:40]
+        if "image/jpeg" in header or "image/jpg" in header:
+            return "image/jpeg"
+        if "image/webp" in header:
+            return "image/webp"
+        if "image/gif" in header:
+            return "image/gif"
+        if "image/png" in header:
+            return "image/png"
+    return "image/jpeg"
+
+
 def analyze_image(image_data):
     if not GOOGLE_API_KEY:
         raise ValueError("GOOGLE_API_KEY not set")
+
+    mime_type = _detect_mime(image_data)
 
     if "," in image_data:
         image_data = image_data.split(",", 1)[1]
@@ -319,7 +336,7 @@ def analyze_image(image_data):
         model="gemini-2.0-flash",
         contents=[
             EXTRACTION_PROMPT,
-            genai.types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+            genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
         ],
     )
 
