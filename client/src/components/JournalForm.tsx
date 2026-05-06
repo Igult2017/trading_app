@@ -1115,13 +1115,23 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     set2("entryPrice",             fields.entryPrice != null ? String(fields.entryPrice) : null);
     set2("stopLoss",               fields.stopLoss != null ? String(fields.stopLoss) : null);
     set2("takeProfit",             fields.takeProfit != null ? String(fields.takeProfit) : null);
-    set2("stopLossDistancePips",   fields.stopLossPips != null ? String(fields.stopLossPips) : null);
-    set2("takeProfitDistancePips", fields.takeProfitPips != null ? String(fields.takeProfitPips) : null);
+    set2("stopLossDistancePips",   fields.stopLossDistancePips != null ? String(fields.stopLossDistancePips) : null);
+    set2("takeProfitDistancePips", fields.takeProfitDistancePips != null ? String(fields.takeProfitDistancePips) : null);
     set2("outcome",                fields.outcome);
     set2("entryTime",              fields.entryTime);
     set2("exitTime",               fields.exitTime);
     set2("dayOfWeek",              fields.dayOfWeek);
     set2("tradeDuration",          fields.tradeDuration != null ? String(fields.tradeDuration) : null);
+
+    // Frontend fallback: compute duration if Python couldn't (timestamp format issues)
+    if (!s2Up.tradeDuration && s2Up.entryTime && s2Up.exitTime) {
+      const diff = Math.round((new Date(s2Up.exitTime).getTime() - new Date(s2Up.entryTime).getTime()) / 60000);
+      if (diff > 0) {
+        const h = Math.floor(diff / 60), m = diff % 60;
+        s2Up.tradeDuration = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+        filled.add("tradeDuration");
+      }
+    }
 
     if (fields.sessionName) {
       const sn = String(fields.sessionName).toLowerCase();
@@ -1151,10 +1161,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (fields.achievedRR != null) set4("achievedRR", fmtRR(fields.achievedRR));
 
     const isLoss   = fields.outcome === "Loss";
-    const slPips   = fields.stopLossPips ?? fields.plannedSLPips;
-    const openPL   = fields.openPLPoints;
+    const slPips   = fields.stopLossDistancePips ?? fields.actualSlPips ?? fields.plannedSlPips;
+    const openPL   = fields.openPLPips;
     const closedPL = fields.closedPLPips;
-    const actualTP = fields.actualTPPips;
+    const actualTP = fields.actualTpPips;
     let pips: string | null = null;
     if (isLoss && slPips != null)               pips = String(-Math.abs(slPips));
     else if (openPL  != null && openPL  !== 0)  pips = String(openPL);

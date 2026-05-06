@@ -2,7 +2,7 @@ import os
 import json
 import base64
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from google import genai
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
@@ -35,8 +35,9 @@ Return ONLY valid JSON with these fields (use null for anything not visible):
   "riskReward": number or null (risk-reward ratio as shown on chart),
   "achievedRR": number or null (actual achieved R:R based on outcome),
   "priceExcursionR": number or null (how many R price travelled, i.e. MFE/risk),
-  "entryTime": "ISO datetime string or readable date or null",
-  "exitTime": "ISO datetime string or readable date or null",
+  "entryTime": "YYYY-MM-DDTHH:MM:SS — combine the full date label from x-axis near entry candle with the time shown. MUST be this exact format.",
+  "exitTime": "YYYY-MM-DDTHH:MM:SS — combine the full date label from x-axis near exit candle or replay bar with the time shown. MUST be this exact format.",
+  "brokerTimezone": number or null (UTC offset the broker uses — e.g. 2 for UTC+2, 3 for UTC+3, 0 for UTC. Check for timezone labels or clues on chart. Most MT4/MT5 brokers use UTC+2 winter / UTC+3 summer. Return null only if completely unknown.),
   "dayOfWeek": "Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday or null",
   "outcome": "Win or Loss or BE or Open",
   "openPLPips": number or null (open/floating P&L in pips if trade still open),
@@ -63,8 +64,9 @@ RULES:
 - If trade is closed, determine outcome: Win (profit), Loss (loss), BE (break-even at ~0 pips)
 - Distinguish planned values (set before trade) from actual values (result of trade)
 - If only one SL/TP distance is visible use it for both planned and actual
-- Extract entry and exit timestamps from x-axis labels, replay bar, or trade history
-- Be precise with numbers - copy exactly what you see on screen
+- TIMESTAMPS: Read x-axis date labels carefully. Labels like "Thu 24 Nov'22 00:22" mean the date is 2022-11-24 and time is 00:22 — combine them into "2022-11-24T00:22:00". The replay bar at the bottom often shows the last processed tick date/time — use that for exitTime if the trade is closed there.
+- The times on the chart are in BROKER LOCAL TIME, NOT UTC. Most MT4/MT5 brokers run at UTC+2 (winter) or UTC+3 (summer). Try to detect the broker timezone from any visible label.
+- Be precise with numbers — copy exactly what you see on screen
 - Return ONLY the JSON object, no markdown formatting"""
 
 
@@ -82,78 +84,149 @@ def parse_gemini_response(text):
         raise ValueError(f"Could not parse JSON from response: {text[:200]}")
 
 
-def derive_session(entry_time_str):
+_ISO_FMTS = [
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d",
+    "%d/%m/%Y %H:%M:%S",
+    "%d/%m/%Y %H:%M",
+    "%d/%m/%Y",
+    "%m/%d/%Y %H:%M:%S",
+    "%m/%d/%Y %H:%M",
+]
+
+_BROKER_FMTS = [
+    "%d %b %Y %H:%M:%S",
+    "%d %b %Y %H:%M",
+    "%d %b %Y",
+    "%d-%b-%Y %H:%M:%S",
+    "%d-%b-%Y %H:%M",
+    "%d %B %Y %H:%M:%S",
+    "%d %B %Y %H:%M",
+]
+
+
+def _parse_dt(s):
     """
-    Derive forex session name and phase from a UTC timestamp.
-    All session boundaries use UTC (London/GMT as reference).
+    Parse a datetime string from many formats including broker chart labels.
+    Returns a datetime object or None.
+    Handles strings like:
+      "2022-11-24T00:22:00"
+      "Thu 24 Nov'22 00:22"   (MT4/MT5 x-axis style)
+      "24 Nov'22 00:22"
+      "08 Dec 2022 07:00"
+    """
+    if not s:
+        return None
+    s = str(s).strip()
+
+    # Strip leading timezone suffix (+02:00 etc) before trying ISO
+    clean_iso = re.sub(r'[+-]\d{2}:\d{2}$', '', s).strip()
+
+    for fmt in _ISO_FMTS:
+        try:
+            return datetime.strptime(clean_iso[:len(fmt) + 2], fmt)
+        except ValueError:
+            pass
+
+    # Strip leading day-name abbreviation: "Thu 24 Nov'22 00:22" → "24 Nov'22 00:22"
+    broker = re.sub(r'^[A-Za-z]{2,}\s+', '', s).strip()
+
+    # Replace two-digit year shorthand: Nov'22 → Nov 2022  / Nov'98 → Nov 1998
+    broker = re.sub(
+        r"'(\d{2})\b",
+        lambda m: (" 20" if int(m.group(1)) <= 69 else " 19") + m.group(1),
+        broker
+    )
+
+    for fmt in _BROKER_FMTS:
+        try:
+            return datetime.strptime(broker, fmt)
+        except ValueError:
+            pass
+
+    return None
+
+
+def derive_session(entry_time_str, broker_tz_offset=None):
+    """
+    Derive forex session name and phase.
+    broker_tz_offset: numeric UTC offset (e.g. 2 for UTC+2) so we can convert
+    broker local time → UTC before classifying.  If None/unknown we use the
+    raw hour — still better than nothing.
 
     Session hours (UTC):
-      Sydney     : 21:00 - 00:00  (Open)
-      Tokyo      : 00:00 - 03:00  (Open)  /  03:00 - 06:00  (Mid)  /  06:00 - 07:00  (Close)
-      London     : 07:00 - 10:00  (Open)  /  10:00 - 13:00  (Mid)
-      L-NY Overlap: 13:00 - 16:00 (Open)
-      New York   : 16:00 - 19:00  (Mid)   /  19:00 - 21:00  (Close)
+      Sydney      : 21:00–00:00  Open
+      Tokyo       : 00:00–03:00  Open  /  03:00–06:00  Mid  /  06:00–07:00  Close
+      London      : 07:00–10:00  Open  /  10:00–13:00  Mid
+      NY Overlap  : 13:00–16:00  Open
+      New York    : 16:00–19:00  Mid   /  19:00–21:00  Close
     """
     if not entry_time_str:
         return {"sessionName": None, "sessionPhase": None}
     try:
-        for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]:
-            try:
-                dt = datetime.strptime(entry_time_str[:19], fmt)
-                break
-            except ValueError:
-                continue
-        else:
+        dt = _parse_dt(entry_time_str)
+        if dt is None:
             return {"sessionName": None, "sessionPhase": None}
 
-        # Treat timestamp as UTC — London is the reference timezone for forex sessions
+        # Convert broker local time → UTC
+        if broker_tz_offset is not None:
+            try:
+                offset = float(broker_tz_offset)
+                dt = dt - timedelta(hours=offset)
+            except (TypeError, ValueError):
+                pass
+
         hour = dt.hour
 
         if 21 <= hour <= 23:
-            return {"sessionName": "Sydney", "sessionPhase": "Open"}
-        elif 0 <= hour < 3:
-            return {"sessionName": "Tokyo", "sessionPhase": "Open"}
-        elif 3 <= hour < 6:
-            return {"sessionName": "Tokyo", "sessionPhase": "Mid"}
-        elif 6 <= hour < 7:
-            return {"sessionName": "Tokyo", "sessionPhase": "Close"}
-        elif 7 <= hour < 10:
-            return {"sessionName": "London", "sessionPhase": "Open"}
-        elif 10 <= hour < 13:
-            return {"sessionName": "London", "sessionPhase": "Mid"}
-        elif 13 <= hour < 16:
-            return {"sessionName": "London-NY Overlap", "sessionPhase": "Open"}
-        elif 16 <= hour < 19:
-            return {"sessionName": "New York", "sessionPhase": "Mid"}
-        else:  # 19 <= hour < 21
-            return {"sessionName": "New York", "sessionPhase": "Close"}
+            return {"sessionName": "Sydney",    "sessionPhase": "Open"}
+        elif hour < 3:
+            return {"sessionName": "Tokyo",     "sessionPhase": "Open"}
+        elif hour < 6:
+            return {"sessionName": "Tokyo",     "sessionPhase": "Mid"}
+        elif hour < 7:
+            return {"sessionName": "Tokyo",     "sessionPhase": "Close"}
+        elif hour < 10:
+            return {"sessionName": "London",    "sessionPhase": "Open"}
+        elif hour < 13:
+            return {"sessionName": "London",    "sessionPhase": "Mid"}
+        elif hour < 16:
+            return {"sessionName": "Overlap",   "sessionPhase": "Open"}
+        elif hour < 19:
+            return {"sessionName": "New York",  "sessionPhase": "Mid"}
+        else:
+            return {"sessionName": "New York",  "sessionPhase": "Close"}
     except Exception:
         return {"sessionName": None, "sessionPhase": None}
 
 
 def compute_duration(entry_str, exit_str):
+    """Compute human-readable trade duration from two timestamp strings."""
     if not entry_str or not exit_str:
         return None
     try:
-        for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]:
-            try:
-                entry_dt = datetime.strptime(entry_str[:19], fmt)
-                exit_dt = datetime.strptime(exit_str[:19], fmt)
-                break
-            except ValueError:
-                continue
-        else:
+        entry_dt = _parse_dt(entry_str)
+        exit_dt  = _parse_dt(exit_str)
+        if entry_dt is None or exit_dt is None:
             return None
         delta = exit_dt - entry_dt
-        total_hours = delta.total_seconds() / 3600
-        if total_hours < 1:
-            return f"{int(delta.total_seconds() / 60)}m"
-        elif total_hours < 24:
-            return f"{total_hours:.1f}h"
+        total_secs = delta.total_seconds()
+        if total_secs <= 0:
+            return None
+        total_mins = int(total_secs / 60)
+        if total_mins < 60:
+            return f"{total_mins}m"
+        elif total_secs < 86400:
+            h = total_mins // 60
+            m = total_mins % 60
+            return f"{h}h {m}m" if m else f"{h}h"
         else:
-            days = delta.days
-            hours = (delta.seconds // 3600)
-            return f"{days}d {hours}h"
+            days  = delta.days
+            hours = delta.seconds // 3600
+            return f"{days}d {hours}h" if hours else f"{days}d"
     except Exception:
         return None
 
@@ -169,7 +242,8 @@ def normalize_lot_size(raw):
 
 
 def map_to_journal_fields(extracted):
-    session_info = derive_session(extracted.get("entryTime"))
+    broker_tz = extracted.get("brokerTimezone")
+    session_info = derive_session(extracted.get("entryTime"), broker_tz_offset=broker_tz)
     duration = compute_duration(
         extracted.get("entryTime"), extracted.get("exitTime")
     )
