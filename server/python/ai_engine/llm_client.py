@@ -292,6 +292,7 @@ def call_llm(
     payload: dict,
     question: str = "",
     messages: list[dict] | None = None,
+    model_override: str | None = None,
 ) -> str:
     """
     Call Gemini and return the response as a plain string.
@@ -303,11 +304,14 @@ def call_llm(
     """
     from google.genai import types  # type: ignore
 
-    model = MODEL
+    # model_override wins; then env var; then per-mode default
+    env_override = os.environ.get("GEMINI_MODEL_OVERRIDE", "")
+    model = model_override or env_override or MODEL
     if mode == "analysis":
         user_content: object = _build_analysis_prompt(payload)
     elif mode == "qa":
-        model = MODEL_QA
+        if not model_override and not env_override:
+            model = MODEL_QA
         local_answer = payload.pop("_local_answer", "")
         primer = _build_qa_prompt(question, local_answer, payload)
 

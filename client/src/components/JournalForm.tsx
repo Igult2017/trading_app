@@ -1230,7 +1230,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         setAnalyzing(true);
         setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: "" }));
         try {
-          const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
+          const screenshotModel: string = (() => {
+            try { return JSON.parse(localStorage.getItem("journal_settings_v2") || "{}").screenshotModel || ""; } catch { return ""; }
+          })();
+          const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field, model: screenshotModel || undefined });
           const res = await raw.json();
           if (res?.fields) {
             applyAnalyzedFields(res.fields, res.confidence ?? "high");

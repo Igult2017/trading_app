@@ -54,12 +54,14 @@ def main() -> None:
             question = req.get("question", "") or ""
             messages = req.get("messages") or []
             metrics_context = req.get("metrics_context")
+            model_override = req.get("model") or None
 
             answer = run_qa(
                 trades=trades,
                 question=question,
                 messages=messages,
                 metrics_context=metrics_context,
+                model_override=model_override,
             )
             _emit({"id": req_id, "ok": True, "answer": answer})
         except Exception as exc:  # noqa: BLE001

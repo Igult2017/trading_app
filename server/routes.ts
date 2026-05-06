@@ -692,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/journal/analyze-screenshot", async (req, res) => {
     try {
-      const { image } = req.body;
+      const { image, model: screenshotModel } = req.body;
       if (!image) {
         return res.status(400).json({ error: "No image provided" });
       }
@@ -719,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ── Prefer Gemini when GOOGLE_API_KEY is available ──────────────────────
       if (isGeminiScreenshotAvailable()) {
         console.log("[Screenshot] Using Gemini vision extraction");
-        const geminiResult = await analyzeScreenshotWithGemini(image);
+        const geminiResult = await analyzeScreenshotWithGemini(image, screenshotModel || undefined);
         if (geminiResult.success && geminiResult.fields) {
           geminiResult.fields = normalizeFields(geminiResult.fields);
           const f = geminiResult.fields;
@@ -1639,10 +1639,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const auth = await requireAuth(req, res);
     if (!auth) return;
     try {
-      const { messages, sessionId, chatId: chatIdInput } = req.body as {
+      const { messages, sessionId, chatId: chatIdInput, model: modelParam } = req.body as {
         messages: Array<{ role: string; content: string }>;
         sessionId?: string;
         chatId?:   string;
+        model?:    string;
       };
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "messages array required" });
@@ -1710,6 +1711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           question,
           messages,
           metrics_context: metricsContext,
+          model: modelParam || undefined,
         });
         await appendAIChatMessage(chatId, "model", answer ?? "");
         return res.json({ reply: answer ?? "", chatId });

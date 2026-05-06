@@ -7,16 +7,18 @@ export function isGeminiScreenshotAvailable(): boolean {
 }
 
 export async function analyzeScreenshotWithGemini(
-  base64Image: string
+  base64Image: string,
+  modelOverride?: string,
 ): Promise<{ success: boolean; fields?: Record<string, any>; method?: string; error?: string }> {
   return new Promise((resolve) => {
     const scriptPath = path.join(
       process.cwd(), "server", "python", "screenshot_analyzer.py"
     );
 
-    const child = spawn(PYTHON_BIN, [scriptPath, "--analyze"], {
-      env: { ...process.env },
-    });
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    if (modelOverride) env.GEMINI_MODEL_OVERRIDE = modelOverride;
+
+    const child = spawn(PYTHON_BIN, [scriptPath, "--analyze"], { env });
 
     let stdout = "";
     let stderr = "";

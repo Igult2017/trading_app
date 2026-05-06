@@ -3,9 +3,19 @@ import {
   Send, RotateCcw, Copy, Check, Download,
   FileText, ChevronRight, AlertCircle, User,
   Plus, Trash2, MessageSquare, Pencil,
-  PanelLeftClose, PanelLeftOpen
+  PanelLeftClose, PanelLeftOpen, Cpu
 } from "lucide-react";
 import { authFetch } from "@/lib/queryClient";
+
+const GEMINI_MODELS = [
+  { id: "gemini-1.5-flash",               label: "1.5 Flash",         desc: "Fast · stable" },
+  { id: "gemini-1.5-pro",                 label: "1.5 Pro",           desc: "Powerful · stable" },
+  { id: "gemini-2.0-flash-lite",          label: "2.0 Flash Lite",    desc: "Newer · efficient" },
+  { id: "gemini-2.5-flash-preview-05-20", label: "2.5 Flash Preview", desc: "Latest Flash" },
+  { id: "gemini-2.5-pro-preview-05-06",   label: "2.5 Pro Preview",   desc: "Most capable" },
+] as const;
+type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
+const DEFAULT_MODEL: GeminiModelId = "gemini-1.5-flash";
 
 const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -48,6 +58,10 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<GeminiModelId>(() => {
+    try { return (window.localStorage.getItem("traderai.model") as GeminiModelId) || DEFAULT_MODEL; } catch { return DEFAULT_MODEL; }
+  });
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -82,6 +96,18 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // Close model menu when clicking outside
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const menu = document.getElementById("traderai-model-menu");
+      if (menu && !menu.contains(target)) setModelMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelMenuOpen]);
 
   const autoResize = (el: HTMLTextAreaElement) => {
     el.style.height = "auto";
@@ -148,7 +174,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     const res = await authFetch("/api/trader-ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: msgs, sessionId, chatId: activeChatId }),
+      body: JSON.stringify({ messages: msgs, sessionId, chatId: activeChatId, model: selectedModel }),
     });
     let data: any = null;
     try { data = await res.json(); } catch { /* non-JSON response */ }
@@ -412,7 +438,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
 
         {/* Header */}
-        <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+        <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <button
               className="traderai-mobile-toggle"
@@ -428,22 +454,60 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
             <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}>Trader AI</span>
             <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
           </div>
-          {messages.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              {[
-                { label: "Export", icon: <FileText size={12} />, action: exportChat },
-                { label: "Clear",  icon: <RotateCcw size={12} />, action: newChat },
-              ].map(({ label, icon, action }) => (
-                <button key={label} onClick={action} className="traderai-headerbtn" title={label}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
-                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; }}
-                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "rgba(255,255,255,0.45)"; }}
-                >
-                  {icon}<span className="traderai-headerbtn-label">{label}</span>
-                </button>
-              ))}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+            {/* Model selector */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setModelMenuOpen(v => !v)}
+                title="Select Gemini model"
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 9px", background: modelMenuOpen ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${modelMenuOpen ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.08)"}`, borderRadius: 7, color: modelMenuOpen ? "rgba(165,180,252,0.9)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
+                onMouseEnter={e => { if (!modelMenuOpen) { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; }}}
+                onMouseLeave={e => { if (!modelMenuOpen) { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "rgba(255,255,255,0.45)"; }}}
+              >
+                <Cpu size={11} />
+                <span className="traderai-headerbtn-label" style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {GEMINI_MODELS.find(m => m.id === selectedModel)?.label ?? selectedModel}
+                </span>
+              </button>
+              {modelMenuOpen && (
+                <div id="traderai-model-menu" style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "rgba(10,15,25,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "6px 0", minWidth: 230, boxShadow: "0 12px 40px rgba(0,0,0,0.6)", backdropFilter: "blur(12px)" }}>
+                  <p style={{ fontFamily: F, fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", padding: "4px 14px 8px" }}>Gemini Model</p>
+                  {GEMINI_MODELS.map(m => {
+                    const active = m.id === selectedModel;
+                    return (
+                      <button key={m.id} onClick={() => { setSelectedModel(m.id); try { window.localStorage.setItem("traderai.model", m.id); } catch {} setModelMenuOpen(false); }}
+                        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", background: active ? "rgba(99,102,241,0.12)" : "transparent", border: "none", cursor: "pointer", textAlign: "left", transition: "background 0.12s" }}
+                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                      >
+                        <span style={{ fontFamily: F }}>
+                          <span style={{ display: "block", fontSize: 12, fontWeight: active ? 600 : 400, color: active ? "rgba(165,180,252,1)" : "rgba(255,255,255,0.75)" }}>{m.label}</span>
+                          <span style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{m.desc}</span>
+                        </span>
+                        {active && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#818cf8", flexShrink: 0 }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+            {messages.length > 0 && (
+              <>
+                {[
+                  { label: "Export", icon: <FileText size={12} />, action: exportChat },
+                  { label: "Clear",  icon: <RotateCcw size={12} />, action: newChat },
+                ].map(({ label, icon, action }) => (
+                  <button key={label} onClick={action} className="traderai-headerbtn" title={label}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
+                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "rgba(255,255,255,0.45)"; }}
+                  >
+                    {icon}<span className="traderai-headerbtn-label">{label}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Scrollable messages / empty state */}

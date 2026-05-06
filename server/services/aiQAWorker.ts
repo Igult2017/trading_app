@@ -100,6 +100,7 @@ class QAWorker {
     question:         string;
     messages?:        Array<{ role: string; content: string }>;
     metrics_context?: Record<string, any>;
+    model?:           string;
   }): Promise<string> {
     return new Promise((resolve, reject) => {
       const child = this.ensureRunning();
@@ -130,6 +131,7 @@ export async function askTraderAI(payload: {
   question:         string;
   messages?:        Array<{ role: string; content: string }>;
   metrics_context?: Record<string, any>;
+  model?:           string;
 }): Promise<string> {
   return worker.ask(payload);
 }

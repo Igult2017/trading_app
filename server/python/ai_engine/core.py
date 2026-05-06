@@ -167,6 +167,7 @@ def run_qa(
     question: str,
     messages: list[dict] | None = None,
     metrics_context: dict | None = None,
+    model_override: str | None = None,
 ) -> str:
     """
     Build the QA payload (router answer + supporting context) and call Gemini.
@@ -202,7 +203,7 @@ def run_qa(
     if notes.emotion_correlation:
         payload["emotion_summary"] = _serialise(notes.emotion_correlation[:3])
 
-    return call_llm("qa", payload, question=question, messages=messages)
+    return call_llm("qa", payload, question=question, messages=messages, model_override=model_override)
 
 
 # ── Core orchestrator ─────────────────────────────────────────────────────────

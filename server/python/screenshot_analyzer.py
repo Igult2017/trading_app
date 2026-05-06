@@ -331,9 +331,10 @@ def analyze_image(image_data):
 
     image_bytes = base64.b64decode(image_data)
 
+    model = os.environ.get("GEMINI_MODEL_OVERRIDE") or "gemini-1.5-flash"
     client = genai.Client(api_key=GOOGLE_API_KEY)
     response = client.models.generate_content(
-        model="gemini-1.5-flash",
+        model=model,
         contents=[
             EXTRACTION_PROMPT,
             genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
