@@ -12,8 +12,18 @@ from __future__ import annotations
 import os
 import json
 
-MODEL    = "gemini-1.5-pro"       # used for analysis + strategy (deeper reasoning)
-MODEL_QA = "gemini-1.5-flash"    # used for chat — fast, stable GA model
+MODEL    = "gemini-2.0-flash"     # used for analysis + strategy (deeper reasoning)
+MODEL_QA = "gemini-2.0-flash"    # used for chat — fast, stable GA model
+
+# Fallback chain tried in order when the primary model is unavailable.
+_FALLBACK_CHAIN = [
+    "gemini-2.0-flash",
+    "gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash",
+]
 
 
 def _api_key() -> str:
@@ -342,13 +352,37 @@ def call_llm(
 
     client = _client()
 
-    response = client.models.generate_content(
-        model=model,
-        contents=user_content,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            temperature=0.3,
-        ),
-    )
+    # Build the ordered list of models to try: explicit override first,
+    # then the fallback chain (deduped, preserving order).
+    if model_override or env_override:
+        candidates = [model]          # honour explicit choice, no fallback
+    else:
+        seen: set[str] = set()
+        candidates = []
+        for m in [model] + _FALLBACK_CHAIN:
+            if m not in seen:
+                seen.add(m)
+                candidates.append(m)
 
-    return response.text or ""
+    last_err: Exception | None = None
+    for candidate in candidates:
+        try:
+            response = client.models.generate_content(
+                model=candidate,
+                contents=user_content,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    temperature=0.3,
+                ),
+            )
+            return response.text or ""
+        except Exception as exc:
+            msg = str(exc)
+            if any(kw in msg for kw in ("not found", "deprecated", "not supported", "404", "NOT_FOUND")):
+                last_err = exc
+                continue   # try the next model in the chain
+            raise          # unexpected error — surface immediately
+
+    raise RuntimeError(
+        f"ai_engine: runtime error: {last_err}"
+    ) from last_err
