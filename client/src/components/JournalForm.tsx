@@ -795,7 +795,7 @@ function Step4({ d, set, hiddenPanels }: any) {
       <section>
         <SectionLabel>Exit Causation</SectionLabel>
         <Sel label="Primary Exit Reason"
-          options={["Target Hit","Partial TP","Stop Hit","Time Exit","Structure Change","News","Emotional Exit"]}
+          options={["Target Hit","Partial TP","Trailing Stop","Stop Hit","Break-Even","Time Exit","Structure Change","News","Emotional Exit","Manual"]}
           value={d.primaryExitReason} onChange={f("primaryExitReason")} />
       </section>
 
@@ -1112,13 +1112,17 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   useEffect(() => {
     const outcome = s2.outcome as "Win"|"Loss"|"BE";
     let reason: string | null = null;
-    if (outcome === "Loss")     reason = "Stop Hit";
-    else if (outcome === "BE")  reason = "Structure Change";
-    else if (outcome === "Win") {
+    if (outcome === "Loss") {
+      reason = "Stop Hit";
+    } else if (outcome === "BE") {
+      reason = "Break-Even";
+    } else if (outcome === "Win") {
       const planned  = parseRRNum(s4.plannedRR);
       const achieved = parseRRNum(s4.achievedRR);
       if (achieved > 0 && planned > 0)
         reason = achieved + 0.01 >= planned ? "Target Hit" : "Partial TP";
+      else
+        reason = "Target Hit"; // default for wins with no RR data yet
     }
     if (reason && reason !== s4.primaryExitReason) {
       setS4(prev => ({ ...prev, primaryExitReason: reason! }));

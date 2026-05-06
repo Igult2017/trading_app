@@ -53,7 +53,7 @@ Return ONLY valid JSON with these fields (use null for anything not visible):
   "drawdownUSD": number or null,
   "runUpPoints": number or null,
   "runUpUSD": number or null,
-  "primaryExitReason": "Target Hit or Stop Hit or Break-Even or Manual or null",
+  "primaryExitReason": "Target Hit or Partial TP or Trailing Stop or Stop Hit or Break-Even or Time Exit or Manual or null",
   "chartType": "Candles or Bars or Line",
   "spreadInfo": "any spread data visible or null",
   "additionalNotes": "any other relevant data visible on chart or null"
@@ -68,14 +68,21 @@ TIMESTAMPS (entryTime / exitTime):
 - The times shown are broker local time, NOT UTC. Most MT4/MT5 brokers use UTC+2 (winter) or UTC+3 (summer). Detect the timezone from any visible label and set brokerTimezone; default to 2 if unclear
 - Return null only if the value genuinely cannot be found anywhere on the image — do not skip it
 
-OUTCOME — determine this from ANY of the following visible evidence (do not return null if any evidence exists):
-- Profit/loss value visible (positive number = Win, negative number = Loss, ~zero = BE)
-- Green P&L color = Win, Red P&L color = Loss
-- "TP hit" / "Take profit" label = Win
-- "SL hit" / "Stop loss" label = Loss
-- Trade result text: "profit", "gain", "won" = Win; "loss", "stopped" = Loss
-- Return exactly "Win", "Loss", "BE", or "Open" (active trade, no result yet)
-- Never return null if the chart shows a closed trade with any P&L indicator
+OUTCOME — determine this from ANY visible evidence (never return null if evidence exists):
+- Any positive P&L (green number, profit label, gain shown) = "Win" — even if TP was not reached
+- Any negative P&L (red number, loss label) = "Loss"
+- P&L within ±2 pips / ±$1 of zero, OR SL visibly moved to entry price and triggered = "BE"
+- Trade still active with no closed result = "Open"
+- IMPORTANT: A trade closed manually or via trailing stop with profit is still "Win" — only use "BE" when the result is truly near zero
+
+PRIMARY EXIT REASON — use the most specific match:
+- "Target Hit"    → price reached the exact planned TP level
+- "Partial TP"    → trade closed with profit BUT the TP level was NOT fully reached (manual close, early exit, partial close)
+- "Trailing Stop" → a trailing stop triggered the exit (may be profit or small loss)
+- "Stop Hit"      → the original stop loss triggered (typically a loss)
+- "Break-Even"    → SL was moved to entry price and triggered, or closed at ~entry with ~zero P&L
+- "Time Exit"     → closed due to time (end of day, session close, news)
+- "Manual"        → manually closed by trader with no clear reason visible
 
 OTHER RULES:
 - Read ALL text overlays, labels, indicators, position info panels
