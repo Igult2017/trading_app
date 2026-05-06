@@ -322,6 +322,13 @@ def _detect_mime(raw_data_uri):
     return "image/jpeg"
 
 
+_MODEL_FALLBACK_CHAIN = [
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-pro",
+]
+
+
 def analyze_image(image_data):
     api_key = _get_api_key()
     if not api_key:
@@ -333,19 +340,39 @@ def analyze_image(image_data):
         image_data = image_data.split(",", 1)[1]
 
     image_bytes = base64.b64decode(image_data)
-
-    model = os.environ.get("GEMINI_MODEL_OVERRIDE") or "gemini-1.5-flash"
     client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            EXTRACTION_PROMPT,
-            genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-        ],
-    )
 
-    extracted = parse_gemini_response(response.text)
-    return map_to_journal_fields(extracted)
+    # Build model list: explicit override (if set) then stable fallback chain
+    override = os.environ.get("GEMINI_MODEL_OVERRIDE", "").strip()
+    models = ([override] + _MODEL_FALLBACK_CHAIN) if override else _MODEL_FALLBACK_CHAIN
+    seen, deduped = set(), []
+    for m in models:
+        if m not in seen:
+            seen.add(m)
+            deduped.append(m)
+
+    last_err = None
+    for model in deduped:
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[
+                    EXTRACTION_PROMPT,
+                    genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                ],
+            )
+            extracted = parse_gemini_response(response.text)
+            return map_to_journal_fields(extracted)
+        except Exception as exc:
+            last_err = exc
+            msg = str(exc)
+            # Only fall through on model-availability errors
+            is_model_err = any(k in msg.lower() for k in ("not found", "deprecated", "not supported", "404"))
+            if not is_model_err:
+                raise
+            print(f"[GeminiScreenshot] Model {model!r} unavailable ({msg[:80]}), trying next…", flush=True)
+
+    raise last_err or RuntimeError("All Gemini models failed")
 
 
 def run_cli():

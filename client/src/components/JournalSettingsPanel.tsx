@@ -4,25 +4,6 @@ import { THEMES, FONTS, JOURNAL_PANELS, ThemeId, FontId } from '@/hooks/useJourn
 import type { ThemeDef, FontDef } from '@/hooks/useJournalSettings';
 import { useAuth } from '@/context/AuthContext';
 
-const GEMINI_MODELS = [
-  { id: "gemini-1.5-flash",               label: "Gemini 1.5 Flash",         desc: "Fast · stable GA (default)" },
-  { id: "gemini-1.5-pro",                 label: "Gemini 1.5 Pro",           desc: "Powerful · stable GA" },
-  { id: "gemini-2.0-flash-lite",          label: "Gemini 2.0 Flash Lite",    desc: "Newer · efficient" },
-  { id: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash Preview", desc: "Latest Flash · preview" },
-  { id: "gemini-2.5-pro-preview-05-06",   label: "Gemini 2.5 Pro Preview",   desc: "Most capable · preview" },
-] as const;
-
-function readScreenshotModel(): string {
-  try { return JSON.parse(localStorage.getItem('journal_settings_v2') || '{}').screenshotModel || 'gemini-1.5-flash'; }
-  catch { return 'gemini-1.5-flash'; }
-}
-function writeScreenshotModel(id: string) {
-  try {
-    const raw = localStorage.getItem('journal_settings_v2');
-    const obj = raw ? JSON.parse(raw) : {};
-    localStorage.setItem('journal_settings_v2', JSON.stringify({ ...obj, screenshotModel: id }));
-  } catch {}
-}
 
 interface Props {
   theme: ThemeId;
@@ -56,7 +37,6 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
   const { user, signOut } = useAuth();
   const [, navigate] = useLocation();
   const [signingOut, setSigningOut] = useState(false);
-  const [screenshotModel, setScreenshotModel] = useState<string>(readScreenshotModel);
 
   const handleLogout = async () => {
     if (signingOut) return;
@@ -374,54 +354,6 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
             </div>
           );
         })}
-      </Section>
-
-      {/* ── AI MODEL ──────────────────────────────────────── */}
-      <Section label="AI Vision Model" T={T}>
-        <p style={{ fontSize: 11, color: T.textMuted, marginBottom: 20, letterSpacing: '0.03em', lineHeight: 1.6 }}>
-          Choose which Gemini model is used when analysing trade screenshots. Preview models may require a paid API tier.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {GEMINI_MODELS.map(m => {
-            const active = screenshotModel === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => { setScreenshotModel(m.id); writeScreenshotModel(m.id); }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  background: active ? `${T.accent}14` : T.surface,
-                  border: `1.5px solid ${active ? T.accent : T.border}`,
-                  borderRadius: 9,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = T.bg; } }}
-                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = T.surface; } }}
-              >
-                <span>
-                  <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: active ? T.accent : T.text, letterSpacing: '0.02em' }}>{m.label}</span>
-                  <span style={{ display: 'block', fontSize: 10, color: T.textMuted, marginTop: 2 }}>{m.desc}</span>
-                </span>
-                <div style={{
-                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                  background: active ? T.accent : 'transparent',
-                  border: `2px solid ${active ? T.accent : T.textMuted}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.15s',
-                }}>
-                  {active && (
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <polyline points="1.5,5 4,7.5 8.5,2.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
       </Section>
 
       {/* ── ACCOUNT — sign out ────────────────────────────── */}

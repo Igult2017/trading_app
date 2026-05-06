@@ -692,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/journal/analyze-screenshot", async (req, res) => {
     try {
-      const { image, model: screenshotModel } = req.body;
+      const { image } = req.body;
       if (!image) {
         return res.status(400).json({ error: "No image provided" });
       }
@@ -719,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ── Prefer Gemini when GOOGLE_API_KEY is available ──────────────────────
       if (isGeminiScreenshotAvailable()) {
         console.log("[Screenshot] Using Gemini vision extraction");
-        const geminiResult = await analyzeScreenshotWithGemini(image, screenshotModel || undefined);
+        const geminiResult = await analyzeScreenshotWithGemini(image);
         if (geminiResult.success && geminiResult.fields) {
           geminiResult.fields = normalizeFields(geminiResult.fields);
           const f = geminiResult.fields;
