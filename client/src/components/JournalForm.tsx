@@ -1234,7 +1234,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           const res = await raw.json();
           if (res?.fields) {
             applyAnalyzedFields(res.fields, res.confidence ?? "high");
-            const methodLabel = res.method === "gemini" ? "Gemini Vision" : "OCR";
+            const methodLabel = res.method === "gemini" ? "Gemini" : "OCR";
             setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: "" }));
           } else if (res?.error) {
             setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: `Analysis failed: ${res.error}` }));
