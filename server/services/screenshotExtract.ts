@@ -61,17 +61,12 @@ Return ONLY valid JSON with these fields (use null for anything not visible):
 
 EXTRACTION RULES:
 
-EXIT TIME — check these sources IN ORDER (highest priority first):
-1. MT4/MT5 Trade History panel or Terminal tab: look for "Close:" or "Close time:" field — it shows the exact close timestamp in text form (e.g. "2020.03.19 11:52:00"). Use this first.
-2. Broker platform trade info box / overlay: panels that list Open / Close / Duration fields.
-3. Strategy Tester report: "Close Time" column.
-4. X-axis label nearest the exit candle (where price closed / TP or SL was hit).
-5. Replay bar at the bottom showing the last processed tick date/time.
-If none of these are visible, return null — do NOT guess.
-
-ENTRY TIME — same priority order as exit time but look for "Open:" or "Open time:" first.
-
-TIMESTAMPS: Read x-axis labels carefully. "Thu 24 Nov'22 00:22" → "2022-11-24T00:22:00". Combine full date + time into ISO format. The times shown are broker local time, NOT UTC. Most MT4/MT5 brokers run at UTC+2 (winter) or UTC+3 (summer) — look for any timezone label and set brokerTimezone accordingly; if unsure use 2.
+TIMESTAMPS (entryTime / exitTime):
+- entryTime = the exact date and time the trade was opened/entered
+- exitTime  = the exact date and time the trade was closed/exited — this may appear anywhere on the screenshot: text panels, info boxes, history rows, x-axis labels, replay bars, column headers, or anywhere else — read every piece of text on the image carefully
+- Format MUST be YYYY-MM-DDTHH:MM:SS — combine the full date and time into this format regardless of how it appears on screen (e.g. "2020.03.19 11:52:00" or "Thu 24 Nov'22 00:22" both become "2020-03-19T11:52:00")
+- The times shown are broker local time, NOT UTC. Most MT4/MT5 brokers use UTC+2 (winter) or UTC+3 (summer). Detect the timezone from any visible label and set brokerTimezone; default to 2 if unclear
+- Return null only if the value genuinely cannot be found anywhere on the image — do not skip it
 
 OTHER RULES:
 - Read ALL text overlays, labels, indicators, position info panels
