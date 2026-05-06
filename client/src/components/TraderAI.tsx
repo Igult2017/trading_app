@@ -8,14 +8,12 @@ import {
 import { authFetch } from "@/lib/queryClient";
 
 const GEMINI_MODELS = [
-  { id: "gemini-1.5-flash",               label: "1.5 Flash",         desc: "Fast · stable" },
-  { id: "gemini-1.5-pro",                 label: "1.5 Pro",           desc: "Powerful · stable" },
-  { id: "gemini-2.0-flash-lite",          label: "2.0 Flash Lite",    desc: "Newer · efficient" },
-  { id: "gemini-2.5-flash-preview-05-20", label: "2.5 Flash Preview", desc: "Latest Flash" },
-  { id: "gemini-2.5-pro-preview-05-06",   label: "2.5 Pro Preview",   desc: "Most capable" },
+  { id: "gemini-2.0-flash",               label: "Gemini 2 Flash",    desc: "Fast · recommended" },
+  { id: "gemini-2.5-flash",               label: "Gemini 2.5 Flash",  desc: "Latest Flash" },
+  { id: "gemini-2.5-pro",                 label: "Gemini 2.5 Pro",    desc: "Most capable" },
 ] as const;
 type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
-const DEFAULT_MODEL: GeminiModelId = "gemini-1.5-flash";
+const DEFAULT_MODEL: GeminiModelId = "gemini-2.0-flash";
 
 const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
