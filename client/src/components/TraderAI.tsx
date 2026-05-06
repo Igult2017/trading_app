@@ -55,6 +55,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     return window.localStorage.getItem("traderai.sidebarCollapsed") === "1";
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
   useEffect(() => {
     try {
