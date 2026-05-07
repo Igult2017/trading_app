@@ -10,6 +10,16 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+// ── Singleton AI client ───────────────────────────────────────────────────────
+// Created once per process — avoids repeated init overhead on every upload.
+let _aiClient: GoogleGenAI | null = null;
+function getAI(): GoogleGenAI {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error("GOOGLE_API_KEY not set");
+  if (!_aiClient) _aiClient = new GoogleGenAI({ apiKey });
+  return _aiClient;
+}
+
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
 const EXTRACTION_PROMPT = `You are an expert trading chart and platform screenshot analyzer. Your job is to extract EVERY piece of visible trading data from the screenshot with maximum precision.
@@ -125,14 +135,34 @@ GENERAL:
 - Return ONLY the raw JSON object, absolutely no markdown, no explanation`;
 
 // ── Model fallback chain ──────────────────────────────────────────────────────
+//
+// Priority order:
+//  1. Image-specialised "Nano Banana" models — purpose-built for vision, fastest
+//  2. Non-thinking flash models — cheap, fast, no hidden reasoning delay
+//  3. Pro models — most capable but slowest (last resort)
+//
+// thinkingBudget is set per-model: 0 for flash (no reasoning delay),
+// left unset for image/pro models (they handle it themselves).
 
-const MODEL_CHAIN = [
-  "gemini-2.5-flash-preview-05-20",
-  "gemini-2.5-flash",
-  "gemini-2.5-pro-preview-05-06",
-  "gemini-2.5-pro",
-  "gemini-2.0-flash",
-  "gemini-1.5-pro",
+interface ModelConfig {
+  model: string;
+  thinkingBudget?: number;
+}
+
+const MODEL_CHAIN: ModelConfig[] = [
+  // ── Image-specialised (purpose-built for vision tasks, very fast)
+  { model: "gemini-3.1-flash-image-preview" },
+  { model: "gemini-3-pro-image-preview" },
+  { model: "gemini-2.5-flash-image" },
+  // ── Fast non-thinking flash (thinkingBudget:0 disables internal reasoning)
+  { model: "gemini-2.0-flash",      thinkingBudget: 0 },
+  { model: "gemini-2.0-flash-lite", thinkingBudget: 0 },
+  { model: "gemini-3-flash-preview", thinkingBudget: 0 },
+  { model: "gemini-2.5-flash-lite", thinkingBudget: 0 },
+  { model: "gemini-2.5-flash",      thinkingBudget: 0 },
+  // ── Pro fallback (slow, use only if everything above fails)
+  { model: "gemini-2.5-pro" },
+  { model: "gemini-3-pro-preview" },
 ];
 
 function isModelError(msg: string): boolean {
@@ -142,21 +172,6 @@ function isModelError(msg: string): boolean {
     msg.includes("not supported") ||
     msg.includes("404")
   );
-}
-
-async function discoverModels(ai: GoogleGenAI, seen: Set<string>): Promise<string[]> {
-  try {
-    const out: string[] = [];
-    for await (const m of ai.models.list() as any) {
-      const id: string = ((m.name ?? "") as string).replace("models/", "");
-      if (!id.startsWith("gemini")) continue;
-      if (["embedding", "aqa", "tts"].some(s => id.includes(s))) continue;
-      if (!seen.has(id)) out.push(id);
-    }
-    return [...out.filter(m => m.includes("flash")), ...out.filter(m => m.includes("pro") && !m.includes("flash"))];
-  } catch {
-    return [];
-  }
 }
 
 // ── Datetime helpers ──────────────────────────────────────────────────────────
@@ -323,67 +338,60 @@ function detectMime(dataUri: string): string {
 
 export async function extractFromScreenshot(
   base64Image: string,
-): Promise<{ success: boolean; fields?: Record<string, any>; method?: string; error?: string }> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
+): Promise<{ success: boolean; fields?: Record<string, any>; method?: string; modelUsed?: string; error?: string }> {
+  if (!process.env.GOOGLE_API_KEY) {
     return { success: false, method: "gemini", error: "GOOGLE_API_KEY not set" };
   }
 
+  const ai = getAI();
   const mimeType = detectMime(base64Image);
   const imageData = base64Image.includes(",") ? base64Image.split(",")[1] : base64Image;
 
-  const ai = new GoogleGenAI({ apiKey });
-
-  const seen = new Set<string>();
-  let candidates = [...MODEL_CHAIN];
-  candidates.forEach(m => seen.add(m));
-
   let lastError: Error | null = null;
-  let triedDiscovery = false;
 
-  while (true) {
-    for (const model of candidates) {
-      try {
-        const config: Record<string, any> = {
-          maxOutputTokens: 8192,
-        };
+  for (const { model, thinkingBudget } of MODEL_CHAIN) {
+    try {
+      const config: Record<string, any> = { maxOutputTokens: 4096 };
 
-        const response = await ai.models.generateContent({
-          model,
-          config,
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: EXTRACTION_PROMPT },
-                { inlineData: { mimeType, data: imageData } },
-              ],
-            },
-          ],
-        });
-
-        const text = response.text ?? "";
-        const extracted = parseGeminiJson(text);
-        const fields = mapToJournalFields(extracted);
-        return { success: true, fields, method: "gemini" };
-
-      } catch (err: any) {
-        lastError = err;
-        const msg: string = err?.message ?? "";
-        if (!isModelError(msg)) {
-          return { success: false, method: "gemini", error: msg || "Gemini API error" };
-        }
-        console.warn(`[GeminiScreenshot] Model "${model}" unavailable (${msg.slice(0, 80)}), trying next…`);
+      // Explicitly disable thinking for flash models — this is the single
+      // biggest speed win. Without this, 2.5-flash silently thinks for 30-60s.
+      if (typeof thinkingBudget === "number") {
+        config.thinkingConfig = { thinkingBudget };
       }
-    }
 
-    if (triedDiscovery) break;
-    triedDiscovery = true;
-    const discovered = await discoverModels(ai, seen);
-    if (discovered.length === 0) break;
-    console.warn(`[GeminiScreenshot] Trying ${discovered.length} auto-discovered model(s)…`);
-    discovered.forEach(m => seen.add(m));
-    candidates = discovered;
+      const t0 = Date.now();
+      const response = await ai.models.generateContent({
+        model,
+        config,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: EXTRACTION_PROMPT },
+              { inlineData: { mimeType, data: imageData } },
+            ],
+          },
+        ],
+      });
+
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      console.log(`[GeminiScreenshot] Model "${model}" responded in ${elapsed}s`);
+
+      const text = response.text ?? "";
+      const extracted = parseGeminiJson(text);
+      const fields = mapToJournalFields(extracted);
+      return { success: true, fields, method: "gemini", modelUsed: model };
+
+    } catch (err: any) {
+      lastError = err;
+      const msg: string = err?.message ?? "";
+      if (!isModelError(msg)) {
+        // Auth / quota / network error — no point trying other models
+        console.error(`[GeminiScreenshot] Non-model error on "${model}": ${msg.slice(0, 120)}`);
+        return { success: false, method: "gemini", error: msg || "Gemini API error" };
+      }
+      console.warn(`[GeminiScreenshot] Model "${model}" unavailable (${msg.slice(0, 80)}), trying next…`);
+    }
   }
 
   return {
