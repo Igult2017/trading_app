@@ -77,22 +77,32 @@ ENTRY PRICE (entryPrice / openingPrice):
 - Copy the exact number — e.g. 1.09250 not 1.09 or 1.093
 - NEVER return null if any open/entry price is shown on the image
 
-EXIT TIME (exitTime):
-- Scan the ENTIRE image for any close/exit timestamp — check: trade history rows, info panels, close time columns, x-axis dates near trade exit, any text showing a date+time after trade close
-- In MT4/MT5 history: there is always a "Close Time" or "Time" column for the close — read it precisely
-- Format as YYYY-MM-DDTHH:mm:ss regardless of how it appears on screen
-- "2020.05.19 10:33:00" → "2020-05-19T10:33:00"
-- NEVER return null if any close/exit date or time is anywhere on the image
-
 ENTRY TIME (entryTime):
-- Look for: open time, trade start time, order time, "Time" column for the open in history
-- Format as YYYY-MM-DDTHH:mm:ss
-- NEVER return null if any open/entry date or time is shown
+PRIMARY LOCATIONS — check all of these:
+1. X-AXIS (time bar at bottom of chart): The entry time appears as a HIGHLIGHTED timestamp directly on the horizontal time axis — it is usually a different colour (cyan, blue, white, or bold) compared to surrounding regular time labels. The vertical line or bracket marking the trade open intersects the X-axis at exactly this timestamp. Read the full date+time at that intersection point.
+2. TradingView trade info panel / tooltip: look for "Open time", "Entry", "Date", "Time" fields inside any floating panel or tooltip attached to the trade bracket.
+3. MT4/MT5 history table: "Open Time" or "Time" column for the opening row.
+4. Any on-chart label, annotation, or arrow marking the start of the trade.
+- Format as YYYY-MM-DDTHH:mm:ss. If only the time is shown on the axis (e.g. "10:39"), use the full date visible elsewhere on the same X-axis (e.g. "Fri 22 May'20") to reconstruct the complete timestamp.
+- "Fri 22 May'20 10:39" → "2020-05-22T10:39:00"
+- NEVER return null if any open/entry date or time is shown anywhere on the image
+
+EXIT TIME (exitTime):
+PRIMARY LOCATIONS — check all of these:
+1. X-AXIS (time bar at bottom of chart): The exit time appears as a HIGHLIGHTED or COLOURED timestamp on the horizontal time axis where the trade's closing vertical line or bracket end intersects it. It may be highlighted in a different colour (e.g. blue, white, bold) from surrounding labels. This is the MOST COMMON place TradingView shows the close time.
+2. STATUS BAR / REPLAY BAR at the very bottom of the screen: Look for text like "Last processed tick: 2020-05-22 10:58:59" or "Replay mode... tick: YYYY-MM-DD HH:MM:SS" — this timestamp IS the exit time.
+3. TradingView trade info panel: look for "Close time", "Exit", "Date closed" in any floating panel or tooltip.
+4. MT4/MT5 history table: "Close Time" column.
+5. Any annotation, arrow, or label at the trade exit point on the chart.
+- Format as YYYY-MM-DDTHH:mm:ss. If only the time is visible on the axis, combine it with the full date shown elsewhere on the same X-axis.
+- "10:58" on axis + "Fri 22 May'20" date label = "2020-05-22T10:58:00"
+- "Last processed tick: 2020-05-22 10:58:59" → exitTime = "2020-05-22T10:58:59"
+- NEVER return null if any close/exit date or time is visible anywhere on the image
 
 TIMESTAMPS general:
-- Broker local time (not UTC). Most MT4/MT5 brokers: UTC+2 winter, UTC+3 summer
-- Detect timezone from any visible label, default to 2 if unclear
-- Combine date and time into YYYY-MM-DDTHH:mm:ss format always
+- Broker/platform local time (not UTC). Most MT4/MT5 brokers: UTC+2 winter, UTC+3 summer. TradingView uses the timezone set by the user — check for any timezone label.
+- Always combine date and time into YYYY-MM-DDTHH:mm:ss format regardless of display format
+- If the X-axis shows a full date label (e.g. "Fri 22 May'20") at one point and only times elsewhere, use that date for all time-only labels nearby
 
 OUTCOME — from ANY visible evidence:
 - Positive P&L (green number, "profit") = "Win"
