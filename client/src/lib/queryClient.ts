@@ -1,6 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 
+const LOCAL_ADMIN_KEY = 'local_admin_session';
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -9,8 +11,12 @@ async function throwIfResNotOk(res: Response) {
 }
 
 /**
- * Build the default headers for an API request, including the Supabase
- * Bearer token (if a session exists) so the server can identify the user.
+ * Build the default headers for an API request, including the auth
+ * Bearer token so the server can identify the user.
+ *
+ * When Supabase is configured, reads from the active Supabase session.
+ * When running in local-admin mode (no Supabase), reads the token that
+ * was stored in localStorage by the local-login flow.
  */
 async function buildAuthHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
   const headers: Record<string, string> = { ...(extra ?? {}) };
@@ -18,6 +24,16 @@ async function buildAuthHeaders(extra?: Record<string, string>): Promise<Record<
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (token) headers["Authorization"] = `Bearer ${token}`;
+  } else {
+    try {
+      const stored = localStorage.getItem(LOCAL_ADMIN_KEY);
+      if (stored) {
+        const { token } = JSON.parse(stored) as { token?: string };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+      }
+    } catch {
+      // ignore parse errors
+    }
   }
   return headers;
 }

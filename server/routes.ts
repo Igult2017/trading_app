@@ -174,17 +174,30 @@ async function requireAuth(
   req: Request,
   res: Response,
 ): Promise<{ id: string } | null> {
+  // Try Supabase JWT verification first
   const user = await verifyToken(req.headers.authorization);
-  if (!user) {
-    res.status(401).json({ error: "Authentication required" });
-    return null;
+  if (user) {
+    ensureUserProfile(user).catch((err) =>
+      console.warn('[ensureUserProfile] failed:', err?.message),
+    );
+    return { id: user.id };
   }
-  // Make sure this user has a profile row so the leaderboard, admin panel
-  // and other consumers can show their real name/email.
-  ensureUserProfile(user).catch((err) =>
-    console.warn('[ensureUserProfile] failed:', err?.message),
-  );
-  return { id: user.id };
+
+  // Fallback: local admin token when Supabase is not configured.
+  // The local-login route issues the ADMIN_SECRET as the bearer token.
+  if (!supabaseAdmin) {
+    const adminSecret = process.env.ADMIN_SECRET;
+    const adminEmail  = process.env.ADMIN_EMAIL ?? '';
+    const bearer = req.headers.authorization;
+    if (adminSecret && bearer === `Bearer ${adminSecret}`) {
+      const localAdminId = 'local-admin';
+      ensureUserProfile({ id: localAdminId, email: adminEmail }).catch(() => {});
+      return { id: localAdminId };
+    }
+  }
+
+  res.status(401).json({ error: "Authentication required" });
+  return null;
 }
 
 // Cache of user IDs we've already upserted this process lifetime so we don't
