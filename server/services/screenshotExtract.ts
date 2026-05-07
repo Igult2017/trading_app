@@ -150,17 +150,12 @@ interface ModelConfig {
 }
 
 const MODEL_CHAIN: ModelConfig[] = [
-  // ── Image-specialised (purpose-built for vision tasks, very fast)
-  { model: "gemini-3.1-flash-image-preview" },
-  { model: "gemini-3-pro-image-preview" },
-  { model: "gemini-2.5-flash-image" },
-  // ── Fast non-thinking flash (thinkingBudget:0 disables internal reasoning)
-  { model: "gemini-2.0-flash",      thinkingBudget: 0 },
-  { model: "gemini-2.0-flash-lite", thinkingBudget: 0 },
+  // ── Fast flash models with thinking disabled (best speed/accuracy for data extraction)
+  { model: "gemini-2.0-flash",       thinkingBudget: 0 },
+  { model: "gemini-2.5-flash",       thinkingBudget: 0 },
+  { model: "gemini-2.5-flash-lite",  thinkingBudget: 0 },
   { model: "gemini-3-flash-preview", thinkingBudget: 0 },
-  { model: "gemini-2.5-flash-lite", thinkingBudget: 0 },
-  { model: "gemini-2.5-flash",      thinkingBudget: 0 },
-  // ── Pro fallback (slow, use only if everything above fails)
+  // ── Pro fallback (most accurate, use only if flash models fail)
   { model: "gemini-2.5-pro" },
   { model: "gemini-3-pro-preview" },
 ];
