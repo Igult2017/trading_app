@@ -1161,13 +1161,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (cached) { console.log("[AI] Analysis cache hit"); return res.json(cached); }
 
       const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
-      let metricsContext: Record<string, any> | undefined;
-      try {
-        const m = await computeMetrics(remapped);
-        if (m.success && m.metrics) metricsContext = m.metrics;
-      } catch { /* non-fatal — AI works without metrics context */ }
+      const startingBal = scope.startingBalance ?? 10000;
 
-      const result = await computeAIAnalysis(remapped, metricsContext);
+      // Fetch all three context sources in parallel — all non-fatal
+      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
+        computeMetrics(remapped),
+        computeDrawdown(remapped, startingBal),
+        computeStrategyAudit(remapped, startingBal),
+      ]);
+      const metricsContext  = metricsRes.status  === "fulfilled" && metricsRes.value.success  ? metricsRes.value.metrics        : undefined;
+      const drawdownContext = drawdownRes.status === "fulfilled" && drawdownRes.value.success ? drawdownRes.value                : undefined;
+      const auditContext    = auditRes.status    === "fulfilled" && auditRes.value.success    ? auditRes.value                  : undefined;
+
+      const result = await computeAIAnalysis(remapped, metricsContext as any, drawdownContext as any, auditContext as any);
       if (result.success) setAICache("analysis", result, auth.id, sessionId, entryCount);
       res.json(result);
     } catch (error) {
@@ -1191,13 +1197,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (cached) { console.log("[AI] Strategy cache hit"); return res.json(cached); }
 
       const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
-      let metricsContext: Record<string, any> | undefined;
-      try {
-        const m = await computeMetrics(remapped);
-        if (m.success && m.metrics) metricsContext = m.metrics;
-      } catch { /* non-fatal */ }
+      const startingBal = scope.startingBalance ?? 10000;
 
-      const result = await computeAIStrategy(remapped, metricsContext);
+      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
+        computeMetrics(remapped),
+        computeDrawdown(remapped, startingBal),
+        computeStrategyAudit(remapped, startingBal),
+      ]);
+      const metricsContext  = metricsRes.status  === "fulfilled" && metricsRes.value.success  ? metricsRes.value.metrics        : undefined;
+      const drawdownContext = drawdownRes.status === "fulfilled" && drawdownRes.value.success ? drawdownRes.value                : undefined;
+      const auditContext    = auditRes.status    === "fulfilled" && auditRes.value.success    ? auditRes.value                  : undefined;
+
+      const result = await computeAIStrategy(remapped, metricsContext as any, drawdownContext as any, auditContext as any);
       if (result.success) setAICache("strategy", result, auth.id, sessionId, entryCount);
       res.json(result);
     } catch (error) {

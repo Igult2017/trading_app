@@ -366,23 +366,26 @@ def run_qa(
 # ── Core orchestrator ─────────────────────────────────────────────────────────
 
 def run(
-    mode:            str,
-    trades:          list[dict],
-    question:        str = "",
-    metrics_context: dict | None = None,
+    mode:             str,
+    trades:           list[dict],
+    question:         str = "",
+    metrics_context:  dict | None = None,
+    drawdown_context: dict | None = None,
+    audit_context:    dict | None = None,
 ) -> dict:
     """
     mode: "analysis" | "qa" | "strategy"
     trades: list of raw trade dicts from the database
     question: only for qa mode
     metrics_context: optional pre-computed metrics from computeMetrics()
+    drawdown_context: optional pre-computed drawdown data
+    audit_context: optional pre-computed strategy audit data
     Returns a JSON-serialisable dict.
     """
     n           = len(trades)
     baseline_wr = global_win_rate(trades)
 
     # Always run these — cheap and needed by all modes
-    notes    = analyze_notes(trades)
     patterns = analyze_patterns(trades)
 
     # Proof-gated findings
@@ -393,22 +396,28 @@ def run(
     # Split: MEDIUM+ statistically significant → LLM; LOW → UI only
     llm_findings, ui_only_findings = split_by_confidence(all_findings)
 
+    # ── Shared: clean context blocks ──────────────────────────────────────────
+    metrics_clean  = _format_metrics_context(metrics_context)  if metrics_context  else {}
+    drawdown_clean = _format_drawdown_context(drawdown_context) if drawdown_context else {}
+    audit_clean    = _format_audit_context(audit_context)       if audit_context    else {}
+
     # ── Analysis mode ─────────────────────────────────────────────────────────
     if mode == "analysis":
+        notes      = analyze_notes(trades)
         win_profile, loss_profile = _build_profiles(trades, patterns)
         checklist  = _format_checklist(patterns)
 
-        # Tilt detection
+        # Tilt detection (mechanical — consecutive losses, not emotions)
         tilt       = detect_tilt(trades)
         tilt_text  = tilt_finding_text(tilt)
 
-        # Risk alert from drains
+        # Risk alert from worst drain pattern
         risk_alert = None
         if patterns.top_drains:
             worst = patterns.top_drains[0]
             if worst.deviation < -0.15:
                 risk_alert = (
-                    f"Critical drain: "
+                    "Critical drain: "
                     + ", ".join(f"{k}={v}" for k, v in worst.variables.items())
                     + f" — {worst.win_rate:.0%} WR over {worst.sample_size} trades "
                     f"({worst.deviation:+.0%} vs baseline)"
@@ -416,67 +425,53 @@ def run(
         if tilt_text and (risk_alert is None or "tilt" not in risk_alert.lower()):
             risk_alert = (risk_alert + " | " + tilt_text) if risk_alert else tilt_text
 
-        # Verdict carries ALL findings (LLM + ui-only) for the UI
         verdict = AIVerdict(
             mode="analysis",
             trader_archetype=_archetype(baseline_wr, n),
             health_score=_health_score(baseline_wr, n),
-            headline="",          # Gemini fills this in
+            headline="",
             win_profile=win_profile,
             loss_profile=loss_profile,
-            findings=all_findings[:10],        # full list for UI
+            findings=all_findings[:10],
             strategy=None,
             pre_trade_checklist=checklist,
             risk_alert=risk_alert,
             answer=None,
         )
 
-        # Build the LLM payload — filtered, no duplicate patterns blob
-        metrics_clean = _format_metrics_context(metrics_context) if metrics_context else {}
-
-        # Session-phase × emotion: top 3 best and worst combinations
-        se_matrix    = notes.session_emotion_matrix
-        se_top_good  = [x.label for x in se_matrix[:3]]
-        se_top_bad   = [x.label for x in reversed(se_matrix) if x.deviation < 0][:3]
-
-        llm_payload = {
+        llm_payload: dict[str, Any] = {
             "total_trades":      n,
             "baseline_win_rate": f"{baseline_wr:.1%}",
             "trader_archetype":  verdict.trader_archetype,
             "health_score":      verdict.health_score,
-            # Only MEDIUM/HIGH significant findings go to Gemini
             "key_edges":         _serialise(llm_findings[:5]),
-            "key_drains":        _serialise(
-                [f for f in llm_findings if f.deviation < 0][:3]
-            ),
-            "behavioral_notes":  _serialise(notes.behavioral_flags),
-            "emotion_summary":   _serialise(notes.emotion_correlation[:3]),
-            "notes_coverage":    f"{notes.coverage_pct:.0f}%",
+            "key_drains":        _serialise([f for f in llm_findings if f.deviation < 0][:3]),
             "risk_alert":        risk_alert,
             "pre_trade_checklist": checklist,
-            "tilt":              _serialise(tilt) if tilt.detected else None,
-            # Dedicated session-phase + emotion narrative
-            "session_emotion": {
-                "best_combinations":  se_top_good,
-                "worst_combinations": se_top_bad,
-                "total_combinations": len(se_matrix),
-            } if se_matrix else None,
         }
         if metrics_clean:
-            llm_payload["metrics_context"] = metrics_clean
+            llm_payload["metrics"] = metrics_clean
+        if drawdown_clean:
+            llm_payload["drawdown"] = drawdown_clean
+        if audit_clean:
+            llm_payload["audit"] = audit_clean
 
-        # Data quality section
+        # Behavioral flags only if they show a mechanical effect (FOMO/revenge/rule-broken)
+        beh = {k: v for k, v in _serialise(notes.behavioral_flags).items()
+               if isinstance(v, dict) and v.get("sample_size", 0) >= 5}
+        if beh:
+            llm_payload["behavioral_flags"] = beh
+
         llm_payload["data_quality"] = {
-            "total_trades":    n,
-            "llm_findings":    len(llm_findings),
+            "total_trades":     n,
+            "llm_findings":     len(llm_findings),
             "ui_only_findings": len(ui_only_findings),
-            "notes_coverage":  f"{notes.coverage_pct:.0f}%",
         }
 
         narrative = call_llm("analysis", llm_payload)
         result    = _serialise(verdict)
-        result["headline"]     = narrative
-        result["ui_only_findings"] = _serialise(ui_only_findings)
+        result["headline"]          = narrative
+        result["ui_only_findings"]  = _serialise(ui_only_findings)
         return result
 
     # ── Q&A mode ──────────────────────────────────────────────────────────────
@@ -486,6 +481,8 @@ def run(
             question=question,
             messages=None,
             metrics_context=metrics_context,
+            drawdown_context=drawdown_context,
+            audit_context=audit_context,
         )
         return {"mode": "qa", "question": question, "answer": answer}
 
@@ -493,14 +490,17 @@ def run(
     elif mode == "strategy":
         strategy = build_strategy(trades)
 
-        # Build LLM payload for strategy mode — plain-text friendly
         llm_payload = {
             "total_trades":      n,
             "baseline_win_rate": f"{baseline_wr:.1%}",
             "strategy":          _serialise(strategy),
         }
-        if metrics_context:
-            llm_payload["metrics_context"] = _format_metrics_context(metrics_context)
+        if metrics_clean:
+            llm_payload["metrics"] = metrics_clean
+        if drawdown_clean:
+            llm_payload["drawdown"] = drawdown_clean
+        if audit_clean:
+            llm_payload["audit"] = audit_clean
 
         narrative = call_llm("strategy", llm_payload)
         result    = _serialise(strategy)

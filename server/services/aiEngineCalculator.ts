@@ -118,19 +118,27 @@ function spawnAIEngine<T extends { error?: string }>(
 
 export async function computeAIAnalysis(
   trades: any[],
-  metricsContext?: Record<string, any>,
+  metricsContext?:  Record<string, any>,
+  drawdownContext?: Record<string, any>,
+  auditContext?:    Record<string, any>,
 ): Promise<AIAnalysisResult> {
   const payload: Record<string, any> = { mode: "analysis", trades };
-  if (metricsContext) payload.metrics_context = metricsContext;
+  if (metricsContext)  payload.metrics_context  = metricsContext;
+  if (drawdownContext) payload.drawdown_context = drawdownContext;
+  if (auditContext)    payload.audit_context    = auditContext;
   return spawnAIEngine<AIAnalysisResult>(payload, "analysis");
 }
 
 export async function computeAIStrategy(
   trades: any[],
-  metricsContext?: Record<string, any>,
+  metricsContext?:  Record<string, any>,
+  drawdownContext?: Record<string, any>,
+  auditContext?:    Record<string, any>,
 ): Promise<AIStrategyResult> {
   const payload: Record<string, any> = { mode: "strategy", trades };
-  if (metricsContext) payload.metrics_context = metricsContext;
+  if (metricsContext)  payload.metrics_context  = metricsContext;
+  if (drawdownContext) payload.drawdown_context = drawdownContext;
+  if (auditContext)    payload.audit_context    = auditContext;
   return spawnAIEngine<AIStrategyResult>(payload, "strategy");
 }
 

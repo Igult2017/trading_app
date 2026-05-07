@@ -39,7 +39,6 @@ DIMENSIONS: list[tuple[str, str, str]] = [
     ("setupTag",          "Setup",            "manual"),
     ("marketRegime",      "Market Regime",    "manual"),
     ("htfBias",           "HTF Bias",         "manual"),
-    ("emotionalState",    "Emotion",          "manual"),
     ("candlePattern",     "Candle Pattern",   "manual"),
     ("confluence",        "Confluence",       "manual"),
 ]

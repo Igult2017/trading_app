@@ -27,10 +27,12 @@ def main() -> None:
         sys.stderr.write(f"ai_engine: invalid JSON on stdin: {exc}\n")
         sys.exit(1)
 
-    mode            = payload.get("mode", "analysis")
-    trades          = payload.get("trades", [])
-    question        = payload.get("question", "")
-    metrics_context = payload.get("metrics_context")  # optional
+    mode             = payload.get("mode", "analysis")
+    trades           = payload.get("trades", [])
+    question         = payload.get("question", "")
+    metrics_context  = payload.get("metrics_context")   # optional
+    drawdown_context = payload.get("drawdown_context")  # optional
+    audit_context    = payload.get("audit_context")     # optional
 
     if not isinstance(trades, list):
         sys.stderr.write("ai_engine: 'trades' must be a list\n")
@@ -57,6 +59,8 @@ def main() -> None:
             trades=trades,
             question=question,
             metrics_context=metrics_context,
+            drawdown_context=drawdown_context,
+            audit_context=audit_context,
         )
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"ai_engine: runtime error: {exc}\n")
