@@ -1674,16 +1674,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Pre-compute metrics so chat mode has the same rich context as the
-      // analysis / strategy panels (profit factor, expectancy, drawdown, etc.).
+      // Pre-compute metrics, drawdown, and strategy audit so the AI has the
+      // same rich context as every analytics panel.
       let metricsContext: Record<string, any> | undefined;
+      let drawdownContext: Record<string, any> | undefined;
+      let auditContext: Record<string, any> | undefined;
+
+      const sessionObj = sessionId ? await storage.getSessionById(sessionId) : null;
+      const startingBal: number = (sessionObj as any)?.startingBalance ?? 10_000;
+
       try {
         const m = await computeMetrics(rawTrades);
         if (m && m.success && (m as any).result) {
           metricsContext = (m as any).result;
         }
       } catch (mErr: any) {
-        console.warn("[TraderAI] Metrics computation failed, continuing without:", mErr?.message);
+        console.warn("[TraderAI] Metrics computation failed:", mErr?.message);
+      }
+      try {
+        const d = await computeDrawdown(rawTrades, startingBal);
+        if (d && (d as any).success) {
+          drawdownContext = d as any;
+        }
+      } catch (dErr: any) {
+        console.warn("[TraderAI] Drawdown computation failed:", dErr?.message);
+      }
+      try {
+        const a = await computeStrategyAudit(rawTrades, startingBal);
+        if (a && (a as any).success) {
+          auditContext = a as any;
+        }
+      } catch (aErr: any) {
+        console.warn("[TraderAI] Audit computation failed:", aErr?.message);
       }
 
       // Resolve / create the persistent chat record before calling the LLM
@@ -1710,7 +1732,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           trades,
           question,
           messages,
-          metrics_context: metricsContext,
+          metrics_context:   metricsContext,
+          drawdown_context:  drawdownContext,
+          audit_context:     auditContext,
           model: modelParam || undefined,
         });
         await appendAIChatMessage(chatId, "model", answer ?? "");

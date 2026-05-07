@@ -103,45 +103,64 @@ def _format_checklist(patterns) -> list[str]:
 
 def _format_metrics_context(metrics: dict) -> dict:
     """
-    Extract a clean subset of computeMetrics output for the LLM.
-    Avoids sending the entire metrics blob — only the fields Gemini can use.
+    Extract the most useful subset of computeMetrics output for the LLM.
+    Focus on hard trade statistics — execution quality, P&L, instrument/session edge.
     """
     useful: dict[str, Any] = {}
 
     for key in [
         "expectancy", "profitFactor", "avgWin", "avgLoss",
         "maxConsecutiveWins", "maxConsecutiveLosses",
-        "avgMAE", "avgMFE",
+        "avgMAE", "avgMFE", "totalPnl", "totalTrades",
+        "winRate", "lossRate", "breakEvenRate",
+        "avgHoldingTime", "avgRiskReward",
     ]:
         val = metrics.get(key)
         if val is not None:
             useful[key] = val
 
-    # Session breakdown (top 3 by trade count)
+    # Session breakdown — win rate + profit factor by session
     session_bd = metrics.get("sessionBreakdown") or metrics.get("session_breakdown")
     if isinstance(session_bd, dict):
-        top_sessions = sorted(
-            [(k, v) for k, v in session_bd.items() if isinstance(v, dict)],
-            key=lambda x: x[1].get("count", 0), reverse=True,
-        )[:3]
-        if top_sessions:
-            useful["topSessions"] = {
-                k: {"wr": round(v.get("winRate", 0), 3), "n": v.get("count", 0)}
-                for k, v in top_sessions
-            }
+        sessions_clean = {}
+        for k, v in session_bd.items():
+            if isinstance(v, dict) and v.get("count", 0) >= 3:
+                sessions_clean[k] = {
+                    "wr":    round(v.get("winRate", 0), 3),
+                    "n":     v.get("count", 0),
+                    "pnl":   round(v.get("totalPnl", 0), 2) if v.get("totalPnl") is not None else None,
+                    "pf":    round(v.get("profitFactor", 0), 2) if v.get("profitFactor") is not None else None,
+                }
+        if sessions_clean:
+            useful["sessionBreakdown"] = sessions_clean
 
-    # Instrument breakdown
+    # Instrument breakdown — win rate + total P&L per instrument
     inst_bd = metrics.get("instrumentBreakdown") or metrics.get("instrument_breakdown")
     if isinstance(inst_bd, dict):
-        top_inst = sorted(
-            [(k, v) for k, v in inst_bd.items() if isinstance(v, dict)],
-            key=lambda x: x[1].get("count", 0), reverse=True,
-        )[:3]
-        if top_inst:
-            useful["topInstruments"] = {
-                k: {"wr": round(v.get("winRate", 0), 3), "n": v.get("count", 0)}
-                for k, v in top_inst
-            }
+        instr_clean = {}
+        for k, v in inst_bd.items():
+            if isinstance(v, dict) and v.get("count", 0) >= 3:
+                instr_clean[k] = {
+                    "wr":   round(v.get("winRate", 0), 3),
+                    "n":    v.get("count", 0),
+                    "pnl":  round(v.get("totalPnl", 0), 2) if v.get("totalPnl") is not None else None,
+                }
+        if instr_clean:
+            useful["instrumentBreakdown"] = instr_clean
+
+    # Timeframe breakdown
+    tf_bd = metrics.get("timeframeBreakdown") or metrics.get("tfBreakdown")
+    if isinstance(tf_bd, dict):
+        tf_clean = {}
+        for k, v in tf_bd.items():
+            if isinstance(v, dict) and v.get("count", 0) >= 3:
+                tf_clean[k] = {
+                    "wr":  round(v.get("winRate", 0), 3),
+                    "n":   v.get("count", 0),
+                    "pf":  round(v.get("profitFactor", 0), 2) if v.get("profitFactor") is not None else None,
+                }
+        if tf_clean:
+            useful["timeframeBreakdown"] = tf_clean
 
     # Direction bias
     dir_bias = metrics.get("directionBias") or metrics.get("direction_bias")
@@ -149,15 +168,142 @@ def _format_metrics_context(metrics: dict) -> dict:
         useful["directionBias"] = {
             k: {"wr": round(v.get("winRate", 0), 3), "n": v.get("count", 0)}
             for k, v in dir_bias.items()
-            if isinstance(v, dict)
+            if isinstance(v, dict) and v.get("count", 0) >= 3
         }
 
-    # Psychology
-    psych = metrics.get("psychologyMetrics") or metrics.get("psychology_metrics")
-    if isinstance(psych, dict):
-        useful["psychology"] = psych
+    # Day of week performance
+    dow = metrics.get("dayOfWeekBreakdown") or metrics.get("dayBreakdown")
+    if isinstance(dow, dict):
+        useful["dayOfWeek"] = {
+            k: {"wr": round(v.get("winRate", 0), 3), "n": v.get("count", 0)}
+            for k, v in dow.items()
+            if isinstance(v, dict) and v.get("count", 0) >= 3
+        }
 
     return useful
+
+
+def _format_drawdown_context(dd: dict) -> dict:
+    """Extract the key drawdown metrics for LLM context."""
+    if not dd or not dd.get("success"):
+        return {}
+    top = dd.get("topStats") or {}
+    monthly = dd.get("monthly") or []
+    streaks = dd.get("streaks") or {}
+
+    result: dict[str, Any] = {}
+
+    # Top-level stats
+    for key in ("maxDrawdown", "avgDrawdown", "recoveryFactor", "trendAlignment"):
+        val = top.get(key)
+        if val is not None:
+            result[key] = round(float(val), 2) if isinstance(val, (int, float)) else val
+
+    # Monthly summary — worst and best months
+    if monthly:
+        worst_months = sorted(monthly, key=lambda m: m.get("maxDdPct", 0))[:3]
+        best_equity  = sorted(monthly, key=lambda m: m.get("equityGrowthPct", 0), reverse=True)[:3]
+        result["worstDrawdownMonths"] = [
+            {
+                "period":  f"{m.get('month')} {m.get('year')}",
+                "maxDd":   m.get("maxDdPct"),
+                "cause":   m.get("dominantCause"),
+                "losses":  m.get("lossCount"),
+                "trades":  m.get("totalTrades"),
+                "equity":  m.get("equityGrowthPct"),
+            }
+            for m in worst_months if m.get("maxDdPct", 0) < -0.1
+        ]
+        result["bestEquityMonths"] = [
+            {
+                "period": f"{m.get('month')} {m.get('year')}",
+                "equity": m.get("equityGrowthPct"),
+                "dd":     m.get("maxDdPct"),
+            }
+            for m in best_equity if (m.get("equityGrowthPct") or 0) > 0
+        ]
+
+    # Loss streaks
+    max_ls = (streaks.get("maxLossStreak") or {})
+    if max_ls.get("length", 0) > 0:
+        result["maxLossStreak"] = {
+            "length":    max_ls.get("length"),
+            "startDate": max_ls.get("startDate"),
+            "endDate":   max_ls.get("endDate"),
+        }
+    result["revengeRate"] = streaks.get("revengeRate")
+
+    # Session losses
+    sessions = dd.get("sessions") or []
+    if sessions:
+        result["sessionDrawdown"] = [
+            {"session": s.get("session"), "avgDd": s.get("avgDd"), "lossCount": s.get("lossCount")}
+            for s in sessions if s.get("lossCount", 0) > 0
+        ][:5]
+
+    return result
+
+
+def _format_audit_context(audit: dict) -> dict:
+    """Extract the key strategy audit metrics for LLM context."""
+    if not audit or not audit.get("success"):
+        return {}
+
+    result: dict[str, Any] = {}
+
+    summary = audit.get("auditSummary") or {}
+    result["edgeVerdict"]    = summary.get("edgeVerdict")
+    result["aiConfidence"]   = summary.get("aiConfidence")
+    result["edgePersistence"]= summary.get("edgePersistence")
+    result["grade"]          = summary.get("grade")
+
+    ev = audit.get("edgeVerdict") or {}
+    result["profitFactor"]   = ev.get("profitFactor")
+    result["expectancy"]     = ev.get("expectancy")
+    result["sampleSize"]     = ev.get("sampleSize")
+
+    # Top edge drivers (what conditions boost win rate)
+    drivers = audit.get("edgeDrivers") or []
+    if drivers:
+        result["topEdgeDrivers"] = [
+            {
+                "factor": d.get("factor"),
+                "wrWith": d.get("winRateWithFactor"),
+                "wrWithout": d.get("winRateWithout"),
+                "lift": d.get("lift"),
+            }
+            for d in drivers[:5]
+        ]
+
+    # Weaknesses
+    weaknesses = audit.get("weaknesses") or []
+    if weaknesses:
+        result["topWeaknesses"] = [
+            {"factor": w.get("factor"), "wrWith": w.get("winRateWithFactor"), "impact": w.get("impact")}
+            for w in weaknesses[:4]
+        ]
+
+    # Session edge
+    sess_edge = audit.get("sessionEdge") or {}
+    if sess_edge:
+        result["sessionEdge"] = {
+            k: {"wr": round(v.get("winRate", 0), 1), "n": v.get("trades", 0), "pf": round(v.get("profitFactor", 0), 2)}
+            for k, v in sess_edge.items()
+            if v.get("trades", 0) >= 3
+        }
+
+    # Final verdict strengths + weaknesses
+    fv = audit.get("finalVerdict") or {}
+    result["strengths"]   = fv.get("strengths") or []
+    result["weaknesses_text"] = fv.get("weaknesses") or []
+
+    # Core robustness
+    rob = audit.get("coreRobustness") or {}
+    if rob:
+        result["ruleStability"]       = rob.get("ruleStability")
+        result["executionAdherence"]  = rob.get("executionAdherence")
+
+    return result
 
 
 # ── Q&A entry point (used by main.py and qa_worker.py) ───────────────────────
@@ -166,16 +312,18 @@ def run_qa(
     trades: list[dict],
     question: str,
     messages: list[dict] | None = None,
-    metrics_context: dict | None = None,
-    model_override: str | None = None,
+    metrics_context:  dict | None = None,
+    drawdown_context: dict | None = None,
+    audit_context:    dict | None = None,
+    model_override:   str  | None = None,
 ) -> str:
     """
     Build the QA payload (router answer + supporting context) and call Gemini.
     Supports multi-turn `messages` for conversational memory.
+    Context priority: real trade data → metrics → drawdown → audit → patterns.
     """
     n           = len(trades)
     baseline_wr = global_win_rate(trades)
-    notes       = analyze_notes(trades)
 
     local_answer = route_query(question, trades)
 
@@ -183,25 +331,34 @@ def run_qa(
         "_local_answer":     local_answer,
         "total_trades":      n,
         "baseline_win_rate": f"{baseline_wr:.1%}",
-        "notes_coverage":    f"{notes.coverage_pct:.0f}%",
     }
 
+    # Rich metrics context — execution quality, P&L by instrument/session/TF
     if metrics_context:
-        payload["metrics_summary"] = _format_metrics_context(metrics_context)
+        payload["metrics"] = _format_metrics_context(metrics_context)
 
-    # Always provide a small data summary so chat mode has at least as much
-    # context as the dedicated panels.
+    # Drawdown context — monthly equity, loss streaks, worst periods
+    if drawdown_context:
+        dd_clean = _format_drawdown_context(drawdown_context)
+        if dd_clean:
+            payload["drawdown"] = dd_clean
+
+    # Strategy audit context — edge verdict, top drivers, weaknesses
+    if audit_context:
+        audit_clean = _format_audit_context(audit_context)
+        if audit_clean:
+            payload["audit"] = audit_clean
+
+    # Pattern edges from raw trades (trade-level statistical findings)
     patterns = analyze_patterns(trades)
     if patterns.top_edges:
         payload["top_edges"] = _serialise([
-            combo_to_finding(c, positive=True) for c in patterns.top_edges[:3]
+            combo_to_finding(c, positive=True) for c in patterns.top_edges[:4]
         ])
     if patterns.top_drains:
         payload["top_drains"] = _serialise([
-            combo_to_finding(c, positive=False) for c in patterns.top_drains[:3]
+            combo_to_finding(c, positive=False) for c in patterns.top_drains[:4]
         ])
-    if notes.emotion_correlation:
-        payload["emotion_summary"] = _serialise(notes.emotion_correlation[:3])
 
     return call_llm("qa", payload, question=question, messages=messages, model_override=model_override)
 

@@ -18,14 +18,14 @@ const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string 
 );
 
 const SUGGESTIONS = [
-  "What patterns do you see in my losing trades?",
-  "Am I over-trading on any particular day?",
-  "How does my emotional state affect my win rate?",
-  "Which setup tags perform best for me?",
-  "Am I following my risk management rules?",
-  "What's my average R:R on winning vs losing trades?",
-  "Do I trade better in specific sessions?",
-  "Which instruments give me the best results?",
+  "Build me a strategy based on my best-performing conditions",
+  "Analyze my drawdown and tell me how to avoid it",
+  "Which instrument and session gives me the best edge?",
+  "What are my worst-performing setups and why?",
+  "Break down my win rate and profit factor by timeframe",
+  "Which months did I lose the most and what caused it?",
+  "What is my expectancy and profit factor?",
+  "Where am I losing money — instrument, session, or setup?",
 ];
 
 const F = "'Montserrat', sans-serif";

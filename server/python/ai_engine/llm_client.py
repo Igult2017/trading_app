@@ -44,15 +44,21 @@ def _client():
 # ── System instruction ────────────────────────────────────────────────────────
 
 SYSTEM_INSTRUCTION = (
-    "You are a professional trading coach and performance analyst. "
-    "You receive structured trade data and pre-computed statistical findings. "
-    "Your role is to synthesise these findings into clear, actionable insights. "
+    "You are an elite quantitative trading analyst and performance coach. "
+    "You receive pre-computed statistical data from a trader's actual trade journal — "
+    "profit/loss figures, win rates, drawdown metrics, edge scores, and session/instrument breakdowns. "
+    "Your role is to give sharp, data-driven answers grounded exclusively in the numbers provided.\n"
     "Rules:\n"
-    "1. NEVER invent patterns not supported by the provided data.\n"
-    "2. If data is labelled INSUFFICIENT, say so and explain what data is needed.\n"
-    "3. Be direct, concise, and evidence-based. Cite sample sizes.\n"
-    "4. Avoid generic trading advice — speak only about this trader's actual record.\n"
-    "5. Use plain English. No bullet-point padding."
+    "1. NEVER invent patterns, strategies, or statistics not present in the supplied data.\n"
+    "2. Focus on trade mechanics: entries, exits, instruments, sessions, timeframes, P&L, drawdown. "
+    "Mention emotional/psychological factors only when they appear as a statistically significant driver in the data.\n"
+    "3. Always cite the sample size (n=X trades) when making a claim.\n"
+    "4. When asked to create a strategy, derive rules ONLY from the high-confidence patterns in the data. "
+    "State the supporting win rate and sample size for each rule.\n"
+    "5. When asked about drawdown, identify the specific months, instruments, or conditions that caused it.\n"
+    "6. Be specific and actionable. Replace vague advice with concrete rules: "
+    "'Avoid London open on GBPUSD (42% WR, 24 trades)' not 'be careful in volatile sessions'.\n"
+    "7. If data is insufficient for a reliable answer, say so clearly and state what is needed."
 )
 
 
@@ -196,20 +202,119 @@ def _build_analysis_prompt(payload: dict) -> str:
     return "\n".join(lines)
 
 
+def _fmt_section(title: str, data: dict | list | None) -> list[str]:
+    """Format a context section cleanly for the LLM prompt."""
+    if not data:
+        return []
+    lines = [f"{title}:"]
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if v is None:
+                continue
+            if isinstance(v, dict):
+                lines.append(f"  {k}:")
+                for sk, sv in v.items():
+                    if sv is not None:
+                        lines.append(f"    {sk}: {sv}")
+            elif isinstance(v, list):
+                if v:
+                    lines.append(f"  {k}: {', '.join(str(i) for i in v[:5])}")
+            else:
+                lines.append(f"  {k}: {v}")
+    elif isinstance(data, list):
+        for item in data[:8]:
+            lines.append(f"  • {item}" if not isinstance(item, dict) else f"  • {json.dumps(item)}")
+    lines.append("")
+    return lines
+
+
 def _build_qa_prompt(question: str, local_answer: str, payload: dict) -> str:
+    lines: list[str] = [
+        "TRADER DATA CONTEXT",
+        "=" * 50,
+        f"Total trades    : {payload.get('total_trades', '?')}",
+        f"Baseline win rate: {payload.get('baseline_win_rate', '?')}",
+        "",
+    ]
+
+    # Metrics — execution quality, P&L, session/instrument/TF breakdown
+    metrics = payload.get("metrics") or {}
+    if metrics:
+        lines.append("PERFORMANCE METRICS:")
+        for k, v in metrics.items():
+            if v is None:
+                continue
+            if isinstance(v, dict):
+                lines.append(f"  {k}:")
+                for sk, sv in v.items():
+                    if sv is not None:
+                        lines.append(f"    {sk}: {sv}")
+            else:
+                lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    # Drawdown — monthly equity, loss streaks
+    dd = payload.get("drawdown") or {}
+    if dd:
+        lines.append("DRAWDOWN & RISK:")
+        for k, v in dd.items():
+            if v is None:
+                continue
+            if isinstance(v, (list, dict)):
+                lines.append(f"  {k}: {json.dumps(v)}")
+            else:
+                lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    # Audit — edge verdict, drivers, weaknesses
+    audit = payload.get("audit") or {}
+    if audit:
+        lines.append("STRATEGY AUDIT:")
+        for k, v in audit.items():
+            if v is None:
+                continue
+            if isinstance(v, (list, dict)):
+                lines.append(f"  {k}: {json.dumps(v)}")
+            else:
+                lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    # Statistical edge findings from raw trade patterns
+    edges  = payload.get("top_edges")  or []
+    drains = payload.get("top_drains") or []
+    if edges:
+        lines.append("CONFIRMED EDGE CONDITIONS (from trade patterns):")
+        for f in edges:
+            if isinstance(f, dict):
+                lines.append(_fmt_finding(f))
+        lines.append("")
+    if drains:
+        lines.append("PERFORMANCE DRAINS (patterns that hurt results):")
+        for f in drains:
+            if isinstance(f, dict):
+                lines.append(_fmt_finding(f))
+        lines.append("")
+
+    # Pre-computed answer from the fast query router
     if local_answer:
-        return (
-            f"The trader asked: \"{question}\"\n\n"
-            f"Pre-computed answer from trade data:\n{local_answer}\n\n"
-            "Interpret this answer conversationally in 2–4 sentences. "
-            "Do not add information not present above."
-        )
-    return (
-        f"The trader asked: \"{question}\"\n\n"
-        f"Trade data summary:\n{json.dumps(payload, indent=2)}\n\n"
-        "Answer the question using only the data above. "
-        "If the data does not support an answer, say so explicitly."
-    )
+        lines += [
+            "PRE-COMPUTED DATA ANSWER:",
+            local_answer,
+            "",
+        ]
+
+    lines += [
+        "=" * 50,
+        f"TRADER'S QUESTION: {question}",
+        "",
+        "Instructions: Answer using only the data above. Be specific — cite win rates, "
+        "sample sizes, and P&L figures. If asked to create a strategy or playbook, "
+        "derive rules directly from the edge conditions and instrument/session data. "
+        "If asked about drawdown, point to the specific months, instruments, or "
+        "conditions in the data. If data is insufficient, say so and explain what is needed.",
+    ]
+
+    return "\n".join(lines)
 
 
 def _build_strategy_prompt(payload: dict) -> str:
