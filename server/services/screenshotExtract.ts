@@ -73,26 +73,60 @@ Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fi
 CRITICAL EXTRACTION RULES — READ CAREFULLY
 ═══════════════════════════════════════════
 
-DIRECTION — READ THIS CAREFULLY (most common AI mistake):
-TradingView bracket/zone geometry tells you direction with certainty — use this FIRST:
-  • SL level is ABOVE entry AND TP level is BELOW entry → SHORT (sell)
-  • SL level is BELOW entry AND TP level is ABOVE entry → LONG (buy)
-  • Red shaded risk-zone sits ABOVE the entry line, green profit-zone sits BELOW → SHORT
-  • Red shaded risk-zone sits BELOW the entry line, green profit-zone sits ABOVE → LONG
-  • Entry marker arrow pointing DOWN or label says SELL → SHORT
-  • Entry marker arrow pointing UP or label says BUY → LONG
-  • If text reads "1'000 units … Risk/Reward" and the TP line is below entry → SHORT regardless of candle colours
-  • NEVER derive direction from candle colour trends or chart slope — use SL/TP positions only
+DIRECTION — applies to ALL platforms (TradingView, MT4, MT5, cTrader, NinjaTrader, Quantower, etc.):
+Use ALL of the following signals and pick the one with the most evidence:
 
-OUTCOME — determine from ALL available evidence:
-  • Look at WHERE the final price marker / flag / close arrow sits: if it is at the TP line → Win; if it is at the SL line → Loss
-  • "Open P/L" is a TradingView UI label for the running P&L display — it does NOT mean the trade is still open. Read the number: positive = Win, negative = Loss
-  • If a TP label shows at the bottom of the chart and a price marker/flag sits at that level → Win (TP was hit)
-  • If the trade bracket end-marker is at the TP level → Win; at the SL level → Loss
-  • "Replay mode … Last processed tick: YYYY-MM-DD HH:MM:SS" = the trade is closed at that timestamp; if the last tick price equals the TP price → Win
-  • Positive P/L number (green or positive) anywhere on screen → Win
-  • Negative P/L number (red or negative) anywhere on screen → Loss
-  • P/L within ±2 pips of zero, or SL moved to entry → BE
+  EXPLICIT TEXT (highest priority — always wins):
+  • Any visible text "Buy", "BUY", "Long", "LONG" → LONG
+  • Any visible text "Sell", "SELL", "Short", "SHORT" → SHORT
+  • MT4/MT5 "Type" or "Direction" column showing "buy" → LONG; "sell" → SHORT
+  • cTrader / NinjaTrader position type label "Buy" / "Long" → LONG; "Sell" / "Short" → SHORT
+  • Order ticket or trade panel label "Buy Stop", "Buy Limit", "Buy Market" → LONG
+  • Order ticket or trade panel label "Sell Stop", "Sell Limit", "Sell Market" → SHORT
+
+  ARROW / ICON MARKERS on chart:
+  • Blue or green upward-pointing arrow at entry → LONG
+  • Red or orange downward-pointing arrow at entry → SHORT
+  • "▲" marker at open or entry → LONG; "▼" marker → SHORT
+
+  SL / TP BRACKET GEOMETRY (TradingView, cTrader brackets, any platform with visual levels):
+  • SL level is ABOVE the entry line AND TP level is BELOW the entry line → SHORT
+  • SL level is BELOW the entry line AND TP level is ABOVE the entry line → LONG
+  • Red/pink shaded zone ABOVE entry + green shaded zone BELOW entry → SHORT
+  • Red/pink shaded zone BELOW entry + green shaded zone ABOVE entry → LONG
+
+  PRICE LOGIC (use only when no other signal available):
+  • For a completed trade: if closing price < opening price and the P&L is positive → SHORT (profited from falling price)
+  • For a completed trade: if closing price > opening price and the P&L is positive → LONG (profited from rising price)
+
+  • NEVER guess direction from candle colours alone, chart slope, or background colour — always use the signals above in priority order.
+
+OUTCOME — applies to ALL platforms:
+Use ALL of the following signals and pick the one with the most evidence:
+
+  EXPLICIT P&L NUMBER (highest priority):
+  • Any numeric P&L value that is clearly positive (green, "+", no minus sign) → Win
+  • Any numeric P&L value that is clearly negative (red, "−", with minus sign) → Loss
+  • P&L within ±2 pips or ±$1 of zero → BE
+  • Labels: "Profit", "Gain", "Credit" next to a number → Win; "Loss", "Debit" → Loss
+  • MT4/MT5 "Profit" column: positive number → Win; negative → Loss
+  • cTrader "Net Profit" / "Gross Profit": positive → Win; negative → Loss
+
+  PRICE REACHING SL OR TP:
+  • Price marker, close flag, or exit arrow sits visually AT the TP price level → Win (Target Hit)
+  • Price marker, close flag, or exit arrow sits visually AT the SL price level → Loss (Stop Hit)
+  • TradingView: trade bracket's closing end-point at TP → Win; at SL → Loss
+
+  PLATFORM-SPECIFIC LABELS:
+  • "TP" label with a price marker at that level reached → Win
+  • "SL" label with a price marker at that level reached → Loss
+  • "Take Profit hit", "Target reached", "TP filled" → Win
+  • "Stop Loss hit", "Stopped out", "SL triggered" → Loss
+  • TradingView "Open P/L" is ONLY a UI widget label — it does NOT mean the trade is open. Read the NUMBER next to it: positive = Win, negative = Loss.
+  • TradingView Replay bar "Last processed tick: YYYY-MM-DD HH:MM:SS" = trade closed; compare last-tick price to TP/SL to determine Win or Loss.
+
+  STILL OPEN:
+  • "Open", "Active", "Running", "In progress", or no exit time visible → Open
 
 LOT SIZE (lotSize):
 - Look for labels: "Lots", "Volume", "Size", "Lot", "Qty", "Quantity" — often shown in trade panels, order tickets, or history rows
