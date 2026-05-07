@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
-import { Layout, Clock, Zap, Network, CalendarDays, ShieldCheck, TrendingDown, Activity, Loader2 } from 'lucide-react';
+import { Layout, Clock, Zap, Network, CalendarDays, ShieldCheck, TrendingDown, Activity } from 'lucide-react';
+import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 
 // ── Primitive UI atoms ────────────────────────────────────────────────────────
 
@@ -215,11 +216,11 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
   // ── Loading / error / no-session states ───────────────────────────────────
 
-  if (sessionId && isLoading) {
+  const showLoader = useDelayedLoading(!!sessionId && isLoading);
+  if (showLoader) {
     return (
-      <div className="min-h-full flex items-center justify-center gap-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <Loader2 size={20} className="text-rose-500 animate-spin" />
-        <span className="text-[11px] text-slate-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>Computing drawdown…</span>
+      <div className="min-h-full flex items-center justify-center">
+        <TradingLoader message="Computing drawdown metrics…" />
       </div>
     );
   }

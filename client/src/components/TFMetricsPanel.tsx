@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
+import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -495,6 +496,8 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
   const avgWR = allRows.length ? Math.round(allRows.reduce((s,r)=>s+r.wr,0)/allRows.length) : 0;
   const bestWR = allRows.length ? Math.max(...allRows.map(r=>r.wr)) : 0;
 
+  const showTFLoader = useDelayedLoading(!!matrixUrl && isLoading);
+
   return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text }}>
       <style>{`
@@ -592,10 +595,9 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
       )}
 
       <main className="fade" key={`${page}-${isMobile}`} style={{ paddingBottom:32 }}>
-        {isLoading ? (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:320, gap:12 }}>
-            <div style={{ width:8, height:8, borderRadius:'50%', background:C.accent, animation:'fi 1s ease infinite alternate' }}/>
-            <span style={{ fontFamily:MONO, fontSize:11, color:C.muted, letterSpacing:'0.12em' }}>COMPUTING MATRIX…</span>
+        {showTFLoader ? (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:320 }}>
+            <TradingLoader message="Computing timeframe matrix…" />
           </div>
         ) : !sessionId || rows.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320, gap:10 }}>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
-import TradingLoader from "@/components/TradingLoader";
+import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1065,7 +1065,8 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
   const F = { fontFamily: FONT };
 
-  if (!queryEnabled || isLoading) return (
+  const showAuditLoader = useDelayedLoading(!queryEnabled || isLoading);
+  if (showAuditLoader) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <TradingLoader message="Analysing your trades…" />
     </div>
