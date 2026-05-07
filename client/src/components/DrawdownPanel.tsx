@@ -188,17 +188,23 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   }));
 
   // Monthly
-  const monthly = (d?.monthly ?? []).map((m: any) => ({
-    month:  m.month,
-    dd:     fmtDd(m.maxDdPct),
-    t:      m.totalTrades,
-    l:      m.lossCount,
-    rec:    `${Math.round(m.recoveryPct)}%`,
-    cause:  m.dominantCause,
-    causeC: causeColor(m.dominantCauseClass),
-    rr:     m.avgRr,
-    bigL:   fmtDd(m.biggestLossPct),
-  }));
+  const monthly = (d?.monthly ?? []).map((m: any) => {
+    const eq = m.equityGrowthPct ?? null;
+    const eqStr = eq === null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
+    const eqColor = eq === null ? 'text-slate-500' : eq > 0 ? 'text-emerald-400' : eq < 0 ? 'text-rose-400' : 'text-slate-400';
+    return {
+      month:   m.month,
+      dd:      fmtDd(m.maxDdPct),
+      t:       m.totalTrades,
+      l:       m.lossCount,
+      rec:     `${Math.round(m.recoveryPct)}%`,
+      cause:   m.dominantCause,
+      causeC:  causeColor(m.dominantCauseClass),
+      bigL:    fmtDd(m.biggestLossPct),
+      equity:  eqStr,
+      eqColor,
+    };
+  });
 
   const monthlyYears: number[] = d?.monthly?.map((m: any) => m.year) ?? [];
   const monthlyTitle = monthlyYears.length === 0
@@ -509,7 +515,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                       <Sub className="block text-center mb-3">{d.rec} rec.</Sub>
                       <div className={`text-[8px] text-center px-1.5 py-0.5 rounded bg-white/5 border border-white/5 ${d.causeC} mb-3`} style={{ fontWeight: 600 }}>{d.cause}</div>
                       <div className="space-y-1.5 pt-2 border-t dd-divider">
-                        <div className="flex justify-between"><L>RR</L><Sub className="text-slate-400">{d.rr}</Sub></div>
+                        <div className="flex justify-between items-baseline"><L>Equity</L><Sub className={d.eqColor} style={{ fontWeight: 700 }}>{d.equity}</Sub></div>
                         <div className="flex justify-between"><L>Big L</L><Sub className="text-rose-400">{d.bigL}</Sub></div>
                         <div className="flex justify-between"><L>Loss</L><Sub className="text-slate-400">{d.l}/{d.t}</Sub></div>
                       </div>

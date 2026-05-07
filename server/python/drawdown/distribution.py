@@ -195,17 +195,21 @@ def compute_monthly(trades: list) -> list:
         ]
         biggest_loss_pct = round(min(loss_pcts), 2) if loss_pcts else 0.0
 
+        # Net equity growth for the month: balance started at 100.0
+        equity_growth_pct = round(balance - 100.0, 2)
+
         result.append({
-            "month":          _MONTH_NAMES[month - 1],
-            "year":           year,
-            "maxDdPct":       round(max_dd, 2),
-            "recoveryPct":    float(recovery_pct),
-            "dominantCause":  cause,
+            "month":            _MONTH_NAMES[month - 1],
+            "year":             year,
+            "maxDdPct":         round(max_dd, 2),
+            "recoveryPct":      float(recovery_pct),
+            "dominantCause":    cause,
             "dominantCauseClass": cause_class,
-            "avgRr":          avg_rr_str,
-            "biggestLossPct": biggest_loss_pct,
-            "totalTrades":    total,
-            "lossCount":      losses,
+            "avgRr":            avg_rr_str,
+            "biggestLossPct":   biggest_loss_pct,
+            "totalTrades":      total,
+            "lossCount":        losses,
+            "equityGrowthPct":  equity_growth_pct,
         })
 
     return result
