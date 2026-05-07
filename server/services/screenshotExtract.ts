@@ -12,12 +12,12 @@ import { GoogleGenAI } from "@google/genai";
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const EXTRACTION_PROMPT = `You are a trading chart screenshot analyzer. Extract ALL visible trading data from this chart screenshot.
+const EXTRACTION_PROMPT = `You are an expert trading chart and platform screenshot analyzer. Your job is to extract EVERY piece of visible trading data from the screenshot with maximum precision.
 
-Return ONLY valid JSON with these fields (use null for anything not visible):
+Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fields. Use null only when a value is genuinely not visible anywhere in the image — never omit a field, never guess, never leave data on the screen un-extracted.
 
 {
-  "instrument": "e.g. EUR/USD, XAU/USD, NAS100, BTCUSD",
+  "instrument": "symbol exactly as shown e.g. EUR/USD, XAU/USD, NAS100, BTCUSD",
   "pairCategory": "Forex or Crypto or Commodity or Index or Stock",
   "timeframe": "e.g. 4H, 1H, 15M, 1D",
   "direction": "Long or Short",
@@ -59,47 +59,69 @@ Return ONLY valid JSON with these fields (use null for anything not visible):
   "additionalNotes": "any other relevant data visible on chart or null"
 }
 
-EXTRACTION RULES:
+═══════════════════════════════════════════
+CRITICAL EXTRACTION RULES — READ CAREFULLY
+═══════════════════════════════════════════
 
-TIMESTAMPS (entryTime / exitTime):
-- entryTime = the exact date and time the trade was opened/entered
-- exitTime  = the exact date and time the trade was closed/exited — this may appear anywhere on the screenshot: text panels, info boxes, history rows, x-axis labels, replay bars, column headers, or anywhere else — read every piece of text on the image carefully
-- Format MUST be YYYY-MM-DDTHH:MM:SS — combine the full date and time into this format regardless of how it appears on screen (e.g. "2020.03.19 11:52:00" or "Thu 24 Nov'22 00:22" both become "2020-03-19T11:52:00")
-- The times shown are broker local time, NOT UTC. Most MT4/MT5 brokers use UTC+2 (winter) or UTC+3 (summer). Detect the timezone from any visible label and set brokerTimezone; default to 2 if unclear
-- Return null only if the value genuinely cannot be found anywhere on the image — do not skip it
+LOT SIZE (lotSize):
+- Look for labels: "Lots", "Volume", "Size", "Lot", "Qty", "Quantity" — often shown in trade panels, order tickets, or history rows
+- Common values: 0.01, 0.05, 0.10, 0.25, 0.50, 1.00 — copy the exact decimal number shown
+- In MT4/MT5 trade history: the volume column is the lot size — read it carefully
+- If you see "0.10" or "0.1" use 0.1 as the number. Never round or alter it.
+- NEVER return null if a volume/lot/size number is anywhere on the image
 
-OUTCOME — determine this from ANY visible evidence (never return null if evidence exists):
-- Any positive P&L (green number, profit label, gain shown) = "Win" — even if TP was not reached
-- Any negative P&L (red number, loss label) = "Loss"
-- P&L within ±2 pips / ±$1 of zero, OR SL visibly moved to entry price and triggered = "BE"
-- Trade still active with no closed result = "Open"
-- IMPORTANT: A trade closed manually or via trailing stop with profit is still "Win" — only use "BE" when the result is truly near zero
+ENTRY PRICE (entryPrice / openingPrice):
+- Look for: "Open", "Price", "Entry", "Open Price", "Entry Price", "at price", "@" followed by a number
+- In MT4/MT5: the "Price" column in trade history is the entry price
+- On order tickets: the price shown when the order was placed
+- Copy the exact number — e.g. 1.09250 not 1.09 or 1.093
+- NEVER return null if any open/entry price is shown on the image
 
-PRIMARY EXIT REASON — use the most specific match:
+EXIT TIME (exitTime):
+- Scan the ENTIRE image for any close/exit timestamp — check: trade history rows, info panels, close time columns, x-axis dates near trade exit, any text showing a date+time after trade close
+- In MT4/MT5 history: there is always a "Close Time" or "Time" column for the close — read it precisely
+- Format as YYYY-MM-DDTHH:mm:ss regardless of how it appears on screen
+- "2020.05.19 10:33:00" → "2020-05-19T10:33:00"
+- NEVER return null if any close/exit date or time is anywhere on the image
+
+ENTRY TIME (entryTime):
+- Look for: open time, trade start time, order time, "Time" column for the open in history
+- Format as YYYY-MM-DDTHH:mm:ss
+- NEVER return null if any open/entry date or time is shown
+
+TIMESTAMPS general:
+- Broker local time (not UTC). Most MT4/MT5 brokers: UTC+2 winter, UTC+3 summer
+- Detect timezone from any visible label, default to 2 if unclear
+- Combine date and time into YYYY-MM-DDTHH:mm:ss format always
+
+OUTCOME — from ANY visible evidence:
+- Positive P&L (green number, "profit") = "Win"
+- Negative P&L (red number, "loss") = "Loss"
+- P&L within ±2 pips / ±$1 of zero, or SL moved to entry and triggered = "BE"
+- Trade still open = "Open"
+
+PRIMARY EXIT REASON:
 - "Target Hit"    → price reached the exact planned TP level
-- "Partial TP"    → trade closed with profit BUT the TP level was NOT fully reached (manual close, early exit, partial close)
-- "Trailing Stop" → a trailing stop triggered the exit (may be profit or small loss)
-- "Stop Hit"      → the original stop loss triggered (typically a loss)
-- "Break-Even"    → SL was moved to entry price and triggered, or closed at ~entry with ~zero P&L
-- "Time Exit"     → closed due to time (end of day, session close, news)
-- "Manual"        → manually closed by trader with no clear reason visible
+- "Partial TP"    → closed with profit but TP not fully reached
+- "Trailing Stop" → trailing stop triggered
+- "Stop Hit"      → original stop loss triggered
+- "Break-Even"    → SL moved to entry, closed ~zero
+- "Time Exit"     → closed due to time/session
+- "Manual"        → manually closed, no clear reason
 
-OTHER RULES:
-- Read ALL text overlays, labels, indicators, position info panels
-- Check instrument selector (usually top-left) for symbol
-- Check timeframe selector for timeframe
-- Determine direction from Buy/Sell labels, arrows, or position type
-- Be precise with numbers — copy exactly what you see
-- Return ONLY the JSON object, no markdown fences`;
+GENERAL:
+- Scan EVERY pixel of text — overlays, labels, indicators, info panels, history tables, column headers
+- Be precise: copy numbers exactly as shown, do not round or estimate
+- Return ONLY the raw JSON object, absolutely no markdown, no explanation`;
 
 // ── Model fallback chain ──────────────────────────────────────────────────────
 
 const MODEL_CHAIN = [
-  "gemini-2.0-flash",
   "gemini-2.5-flash-preview-05-20",
   "gemini-2.5-flash",
   "gemini-2.5-pro-preview-05-06",
   "gemini-2.5-pro",
+  "gemini-2.0-flash",
   "gemini-1.5-pro",
 ];
 
@@ -312,14 +334,9 @@ export async function extractFromScreenshot(
   while (true) {
     for (const model of candidates) {
       try {
-        // Disable thinking on flash models — significantly faster responses
-        const isFlash = model.includes("flash");
         const config: Record<string, any> = {
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
         };
-        if (isFlash) {
-          config.thinkingConfig = { thinkingBudget: 0 };
-        }
 
         const response = await ai.models.generateContent({
           model,
