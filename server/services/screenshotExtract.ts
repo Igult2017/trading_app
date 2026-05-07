@@ -73,6 +73,27 @@ Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fi
 CRITICAL EXTRACTION RULES — READ CAREFULLY
 ═══════════════════════════════════════════
 
+DIRECTION — READ THIS CAREFULLY (most common AI mistake):
+TradingView bracket/zone geometry tells you direction with certainty — use this FIRST:
+  • SL level is ABOVE entry AND TP level is BELOW entry → SHORT (sell)
+  • SL level is BELOW entry AND TP level is ABOVE entry → LONG (buy)
+  • Red shaded risk-zone sits ABOVE the entry line, green profit-zone sits BELOW → SHORT
+  • Red shaded risk-zone sits BELOW the entry line, green profit-zone sits ABOVE → LONG
+  • Entry marker arrow pointing DOWN or label says SELL → SHORT
+  • Entry marker arrow pointing UP or label says BUY → LONG
+  • If text reads "1'000 units … Risk/Reward" and the TP line is below entry → SHORT regardless of candle colours
+  • NEVER derive direction from candle colour trends or chart slope — use SL/TP positions only
+
+OUTCOME — determine from ALL available evidence:
+  • Look at WHERE the final price marker / flag / close arrow sits: if it is at the TP line → Win; if it is at the SL line → Loss
+  • "Open P/L" is a TradingView UI label for the running P&L display — it does NOT mean the trade is still open. Read the number: positive = Win, negative = Loss
+  • If a TP label shows at the bottom of the chart and a price marker/flag sits at that level → Win (TP was hit)
+  • If the trade bracket end-marker is at the TP level → Win; at the SL level → Loss
+  • "Replay mode … Last processed tick: YYYY-MM-DD HH:MM:SS" = the trade is closed at that timestamp; if the last tick price equals the TP price → Win
+  • Positive P/L number (green or positive) anywhere on screen → Win
+  • Negative P/L number (red or negative) anywhere on screen → Loss
+  • P/L within ±2 pips of zero, or SL moved to entry → BE
+
 LOT SIZE (lotSize):
 - Look for labels: "Lots", "Volume", "Size", "Lot", "Qty", "Quantity" — often shown in trade panels, order tickets, or history rows
 - Common values: 0.01, 0.05, 0.10, 0.25, 0.50, 1.00 — copy the exact decimal number shown
@@ -113,12 +134,6 @@ TIMESTAMPS general:
 - Broker/platform local time (not UTC). Most MT4/MT5 brokers: UTC+2 winter, UTC+3 summer. TradingView uses the timezone set by the user — check for any timezone label.
 - Always combine date and time into YYYY-MM-DDTHH:mm:ss format regardless of display format
 - If the X-axis shows a full date label (e.g. "Fri 22 May'20") at one point and only times elsewhere, use that date for all time-only labels nearby
-
-OUTCOME — from ANY visible evidence:
-- Positive P&L (green number, "profit") = "Win"
-- Negative P&L (red number, "loss") = "Loss"
-- P&L within ±2 pips / ±$1 of zero, or SL moved to entry and triggered = "BE"
-- Trade still open = "Open"
 
 PRIMARY EXIT REASON:
 - "Target Hit"    → price reached the exact planned TP level
