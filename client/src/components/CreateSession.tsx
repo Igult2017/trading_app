@@ -221,14 +221,14 @@ const MC = {
 };
 
 const SESSION_CARDS_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
   /* ── isolation: block every inherited font/color from the journal shell ── */
   .obs-sessions-root {
     font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
     font-size: 14px !important;
-    color: #dbdbdb !important;
-    background: #1c1c1c !important;
+    color: #c9d1d9 !important;
+    background: #0d1117 !important;
     -webkit-font-smoothing: antialiased;
     line-height: 1.5 !important;
   }
@@ -423,33 +423,30 @@ const TOTAL_SLOTS = 6;
 function GhostCard({ onCreate }: { onCreate: () => void }) {
   return (
     <div
-      className="bg-[#1c1c1c] flex flex-col min-h-[320px] group hover:bg-[#212121] transition-colors cursor-pointer border-l border-t border-[#333]"
+      className="bg-[#0d1117] flex flex-col min-h-[320px] group hover:bg-[#111827] transition-colors cursor-pointer border-l border-t border-[#1e2740]"
+      style={{ fontFamily: UI }}
       onClick={onCreate}
     >
       {/* Tab header */}
-      <div className="flex justify-between items-center bg-[#262626]/30 px-3 py-1.5 border-b border-[#121212]">
-        <span
-          className="text-[10px] text-[#444] font-bold uppercase tracking-widest"
-          style={{ fontFamily: MONO }}
-        >SESSION: UNTITLED</span>
-        <Plus size={12} className="text-[#333] group-hover:text-[#666]" />
+      <div className="flex justify-between items-center bg-[#111827]/60 px-3 py-2 border-b border-[#080d14]">
+        <span className="text-[11px] text-[#374151] font-medium">
+          Untitled Session
+        </span>
+        <Plus size={12} className="text-[#374151] group-hover:text-[#64748b]" />
       </div>
 
       {/* Body */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-3 opacity-30 group-hover:opacity-100 transition-opacity">
-        <Terminal size={22} className="text-[#444]" />
-        <p
-          className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#555]"
-          style={{ fontFamily: MONO }}
-        >Initialize Slot</p>
+        <Terminal size={22} className="text-[#374151]" />
+        <p className="text-[11px] font-medium text-[#4b5563]">New session slot</p>
       </div>
 
       {/* Footer */}
       <div className="p-4">
         <button
-          className="w-full border border-dashed border-[#333] group-hover:border-[#a882ff]/50 py-2 text-[9px] uppercase tracking-widest font-bold text-[#444] group-hover:text-[#a882ff] transition-all"
+          className="w-full border border-dashed border-[#1e2740] group-hover:border-[#3b4fd8]/60 py-2 text-[11px] font-semibold text-[#374151] group-hover:text-[#7c8cf8] transition-all"
           style={{ fontFamily: UI }}
-        >Create Session</button>
+        >+ Create Session</button>
       </div>
     </div>
   );
@@ -473,8 +470,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
   const pnlPos    = totalPnL >= 0;
 
-  // Exact Tailwind colour classes — full strings so Tailwind doesn't purge them
-  const pnlClass = !hasData ? 'text-[#555]' : pnlPos ? 'text-emerald-400' : 'text-red-400';
+  const pnlClass = !hasData ? 'text-[#4b5563]' : pnlPos ? 'text-emerald-400' : 'text-red-400';
 
   const pnlVal = !hasData ? '—'
     : `${pnlPos ? '+' : '-'}$${Math.abs(totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -485,81 +481,72 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
 
   return (
     <div
-      className="bg-[#1c1c1c] flex flex-col min-h-[320px] group cursor-pointer hover:bg-[#212121] transition-colors"
+      className="bg-[#0d1117] flex flex-col min-h-[320px] group cursor-pointer hover:bg-[#111827] transition-colors"
+      style={{ fontFamily: UI }}
       onClick={onSelect}
       data-testid={`card-session-${session.id}`}
     >
-      {/* File Tab Header */}
-      <div className="flex justify-between items-center bg-[#262626] border-b border-[#121212] px-3 py-1.5">
-        <div className="flex items-center overflow-hidden">
-          <span
-            className="text-[11px] font-semibold text-[#dbdbdb] truncate tracking-tight"
-            style={{ fontFamily: MONO }}
-            data-testid={`text-session-name-${session.id}`}
-          >SESSION: {session.sessionName.toUpperCase()}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Header bar */}
+      <div className="flex justify-between items-center bg-[#111827] border-b border-[#080d14] px-3 py-2">
+        <div className="flex items-center gap-2 overflow-hidden">
           {isActive
-            ? <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-            : <div className={`w-1.5 h-1.5 rounded-full ${hasData ? 'bg-amber-500 opacity-50' : 'bg-[#444]'}`} />
+            ? <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] shrink-0" />
+            : <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${hasData ? 'bg-amber-400 opacity-60' : 'bg-[#374151]'}`} />
           }
-          <MoreVertical size={14} className="text-[#555] hover:text-white cursor-pointer" />
+          <span
+            className="text-[12px] font-semibold text-[#c9d1d9] truncate"
+            data-testid={`text-session-name-${session.id}`}
+          >{session.sessionName}</span>
         </div>
+        <MoreVertical size={14} className="text-[#4b5563] hover:text-[#c9d1d9] cursor-pointer shrink-0" />
       </div>
 
-      {/* Document Body */}
-      <div className="p-6 flex-1 flex flex-col">
+      {/* Body */}
+      <div className="p-5 flex-1 flex flex-col">
 
-        {/* Current Equity */}
-        <div className="flex justify-between items-start mb-8">
-          <div className="space-y-1">
-            <span
-              className="text-[9px] uppercase tracking-[0.25em] text-[#666] font-bold"
-              style={{ fontFamily: MONO }}
-            >Current_Equity</span>
-            <h2
-              className="text-[11px] font-bold text-white tracking-tighter"
-              style={{ fontFamily: MONO }}
-            >{equityStr}</h2>
+        {/* Equity */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-medium text-[#64748b]">Current Equity</p>
+            <h2 className="text-[11px] font-bold text-[#f0f6fc]">{equityStr}</h2>
           </div>
           <ArrowUpRight
-            size={20}
-            className={`${pnlPos || !hasData ? 'text-emerald-500' : 'text-red-400'} opacity-40`}
+            size={18}
+            className={`${pnlPos || !hasData ? 'text-emerald-500' : 'text-red-400'} opacity-40 mt-1`}
           />
         </div>
 
-        {/* Stat rows — exact reference structure */}
-        <div className="space-y-4" style={{ fontFamily: MONO }}>
-          <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
-            <span className="text-[#666]"># net-profit-loss</span>
-            <span className={`${pnlClass} font-bold tracking-tight`}>{pnlVal}</span>
+        {/* Stat rows */}
+        <div className="space-y-3 flex-1">
+          <div className="flex justify-between items-center text-[11px] border-b border-[#1a2035] pb-2.5">
+            <span className="text-[#64748b]">Net P&L</span>
+            <span className={`${pnlClass} font-semibold`}>{pnlVal}</span>
           </div>
-          <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
-            <span className="text-[#666]"># total-return</span>
-            <span className="text-[#a882ff] font-bold">{retVal}</span>
+          <div className="flex justify-between items-center text-[11px] border-b border-[#1a2035] pb-2.5">
+            <span className="text-[#64748b]">Total Return</span>
+            <span className="text-[#818cf8] font-semibold">{retVal}</span>
           </div>
-          <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
-            <span className="text-[#666]"># trade-count</span>
-            <span className="text-white font-bold">{tradeCount}</span>
+          <div className="flex justify-between items-center text-[11px] border-b border-[#1a2035] pb-2.5">
+            <span className="text-[#64748b]">Trades</span>
+            <span className="text-[#c9d1d9] font-semibold">{tradeCount}</span>
           </div>
         </div>
 
-        {/* Card Actions */}
+        {/* Actions */}
         <div
-          className="mt-auto pt-6 flex gap-2"
-          style={{ fontFamily: UI }}
+          className="mt-5 flex gap-2"
           onClick={e => e.stopPropagation()}
         >
           <button
-            className="flex-1 bg-[#262626] hover:bg-[#333] border border-[#3a3a3a] text-[#dbdbdb] text-[10px] uppercase tracking-widest font-bold py-2 transition-colors"
+            className="flex-1 bg-[#111827] hover:bg-[#1a2035] border border-[#1e2740] text-[#c9d1d9] text-[11px] font-semibold py-2 transition-colors rounded-sm"
             onClick={onEdit}
           >Edit Session</button>
           <button
-            className="px-3 bg-[#262626] hover:bg-red-900/20 border border-[#3a3a3a] text-[#555] hover:text-red-500 transition-colors flex items-center"
+            className="px-3 bg-[#111827] hover:bg-red-900/20 border border-[#1e2740] text-[#4b5563] hover:text-red-400 transition-colors rounded-sm flex items-center"
             onClick={onDelete}
             data-testid={`button-delete-session-${session.id}`}
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
         </div>
       </div>
@@ -587,7 +574,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
   return (
     <div className="obs-sessions-root">
       <style>{SESSION_CARDS_CSS}</style>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#333] border border-[#333]">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#1e2740] border border-[#1e2740]">
         {Array.from({ length: TOTAL_SLOTS }).map((_, i) => (
           <GhostCard key={i} onCreate={() => setShowCreate(true)} />
         ))}
@@ -648,8 +635,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     <div className="obs-sessions-root">
       <style>{SESSION_CARDS_CSS}</style>
 
-      {/* Exact reference grid: gap-[1px] bg-[#333] border border-[#333] */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#333] border border-[#333]">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#1e2740] border border-[#1e2740]">
         {sessions.map((session) => (
           <SessionCard
             key={session.id}
