@@ -207,7 +207,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
 
 // Font constants — used inline on every element to defeat global CSS bleed
 const MONO = "'DM Mono', ui-monospace, monospace";
-const UI   = "'Inter', system-ui, -apple-system, sans-serif";
+const UI   = "'DM Sans', system-ui, -apple-system, sans-serif";
 
 // Modal colour tokens (kept minimal — only modals use these)
 const MC = {
@@ -221,11 +221,11 @@ const MC = {
 };
 
 const SESSION_CARDS_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 
   /* ── isolation: block every inherited font/color from the journal shell ── */
   .obs-sessions-root {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif !important;
     font-size: 14px !important;
     color: #c9d1d9 !important;
     background: #0d1117 !important;
