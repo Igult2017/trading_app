@@ -723,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (geminiResult.success && geminiResult.fields) {
           geminiResult.fields = normalizeFields(geminiResult.fields);
           const f = geminiResult.fields;
-          console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
+          console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} lotSize:${f.lotSize} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
           return res.json({ ...geminiResult, method: "gemini", confidence: "high" });
         }
         console.error(`[Screenshot] Gemini failed: ${geminiResult.error} — falling back to OCR`);

@@ -1145,7 +1145,12 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     set2("pairCategory",           fields.pairCategory);
     set2("direction",              fields.direction);
     set2("orderType",              fields.orderType);
-    set2("lotSize",                fields.lotSize != null ? String(fields.lotSize) : null);
+    // lotSize: try primary field, then fallback to units, contractSize, or dig into raw AI output
+    const rawLot = fields.lotSize ?? fields.units ?? fields.contractSize
+      ?? fields.aiExtractedRaw?.lotSize ?? fields.aiExtractedRaw?.volume
+      ?? fields.aiExtractedRaw?.units ?? fields.aiExtractedRaw?.qty
+      ?? fields.aiExtractedRaw?.quantity ?? fields.aiExtractedRaw?.size;
+    set2("lotSize", rawLot != null ? String(rawLot) : null);
     set2("entryPrice",             fields.entryPrice != null ? String(fields.entryPrice) : null);
     set2("stopLoss",               fields.stopLoss != null ? String(fields.stopLoss) : null);
     set2("takeProfit",             fields.takeProfit != null ? String(fields.takeProfit) : null);
