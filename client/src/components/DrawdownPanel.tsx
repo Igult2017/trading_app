@@ -219,16 +219,39 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
   if (showLoader) {
     return (
-      <div className="min-h-full flex items-center justify-center">
+      <div style={{ minHeight: 480, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <TradingLoader message="Computing drawdown metrics…" />
+      </div>
+    );
+  }
+
+  if (!sessionId) {
+    return (
+      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: "'Montserrat', sans-serif" }}>
+        <TrendingDown className="w-8 h-8 text-slate-700" />
+        <p className="text-[11px] text-slate-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>No session selected</p>
+        <p className="text-[10px] text-slate-600" style={{ fontWeight: 400 }}>Select or create a session to view drawdown analysis</p>
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="min-h-full flex items-center justify-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <p className="text-[11px] text-rose-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>Failed to load drawdown data.</p>
+      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: "'Montserrat', sans-serif" }}>
+        <TrendingDown className="w-8 h-8 text-rose-600" />
+        <p className="text-[11px] text-rose-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>Failed to load drawdown data</p>
+        <p className="text-[10px] text-slate-500" style={{ fontWeight: 400 }}>Check server logs or try refreshing</p>
+      </div>
+    );
+  }
+
+  // ── No-data state (session exists but no trades logged yet) ───────────────
+  if (!ts) {
+    return (
+      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: "'Montserrat', sans-serif" }}>
+        <TrendingDown className="w-8 h-8 text-slate-700" />
+        <p className="text-[11px] text-slate-400 uppercase tracking-widest" style={{ fontWeight: 600 }}>No trade data yet</p>
+        <p className="text-[10px] text-slate-600" style={{ fontWeight: 400 }}>Log trades in your session to see drawdown intelligence</p>
       </div>
     );
   }

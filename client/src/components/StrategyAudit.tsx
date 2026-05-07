@@ -1075,7 +1075,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   if (isError || (data && !data.success)) {
     const msg = (error as Error)?.message ?? data?.error ?? "Unknown error";
     return (
-      <div style={{ minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, ...F }}>
+      <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, ...F }}>
         <WifiOff style={{ width: 48, height: 48, color: T.red }} />
         <div style={{ textAlign: "center" }}>
           <p style={{ ...mono, fontSize: 12, letterSpacing: ".18em", color: T.red, textTransform: "uppercase" }}>Audit Engine Error</p>
@@ -1083,6 +1083,25 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         </div>
         <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: T.blue2, color: T.text, border: "none", cursor: "pointer", ...mono, fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase" }}>
           <RefreshCw style={{ width: 14, height: 14 }} /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Empty-data state: server returned {success:true} but no audit fields
+  // (happens when no session is selected or session has no trade entries)
+  if (!data || !data.auditSummary) {
+    return (
+      <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, ...F }}>
+        <ShieldCheck style={{ width: 44, height: 44, color: T.dim }} />
+        <div style={{ textAlign: "center" }}>
+          <p style={{ ...mono, fontSize: 11, letterSpacing: ".18em", color: T.muted, textTransform: "uppercase" }}>No audit data yet</p>
+          <p style={{ fontSize: 11, color: T.dim, marginTop: 8, maxWidth: 320, fontWeight: 400, lineHeight: 1.6 }}>
+            Log trades in your session to generate a full strategy audit report
+          </p>
+        </div>
+        <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: "transparent", color: T.muted, border: `1px solid ${T.line2}`, cursor: "pointer", ...mono, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase" }}>
+          <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
         </button>
       </div>
     );
