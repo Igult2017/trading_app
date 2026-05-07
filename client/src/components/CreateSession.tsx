@@ -1,26 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Globe, Wallet, Clock, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Wallet, Clock, ChevronRight } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
-
-function usePulse() {
-  const [on, setOn] = useState(true);
-  useEffect(() => {
-    const t = setInterval(() => setOn(v => !v), 1500);
-    return () => clearInterval(t);
-  }, []);
-  return on;
-}
-
-function useVisible(delay = 0) {
-  const [v, setV] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setV(true), delay);
-    return () => clearTimeout(t);
-  }, [delay]);
-  return v;
-}
 
 interface SessionData {
   id: string;
@@ -685,7 +667,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
 
   return (
     <div style={{ position: 'relative' }}>
-      <style>{SESSION_CARDS_CSS}</style>
+      <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}</style>
       <div className="obs-grid">
         {Array.from({ length: TOTAL_SLOTS }).map((_, i) => (
           <GhostCard key={i} onCreate={() => setShowCreate(true)} />
@@ -747,7 +729,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
   return (
     <>
-      <style>{SESSION_CARDS_CSS}{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       <div className="obs-grid">
         {sessions.map((session) => (
