@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, Clock, ChevronRight } from 'lucide-react';
+import { Wallet, Clock, ChevronRight, Plus, Trash2, ArrowUpRight, MoreVertical, Terminal } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
@@ -202,97 +202,82 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SESSION CARDS — OBSIDIAN DESIGN (DM Mono file-tab style)
+// OBSIDIAN SESSIONS DESIGN
 // ─────────────────────────────────────────────────────────────────────────────
 
-const C = {
-  pageBg:     "#1c1c1c",
-  panelBg:    "#262626",
-  cardBg:     "#1c1c1c",
-  cardHover:  "#212121",
-  ghostBg:    "#1c1c1c",
+// Font constants — used inline on every element to defeat global CSS bleed
+const MONO = "'DM Mono', ui-monospace, monospace";
+const UI   = "'Inter', system-ui, -apple-system, sans-serif";
+
+// Modal colour tokens (kept minimal — only modals use these)
+const MC = {
+  bg:         "#1c1c1c",
   border:     "#333333",
   borderSoft: "#2a2a2a",
-  borderDeep: "#121212",
-  accent:     "#dbdbdb",
   accentLow:  "#888888",
   accentFaint:"#444444",
   white:      "#ffffff",
-  dimText:    "#555555",
   red:        "#e05555",
-  emerald:    "#10b981",
-  purple:     "#a882ff",
-  mono:       "'DM Mono', ui-monospace, monospace",
-  ui:         "'Inter', system-ui, -apple-system, sans-serif",
 };
 
 const SESSION_CARDS_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
-  @keyframes sc-emerald-pulse { 0%,100%{box-shadow:0 0 8px rgba(16,185,129,0.4)} 50%{box-shadow:0 0 14px rgba(16,185,129,0.7)} }
-  @keyframes sc-fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
-  .sc-live-card   { animation: sc-fadeUp 0.3s ease both; }
-  .sc-input       { font-family: ${C.mono}; }
-  .sc-input::placeholder { color: ${C.accentFaint}; }
-  .sc-input:focus { outline: none; border-color: ${C.accentLow} !important; }
-  .sc-btn         { font-size:9px; text-transform:uppercase; letter-spacing:0.16em; font-weight:600; padding:5px 12px; border:1px solid ${C.border}; background:${C.panelBg}; color:${C.accentLow}; cursor:pointer; transition:all 0.15s; font-family:${C.ui}; }
-  .sc-btn:hover   { background:${C.border}; color:${C.white}; }
-  .sc-btn-danger  { color:rgba(224,85,85,0.6); border-color:${C.border}; }
-  .sc-btn-danger:hover { background:rgba(224,85,85,0.08); color:${C.red}; }
-  .sc-btn-primary { color:#a882ff; border-color:${C.border}; }
-  .sc-btn-primary:hover { color:${C.white}; background:rgba(168,130,255,0.12); }
-  .sc-jm, .sc-jm * { font-family:${C.mono} !important; }
-  .sc-label       { font-size:9px; color:${C.dimText}; font-family:${C.mono}; }
-  .sc-sub         { font-size:9px; color:${C.dimText}; font-family:${C.mono}; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+  /* ── isolation: block every inherited font/color from the journal shell ── */
+  .obs-sessions-root {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    font-size: 14px !important;
+    color: #dbdbdb !important;
+    background: #1c1c1c !important;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5 !important;
+  }
+  .obs-sessions-root *, .obs-sessions-root *::before, .obs-sessions-root *::after {
+    box-sizing: border-box;
+  }
+
+  /* modal helpers */
+  .sc-input { font-family: 'DM Mono', ui-monospace, monospace; }
+  .sc-input::placeholder { color: #444; }
+  .sc-input:focus { outline: none; border-color: #888 !important; }
+  .sc-btn {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em;
+    font-weight: 600; padding: 5px 12px;
+    border: 1px solid #333; background: transparent; color: #888;
+    cursor: pointer; transition: all 0.15s;
+    font-family: 'DM Mono', ui-monospace, monospace;
+  }
+  .sc-btn:hover   { background: #333; color: #fff; }
+  .sc-btn-danger  { color: rgba(224,85,85,0.6); border-color: #333; }
+  .sc-btn-danger:hover { background: rgba(224,85,85,0.08); color: #e05555; }
+  .sc-btn-primary { color: #a882ff; border-color: #333; }
+  .sc-btn-primary:hover { color: #fff; background: rgba(168,130,255,0.12); }
 `;
 
-// ── Obsidian stat row item ────────────────────────────────────────────────────
-function ObsStatRow({ label, value, color }: { label: string; value: string; color?: string }) {
+function SCBtn({ label, dim, danger, onClick, testId }: {
+  label: string; dim?: boolean; danger?: boolean; onClick?: () => void; testId?: string;
+}) {
+  const cls = ['sc-btn', danger ? 'sc-btn-danger' : dim ? '' : 'sc-btn-primary'].filter(Boolean).join(' ');
   return (
-    <div style={{
-      display: "flex", justifyContent: "space-between", alignItems: "center",
-      borderBottom: `1px solid ${C.borderSoft}`, paddingBottom: 8,
-      fontSize: 11, fontFamily: C.mono,
-    }}>
-      <span style={{ color: C.dimText }}>{label}</span>
-      <span style={{ color: color || C.accent, fontWeight: 700, letterSpacing: "-0.01em" }}>{value}</span>
-    </div>
-  );
-}
-
-function SCBtn({ label, dim, danger, onClick, testId }: { label: string; dim?: boolean; danger?: boolean; onClick?: () => void; testId?: string }) {
-  const [hov, setHov] = useState(false);
-  const borderCol = danger
-    ? (hov ? C.red : "rgba(224,85,85,0.3)")
-    : dim ? (hov ? C.border : C.borderSoft) : (hov ? C.accentLow : C.border);
-  const textCol = danger
-    ? (hov ? C.red : "rgba(224,85,85,0.5)")
-    : dim ? (hov ? C.accentLow : C.dimText) : (hov ? C.accent : C.accentLow);
-  return (
-    <button onClick={onClick} data-testid={testId}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        fontFamily: C.mono, fontSize: 9, letterSpacing: "0.1em",
-        padding: "5px 13px", cursor: "pointer",
-        border: `1px solid ${borderCol}`,
-        background: "transparent", color: textCol,
-        transition: "all 0.15s",
-      }}>
+    <button onClick={onClick} data-testid={testId} className={cls}>
       {label}
     </button>
   );
 }
 
-function SCModal({ title, danger, onClose, children }: { title: string; danger?: boolean; onClose: () => void; children: React.ReactNode }) {
+function SCModal({ title, danger, onClose, children }: {
+  title: string; danger?: boolean; onClose: () => void; children: React.ReactNode;
+}) {
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(8,9,13,0.85)",
+      position: "fixed", inset: 0, background: "rgba(8,9,13,0.88)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: C.cardBg, border: `1px solid ${C.border}`,
-        padding: "28px 28px 24px", width: 360, fontFamily: C.mono,
+        background: MC.bg, border: `1px solid ${MC.border}`,
+        padding: "28px 28px 24px", width: 360, fontFamily: MONO,
       }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.2em", color: danger ? C.red : C.accentLow, marginBottom: 24 }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.2em", color: danger ? MC.red : MC.accentLow, marginBottom: 24 }}>
           {title}
         </div>
         {children}
@@ -307,13 +292,13 @@ function SCField({ label, value, onChange, type = "text", placeholder, autoFocus
 }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 8, color: C.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: C.mono }}>{label}</div>
+      <div style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
       <input type={type} value={value} onChange={onChange} placeholder={placeholder} autoFocus={autoFocus}
         className="sc-input"
         style={{
-          width: "100%", background: C.pageBg, border: `1px solid ${C.border}`,
-          padding: "10px 12px", color: C.white,
-          fontFamily: C.mono, fontSize: 12, letterSpacing: "0.04em",
+          width: "100%", background: MC.bg, border: `1px solid ${MC.border}`,
+          padding: "10px 12px", color: MC.white,
+          fontFamily: MONO, fontSize: 12, letterSpacing: "0.04em",
           boxSizing: "border-box",
         }} />
     </div>
@@ -355,7 +340,7 @@ function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreat
       <SCField label="session name" value={name} onChange={(e) => setName(e.target.value)} placeholder="alpha-01" autoFocus />
       <SCField label="starting balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" placeholder="5000" />
       {error && (
-        <div style={{ fontSize: 10, color: C.red, marginBottom: 12, fontFamily: C.mono }}>{error}</div>
+        <div style={{ fontSize: 10, color: MC.red, marginBottom: 12, fontFamily: MONO }}>{error}</div>
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
         <SCBtn label="cancel" dim onClick={onClose} />
@@ -399,7 +384,7 @@ function EditSessionModal({ session, onClose }: { session: SessionData; onClose:
       <SCField label="session name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       <SCField label="starting balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" />
       {error && (
-        <div style={{ fontSize: 10, color: C.red, marginBottom: 12, fontFamily: C.mono }}>{error}</div>
+        <div style={{ fontSize: 10, color: MC.red, marginBottom: 12, fontFamily: MONO }}>{error}</div>
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
         <SCBtn label="cancel" dim onClick={onClose} />
@@ -414,8 +399,8 @@ function DeleteSessionModal({ session, onClose, onConfirm, isPending }: {
 }) {
   return (
     <SCModal title="delete session" danger onClose={onClose}>
-      <div style={{ fontSize: 11, color: C.accentLow, lineHeight: 1.9, marginBottom: 22, letterSpacing: '0.03em', fontFamily: C.mono }}>
-        remove <span style={{ color: C.white }}>{session.sessionName.toLowerCase()}</span>?<br />this cannot be undone.
+      <div style={{ fontSize: 11, color: MC.accentLow, lineHeight: 1.9, marginBottom: 22, letterSpacing: '0.03em', fontFamily: MONO }}>
+        remove <span style={{ color: MC.white }}>{session.sessionName.toLowerCase()}</span>?<br />this cannot be undone.
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <SCBtn label="cancel" dim onClick={onClose} />
@@ -426,114 +411,52 @@ function DeleteSessionModal({ session, onClose, onConfirm, isPending }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OBSIDIAN GRID LAYOUT CSS
+// TOTAL SLOTS
 // ─────────────────────────────────────────────────────────────────────────────
-
-const SESSIONS_GRID_CSS = `
-  .obs-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
-    background: #333;
-    border: 1px solid #333;
-  }
-  @media (max-width: 900px) { .obs-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 540px) { .obs-grid { grid-template-columns: 1fr; } }
-  .obs-ghost:hover .obs-ghost-body { opacity: 1 !important; }
-  .obs-ghost:hover .obs-ghost-btn { border-color: rgba(168,130,255,0.5) !important; color: #a882ff !important; }
-  .obs-ghost:hover { background: #212121 !important; }
-  .obs-card-btn-edit {
-    flex: 1;
-    background: #262626;
-    border: 1px solid #3a3a3a;
-    color: #888;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 700;
-    padding: 8px 0;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    font-family: 'Inter', system-ui, sans-serif;
-  }
-  .obs-card-btn-edit:hover { background: #333; color: #fff; }
-  .obs-card-btn-del {
-    background: #262626;
-    border: 1px solid #3a3a3a;
-    color: #555;
-    padding: 8px 12px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    display: flex; align-items: center;
-  }
-  .obs-card-btn-del:hover { background: rgba(224,85,85,0.12); color: #e05555; }
-`;
 
 const TOTAL_SLOTS = 6;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GHOST CARD — Obsidian empty slot
+// GHOST CARD — exact reference design
 // ─────────────────────────────────────────────────────────────────────────────
 
 function GhostCard({ onCreate }: { onCreate: () => void }) {
   return (
     <div
-      className="obs-ghost"
+      className="bg-[#1c1c1c] flex flex-col min-h-[320px] group hover:bg-[#212121] transition-colors cursor-pointer border-l border-t border-[#333]"
       onClick={onCreate}
-      style={{
-        background: C.pageBg, display: 'flex', flexDirection: 'column',
-        minHeight: 320, cursor: 'pointer', transition: 'background 0.15s',
-      }}
     >
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: 'rgba(38,38,38,0.3)', borderBottom: `1px solid ${C.borderDeep}`,
-        padding: '6px 12px',
-      }}>
-        <span style={{
-          fontSize: 10, color: C.accentFaint, fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.25em', fontFamily: C.mono,
-        }}>SESSION: UNTITLED</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.accentFaint} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      {/* Tab header */}
+      <div className="flex justify-between items-center bg-[#262626]/30 px-3 py-1.5 border-b border-[#121212]">
+        <span
+          className="text-[10px] text-[#444] font-bold uppercase tracking-widest"
+          style={{ fontFamily: MONO }}
+        >SESSION: UNTITLED</span>
+        <Plus size={12} className="text-[#333] group-hover:text-[#666]" />
       </div>
 
-      <div
-        className="obs-ghost-body"
-        style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          gap: 10, opacity: 0.3, transition: 'opacity 0.2s',
-        }}
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.accentFaint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-        </svg>
-        <p style={{
-          fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.3em',
-          fontWeight: 700, color: C.dimText, fontFamily: C.mono,
-        }}>Initialize Slot</p>
+      {/* Body */}
+      <div className="flex-1 flex flex-col items-center justify-center space-y-3 opacity-30 group-hover:opacity-100 transition-opacity">
+        <Terminal size={22} className="text-[#444]" />
+        <p
+          className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#555]"
+          style={{ fontFamily: MONO }}
+        >Initialize Slot</p>
       </div>
 
-      <div style={{ padding: 16 }}>
+      {/* Footer */}
+      <div className="p-4">
         <button
-          className="obs-ghost-btn"
-          style={{
-            width: '100%', border: `1px dashed ${C.border}`,
-            padding: '8px 0', fontSize: 9, textTransform: 'uppercase',
-            letterSpacing: '0.3em', fontWeight: 700, color: C.accentFaint,
-            background: 'transparent', cursor: 'pointer',
-            transition: 'all 0.15s', fontFamily: C.ui,
-          }}
-        >
-          Create Session
-        </button>
+          className="w-full border border-dashed border-[#333] group-hover:border-[#a882ff]/50 py-2 text-[9px] uppercase tracking-widest font-bold text-[#444] group-hover:text-[#a882ff] transition-all"
+          style={{ fontFamily: UI }}
+        >Create Session</button>
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SESSION CARD — Obsidian file-tab style
+// SESSION CARD — exact reference design with live data
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
@@ -544,102 +467,99 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
   onDelete: () => void;
 }) => {
   const { totalPnL, tradeCount, isLoading: balLoading } = useSessionBalance(session.id);
-  const startBal = parseFloat(session.startingBalance) || 0;
-  const hasData = !balLoading && tradeCount > 0;
-  const equity = startBal + totalPnL;
+  const startBal  = parseFloat(session.startingBalance) || 0;
+  const hasData   = !balLoading && tradeCount > 0;
+  const equity    = startBal + totalPnL;
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
+  const pnlPos    = totalPnL >= 0;
 
-  const pnlPositive = totalPnL >= 0;
-  const pnlColor = !hasData ? C.dimText : pnlPositive ? C.emerald : C.red;
-  const retColor = !hasData ? C.dimText : returnPct >= 0 ? C.purple : C.red;
+  // Exact Tailwind colour classes — full strings so Tailwind doesn't purge them
+  const pnlClass = !hasData ? 'text-[#555]' : pnlPos ? 'text-emerald-400' : 'text-red-400';
 
   const pnlVal = !hasData ? '—'
-    : `${pnlPositive ? '+' : '-'}$${Math.abs(totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const retVal = !hasData ? '—' : `${returnPct.toFixed(2)}%`;
-  const equityVal = `$${equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const dotColor = isActive ? C.emerald : hasData ? '#f59e0b' : C.dimText;
-  const dotGlow = isActive ? '0 0 8px rgba(16,185,129,0.5)' : 'none';
+    : `${pnlPos ? '+' : '-'}$${Math.abs(totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const retVal    = !hasData ? '—' : `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`;
+  const equityStr = hasData
+    ? `$${equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `$${startBal.toLocaleString()}`;
 
   return (
     <div
-      className="sc-live-card"
+      className="bg-[#1c1c1c] flex flex-col min-h-[320px] group cursor-pointer hover:bg-[#212121] transition-colors"
       onClick={onSelect}
       data-testid={`card-session-${session.id}`}
-      style={{
-        background: C.pageBg, display: 'flex', flexDirection: 'column',
-        minHeight: 320, cursor: 'pointer', transition: 'background 0.15s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)}
-      onMouseLeave={e => (e.currentTarget.style.background = C.pageBg)}
     >
-      {/* FILE TAB HEADER */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: C.panelBg, borderBottom: `1px solid ${C.borderDeep}`,
-        padding: '6px 12px',
-      }}>
-        <span
-          data-testid={`text-session-name-${session.id}`}
-          style={{
-            fontSize: 11, fontWeight: 600, color: C.accent,
-            fontFamily: C.mono, letterSpacing: '-0.01em',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}
-        >
-          SESSION: {session.sessionName.toUpperCase()}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <div style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: dotColor, boxShadow: dotGlow,
-            animation: isActive ? 'sc-emerald-pulse 2s ease-in-out infinite' : 'none',
-          }} />
+      {/* File Tab Header */}
+      <div className="flex justify-between items-center bg-[#262626] border-b border-[#121212] px-3 py-1.5">
+        <div className="flex items-center overflow-hidden">
+          <span
+            className="text-[11px] font-semibold text-[#dbdbdb] truncate tracking-tight"
+            style={{ fontFamily: MONO }}
+            data-testid={`text-session-name-${session.id}`}
+          >SESSION: {session.sessionName.toUpperCase()}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {isActive
+            ? <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+            : <div className={`w-1.5 h-1.5 rounded-full ${hasData ? 'bg-amber-500 opacity-50' : 'bg-[#444]'}`} />
+          }
+          <MoreVertical size={14} className="text-[#555] hover:text-white cursor-pointer" />
         </div>
       </div>
 
-      {/* CARD BODY */}
-      <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Document Body */}
+      <div className="p-6 flex-1 flex flex-col">
 
-        {/* EQUITY */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{
-              fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.25em',
-              color: C.dimText, fontWeight: 700, fontFamily: C.mono,
-            }}>Current_Equity</span>
-            <span style={{
-              fontSize: 18, fontWeight: 700, color: C.white,
-              fontFamily: C.mono, letterSpacing: '-0.02em',
-            }}>
-              {hasData ? equityVal : `$${startBal.toLocaleString()}`}
-            </span>
+        {/* Current Equity */}
+        <div className="flex justify-between items-start mb-8">
+          <div className="space-y-1">
+            <span
+              className="text-[9px] uppercase tracking-[0.25em] text-[#666] font-bold"
+              style={{ fontFamily: MONO }}
+            >Current_Equity</span>
+            <h2
+              className="text-[11px] font-bold text-white tracking-tighter"
+              style={{ fontFamily: MONO }}
+            >{equityStr}</h2>
           </div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-            stroke={pnlPositive || !hasData ? C.emerald : C.red}
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ opacity: 0.4 }}>
-            <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
-          </svg>
+          <ArrowUpRight
+            size={20}
+            className={`${pnlPos || !hasData ? 'text-emerald-500' : 'text-red-400'} opacity-40`}
+          />
         </div>
 
-        {/* STAT ROWS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-          <ObsStatRow label="# net-profit-loss" value={pnlVal} color={pnlColor} />
-          <ObsStatRow label="# total-return" value={retVal} color={retColor} />
-          <ObsStatRow label="# trade-count" value={String(tradeCount)} color={tradeCount > 0 ? C.accent : C.dimText} />
+        {/* Stat rows — exact reference structure */}
+        <div className="space-y-4" style={{ fontFamily: MONO }}>
+          <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
+            <span className="text-[#666]"># net-profit-loss</span>
+            <span className={`${pnlClass} font-bold tracking-tight`}>{pnlVal}</span>
+          </div>
+          <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
+            <span className="text-[#666]"># total-return</span>
+            <span className="text-[#a882ff] font-bold">{retVal}</span>
+          </div>
+          <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
+            <span className="text-[#666]"># trade-count</span>
+            <span className="text-white font-bold">{tradeCount}</span>
+          </div>
         </div>
 
-        {/* ACTION BUTTONS */}
+        {/* Card Actions */}
         <div
-          style={{ marginTop: 24, display: 'flex', gap: 6 }}
+          className="mt-auto pt-6 flex gap-2"
+          style={{ fontFamily: UI }}
           onClick={e => e.stopPropagation()}
         >
-          <button className="obs-card-btn-edit" onClick={onEdit}>Edit Session</button>
-          <button className="obs-card-btn-del" onClick={onDelete} data-testid={`button-delete-session-${session.id}`}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-            </svg>
+          <button
+            className="flex-1 bg-[#262626] hover:bg-[#333] border border-[#3a3a3a] text-[#dbdbdb] text-[10px] uppercase tracking-widest font-bold py-2 transition-colors"
+            onClick={onEdit}
+          >Edit Session</button>
+          <button
+            className="px-3 bg-[#262626] hover:bg-red-900/20 border border-[#3a3a3a] text-[#555] hover:text-red-500 transition-colors flex items-center"
+            onClick={onDelete}
+            data-testid={`button-delete-session-${session.id}`}
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
@@ -659,16 +579,15 @@ interface SessionsListProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GHOST SESSIONS PANEL (shown before any sessions exist)
+// GHOST SESSIONS PANEL
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => void }) {
   const [showCreate, setShowCreate] = useState(false);
-
   return (
-    <div style={{ position: 'relative' }}>
-      <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}</style>
-      <div className="obs-grid">
+    <div className="obs-sessions-root">
+      <style>{SESSION_CARDS_CSS}</style>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#333] border border-[#333]">
         {Array.from({ length: TOTAL_SLOTS }).map((_, i) => (
           <GhostCard key={i} onCreate={() => setShowCreate(true)} />
         ))}
@@ -691,8 +610,8 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   const { data: sessions = [], isLoading } = useQuery<SessionData[]>({
     queryKey: ['/api/sessions'],
   });
-  const [showCreate, setShowCreate] = useState(false);
-  const [editTarget, setEditTarget] = useState<SessionData | null>(null);
+  const [showCreate, setShowCreate]   = useState(false);
+  const [editTarget, setEditTarget]   = useState<SessionData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SessionData | null>(null);
 
   const deleteMutation = useMutation({
@@ -714,11 +633,9 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
 
   if (isLoading) {
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '80px 0', background: C.pageBg,
-      }}>
-        <span style={{ fontSize: 10, color: C.dimText, letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: C.mono }}>
+      <div className="obs-sessions-root" style={{ padding: '80px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <style>{SESSION_CARDS_CSS}</style>
+        <span style={{ fontSize: 10, color: '#555', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: MONO }}>
           Loading sessions...
         </span>
       </div>
@@ -728,10 +645,11 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   const ghostsNeeded = Math.max(0, TOTAL_SLOTS - sessions.length);
 
   return (
-    <>
-      <style>{SESSION_CARDS_CSS}{SESSIONS_GRID_CSS}{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div className="obs-sessions-root">
+      <style>{SESSION_CARDS_CSS}</style>
 
-      <div className="obs-grid">
+      {/* Exact reference grid: gap-[1px] bg-[#333] border border-[#333] */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#333] border border-[#333]">
         {sessions.map((session) => (
           <SessionCard
             key={session.id}
@@ -767,6 +685,6 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
           isPending={deleteMutation.isPending}
         />
       )}
-    </>
+    </div>
   );
 };

@@ -1,0 +1,125 @@
+import React, { useState } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  ArrowUpRight, 
+  MoreVertical,
+  Terminal
+} from 'lucide-react';
+
+const dmMonoLink = document.createElement('link');
+dmMonoLink.rel = 'stylesheet';
+dmMonoLink.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap';
+document.head.appendChild(dmMonoLink);
+
+const ObsidianDashboard = () => {
+  const [sessions, setSessions] = useState([
+    {
+      id: 1,
+      name: 'trading-session-mih1.md',
+      date: '2026-04-24',
+      balance: 5000,
+      pl: 21455.08,
+      return: 429.10,
+      trades: 44,
+      status: 'active'
+    }
+  ]);
+
+  const slotsRemaining = 5;
+
+  const uiFont = "font-['Inter',_system-ui,_-apple-system,_sans-serif]";
+  const monoFont = "font-['DM_Mono',_ui-monospace,_monospace]";
+
+  return (
+    <div className={`min-h-screen bg-[#1c1c1c] text-[#dbdbdb] ${uiFont} selection:bg-[#483699]/50`}>
+
+      <main className="p-6 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#333] border border-[#333]">
+          
+          {/* Active Session "File" */}
+          {sessions.map(session => (
+            <div key={session.id} className="bg-[#1c1c1c] flex flex-col min-h-[320px] group">
+              {/* File Tab Header */}
+              <div className="flex justify-between items-center bg-[#262626] border-b border-[#121212] px-3 py-1.5">
+                <div className="flex items-center overflow-hidden">
+                  <span className={`text-[11px] font-semibold text-[#dbdbdb] truncate tracking-tight ${monoFont}`}>
+                    SESSION: M1H1
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+                  <MoreVertical size={14} className="text-[#555] hover:text-white cursor-pointer" />
+                </div>
+              </div>
+
+              {/* Document Body */}
+              <div className="p-6 flex-1 flex flex-col">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="space-y-1">
+                    <span className={`text-[9px] uppercase tracking-[0.25em] text-[#666] font-bold ${monoFont}`}>Current_Equity</span>
+                    <h2 className={`text-[11px] font-bold text-white tracking-tighter ${monoFont}`}>
+                      ${session.balance.toLocaleString()}
+                    </h2>
+                  </div>
+                  <ArrowUpRight size={20} className="text-emerald-500 opacity-40" />
+                </div>
+
+                <div className={`space-y-4 ${monoFont}`}>
+                  <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
+                    <span className="text-[#666]"># net-profit-loss</span>
+                    <span className="text-emerald-400 font-bold tracking-tight">+${session.pl.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
+                    <span className="text-[#666]"># total-return</span>
+                    <span className="text-[#a882ff] font-bold">{session.return}%</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] border-b border-[#2a2a2a] pb-2">
+                    <span className="text-[#666]"># trade-count</span>
+                    <span className="text-white font-bold">{session.trades}</span>
+                  </div>
+                </div>
+
+                {/* Card Actions */}
+                <div className={`mt-auto pt-6 flex gap-2 ${uiFont}`}>
+                  <button className="flex-1 bg-[#262626] hover:bg-[#333] border border-[#3a3a3a] text-[10px] uppercase tracking-widest font-bold py-2 transition-colors">
+                    Edit Session
+                  </button>
+                  <button className="px-3 bg-[#262626] hover:bg-red-900/20 border border-[#3a3a3a] text-[#555] hover:text-red-500 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* New Session "Empty State" */}
+          {[...Array(slotsRemaining)].map((_, i) => (
+            <div key={i} className="bg-[#1c1c1c] flex flex-col min-h-[320px] group hover:bg-[#212121] transition-colors cursor-pointer border-l border-t border-[#333]">
+              <div className="flex justify-between items-center bg-[#262626]/30 px-3 py-1.5 border-b border-[#121212]">
+                <span className={`text-[10px] text-[#444] font-bold uppercase tracking-widest ${monoFont}`}>
+                  SESSION: UNTITLED
+                </span>
+                <Plus size={12} className="text-[#333] group-hover:text-[#666]" />
+              </div>
+              
+              <div className="flex-1 flex flex-col items-center justify-center space-y-3 opacity-30 group-hover:opacity-100 transition-opacity">
+                <Terminal size={22} className="text-[#444]" />
+                <p className={`text-[10px] uppercase tracking-[0.3em] font-bold text-[#555] ${monoFont}`}>Initialize Slot</p>
+              </div>
+              
+              <div className="p-4">
+                <button className={`w-full border border-dashed border-[#333] group-hover:border-[#a882ff]/50 py-2 text-[9px] uppercase tracking-widest font-bold text-[#444] group-hover:text-[#a882ff] transition-all ${uiFont}`}>
+                  Create Session
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+
+    </div>
+  );
+};
+
+export default ObsidianDashboard;
