@@ -130,13 +130,25 @@ def _dominant_cause(month_trades: list) -> tuple[str, str]:
     return cause, cause_class
 
 
-def compute_monthly(trades: list) -> list:
+def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
     """
     Build the month-by-month drawdown timeline.
+
+    EQUITY GROWTH:
+      Total month P&L / session starting_balance × 100.
+      Assumes profits are withdrawn each month, so every month is measured against
+      the same original capital — no compounding across months.
+
+    BIG L:
+      Largest intra-month peak-to-trough drawdown, expressed as % of starting_balance.
+
+    MAX DD (header number):
+      Same as BIG L — the deepest dip from peak during the month.
     """
     if not trades:
         return []
 
+    sb = float(starting_balance) if starting_balance and starting_balance > 0 else 10_000.0
     sorted_trades = sort_by_date(trades)
 
     # Group by (year, month)
@@ -152,29 +164,59 @@ def compute_monthly(trades: list) -> list:
         total  = len(month_trades)
         losses = sum(1 for t in month_trades if get_outcome(t) == "loss")
 
-        # Mini equity curve for max drawdown within month
-        pcts = [get_pnl_pct(t) for t in month_trades]
-        balance = 100.0
-        peak    = 100.0
-        max_dd  = 0.0
-        trough  = 100.0
+        # ── Equity growth: sum of P&L / starting_balance × 100 ──────────────
+        # Each month is independent — profits withdrawn — always divide by sb.
+        monthly_pnl_abs = 0.0
+        has_abs = False
+        for t in month_trades:
+            pl = get_pnl(t)
+            if pl is not None:
+                monthly_pnl_abs += pl
+                has_abs = True
 
-        for pct in pcts:
-            if pct is not None:
-                balance = balance * (1 + pct / 100)
+        if has_abs:
+            equity_growth_pct = round(monthly_pnl_abs / sb * 100, 2)
+        else:
+            # Fallback: sum percentage values directly (each pct treated as % of sb)
+            pct_sum = sum(p for t in month_trades for p in [get_pnl_pct(t)] if p is not None)
+            equity_growth_pct = round(pct_sum, 2)
+
+        # ── Intra-month equity curve relative to starting_balance ────────────
+        # Balance resets to sb at the start of every month (profits-withdrawn model).
+        balance = sb
+        peak    = sb
+        trough  = sb
+        max_dd_pct = 0.0   # peak-to-trough as % of sb (negative)
+
+        for t in month_trades:
+            pl = get_pnl(t)
+            if pl is not None:
+                balance += pl
+            else:
+                pct = get_pnl_pct(t)
+                if pct is not None:
+                    # Treat pct as fraction of sb (not of running balance) for
+                    # consistency with the equity-growth denominator above
+                    balance += pct / 100.0 * sb
+
             if balance > peak:
                 peak = balance
-            dd = (balance - peak) / peak * 100 if peak > 0 else 0.0
-            if dd < max_dd:
-                max_dd = dd
+            if balance < trough:
                 trough = balance
 
-        # Recovery %
+            dd = (balance - peak) / sb * 100 if sb > 0 else 0.0
+            if dd < max_dd_pct:
+                max_dd_pct = dd
+
+        # ── Recovery % ───────────────────────────────────────────────────────
         month_end = balance
         if trough < peak and abs(peak - trough) > 0.001:
             recovery_pct = min(100.0, round((month_end - trough) / abs(peak - trough) * 100, 0))
         else:
             recovery_pct = 100.0
+
+        # BIG L = largest intra-month drawdown relative to starting_balance
+        biggest_loss_pct = round(max_dd_pct, 2)
 
         # Dominant cause
         cause, cause_class = _dominant_cause(month_trades)
@@ -187,29 +229,18 @@ def compute_monthly(trades: list) -> list:
                 rr_vals.append(rr)
         avg_rr_str = f"1:{safe_mean(rr_vals):.1f}" if rr_vals else "N/A"
 
-        # Worst single trade (most negative pnl_pct)
-        loss_pcts = [
-            p for t in month_trades
-            for p in [get_pnl_pct(t)]
-            if p is not None and get_outcome(t) == "loss"
-        ]
-        biggest_loss_pct = round(min(loss_pcts), 2) if loss_pcts else 0.0
-
-        # Net equity growth for the month: balance started at 100.0
-        equity_growth_pct = round(balance - 100.0, 2)
-
         result.append({
-            "month":            _MONTH_NAMES[month - 1],
-            "year":             year,
-            "maxDdPct":         round(max_dd, 2),
-            "recoveryPct":      float(recovery_pct),
-            "dominantCause":    cause,
+            "month":              _MONTH_NAMES[month - 1],
+            "year":               year,
+            "maxDdPct":           round(max_dd_pct, 2),
+            "recoveryPct":        float(recovery_pct),
+            "dominantCause":      cause,
             "dominantCauseClass": cause_class,
-            "avgRr":            avg_rr_str,
-            "biggestLossPct":   biggest_loss_pct,
-            "totalTrades":      total,
-            "lossCount":        losses,
-            "equityGrowthPct":  equity_growth_pct,
+            "avgRr":              avg_rr_str,
+            "biggestLossPct":     biggest_loss_pct,
+            "totalTrades":        total,
+            "lossCount":          losses,
+            "equityGrowthPct":    equity_growth_pct,
         })
 
     return result

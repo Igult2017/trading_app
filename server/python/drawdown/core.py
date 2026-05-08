@@ -76,7 +76,7 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
     sessions   = compute_sessions(trades)
     streaks    = compute_streaks(trades)
     rr_buckets = compute_rr_buckets(trades)
-    monthly    = compute_monthly(trades)
+    monthly    = compute_monthly(trades, sb)
 
     return {
         "topStats":   top_stats,
