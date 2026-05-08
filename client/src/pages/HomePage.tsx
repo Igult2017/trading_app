@@ -247,10 +247,8 @@ export default function HomePage() {
           </span>
           <div className="nav-links">
             {navItems.map(item => {
-              const isAuthLink = item === 'Login' || item === 'Signup';
               return (
                 <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
-                  {...(isAuthLink ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
                   onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
                 >{item}</a>
@@ -281,11 +279,9 @@ export default function HomePage() {
       {mobileMenuOpen && (
         <div className="mob-dropdown open" style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}` }}>
           {navItems.map(item => {
-            const isAuthLink = item === 'Login' || item === 'Signup';
             return (
               <a key={item} href={navHref(item)}
                 onClick={() => setMobileMenuOpen(false)}
-                {...(isAuthLink ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
                 onMouseEnter={e => e.currentTarget.style.color = t.text}
                 onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
@@ -317,7 +313,7 @@ export default function HomePage() {
             <span style={{ color: t.textMuted, fontSize: 14 }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
           </div>
           <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
-            <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+            <a href="/auth" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
               Start Now - It's Free! <ArrowRight className="w-5 h-5" />
             </a>
           </div>
@@ -478,7 +474,7 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-                <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid ${t.cardBorder}`, color: t.textMuted, fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
+                <a href="/auth" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid ${t.cardBorder}`, color: t.textMuted, fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#475569'; (e.currentTarget as HTMLElement).style.color = t.text; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.cardBorder; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}>
                   START FREE
@@ -504,7 +500,7 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-                <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #3b82f6`, color: '#3b82f6', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
+                <a href="/auth" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #3b82f6`, color: '#3b82f6', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.08)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                   GET STARTED
@@ -531,7 +527,7 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-                <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, background: 'linear-gradient(to right,#2563eb,#3b82f6)', color: '#fff', fontWeight: 800, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', border: 'none' }}>
+                <a href="/auth" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, background: 'linear-gradient(to right,#2563eb,#3b82f6)', color: '#fff', fontWeight: 800, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', border: 'none' }}>
                   GET STARTED
                 </a>
               </div>
@@ -556,7 +552,7 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-                <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #22c55e`, color: '#22c55e', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
+                <a href="/auth" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #22c55e`, color: '#22c55e', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(34,197,94,0.08)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                   GET STARTED
@@ -582,7 +578,7 @@ export default function HomePage() {
             </div>
             <div style={{ textAlign: 'center', marginTop: 48 }}>
               <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
-                <a href="/auth" target="_blank" rel="noopener noreferrer" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+                <a href="/auth" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
                   Join us now <ArrowRight className="w-5 h-5" />
                 </a>
               </div>
