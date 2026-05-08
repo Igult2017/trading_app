@@ -1253,13 +1253,20 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     });
   }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, currentBalance]);
 
-  // ── Auto-fill achievedRR from plannedRR when no exit screenshot ───────────
+  // ── Auto-fill achievedRR based on outcome (when no exit screenshot) ─────────
+  // Loss → "1:-1", BE → "1:0", Win (or no outcome yet) → copy Planned R:R
   useEffect(() => {
-    if (!s2.exitScreenshot && s4.plannedRR && achievedRRAutoRef.current) {
-      setS4(prev => ({ ...prev, achievedRR: s4.plannedRR }));
+    if (s2.exitScreenshot || !achievedRRAutoRef.current) return;
+    const outcome = s2.outcome as "Win" | "Loss" | "BE" | "";
+    let val: string | null = null;
+    if (outcome === "Loss")       val = "1:-1";
+    else if (outcome === "BE")    val = "1:0";
+    else if (s4.plannedRR)        val = s4.plannedRR; // Win or no outcome yet
+    if (val) {
+      setS4(prev => ({ ...prev, achievedRR: val! }));
       setOcrFields(prev => { const n = new Set(prev); n.add("achievedRR"); return n; });
     }
-  }, [s4.plannedRR, s2.exitScreenshot]);
+  }, [s4.plannedRR, s2.exitScreenshot, s2.outcome]);
 
   // ── Auto-fill exit reason ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1377,12 +1384,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (mfeVal != null) set4("mfe", `${mfeVal} pts`);
     if (fields.plannedRR  != null) set4("plannedRR",  fmtRR(fields.plannedRR));
     if (fields.riskReward != null && fields.plannedRR == null) set4("plannedRR", fmtRR(fields.riskReward));
-    // Only accept positive achievedRR from OCR — negative values (e.g. -1 for a loss)
-    // are meaningless in a "1:X" ratio and would show as "1:-1". Let the auto-fill
-    // (plannedRR copy) or manual entry handle losses instead.
-    if (fields.achievedRR != null && Number(fields.achievedRR) > 0) {
-      set4("achievedRR", fmtRR(fields.achievedRR));
-    }
+    if (fields.achievedRR != null) set4("achievedRR", fmtRR(fields.achievedRR));
 
     // Pips gained/lost: prefer direct closed P&L, fall back to calculated from SL/TP distance
     const isLoss   = fields.outcome === "Loss";
