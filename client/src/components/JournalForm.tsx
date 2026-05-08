@@ -38,7 +38,7 @@ const OBS_CSS = `
   .obs-jf .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// ─── Session stats computation (from live DB entries) ────────────────────────
+// ─── Monthly stats computation (prop-firm carry-over model) ──────────────────
 function entryToStat(e: any) {
   const raw = (e.outcome || "").toLowerCase();
   const outcome = raw === "win" ? "Win" : raw === "loss" ? "Loss" : "BE";
@@ -53,59 +53,82 @@ function entryToStat(e: any) {
 
 const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2);
 
-function computeStats(entries: any[], startingBalance?: number) {
-  // A session exists from the moment it's created — if we have a starting balance
-  // but no trades yet, return a zeroed stats object anchored to that balance
-  // so the sidebar is meaningful from session creation, not only after the first trade.
-  if (!entries.length) {
-    if (!startingBalance) return null;
-    return {
-      netPnL: 0, winRate: 0, wins: 0, losses: 0, total: 0,
-      profitFactor: "0.00", commissions: 0,
-      startBalance: startingBalance, endBalance: startingBalance, growth: 0,
-      avgRR: "0.00", expectancy: "0.00",
-      buys: 0, sells: 0, bestTrade: 0, worstTrade: 0,
-    };
+const _MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function computeMonthlyStats(allEntries: any[], startingBalance: number) {
+  const sb = startingBalance > 0 ? startingBalance : 10000;
+
+  // Group entries by "YYYY-MM" using best available date field
+  const groups: Map<string, any[]> = new Map();
+  for (const e of allEntries) {
+    const raw = e.entryTime || e.exitTime || e.createdAt;
+    if (!raw) continue;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(e);
   }
-  const trades = entries.map(entryToStat);
-  const wins   = trades.filter(t => t.outcome === "Win");
-  const losses = trades.filter(t => t.outcome === "Loss");
-  const pnls   = trades.map(t => t.pnl);
-  const pnlSum = pnls.reduce((a, b) => a + b, 0);
 
-  // Use session starting balance if provided; otherwise fall back to first trade's balance
-  const sb = startingBalance ?? (trades[0]?.balance || 0);
+  const sortedKeys = Array.from(groups.keys()).sort();
 
-  // End balance: prefer last trade's recorded accountBalance (reliable dollar figure)
-  const lastBalance = trades[trades.length - 1]?.balance || 0;
-  const commissions = trades.reduce((a, t) => a + t.commission, 0);
-  const eb = lastBalance > 0 ? lastBalance : sb + pnlSum - commissions;
+  // Walk chronologically applying prop-firm rules:
+  //   • Profits are withdrawn → next month starts at sb (carriedDeficit → 0)
+  //   • Losses accumulate as carried deficit → next month starts at sb − deficit
+  let carriedDeficit = 0;
+  const monthData: Map<string, any> = new Map();
 
-  // Net P&L: derive from balance tracking when available (avoids pips-vs-dollars mismatch)
-  // If no trade has a recorded accountBalance, fall back to summing profitLoss values
-  const hasBalanceTracking = trades.some(t => t.balance > 0);
-  const netPnL = hasBalanceTracking && sb > 0 ? eb - sb : pnlSum - commissions;
+  for (const key of sortedKeys) {
+    const entries = groups.get(key)!;
+    const carriedDeficitIn = carriedDeficit;
+    const effectiveStart   = sb - carriedDeficit;
 
-  // Gross win/loss: use individual trade P&Ls (these are per-trade figures, not cumulative)
-  const grossWin  = wins.map(t => t.pnl).reduce((a, b) => a + b, 0);
-  const grossLoss = Math.abs(losses.map(t => t.pnl).reduce((a, b) => a + b, 0));
-  const pf        = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
-  const winRate   = (wins.length / trades.length) * 100;
-  const growth = sb > 0 ? ((eb - sb) / sb) * 100 : 0;
-  const rrTs  = trades.filter(t => t.achievedRR);
-  const avgRR = rrTs.length ? rrTs.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTs.length : 0;
-  const avgWin  = wins.length ? grossWin / wins.length : 0;
-  const avgLoss = losses.length ? grossLoss / losses.length : 0;
-  const exp = (winRate / 100) * avgWin - (1 - winRate / 100) * avgLoss;
-  return {
-    netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
-    profitFactor: pf.toFixed(2), commissions, startBalance: sb, endBalance: eb, growth,
-    avgRR: avgRR.toFixed(2), expectancy: exp.toFixed(2),
-    buys:       trades.filter(t => t.direction === "Long").length,
-    sells:      trades.filter(t => t.direction === "Short").length,
-    bestTrade:  pnls.length ? Math.max(...pnls) : 0,
-    worstTrade: pnls.length ? Math.min(...pnls) : 0,
-  };
+    const trades      = entries.map(entryToStat);
+    const commissions = trades.reduce((a, t) => a + t.commission, 0);
+    const pnlSum      = trades.reduce((a, t) => a + t.pnl,        0);
+    const netPnL      = pnlSum - commissions;
+    const effectiveEnd = effectiveStart + netPnL;
+
+    let newCarriedDeficit: number;
+    let withdrawn: number;
+    if (effectiveEnd >= sb) {
+      withdrawn        = effectiveEnd - sb;
+      newCarriedDeficit = 0;
+    } else {
+      withdrawn        = 0;
+      newCarriedDeficit = sb - effectiveEnd;
+    }
+
+    const wins     = trades.filter(t => t.outcome === "Win");
+    const losses   = trades.filter(t => t.outcome === "Loss");
+    const grossWin  = wins.reduce((a, t) => a + t.pnl, 0);
+    const grossLoss = Math.abs(losses.reduce((a, t) => a + t.pnl, 0));
+    const pf        = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
+    const winRate   = trades.length ? (wins.length / trades.length) * 100 : 0;
+    const growth    = effectiveStart > 0 ? ((effectiveEnd - effectiveStart) / effectiveStart) * 100 : 0;
+    const rrTs      = trades.filter(t => t.achievedRR);
+    const avgRR     = rrTs.length ? rrTs.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTs.length : 0;
+    const avgWin    = wins.length   ? grossWin  / wins.length   : 0;
+    const avgLoss   = losses.length ? grossLoss / losses.length : 0;
+    const exp       = (winRate / 100) * avgWin - (1 - winRate / 100) * avgLoss;
+    const pnls      = trades.map(t => t.pnl);
+
+    monthData.set(key, {
+      netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
+      profitFactor: pf.toFixed(2), commissions,
+      startBalance: effectiveStart, endBalance: effectiveEnd, growth,
+      avgRR: avgRR.toFixed(2), expectancy: exp.toFixed(2),
+      buys:       trades.filter(t => t.direction === "Long").length,
+      sells:      trades.filter(t => t.direction === "Short").length,
+      bestTrade:  pnls.length ? Math.max(...pnls) : 0,
+      worstTrade: pnls.length ? Math.min(...pnls) : 0,
+      carriedDeficitIn, carriedDeficit: newCarriedDeficit, withdrawn,
+    });
+
+    carriedDeficit = newCarriedDeficit;
+  }
+
+  return { monthData, sortedKeys };
 }
 
 // ─── Obsidian primitives ──────────────────────────────────────────────────────
@@ -871,7 +894,7 @@ function Step4({ d, set, hiddenPanels }: any) {
   );
 }
 
-// ─── Sidebar (live session stats) ─────────────────────────────────────────────
+// ─── Sidebar (monthly prop-firm stats) ────────────────────────────────────────
 const StatItem = ({ label, value, colorCls }: any) => (
   <div className="flex justify-between items-center group py-1.5 border-b border-[#18181b] last:border-0">
     <span className="text-[10px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] group-hover:text-[#71717a] transition-colors">{label}</span>
@@ -886,48 +909,108 @@ const StatBox = ({ label, value, colorCls }: any) => (
   </div>
 );
 
-function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance?: number }) {
-  const stats = useMemo(() => computeStats(entries, startingBalance), [entries, startingBalance]);
-  const has = !!stats && stats.total > 0;
+function Sidebar({ allEntries, startingBalance }: { allEntries: any[]; startingBalance?: number }) {
+  const sb = startingBalance && startingBalance > 0 ? startingBalance : 10000;
+
+  // Default to current month
+  const now = new Date();
+  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [selectedKey, setSelectedKey] = useState(currentKey);
+
+  const { monthData, sortedKeys } = useMemo(
+    () => computeMonthlyStats(allEntries, sb),
+    [allEntries, sb],
+  );
+
+  // Navigable keys = all months with data + current month, sorted
+  const navKeys = useMemo(() => {
+    const s = new Set([...sortedKeys, currentKey]);
+    return Array.from(s).sort();
+  }, [sortedKeys, currentKey]);
+
+  const idx    = navKeys.indexOf(selectedKey);
+  const canPrev = idx > 0;
+  const canNext = idx < navKeys.length - 1;
+
+  const stats = monthData.get(selectedKey) ?? null;
+  const has   = !!stats && stats.total > 0;
+
+  // Parse "YYYY-MM" → display label
+  const [selYear, selMon] = selectedKey.split("-").map(Number);
+  const monthLabel = `${_MONTH_ABBR[selMon - 1]} ${selYear}`;
 
   return (
     <div className="w-full lg:w-[260px] xl:w-[260px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
-      {/* 2px spacer — matches the progress bar on the form side */}
       <div className="h-[2px] bg-[#18181b] flex-shrink-0" />
-      {/* Header — h-[52px] matches the tab-nav button height on the form side */}
+      {/* Header */}
       <div className="h-[52px] px-4 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-[#4e8cff] rounded-full animate-pulse" />
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Session</h2>
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Monthly</h2>
         </div>
-        <span className="text-[10px] font-bold text-emerald-500">
-          {stats ? (stats.growth >= 0 ? "+" : "") + stats.growth.toFixed(1) + "%" : "+0.0%"} growth
+        <span className={`text-[10px] font-bold ${has ? (stats!.growth >= 0 ? "text-emerald-500" : "text-rose-500") : "text-[#3f3f46]"}`}>
+          {has ? (stats!.growth >= 0 ? "+" : "") + stats!.growth.toFixed(1) + "%" : "+0.0%"} growth
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto obs-scrollbar p-4 space-y-6 pb-10">
 
+        {/* Net P&L */}
         <div className="space-y-3">
           <div className="text-[9px] font-bold text-[#3f3f46] uppercase tracking-[0.2em]">Net P&amp;L</div>
           <div className={`text-sm font-bold tabular-nums ${has ? (stats!.netPnL > 0 ? "text-emerald-400" : stats!.netPnL < 0 ? "text-rose-400" : "text-white") : "text-white"}`}>
-            {stats ? fmtUsd(stats.netPnL) : "$0.00"}
+            {has ? fmtUsd(stats!.netPnL) : "+$0.00"}
           </div>
+
+          {/* Start / End */}
           <div className="grid grid-cols-2 gap-2">
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm">
               <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">Start</div>
-              <div className="text-xs text-[#a1a1aa]">${stats ? stats.startBalance.toFixed(2) : (startingBalance?.toFixed(2) ?? "0.00")}</div>
+              <div className="text-xs text-[#a1a1aa]">${has ? stats!.startBalance.toFixed(2) : sb.toFixed(2)}</div>
             </div>
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm text-right">
               <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">End</div>
-              <div className="text-xs text-white">${stats ? stats.endBalance.toFixed(2) : (startingBalance?.toFixed(2) ?? "0.00")}</div>
+              <div className="text-xs text-white">${has ? stats!.endBalance.toFixed(2) : sb.toFixed(2)}</div>
             </div>
           </div>
-          <div className="flex justify-between text-[10px] px-3 py-2 bg-[#0c0c0e]/50 border border-[#18181b] rounded-sm">
-            <span className="text-[#3f3f46] uppercase tracking-widest font-bold">Fees</span>
-            <span className="text-rose-500 font-bold">{stats ? "-$" + stats.commissions.toFixed(2) : "$0.00"}</span>
+
+          {/* Month navigator — replaces Fees row */}
+          <div className="flex items-center justify-between px-2 py-2 bg-[#0c0c0e]/50 border border-[#18181b] rounded-sm">
+            <button
+              onClick={() => canPrev && setSelectedKey(navKeys[idx - 1])}
+              disabled={!canPrev}
+              className={`w-6 text-center text-base font-bold leading-none transition-colors ${canPrev ? "text-[#4e8cff] hover:text-white" : "text-[#27272a] cursor-default"}`}
+            >‹</button>
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#a1a1aa]">{monthLabel}</span>
+            <button
+              onClick={() => canNext && setSelectedKey(navKeys[idx + 1])}
+              disabled={!canNext}
+              className={`w-6 text-center text-base font-bold leading-none transition-colors ${canNext ? "text-[#4e8cff] hover:text-white" : "text-[#27272a] cursor-default"}`}
+            >›</button>
           </div>
+
+          {/* Carried deficit in / outstanding */}
+          {has && stats!.carriedDeficitIn > 0 && (
+            <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-[#27272a] rounded-sm">
+              <span className="text-[#3f3f46] uppercase tracking-widest font-bold">Deficit carried in</span>
+              <span className="text-rose-500 font-bold">-${stats!.carriedDeficitIn.toFixed(2)}</span>
+            </div>
+          )}
+          {has && stats!.carriedDeficit > 0 && (
+            <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-rose-900/30 rounded-sm">
+              <span className="text-rose-800 uppercase tracking-widest font-bold">Outstanding deficit</span>
+              <span className="text-rose-500 font-bold">-${stats!.carriedDeficit.toFixed(2)}</span>
+            </div>
+          )}
+          {has && stats!.withdrawn > 0 && (
+            <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-emerald-900/30 rounded-sm">
+              <span className="text-emerald-800 uppercase tracking-widest font-bold">Withdrawn</span>
+              <span className="text-emerald-400 font-bold">+${stats!.withdrawn.toFixed(2)}</span>
+            </div>
+          )}
         </div>
 
+        {/* Trading Stats */}
         <section className="space-y-2">
           <div className="flex items-center gap-2 pb-2 border-b border-[#18181b]">
             <div className="w-[2px] h-3 bg-[#3f3f46] flex-shrink-0" />
@@ -938,8 +1021,10 @@ function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance
           <StatItem label="Total Trades" value={has ? stats!.total : 0} />
           <StatItem label="Best Trade"   value={has ? fmtUsd(stats!.bestTrade)  : "$0.00"} colorCls={has && stats!.bestTrade  > 0 ? "text-emerald-400" : undefined} />
           <StatItem label="Worst Trade"  value={has ? fmtUsd(stats!.worstTrade) : "$0.00"} colorCls={has && stats!.worstTrade < 0 ? "text-rose-400"    : undefined} />
+          <StatItem label="Fees"         value={has ? "-$" + stats!.commissions.toFixed(2) : "$0.00"} colorCls={has && stats!.commissions > 0 ? "text-rose-400" : undefined} />
         </section>
 
+        {/* Win Rate */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -958,6 +1043,7 @@ function Sidebar({ entries, startingBalance }: { entries: any[]; startingBalance
           </div>
         </section>
 
+        {/* Stat boxes */}
         <section className="grid grid-cols-2 gap-2">
           <StatBox label="PROFIT FACTOR" value={has ? stats!.profitFactor : "0"} colorCls={has && parseFloat(stats!.profitFactor) > 1 ? "text-emerald-400" : undefined} />
           <StatBox label="EXPECTANCY"    value={has ? stats!.expectancy    : "0"} colorCls={has && parseFloat(stats!.expectancy) > 0    ? "text-emerald-400" : undefined} />
@@ -1615,7 +1701,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className={`w-full lg:w-auto bg-[#09090b] flex flex-col overflow-hidden ${mobileTab === "form" ? "hidden lg:flex" : "flex"}`}
         style={{ height:"100%" }}>
-        <Sidebar entries={sessionEntries} startingBalance={startingBalance} />
+        <Sidebar allEntries={allEntries} startingBalance={startingBalance} />
       </aside>
 
       {/* ── Mobile tab bar ─────────────────────────────────────────────── */}
