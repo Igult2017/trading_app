@@ -136,14 +136,22 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
 
     EQUITY GROWTH:
       Total month P&L / session starting_balance × 100.
-      Assumes profits are withdrawn each month, so every month is measured against
-      the same original capital — no compounding across months.
+      Profits are assumed withdrawn each month — always relative to sb.
 
     BIG L:
-      Largest intra-month peak-to-trough drawdown, expressed as % of starting_balance.
+      Largest intra-month peak-to-trough drawdown as % of starting_balance.
 
-    MAX DD (header number):
-      Same as BIG L — the deepest dip from peak during the month.
+    RECOVERY %  (cross-month):
+      Tracks a cumulative running deficit across months.
+      If a month ends with an unrecovered loss the deficit carries forward.
+      Recovery % = how much of the TOTAL outstanding deficit (carried + new)
+      was recovered by the end of this month.
+      Once the deficit is fully erased → 100%.
+      A profitable month with no prior deficit → 100%.
+
+    outstandingDeficitPct:
+      Remaining unrecovered deficit at month-end as % of starting_balance
+      (0.0 = fully recovered / in profit, positive = still in deficit).
     """
     if not trades:
         return []
@@ -158,14 +166,19 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
         if dt:
             monthly_groups[(dt.year, dt.month)].append(t)
 
+    # Cross-month deficit tracker
+    # cumulative_net_pnl: total $ gained/lost since session start (profits withdrawn but losses real)
+    # cumulative_hwm:     highest cumulative_net_pnl ever reached (starts at 0 = break-even)
+    cumulative_net_pnl: float = 0.0
+    cumulative_hwm:     float = 0.0
+
     result = []
     for (year, month) in sorted(monthly_groups.keys()):
         month_trades = monthly_groups[(year, month)]
         total  = len(month_trades)
         losses = sum(1 for t in month_trades if get_outcome(t) == "loss")
 
-        # ── Equity growth: sum of P&L / starting_balance × 100 ──────────────
-        # Each month is independent — profits withdrawn — always divide by sb.
+        # ── Monthly absolute P&L ─────────────────────────────────────────────
         monthly_pnl_abs = 0.0
         has_abs = False
         for t in month_trades:
@@ -176,17 +189,19 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
 
         if has_abs:
             equity_growth_pct = round(monthly_pnl_abs / sb * 100, 2)
+            month_pnl_dollars  = monthly_pnl_abs
         else:
-            # Fallback: sum percentage values directly (each pct treated as % of sb)
+            # Fallback: sum pct values directly (each treated as % of sb)
             pct_sum = sum(p for t in month_trades for p in [get_pnl_pct(t)] if p is not None)
-            equity_growth_pct = round(pct_sum, 2)
+            equity_growth_pct  = round(pct_sum, 2)
+            month_pnl_dollars  = pct_sum / 100.0 * sb
 
-        # ── Intra-month equity curve relative to starting_balance ────────────
-        # Balance resets to sb at the start of every month (profits-withdrawn model).
-        balance = sb
-        peak    = sb
-        trough  = sb
-        max_dd_pct = 0.0   # peak-to-trough as % of sb (negative)
+        # ── Intra-month equity curve (BIG L / maxDdPct) ──────────────────────
+        # Balance resets to sb every month (profits-withdrawn model).
+        balance    = sb
+        peak       = sb
+        trough     = sb
+        max_dd_pct = 0.0
 
         for t in month_trades:
             pl = get_pnl(t)
@@ -195,28 +210,50 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
             else:
                 pct = get_pnl_pct(t)
                 if pct is not None:
-                    # Treat pct as fraction of sb (not of running balance) for
-                    # consistency with the equity-growth denominator above
                     balance += pct / 100.0 * sb
 
             if balance > peak:
                 peak = balance
             if balance < trough:
                 trough = balance
-
             dd = (balance - peak) / sb * 100 if sb > 0 else 0.0
             if dd < max_dd_pct:
                 max_dd_pct = dd
 
-        # ── Recovery % ───────────────────────────────────────────────────────
-        month_end = balance
-        if trough < peak and abs(peak - trough) > 0.001:
-            recovery_pct = min(100.0, round((month_end - trough) / abs(peak - trough) * 100, 0))
-        else:
-            recovery_pct = 100.0
-
-        # BIG L = largest intra-month drawdown relative to starting_balance
         biggest_loss_pct = round(max_dd_pct, 2)
+
+        # ── Cross-month recovery tracking ────────────────────────────────────
+        # Outstanding deficit BEFORE this month's P&L is applied.
+        outstanding_before = max(0.0, cumulative_hwm - cumulative_net_pnl)
+
+        # Apply this month's result to the running total.
+        cumulative_net_pnl += month_pnl_dollars
+
+        # Update the all-time high-water mark.
+        if cumulative_net_pnl > cumulative_hwm:
+            cumulative_hwm = cumulative_net_pnl
+
+        # Outstanding deficit AFTER this month.
+        outstanding_after = max(0.0, cumulative_hwm - cumulative_net_pnl)
+
+        if outstanding_before < 0.001:
+            # No carried deficit entering this month.
+            # If this month itself was loss-free (or broke even) → 100%.
+            # If this month created a new deficit → 0% (just started a new hole).
+            recovery_pct = 100.0 if outstanding_after < 0.001 else 0.0
+        else:
+            if outstanding_after < 0.001:
+                recovery_pct = 100.0  # Fully recovered
+            else:
+                # Partial — measure how much of the prior deficit was closed.
+                improvement = outstanding_before - outstanding_after
+                if improvement <= 0:
+                    recovery_pct = 0.0   # Deficit deepened
+                else:
+                    recovery_pct = min(100.0, round(improvement / outstanding_before * 100, 0))
+
+        # Outstanding deficit as % of sb for the frontend label
+        outstanding_deficit_pct = round(outstanding_after / sb * 100, 2) if sb > 0 else 0.0
 
         # Dominant cause
         cause, cause_class = _dominant_cause(month_trades)
@@ -230,17 +267,18 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
         avg_rr_str = f"1:{safe_mean(rr_vals):.1f}" if rr_vals else "N/A"
 
         result.append({
-            "month":              _MONTH_NAMES[month - 1],
-            "year":               year,
-            "maxDdPct":           round(max_dd_pct, 2),
-            "recoveryPct":        float(recovery_pct),
-            "dominantCause":      cause,
-            "dominantCauseClass": cause_class,
-            "avgRr":              avg_rr_str,
-            "biggestLossPct":     biggest_loss_pct,
-            "totalTrades":        total,
-            "lossCount":          losses,
-            "equityGrowthPct":    equity_growth_pct,
+            "month":                _MONTH_NAMES[month - 1],
+            "year":                 year,
+            "maxDdPct":             round(max_dd_pct, 2),
+            "recoveryPct":          float(recovery_pct),
+            "outstandingDeficitPct": outstanding_deficit_pct,
+            "dominantCause":        cause,
+            "dominantCauseClass":   cause_class,
+            "avgRr":                avg_rr_str,
+            "biggestLossPct":       biggest_loss_pct,
+            "totalTrades":          total,
+            "lossCount":            losses,
+            "equityGrowthPct":      equity_growth_pct,
         })
 
     return result

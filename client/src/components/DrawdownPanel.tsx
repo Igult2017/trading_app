@@ -193,17 +193,21 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     const eq = m.equityGrowthPct ?? null;
     const eqStr = eq === null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
     const eqColor = eq === null ? 'text-slate-500' : eq > 0 ? 'text-emerald-400' : eq < 0 ? 'text-rose-400' : 'text-slate-400';
+    const deficit = m.outstandingDeficitPct ?? 0;
+    const hasDeficit = deficit > 0.01;
     return {
-      month:   m.month,
-      dd:      fmtDd(m.maxDdPct),
-      t:       m.totalTrades,
-      l:       m.lossCount,
-      rec:     `${Math.round(m.recoveryPct)}%`,
-      cause:   m.dominantCause,
-      causeC:  causeColor(m.dominantCauseClass),
-      bigL:    fmtDd(m.biggestLossPct),
-      equity:  eqStr,
+      month:      m.month,
+      dd:         fmtDd(m.maxDdPct),
+      t:          m.totalTrades,
+      l:          m.lossCount,
+      rec:        `${Math.round(m.recoveryPct)}%`,
+      cause:      m.dominantCause,
+      causeC:     causeColor(m.dominantCauseClass),
+      bigL:       fmtDd(m.biggestLossPct),
+      equity:     eqStr,
       eqColor,
+      hasDeficit,
+      deficitStr: hasDeficit ? `-${deficit.toFixed(2)}%` : null,
     };
   });
 
@@ -532,11 +536,16 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                 {monthly.map((d: any, i: number) => {
                   const heavy = parseFloat(d.dd) < -4;
                   return (
-                    <div key={i} className={`rounded p-4 border transition-all duration-300 hover:border-white/10 ${heavy ? 'bg-rose-500/5 border-rose-500/15' : 'dd-card-dark border-white/4'}`}>
-                      <div className={`w-2 h-2 rounded-full mb-4 mx-auto ${heavy ? 'bg-rose-500' : 'bg-slate-700'}`}></div>
+                    <div key={i} className={`rounded p-4 border transition-all duration-300 hover:border-white/10 ${heavy ? 'bg-rose-500/5 border-rose-500/15' : d.hasDeficit ? 'bg-amber-500/3 border-amber-500/15' : 'dd-card-dark border-white/4'}`}>
+                      <div className={`w-2 h-2 rounded-full mb-4 mx-auto ${heavy ? 'bg-rose-500' : d.hasDeficit ? 'bg-amber-500' : 'bg-slate-700'}`}></div>
                       <L className="block text-center mb-2">{d.month}</L>
                       <V className={`block text-center mb-1 ${heavy ? 'text-rose-500' : 'text-white'}`}>{d.dd}</V>
                       <Sub className="block text-center mb-3">{d.rec} rec.</Sub>
+                      {d.hasDeficit && (
+                        <div className="text-[7px] text-center px-1 py-0.5 rounded mb-1" style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontWeight: 700, letterSpacing: '0.08em' }}>
+                          CARRYING {d.deficitStr}
+                        </div>
+                      )}
                       <div className={`text-[8px] text-center px-1.5 py-0.5 rounded bg-white/5 border border-white/5 ${d.causeC} mb-3`} style={{ fontWeight: 600 }}>{d.cause}</div>
                       <div className="space-y-1.5 pt-2 border-t dd-divider">
                         <div className="flex justify-between items-baseline"><L>Equity</L><Sub className={d.eqColor} style={{ fontWeight: 700 }}>{d.equity}</Sub></div>
