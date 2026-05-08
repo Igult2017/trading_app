@@ -1377,7 +1377,12 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (mfeVal != null) set4("mfe", `${mfeVal} pts`);
     if (fields.plannedRR  != null) set4("plannedRR",  fmtRR(fields.plannedRR));
     if (fields.riskReward != null && fields.plannedRR == null) set4("plannedRR", fmtRR(fields.riskReward));
-    if (fields.achievedRR != null) set4("achievedRR", fmtRR(fields.achievedRR));
+    // Only accept positive achievedRR from OCR — negative values (e.g. -1 for a loss)
+    // are meaningless in a "1:X" ratio and would show as "1:-1". Let the auto-fill
+    // (plannedRR copy) or manual entry handle losses instead.
+    if (fields.achievedRR != null && Number(fields.achievedRR) > 0) {
+      set4("achievedRR", fmtRR(fields.achievedRR));
+    }
 
     // Pips gained/lost: prefer direct closed P&L, fall back to calculated from SL/TP distance
     const isLoss   = fields.outcome === "Loss";
