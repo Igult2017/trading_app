@@ -142,16 +142,19 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
       Largest intra-month peak-to-trough drawdown as % of starting_balance.
 
     RECOVERY %  (cross-month):
-      Tracks a cumulative running deficit across months.
-      If a month ends with an unrecovered loss the deficit carries forward.
-      Recovery % = how much of the TOTAL outstanding deficit (carried + new)
-      was recovered by the end of this month.
-      Once the deficit is fully erased → 100%.
-      A profitable month with no prior deficit → 100%.
+      Profits are WITHDRAWN each month — next month always starts at sb.
+      Losses cannot be withdrawn, so they become a carried deficit (in % of sb).
+
+      Rules:
+        Losing month  → loss % added to carried_deficit_pct. Recovery = 0%.
+        Profitable month, no prior deficit → profit withdrawn in full. Recovery = 100%.
+        Profitable month, deficit exists:
+          - Profit first repays the deficit.
+          - If profit >= deficit: fully recovered, excess withdrawn. Recovery = 100%.
+          - If profit < deficit: partial. Recovery = profit% / deficit% × 100. Remainder carries.
 
     outstandingDeficitPct:
-      Remaining unrecovered deficit at month-end as % of starting_balance
-      (0.0 = fully recovered / in profit, positive = still in deficit).
+      Carried deficit remaining at month-end as % of starting_balance (0 = clear).
     """
     if not trades:
         return []
@@ -166,11 +169,9 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
         if dt:
             monthly_groups[(dt.year, dt.month)].append(t)
 
-    # Cross-month deficit tracker
-    # cumulative_net_pnl: total $ gained/lost since session start (profits withdrawn but losses real)
-    # cumulative_hwm:     highest cumulative_net_pnl ever reached (starts at 0 = break-even)
-    cumulative_net_pnl: float = 0.0
-    cumulative_hwm:     float = 0.0
+    # Cross-month deficit tracker (pure % of sb)
+    # Profits are withdrawn; losses accumulate as a carried deficit.
+    carried_deficit_pct: float = 0.0
 
     result = []
     for (year, month) in sorted(monthly_groups.keys()):
@@ -222,38 +223,37 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
 
         biggest_loss_pct = round(max_dd_pct, 2)
 
-        # ── Cross-month recovery tracking ────────────────────────────────────
-        # Outstanding deficit BEFORE this month's P&L is applied.
-        outstanding_before = max(0.0, cumulative_hwm - cumulative_net_pnl)
+        # ── Cross-month recovery tracking (pure % of sb) ─────────────────────
+        # equity_growth_pct is this month's net result as % of sb.
+        # Profits are withdrawn; only losses persist as a carried deficit.
 
-        # Apply this month's result to the running total.
-        cumulative_net_pnl += month_pnl_dollars
+        deficit_entering = carried_deficit_pct   # % still owed from prior months
 
-        # Update the all-time high-water mark.
-        if cumulative_net_pnl > cumulative_hwm:
-            cumulative_hwm = cumulative_net_pnl
+        if equity_growth_pct < 0:
+            # Losing month — deepen the deficit, nothing recovered.
+            carried_deficit_pct = round(deficit_entering + abs(equity_growth_pct), 4)
+            recovery_pct = 0.0
 
-        # Outstanding deficit AFTER this month.
-        outstanding_after = max(0.0, cumulative_hwm - cumulative_net_pnl)
+        elif equity_growth_pct == 0:
+            # Break-even — no change to deficit, no recovery progress.
+            recovery_pct = 100.0 if deficit_entering < 0.001 else 0.0
 
-        if outstanding_before < 0.001:
-            # No carried deficit entering this month.
-            # If this month itself was loss-free (or broke even) → 100%.
-            # If this month created a new deficit → 0% (just started a new hole).
-            recovery_pct = 100.0 if outstanding_after < 0.001 else 0.0
         else:
-            if outstanding_after < 0.001:
-                recovery_pct = 100.0  # Fully recovered
+            # Profitable month — profit repays deficit first, excess is withdrawn.
+            if deficit_entering < 0.001:
+                # No deficit to clear — full profit withdrawn, clean month.
+                carried_deficit_pct = 0.0
+                recovery_pct = 100.0
+            elif equity_growth_pct >= deficit_entering:
+                # Profit covers the entire deficit → fully recovered.
+                carried_deficit_pct = 0.0
+                recovery_pct = 100.0
             else:
-                # Partial — measure how much of the prior deficit was closed.
-                improvement = outstanding_before - outstanding_after
-                if improvement <= 0:
-                    recovery_pct = 0.0   # Deficit deepened
-                else:
-                    recovery_pct = min(100.0, round(improvement / outstanding_before * 100, 0))
+                # Partial recovery — profit chips away at deficit.
+                recovery_pct = min(100.0, round(equity_growth_pct / deficit_entering * 100, 0))
+                carried_deficit_pct = round(deficit_entering - equity_growth_pct, 4)
 
-        # Outstanding deficit as % of sb for the frontend label
-        outstanding_deficit_pct = round(outstanding_after / sb * 100, 2) if sb > 0 else 0.0
+        outstanding_deficit_pct = round(carried_deficit_pct, 2)
 
         # Dominant cause
         cause, cause_class = _dominant_cause(month_trades)
