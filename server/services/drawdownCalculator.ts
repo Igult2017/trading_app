@@ -35,18 +35,30 @@
  */
 
 import { spawn, ChildProcess } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PYTHON_SCRIPT_PATH = path.join(
-  process.cwd(),
-  "server",
-  "python",
-  "drawdown",
-  "main.py"
-);
+function resolveScriptPath(): string {
+  // Try multiple root-relative paths to handle different CWDs in production.
+  const cwd = process.cwd();
+  const candidates = [
+    path.join(cwd, "server", "python", "drawdown", "main.py"),
+    path.join(cwd, "python", "drawdown", "main.py"),
+    path.join(cwd, "..", "server", "python", "drawdown", "main.py"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  const fallback = candidates[0];
+  console.warn("[DrawdownCalculator] main.py not found at any known path. Using:", fallback);
+  return fallback;
+}
+
+const PYTHON_SCRIPT_PATH = resolveScriptPath();
+console.log(`[DrawdownCalculator] PYTHON_BIN=${PYTHON_BIN}  SCRIPT=${PYTHON_SCRIPT_PATH}`);
 
 const TIMEOUT_MS = 30_000;
 

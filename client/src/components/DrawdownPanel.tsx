@@ -102,7 +102,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const [activeFreqView,   setActiveFreqView]   = useState('attr');
   const [activeStructView, setActiveStructView] = useState('context');
 
-  const { data: result, isLoading, isFetching, isError } = useQuery<any>({
+  const { data: result, isLoading, isFetching, isError, error } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
@@ -240,10 +240,14 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   }
 
   if (isError) {
+    const errMsg = (error as Error)?.message;
     return (
-      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: "'Montserrat', sans-serif" }}>
+      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, fontFamily: "'Montserrat', sans-serif" }}>
         <TrendingDown className="w-8 h-8 text-rose-600" />
         <p className="text-[11px] text-rose-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>Failed to load drawdown data</p>
+        {errMsg && (
+          <p className="text-[9px] text-rose-400/80 max-w-sm text-center px-4" style={{ fontWeight: 500, lineHeight: 1.6, wordBreak: 'break-all' }}>{errMsg}</p>
+        )}
         <p className="text-[10px] text-slate-500" style={{ fontWeight: 400 }}>Check server logs or try refreshing</p>
       </div>
     );
