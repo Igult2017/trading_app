@@ -860,7 +860,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 }
 
 // ─── Step 4 — Review ──────────────────────────────────────────────────────────
-function Step4({ d, set, hiddenPanels }: any) {
+function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   const H = hiddenPanels as string[];
   return (
@@ -906,7 +906,7 @@ function Step4({ d, set, hiddenPanels }: any) {
           <Inp label="Monetary Risk $" type="number" placeholder="100"   value={d.monetaryRisk}  onChange={f("monetaryRisk")} />
           <Inp label="Potential Reward $" type="number" placeholder="250" value={d.potentialReward} onChange={f("potentialReward")} />
           <Inp label="Planned R:R"   placeholder="1:2"                   value={d.plannedRR}     onChange={f("plannedRR")} />
-          <Inp label="Achieved R:R"  placeholder="1:1.5"                 value={d.achievedRR}    onChange={f("achievedRR")} />
+          <Inp label="Achieved R:R"  placeholder="1:1.5"                 value={d.achievedRR}    onChange={onAchievedRRChange ?? f("achievedRR")} />
         </div>
       </section>
       )}
@@ -1191,8 +1191,9 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [unfilledSections, setUnfilledSections] = useState<{ step: number; name: string }[] | null>(null);
   const [mobileTab, setMobileTab] = useState<"form"|"stats">("form");
 
-  const regimeTouchedRef = useRef(false);
-  const trendTouchedRef  = useRef(false);
+  const regimeTouchedRef    = useRef(false);
+  const trendTouchedRef     = useRef(false);
+  const achievedRRAutoRef   = useRef(true); // true = value is auto-filled; false = user manually edited
 
   // Live journal entries (all) — filtered by sessionId for sidebar
   const { data: allEntries = [] } = useQuery<any[]>({
@@ -1251,6 +1252,14 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       return changed ? next : prev;
     });
   }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, currentBalance]);
+
+  // ── Auto-fill achievedRR from plannedRR when no exit screenshot ───────────
+  useEffect(() => {
+    if (!s2.exitScreenshot && s4.plannedRR && achievedRRAutoRef.current) {
+      setS4(prev => ({ ...prev, achievedRR: s4.plannedRR }));
+      setOcrFields(prev => { const n = new Set(prev); n.add("achievedRR"); return n; });
+    }
+  }, [s4.plannedRR, s2.exitScreenshot]);
 
   // ── Auto-fill exit reason ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1400,6 +1409,9 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           const res = await raw.json();
           if (res?.fields) {
             applyAnalyzedFields(res.fields, res.confidence ?? "high");
+            if (field === "exitScreenshot" && res.fields.achievedRR != null) {
+              achievedRRAutoRef.current = false; // OCR from exit screenshot provided achievedRR — user's real outcome
+            }
             const methodLabel = res.method === "gemini" ? "Gemini" : "OCR";
             setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: "" }));
           } else if (res?.error) {
@@ -1626,8 +1638,9 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       setS2({ ...INIT_STEP2 });
       setS3({ ...INIT_STEP3 });
       setS4({ ...INIT_STEP4 });
-      regimeTouchedRef.current = false;
-      trendTouchedRef.current  = false;
+      regimeTouchedRef.current  = false;
+      trendTouchedRef.current   = false;
+      achievedRRAutoRef.current = true; // re-enable auto-fill for next trade
       setOcrFields(new Set());
       setStep(1);
     } catch (err: any) {
@@ -1719,7 +1732,12 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             {step === 1 && <Step1 d={s1} set={setS1} hiddenPanels={hiddenPanels} />}
             {step === 2 && <Step2 d={s2} set={setS2} onScreenshotUpload={handleScreenshotUpload} analyzing={analyzing} currentBalance={currentBalance} hiddenPanels={hiddenPanels} />}
             {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} regimeTouchedRef={regimeTouchedRef} trendTouchedRef={trendTouchedRef} hiddenPanels={hiddenPanels} />}
-            {step === 4 && <Step4 d={s4} set={setS4} hiddenPanels={hiddenPanels} />}
+            {step === 4 && <Step4 d={s4} set={setS4} hiddenPanels={hiddenPanels}
+              onAchievedRRChange={(v: any) => {
+                achievedRRAutoRef.current = false; // user took manual control
+                setS4(prev => ({ ...prev, achievedRR: v }));
+              }}
+            />}
             <div className="h-8" />
           </div>
         </div>
