@@ -55,31 +55,82 @@ const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2
 
 const _MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-function computeMonthlyStats(allEntries: any[], startingBalance: number) {
+function computeMonthlyStats(allEntries: any[], allSessions: any[], startingBalance: number) {
   const sb = startingBalance > 0 ? startingBalance : 10000;
 
-  // Group entries by "YYYY-MM" using best available date field
-  const groups: Map<string, any[]> = new Map();
+  // ── Step 1: Build sessionId → entries map ─────────────────────────────────
+  const sessionEntriesMap: Map<string, any[]> = new Map();
   for (const e of allEntries) {
-    const raw = e.entryTime || e.exitTime || e.createdAt;
-    if (!raw) continue;
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) continue;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(e);
+    const sid = String(e.sessionId ?? "");
+    if (!sid) continue;
+    if (!sessionEntriesMap.has(sid)) sessionEntriesMap.set(sid, []);
+    sessionEntriesMap.get(sid)!.push(e);
   }
 
-  const sortedKeys = Array.from(groups.keys()).sort();
+  // ── Step 2: Assign each session a month-key ────────────────────────────────
+  // Month = month of the FIRST trade in that session.
+  // Falls back to session.createdAt if the session has no entries yet.
+  const sessionMonthMap: Map<string, string> = new Map();
 
-  // Walk chronologically applying prop-firm rules:
-  //   • Profits are withdrawn → next month starts at sb (carriedDeficit → 0)
-  //   • Losses accumulate as carried deficit → next month starts at sb − deficit
+  const _parseDate = (raw: any): Date | null => {
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const _toKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+  for (const session of allSessions) {
+    const sid = String(session.id);
+    const entries = sessionEntriesMap.get(sid) ?? [];
+
+    let monthKey: string | null = null;
+
+    if (entries.length > 0) {
+      // Use the date of the FIRST trade in the session
+      let earliest: Date | null = null;
+      for (const e of entries) {
+        const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
+        if (d && (!earliest || d < earliest)) earliest = d;
+      }
+      if (earliest) monthKey = _toKey(earliest);
+    }
+
+    // Fallback: session creation date
+    if (!monthKey) {
+      const d = _parseDate(session.createdAt);
+      if (d) monthKey = _toKey(d);
+    }
+
+    if (monthKey) sessionMonthMap.set(sid, monthKey);
+  }
+
+  // Also handle entries whose session isn't in allSessions (orphaned)
+  for (const e of allEntries) {
+    const sid = String(e.sessionId ?? "");
+    if (!sid || sessionMonthMap.has(sid)) continue;
+    const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
+    if (d) sessionMonthMap.set(sid, _toKey(d));
+  }
+
+  // ── Step 3: Aggregate entries per month ───────────────────────────────────
+  const monthEntriesMap: Map<string, any[]> = new Map();
+  for (const [sid, monthKey] of sessionMonthMap) {
+    const entries = sessionEntriesMap.get(sid) ?? [];
+    if (!monthEntriesMap.has(monthKey)) monthEntriesMap.set(monthKey, []);
+    monthEntriesMap.get(monthKey)!.push(...entries);
+  }
+
+  const sortedKeys = Array.from(monthEntriesMap.keys()).sort();
+
+  // ── Step 4: Walk months chronologically, apply prop-firm carry-over ────────
+  //   • Profitable month → profits withdrawn, deficit cleared → next month starts at sb
+  //   • Losing month    → deficit grows     → next month starts at sb − deficit
   let carriedDeficit = 0;
   const monthData: Map<string, any> = new Map();
 
   for (const key of sortedKeys) {
-    const entries = groups.get(key)!;
+    const entries = monthEntriesMap.get(key)!;
     const carriedDeficitIn = carriedDeficit;
     const effectiveStart   = sb - carriedDeficit;
 
@@ -92,15 +143,15 @@ function computeMonthlyStats(allEntries: any[], startingBalance: number) {
     let newCarriedDeficit: number;
     let withdrawn: number;
     if (effectiveEnd >= sb) {
-      withdrawn        = effectiveEnd - sb;
+      withdrawn         = effectiveEnd - sb;
       newCarriedDeficit = 0;
     } else {
-      withdrawn        = 0;
+      withdrawn         = 0;
       newCarriedDeficit = sb - effectiveEnd;
     }
 
-    const wins     = trades.filter(t => t.outcome === "Win");
-    const losses   = trades.filter(t => t.outcome === "Loss");
+    const wins      = trades.filter(t => t.outcome === "Win");
+    const losses    = trades.filter(t => t.outcome === "Loss");
     const grossWin  = wins.reduce((a, t) => a + t.pnl, 0);
     const grossLoss = Math.abs(losses.reduce((a, t) => a + t.pnl, 0));
     const pf        = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
@@ -912,14 +963,21 @@ const StatBox = ({ label, value, colorCls }: any) => (
 function Sidebar({ allEntries, startingBalance }: { allEntries: any[]; startingBalance?: number }) {
   const sb = startingBalance && startingBalance > 0 ? startingBalance : 10000;
 
+  // Fetch all sessions — needed to determine each session's month
+  // (month = month of first trade in that session)
+  const { data: allSessions = [] } = useQuery<any[]>({
+    queryKey: ["/api/sessions"],
+    select: (d: any) => (Array.isArray(d) ? d : d?.sessions ?? []),
+  });
+
   // Default to current month
   const now = new Date();
   const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [selectedKey, setSelectedKey] = useState(currentKey);
 
   const { monthData, sortedKeys } = useMemo(
-    () => computeMonthlyStats(allEntries, sb),
-    [allEntries, sb],
+    () => computeMonthlyStats(allEntries, allSessions, sb),
+    [allEntries, allSessions, sb],
   );
 
   // Navigable keys = all months with data + current month, sorted
