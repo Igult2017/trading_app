@@ -77,9 +77,9 @@ def _kurtosis(values: list[float]) -> float:
 def _build_equity_curve(trades: list[dict], starting_balance: float) -> list[float]:
     """
     Build equity curve sorted by exit_dt (then created_dt as fallback).
-    Returns list of balance values at each trade exit.
+    Returns list of balance values starting from the starting_balance so that
+    _max_drawdown always has the correct initial peak to measure from.
     """
-    # Sort by date
     dated = sorted(
         [t for t in trades if t.get("pnl") is not None],
         key=lambda t: (
@@ -88,7 +88,9 @@ def _build_equity_curve(trades: list[dict], starting_balance: float) -> list[flo
         )
     )
 
-    curve: list[float] = []
+    # Prepend the starting balance so peak = starting_balance in _max_drawdown,
+    # correctly capturing any drawdown that begins from the very first trade.
+    curve: list[float] = [starting_balance]
     balance = starting_balance
     for t in dated:
         balance += t["pnl"]
