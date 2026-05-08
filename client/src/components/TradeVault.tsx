@@ -34,7 +34,7 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
       {label}
     </span>
     <span style={{
-      fontSize: isMobile ? 15 : 18, fontWeight: 900, color,
+      fontSize: isMobile ? 8 : 9, fontWeight: 900, color,
       fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em",
       textShadow:
         color === "#00d48a" ? "0 0 16px rgba(0,212,138,0.35)" :
