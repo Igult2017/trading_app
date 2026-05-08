@@ -320,17 +320,17 @@ const Checkbox = ({ label, checked, onChange }: any) => (
   </label>
 );
 
-// ─── StickyChip — pin a value for the whole session ──────────────────────────
+// ─── StickyChip — pin a value that persists until manually removed ────────────
 function StickyChip({ storageKey, label, value, options, onChoose }: {
   storageKey: string; label: string; value: string; options?: string[]; onChoose: (v: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [typingCustom, setTypingCustom] = useState(false);
   const [sticky, setSticky] = useState<string>(() => {
-    try { return sessionStorage.getItem(storageKey) || ""; } catch { return ""; }
+    try { return localStorage.getItem(storageKey) || ""; } catch { return ""; }
   });
 
-  // Re-fill the manual field whenever sticky exists but field is empty (e.g. after form reset)
+  // Re-fill the form field whenever sticky exists but field is empty (e.g. after form reset)
   useEffect(() => {
     if (sticky && !value) onChoose(sticky);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -339,7 +339,7 @@ function StickyChip({ storageKey, label, value, options, onChoose }: {
   const apply = (raw: string) => {
     const v = (raw || "").trim();
     if (!v) return;
-    try { sessionStorage.setItem(storageKey, v); } catch {}
+    try { localStorage.setItem(storageKey, v); } catch {}
     setSticky(v);
     setDraft("");
     setTypingCustom(false);
@@ -347,7 +347,7 @@ function StickyChip({ storageKey, label, value, options, onChoose }: {
   };
 
   const clear = () => {
-    try { sessionStorage.removeItem(storageKey); } catch {}
+    try { localStorage.removeItem(storageKey); } catch {}
     setSticky("");
     setTypingCustom(false);
     setDraft("");
