@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import TradingLoader from '@/components/TradingLoader';
 
 type Mode = 'login' | 'signup';
 
@@ -23,14 +22,12 @@ export default function AuthPage() {
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
 
-  // Already authenticated — redirect immediately without showing any dialog
+  // Already authenticated — redirect without blanking the page
   useEffect(() => {
     if (!loading && role) {
       navigate(role === 'admin' ? '/admin' : '/journal', { replace: true });
     }
   }, [loading, role, navigate]);
-
-  if (loading || role) return <LoadingScreen />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,14 +68,34 @@ export default function AuthPage() {
     }
   }
 
+  const formDisabled = loading || busy;
+
   return (
     <div style={styles.page}>
       <style>{`
         @media (max-width: 480px) {
           .auth-card { padding: 28px 20px !important; }
         }
+        @keyframes auth-spin { to { transform: rotate(360deg); } }
       `}</style>
-      <div className="auth-card" style={styles.card}>
+      <div className="auth-card" style={{ ...styles.card, opacity: loading ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+
+        {/* Subtle session-check indicator — only visible on initial load */}
+        {loading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <div style={{
+              width: 14, height: 14, borderRadius: '50%',
+              border: '2px solid rgba(59,130,246,0.25)',
+              borderTopColor: '#3b82f6',
+              animation: 'auth-spin 0.8s linear infinite',
+              flexShrink: 0,
+            }} />
+            <span style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', letterSpacing: '0.04em' }}>
+              Checking session…
+            </span>
+          </div>
+        )}
+
         <div style={styles.brand}>
           <span style={styles.brandName}>
             <span style={{ color: '#ffffff' }}>myfm</span>
@@ -113,12 +130,13 @@ export default function AuthPage() {
             <div style={styles.field}>
               <label style={styles.label}>Full Name</label>
               <input
-                style={styles.input}
+                style={{ ...styles.input, opacity: formDisabled ? 0.5 : 1 }}
                 type="text"
                 placeholder="John Doe"
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 required
+                disabled={formDisabled}
                 autoComplete="name"
               />
             </div>
@@ -127,12 +145,13 @@ export default function AuthPage() {
           <div style={styles.field}>
             <label style={styles.label}>Email</label>
             <input
-              style={styles.input}
+              style={{ ...styles.input, opacity: formDisabled ? 0.5 : 1 }}
               type="email"
               placeholder="you@example.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
+              disabled={formDisabled}
               autoComplete="email"
             />
           </div>
@@ -140,12 +159,13 @@ export default function AuthPage() {
           <div style={styles.field}>
             <label style={styles.label}>Password</label>
             <input
-              style={styles.input}
+              style={{ ...styles.input, opacity: formDisabled ? 0.5 : 1 }}
               type="password"
               placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              disabled={formDisabled}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </div>
@@ -154,12 +174,13 @@ export default function AuthPage() {
             <div style={styles.field}>
               <label style={styles.label}>Confirm Password</label>
               <input
-                style={styles.input}
+                style={{ ...styles.input, opacity: formDisabled ? 0.5 : 1 }}
                 type="password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
                 required
+                disabled={formDisabled}
                 autoComplete="new-password"
               />
             </div>
@@ -169,9 +190,9 @@ export default function AuthPage() {
           {info  && <div style={styles.infoBox}>{info}</div>}
 
           <button
-            style={{ ...styles.btn, opacity: busy ? 0.6 : 1, cursor: busy ? 'not-allowed' : 'pointer' }}
+            style={{ ...styles.btn, opacity: formDisabled ? 0.6 : 1, cursor: formDisabled ? 'not-allowed' : 'pointer' }}
             type="submit"
-            disabled={busy}
+            disabled={formDisabled}
           >
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
@@ -199,10 +220,6 @@ export default function AuthPage() {
       </div>
     </div>
   );
-}
-
-function LoadingScreen() {
-  return <TradingLoader fullScreen message="Verifying your session…" />;
 }
 
 const C = {
