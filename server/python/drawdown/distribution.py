@@ -5,7 +5,7 @@ RR buckets and month-by-month drawdown timeline.
 from __future__ import annotations
 from collections import defaultdict
 from ._utils import (
-    get_outcome, get_pnl_pct, get_trade_dt,
+    get_outcome, get_pnl, get_pnl_pct, get_trade_dt,
     blob_field, safe_mean, _f, _s, sort_by_date
 )
 
