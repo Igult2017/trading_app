@@ -55,22 +55,8 @@ const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2
 
 const _MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-function computeMonthlyStats(allEntries: any[], allSessions: any[], startingBalance: number) {
+function computeMonthlyStats(allEntries: any[], _allSessions: any[], startingBalance: number) {
   const sb = startingBalance > 0 ? startingBalance : 10000;
-
-  // ── Step 1: Build sessionId → entries map ─────────────────────────────────
-  const sessionEntriesMap: Map<string, any[]> = new Map();
-  for (const e of allEntries) {
-    const sid = String(e.sessionId ?? "");
-    if (!sid) continue;
-    if (!sessionEntriesMap.has(sid)) sessionEntriesMap.set(sid, []);
-    sessionEntriesMap.get(sid)!.push(e);
-  }
-
-  // ── Step 2: Assign each session a month-key ────────────────────────────────
-  // Month = month of the FIRST trade in that session.
-  // Falls back to session.createdAt if the session has no entries yet.
-  const sessionMonthMap: Map<string, string> = new Map();
 
   const _parseDate = (raw: any): Date | null => {
     if (!raw) return null;
@@ -80,45 +66,17 @@ function computeMonthlyStats(allEntries: any[], allSessions: any[], startingBala
   const _toKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-  for (const session of allSessions) {
-    const sid = String(session.id);
-    const entries = sessionEntriesMap.get(sid) ?? [];
-
-    let monthKey: string | null = null;
-
-    if (entries.length > 0) {
-      // Use the date of the FIRST trade in the session
-      let earliest: Date | null = null;
-      for (const e of entries) {
-        const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
-        if (d && (!earliest || d < earliest)) earliest = d;
-      }
-      if (earliest) monthKey = _toKey(earliest);
-    }
-
-    // Fallback: session creation date
-    if (!monthKey) {
-      const d = _parseDate(session.createdAt);
-      if (d) monthKey = _toKey(d);
-    }
-
-    if (monthKey) sessionMonthMap.set(sid, monthKey);
-  }
-
-  // Also handle entries whose session isn't in allSessions (orphaned)
-  for (const e of allEntries) {
-    const sid = String(e.sessionId ?? "");
-    if (!sid || sessionMonthMap.has(sid)) continue;
-    const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
-    if (d) sessionMonthMap.set(sid, _toKey(d));
-  }
-
-  // ── Step 3: Aggregate entries per month ───────────────────────────────────
+  // ── Group every entry directly by its own trade date ─────────────────────
+  // Priority: entryTime (user-set text) → exitTime → createdAt (DB timestamp).
+  // This handles entries with or without a sessionId, and is independent of
+  // whether the session list has loaded yet.
   const monthEntriesMap: Map<string, any[]> = new Map();
-  for (const [sid, monthKey] of sessionMonthMap) {
-    const entries = sessionEntriesMap.get(sid) ?? [];
-    if (!monthEntriesMap.has(monthKey)) monthEntriesMap.set(monthKey, []);
-    monthEntriesMap.get(monthKey)!.push(...entries);
+  for (const e of allEntries) {
+    const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
+    if (!d) continue;
+    const key = _toKey(d);
+    if (!monthEntriesMap.has(key)) monthEntriesMap.set(key, []);
+    monthEntriesMap.get(key)!.push(e);
   }
 
   const sortedKeys = Array.from(monthEntriesMap.keys()).sort();
