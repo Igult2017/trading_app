@@ -134,6 +134,10 @@ export async function enrichTradeWithBalance(
 
   let finalPnL: number;
 
+  // Default riskPercent to 1 so monetaryRisk is always computable
+  const effectiveRisk = hasRisk ? riskPercent : 1;
+  const dollarRisk = r2((currentBalance * effectiveRisk) / 100);
+
   if (hasPnL) {
     // Client already supplied profitLoss — trust it
     finalPnL = existingPnL;
@@ -141,16 +145,24 @@ export async function enrichTradeWithBalance(
     // Derive from risk % + R:R + outcome
     const outcome  = String(tradeData.outcome ?? "BE");
     const rrRatio  = parseFloat(tradeData.riskReward ?? "1") || 1;
-    const dollarRisk = r2((currentBalance * riskPercent) / 100);
-    const norm       = outcome.toLowerCase();
-    if (norm === "win")  finalPnL = r2(dollarRisk * rrRatio);
+    const norm     = outcome.toLowerCase();
+    if (norm === "win")       finalPnL = r2(dollarRisk * rrRatio);
     else if (norm === "loss") finalPnL = r2(-dollarRisk);
-    else finalPnL = 0;
+    else                      finalPnL = 0;
   }
+
+  // Always record monetaryRisk (= dollar value of 1 risk unit) so the DB
+  // column is never blank — fall back to the client-supplied value if present.
+  const monetaryRisk = String(
+    tradeData.monetaryRisk && parseFloat(tradeData.monetaryRisk) > 0
+      ? parseFloat(tradeData.monetaryRisk)
+      : dollarRisk
+  );
 
   return {
     ...tradeData,
     profitLoss:     String(finalPnL),
     accountBalance: String(r2(currentBalance + finalPnL)),
+    monetaryRisk,
   };
 }

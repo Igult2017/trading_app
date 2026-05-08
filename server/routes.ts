@@ -863,6 +863,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // ── Default riskPercent to 1% when the client doesn't supply it ─────────
+      // Rule: every trade must record risk. If the user leaves the field blank,
+      // we default to 1% so enrichTradeWithBalance can compute monetary values.
+      if (!sanitized.riskPercent || sanitized.riskPercent === 'null') {
+        sanitized.riskPercent = "1";
+      }
+
       // If a sessionId is supplied, ensure it belongs to the authenticated user.
       const sessionId = sanitized.sessionId as string | undefined;
       if (sessionId) {
@@ -880,7 +887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : sanitized;
 
       // Re-sanitise any newly computed decimal fields from enrichment
-      for (const field of ['profitLoss', 'accountBalance']) {
+      for (const field of ['profitLoss', 'accountBalance', 'monetaryRisk']) {
         if (enriched[field] !== undefined && enriched[field] !== null && enriched[field] !== '') {
           const raw = String(enriched[field]);
           const match = raw.match(/-?\d+(\.\d+)?/);
