@@ -2908,7 +2908,7 @@ export default function AdminPanel() {
     const activeColor = isActive ? 'white' : isSoon ? '#2a3d54' : '#607898';
     const iconColor = isActive ? C.indigoL : isSoon ? '#1e3050' : '#3d5878';
     const handleClick = () => {
-      if (item.id === 'journal') { window.open('/journal', '_blank', 'noopener,noreferrer'); return; }
+      if (item.id === 'journal') { navigate('/journal'); return; }
       setActiveTab(item.id);
       localStorage.setItem('admin_active_tab', item.id);
       if (bp.isMobile) setCollapsed(true);
