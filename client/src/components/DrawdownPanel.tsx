@@ -197,6 +197,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     const hasDeficit = deficit > 0.01;
     return {
       month:      m.month,
+      year:       m.year,
       dd:         fmtDd(m.maxDdPct),
       t:          m.totalTrades,
       l:          m.lossCount,
@@ -546,7 +547,9 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                   return (
                     <div key={i} className={`rounded p-4 border transition-all duration-300 hover:border-white/10 ${cardBg}`}>
                       <div className={`w-2 h-2 rounded-full mb-4 mx-auto ${dotColor}`}></div>
-                      <L className="block text-center mb-2">{d.month}</L>
+                      <L className="block text-center mb-2">
+                        {({'Jan':'JANUARY','Feb':'FEBRUARY','Mar':'MARCH','Apr':'APRIL','May':'MAY','Jun':'JUNE','Jul':'JULY','Aug':'AUGUST','Sep':'SEPTEMBER','Oct':'OCTOBER','Nov':'NOVEMBER','Dec':'DECEMBER'} as Record<string,string>)[d.month] ?? d.month.toUpperCase()}/{d.year}
+                      </L>
                       <V className={`block text-center mb-1 ${d.eqColor}`}>{d.equity}</V>
                       <Sub className="block text-center mb-3">{d.rec} rec.</Sub>
                       {d.hasDeficit && (
