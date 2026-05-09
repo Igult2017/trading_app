@@ -918,7 +918,7 @@ const StatBox = ({ label, value, colorCls }: any) => (
   </div>
 );
 
-function Sidebar({ allEntries, startingBalance }: { allEntries: any[]; startingBalance?: number }) {
+function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]; startingBalance?: number; sessionId?: string | number | null }) {
   const sb = startingBalance && startingBalance > 0 ? startingBalance : 10000;
 
   // Fetch all sessions — needed to determine each session's month
@@ -928,10 +928,37 @@ function Sidebar({ allEntries, startingBalance }: { allEntries: any[]; startingB
     select: (d: any) => (Array.isArray(d) ? d : d?.sessions ?? []),
   });
 
-  // Default to current month
   const now = new Date();
   const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [selectedKey, setSelectedKey] = useState(currentKey);
+  // True once the user manually clicks ‹ › — prevents auto-jump from overriding their choice
+  const userNavigated = useRef(false);
+
+  // Auto-detect the active month from the current session's entries.
+  // Runs whenever entries or sessionId change (e.g. after async data loads).
+  useEffect(() => {
+    if (userNavigated.current) return;
+
+    // Prefer entries belonging to the current session; fall back to all entries
+    const pool = sessionId
+      ? allEntries.filter(e => String(e.sessionId) === String(sessionId))
+      : allEntries;
+
+    if (pool.length === 0) return;
+
+    // Pick the most recently created entry to find the active month
+    const latest = pool.reduce((a: any, b: any) =>
+      new Date(a.createdAt ?? 0) > new Date(b.createdAt ?? 0) ? a : b
+    );
+
+    const raw = latest.entryTime ?? latest.exitTime ?? latest.createdAt;
+    if (!raw) return;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return;
+
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    setSelectedKey(key);
+  }, [allEntries, sessionId]);
 
   const { monthData, sortedKeys } = useMemo(
     () => computeMonthlyStats(allEntries, allSessions, sb),
@@ -993,13 +1020,13 @@ function Sidebar({ allEntries, startingBalance }: { allEntries: any[]; startingB
           {/* Month navigator — replaces Fees row */}
           <div className="flex items-center justify-between px-2 py-2 bg-[#0c0c0e]/50 border border-[#18181b] rounded-sm">
             <button
-              onClick={() => canPrev && setSelectedKey(navKeys[idx - 1])}
+              onClick={() => { if (canPrev) { userNavigated.current = true; setSelectedKey(navKeys[idx - 1]); } }}
               disabled={!canPrev}
               className={`w-6 text-center text-base font-bold leading-none transition-colors ${canPrev ? "text-[#4e8cff] hover:text-white" : "text-[#27272a] cursor-default"}`}
             >‹</button>
             <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#a1a1aa]">{monthLabel}</span>
             <button
-              onClick={() => canNext && setSelectedKey(navKeys[idx + 1])}
+              onClick={() => { if (canNext) { userNavigated.current = true; setSelectedKey(navKeys[idx + 1]); } }}
               disabled={!canNext}
               className={`w-6 text-center text-base font-bold leading-none transition-colors ${canNext ? "text-[#4e8cff] hover:text-white" : "text-[#27272a] cursor-default"}`}
             >›</button>
@@ -1762,7 +1789,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className={`w-full lg:w-auto bg-[#09090b] flex flex-col overflow-hidden ${mobileTab === "form" ? "hidden lg:flex" : "flex"}`}
         style={{ height:"100%" }}>
-        <Sidebar allEntries={allEntries} startingBalance={startingBalance} />
+        <Sidebar allEntries={allEntries} startingBalance={startingBalance} sessionId={sessionId} />
       </aside>
 
       {/* ── Mobile tab bar ─────────────────────────────────────────────── */}
