@@ -34,7 +34,7 @@ export function usePageTracking(page: string) {
     const recordDuration = () => {
       const durationSeconds = Math.round((Date.now() - startRef.current) / 1000);
       if (durationSeconds < 2) return; // ignore bounces
-      navigator.sendBeacon('/api/track', JSON.stringify({ page: trackingPage, sessionId, durationSeconds }));
+      navigator.sendBeacon('/api/track', new Blob([JSON.stringify({ page: trackingPage, sessionId, durationSeconds })], { type: 'application/json' }));
     };
 
     window.addEventListener('beforeunload', recordDuration);
