@@ -1385,8 +1385,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           const res = await raw.json();
           if (res?.fields) {
             applyAnalyzedFields(res.fields, res.confidence ?? "high");
-            if (field === "exitScreenshot" && res.fields.achievedRR != null) {
-              achievedRRAutoRef.current = false; // OCR from exit screenshot provided achievedRR — user's real outcome
+            if (res.fields.achievedRR != null) {
+              // Any screenshot analysis (Gemini or OCR) that returns a real
+              // achievedRR disables auto-fill — the data source knows the
+              // actual outcome, don't override it with plannedRR.
+              achievedRRAutoRef.current = false;
             }
             const methodLabel = res.method === "gemini" ? "Gemini" : "OCR";
             setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: "" }));
@@ -1405,8 +1408,14 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       try {
         const raw = await apiRequest("POST", "/api/journal/analyze-text", { text: value });
         const res = await raw.json();
-        if (res?.fields) applyAnalyzedFields(res.fields, "text input");
-        else if (res?.error) setS2(prev => ({ ...prev, ocrValidation: `Text parse error: ${res.error}` }));
+        if (res?.fields) {
+          applyAnalyzedFields(res.fields, "text input");
+          if (res.fields.achievedRR != null) {
+            // Pasted text provided a real achievedRR — disable auto-fill so
+            // the P&L effect uses the actual value, not the planned RR proxy.
+            achievedRRAutoRef.current = false;
+          }
+        } else if (res?.error) setS2(prev => ({ ...prev, ocrValidation: `Text parse error: ${res.error}` }));
       } catch (err: any) {
         setS2(prev => ({ ...prev, ocrValidation: `Error: ${err?.message ?? "Unknown error"}` }));
       } finally {
