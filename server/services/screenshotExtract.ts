@@ -457,10 +457,16 @@ export async function extractFromScreenshot(
 
   for (const { model, thinkingBudget } of MODEL_CHAIN) {
     try {
-      const config: Record<string, any> = { maxOutputTokens: 4096 };
+      const config: Record<string, any> = {
+        maxOutputTokens: 1500,
+        // Force raw JSON output — no markdown fences, no explanation preamble.
+        // This is the single cleanest speed win: the model skips all text
+        // formatting overhead and goes straight to structured data.
+        responseMimeType: "application/json",
+      };
 
-      // Explicitly disable thinking for flash models — this is the single
-      // biggest speed win. Without this, 2.5-flash silently thinks for 30-60s.
+      // Explicitly disable thinking for flash models — without this,
+      // 2.5-flash silently reasons for 30-60s before answering.
       if (typeof thinkingBudget === "number") {
         config.thinkingConfig = { thinkingBudget };
       }
