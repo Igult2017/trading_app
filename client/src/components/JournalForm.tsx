@@ -1184,18 +1184,29 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   useEffect(() => {
     const riskPct = parseFloat(s2.riskPercent);
     if (!riskPct || riskPct <= 0 || !currentBalance || currentBalance <= 0) return;
-    const monetaryRisk  = calcDollarRisk(currentBalance, riskPct);
-    const achievedRRNum = parseRRNum(s4.achievedRR);
-    const plannedRRNum  = parseRRNum(s4.plannedRR);
-    const outcome       = s2.outcome as "Win"|"Loss"|"BE";
+    const monetaryRisk = calcDollarRisk(currentBalance, riskPct);
+    const outcome      = s2.outcome as "Win"|"Loss"|"BE";
+    const plannedRRNum = parseRRNum(s4.plannedRR);
+
+    // Mirror the auto-fill effect's logic: when achievedRR is still being
+    // auto-managed (user hasn't manually edited it and no exit screenshot has
+    // provided an OCR value), the auto-fill will set achievedRR = plannedRR
+    // for Win trades — but that state update hasn't happened yet in this same
+    // render pass.  Compute the effective achievedRR here so P&L is correct
+    // in one pass, without waiting for a second render cycle.
+    const effectiveAchievedRR = (!s2.exitScreenshot && achievedRRAutoRef.current)
+      ? s4.plannedRR   // auto-fill mode: achieved mirrors planned
+      : s4.achievedRR; // manual / OCR mode: use the actual field value
+    const achievedRRNum = parseRRNum(effectiveAchievedRR);
+
     const s4Up: Record<string,string> = { monetaryRisk: monetaryRisk.toFixed(2) };
     if (plannedRRNum > 0) s4Up.potentialReward = (monetaryRisk * plannedRRNum).toFixed(2);
     let pnl: number | null = null;
-    if (outcome === "Loss")                     pnl = -monetaryRisk;
-    else if (outcome === "BE")                   pnl = 0;
-    else if (outcome === "Win" && achievedRRNum > 0) pnl = monetaryRisk * achievedRRNum;
+    if (outcome === "Loss")                          pnl = -monetaryRisk;
+    else if (outcome === "BE")                        pnl = 0;
+    else if (outcome === "Win" && achievedRRNum > 0)  pnl = monetaryRisk * achievedRRNum;
     if (pnl !== null) {
-      s4Up.profitLoss    = pnl.toFixed(2);
+      s4Up.profitLoss     = pnl.toFixed(2);
       s4Up.accountBalance = (currentBalance + pnl).toFixed(2);
     }
     if (outcome === "Loss" && s2.stopLossDistancePips) {
@@ -1209,7 +1220,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       Object.keys(s4Up).forEach(k => { if (!next.has(k)) { next.add(k); changed = true; } });
       return changed ? next : prev;
     });
-  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, currentBalance]);
+  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.exitScreenshot, currentBalance]);
 
   // ── Auto-fill achievedRR based on outcome (when no exit screenshot) ─────────
   // Loss → "1:-1", BE → "1:0", Win (or no outcome yet) → copy Planned R:R
