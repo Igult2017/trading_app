@@ -198,10 +198,14 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
             month_pnl_dollars  = pct_sum / 100.0 * sb
 
         # ── Intra-month equity curve (BIG L / maxDdPct) ──────────────────────
-        # Balance resets to sb every month (profits-withdrawn model).
-        balance    = sb
-        peak       = sb
-        trough     = sb
+        # Balance starts at the effective month start (sb minus any carried
+        # deficit from prior months) so the peak-to-trough reading is accurate
+        # within the compounding model.  Drawdown depth is still expressed as
+        # % of sb (the session anchor) for comparability across months.
+        effective_month_start = sb - (carried_deficit_pct / 100.0 * sb)
+        balance    = effective_month_start
+        peak       = effective_month_start
+        trough     = effective_month_start
         max_dd_pct = 0.0
 
         for t in month_trades:
