@@ -20,7 +20,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { computeRunningBalance } from "@/lib/tradeCalculations";
+import { computeRunningBalance, computeMonthlyCurrentBalance } from "@/lib/tradeCalculations";
 import { authFetch } from "@/lib/queryClient";
 
 // ── Return type ───────────────────────────────────────────────────────────────
@@ -29,11 +29,18 @@ export interface SessionBalanceResult {
   /** The balance the session was opened with */
   startingBalance: number;
   /**
-   * The current running balance after all existing trades in the session.
-   * Use this as the base for the next trade's risk calculation.
-   * Formula: startingBalance + sum(profitLoss of all existing trades)
+   * The current running balance after all existing trades in the session
+   * (simple cumulative: startingBalance + sum of all trade PnLs).
    */
   currentBalance: number;
+  /**
+   * Monthly compounding balance — the correct base for risk calculations.
+   * Resets each month per the profit-withdrawal / deficit carry-over model:
+   *   • Month ends in profit  → profits withdrawn → next month starts at startingBalance
+   *   • Month ends in loss    → deficit carried   → next month starts at startingBalance − deficit
+   * Value = effectiveMonthStart + Σ(PnLs of trades logged in the current calendar month)
+   */
+  monthlyCurrentBalance: number;
   /** Total P&L realised so far in this session */
   totalPnL: number;
   /** Number of trades already in the session */
@@ -78,6 +85,7 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
     return {
       startingBalance: 0,
       currentBalance: 0,
+      monthlyCurrentBalance: 0,
       totalPnL: 0,
       tradeCount: 0,
       isLoading: false,
@@ -89,6 +97,7 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
   const pnls = (entries as any[]).map((e: any) => parseFloat(e.profitLoss ?? "0") || 0);
   const totalPnL = pnls.reduce((sum, p) => sum + p, 0);
   const currentBalance = computeRunningBalance(startingBalance, pnls);
+  const monthlyCurrentBalance = computeMonthlyCurrentBalance(startingBalance, entries as any[]);
 
   const error = sessionError
     ? (sessionError as Error).message
@@ -99,6 +108,7 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
   return {
     startingBalance,
     currentBalance,
+    monthlyCurrentBalance,
     totalPnL,
     tradeCount: (entries as any[]).length,
     isLoading: sessionLoading || entriesLoading,

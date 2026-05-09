@@ -1190,8 +1190,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     [allEntries, sessionId],
   );
 
-  // Live running balance (starting balance + prior trade P&Ls)
-  const { currentBalance } = useSessionBalance(sessionId != null ? String(sessionId) : null);
+  // Monthly running balance — resets each month per profit-withdrawal / deficit carry-over model.
+  // Aliased as currentBalance so all downstream risk math, balance display, and
+  // auto-calc effects use the monthly balance without any further changes.
+  const { monthlyCurrentBalance: currentBalance } = useSessionBalance(sessionId != null ? String(sessionId) : null);
 
   // ── Parse "1:8.07" or "8.07" → 8.07
   const parseRRNum = (v: string) => {

@@ -60,6 +60,73 @@ export function computeRunningBalance(startingBalance: number, existingTradePnLs
 }
 
 /**
+ * computeMonthlyCurrentBalance
+ * Monthly compounding model with profit-withdrawal / deficit carry-over:
+ *   • Month ends above startingBalance → profits are WITHDRAWN → next month resets to startingBalance
+ *   • Month ends below startingBalance → deficit is CARRIED   → next month starts at startingBalance − deficit
+ *
+ * Returns the running balance for the CURRENT calendar month:
+ *   effectiveMonthStart + Σ(PnLs of trades already logged in this month)
+ *
+ * This is used as the base for all risk calculations so that risk %
+ * is applied to the monthly balance, not the cumulative session balance.
+ */
+export function computeMonthlyCurrentBalance(
+  startingBalance: number,
+  entries: Array<{
+    profitLoss?: string | number | null;
+    entryTime?:  string | null;
+    exitTime?:   string | null;
+    createdAt?:  string | null;
+  }>
+): number {
+  const sb = startingBalance > 0 ? startingBalance : 0;
+  if (sb === 0) return 0;
+
+  const parseDate = (raw: string | null | undefined): Date | null => {
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const toKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+  const nowKey = toKey(new Date());
+
+  // Group PnLs by month — skip future-dated entries
+  const monthMap = new Map<string, number[]>();
+  for (const e of entries) {
+    const d = parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
+    if (!d) continue;
+    const key = toKey(d);
+    if (key > nowKey) continue;
+    if (!monthMap.has(key)) monthMap.set(key, []);
+    monthMap.get(key)!.push(parseFloat(String(e.profitLoss ?? "0")) || 0);
+  }
+
+  const sortedKeys = Array.from(monthMap.keys()).sort();
+
+  // Walk every COMPLETED month (before the current calendar month)
+  // to arrive at the carried deficit entering this month
+  let carriedDeficit = 0;
+  for (const key of sortedKeys) {
+    if (key >= nowKey) break; // stop at or beyond current month
+    const effectiveStart = sb - carriedDeficit;
+    const monthPnL = monthMap.get(key)!.reduce((s, p) => s + p, 0);
+    const effectiveEnd = effectiveStart + monthPnL;
+    // Positive month: profits withdrawn → reset deficit to 0
+    // Negative month: carry the shortfall into next month
+    carriedDeficit = effectiveEnd < sb ? sb - effectiveEnd : 0;
+  }
+
+  // Effective start for this calendar month + trades already logged this month
+  const currentEffectiveStart = sb - carriedDeficit;
+  const currentMonthPnL = (monthMap.get(nowKey) ?? []).reduce((s, p) => s + p, 0);
+
+  return parseFloat((currentEffectiveStart + currentMonthPnL).toFixed(2));
+}
+
+/**
  * calcAllTradeValues
  * Convenience wrapper that computes ALL monetary values for a new trade in
  * one call. Returns strings matching JournalForm field types.
