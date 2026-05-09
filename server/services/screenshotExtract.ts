@@ -28,7 +28,7 @@ Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fi
 
 {
   "instrument": "symbol exactly as shown e.g. EUR/USD, XAU/USD, NAS100, BTCUSD",
-  "pairCategory": "Forex or Crypto or Commodity or Index or Stock",
+  "pairCategory": "Major or Minor or Exotic or Index or Crypto or Commodity or Stock",
   "timeframe": "e.g. 4H, 1H, 15M, 1D",
   "direction": "Long or Short",
   "orderType": "Market or Limit or Stop",
@@ -178,6 +178,16 @@ PRIMARY EXIT REASON:
 - "Time Exit"     → closed due to time/session
 - "Manual"        → manually closed, no clear reason
 
+PAIR CATEGORY — pick the most specific match from these exact values:
+- "Major"     → forex pair where one side is USD and the other is EUR, GBP, JPY, CHF, AUD, CAD, or NZD (e.g. EUR/USD, USD/JPY, GBP/USD, AUD/USD, USD/CAD, USD/CHF, NZD/USD)
+- "Minor"     → forex cross with NO USD involved (e.g. EUR/GBP, GBP/JPY, EUR/JPY, EUR/AUD, AUD/JPY, GBP/CHF)
+- "Exotic"    → forex pair with an emerging-market currency (e.g. USD/TRY, USD/ZAR, USD/MXN, USD/SGD, GBP/ZAR, EUR/TRY)
+- "Index"     → stock market index (e.g. NAS100, US100, SPX500, SP500, US30, DJ30, FTSE100, DAX, GER40, Nikkei, ASX200, any national market index)
+- "Crypto"    → cryptocurrency (e.g. BTCUSD, BTC/USD, ETHUSD, ETH/BTC, any coin or token pair)
+- "Commodity" → physical commodity (e.g. XAU/USD Gold, XAUUSD, XAG Silver, USOIL, WTI, UKOIL, Brent, Natural Gas, Copper, any metal or energy product)
+- "Stock"     → individual company share (e.g. AAPL, TSLA, AMZN, any single-company equity)
+- Do NOT return "Forex" — that is not a valid value
+
 GENERAL:
 - Scan EVERY pixel of text — overlays, labels, indicators, info panels, history tables, column headers
 - Be precise: copy numbers exactly as shown, do not round or estimate
@@ -291,6 +301,58 @@ function deriveSession(entryTimeStr: string | null, tzOffset: number | null): { 
   return                                            { sessionName: "New York", sessionPhase: "Close" };
 }
 
+// Major forex pairs — one side must be USD
+const MAJOR_CURRENCIES = ["EUR","GBP","JPY","CHF","AUD","CAD","NZD"];
+// Emerging / exotic currencies
+const EXOTIC_CURRENCIES = ["TRY","ZAR","MXN","SGD","HKD","THB","PLN","HUF","CZK","DKK","NOK","SEK","ILS","SAR","AED","QAR","KWD","BHD"];
+// Crypto tickers
+const CRYPTO_PREFIXES = ["BTC","ETH","XRP","LTC","ADA","DOT","SOL","BNB","DOGE","SHIB","AVAX","MATIC","LINK","UNI","ATOM","XLM","ALGO","XMR","EOS","TRX"];
+// Index keywords
+const INDEX_KEYWORDS = ["NAS","US100","SPX","SP500","US30","DJ","DOW","FTSE","DAX","GER","NIK","ASX","CAC","HSI","IBEX","SMI","AEX","OMX"];
+// Commodity tickers
+const COMMODITY_KEYWORDS = ["XAU","GOLD","XAG","SILVER","OIL","WTI","BRENT","USOIL","UKOIL","GAS","NATGAS","COPPER","COCOA","COFFEE","SUGAR","WHEAT","CORN","COTTON","PLATINUM","PALLADIUM"];
+
+function normalizePairCategory(raw: any, instrument?: string | null): string | null {
+  const valid = ["Major","Minor","Exotic","Index","Crypto","Commodity","Stock"];
+
+  // If Gemini already gave us a valid exact value, keep it
+  if (raw) {
+    const trimmed = String(raw).trim();
+    if (valid.includes(trimmed)) return trimmed;
+  }
+
+  // Infer from instrument name as fallback
+  const sym = String(instrument ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!sym) return raw ? String(raw) : null;
+
+  // Crypto
+  if (CRYPTO_PREFIXES.some(c => sym.startsWith(c) || sym.endsWith(c))) return "Crypto";
+
+  // Commodity
+  if (COMMODITY_KEYWORDS.some(k => sym.includes(k))) return "Commodity";
+
+  // Index
+  if (INDEX_KEYWORDS.some(k => sym.includes(k))) return "Index";
+
+  // Forex: need at least 6 chars (EURUSD) or a slash pair
+  if (sym.length >= 6) {
+    const base = sym.slice(0, 3);
+    const quote = sym.slice(3, 6);
+    const hasUSD = base === "USD" || quote === "USD";
+    const otherCcy = hasUSD ? (base === "USD" ? quote : base) : null;
+
+    if (hasUSD && otherCcy) {
+      if (EXOTIC_CURRENCIES.includes(otherCcy)) return "Exotic";
+      if (MAJOR_CURRENCIES.includes(otherCcy))  return "Major";
+      return "Exotic"; // USD pair with unknown currency = exotic
+    }
+    // No USD → minor cross if both are known currencies
+    return "Minor";
+  }
+
+  return raw ? String(raw) : null;
+}
+
 function normalizeOutcome(raw: any): string | null {
   if (!raw) return null;
   const s = String(raw).trim().toLowerCase();
@@ -324,7 +386,7 @@ function mapToJournalFields(extracted: Record<string, any>): Record<string, any>
 
   return {
     instrument:             extracted.instrument          ?? null,
-    pairCategory:           extracted.pairCategory        ?? null,
+    pairCategory:           normalizePairCategory(extracted.pairCategory, extracted.instrument),
     direction:              extracted.direction            ?? null,
     orderType:              extracted.orderType            ?? null,
     entryPrice:             extracted.entryPrice           ?? null,
