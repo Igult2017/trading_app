@@ -254,17 +254,6 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     );
   }
 
-  // ── No-data state (session exists but no trades logged yet) ───────────────
-  if (!ts) {
-    return (
-      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: "'Montserrat', sans-serif" }}>
-        <TrendingDown className="w-8 h-8 text-slate-700" />
-        <p className="text-[11px] text-slate-400 uppercase tracking-widest" style={{ fontWeight: 600 }}>No trade data yet</p>
-        <p className="text-[10px] text-slate-600" style={{ fontWeight: 400 }}>Log trades in your session to see drawdown intelligence</p>
-      </div>
-    );
-  }
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
