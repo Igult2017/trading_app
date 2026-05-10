@@ -481,7 +481,7 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
 }
 
 // ─── Step 1 — Decision ────────────────────────────────────────────────────────
-function Step1({ d, set, hiddenPanels }: any) {
+function Step1({ d, set, hiddenPanels, sessionId }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   const H = hiddenPanels as string[];
   return (
@@ -1755,7 +1755,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 {saveError}
               </div>
             )}
-            {step === 1 && <Step1 d={s1} set={setS1} hiddenPanels={hiddenPanels} />}
+            {step === 1 && <Step1 d={s1} set={setS1} hiddenPanels={hiddenPanels} sessionId={sessionId} />}
             {step === 2 && <Step2 d={s2} set={setS2} onScreenshotUpload={handleScreenshotUpload} analyzing={analyzing} currentBalance={currentBalance} hiddenPanels={hiddenPanels} sessionId={sessionId} />}
             {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} regimeTouchedRef={regimeTouchedRef} trendTouchedRef={trendTouchedRef} hiddenPanels={hiddenPanels} />}
             {step === 4 && <Step4 d={s4} set={setS4} hiddenPanels={hiddenPanels}
