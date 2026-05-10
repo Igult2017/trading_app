@@ -641,7 +641,12 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
           <Inp label="SL Distance (Pips)" type="number" placeholder="15" value={d.stopLossDistancePips}  onChange={f("stopLossDistancePips")} />
           <Inp label="Take Profit"  type="number" placeholder="1.09600"  value={d.takeProfit}         onChange={f("takeProfit")} />
           <Inp label="TP Distance (Pips)" type="number" placeholder="35" value={d.takeProfitDistancePips} onChange={f("takeProfitDistancePips")} />
-          <Inp label="Risk %"       type="number" placeholder="1.0"      value={d.riskPercent}        onChange={f("riskPercent")} />
+          <Inp label="Risk %"       type="number" placeholder="1.0"      value={d.riskPercent}        onChange={(v: string) => {
+            set((prev: any) => ({ ...prev, riskPercent: v }));
+            if (v && parseFloat(v) > 0) {
+              try { localStorage.setItem(`fsd:stickyRiskPct:${sessionId ?? 'nosession'}`, v); } catch {}
+            }
+          }} />
           <Sel label="Order Type"   options={["Market","Limit","Stop","Stop-Limit"]} value={d.orderType} onChange={f("orderType")} />
           <Radio label="Outcome"    options={["Win","Loss","BE"]}         value={d.outcome}            onChange={f("outcome")} />
         </div>
@@ -655,12 +660,6 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
             <span className="text-xs text-rose-400 font-bold ml-auto">{riskAmt ? "-$" + riskAmt : "—"}</span>
           </div>
         </div>
-        <StickyChip
-          storageKey={`fsd:stickyRiskPct:${sessionId ?? 'nosession'}`}
-          label="Active Risk %"
-          value={d.riskPercent}
-          onChoose={v => set((prev: any) => ({ ...prev, riskPercent: v }))}
-        />
       </section>
 
       {!H.includes('timing-duration') && (
