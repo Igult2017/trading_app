@@ -112,10 +112,11 @@ const T = {
   blue2: "#4f46e5",
 };
 
-const FONT = "'Montserrat', sans-serif";
-const MONO = "'DM Mono', monospace";
-const mono = { fontFamily: MONO, fontWeight: 700 as const };
-const num  = { fontFamily: MONO, fontWeight: 400 as const };
+const FONT  = "'Montserrat', sans-serif";
+const INTER = "'Inter', sans-serif";
+const MONO  = "'DM Mono', monospace";
+const mono  = { fontFamily: MONO, fontWeight: 700 as const };
+const num   = { fontFamily: MONO, fontWeight: 400 as const };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitive helpers
@@ -790,6 +791,83 @@ function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
   );
 }
 
+// ── AIText — renders Gemini markdown as structured bullets/points ─────────────
+function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
+  if (!text) return null;
+
+  function parseInline(s: string, base: number): React.ReactNode {
+    const out: React.ReactNode[] = [];
+    const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+    let last = 0, i = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s)) !== null) {
+      if (m.index > last) out.push(<span key={base + i++}>{s.slice(last, m.index)}</span>);
+      if (m[1] !== undefined)
+        out.push(<strong key={base + i++} style={{ fontWeight: 600, color: alertColor ?? T.text }}>{m[1]}</strong>);
+      else
+        out.push(<em key={base + i++} style={{ fontStyle: "italic", color: alertColor ?? T.muted }}>{m[2]}</em>);
+      last = m.index + m[0].length;
+    }
+    if (last < s.length) out.push(<span key={base + i++}>{s.slice(last)}</span>);
+    return <>{out}</>;
+  }
+
+  const lines = text.split("\n");
+  const nodes: React.ReactNode[] = [];
+  let bullets: React.ReactNode[] = [];
+
+  function flushBullets() {
+    if (!bullets.length) return;
+    nodes.push(
+      <ul key={`ul${nodes.length}`} style={{ margin: "4px 0 10px 0", padding: 0, listStyle: "none" }}>
+        {bullets}
+      </ul>
+    );
+    bullets = [];
+  }
+
+  lines.forEach((raw, li) => {
+    const line = raw.trim();
+    if (!line) { flushBullets(); return; }
+
+    // Bullet line: •  -  *  or  1.
+    const bm = line.match(/^[•\-\*]\s+(.+)/) ?? line.match(/^\d+\.\s+(.+)/);
+    if (bm) {
+      bullets.push(
+        <li key={li} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 5 }}>
+          <span style={{ color: alertColor ?? T.blue, fontSize: 9, marginTop: 3, flexShrink: 0, opacity: 0.8 }}>▸</span>
+          <span style={{ fontFamily: INTER, fontSize: 11, color: alertColor ?? T.text, lineHeight: 1.65, fontWeight: 400 }}>
+            {parseInline(bm[1], li * 1000)}
+          </span>
+        </li>
+      );
+      return;
+    }
+    flushBullets();
+
+    // Section header: **Header** or **Header:**  or ## Header
+    const hm = line.match(/^\*\*(.+?)\*\*:?\s*$/) ?? line.match(/^#{1,3}\s+(.+)/);
+    if (hm) {
+      nodes.push(
+        <div key={li} style={{ fontFamily: INTER, fontSize: 10, fontWeight: 700, color: T.muted, letterSpacing: ".12em", textTransform: "uppercase", marginTop: 14, marginBottom: 5 }}>
+          {hm[1]}
+        </div>
+      );
+      return;
+    }
+
+    // Normal text line
+    nodes.push(
+      <p key={li} style={{ fontFamily: INTER, fontSize: 11, color: alertColor ?? T.muted, lineHeight: 1.7, fontWeight: 400, margin: "0 0 5px 0" }}>
+        {parseInline(line, li * 1000)}
+      </p>
+    );
+  });
+
+  flushBullets();
+  return <>{nodes}</>;
+}
+
 function AIGate({ label, description, onRun }: { label: string; description: string; onRun: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 20, padding: "40px 24px" }}>
@@ -849,11 +927,9 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* Headline narrative */}
       {data.headline && (
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
+        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
           <CellTitle>AI Verdict</CellTitle>
-          <p style={{ fontFamily: FONT, fontSize: 13, color: T.text, lineHeight: 1.75, fontWeight: 400, whiteSpace: "pre-wrap" }}>
-            {data.headline}
-          </p>
+          <AIText text={data.headline} />
         </div>
       )}
 
@@ -922,7 +998,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
         {data.risk_alert && (
           <Cell style={{ borderRight: "none", background: "rgba(232,64,64,0.04)" }}>
             <CellTitle>Risk Alert</CellTitle>
-            <p style={{ fontFamily: FONT, fontSize: 12, color: T.red, lineHeight: 1.7, fontWeight: 400 }}>{data.risk_alert}</p>
+            <AIText text={data.risk_alert} alertColor={T.red} />
           </Cell>
         )}
       </div>
@@ -1024,9 +1100,9 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* AI narrative */}
       {data.narrative && (
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
+        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
           <CellTitle>Strategy Brief</CellTitle>
-          <p style={{ fontFamily: FONT, fontSize: 13, color: T.text, lineHeight: 1.75, fontWeight: 400, whiteSpace: "pre-wrap" }}>{data.narrative}</p>
+          <AIText text={data.narrative} />
         </div>
       )}
 
