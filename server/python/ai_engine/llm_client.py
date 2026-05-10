@@ -12,18 +12,26 @@ from __future__ import annotations
 import os
 import json
 
-MODEL    = "gemini-2.0-flash"     # used for analysis + strategy (deeper reasoning)
-MODEL_QA = "gemini-2.0-flash"    # used for chat — fast, stable GA model
+MODEL    = "gemini-2.5-flash-preview-05-20"  # analysis + strategy: thinking-capable
+MODEL_QA = "gemini-2.5-flash-preview-05-20"  # chat: thinking-capable
 
-# Fallback chain tried in order when the primary model is unavailable.
+# Fallback chain — thinking-capable models first, non-thinking as last resort.
 _FALLBACK_CHAIN = [
-    "gemini-2.0-flash",
     "gemini-2.5-flash-preview-05-20",
     "gemini-2.5-flash",
     "gemini-2.5-pro-preview-05-06",
     "gemini-2.5-pro",
+    "gemini-2.0-flash",
     "gemini-1.5-flash",
 ]
+
+# Models that support the ThinkingConfig API.
+_THINKING_MODELS = frozenset({
+    "gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-pro",
+})
 
 
 def _api_key() -> str:
@@ -534,13 +542,23 @@ def call_llm(
     last_err: Exception | None = None
     for candidate in candidates:
         try:
+            use_thinking = candidate in _THINKING_MODELS
+            config_kwargs: dict = {
+                "system_instruction": SYSTEM_INSTRUCTION,
+                # Thinking models require temperature=1; non-thinking use 0.3.
+                "temperature": 1.0 if use_thinking else 0.3,
+            }
+            if use_thinking:
+                # thinking_budget=-1 → dynamic: model decides how deeply to
+                # reason based on question complexity. Applied for both chat
+                # (qa) and audit (analysis/strategy) modes.
+                config_kwargs["thinking_config"] = types.ThinkingConfig(
+                    thinking_budget=-1
+                )
             response = client.models.generate_content(
                 model=candidate,
                 contents=user_content,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    temperature=0.3,
-                ),
+                config=types.GenerateContentConfig(**config_kwargs),
             )
             return response.text or ""
         except Exception as exc:
