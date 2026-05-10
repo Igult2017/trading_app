@@ -521,9 +521,9 @@ function Step1({ d, set, hiddenPanels }: any) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Inp label="Strategy" placeholder="e.g. ICT Breaker Block, M1H1…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
           <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
-          <StickyChip storageKey="fsd:stickyStrategy" label="Active Strategy"
+          <StickyChip storageKey={`fsd:stickyStrategy:${sessionId ?? 'nosession'}`} label="Active Strategy"
             value={d.strategyVersionId} onChoose={v => set((prev: any) => ({ ...prev, strategyVersionId: v }))} />
-          <StickyChip storageKey="fsd:stickySetup" label="Active Setup"
+          <StickyChip storageKey={`fsd:stickySetup:${sessionId ?? 'nosession'}`} label="Active Setup"
             options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]}
             value={d.setupTag} onChoose={v => set((prev: any) => ({ ...prev, setupTag: v }))} />
           <div className="lg:col-span-2">
