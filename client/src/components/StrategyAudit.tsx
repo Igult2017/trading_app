@@ -922,33 +922,31 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
   const findings  = data.findings ?? [];
   const checklist = data.pre_trade_checklist ?? [];
+  const healthColor = data.health_score === "Advanced" ? T.green : data.health_score === "Consistent" ? T.amber : T.muted;
 
   return (
-    <div style={{ padding: "0 0 40px" }}>
-
-      {/* Health strip */}
+    <div>
+      {/* Health strip — mirrors Action panel's top 2-col grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
-          <CellTitle>Trader Archetype</CellTitle>
-          <div style={{ ...mono, fontSize: 13, color: T.blue }}>{data.trader_archetype ?? "—"}</div>
+          <CellTitle icon={<Brain size={13} />}>Trader Archetype</CellTitle>
+          <div style={{ ...mono, fontSize: 16, color: T.blue, marginBottom: 8 }}>{data.trader_archetype ?? "—"}</div>
+          {data.headline && <div style={{ fontFamily: INTER, fontSize: 11, color: T.dim, lineHeight: 1.6, fontWeight: 400 }}>{data.headline.split("\n")[0]}</div>}
         </Cell>
         <Cell style={{ borderRight: "none" }}>
-          <CellTitle>Health Score</CellTitle>
-          <div style={{ ...mono, fontSize: 13, color: data.health_score === "Advanced" ? T.green : data.health_score === "Consistent" ? T.amber : T.muted }}>
-            {data.health_score ?? "—"}
+          <CellTitle icon={<Activity size={13} />}>Health Score</CellTitle>
+          <div style={{ ...mono, fontSize: 16, color: healthColor, marginBottom: 8 }}>{data.health_score ?? "—"}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+            {findings.slice(0, 2).map((f, i) => (
+              <Badge key={i} color={f.deviation >= 0 ? T.green : T.red} border={f.deviation >= 0 ? T.green2 : T.red2}>
+                {f.deviation >= 0 ? "▲" : "▼"} {(f.win_rate * 100).toFixed(0)}%
+              </Badge>
+            ))}
           </div>
         </Cell>
       </div>
 
-      {/* AI Verdict narrative — hero section */}
-      {data.headline && (
-        <div style={{ padding: "20px 24px", marginBottom: 12, background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4 }}>
-          <CellTitle>AI Verdict</CellTitle>
-          <AIText text={data.headline} />
-        </div>
-      )}
-
-      {/* Win / Loss profiles */}
+      {/* Win / Loss profiles — like AI Policy Suggestions + Guardrails */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         {[data.win_profile, data.loss_profile].map((profile, i) => {
           const isWin = i === 0;
@@ -959,25 +957,28 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
               {profile ? (
                 <>
                   {profile.conditions.map((c, ci) => (
-                    <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                      <span style={{ width: 3, height: 3, borderRadius: "50%", background: accent, flexShrink: 0, marginTop: 6, display: "inline-block" }} />
-                      <span style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400, lineHeight: 1.6 }}>{c}</span>
+                    <div key={ci} style={{ padding: "8px 0", borderBottom: ci < profile.conditions.length - 1 ? `1px solid ${T.line}` : "none", display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <span style={{ color: accent, fontSize: 10, marginTop: 2, flexShrink: 0 }}>▸</span>
+                      <span style={{ fontFamily: INTER, fontSize: 12, color: T.muted, fontWeight: 400, lineHeight: 1.6 }}>{c}</span>
                     </div>
                   ))}
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 10 }}>{profile.probability}</div>
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.dim }}>{profile.probability}</span>
+                    <Badge color={accent} border={accent}>{profile.label}</Badge>
+                  </div>
                 </>
               ) : (
-                <div style={{ fontFamily: INTER, fontSize: 12, color: T.dim }}>Insufficient data — need ≥5 wins or losses</div>
+                <div style={{ fontFamily: INTER, fontSize: 12, color: T.dim }}>Insufficient data — need ≥5 {isWin ? "wins" : "losses"}</div>
               )}
             </Cell>
           );
         })}
       </div>
 
-      {/* Findings */}
+      {/* Proofed Findings — full-width panel like "Final Verdict & Next Actions" in Page4 */}
       {findings.length > 0 && (
         <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
-          <CellTitle>Proofed Findings</CellTitle>
+          <CellTitle icon={<BarChart3 size={13} />}>Proofed Findings</CellTitle>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {findings.map((f, i) => {
               const isEdge = f.deviation >= 0;
@@ -986,7 +987,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
                 <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: T.bg3, border: `1px solid ${T.line}`, borderLeft: `2px solid ${accent}`, gap: 12 }}>
                   <span style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400, flex: 1, lineHeight: 1.5 }}>{f.finding}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 400, color: accent }}>{(f.win_rate * 100).toFixed(0)}%</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: accent }}>{(f.win_rate * 100).toFixed(0)}%</span>
                     <span style={{ fontFamily: MONO, fontSize: 10, color: T.dim }}>{f.sample_size}t</span>
                     <ConfBadge level={f.confidence} />
                   </div>
@@ -1001,21 +1002,33 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       <div style={{ display: "grid", gridTemplateColumns: checklist.length && data.risk_alert ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 12 }}>
         {checklist.length > 0 && (
           <Cell style={{ borderRight: data.risk_alert ? `1px solid ${T.line}` : "none" }}>
-            <CellTitle>Pre-Trade Checklist</CellTitle>
+            <CellTitle icon={<ShieldCheck size={13} />}>Pre-Trade Checklist</CellTitle>
             {checklist.map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
-                <span style={{ color: T.green, fontSize: 12, lineHeight: 1.6 }}>✓</span>
-                <span style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400, lineHeight: 1.6 }}>{item}</span>
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: i < checklist.length - 1 ? `1px solid ${T.line}` : "none" }}>
+                <span style={{ fontFamily: INTER, fontSize: 12, color: T.muted, fontWeight: 400 }}>{item}</span>
+                <Badge color={T.green} border={T.green2}>Active</Badge>
               </div>
             ))}
           </Cell>
         )}
         {data.risk_alert && (
-          <Cell style={{ borderRight: "none", background: "rgba(232,64,64,0.04)" }}>
-            <CellTitle>Risk Alert</CellTitle>
+          <Cell style={{ borderRight: "none", borderLeft: `2px solid ${T.red}`, background: "rgba(232,64,64,0.04)" }}>
+            <CellTitle icon={<AlertTriangle size={13} />}>Risk Alert</CellTitle>
             <AIText text={data.risk_alert} alertColor={T.red} />
           </Cell>
         )}
+      </div>
+
+      {/* Bottom verdict bar — matches Page4's VerdictBar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`, gap: 12, flexWrap: "wrap" as const }}>
+        <div style={{ ...mono, fontSize: 11, letterSpacing: ".16em", color: healthColor }}>
+          {data.health_score === "Advanced" || data.health_score === "Consistent"
+            ? `✓ ${(data.health_score ?? "").toUpperCase()} TRADER — BEHAVIOURAL ANALYSIS COMPLETE`
+            : "⚠ DEVELOPING EDGE — CONTINUE LOGGING TRADES"}
+        </div>
+        <div style={{ ...mono, fontSize: 10, color: T.dim }}>
+          Archetype: {data.trader_archetype ?? "—"} · Findings: {findings.length} · Checklist: {checklist.length} items
+        </div>
       </div>
     </div>
   );
