@@ -566,7 +566,7 @@ function Step1({ d, set, hiddenPanels }: any) {
 }
 
 // ─── Step 2 — Execution ───────────────────────────────────────────────────────
-function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPanels }: any) {
+function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPanels, sessionId }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   const H = hiddenPanels as string[];
 
@@ -655,6 +655,12 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
             <span className="text-xs text-rose-400 font-bold ml-auto">{riskAmt ? "-$" + riskAmt : "—"}</span>
           </div>
         </div>
+        <StickyChip
+          storageKey={`fsd:stickyRiskPct:${sessionId ?? 'nosession'}`}
+          label="Active Risk %"
+          value={d.riskPercent}
+          onChoose={v => set((prev: any) => ({ ...prev, riskPercent: v }))}
+        />
       </section>
 
       {!H.includes('timing-duration') && (
@@ -1149,11 +1155,18 @@ const STEPS_DEF = [
   { n: 4, label: "Review",    key: "step4" },
 ];
 
+// ─── Sticky risk % helper ──────────────────────────────────────────────────────
+function getStickyRiskPct(sessionId: string | number | null | undefined): string {
+  try {
+    return localStorage.getItem(`fsd:stickyRiskPct:${sessionId ?? 'nosession'}`) || "1";
+  } catch { return "1"; }
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JournalForm({ sessionId, startingBalance }: { sessionId?: string | number | null; startingBalance?: number }) {
   const [step, setStep]           = useState(1);
   const [s1, setS1]               = useState({ ...INIT_STEP1 });
-  const [s2, setS2]               = useState({ ...INIT_STEP2 });
+  const [s2, setS2]               = useState(() => ({ ...INIT_STEP2, riskPercent: getStickyRiskPct(sessionId) }));
   const [s3, setS3]               = useState({ ...INIT_STEP3 });
   const [s4, setS4]               = useState({ ...INIT_STEP4 });
   const [saving, setSaving]       = useState(false);
@@ -1649,7 +1662,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
       setS1({ ...INIT_STEP1 });
-      setS2({ ...INIT_STEP2 });
+      setS2({ ...INIT_STEP2, riskPercent: getStickyRiskPct(sessionId) });
       setS3({ ...INIT_STEP3 });
       setS4({ ...INIT_STEP4 });
       regimeTouchedRef.current  = false;
@@ -1744,7 +1757,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               </div>
             )}
             {step === 1 && <Step1 d={s1} set={setS1} hiddenPanels={hiddenPanels} />}
-            {step === 2 && <Step2 d={s2} set={setS2} onScreenshotUpload={handleScreenshotUpload} analyzing={analyzing} currentBalance={currentBalance} hiddenPanels={hiddenPanels} />}
+            {step === 2 && <Step2 d={s2} set={setS2} onScreenshotUpload={handleScreenshotUpload} analyzing={analyzing} currentBalance={currentBalance} hiddenPanels={hiddenPanels} sessionId={sessionId} />}
             {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} regimeTouchedRef={regimeTouchedRef} trendTouchedRef={trendTouchedRef} hiddenPanels={hiddenPanels} />}
             {step === 4 && <Step4 d={s4} set={setS4} hiddenPanels={hiddenPanels}
               onAchievedRRChange={(v: any) => {
