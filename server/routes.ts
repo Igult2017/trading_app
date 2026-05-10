@@ -1698,39 +1698,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Pre-compute metrics, drawdown, and strategy audit so the AI has the
-      // same rich context as every analytics panel.
-      let metricsContext: Record<string, any> | undefined;
-      let drawdownContext: Record<string, any> | undefined;
-      let auditContext: Record<string, any> | undefined;
-
+      // Pre-compute metrics, drawdown, and strategy audit in parallel so the
+      // AI has the same rich context as every analytics panel.
       const sessionObj = sessionId ? await storage.getSessionById(sessionId) : null;
       const startingBal: number = (sessionObj as any)?.startingBalance ?? 10_000;
 
-      try {
-        const m = await computeMetrics(rawTrades);
-        if (m && m.success && (m as any).result) {
-          metricsContext = (m as any).result;
-        }
-      } catch (mErr: any) {
-        console.warn("[TraderAI] Metrics computation failed:", mErr?.message);
-      }
-      try {
-        const d = await computeDrawdown(rawTrades, startingBal);
-        if (d && (d as any).success) {
-          drawdownContext = d as any;
-        }
-      } catch (dErr: any) {
-        console.warn("[TraderAI] Drawdown computation failed:", dErr?.message);
-      }
-      try {
-        const a = await computeStrategyAudit(rawTrades, startingBal);
-        if (a && (a as any).success) {
-          auditContext = a as any;
-        }
-      } catch (aErr: any) {
-        console.warn("[TraderAI] Audit computation failed:", aErr?.message);
-      }
+      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
+        computeMetrics(rawTrades),
+        computeDrawdown(rawTrades, startingBal),
+        computeStrategyAudit(rawTrades, startingBal),
+      ]);
+
+      // Fix: computeMetrics returns .metrics not .result
+      const metricsContext: Record<string, any> | undefined =
+        metricsRes.status === "fulfilled" && metricsRes.value?.success
+          ? (metricsRes.value as any).metrics
+          : undefined;
+      const drawdownContext: Record<string, any> | undefined =
+        drawdownRes.status === "fulfilled" && (drawdownRes.value as any)?.success
+          ? drawdownRes.value as any
+          : undefined;
+      const auditContext: Record<string, any> | undefined =
+        auditRes.status === "fulfilled" && (auditRes.value as any)?.success
+          ? auditRes.value as any
+          : undefined;
+
+      if (metricsRes.status === "rejected")  console.warn("[TraderAI] Metrics failed:", (metricsRes.reason as any)?.message);
+      if (drawdownRes.status === "rejected") console.warn("[TraderAI] Drawdown failed:", (drawdownRes.reason as any)?.message);
+      if (auditRes.status === "rejected")    console.warn("[TraderAI] Audit failed:", (auditRes.reason as any)?.message);
 
       // Resolve / create the persistent chat record before calling the LLM
       // so the user message is durable even if the AI call fails.

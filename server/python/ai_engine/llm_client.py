@@ -450,24 +450,57 @@ def _build_strategy_prompt(payload: dict) -> str:
         lines.append("")
 
     lines += [
-        "Write a complete, rules-based trading strategy playbook using ONLY the data above. "
-        "Structure it as follows:",
+        "=" * 50,
+        "OUTPUT INSTRUCTIONS — READ CAREFULLY:",
+        "Produce a MECHANICAL TRADING STRATEGY derived exclusively from the data above.",
+        "Output format: EXACTLY the 8 numbered steps below. No introduction, no conclusion,",
+        "no paragraphs, no stories. Each step = a short header + bullet rules only.",
+        "Every rule MUST cite its supporting win rate and sample size from the data.",
+        "If data is insufficient for a step, write one bullet: '• Insufficient data — need ≥10 trades'.",
         "",
-        "1. STRATEGY NAME — derive a name from the dominant conditions (e.g. 'London Long Bias SMC').",
-        "2. ENTRY RULES — list each confirmed entry condition as a specific, actionable rule with its "
-           "supporting WR and sample size. Format: 'Only enter when [condition] — [X]% WR, [N] trades'.",
-        "3. AVOID RULES — list each avoidance condition as a hard rule. "
-           "Format: 'Never trade when [condition] — [X]% WR, [N] trades'.",
-        "4. RISK MANAGEMENT — derive position sizing and stop rules from the average R:R, "
-           "max drawdown data, and loss streak data. Be specific.",
-        "5. EDGE PROJECTION — state the projected win rate when all entry rules align, "
-           "with sample size and confidence level.",
-        "6. DATA CAVEATS — note any conditions where sample size is too small to rely on. "
-           "State how many more trades are needed to reach HIGH confidence (≥30).",
+        "**STEP 1 — INSTRUMENT SELECTION**",
+        "List which instruments to trade and which to avoid, ordered by win rate.",
+        "Format per bullet: '• Trade [INSTRUMENT] — [X]% WR, [N] trades'",
+        "              or: '• Avoid [INSTRUMENT] — [X]% WR, [N] trades'",
         "",
-        "Do NOT write about psychology, emotions, or mindset. "
-        "Do NOT add conditions not present in the data. "
-        "Every rule must cite its supporting win rate and sample size.",
+        "**STEP 2 — SESSION FILTER**",
+        "List allowed and forbidden sessions from session breakdown data.",
+        "Format: '• Trade [SESSION] session — [X]% WR, [N] trades'",
+        "    or: '• Avoid [SESSION] session — [X]% WR, [N] trades'",
+        "",
+        "**STEP 3 — TIMEFRAME**",
+        "State the timeframe(s) with the best edge from timeframe breakdown data.",
+        "Format: '• Use [TF] — [X]% WR, [N] trades'",
+        "",
+        "**STEP 4 — ENTRY TRIGGER**",
+        "List every confirmed entry condition as a hard rule.",
+        "Format: '• Enter when [CONDITION] — [X]% WR, [N] trades'",
+        "Combine conditions with AND if they stack.",
+        "",
+        "**STEP 5 — STOP LOSS RULE**",
+        "Derive from avgMAE and maxDrawdown data.",
+        "Format: '• Max stop: [value] — based on avg MAE of [X]'",
+        "        '• Hard daily loss limit: [X]% — based on max drawdown of [Y]'",
+        "",
+        "**STEP 6 — TAKE PROFIT RULE**",
+        "Derive from avgMFE and avgRiskReward data.",
+        "Format: '• Minimum target: [R or pips] — based on avg R:R of [X]'",
+        "",
+        "**STEP 7 — POSITION SIZING**",
+        "Derive max risk per trade from max drawdown and loss streak data.",
+        "Format: '• Risk max [X]% per trade — based on max [N]-trade loss streak'",
+        "        '• Reduce size after [N] consecutive losses — streak data shows [X]'",
+        "",
+        "**STEP 8 — KILL SWITCH**",
+        "Hard rules to stop trading, derived from loss streak and drawdown data.",
+        "Format: '• Stop trading today if down [X]% — based on worst daily drawdown'",
+        "        '• Take a break after [N] consecutive losses — max streak was [N]'",
+        "",
+        "End with one line only:",
+        "**PROJECTED EDGE:** [X]% WR when all conditions align — [N] trades, [confidence] confidence.",
+        "",
+        "ABSOLUTE RULES: No prose. No psychology. No generic advice. No invented data.",
+        "Every single bullet must be traceable to a number in the data above.",
     ]
 
     return "\n".join(lines)
