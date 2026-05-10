@@ -469,27 +469,6 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       )`,
 
-      // Blog posts — must be created BEFORE blog_comments (FK dependency)
-      `CREATE TABLE IF NOT EXISTS blog_posts (
-        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        title       TEXT NOT NULL,
-        excerpt     TEXT DEFAULT '',
-        content     TEXT DEFAULT '',
-        summary     TEXT DEFAULT '',
-        category    TEXT DEFAULT 'Analysis',
-        author      TEXT DEFAULT 'Admin',
-        author_id   VARCHAR,
-        author_data JSONB,
-        date        TEXT NOT NULL DEFAULT to_char(NOW(), 'Mon DD, YYYY'),
-        read_time   TEXT DEFAULT '5 min',
-        image_url   TEXT DEFAULT '',
-        video_url   TEXT DEFAULT '',
-        status      TEXT DEFAULT 'Draft',
-        section     TEXT DEFAULT 'blog',
-        signal_data JSONB,
-        created_at  TIMESTAMPTZ DEFAULT NOW(),
-        updated_at  TIMESTAMPTZ DEFAULT NOW()
-      )`,
     ];
     
     for (const statement of createTableStatements) {

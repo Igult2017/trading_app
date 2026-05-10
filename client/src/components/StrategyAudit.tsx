@@ -1061,44 +1061,124 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
   const warns = data.data_warnings ?? [];
 
-  return (
-    <div style={{ padding: "0 0 40px" }}>
+  const entries  = data.entry_conditions  ?? [];
+  const avoids   = data.avoid_conditions  ?? [];
+  const riskRules = data.risk_rules       ?? {};
 
-      {/* Projected edge strip — compact top bar */}
-      {data.projected_edge && (
-        <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "12px 22px", background: T.bg2, borderBottom: `1px solid ${T.line}`, marginBottom: 20 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontFamily: INTER, fontSize: 9, color: T.dim, letterSpacing: ".12em", textTransform: "uppercase" }}>Projected Edge</span>
-            <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 400, color: T.green }}>{(data.projected_edge.win_rate * 100).toFixed(0)}%</span>
+  return (
+    <div>
+
+      {/* Top 2-col grid — Entry Conditions + Avoid Conditions, mirrors Page4's Policy + Guardrails */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+
+        {/* Entry Conditions — styled like AI Policy Suggestions */}
+        <Cell>
+          <CellTitle icon={<Target size={13} />}>Entry Conditions</CellTitle>
+          {entries.length > 0 ? entries.map((item, i) => (
+            <div key={i} style={{ padding: 14, border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 10 }}>
+              <div style={{ ...mono, fontSize: 10, letterSpacing: ".1em", color: T.blue, marginBottom: 6 }}>
+                {item.label?.toUpperCase()}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: T.green, fontWeight: 400 }}>
+                  {(item.win_rate * 100).toFixed(0)}% win rate
+                </span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: T.dim }}>{item.sample_size}t</span>
+                  <ConfBadge level={item.confidence} />
+                </div>
+              </div>
+            </div>
+          )) : (
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: FONT }}>No entry conditions derived yet — log more trades.</div>
+          )}
+        </Cell>
+
+        {/* Avoid Conditions — styled like Audit-Enforced Guardrails */}
+        <Cell style={{ borderRight: "none" }}>
+          <CellTitle icon={<AlertTriangle size={13} />}>Avoid Conditions</CellTitle>
+          {avoids.length > 0 ? avoids.map((item, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < avoids.length - 1 ? `1px solid ${T.line}` : "none" }}>
+              <div>
+                <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".1em" }}>{item.label?.toUpperCase()}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, marginTop: 2, fontWeight: 400 }}>
+                  {(item.win_rate * 100).toFixed(0)}% win rate · {item.sample_size}t
+                </div>
+              </div>
+              <Badge color={T.red} border={T.red2}>{item.confidence}</Badge>
+            </div>
+          )) : (
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: FONT }}>No avoid conditions identified yet.</div>
+          )}
+        </Cell>
+      </div>
+
+      {/* Risk Rules + Projected Edge — full-width panel, mirrors "Final Verdict & Next Actions" */}
+      <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+        <CellTitle icon={<ShieldCheck size={13} />}>Risk Rules &amp; Projected Edge</CellTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
+          {/* Risk rules */}
+          <div>
+            {Object.keys(riskRules).length > 0 ? Object.entries(riskRules).map(([k, v], i) => (
+              <div key={i} style={{ padding: "10px 12px", borderLeft: `2px solid ${T.blue}`, marginBottom: 8 }}>
+                <div style={{ ...mono, fontSize: 9, letterSpacing: ".1em", color: T.dim, marginBottom: 3 }}>{k.toUpperCase()}</div>
+                <div style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400 }}>{v}</div>
+              </div>
+            )) : (
+              <div style={{ padding: "10px 12px", borderLeft: `2px solid ${T.line2}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.muted, fontFamily: FONT }}>No risk rules yet</div>
+                <div style={{ fontSize: 11, color: T.dim, marginTop: 2, fontFamily: FONT }}>More trade data needed</div>
+              </div>
+            )}
           </div>
-          <div style={{ width: 1, height: 32, background: T.line2 }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontFamily: INTER, fontSize: 9, color: T.dim, letterSpacing: ".12em", textTransform: "uppercase" }}>Sample</span>
-            <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 400, color: T.text }}>{data.projected_edge.sample_size} trades</span>
-          </div>
-          <div style={{ width: 1, height: 32, background: T.line2 }} />
-          <ConfBadge level={data.projected_edge.confidence} />
-          {warns.length > 0 && (
-            <>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontFamily: INTER, fontSize: 10, color: T.amber }}>
-                ⚠ {warns.length} preliminary finding{warns.length !== 1 ? "s" : ""} — build sample size before relying on these rules
-              </span>
-            </>
+          {/* Projected edge */}
+          {data.projected_edge && (
+            <div style={{ padding: "10px 12px", borderLeft: `2px solid ${T.green}` }}>
+              <div style={{ ...mono, fontSize: 9, letterSpacing: ".1em", color: T.dim, marginBottom: 6 }}>PROJECTED EDGE</div>
+              <div style={{ fontFamily: MONO, fontSize: 22, color: T.green, fontWeight: 400, lineHeight: 1 }}>
+                {(data.projected_edge.win_rate * 100).toFixed(0)}%
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: T.dim }}>{data.projected_edge.sample_size} trades</span>
+                <ConfBadge level={data.projected_edge.confidence} />
+              </div>
+            </div>
           )}
         </div>
+        {warns.length > 0 && (
+          <div style={{ marginTop: 14, padding: "8px 12px", background: "rgba(245,158,11,0.06)", border: `1px solid rgba(245,158,11,0.2)` }}>
+            <span style={{ fontFamily: INTER, fontSize: 11, color: T.amber }}>
+              ⚠ {warns.length} preliminary finding{warns.length !== 1 ? "s" : ""} — build sample size before relying on these rules
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Strategy narrative — wrapped in Cell like Page4's content panels */}
+      {data.narrative ? (
+        <Cell style={{ marginBottom: 12 }}>
+          <CellTitle icon={<Zap size={13} />}>Strategy Playbook</CellTitle>
+          <AIText text={data.narrative} />
+        </Cell>
+      ) : (
+        <Cell style={{ marginBottom: 12 }}>
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontFamily: INTER, fontSize: 12, color: T.dim }}>No strategy generated — add more trades and run again.</div>
+          </div>
+        </Cell>
       )}
 
-      {/* Main strategy narrative — the 8-step mechanical playbook */}
-      {data.narrative ? (
-        <div style={{ padding: "4px 24px 24px" }}>
-          <AIText text={data.narrative} />
+      {/* Bottom verdict bar — matches Page4's VerdictBar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`, gap: 12, flexWrap: "wrap" as const }}>
+        <div style={{ ...mono, fontSize: 11, letterSpacing: ".16em", color: data.projected_edge ? T.green : T.amber }}>
+          {data.projected_edge
+            ? `✓ STRATEGY DERIVED — ${(data.projected_edge.win_rate * 100).toFixed(0)}% PROJECTED EDGE`
+            : "⚠ INSUFFICIENT DATA — LOG MORE TRADES TO GENERATE STRATEGY"}
         </div>
-      ) : (
-        <div style={{ padding: "40px 24px", textAlign: "center" }}>
-          <div style={{ fontFamily: INTER, fontSize: 12, color: T.dim }}>No strategy generated — add more trades and run again.</div>
+        <div style={{ ...mono, fontSize: 10, color: T.dim }}>
+          Entry rules: {entries.length} · Avoid: {avoids.length} · Risk rules: {Object.keys(riskRules).length}
         </div>
-      )}
+      </div>
     </div>
   );
 }
