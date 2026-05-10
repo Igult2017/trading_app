@@ -28,7 +28,8 @@ const SUGGESTIONS = [
   "Where am I losing money — instrument, session, or setup?",
 ];
 
-const F = "'Montserrat', sans-serif";
+const F  = "'Montserrat', sans-serif";           // UI chrome
+const FI = "'Inter', ui-sans-serif, system-ui, sans-serif"; // AI response body
 
 interface Message { role: "user" | "model"; content: string; }
 interface ChatSummary {
@@ -215,31 +216,94 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     a.click();
   };
 
+  // ── Inline markdown parser: **bold**, *italic*, `code` ─────────────────────
+  const renderInline = (text: string): React.ReactNode => {
+    const parts: React.ReactNode[] = [];
+    const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`)/g;
+    let last = 0, m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) parts.push(text.slice(last, m.index));
+      if (m[0].startsWith("**"))
+        parts.push(<strong key={m.index} style={{ fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{m[2]}</strong>);
+      else if (m[0].startsWith("*"))
+        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "rgba(255,255,255,0.72)" }}>{m[3]}</em>);
+      else
+        parts.push(<code key={m.index} style={{ fontFamily: "ui-monospace,monospace", background: "rgba(255,255,255,0.07)", padding: "1px 5px", borderRadius: 3, fontSize: "0.9em" }}>{m[4]}</code>);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts.length === 0 ? text : parts.length === 1 && typeof parts[0] === "string" ? parts[0] : <>{parts}</>;
+  };
+
+  // ── Block-level renderer ─────────────────────────────────────────────────
   const renderContent = (content: string) => {
     const lines = content.split("\n");
     const elements: React.ReactNode[] = [];
     let i = 0;
+
     while (i < lines.length) {
       const line = lines[i];
-      if (!line.trim()) { elements.push(<div key={i} style={{ height: 8 }} />); i++; continue; }
-      if (line.startsWith("### ")) {
-        elements.push(<p key={i} style={{ fontFamily: F, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginTop: 20, marginBottom: 8 }}>{line.slice(4)}</p>);
+      const trimmed = line.trim();
+
+      // blank line → small gap
+      if (!trimmed) {
+        elements.push(<div key={`g${i}`} style={{ height: 6 }} />);
         i++; continue;
       }
+
+      // ── fenced code block ```
+      if (trimmed.startsWith("```")) {
+        const codeLines: string[] = [];
+        i++;
+        while (i < lines.length && !lines[i].trim().startsWith("```")) {
+          codeLines.push(lines[i]); i++;
+        }
+        i++; // consume closing ```
+        elements.push(
+          <pre key={`cb${i}`} style={{ fontFamily: "ui-monospace,monospace", fontSize: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6, padding: "10px 14px", overflowX: "auto", margin: "8px 0", color: "rgba(255,255,255,0.72)", lineHeight: 1.6, whiteSpace: "pre" }}>
+            {codeLines.join("\n")}
+          </pre>
+        );
+        continue;
+      }
+
+      // ── horizontal rule ---
+      if (/^[-*_]{3,}$/.test(trimmed)) {
+        elements.push(<hr key={`hr${i}`} style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.07)", margin: "12px 0" }} />);
+        i++; continue;
+      }
+
+      // ── H1 #
+      if (line.startsWith("# ")) {
+        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.88)", marginTop: 18, marginBottom: 4, letterSpacing: "-0.01em" }}>{renderInline(line.slice(2))}</p>);
+        i++; continue;
+      }
+
+      // ── H2 ##
       if (line.startsWith("## ")) {
-        elements.push(<p key={i} style={{ fontFamily: F, fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.88)", marginTop: 16, marginBottom: 6 }}>{line.slice(3)}</p>);
+        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.78)", marginTop: 16, marginBottom: 4, letterSpacing: "-0.01em" }}>{renderInline(line.slice(3))}</p>);
         i++; continue;
       }
-      if (line.startsWith("**") && line.endsWith("**")) {
-        elements.push(<p key={i} style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.82)", marginBottom: 4 }}>{line.slice(2, -2)}</p>);
+
+      // ── H3 ###
+      if (line.startsWith("### ")) {
+        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 11, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)", marginTop: 16, marginBottom: 6 }}>{line.slice(4)}</p>);
         i++; continue;
       }
-      if (line.trim().startsWith("|")) {
+
+      // ── standalone **bold line** (entire line wrapped in **)
+      if (/^\*\*[^*].+[^*]\*\*$/.test(trimmed) || /^\*\*\S+\*\*$/.test(trimmed)) {
+        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.78)", marginBottom: 3 }}>{trimmed.slice(2, -2)}</p>);
+        i++; continue;
+      }
+
+      // ── table
+      if (trimmed.startsWith("|")) {
         const tableLines: string[] = [];
         while (i < lines.length && lines[i].trim().startsWith("|")) { tableLines.push(lines[i]); i++; }
         elements.push(
-          <div key={`t${i}`} style={{ overflowX: "auto", margin: "12px 0" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F }}>
+          <div key={`t${i}`} style={{ overflowX: "auto", margin: "10px 0" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: FI }}>
               <tbody>
                 {tableLines.map((row, ri) => {
                   if (row.replace(/[|\s\-]/g, "") === "") return null;
@@ -248,7 +312,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
                   return (
                     <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                       {cells.map((cell, ci) => (
-                        <td key={ci} style={{ padding: "8px 12px", color: isHeader ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.7)", fontWeight: isHeader ? 500 : 400, fontSize: isHeader ? 11 : 13, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.05em" : "0", whiteSpace: "nowrap", fontFamily: F }}>
+                        <td key={ci} style={{ padding: "7px 10px", color: isHeader ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.68)", fontWeight: isHeader ? 500 : 400, fontSize: isHeader ? 10 : 12, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.05em" : "0", whiteSpace: "nowrap", fontFamily: FI }}>
                           {cell.trim()}
                         </td>
                       ))}
@@ -261,16 +325,38 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         );
         continue;
       }
-      if (/^[-•*]\s/.test(line)) {
+
+      // ── numbered list  1. / 2.
+      const numMatch = trimmed.match(/^(\d+)\.\s+(.+)/);
+      if (numMatch) {
         elements.push(
-          <div key={i} style={{ display: "flex", gap: 10, marginBottom: 5, alignItems: "flex-start" }}>
-            <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.2)", marginTop: 8, flexShrink: 0 }} />
-            <span style={{ fontFamily: F, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.65, fontWeight: 400 }}>{line.replace(/^[-•*]\s/, "")}</span>
+          <div key={i} style={{ display: "flex", gap: 9, marginBottom: 4, alignItems: "flex-start" }}>
+            <span style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.35)", lineHeight: 1.65, flexShrink: 0, minWidth: 16, fontWeight: 400 }}>{numMatch[1]}.</span>
+            <span style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.65, fontWeight: 400 }}>{renderInline(numMatch[2])}</span>
           </div>
         );
         i++; continue;
       }
-      elements.push(<p key={i} style={{ fontFamily: F, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.72, marginBottom: 4, fontWeight: 400 }}>{line}</p>);
+
+      // ── bullet list  - / * / •
+      if (/^[-•*]\s/.test(trimmed)) {
+        const indent = line.search(/\S/);
+        const isNested = indent >= 2;
+        elements.push(
+          <div key={i} style={{ display: "flex", gap: 9, marginBottom: 4, alignItems: "flex-start", paddingLeft: isNested ? 16 : 0 }}>
+            <div style={{ width: isNested ? 3 : 4, height: isNested ? 3 : 4, borderRadius: "50%", background: isNested ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.22)", marginTop: 7, flexShrink: 0 }} />
+            <span style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.65, fontWeight: 400 }}>{renderInline(trimmed.replace(/^[-•*]\s/, ""))}</span>
+          </div>
+        );
+        i++; continue;
+      }
+
+      // ── plain paragraph
+      elements.push(
+        <p key={i} style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.72, marginBottom: 3, fontWeight: 400 }}>
+          {renderInline(line)}
+        </p>
+      );
       i++;
     }
     return elements;
