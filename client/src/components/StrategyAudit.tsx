@@ -791,10 +791,18 @@ function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
   );
 }
 
-// ── AIText — renders Gemini markdown as structured bullets/points ─────────────
+// ── AIText — renders Gemini markdown as structured bullets/headers ─────────────
+// Rules:
+//   **STANDALONE LINE**  → uppercase section header (muted, Inter 9px, spaced)
+//   **inline text**      → plain text (no bold — Gemini overuses bold)
+//   *inline text*        → subtle italic
+//   • / - / 1.           → ▸ bullet in Inter 12px
+//   everything else      → Inter 12px paragraph
 function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
   if (!text) return null;
 
+  // Strip **...** markers from inline text — render as plain, not bold.
+  // Only standalone **HEADER** lines (matched below) get header styling.
   function parseInline(s: string, base: number): React.ReactNode {
     const out: React.ReactNode[] = [];
     const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
@@ -803,9 +811,10 @@ function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
     while ((m = re.exec(s)) !== null) {
       if (m.index > last) out.push(<span key={base + i++}>{s.slice(last, m.index)}</span>);
       if (m[1] !== undefined)
-        out.push(<strong key={base + i++} style={{ fontWeight: 600, color: alertColor ?? T.text }}>{m[1]}</strong>);
+        // **text** → plain, no bold
+        out.push(<span key={base + i++}>{m[1]}</span>);
       else
-        out.push(<em key={base + i++} style={{ fontStyle: "italic", color: alertColor ?? T.muted }}>{m[2]}</em>);
+        out.push(<em key={base + i++} style={{ fontStyle: "italic", opacity: 0.75 }}>{m[2]}</em>);
       last = m.index + m[0].length;
     }
     if (last < s.length) out.push(<span key={base + i++}>{s.slice(last)}</span>);
@@ -819,7 +828,7 @@ function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
   function flushBullets() {
     if (!bullets.length) return;
     nodes.push(
-      <ul key={`ul${nodes.length}`} style={{ margin: "4px 0 10px 0", padding: 0, listStyle: "none" }}>
+      <ul key={`ul${nodes.length}`} style={{ margin: "4px 0 12px 0", padding: 0, listStyle: "none" }}>
         {bullets}
       </ul>
     );
@@ -830,13 +839,13 @@ function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
     const line = raw.trim();
     if (!line) { flushBullets(); return; }
 
-    // Bullet line: •  -  *  or  1.
-    const bm = line.match(/^[•\-\*]\s+(.+)/) ?? line.match(/^\d+\.\s+(.+)/);
+    // Bullet line: •  -  or  1.  (but NOT lines starting with * that are headers)
+    const bm = line.match(/^[•\-]\s+(.+)/) ?? line.match(/^\d+\.\s+(.+)/);
     if (bm) {
       bullets.push(
-        <li key={li} style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 5 }}>
-          <span style={{ color: alertColor ?? T.blue, fontSize: 9, marginTop: 3, flexShrink: 0, opacity: 0.8 }}>▸</span>
-          <span style={{ fontFamily: INTER, fontSize: 11, color: alertColor ?? T.text, lineHeight: 1.65, fontWeight: 400 }}>
+        <li key={li} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: alertColor ?? T.blue, fontSize: 8, marginTop: 4, flexShrink: 0, opacity: 0.6 }}>▸</span>
+          <span style={{ fontFamily: INTER, fontSize: 12, color: alertColor ?? T.text, lineHeight: 1.7, fontWeight: 400 }}>
             {parseInline(bm[1], li * 1000)}
           </span>
         </li>
@@ -845,20 +854,26 @@ function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
     }
     flushBullets();
 
-    // Section header: **Header** or **Header:**  or ## Header
+    // Standalone section header: **HEADER** alone on a line (with optional trailing colon)
+    // or ## Header markdown
     const hm = line.match(/^\*\*(.+?)\*\*:?\s*$/) ?? line.match(/^#{1,3}\s+(.+)/);
     if (hm) {
       nodes.push(
-        <div key={li} style={{ fontFamily: INTER, fontSize: 10, fontWeight: 700, color: T.muted, letterSpacing: ".12em", textTransform: "uppercase", marginTop: 14, marginBottom: 5 }}>
+        <div key={li} style={{
+          fontFamily: INTER, fontSize: 9, fontWeight: 600, color: T.muted,
+          letterSpacing: ".14em", textTransform: "uppercase",
+          marginTop: 18, marginBottom: 6,
+          paddingBottom: 4, borderBottom: `1px solid ${T.line}`,
+        }}>
           {hm[1]}
         </div>
       );
       return;
     }
 
-    // Normal text line
+    // Normal text paragraph
     nodes.push(
-      <p key={li} style={{ fontFamily: INTER, fontSize: 11, color: alertColor ?? T.muted, lineHeight: 1.7, fontWeight: 400, margin: "0 0 5px 0" }}>
+      <p key={li} style={{ fontFamily: INTER, fontSize: 12, color: alertColor ?? T.muted, lineHeight: 1.75, fontWeight: 400, margin: "0 0 6px 0" }}>
         {parseInline(line, li * 1000)}
       </p>
     );
@@ -925,9 +940,9 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
         </Cell>
       </div>
 
-      {/* Headline narrative */}
+      {/* AI Verdict narrative — hero section */}
       {data.headline && (
-        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
+        <div style={{ padding: "20px 24px", marginBottom: 12, background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4 }}>
           <CellTitle>AI Verdict</CellTitle>
           <AIText text={data.headline} />
         </div>
@@ -939,20 +954,20 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
           const isWin = i === 0;
           const accent = isWin ? T.green : T.red;
           return (
-            <Cell key={i} style={{ borderRight: i === 0 ? `1px solid ${T.line}` : "none", borderLeft: `3px solid ${accent}` }}>
+            <Cell key={i} style={{ borderLeft: `2px solid ${accent}` }}>
               <CellTitle>{isWin ? "Win Profile" : "Loss Profile"}</CellTitle>
               {profile ? (
                 <>
                   {profile.conditions.map((c, ci) => (
-                    <div key={ci} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: accent, flexShrink: 0, display: "inline-block" }} />
-                      <span style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400 }}>{c}</span>
+                    <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
+                      <span style={{ width: 3, height: 3, borderRadius: "50%", background: accent, flexShrink: 0, marginTop: 6, display: "inline-block" }} />
+                      <span style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400, lineHeight: 1.6 }}>{c}</span>
                     </div>
                   ))}
-                  <div style={{ ...mono, fontSize: 10, color: T.muted, marginTop: 8 }}>{profile.probability}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 10 }}>{profile.probability}</div>
                 </>
               ) : (
-                <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>Insufficient data</div>
+                <div style={{ fontFamily: INTER, fontSize: 12, color: T.dim }}>Insufficient data — need ≥5 wins or losses</div>
               )}
             </Cell>
           );
@@ -961,18 +976,18 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* Findings */}
       {findings.length > 0 && (
-        <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+        <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
           <CellTitle>Proofed Findings</CellTitle>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {findings.map((f, i) => {
               const isEdge = f.deviation >= 0;
               const accent = isEdge ? T.green : T.red;
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: T.bg3, border: `1px solid ${T.line}`, borderLeft: `3px solid ${accent}`, gap: 12 }}>
-                  <span style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400, flex: 1 }}>{f.finding}</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: T.bg3, border: `1px solid ${T.line}`, borderLeft: `2px solid ${accent}`, gap: 12 }}>
+                  <span style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400, flex: 1, lineHeight: 1.5 }}>{f.finding}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    <span style={{ ...num, fontSize: 12, color: accent }}>{(f.win_rate * 100).toFixed(0)}%</span>
-                    <span style={{ ...mono, fontSize: 10, color: T.dim }}>{f.sample_size}t</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 400, color: accent }}>{(f.win_rate * 100).toFixed(0)}%</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.dim }}>{f.sample_size}t</span>
                     <ConfBadge level={f.confidence} />
                   </div>
                 </div>
@@ -990,7 +1005,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
             {checklist.map((item, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
                 <span style={{ color: T.green, fontSize: 12, lineHeight: 1.6 }}>✓</span>
-                <span style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400, lineHeight: 1.6 }}>{item}</span>
+                <span style={{ fontFamily: INTER, fontSize: 12, color: T.text, fontWeight: 400, lineHeight: 1.6 }}>{item}</span>
               </div>
             ))}
           </Cell>
@@ -1031,88 +1046,44 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   if (isLoading) return <AILoadingState label="Building AI strategy…" />;
   if (isError || !data?.success || data?.error) return <AIErrorState msg={data?.error ?? "AI strategy failed"} retry={refetch} />;
 
-  const entries = data.entry_conditions ?? [];
-  const avoids  = data.avoid_conditions ?? [];
-  const rules   = data.risk_rules ?? {};
-  const warns   = data.data_warnings ?? [];
-
-  function ConditionRow({ label, wr, n, conf, isEntry }: { label: string; wr: number; n: number; conf: string; isEntry: boolean }) {
-    const pct = (wr * 100).toFixed(0);
-    const accent = isEntry ? T.green : T.red;
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${T.line}` }}>
-        <div style={{ flex: 1, fontFamily: FONT, fontSize: 10, color: T.text, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".14em" }}>{label}</div>
-        <div style={{ width: 80 }}>
-          <Bar pct={wr * 100} color={accent} />
-        </div>
-        <span style={{ ...num, fontSize: 13, color: accent, width: 36, textAlign: "right" }}>{pct}%</span>
-        <span style={{ ...mono, fontSize: 10, color: T.dim, width: 30, textAlign: "right" }}>{n}t</span>
-        <ConfBadge level={conf} />
-      </div>
-    );
-  }
+  const warns = data.data_warnings ?? [];
 
   return (
     <div style={{ padding: "0 0 40px" }}>
 
-      {/* Entry / Avoid side by side */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-        <Cell>
-          <CellTitle>Entry Conditions</CellTitle>
-          {entries.length === 0
-            ? <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>No qualifying conditions found</div>
-            : entries.map((c, i) => <ConditionRow key={i} label={c.label} wr={c.win_rate} n={c.sample_size} conf={c.confidence} isEntry={true} />)
-          }
-        </Cell>
-        <Cell style={{ borderRight: "none" }}>
-          <CellTitle>Avoid</CellTitle>
-          {avoids.length === 0
-            ? <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>No drain conditions identified</div>
-            : avoids.map((c, i) => <ConditionRow key={i} label={c.label} wr={c.win_rate} n={c.sample_size} conf={c.confidence} isEntry={false} />)
-          }
-        </Cell>
-      </div>
-
-      {/* Risk rules + projected edge */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-        <Cell>
-          <CellTitle>Risk Rules</CellTitle>
-          {Object.entries(rules).map(([k, v], i) => (
-            <StatRow key={i} label={k.replace(/_/g, " ")} value={v} last={i === Object.entries(rules).length - 1} />
-          ))}
-        </Cell>
-        <Cell style={{ borderRight: "none" }}>
-          <CellTitle>Projected Edge</CellTitle>
-          {data.projected_edge ? (
+      {/* Projected edge strip — compact top bar */}
+      {data.projected_edge && (
+        <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "12px 22px", background: T.bg2, borderBottom: `1px solid ${T.line}`, marginBottom: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontFamily: INTER, fontSize: 9, color: T.dim, letterSpacing: ".12em", textTransform: "uppercase" }}>Projected Edge</span>
+            <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 400, color: T.green }}>{(data.projected_edge.win_rate * 100).toFixed(0)}%</span>
+          </div>
+          <div style={{ width: 1, height: 32, background: T.line2 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontFamily: INTER, fontSize: 9, color: T.dim, letterSpacing: ".12em", textTransform: "uppercase" }}>Sample</span>
+            <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 400, color: T.text }}>{data.projected_edge.sample_size} trades</span>
+          </div>
+          <div style={{ width: 1, height: 32, background: T.line2 }} />
+          <ConfBadge level={data.projected_edge.confidence} />
+          {warns.length > 0 && (
             <>
-              <div style={{ fontFamily: FONT, fontSize: 12, color: T.text, fontWeight: 400, marginBottom: 10 }}>{data.projected_edge.finding}</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <MiniStatBox label="Win Rate" value={`${(data.projected_edge.win_rate * 100).toFixed(0)}%`} color={T.green} />
-                <MiniStatBox label="Trades" value={data.projected_edge.sample_size} />
-                <MiniStatBox label="Confidence" value={data.projected_edge.confidence} color={CONF_COLOR[data.projected_edge.confidence]} />
-              </div>
+              <div style={{ flex: 1 }} />
+              <span style={{ fontFamily: INTER, fontSize: 10, color: T.amber }}>
+                ⚠ {warns.length} preliminary finding{warns.length !== 1 ? "s" : ""} — build sample size before relying on these rules
+              </span>
             </>
-          ) : (
-            <div style={{ fontFamily: FONT, fontSize: 12, color: T.dim }}>Insufficient aligned trades</div>
           )}
-        </Cell>
-      </div>
-
-      {/* AI narrative */}
-      {data.narrative && (
-        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.line}`, background: T.bg2 }}>
-          <CellTitle>Strategy Brief</CellTitle>
-          <AIText text={data.narrative} />
         </div>
       )}
 
-      {/* Data warnings */}
-      {warns.length > 0 && (
-        <div style={{ padding: "16px 24px" }}>
-          <CellTitle>Data Warnings</CellTitle>
-          {warns.map((w, i) => (
-            <div key={i} style={{ fontFamily: FONT, fontSize: 12, color: T.amber, lineHeight: 1.6, marginBottom: 6 }}>{w}</div>
-          ))}
+      {/* Main strategy narrative — the 8-step mechanical playbook */}
+      {data.narrative ? (
+        <div style={{ padding: "4px 24px 24px" }}>
+          <AIText text={data.narrative} />
+        </div>
+      ) : (
+        <div style={{ padding: "40px 24px", textAlign: "center" }}>
+          <div style={{ fontFamily: INTER, fontSize: 12, color: T.dim }}>No strategy generated — add more trades and run again.</div>
         </div>
       )}
     </div>
