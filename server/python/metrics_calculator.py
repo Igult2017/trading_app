@@ -402,9 +402,9 @@ def _normalise_direction(raw: Any) -> str:
     if raw is None:
         return "unknown"
     s = str(raw).strip().lower()
-    if s in ("long", "buy", "l"):
+    if s in ("long", "buy", "l", "bullish", "bull"):
         return "long"
-    if s in ("short", "sell", "s"):
+    if s in ("short", "sell", "s", "bearish", "bear"):
         return "short"
     return "unknown"
 

@@ -57,6 +57,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -131,7 +132,6 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   };
 
   const deleteChat = async (id: string) => {
-    if (!window.confirm("Delete this conversation? This cannot be undone.")) return;
     try {
       const res = await authFetch(`/api/trader-ai/chats/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Failed to delete (${res.status})`);
@@ -139,6 +139,8 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       if (id === activeChatId) newChat();
     } catch (err: any) {
       setError(err?.message || "Could not delete chat.");
+    } finally {
+      setConfirmDeleteId(null);
     }
   };
 
@@ -492,7 +494,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)"; }}
                         title="Rename"
                       ><Pencil size={11} /></button>
-                      <button onClick={e => { e.stopPropagation(); deleteChat(c.id); }}
+                      <button onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
                         style={{ width: 22, height: 22, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = "#f87171"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)"; }}
@@ -670,6 +672,35 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
           </p>
         </div>
       </div>
+
+      {/* ── Delete confirmation modal ─────────────────────────────── */}
+      {confirmDeleteId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+          onClick={() => setConfirmDeleteId(null)}>
+          <div style={{ background: "#0f1923", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "28px 28px 22px", width: 320, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.6)", fontFamily: F }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Trash2 size={16} color="#f87171" />
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Delete conversation?</span>
+            </div>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: "0 0 22px" }}>
+              This conversation and all its messages will be permanently removed. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setConfirmDeleteId(null)}
+                style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
+                Cancel
+              </button>
+              <button onClick={() => deleteChat(confirmDeleteId)}
+                style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#dc2626,#b91c1c)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: F, boxShadow: "0 2px 12px rgba(220,38,38,0.35)" }}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
