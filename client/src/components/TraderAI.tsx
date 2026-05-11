@@ -2,10 +2,19 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, RotateCcw, Copy, Check, Download,
   FileText, ChevronRight, AlertCircle, User,
-  Plus, Trash2, MessageSquare, Pencil,
-  PanelLeftClose, PanelLeftOpen
+  Plus, Trash2, MessageSquare, Pencil, Cpu, Menu
 } from "lucide-react";
 import { authFetch } from "@/lib/queryClient";
+
+const GEMINI_MODELS = [
+  { id: "gemini-1.5-flash",               label: "1.5 Flash",         desc: "Fast · stable" },
+  { id: "gemini-1.5-pro",                 label: "1.5 Pro",           desc: "Powerful · stable" },
+  { id: "gemini-2.0-flash-lite",          label: "2.0 Flash Lite",    desc: "Newer · efficient" },
+  { id: "gemini-2.5-flash-preview-05-20", label: "2.5 Flash Preview", desc: "Latest Flash" },
+  { id: "gemini-2.5-pro-preview-05-06",   label: "2.5 Pro Preview",   desc: "Most capable" },
+] as const;
+type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
+const DEFAULT_MODEL: GeminiModelId = "gemini-1.5-flash";
 
 
 const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string }) => (
@@ -52,19 +61,52 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   const [chatsLoading, setChatsLoading] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("traderai.sidebarCollapsed") === "1";
+  const SIDEBAR_MIN = 180;
+  const SIDEBAR_MAX = 440;
+  const SIDEBAR_SNAP = 100; // collapse when dragged below this
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 240;
+    const v = parseInt(window.localStorage.getItem("traderai.sidebarWidth") ?? "240", 10);
+    return isNaN(v) ? 240 : v;
   });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startW: number } | null>(null);
+  const sidebarCollapsed = sidebarWidth < SIDEBAR_MIN;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<GeminiModelId>(() => {
+    try { return (window.localStorage.getItem("traderai.model") as GeminiModelId) || DEFAULT_MODEL; } catch { return DEFAULT_MODEL; }
+  });
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem("traderai.sidebarCollapsed", sidebarCollapsed ? "1" : "0");
-    } catch { /* ignore */ }
-  }, [sidebarCollapsed]);
+    try { window.localStorage.setItem("traderai.sidebarWidth", String(sidebarWidth)); } catch { /* ignore */ }
+  }, [sidebarWidth]);
+
+  // ── Drag-to-resize handlers ───────────────────────────────────────────────
+  const onDragHandleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startW: sidebarWidth };
+    setIsDragging(true);
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const delta = ev.clientX - dragRef.current.startX;
+      const raw = dragRef.current.startW + delta;
+      if (raw < SIDEBAR_SNAP) {
+        setSidebarWidth(0);
+      } else {
+        setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, raw)));
+      }
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      setIsDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [sidebarWidth, SIDEBAR_SNAP, SIDEBAR_MIN, SIDEBAR_MAX]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -491,29 +533,45 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       {mobileSidebarOpen && <div className="traderai-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />}
 
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-      <div className={`traderai-sidebar ${mobileSidebarOpen ? "is-open" : ""} ${sidebarCollapsed ? "traderai-sidebar-collapsed" : ""}`}
-        style={{ width: sidebarCollapsed ? 52 : 240, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.06)", background: "rgba(7,13,21,0.97)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
-        <div style={{ padding: "12px 10px 8px", display: "flex", alignItems: "center", gap: 6 }}>
-          {!sidebarCollapsed && (
-            <button onClick={newChat}
-              style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 9, color: "white", fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)" }}
-            >
-              <Plus size={13} />
-              <span>New chat</span>
-            </button>
-          )}
-          <button onClick={() => setSidebarCollapsed(v => !v)}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            style={{ width: 32, height: 32, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(255,255,255,0.55)", cursor: "pointer" }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.85)"; }}
-            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.04)"; b.style.color = "rgba(255,255,255,0.55)"; }}
+      {/* Collapsed strip — drag to reopen */}
+      {sidebarCollapsed && !mobileSidebarOpen && (
+        <div
+          onMouseDown={onDragHandleMouseDown}
+          title="Drag to expand sidebar"
+          style={{ width: 14, flexShrink: 0, background: "rgba(7,13,21,0.97)", borderRight: "1px solid rgba(255,255,255,0.06)", cursor: "col-resize", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {[0,1,2].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.2)" }} />)}
+          </div>
+        </div>
+      )}
+
+      <div className={`traderai-sidebar ${mobileSidebarOpen ? "is-open" : ""}`}
+        style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, background: "rgba(7,13,21,0.97)", display: sidebarCollapsed ? "none" : "flex", flexDirection: "column", transition: isDragging ? "none" : "width 0.18s ease", overflow: "hidden", position: "relative" }}>
+
+        {/* Drag handle — right edge of sidebar */}
+        <div
+          onMouseDown={onDragHandleMouseDown}
+          title="Drag to resize"
+          style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 5, cursor: "col-resize", zIndex: 10, background: isDragging ? "rgba(99,102,241,0.35)" : "transparent", transition: "background 0.15s" }}
+          onMouseEnter={e => { if (!isDragging) (e.currentTarget as HTMLDivElement).style.background = "rgba(99,102,241,0.18)"; }}
+          onMouseLeave={e => { if (!isDragging) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+        />
+
+        {/* Sidebar border line */}
+        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.06)", pointerEvents: "none" }} />
+
+        <div style={{ padding: "12px 10px 8px", display: "flex", alignItems: "center", gap: 6, paddingRight: 14 }}>
+          <button onClick={newChat}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 9, color: "white", fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)", whiteSpace: "nowrap", overflow: "hidden" }}
           >
-            {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+            <Plus size={13} style={{ flexShrink: 0 }} />
+            <span>New chat</span>
           </button>
         </div>
 
-        {!sidebarCollapsed && (
-        <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", padding: "4px 8px 12px" }}>
+        {(
+        <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", padding: "4px 8px 12px", paddingRight: 12 }}>
           {chatsLoading && chats.length === 0 ? (
             <p style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.25)", padding: "12px 8px" }}>Loading…</p>
           ) : chats.length === 0 ? (
@@ -596,9 +654,9 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
               className="traderai-mobile-toggle"
               onClick={() => setMobileSidebarOpen(true)}
               title="Open chats"
-              style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+              style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
             >
-              <PanelLeftOpen size={14} />
+              <Menu size={14} />
             </button>
             <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <AtomAI size={14} color="white" />
@@ -623,6 +681,35 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
                 ))}
               </>
             )}
+
+            {/* Model selector */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setModelMenuOpen(v => !v)}
+                title={`AI Model: ${GEMINI_MODELS.find(m => m.id === selectedModel)?.label ?? selectedModel}`}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: modelMenuOpen ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${modelMenuOpen ? "rgba(99,102,241,0.45)" : "rgba(255,255,255,0.08)"}`, borderRadius: 7, color: modelMenuOpen ? "#a5b4fc" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
+                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; if (!modelMenuOpen) { b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; } }}
+                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; if (!modelMenuOpen) { b.style.background = "rgba(255,255,255,0.04)"; b.style.color = "rgba(255,255,255,0.45)"; } }}
+              >
+                <Cpu size={12} />
+                <span className="traderai-headerbtn-label">{GEMINI_MODELS.find(m => m.id === selectedModel)?.label ?? "Model"}</span>
+              </button>
+              {modelMenuOpen && (
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(10,15,24,0.97)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "6px 0", minWidth: 220, zIndex: 200, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                  {GEMINI_MODELS.map(m => (
+                    <button key={m.id}
+                      onClick={() => { setSelectedModel(m.id); try { window.localStorage.setItem("traderai.model", m.id); } catch {} setModelMenuOpen(false); }}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 14px", background: m.id === selectedModel ? "rgba(99,102,241,0.12)" : "transparent", border: "none", color: m.id === selectedModel ? "#a5b4fc" : "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: F, cursor: "pointer", textAlign: "left", gap: 10 }}
+                      onMouseEnter={e => { if (m.id !== selectedModel) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                      onMouseLeave={e => { if (m.id !== selectedModel) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                    >
+                      <span style={{ fontWeight: m.id === selectedModel ? 600 : 400 }}>{m.label}</span>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
