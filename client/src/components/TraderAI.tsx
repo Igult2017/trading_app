@@ -676,10 +676,15 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <button
-              className="traderai-mobile-toggle"
-              onClick={() => setMobileSidebarOpen(true)}
-              title="Open chats"
-              style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+              onClick={() => {
+                if (window.innerWidth < 640) {
+                  setMobileSidebarOpen(v => !v);
+                } else {
+                  setSidebarWidth(w => w < SIDEBAR_MIN ? 240 : 0);
+                }
+              }}
+              title={sidebarCollapsed ? "Show chat history" : "Hide chat history"}
+              style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: sidebarCollapsed ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)", color: sidebarCollapsed ? "#a5b4fc" : "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all 0.15s" }}
             >
               <Menu size={14} />
             </button>
