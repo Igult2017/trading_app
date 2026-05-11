@@ -1,0 +1,347 @@
+import { useState } from "react";
+
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .chat-shell {
+    font-family: 'Kalam', cursive;
+    background: #0e0f11;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+    color: #e8e9eb;
+  }
+
+  .chat-header {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #1e2025;
+  }
+
+  .chat-header-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .chat-header-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #9ca3af;
+    letter-spacing: 0.02em;
+  }
+
+  .chat-feed {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .msg-block {
+    animation: fadeUp 0.35s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .user-row {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1.5rem 0 1rem;
+  }
+
+  .user-pill {
+    background: #1e2228;
+    border: 1px solid #2a2d38;
+    border-radius: 20px;
+    padding: 10px 18px;
+    font-size: 14px;
+    color: #d1d5db;
+    max-width: 75%;
+    line-height: 1.5;
+  }
+
+  .ai-row {
+    padding: 0.25rem 0 2rem;
+    border-bottom: 1px solid #1a1c22;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #c9ccd4;
+  }
+
+  .ai-row:last-child { border-bottom: none; }
+
+  .section-heading {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6c63ff;
+    margin: 16px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .section-heading:first-child { margin-top: 0; }
+
+  .section-heading::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #1e2228;
+  }
+
+  .point-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .point-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #9ca3af;
+  }
+
+  .point-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #6c63ff;
+    flex-shrink: 0;
+    margin-top: 8px;
+    opacity: 0.7;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: #1a1c22;
+    border: 1px solid #2a2d38;
+    border-radius: 5px;
+    padding: 1px 7px;
+    color: #7c85a2;
+    vertical-align: middle;
+    margin: 0 1px;
+    white-space: nowrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 5px;
+    padding: 2px 7px;
+    vertical-align: middle;
+    margin: 0 1px;
+  }
+
+  .badge.warn  { background: #2a1f0a; color: #f59e0b; border: 1px solid #3d2e10; }
+  .badge.danger { background: #200f0f; color: #f87171; border: 1px solid #3d1818; }
+  .badge.ok   { background: #0d1f12; color: #34d399; border: 1px solid #163324; }
+  .badge.muted { background: #1a1c22; color: #6b7280; border: 1px solid #2a2d38; }
+
+  .hl { color: #e8e9eb; font-weight: 500; }
+
+  .rule { height: 1px; background: #1e2228; margin: 14px 0; }
+
+  .footer-note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #11131a;
+    border-left: 2px solid #6c63ff;
+    border-radius: 0 8px 8px 0;
+    font-size: 12.5px;
+    color: #6b7280;
+    line-height: 1.65;
+  }
+
+  .input-bar {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 2rem;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #16181d;
+    border: 1px solid #1e2228;
+    border-radius: 14px;
+    padding: 10px 14px;
+  }
+
+  .input-bar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Kalam', cursive;
+    font-size: 14px;
+    color: #c9ccd4;
+  }
+
+  .input-bar input::placeholder { color: #3f4451; }
+
+  .send-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+
+  .send-btn:hover { opacity: 0.85; }
+
+  .send-btn svg { width: 15px; height: 15px; fill: #fff; }
+`;
+
+const Chip = ({ children }) => <span className="chip">{children}</span>;
+const Badge = ({ type, children }) => <span className={`badge ${type}`}>{children}</span>;
+const Hl = ({ children }) => <strong className="hl">{children}</strong>;
+
+const messages = [
+  {
+    role: "user",
+    text: "What instrument gives me the best edge? Which session is most profitable?",
+    time: "09:41",
+  },
+  {
+    role: "ai",
+    time: "09:41",
+    content: (
+      <div>
+        <div className="section-heading">Instrument edge</div>
+        <ul className="point-list">
+          <li className="point-item">
+            <span className="point-dot" />
+            <span>EUR/USD is the only instrument in your journal — <Hl>60% win rate</Hl> across <Chip>n=5</Chip> trades.</span>
+          </li>
+          <li className="point-item">
+            <span className="point-dot" />
+            <span>
+              Patterns on <Chip>instrument=eur/usd</Chip> are identified as an edge{" "}
+              <Badge type="ok">60% WR</Badge> with confidence <Badge type="warn">LOW</Badge>.
+            </span>
+          </li>
+          <li className="point-item">
+            <span className="point-dot" />
+            <span>
+              The exact same conditions are also flagged as a <Hl>drain</Hl> — contradictory labeling on identical criteria.
+            </span>
+          </li>
+          <li className="point-item">
+            <span className="point-dot" />
+            <span>
+              Overall <Chip>edgeVerdict</Chip> is <Hl>Unconfirmed</Hl> · <Chip>aiConfidence</Chip> ={" "}
+              <Badge type="danger">28</Badge>
+            </span>
+          </li>
+          <li className="point-item">
+            <span className="point-dot" />
+            <span>
+              With only 5 trades and contradictory signals, data is{" "}
+              <Badge type="danger">INSUFFICIENT</Badge> to confirm any edge.
+            </span>
+          </li>
+        </ul>
+
+        <div className="rule" />
+
+        <div className="section-heading">Session edge</div>
+        <ul className="point-list">
+          <li className="point-item">
+            <span className="point-dot" />
+            <span>
+              No session data in your journal — <Chip>sessionDrawdown: []</Chip>. No session performance can be assessed.
+            </span>
+          </li>
+        </ul>
+
+        <div className="footer-note">
+          To reliably confirm an edge, significantly more data is needed — ideally{" "}
+          <strong style={{ color: "#c9ccd4" }}>hundreds of trades</strong> per instrument across multiple sessions.
+        </div>
+      </div>
+    ),
+  },
+];
+
+export default function TraderChat() {
+  const [input, setInput] = useState("");
+
+  return (
+    <>
+      <style>{styles}</style>
+      <div className="chat-shell">
+        <div className="chat-header">
+          <div className="chat-header-logo">T</div>
+          <span className="chat-header-title">Trader AI · Journal Analysis</span>
+        </div>
+
+        <div className="chat-feed">
+          {messages.map((msg, i) => (
+            <div className="msg-block" key={i} style={{ animationDelay: `${i * 0.08}s` }}>
+              {msg.role === "user" ? (
+                <div className="user-row">
+                  <div className="user-pill">{msg.text}</div>
+                </div>
+              ) : (
+                <div className="ai-row">
+                  {msg.content}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="input-bar">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Ask about your trading journal…"
+          />
+          <button className="send-btn" aria-label="Send">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
