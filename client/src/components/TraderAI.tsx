@@ -84,6 +84,18 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
 
   useEffect(() => { refreshChats(); }, [refreshChats]);
 
+  // Inject Google Fonts into <head> so they load reliably regardless of global styles
+  useEffect(() => {
+    const id = "traderai-gfonts";
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap";
+      document.head.appendChild(link);
+    }
+  }, []);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
@@ -379,7 +391,6 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: "#070d15", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap');
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
         @keyframes traderai-spin   { to{transform:rotate(360deg)} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -593,7 +604,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
               </div>
             </div>
           ) : (
-            <div className="traderai-msglist" style={{ padding: "24px 24px 8px", maxWidth: 780, margin: "0 auto", width: "100%" }}>
+            <div className="traderai-msglist" style={{ padding: "24px 24px 8px", maxWidth: 780, margin: "0 auto", width: "100%", fontFamily: FK }}>
               {messages.map((msg, idx) => {
                 const isLastMsg = idx === messages.length - 1;
                 return (
