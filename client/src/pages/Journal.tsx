@@ -798,8 +798,10 @@ export default function Journal() {
 
     // The server scopes results to the authenticated user, so we no longer
     // pass userId in the URL — relying on the Bearer token via authFetch.
+    const uid = user?.id;
     const endpoints: { queryKey: unknown[]; url: string; staleTime: number }[] = [
       { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}`,    staleTime: STALE },
+      { queryKey: ['/api/journal/entries',    sid], url: `/api/journal/entries?sessionId=${sid}`,    staleTime: STALE },
       { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}`,   staleTime: STALE },
       { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}`,   staleTime: STALE },
       { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}`,  staleTime: 60_000 },
@@ -812,6 +814,20 @@ export default function Journal() {
         staleTime,
       });
     }
+
+    // Strategy audit — heavier Python computation, prefetch so Audit tab is instant
+    queryClient.prefetchQuery({
+      queryKey: ["strategyAudit", sid, uid],
+      queryFn: async () => {
+        const p = new URLSearchParams();
+        if (sid) p.set("sessionId", sid);
+        if (uid) p.set("userId", uid);
+        const r = await authFetch(`/api/strategy-audit/compute?${p}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      },
+      staleTime: 5 * 60 * 1000,
+    });
   }, [activeSessionId, queryClient, user?.id]);
 
   const { data: sessions = [] } = useQuery<any[]>({

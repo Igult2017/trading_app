@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, TrendingUp, Percent, Loader2, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { authFetch } from '@/lib/queryClient';
 
 interface Trader {
   rank: number;
@@ -59,10 +61,6 @@ const Sparkline = ({ data, color }: { data: number[]; color: string }) => {
 export default function Leaderboard() {
   const [activeCategory, setActiveCategory] = useState<'pnl' | 'winRate' | 'profitFactor'>('pnl');
   const [activePeriod, setActivePeriod]     = useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
-  const [traders, setTraders]               = useState<Trader[]>([]);
-  const [summary, setSummary]               = useState<Summary | null>(null);
-  const [loading, setLoading]               = useState(true);
-  const [error, setError]                   = useState<string | null>(null);
   const [isMobile, setIsMobile]             = useState(false);
 
   useEffect(() => {
@@ -73,19 +71,20 @@ export default function Leaderboard() {
     return () => mq.removeEventListener?.('change', update);
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetch(`/api/leaderboard?period=${activePeriod}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setTraders(data.leaderboard || []);
-        setSummary(data.summary || null);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [activePeriod]);
+  const { data: lbData, isLoading: loading, error: queryError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
+    queryKey: ['/api/leaderboard', activePeriod],
+    queryFn: async () => {
+      const r = await authFetch(`/api/leaderboard?period=${activePeriod}`);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      return { leaderboard: d.leaderboard || [], summary: d.summary || null };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const traders = lbData?.leaderboard ?? [];
+  const summary = lbData?.summary ?? null;
+  const error   = queryError ? (queryError as Error).message : null;
 
   const categories = [
     { id: 'pnl'          as const, label: 'By PnL',         icon: <TrendingUp size={14} />, color: '#34d399' },

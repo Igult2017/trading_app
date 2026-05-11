@@ -1189,23 +1189,17 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
 export default function StrategyAudit({ sessionId, userId }: Props) {
   const [active, setActive] = useState(1);
-  const [queryEnabled, setQueryEnabled] = useState(false);
-
-  useEffect(() => {
-    setQueryEnabled(true);
-  }, []);
 
   const { data, isLoading, isError, error, refetch } = useQuery<AuditData>({
     queryKey: ["strategyAudit", sessionId, userId],
     queryFn: () => fetchAudit(sessionId, userId),
     staleTime: 5 * 60 * 1000,
     retry: 2,
-    enabled: queryEnabled,
   });
 
   const F = { fontFamily: FONT };
 
-  const showAuditLoader = useDelayedLoading(!queryEnabled || isLoading);
+  const showAuditLoader = useDelayedLoading(isLoading);
   if (showAuditLoader) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <TradingLoader message="Analysing your trades…" />
