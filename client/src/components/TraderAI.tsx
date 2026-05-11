@@ -689,53 +689,6 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
             <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}>Trader AI</span>
             <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-            {messages.length > 0 && (
-              <>
-                {[
-                  { label: "Export", icon: <FileText size={12} />, action: exportChat },
-                  { label: "Clear",  icon: <RotateCcw size={12} />, action: newChat },
-                ].map(({ label, icon, action }) => (
-                  <button key={label} onClick={action} className="traderai-headerbtn" title={label}
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
-                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; }}
-                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "rgba(255,255,255,0.45)"; }}
-                  >
-                    {icon}<span className="traderai-headerbtn-label">{label}</span>
-                  </button>
-                ))}
-              </>
-            )}
-
-            {/* Model selector */}
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setModelMenuOpen(v => !v)}
-                title={`AI Model: ${GEMINI_MODELS.find(m => m.id === selectedModel)?.label ?? selectedModel}`}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: modelMenuOpen ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${modelMenuOpen ? "rgba(99,102,241,0.45)" : "rgba(255,255,255,0.08)"}`, borderRadius: 7, color: modelMenuOpen ? "#a5b4fc" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, transition: "all 0.15s" }}
-                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; if (!modelMenuOpen) { b.style.background = "rgba(255,255,255,0.09)"; b.style.color = "rgba(255,255,255,0.7)"; } }}
-                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; if (!modelMenuOpen) { b.style.background = "rgba(255,255,255,0.04)"; b.style.color = "rgba(255,255,255,0.45)"; } }}
-              >
-                <Cpu size={12} />
-                <span className="traderai-headerbtn-label">{GEMINI_MODELS.find(m => m.id === selectedModel)?.label ?? "Model"}</span>
-              </button>
-              {modelMenuOpen && (
-                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(10,15,24,0.97)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "6px 0", minWidth: 220, zIndex: 200, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                  {GEMINI_MODELS.map(m => (
-                    <button key={m.id}
-                      onClick={() => { setSelectedModel(m.id); try { window.localStorage.setItem("traderai.model", m.id); } catch {} setModelMenuOpen(false); }}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 14px", background: m.id === selectedModel ? "rgba(99,102,241,0.12)" : "transparent", border: "none", color: m.id === selectedModel ? "#a5b4fc" : "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: F, cursor: "pointer", textAlign: "left", gap: 10 }}
-                      onMouseEnter={e => { if (m.id !== selectedModel) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
-                      onMouseLeave={e => { if (m.id !== selectedModel) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-                    >
-                      <span style={{ fontWeight: m.id === selectedModel ? 600 : 400 }}>{m.label}</span>
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{m.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Scrollable messages / empty state */}
