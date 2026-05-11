@@ -84,6 +84,18 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
 
   useEffect(() => { refreshChats(); }, [refreshChats]);
 
+  // Click-outside dismisses the armed delete button — same pattern as Trade Vault
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as Element).closest(".tai-delete-btn")) {
+        setConfirmDeleteId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [confirmDeleteId]);
+
   // Inject Google Fonts into <head> so they load reliably regardless of global styles
   useEffect(() => {
     const id = "traderai-gfonts";
@@ -394,6 +406,11 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         .traderai-ta::placeholder{color:rgba(255,255,255,0.2);font-family:'Montserrat',sans-serif;}
         .traderai-chatrow .traderai-chatactions{opacity:0;transition:opacity .15s}
         .traderai-chatrow:hover .traderai-chatactions{opacity:1}
+        .tai-delete-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);transition:color .2s,transform .2s,background .2s;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:3px;width:22px;height:22px;flex-shrink:0;}
+        .tai-delete-btn:hover{color:#f87171;background:rgba(239,68,68,0.15);}
+        .tai-delete-btn--confirm{color:#ff4d6d !important;background:rgba(255,77,109,0.15) !important;border:1px solid rgba(255,77,109,0.35) !important;width:auto !important;padding:3px 6px !important;animation:tai-pulse-red 0.6s ease-in-out infinite alternate;}
+        .tai-delete-btn--confirm:hover{background:rgba(255,77,109,0.28) !important;}
+        @keyframes tai-pulse-red{from{box-shadow:0 0 0 0 rgba(255,77,109,0.0);}to{box-shadow:0 0 6px 2px rgba(255,77,109,0.25);}}
 
         /* ── AI response content classes ──────────────────────────────── */
         .tai-feed,.tai-feed *{font-family:'Kalam',cursive !important;}
@@ -541,12 +558,24 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)"; }}
                         title="Rename"
                       ><Pencil size={11} /></button>
-                      <button onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
-                        style={{ width: 22, height: 22, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = "#f87171"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)"; }}
-                        title="Delete"
-                      ><Trash2 size={11} /></button>
+                      {confirmDeleteId === c.id ? (
+                        <button
+                          className="tai-delete-btn tai-delete-btn--confirm"
+                          onClick={e => { e.stopPropagation(); deleteChat(c.id); }}
+                          title="Confirm delete"
+                        >
+                          <Trash2 size={10} />
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1, fontFamily: F }}>DEL?</span>
+                        </button>
+                      ) : (
+                        <button
+                          className="tai-delete-btn"
+                          onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
+                          title="Delete conversation"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -710,34 +739,6 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         </div>
       </div>
 
-      {/* ── Delete confirmation modal ─────────────────────────────── */}
-      {confirmDeleteId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
-          onClick={() => setConfirmDeleteId(null)}>
-          <div style={{ background: "#0f1923", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "28px 28px 22px", width: 320, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.6)", fontFamily: F }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Trash2 size={16} color="#f87171" />
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Delete conversation?</span>
-            </div>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: "0 0 22px" }}>
-              This conversation and all its messages will be permanently removed. This cannot be undone.
-            </p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setConfirmDeleteId(null)}
-                style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
-                Cancel
-              </button>
-              <button onClick={() => deleteChat(confirmDeleteId)}
-                style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#dc2626,#b91c1c)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: F, boxShadow: "0 2px 12px rgba(220,38,38,0.35)" }}>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
