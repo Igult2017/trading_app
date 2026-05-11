@@ -285,19 +285,26 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     a.click();
   };
 
-  // ── Inline markdown parser: **bold**, *italic*, `code` ─────────────────────
+  // ── Inline markdown parser: **bold**, *italic*, `code`, [TEXT]{ok|warn|danger} ──
   const renderInline = (text: string): React.ReactNode => {
     const parts: React.ReactNode[] = [];
-    const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`)/g;
+    // Order matters: badges before bold before italic before code
+    const re = /(\[([^\]]+)\]\{(ok|warn|danger)\}|\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`)/g;
     let last = 0, m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
       if (m.index > last) parts.push(text.slice(last, m.index));
-      if (m[0].startsWith("**"))
-        parts.push(<strong key={m.index} className="tai-hl">{m[2]}</strong>);
+      if (m[0].startsWith("[")) {
+        // Colored badge: [TEXT]{ok|warn|danger}
+        const variant = m[3] as "ok" | "warn" | "danger";
+        parts.push(
+          <span key={m.index} className={`tai-badge tai-badge-${variant}`}>{m[2]}</span>
+        );
+      } else if (m[0].startsWith("**"))
+        parts.push(<strong key={m.index} className="tai-hl">{m[4]}</strong>);
       else if (m[0].startsWith("*"))
-        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "rgba(255,255,255,0.55)" }}>{m[3]}</em>);
+        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "rgba(255,255,255,0.55)" }}>{m[5]}</em>);
       else
-        parts.push(<code key={m.index} className="tai-chip">{m[4]}</code>);
+        parts.push(<code key={m.index} className="tai-chip">{m[6]}</code>);
       last = m.index + m[0].length;
     }
     if (last < text.length) parts.push(text.slice(last));
@@ -412,6 +419,24 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
           </div>
         );
         i++; continue;
+      }
+
+      // ── blockquote  > text → footer note style
+      if (trimmed.startsWith("> ")) {
+        // Collect consecutive blockquote lines
+        const bqLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith("> ")) {
+          bqLines.push(lines[i].trim().slice(2));
+          i++;
+        }
+        elements.push(
+          <div key={`bq${i}`} className="tai-footer-note">
+            {bqLines.map((bl, bi) => (
+              <span key={bi} style={{ display: "block" }}>{renderInline(bl)}</span>
+            ))}
+          </div>
+        );
+        continue;
       }
 
       // ── bullet list  - / * / •

@@ -69,7 +69,17 @@ SYSTEM_INSTRUCTION = (
     "7. If data is insufficient for a reliable answer, say so clearly and state what is needed.\n"
     "8. Formatting: use markdown — **bold** for key figures or main points, *italic* for emphasis, "
     "bullet lists and numbered lists where appropriate. Apply bold/italic whenever the user requests it, "
-    "and whenever it helps highlight the most important finding in a section."
+    "and whenever it helps highlight the most important finding in a section.\n"
+    "9. Rich inline formatting — use these special tokens in your responses:\n"
+    "   • Colored badges: [TEXT]{ok} for positive/strong metrics (e.g. [65% WR]{ok}), "
+    "[TEXT]{warn} for low-confidence or marginal results (e.g. [LOW CONFIDENCE]{warn}), "
+    "[TEXT]{danger} for insufficient data or risk warnings (e.g. [INSUFFICIENT DATA]{danger}).\n"
+    "   • Backtick chips for field names, variable references, and short data labels: "
+    "`n=12`, `instrument=EURUSD`, `edgeVerdict`, `sessionDrawdown`.\n"
+    "   • Blockquote notes: start a line with '> ' to render a highlighted callout box — "
+    "use this for the single most important takeaway, data-quality caveats, or action items.\n"
+    "   Apply badges consistently: every win rate or confidence level result should carry a badge "
+    "([X% WR]{ok/warn/danger}), every 'insufficient data' statement should end with [INSUFFICIENT DATA]{danger}."
 )
 
 
