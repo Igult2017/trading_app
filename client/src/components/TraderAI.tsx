@@ -28,8 +28,9 @@ const SUGGESTIONS = [
   "Where am I losing money — instrument, session, or setup?",
 ];
 
-const F  = "'Montserrat', sans-serif";           // UI chrome
-const FI = "'Inter', ui-sans-serif, system-ui, sans-serif"; // AI response body
+const F  = "'Montserrat', sans-serif";    // UI chrome
+const FK = "'Kalam', cursive";            // AI response body
+const FM = "'JetBrains Mono', monospace"; // inline code chips
 
 interface Message { role: "user" | "model"; content: string; }
 interface ChatSummary {
@@ -226,11 +227,11 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     while ((m = re.exec(text)) !== null) {
       if (m.index > last) parts.push(text.slice(last, m.index));
       if (m[0].startsWith("**"))
-        parts.push(<strong key={m.index} style={{ fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{m[2]}</strong>);
+        parts.push(<strong key={m.index} style={{ fontWeight: 700, color: "#e8e9eb" }}>{m[2]}</strong>);
       else if (m[0].startsWith("*"))
-        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "rgba(255,255,255,0.72)" }}>{m[3]}</em>);
+        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "rgba(255,255,255,0.65)" }}>{m[3]}</em>);
       else
-        parts.push(<code key={m.index} style={{ fontFamily: "ui-monospace,monospace", background: "rgba(255,255,255,0.07)", padding: "1px 5px", borderRadius: 3, fontSize: "0.9em" }}>{m[4]}</code>);
+        parts.push(<code key={m.index} style={{ fontFamily: FM, background: "#1a1c22", border: "1px solid #2a2d38", padding: "1px 7px", borderRadius: 5, fontSize: "0.78em", color: "#7c85a2", whiteSpace: "nowrap", verticalAlign: "middle", margin: "0 1px" }}>{m[4]}</code>);
       last = m.index + m[0].length;
     }
     if (last < text.length) parts.push(text.slice(last));
@@ -262,7 +263,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         }
         i++; // consume closing ```
         elements.push(
-          <pre key={`cb${i}`} style={{ fontFamily: "ui-monospace,monospace", fontSize: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6, padding: "10px 14px", overflowX: "auto", margin: "8px 0", color: "rgba(255,255,255,0.72)", lineHeight: 1.6, whiteSpace: "pre" }}>
+          <pre key={`cb${i}`} style={{ fontFamily: FM, fontSize: 12, background: "#11131a", border: "1px solid #1e2228", borderRadius: 8, padding: "10px 14px", overflowX: "auto", margin: "10px 0", color: "#9ca3af", lineHeight: 1.6, whiteSpace: "pre" }}>
             {codeLines.join("\n")}
           </pre>
         );
@@ -271,31 +272,41 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
 
       // ── horizontal rule ---
       if (/^[-*_]{3,}$/.test(trimmed)) {
-        elements.push(<hr key={`hr${i}`} style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.07)", margin: "12px 0" }} />);
+        elements.push(<div key={`hr${i}`} style={{ height: 1, background: "#1e2228", margin: "14px 0" }} />);
         i++; continue;
       }
 
-      // ── H1 #
+      // ── H1 # → section heading: purple uppercase + extending line
       if (line.startsWith("# ")) {
-        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.88)", marginTop: 18, marginBottom: 4, letterSpacing: "-0.01em" }}>{renderInline(line.slice(2))}</p>);
+        elements.push(
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, margin: "18px 0 10px" }}>
+            <span style={{ fontFamily: FK, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6c63ff", flexShrink: 0 }}>{renderInline(line.slice(2))}</span>
+            <div style={{ flex: 1, height: 1, background: "#1e2228" }} />
+          </div>
+        );
         i++; continue;
       }
 
-      // ── H2 ##
+      // ── H2 ## → section heading (smaller)
       if (line.startsWith("## ")) {
-        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.78)", marginTop: 16, marginBottom: 4, letterSpacing: "-0.01em" }}>{renderInline(line.slice(3))}</p>);
+        elements.push(
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, margin: "16px 0 8px" }}>
+            <span style={{ fontFamily: FK, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6c63ff", flexShrink: 0 }}>{renderInline(line.slice(3))}</span>
+            <div style={{ flex: 1, height: 1, background: "#1e2228" }} />
+          </div>
+        );
         i++; continue;
       }
 
       // ── H3 ###
       if (line.startsWith("### ")) {
-        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 11, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)", marginTop: 16, marginBottom: 6 }}>{line.slice(4)}</p>);
+        elements.push(<p key={i} style={{ fontFamily: FK, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)", marginTop: 14, marginBottom: 6 }}>{line.slice(4)}</p>);
         i++; continue;
       }
 
       // ── standalone **bold line** (entire line wrapped in **)
       if (/^\*\*[^*].+[^*]\*\*$/.test(trimmed) || /^\*\*\S+\*\*$/.test(trimmed)) {
-        elements.push(<p key={i} style={{ fontFamily: FI, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.78)", marginBottom: 3 }}>{trimmed.slice(2, -2)}</p>);
+        elements.push(<p key={i} style={{ fontFamily: FK, fontSize: 14, fontWeight: 700, color: "#e8e9eb", marginBottom: 4 }}>{trimmed.slice(2, -2)}</p>);
         i++; continue;
       }
 
@@ -305,16 +316,16 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         while (i < lines.length && lines[i].trim().startsWith("|")) { tableLines.push(lines[i]); i++; }
         elements.push(
           <div key={`t${i}`} style={{ overflowX: "auto", margin: "10px 0" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: FI }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: FK }}>
               <tbody>
                 {tableLines.map((row, ri) => {
                   if (row.replace(/[|\s\-]/g, "") === "") return null;
                   const cells = row.split("|").slice(1, -1);
                   const isHeader = ri === 0;
                   return (
-                    <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <tr key={ri} style={{ borderBottom: "1px solid #1e2228" }}>
                       {cells.map((cell, ci) => (
-                        <td key={ci} style={{ padding: "7px 10px", color: isHeader ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.68)", fontWeight: isHeader ? 500 : 400, fontSize: isHeader ? 10 : 12, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.05em" : "0", whiteSpace: "nowrap", fontFamily: FI }}>
+                        <td key={ci} style={{ padding: "7px 10px", color: isHeader ? "#6c63ff" : "#9ca3af", fontWeight: isHeader ? 600 : 400, fontSize: isHeader ? 10 : 13, textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.06em" : "0", whiteSpace: "nowrap", fontFamily: isHeader ? FK : FK }}>
                           {cell.trim()}
                         </td>
                       ))}
@@ -332,9 +343,9 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       const numMatch = trimmed.match(/^(\d+)\.\s+(.+)/);
       if (numMatch) {
         elements.push(
-          <div key={i} style={{ display: "flex", gap: 9, marginBottom: 4, alignItems: "flex-start" }}>
-            <span style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.35)", lineHeight: 1.65, flexShrink: 0, minWidth: 16, fontWeight: 400 }}>{numMatch[1]}.</span>
-            <span style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.65, fontWeight: 400 }}>{renderInline(numMatch[2])}</span>
+          <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+            <span style={{ fontFamily: FM, fontSize: 11, color: "#6c63ff", lineHeight: 1.7, flexShrink: 0, minWidth: 18, fontWeight: 500, opacity: 0.8 }}>{numMatch[1]}.</span>
+            <span style={{ fontFamily: FK, fontSize: 14, color: "#9ca3af", lineHeight: 1.6, fontWeight: 400 }}>{renderInline(numMatch[2])}</span>
           </div>
         );
         i++; continue;
@@ -345,9 +356,9 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         const indent = line.search(/\S/);
         const isNested = indent >= 2;
         elements.push(
-          <div key={i} style={{ display: "flex", gap: 9, marginBottom: 4, alignItems: "flex-start", paddingLeft: isNested ? 16 : 0 }}>
-            <div style={{ width: isNested ? 3 : 4, height: isNested ? 3 : 4, borderRadius: "50%", background: isNested ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.22)", marginTop: 7, flexShrink: 0 }} />
-            <span style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.65, fontWeight: 400 }}>{renderInline(trimmed.replace(/^[-•*]\s/, ""))}</span>
+          <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start", paddingLeft: isNested ? 18 : 0 }}>
+            <div style={{ width: isNested ? 3 : 5, height: isNested ? 3 : 5, borderRadius: "50%", background: isNested ? "rgba(108,99,255,0.3)" : "#6c63ff", marginTop: 8, flexShrink: 0, opacity: isNested ? 0.5 : 0.7 }} />
+            <span style={{ fontFamily: FK, fontSize: 14, color: "#9ca3af", lineHeight: 1.6, fontWeight: 400 }}>{renderInline(trimmed.replace(/^[-•*]\s/, ""))}</span>
           </div>
         );
         i++; continue;
@@ -355,7 +366,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
 
       // ── plain paragraph
       elements.push(
-        <p key={i} style={{ fontFamily: FI, fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.72, marginBottom: 3, fontWeight: 400 }}>
+        <p key={i} style={{ fontFamily: FK, fontSize: 14, color: "#9ca3af", lineHeight: 1.7, marginBottom: 4, fontWeight: 400 }}>
           {renderInline(line)}
         </p>
       );
@@ -368,8 +379,11 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: "#070d15", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap');
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
         @keyframes traderai-spin   { to{transform:rotate(360deg)} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .traderai-msg-block{animation:fadeUp 0.35s ease both}
         .traderai-scroll::-webkit-scrollbar{width:4px}
         .traderai-scroll::-webkit-scrollbar-track{background:transparent}
         .traderai-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
@@ -579,54 +593,46 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
               </div>
             </div>
           ) : (
-            <div className="traderai-msglist" style={{ padding: "24px 20px 8px" }}>
-              {messages.map((msg, idx) => (
-                <div key={idx} style={{ marginBottom: 28, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: msg.role === "user" ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg, #6366f1, #8b5cf6)", border: msg.role === "user" ? "1px solid rgba(255,255,255,0.09)" : "none", marginTop: 2 }}>
-                    {msg.role === "user" ? <User size={12} color="rgba(255,255,255,0.45)" /> : <AtomAI size={12} color="white" />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: F, fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.28)", marginBottom: 6 }}>
-                      {msg.role === "user" ? "You" : "Trader AI"}
-                    </div>
-                    {msg.role === "user"
-                      ? <p style={{ fontFamily: F, fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: 1.65, fontWeight: 400 }}>{msg.content}</p>
-                      : (
-                        <div>
-                          {renderContent(msg.content)}
-                          <div style={{ display: "flex", gap: 4, marginTop: 8 }}
-                            onMouseEnter={e => Array.from(e.currentTarget.children).forEach(c => (c as HTMLElement).style.opacity = "1")}
-                            onMouseLeave={e => Array.from(e.currentTarget.children).forEach(c => (c as HTMLElement).style.opacity = "0")}
-                          >
-                            {[
-                              { icon: copied === idx ? <Check size={12} /> : <Copy size={12} />, action: () => copyMsg(msg.content, idx) },
-                              { icon: <Download size={12} />, action: () => { const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([msg.content], { type: "text/plain" })), download: `analysis-${Date.now()}.txt` }); a.click(); } },
-                            ].map(({ icon, action }, bi) => (
-                              <button key={bi} onClick={action}
-                                style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.35)", opacity: 0, transition: "all 0.15s" }}
-                                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.07)"; b.style.color = "rgba(255,255,255,0.65)"; }}
-                                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "transparent"; b.style.color = "rgba(255,255,255,0.35)"; }}
-                              >{icon}</button>
-                            ))}
-                          </div>
+            <div className="traderai-msglist" style={{ padding: "24px 24px 8px", maxWidth: 780, margin: "0 auto", width: "100%" }}>
+              {messages.map((msg, idx) => {
+                const isLastMsg = idx === messages.length - 1;
+                return (
+                  <div key={idx} className="traderai-msg-block" style={{ animationDelay: `${idx * 0.05}s` }}>
+                    {msg.role === "user" ? (
+                      <div style={{ display: "flex", justifyContent: "flex-end", padding: "1.2rem 0 0.8rem" }}>
+                        <div style={{ background: "#1e2228", border: "1px solid #2a2d38", borderRadius: 20, padding: "10px 18px", fontFamily: FK, fontSize: 14, color: "#d1d5db", maxWidth: "75%", lineHeight: 1.55 }}>
+                          {msg.content}
                         </div>
-                      )
-                    }
+                      </div>
+                    ) : (
+                      <div style={{ padding: "0.25rem 0 1.8rem", borderBottom: isLastMsg && !loading ? "none" : "1px solid #1a1c22" }}>
+                        {renderContent(msg.content)}
+                        <div style={{ display: "flex", gap: 4, marginTop: 10 }}
+                          onMouseEnter={e => Array.from(e.currentTarget.children).forEach(c => (c as HTMLElement).style.opacity = "1")}
+                          onMouseLeave={e => Array.from(e.currentTarget.children).forEach(c => (c as HTMLElement).style.opacity = "0")}
+                        >
+                          {[
+                            { icon: copied === idx ? <Check size={12} /> : <Copy size={12} />, action: () => copyMsg(msg.content, idx) },
+                            { icon: <Download size={12} />, action: () => { const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([msg.content], { type: "text/plain" })), download: `analysis-${Date.now()}.txt` }); a.click(); } },
+                          ].map(({ icon, action }, bi) => (
+                            <button key={bi} onClick={action}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.35)", opacity: 0, transition: "all 0.15s" }}
+                              onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.07)"; b.style.color = "rgba(255,255,255,0.65)"; }}
+                              onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "transparent"; b.style.color = "rgba(255,255,255,0.35)"; }}
+                            >{icon}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {loading && (
-                <div style={{ marginBottom: 28, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
-                    <AtomAI size={12} color="white" />
-                  </div>
-                  <div style={{ flex: 1, paddingTop: 6 }}>
-                    <div style={{ fontFamily: F, fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.28)", marginBottom: 10 }}>Trader AI</div>
-                    <div style={{ display: "flex", gap: 5 }}>
-                      {[0, 1, 2].map(d => (
-                        <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.22)", animation: `traderai-bounce 1.2s ${d * 0.18}s ease-in-out infinite` }} />
-                      ))}
-                    </div>
+                <div style={{ padding: "1rem 0 1.5rem" }}>
+                  <div style={{ display: "flex", gap: 5 }}>
+                    {[0, 1, 2].map(d => (
+                      <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.22)", animation: `traderai-bounce 1.2s ${d * 0.18}s ease-in-out infinite` }} />
+                    ))}
                   </div>
                 </div>
               )}
