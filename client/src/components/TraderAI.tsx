@@ -717,15 +717,9 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {messages.length === 0 ? (
             <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "32px 20px", textAlign: "center" }}>
-              <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 0 48px rgba(99,102,241,0.25)" }}>
-                <AtomAI size={22} color="white" />
-              </div>
-              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 21, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 8, lineHeight: 1.2 }}>
+              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 20, lineHeight: 1.2 }}>
                 How can I analyse<br />your trades today?
               </h2>
-              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 13, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, maxWidth: 340, marginBottom: 28, fontWeight: 400 }}>
-                Connected to your TradeLog database. Ask me anything about your performance, patterns, and edge.
-              </p>
               <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%", maxWidth: 600 }}>
                 {SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => send(s)}
