@@ -38,7 +38,7 @@ const SUGGESTIONS = [
 ];
 
 const F  = "'Montserrat', sans-serif";    // UI chrome
-const FK = "'Kalam', cursive";            // AI response body
+const FK = "'Inter', sans-serif";         // AI response body
 const FM = "'JetBrains Mono', monospace"; // inline code chips
 
 interface Message { role: "user" | "model"; content: string; }
@@ -145,7 +145,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       const link = document.createElement("link");
       link.id = id;
       link.rel = "stylesheet";
-      link.href = "https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap";
+      link.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap";
       document.head.appendChild(link);
     }
   }, []);
@@ -480,7 +480,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
         @keyframes tai-pulse-red{from{box-shadow:0 0 0 0 rgba(255,77,109,0.0);}to{box-shadow:0 0 6px 2px rgba(255,77,109,0.25);}}
 
         /* ── AI response content classes ──────────────────────────────── */
-        .tai-feed,.tai-feed *{font-family:'Kalam',cursive !important;}
+        .tai-feed,.tai-feed *{font-family:'Inter',sans-serif !important;}
         .tai-feed code,.tai-feed pre,.tai-chip{font-family:'JetBrains Mono',monospace !important;}
         .tai-user-pill{background:#1e2228;border:1px solid #2a2d38;border-radius:20px;padding:10px 18px;font-size:14px;color:#d1d5db;max-width:75%;line-height:1.5;}
         .tai-ai-row{padding:0.25rem 0 2rem;border-bottom:1px solid #1a1c22;font-size:14px;line-height:1.7;color:#c9ccd4;}
