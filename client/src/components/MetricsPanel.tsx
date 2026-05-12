@@ -9,7 +9,7 @@ import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 ───────────────────────────────────────────────────────────────────── */
 
 const P = {
-  bg:'#0D0F1C', bg2:'#121526', bg3:'#171A30',
+  bg:'#0d1117', bg2:'#0f1520', bg3:'#131a27',
   line:'#1E2240', line2:'#252848',
   dim:'#6A7299', muted:'#8A93B8', body:'#B0B8D4', bright:'#D8DCF0', white:'#EEF0FA',
   green:'#4AE88A', greenDim:'#1A3A30',
