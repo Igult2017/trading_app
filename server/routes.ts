@@ -3219,8 +3219,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin: overview stats ─────────────────────────────────────────────────────
   app.get("/api/admin/stats", requireAdmin, async (_req: Request, res: Response) => {
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: "Auth service not configured" });
-
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -3245,8 +3243,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
            GROUP BY month ORDER BY month DESC`;
       const visitorParams = adminIpList.length > 0 ? [adminIpList] : [];
 
+      // Fetch user list — from Supabase if available, else local user_profiles table
       const [supabaseResult, allPosts, roleProfiles, visitorResult] = await Promise.all([
-        supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+        supabaseAdmin
+          ? supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+          : Promise.resolve({ data: { users: [] as any[] }, error: null }),
         storage.getBlogPosts(),
         db.select({ role: userProfiles.role }).from(userProfiles),
         pool.query(visitorSql, visitorParams),
@@ -3254,7 +3255,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (supabaseResult.error) return res.status(500).json({ error: supabaseResult.error.message });
 
-      const users = supabaseResult.data.users;
+      // In local-auth mode pull user count from user_profiles instead
+      const users = supabaseAdmin
+        ? supabaseResult.data.users
+        : roleProfiles.map((p, i) => ({ id: `local-${i}`, created_at: new Date().toISOString(), user_metadata: {}, email: '' }));
       const adminCount = roleProfiles.filter(p => p.role === 'admin').length;
 
       // Monthly signups for current calendar year
@@ -3338,7 +3342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/invite", requireAdmin, async (req: Request, res: Response) => {
     const { email } = req.body as { email: string };
     if (!email?.trim()) return res.status(400).json({ error: 'email is required' });
-    if (!supabaseAdmin) return res.status(503).json({ error: 'Auth service not configured' });
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Email invitations require Supabase auth to be configured. Add VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable this feature.' });
     try {
       const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email.trim());
       if (error) return res.status(400).json({ error: error.message });
@@ -3438,14 +3442,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin: send campaign (In-App notifications) ───────────────────────────────
   app.post("/api/admin/campaigns", requireAdmin, async (req: Request, res: Response) => {
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: 'Auth service not configured' });
       const { subject, message, channels = [], audience = 'all' } = req.body as { subject?: string; message: string; channels: string[]; audience?: string };
       if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
 
-      const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      if (error) return res.status(500).json({ error: error.message });
-
-      let targets = usersData.users;
+      // Fetch target users — from Supabase if available, else from local user_profiles
+      let targets: Array<{ id: string; last_sign_in_at?: string | null }> = [];
+      if (supabaseAdmin) {
+        const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        if (error) return res.status(500).json({ error: error.message });
+        targets = usersData.users;
+      } else {
+        const profiles = await db.select().from(userProfiles);
+        targets = profiles.map(p => ({ id: p.id, last_sign_in_at: null }));
+      }
       if (audience === 'inactive') {
         const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
         targets = targets.filter(u => !u.last_sign_in_at || u.last_sign_in_at < cutoff);
@@ -3706,7 +3715,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       probe('db', async () => { await db.execute(drizzleSql`SELECT 1`); }, 'Database'),
 
       probe('auth', async () => {
-        if (!supabaseAdmin) throw new Error('Supabase admin not configured');
+        if (!supabaseAdmin) {
+          // Local-auth mode — admin login via ADMIN_SECRET is operational
+          if (!process.env.ADMIN_SECRET) throw new Error('No auth configured');
+          return; // local auth is working
+        }
         await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
       }, 'Auth / Logins'),
 
