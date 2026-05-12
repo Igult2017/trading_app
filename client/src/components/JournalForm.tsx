@@ -1532,7 +1532,32 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       const f1 = fillDefaults(s1, INIT_STEP1);
       const f2 = fillDefaults(s2, INIT_STEP2);
       const f3 = fillDefaults(s3, INIT_STEP3);
-      const f4 = fillDefaults(s4, INIT_STEP4);
+      const f4 = fillDefaults(s4, INIT_STEP4) as typeof INIT_STEP4;
+
+      // Safety net: if the auto-calc effect never fired (e.g. currentBalance was
+      // still 0 while the session was loading), compute P&L right here at submit
+      // time using the balance we have now.  This guarantees profitLoss is never
+      // sent as null when we have enough data to derive it.
+      if (f4.profitLoss === "" && currentBalance > 0) {
+        const riskPct = parseFloat(f2.riskPercent);
+        if (riskPct > 0) {
+          const monetaryRisk = parseFloat(((currentBalance * riskPct) / 100).toFixed(2));
+          const outcome = f2.outcome as "Win" | "Loss" | "BE";
+          const rrStr = (!s2.exitScreenshot && achievedRRAutoRef.current)
+            ? f4.plannedRR
+            : f4.achievedRR;
+          const rrNum = parseRRNum(rrStr);
+          let pnl: number | null = null;
+          if (outcome === "Loss")                  pnl = -monetaryRisk;
+          else if (outcome === "BE")               pnl = 0;
+          else if (outcome === "Win" && rrNum > 0) pnl = monetaryRisk * rrNum;
+          if (pnl !== null) {
+            f4.profitLoss     = pnl.toFixed(2);
+            f4.accountBalance = (currentBalance + pnl).toFixed(2);
+            f4.monetaryRisk   = monetaryRisk.toFixed(2);
+          }
+        }
+      }
 
       const payload: Record<string, any> = {
         instrument:          f2.instrument           || null,
@@ -1660,6 +1685,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tf-metrics/matrix"] });
+      queryClient.invalidateQueries({ queryKey: ["strategyAudit"] });
+      queryClient.invalidateQueries({ queryKey: ["aiAnalysis"] });
+      queryClient.invalidateQueries({ queryKey: ["aiStrategy"] });
       setS1({ ...INIT_STEP1 });
       setS2({ ...INIT_STEP2, riskPercent: getStickyRiskPct(sessionId) });
       setS3({ ...INIT_STEP3 });

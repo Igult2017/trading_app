@@ -800,6 +800,7 @@ export default function Journal() {
     // pass userId in the URL — relying on the Bearer token via authFetch.
     const uid = user?.id;
     const endpoints: { queryKey: unknown[]; url: string; staleTime: number }[] = [
+      { queryKey: ['/api/sessions',           sid], url: `/api/sessions/${sid}`,                     staleTime: STALE },
       { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}`,    staleTime: STALE },
       { queryKey: ['/api/journal/entries',    sid], url: `/api/journal/entries?sessionId=${sid}`,    staleTime: STALE },
       { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}`,   staleTime: STALE },
