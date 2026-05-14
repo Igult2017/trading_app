@@ -66,6 +66,8 @@ interface AuditData {
   aiPolicySuggestions: Array<{ rule: string; rationale: string; expectedImpact: string }>;
   guardrails: Array<{ label: string; value: string; action: string; status: string }>;
   finalVerdict: { grade: string; summary: string; strengths: string[]; weaknesses: string[]; nextActions: string[]; authorized: boolean };
+  aiStrategyBlueprint?: { title: string; rules: string[]; expectedWinRate: string; sampleBasis: string } | null;
+  comboAnalysis?: { hasData: boolean; byInstrument: any[]; byTimeframe: any[]; sessInstrCombos: any[]; fullCombos: any[] };
   logicalVerification: {
     regime: string; entryLogic: string; exitLogic: string; scalingProperties: string;
     sessionDependency: string; behavioralFit: string; forwardConfirmation: string;
@@ -670,12 +672,58 @@ function Page3({ d }: { d: AuditData }) {
 // Page 4 — Action & Iteration
 // ─────────────────────────────────────────────────────────────────────────────
 
+function StrategyBlueprintPanel({ d }: { d: AuditData }) {
+  const bp = d.aiStrategyBlueprint;
+  if (!bp) return null;
+
+  return (
+    <div style={{
+      marginBottom: 12,
+      border: `1px solid ${T.green2}`,
+      background: "linear-gradient(135deg, rgba(0,255,136,0.04) 0%, rgba(0,0,0,0) 60%)",
+      borderRadius: 4,
+      padding: "18px 20px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 2, height: 16, background: T.green, borderRadius: 1 }} />
+          <span style={{ ...mono, fontSize: 9, letterSpacing: ".16em", color: T.green, textTransform: "uppercase" as const }}>AI Strategy Blueprint</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {bp.expectedWinRate && (
+            <span style={{ ...mono, fontSize: 10, color: T.green, letterSpacing: ".06em" }}>{bp.expectedWinRate} WR</span>
+          )}
+          {bp.sampleBasis && (
+            <span style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".06em" }}>· {bp.sampleBasis}</span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ ...mono, fontSize: 12, color: T.text, fontWeight: 700, letterSpacing: ".04em", marginBottom: 12 }}>
+        {bp.title}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column" as const, gap: 7 }}>
+        {bp.rules.map((rule, i) => (
+          <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ ...mono, fontSize: 9, color: T.green, minWidth: 16, paddingTop: 1, letterSpacing: ".06em" }}>
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span style={{ fontSize: 12, color: T.muted, fontFamily: FONT, lineHeight: 1.55 }}>{rule}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Page4({ d }: { d: AuditData }) {
   const suggestions = d.aiPolicySuggestions ?? [];
   const guardrails = d.guardrails ?? [];
 
   return (
     <div>
+      <StrategyBlueprintPanel d={d} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
           <CellTitle>AI Policy Suggestions</CellTitle>

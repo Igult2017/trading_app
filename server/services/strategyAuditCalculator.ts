@@ -79,6 +79,7 @@ export interface StrategyAuditResult {
     rrEfficiency?: Record<string, any>;
     maeMfeAnalysis?: Record<string, any>;
     directionAnalysis?: Record<string, any>;
+    comboAnalysis?: Record<string, any>;
   };
   level4?: {
     aiPolicySuggestions: any[];
@@ -90,8 +91,15 @@ export interface StrategyAuditResult {
   rrEfficiency?: Record<string, any>;
   maeMfeAnalysis?: Record<string, any>;
   directionAnalysis?: Record<string, any>;
+  comboAnalysis?: Record<string, any>;
   aiStrengthsNarrative?: string;
   aiRiskNarrative?: string;
+  aiStrategyBlueprint?: {
+    title: string;
+    rules: string[];
+    expectedWinRate: string;
+    sampleBasis: string;
+  } | null;
   error?: string;
 }
 

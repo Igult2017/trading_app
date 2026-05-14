@@ -70,9 +70,10 @@ def main():
                 for s in ai["aiPolicySuggestions"]
             ]
 
-        # Expose AI narratives as top-level keys for the frontend to consume
+        # Expose AI narratives and blueprint as top-level keys
         result["aiStrengthsNarrative"] = ai.get("aiStrengthsNarrative", "")
         result["aiRiskNarrative"]      = ai.get("aiRiskNarrative", "")
+        result["aiStrategyBlueprint"]  = ai.get("aiStrategyBlueprint", None)
 
         print(json.dumps(result))
     except Exception as e:

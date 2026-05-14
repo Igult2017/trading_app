@@ -523,6 +523,97 @@ def _direction_analysis(trades: list[dict]) -> dict:
     }
 
 
+# ── Combination analysis ──────────────────────────────────────────────────────
+
+def _combo_analysis(trades: list[dict]) -> dict:
+    """
+    Cross-tab breakdown of session × instrument × timeframe × direction.
+
+    Produces ranked lists of the best mechanical combinations so the AI
+    synthesis can build a data-backed working strategy blueprint.
+
+    Minimum 3 trades per bucket to include it (keeps small datasets useful).
+    """
+    MIN = 3
+
+    def _stats(group: list[dict]) -> dict:
+        pf_raw = profit_factor(group)
+        return {
+            "winRate": round(win_rate(group), 1),
+            "trades":  len(group),
+            "pf":      round(min(pf_raw, 20.0), 2),
+        }
+
+    # ── Per instrument ────────────────────────────────────────────────────────
+    by_instr: dict[str, list] = defaultdict(list)
+    for t in trades:
+        instr = t.get("instrument") or "Unknown"
+        if instr != "Unknown":
+            by_instr[instr].append(t)
+
+    instr_ranked = sorted(
+        [{"instrument": k, **_stats(v)} for k, v in by_instr.items() if len(v) >= MIN],
+        key=lambda x: x["winRate"], reverse=True,
+    )
+
+    # ── Per timeframe ─────────────────────────────────────────────────────────
+    by_tf: dict[str, list] = defaultdict(list)
+    for t in trades:
+        tf = t.get("entry_tf") or t.get("analysis_tf") or ""
+        if tf:
+            by_tf[tf].append(t)
+
+    tf_ranked = sorted(
+        [{"timeframe": k, **_stats(v)} for k, v in by_tf.items() if len(v) >= MIN],
+        key=lambda x: x["winRate"], reverse=True,
+    )
+
+    # ── Per session × instrument ──────────────────────────────────────────────
+    by_si: dict[tuple, list] = defaultdict(list)
+    for t in trades:
+        sess  = t.get("session_label") or ""
+        instr = t.get("instrument") or ""
+        if sess and instr:
+            by_si[(sess, instr)].append(t)
+
+    si_combos = sorted(
+        [
+            {"session": s, "instrument": i, **_stats(g)}
+            for (s, i), g in by_si.items() if len(g) >= MIN
+        ],
+        key=lambda x: x["winRate"], reverse=True,
+    )
+
+    # ── Per session × instrument × direction ──────────────────────────────────
+    by_sid: dict[tuple, list] = defaultdict(list)
+    for t in trades:
+        sess  = t.get("session_label") or ""
+        instr = t.get("instrument") or ""
+        raw_d = (t.get("direction") or "").lower()
+        if raw_d in ("long",  "buy",  "b", "bullish"):  dirn = "Long"
+        elif raw_d in ("short", "sell", "s", "bearish"): dirn = "Short"
+        else:                                             continue
+        if sess and instr:
+            by_sid[(sess, instr, dirn)].append(t)
+
+    full_combos = sorted(
+        [
+            {"session": s, "instrument": i, "direction": d, **_stats(g)}
+            for (s, i, d), g in by_sid.items() if len(g) >= MIN
+        ],
+        key=lambda x: x["winRate"], reverse=True,
+    )
+
+    has_data = bool(instr_ranked or tf_ranked)
+    return {
+        "hasData":         has_data,
+        "byInstrument":    instr_ranked[:8],
+        "byTimeframe":     tf_ranked[:6],
+        "sessInstrCombos": si_combos[:8],
+        "fullCombos":      full_combos[:8],
+    }
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def compute_level3(trades: list[dict], starting_balance: float = 10_000.0) -> dict:
@@ -544,10 +635,11 @@ def compute_level3(trades: list[dict], starting_balance: float = 10_000.0) -> di
         "regimeTransition":   _regime_transition(trades),
         "capitalHeat":        capital_data,
         "automationRisk":     _automation_risk(trades, cluster_data, capital_data),
-        # ── New mechanical analytics ─────────────────────────────────────────
+        # ── Mechanical analytics ──────────────────────────────────────────────
         "rrEfficiency":       _rr_efficiency(trades),
         "maeMfeAnalysis":     _mae_mfe_analysis(trades),
         "directionAnalysis":  _direction_analysis(trades),
+        "comboAnalysis":      _combo_analysis(trades),
     }
 
 
@@ -562,4 +654,5 @@ def _empty_level3(reason: str = "") -> dict:
         "rrEfficiency":       {"hasData": False},
         "maeMfeAnalysis":     {"hasData": False},
         "directionAnalysis":  {"hasData": False},
+        "comboAnalysis":      {"hasData": False, "byInstrument": [], "byTimeframe": [], "sessInstrCombos": [], "fullCombos": []},
     }

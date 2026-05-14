@@ -208,6 +208,49 @@ def _build_prompt(result: dict) -> str:
         )
         L.append("")
 
+    # ── Combination breakdown ─────────────────────────────────────────────────
+    combo = result.get("comboAnalysis", {})
+    if combo and combo.get("hasData"):
+        L.append("COMBINATION BREAKDOWN (mechanical cross-analysis):")
+
+        by_instr = combo.get("byInstrument", [])
+        if by_instr:
+            L.append("  Per instrument (ranked by win rate):")
+            for row in by_instr[:5]:
+                L.append(
+                    f"    • {row['instrument']}: {row['winRate']:.0f}% WR, "
+                    f"{row['trades']} trades, PF {row['pf']:.2f}"
+                )
+
+        by_tf = combo.get("byTimeframe", [])
+        if by_tf:
+            L.append("  Per timeframe (ranked by win rate):")
+            for row in by_tf[:4]:
+                L.append(
+                    f"    • {row['timeframe']}: {row['winRate']:.0f}% WR, "
+                    f"{row['trades']} trades, PF {row['pf']:.2f}"
+                )
+
+        si = combo.get("sessInstrCombos", [])
+        if si:
+            L.append("  Best session × instrument combos:")
+            for row in si[:5]:
+                L.append(
+                    f"    • {row['session']} + {row['instrument']}: "
+                    f"{row['winRate']:.0f}% WR, {row['trades']} trades, PF {row['pf']:.2f}"
+                )
+
+        fc = combo.get("fullCombos", [])
+        if fc:
+            L.append("  Best session × instrument × direction combos:")
+            for row in fc[:5]:
+                L.append(
+                    f"    • {row['session']} + {row['instrument']} + {row['direction']}: "
+                    f"{row['winRate']:.0f}% WR, {row['trades']} trades, PF {row['pf']:.2f}"
+                )
+
+        L.append("")
+
     # ── Output instruction ───────────────────────────────────────────────────
     L += [
         "=" * 54,
@@ -227,14 +270,32 @@ def _build_prompt(result: dict) -> str:
         '    }',
         "  ],",
         '  "strengthsNarrative": "<One sentence on the strongest mechanical advantage>",',
-        '  "riskNarrative": "<One sentence on the most critical mechanical risk>"',
+        '  "riskNarrative": "<One sentence on the most critical mechanical risk>",',
+        '  "aiStrategyBlueprint": {',
+        '    "title": "<Short, specific strategy name derived from the best combo e.g. \'London EURUSD Long Scalp\'>",',
+        '    "rules": [',
+        '      "<Rule 1 — Session: trade only the session(s) with highest WR, cite the WR>",',
+        '      "<Rule 2 — Instruments: focus on the 1-3 instruments with highest WR in that session>",',
+        '      "<Rule 3 — Timeframe: use the timeframe with highest WR, cite the WR>",',
+        '      "<Rule 4 — Direction: Long only / Short only / directional preference, cite the WR gap>",',
+        '      "<Rule 5 — Entry: one-sentence mechanical entry condition from top edge driver if available>",',
+        '      "<Rule 6 — Risk: one risk rule if data supports it (optional, omit if no data)"',
+        '    ],',
+        '    "expectedWinRate": "<WR% from the best supported combo e.g. ~74%>",',
+        '    "sampleBasis": "<number of trades backing this blueprint e.g. 22 trades>"',
+        '  }',
         "}",
         "",
         "Rules:",
         "  - 4 to 6 aiPolicySuggestions, ordered by priority (1 = most important).",
         "  - Every rationale MUST cite a specific number from the data above.",
         "  - Focus exclusively on trade mechanics: entry, exit, RR, session, instrument,",
-        "    direction, regime, position sizing. No psychology or mindset content.",
+        "    direction, timeframe, position sizing. No psychology or mindset content.",
+        "  - aiStrategyBlueprint: build from the highest-WR combination that has real sample",
+        "    support. Order rules strictly: Session → Instruments → Timeframe → Direction →",
+        "    Entry → Risk. 4-6 rules max. Each rule is ONE short sentence. Cite actual numbers.",
+        "    If combo data is missing, fall back to session + direction individually.",
+        "    Write in imperative tense ('Trade London only', not 'You should trade London').",
         "  - If sample size is small (<20 trades), acknowledge it but still give",
         "    actionable suggestions based on available patterns.",
         "  - Do NOT invent data. Every claim must trace to a number in the brief above.",
@@ -258,6 +319,7 @@ def synthesize_audit(shaped_result: dict) -> dict:
         "aiPolicySuggestions":  [],
         "aiStrengthsNarrative": "",
         "aiRiskNarrative":      "",
+        "aiStrategyBlueprint":  None,
     }
 
     # Require API key
@@ -307,11 +369,34 @@ def synthesize_audit(shaped_result: dict) -> dict:
                 })
         normalised.sort(key=lambda x: x["priority"])
 
+        # ── Strategy blueprint ────────────────────────────────────────────────
+        raw_bp = parsed.get("aiStrategyBlueprint")
+        blueprint: dict | None = None
+        if isinstance(raw_bp, dict):
+            rules = raw_bp.get("rules") or []
+            # Accept both a list of strings and a list of objects with a "rule" key
+            clean_rules: list[str] = []
+            for r in rules[:6]:
+                if isinstance(r, str) and r.strip():
+                    clean_rules.append(r.strip())
+                elif isinstance(r, dict):
+                    s = r.get("rule") or r.get("text") or ""
+                    if s:
+                        clean_rules.append(str(s).strip())
+            if clean_rules:
+                blueprint = {
+                    "title":           str(raw_bp.get("title", "AI Strategy Blueprint")),
+                    "rules":           clean_rules,
+                    "expectedWinRate": str(raw_bp.get("expectedWinRate", "")),
+                    "sampleBasis":     str(raw_bp.get("sampleBasis", "")),
+                }
+
         return {
             "aiExecutiveSummary":   str(parsed.get("executiveSummary", "")),
             "aiPolicySuggestions":  normalised,
             "aiStrengthsNarrative": str(parsed.get("strengthsNarrative", "")),
             "aiRiskNarrative":      str(parsed.get("riskNarrative", "")),
+            "aiStrategyBlueprint":  blueprint,
         }
 
     except Exception as exc:
