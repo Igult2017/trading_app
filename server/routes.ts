@@ -641,6 +641,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Leaderboard: per-session ranking ---
+  app.get("/api/leaderboard/by-session", async (req, res) => {
+    try {
+      const period      = (req.query.period      as string) || 'all';
+      const sessionName = (req.query.session_name as string) || '';
+
+      let dateFilter = '';
+      if (period === 'daily')   dateFilter = `AND je.created_at >= NOW() - INTERVAL '1 day'`;
+      if (period === 'weekly')  dateFilter = `AND je.created_at >= NOW() - INTERVAL '7 days'`;
+      if (period === 'monthly') dateFilter = `AND je.created_at >= NOW() - INTERVAL '30 days'`;
+
+      const nameFilter = sessionName ? `AND ts.session_name = $1` : '';
+      const params     = sessionName ? [sessionName] : [];
+
+      // One row per (trading_session, user) — no cross-session aggregation.
+      const { rows } = await pool.query(`
+        SELECT
+          ts.id                                                                              AS session_id,
+          ts.session_name,
+          COALESCE(je.user_id, ts.user_id)                                                   AS user_id,
+          MAX(up.full_name)                                                                  AS full_name,
+          MAX(up.email)                                                                      AS email,
+          MAX(up.country)                                                                    AS country,
+          COUNT(*)                                                                           AS total_trades,
+          COUNT(*) FILTER (WHERE je.profit_loss > 0)                                         AS wins,
+          ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                        AS total_pnl,
+          ROUND(CAST(
+            SUM(CASE WHEN je.profit_loss > 0 THEN je.profit_loss ELSE 0 END) /
+            NULLIF(ABS(SUM(CASE WHEN je.profit_loss < 0 THEN je.profit_loss ELSE 0 END)), 0)
+          AS numeric), 2)                                                                    AS profit_factor
+        FROM trading_sessions ts
+        JOIN journal_entries je ON je.session_id = ts.id
+        LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
+        WHERE je.profit_loss IS NOT NULL
+          ${dateFilter}
+          ${nameFilter}
+        GROUP BY ts.id, ts.session_name, COALESCE(je.user_id, ts.user_id)
+        HAVING COUNT(*) >= 1
+        ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
+        LIMIT 100
+      `, params);
+
+      // Sparklines per session
+      const sessionIds = rows.map((r: any) => r.session_id).filter(Boolean);
+      let sparklines: Record<string, number[]> = {};
+      if (sessionIds.length > 0) {
+        const placeholders = sessionIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+        const { rows: sparkRows } = await pool.query(`
+          SELECT session_id, profit_loss, created_at
+          FROM (
+            SELECT je.session_id, je.profit_loss, je.created_at,
+              ROW_NUMBER() OVER (PARTITION BY je.session_id ORDER BY je.created_at DESC) AS rn
+            FROM journal_entries je
+            WHERE je.session_id IN (${placeholders}) AND je.profit_loss IS NOT NULL
+          ) sub
+          WHERE rn <= 10
+          ORDER BY session_id, created_at ASC
+        `, sessionIds);
+        for (const row of sparkRows) {
+          if (!sparklines[row.session_id]) sparklines[row.session_id] = [];
+          sparklines[row.session_id].push(parseFloat(row.profit_loss));
+        }
+      }
+
+      function displayFor(userId: string, fullName: string | null, email: string | null): string {
+        if (fullName && fullName.trim()) return fullName.trim();
+        if (email) { const [local] = email.split('@'); return local || email; }
+        const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
+        return suffix ? `Trader #${suffix}` : 'Trader';
+      }
+      function avatarFor(name: string): string {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        const cleaned = name.replace(/[^A-Za-z0-9]/g, '');
+        return cleaned.slice(0, 2).toUpperCase() || 'TR';
+      }
+
+      const leaderboard = rows.map((r: any, index: number) => {
+        const trades  = parseInt(r.total_trades);
+        const wins    = parseInt(r.wins);
+        const winRate = trades > 0 ? Math.round((wins / trades) * 100) : 0;
+        const rawPnl  = parseFloat(r.total_pnl) || 0;
+        const pf      = parseFloat(r.profit_factor) || 0;
+        const name    = displayFor(r.user_id, r.full_name, r.email);
+        return {
+          rank:         index + 1,
+          sessionId:    r.session_id,
+          sessionName:  r.session_name,
+          userId:       r.user_id,
+          name,
+          avatar:       avatarFor(name),
+          country:      r.country || '',
+          pnl:          rawPnl,
+          winRate,
+          trades,
+          profitFactor: parseFloat(pf.toFixed(2)),
+          growth:       sparklines[r.session_id] || [0],
+        };
+      });
+
+      const totalPnl    = leaderboard.reduce((s: number, t: any) => s + t.pnl, 0);
+      const totalTrades = leaderboard.reduce((s: number, t: any) => s + t.trades, 0);
+      res.json({ leaderboard, summary: { totalPnl, totalTrades, activeTraders: leaderboard.length } });
+    } catch (error) {
+      console.error('[Leaderboard/by-session] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch session leaderboard' });
+    }
+  });
+
+  // --- Leaderboard: distinct session names (for filter dropdown) ---
+  app.get("/api/leaderboard/session-names", async (req, res) => {
+    try {
+      const { rows } = await pool.query(`
+        SELECT ts.session_name, COUNT(DISTINCT ts.id) AS cnt
+        FROM trading_sessions ts
+        JOIN journal_entries je ON je.session_id = ts.id
+        WHERE je.profit_loss IS NOT NULL
+        GROUP BY ts.session_name
+        ORDER BY COUNT(DISTINCT ts.id) DESC, ts.session_name ASC
+        LIMIT 100
+      `);
+      res.json({ sessionNames: rows.map((r: any) => r.session_name) });
+    } catch (error) {
+      console.error('[Leaderboard/session-names] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch session names' });
+    }
+  });
+
   // --- Session Routes ---
   app.get("/api/sessions", async (req, res) => {
     const auth = await requireAuth(req, res);
