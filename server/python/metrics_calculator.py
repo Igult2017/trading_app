@@ -1448,22 +1448,31 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         if t.setup_type and t.trade_date is None:
             no_date_counts[t.setup_type] += 1
 
-    # Probabilistic frequency: P(setup occurs in a given period) = count / active_days.
-    # The denominator is the SESSION's active trading window — from the first
-    # recorded trade (any setup) to the most recent trade or today, whichever
-    # is later. Using the whole session window (rather than the min/max of
-    # dates for one setup) gives a true probability across the user's trading
-    # history, even for setups they only used in part of the session.
-    all_trade_dates = [
-        t.trade_date for t in ctx.trades if t.trade_date is not None
-    ]
+    # Build session-wide sets of ACTUAL traded periods (not calendar spans).
+    # Each denominator is the number of distinct periods that had at least one
+    # trade anywhere in the session — matching the logic used by the drawdown
+    # page which counts months/weeks with real activity.
+    all_trade_dates = [t.trade_date for t in ctx.trades if t.trade_date is not None]
     if not all_trade_dates:
         return {}
-    first_date = min(all_trade_dates)
-    last_date  = max(all_trade_dates)
-    today = datetime.now(first_date.tzinfo) if first_date.tzinfo else datetime.now()
-    end_date = max(last_date, today)
-    active_days = max(1, (end_date - first_date).days + 1)
+
+    # Normalise to plain date objects (strip time component if present)
+    def _to_date(d: Any):
+        return d.date() if hasattr(d, "date") else d
+
+    plain_dates = [_to_date(d) for d in all_trade_dates]
+
+    # Distinct traded periods across the whole session
+    session_days   = len({d for d in plain_dates})
+    session_weeks  = len({(d.year, d.isocalendar()[1]) for d in plain_dates})
+    session_months = len({(d.year, d.month) for d in plain_dates})
+    session_years  = len({d.year for d in plain_dates})
+
+    # Protect against zero denominators
+    session_days   = max(1, session_days)
+    session_weeks  = max(1, session_weeks)
+    session_months = max(1, session_months)
+    session_years  = max(1, session_years)
 
     all_setups = set(groups.keys()) | set(no_date_counts.keys())
     result = {}
@@ -1474,13 +1483,13 @@ def calc_setup_frequency_annualised(ctx: SharedContext) -> Dict:
         if count == 0:
             continue
 
-        # Compute per_day first, then derive every other interval from it
-        # using exact unit conversions (7 days/week, 30.44 avg days/month,
-        # 365 days/year). All four numbers are consistent floats.
-        per_day   = count / active_days
-        per_week  = per_day * 7.0
-        per_month = per_day * 30.44
-        per_year  = per_day * 365.0
+        # Each frequency = trades for this setup / distinct periods that had
+        # at least one trade in the session.  This gives the true average
+        # rate per traded period, matching the drawdown page's approach.
+        per_day   = count / session_days
+        per_week  = count / session_weeks
+        per_month = count / session_months
+        per_year  = count / session_years
 
         result[setup] = {
             "count":    count,
