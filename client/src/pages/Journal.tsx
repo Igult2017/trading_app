@@ -6,6 +6,7 @@ import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
+import { prefetchAllPanels } from '@/lib/prefetchPanels';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import JournalPaywall from '@/components/JournalPaywall';
 import JournalHeader from '@/components/JournalHeader';
