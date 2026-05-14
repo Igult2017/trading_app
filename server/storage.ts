@@ -590,13 +590,22 @@ export class DbStorage implements IStorage {
   }
 
   async deleteSession(id: string): Promise<boolean> {
+    const client = await pool.connect();
     try {
-      await db.delete(journalEntries).where(eq(journalEntries.sessionId, id));
-      const result = await db.delete(tradingSessions).where(eq(tradingSessions.id, id)).returning();
-      return result.length > 0;
+      await client.query('BEGIN');
+      await client.query('DELETE FROM journal_entries WHERE session_id = $1', [id]);
+      const result = await client.query(
+        'DELETE FROM trading_sessions WHERE id = $1 RETURNING id',
+        [id],
+      );
+      await client.query('COMMIT');
+      return result.rows.length > 0;
     } catch (error) {
+      await client.query('ROLLBACK');
       console.error('[Storage] Error deleting session:', error);
       return false;
+    } finally {
+      client.release();
     }
   }
 

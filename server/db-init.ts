@@ -545,6 +545,22 @@ export async function initializeDatabase() {
       }
     }
 
+    // Purge journal entries that reference a session which no longer exists.
+    // This covers any orphans left behind by incomplete past deletes.
+    try {
+      const orphanResult = await db.execute(sql.raw(`
+        DELETE FROM journal_entries
+        WHERE session_id IS NOT NULL
+          AND session_id NOT IN (SELECT id FROM trading_sessions)
+      `));
+      const deleted = (orphanResult as any)?.rowCount ?? 0;
+      if (deleted > 0) {
+        console.log(`[Database] Cleaned up ${deleted} orphaned journal entry/entries from deleted sessions`);
+      }
+    } catch (err) {
+      console.warn('[Database] Orphan cleanup skipped:', (err as any)?.message);
+    }
+
     console.log('[Database] Schema initialization complete - all tables created');
     return true;
   } catch (error) {

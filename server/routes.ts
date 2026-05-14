@@ -504,6 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM journal_entries je
           LEFT JOIN trading_sessions ts ON ts.id = je.session_id
           WHERE je.profit_loss IS NOT NULL
+            AND (je.session_id IS NULL OR ts.id IS NOT NULL)
             ${dateFilter.replace(/je\./g, 'je.')}
         )
         SELECT
