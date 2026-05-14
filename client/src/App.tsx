@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import HomePage from "@/pages/HomePage";
@@ -170,6 +171,11 @@ function PrefetchCalendar() {
  *
  * Everything is fire-and-forget — no UI is blocked.
  */
+function InactivityWatcher() {
+  useInactivityLogout();
+  return null;
+}
+
 function JournalPrefetcher() {
   const { session, user } = useAuth();
   const qc = useQueryClient();
@@ -224,6 +230,7 @@ export default function App() {
       <PrefetchCalendar />
       <TooltipProvider>
         <AuthProvider>
+          <InactivityWatcher />
           <JournalPrefetcher />
           <AppRoutes />
         </AuthProvider>
