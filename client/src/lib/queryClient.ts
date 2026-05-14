@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { supabase } from "./supabase";
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
@@ -13,10 +14,6 @@ async function throwIfResNotOk(res: Response) {
 /**
  * Build the default headers for an API request, including the auth
  * Bearer token so the server can identify the user.
- *
- * When Supabase is configured, reads from the active Supabase session.
- * When running in local-admin mode (no Supabase), reads the token that
- * was stored in localStorage by the local-login flow.
  */
 async function buildAuthHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
   const headers: Record<string, string> = { ...(extra ?? {}) };
@@ -40,9 +37,7 @@ async function buildAuthHeaders(extra?: Record<string, string>): Promise<Record<
 
 /**
  * Drop-in replacement for `fetch` that automatically attaches the Supabase
- * Bearer token (when a session exists) and `credentials: "include"`.
- * Use this for any direct calls to internal `/api/*` endpoints so they are
- * authenticated as the current user.
+ * Bearer token and `credentials: "include"`.
  */
 export async function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const headers = await buildAuthHeaders(init.headers as Record<string, string> | undefined);
@@ -88,6 +83,8 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+const DAY = 24 * 60 * 60 * 1000;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -95,10 +92,26 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
+      // Keep cached data for 24 hours so the persister has something to save
+      gcTime: DAY,
       retry: false,
     },
     mutations: {
       retry: false,
     },
   },
+});
+
+/**
+ * Persists the query cache to localStorage so the dashboard is ready
+ * instantly on every login — stale data is shown immediately while
+ * fresh data loads in the background.
+ *
+ * Only queries that have successfully fetched data are stored.
+ * The persisted cache expires after 24 hours.
+ */
+export const localStoragePersister = createSyncStoragePersister({
+  storage: typeof window !== "undefined" ? window.localStorage : undefined,
+  key: "fsd-journal-cache-v1",
+  throttleTime: 1_000,
 });

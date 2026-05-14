@@ -1,8 +1,9 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect, useRef } from "react";
 import { titleFromPath, usePageTitle } from "@/hooks/usePageTitle";
-import { queryClient, authFetch } from "./lib/queryClient";
-import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { queryClient, authFetch, localStoragePersister } from "./lib/queryClient";
+import { useQueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -216,7 +217,10 @@ function JournalPrefetcher() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister: localStoragePersister, maxAge: 24 * 60 * 60 * 1000 }}
+    >
       <PrefetchCalendar />
       <TooltipProvider>
         <AuthProvider>
@@ -225,6 +229,6 @@ export default function App() {
         </AuthProvider>
         <Toaster />
       </TooltipProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
