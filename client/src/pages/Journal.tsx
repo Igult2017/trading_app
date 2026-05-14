@@ -812,27 +812,12 @@ export default function Journal() {
   }, [activeSessionId]);
   const queryClient = useQueryClient();
 
-  // Tracks whether the very first prefetch has run yet. The first time both
-  // user + session are ready (often immediately after login with a session
-  // restored from localStorage) we wait 1.5 s so the UI can settle before
-  // firing 7 network requests. Subsequent triggers (session switch, user
-  // change) are instant — they are deliberate actions, not a cold start.
-  const prefetchInitializedRef = useRef(false);
-
   // Prefetch all heavy panels in the background whenever a session becomes active.
+  // Guard: only fires after user is authenticated — prevents unauthenticated 401 bursts.
   // By the time the user navigates to any panel the data is already cached — no spinner.
   useEffect(() => {
     if (!user || !activeSessionId) return;
-
-    const isFirstLoad = !prefetchInitializedRef.current;
-    prefetchInitializedRef.current = true;
-
-    const delay = isFirstLoad ? 1500 : 0;
-    const timer = setTimeout(() => {
-      prefetchAllPanels(queryClient, activeSessionId, user.id);
-    }, delay);
-
-    return () => clearTimeout(timer);
+    prefetchAllPanels(queryClient, activeSessionId, user.id);
   }, [activeSessionId, queryClient, user]);
 
   const { data: sessions = [] } = useQuery<any[]>({

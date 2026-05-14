@@ -394,6 +394,8 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       return r.json();
     },
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
   });
 
   const trades: Trade[] = journalEntries.map(journalEntryToTrade);
