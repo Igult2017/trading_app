@@ -1,11 +1,12 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect, useRef } from "react";
 import { titleFromPath, usePageTitle } from "@/hooks/usePageTitle";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient, authFetch } from "./lib/queryClient";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import HomePage from "@/pages/HomePage";
@@ -155,12 +156,71 @@ function PrefetchCalendar() {
   return null;
 }
 
+/**
+ * Silently warms the journal panel cache the moment a session is confirmed —
+ * even before the user navigates to /journal.
+ *
+ * Strategy:
+ *  1. Fetch the sessions list and cache it.
+ *  2. Find the active session: prefer the ID saved in localStorage (last
+ *     session the user had open), fall back to the most recently updated one.
+ *  3. Fire prefetchAllPanels so metrics, entries, drawdown, calendar, etc.
+ *     are already resolved by the time the dashboard renders.
+ *
+ * Everything is fire-and-forget — no UI is blocked.
+ */
+function JournalPrefetcher() {
+  const { session, user } = useAuth();
+  const qc = useQueryClient();
+  const prefetchedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!session || !user) return;
+    // Only run once per session (access_token changes on every refresh)
+    const key = session.access_token;
+    if (prefetchedFor.current === key) return;
+    prefetchedFor.current = key;
+
+    const STALE = 2 * 60 * 1000;
+
+    // Step 1 — warm the sessions list
+    qc.prefetchQuery({
+      queryKey: ['/api/sessions', user.id],
+      queryFn: () => authFetch('/api/sessions').then(r => r.ok ? r.json() : []).catch(() => []),
+      staleTime: STALE,
+    }).then(() => {
+      // Step 2 — resolve which session to warm panels for
+      const sessions: any[] = qc.getQueryData(['/api/sessions', user.id]) ?? [];
+      if (sessions.length === 0) return;
+
+      const savedId = typeof window !== 'undefined'
+        ? localStorage.getItem('journal_active_session_id')
+        : null;
+
+      const target =
+        (savedId && sessions.find((s: any) => s.id === savedId)) ??
+        sessions.sort((a: any, b: any) =>
+          new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() -
+          new Date(a.updatedAt ?? a.createdAt ?? 0).getTime()
+        )[0];
+
+      if (!target) return;
+
+      // Step 3 — warm all panel endpoints for that session
+      prefetchAllPanels(qc, target.id, user.id);
+    }).catch(() => { /* silent — prefetch is best-effort */ });
+  }, [session?.access_token, user?.id, qc]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <PrefetchCalendar />
       <TooltipProvider>
         <AuthProvider>
+          <JournalPrefetcher />
           <AppRoutes />
         </AuthProvider>
         <Toaster />
