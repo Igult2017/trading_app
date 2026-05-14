@@ -756,6 +756,29 @@ export default function Journal() {
     window.history.replaceState(null, '', url.toString());
   }, [activeNav]);
 
+  // Update browser tab title whenever the active panel changes
+  useEffect(() => {
+    const map: Record<string, string> = {
+      dashboard:   "Dashboard",
+      sessions:    "Sessions",
+      accounts:    "Accounts",
+      journal:     "Trading Journal",
+      vault:       "Trade Vault",
+      calendar:    "Calendar",
+      drawdown:    "Drawdown",
+      metrics:     "Metrics",
+      tfmetrics:   "TF Metrics",
+      strategy:    "Strategy Audit",
+      fsdai:       "Trader AI",
+      sync:        "Sync Trade",
+      assets:      "Assets",
+      leaderboard: "Leaderboard",
+      settings:    "Settings",
+    };
+    document.title = `myfm | ${map[activeNav] ?? "Journal"}`;
+    return () => { document.title = "myfm | Journal"; };
+  }, [activeNav]);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
