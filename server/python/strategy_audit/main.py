@@ -28,6 +28,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from strategy_audit.core import compute_strategy_audit
+from strategy_audit.ai_synthesis import synthesize_audit
 
 
 def main():
@@ -43,6 +44,36 @@ def main():
     try:
         result = compute_strategy_audit(trades, starting_balance)
         result["success"] = True
+
+        # ── Gemini AI synthesis ───────────────────────────────────────────────
+        # Pass the fully shaped result to Gemini for an executive narrative and
+        # AI-powered policy suggestions.  synthesize_audit() always returns a
+        # dict — it never raises, so failures here are silent and non-blocking.
+        ai = synthesize_audit(result)
+
+        # Overwrite executiveSummary with the AI narrative when Gemini returned
+        # a non-empty string; keep the rule-based fallback otherwise.
+        if ai.get("aiExecutiveSummary"):
+            result["executiveSummary"]             = ai["aiExecutiveSummary"]
+            result["auditSummary"]["gradeSummary"] = ai["aiExecutiveSummary"]
+            result["finalVerdict"]["summary"]      = ai["aiExecutiveSummary"]
+
+        # Replace rule-based policy suggestions with AI-generated ones when
+        # Gemini returned at least one suggestion.
+        if ai.get("aiPolicySuggestions"):
+            result["aiPolicySuggestions"] = [
+                {
+                    "rule":           s.get("rule", ""),
+                    "rationale":      s.get("rationale", ""),
+                    "expectedImpact": s.get("expectedImpact", ""),
+                }
+                for s in ai["aiPolicySuggestions"]
+            ]
+
+        # Expose AI narratives as top-level keys for the frontend to consume
+        result["aiStrengthsNarrative"] = ai.get("aiStrengthsNarrative", "")
+        result["aiRiskNarrative"]      = ai.get("aiRiskNarrative", "")
+
         print(json.dumps(result))
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))

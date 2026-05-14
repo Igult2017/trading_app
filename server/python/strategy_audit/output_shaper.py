@@ -266,4 +266,11 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         "logicalVerification": _regime_info(l3,l2,l1),
         "sessionEdge": session_edge,
         "heatmapProfiles": l2.get("heatmapProfiles",[]),
+        # ── New mechanical analytics ─────────────────────────────────────────
+        "rrEfficiency":      l3.get("rrEfficiency",      {"hasData": False}),
+        "maeMfeAnalysis":    l3.get("maeMfeAnalysis",    {"hasData": False}),
+        "directionAnalysis": l3.get("directionAnalysis", {"hasData": False}),
+        # ── AI narrative placeholders (populated by main.py post-synthesis) ──
+        "aiStrengthsNarrative": "",
+        "aiRiskNarrative":      "",
     }

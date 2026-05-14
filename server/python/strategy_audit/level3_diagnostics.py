@@ -13,11 +13,14 @@ import math
 from collections import defaultdict
 from datetime import timezone
 
+import re as _re
+
 from ._utils import (
     check_minimum_sample,
     safe_mean,
     safe_std,
     win_rate,
+    profit_factor,
 )
 
 
@@ -337,6 +340,189 @@ def _automation_risk(
     }
 
 
+# ── RR Efficiency ─────────────────────────────────────────────────────────────
+
+def _rr_efficiency(trades: list[dict]) -> dict:
+    """
+    Compare planned RR vs achieved RR to measure how well the trader
+    captures their intended reward target.
+
+    Uses achieved_rr field when present; falls back to pnl / monetary_risk.
+    Planned RR comes from planned_rr or rr_float.
+    """
+    both: list[tuple[float, float]] = []
+
+    for t in trades:
+        # ── Planned RR ────────────────────────────────────────────────────────
+        planned: float | None = None
+        for raw in [t.get("planned_rr"), t.get("rr_float")]:
+            if raw is None:
+                continue
+            s = str(raw).strip()
+            m = _re.search(r"[\d.]+\s*:\s*([\d.]+)", s)
+            try:
+                planned = float(m.group(1)) if m else float(s)
+                if planned > 0:
+                    break
+                planned = None
+            except (ValueError, TypeError):
+                pass
+
+        # ── Achieved RR ───────────────────────────────────────────────────────
+        achieved: float | None = None
+        a_raw = t.get("achieved_rr")
+        if a_raw is not None:
+            s = str(a_raw).strip()
+            m = _re.search(r"[\d.]+\s*:\s*([\d.]+)", s)
+            try:
+                v = float(m.group(1)) if m else float(s)
+                achieved = v
+            except (ValueError, TypeError):
+                pass
+
+        # Fallback: compute from actual pnl / monetary_risk
+        if achieved is None and t.get("pnl") is not None and t.get("monetary_risk"):
+            try:
+                achieved = t["pnl"] / float(t["monetary_risk"])
+            except (ZeroDivisionError, TypeError):
+                pass
+
+        if planned and planned > 0 and achieved is not None:
+            both.append((planned, achieved))
+
+    if len(both) < 3:
+        return {"hasData": False}
+
+    avg_planned  = safe_mean([p for p, _ in both])
+    avg_achieved = safe_mean([a for _, a in both])
+
+    # Capture rate on winning trades only (achieved ÷ planned, capped at 1)
+    wins_both = [(p, a) for p, a in both if a > 0]
+    rr_capture = (
+        safe_mean([min(1.0, a / p) for p, a in wins_both if p > 0]) * 100
+        if wins_both else 0.0
+    )
+
+    # Under-perform rate: trades that achieved <50 % of planned RR
+    under_perf = (
+        sum(1 for p, a in both if 0 < a < p * 0.5) / len(both) * 100
+        if both else 0.0
+    )
+
+    return {
+        "hasData":         True,
+        "avgPlannedRR":    round(avg_planned, 2),
+        "avgAchievedRR":   round(avg_achieved, 2),
+        "rrCaptureRate":   round(rr_capture, 1),
+        "underPerformRate":round(under_perf, 1),
+        "sampleSize":      len(both),
+    }
+
+
+# ── MAE / MFE Analysis ────────────────────────────────────────────────────────
+
+def _mae_mfe_analysis(trades: list[dict]) -> dict:
+    """
+    Maximum Adverse Excursion (MAE) and Maximum Favourable Excursion (MFE).
+
+    MAE/SL ratio > 1 → price often breaches the stop before reverting (stop too tight).
+    MFE/TP ratio > 1 → price regularly exceeds the take-profit (leaving money on table).
+    """
+    mae_vals:        list[float] = []
+    mfe_vals:        list[float] = []
+    mae_sl_ratios:   list[float] = []
+    mfe_tp_ratios:   list[float] = []
+
+    for t in trades:
+        mae = t.get("mae")
+        mfe = t.get("mfe")
+        sl_dist = t.get("stop_loss_distance")
+        tp_dist = t.get("take_profit_distance")
+
+        if mae is not None:
+            try:
+                mae_f = abs(float(mae))
+                mae_vals.append(mae_f)
+                if sl_dist:
+                    sl_f = abs(float(sl_dist))
+                    if sl_f > 0:
+                        mae_sl_ratios.append(mae_f / sl_f)
+            except (TypeError, ValueError):
+                pass
+
+        if mfe is not None:
+            try:
+                mfe_f = abs(float(mfe))
+                mfe_vals.append(mfe_f)
+                if tp_dist:
+                    tp_f = abs(float(tp_dist))
+                    if tp_f > 0:
+                        mfe_tp_ratios.append(mfe_f / tp_f)
+            except (TypeError, ValueError):
+                pass
+
+    if not mae_vals and not mfe_vals:
+        return {"hasData": False}
+
+    return {
+        "hasData":      True,
+        "avgMAE":       round(safe_mean(mae_vals), 5)       if mae_vals       else None,
+        "avgMFE":       round(safe_mean(mfe_vals), 5)       if mfe_vals       else None,
+        "maeSlRatio":   round(safe_mean(mae_sl_ratios), 3)  if mae_sl_ratios  else None,
+        "mfeTpRatio":   round(safe_mean(mfe_tp_ratios), 3)  if mfe_tp_ratios  else None,
+        "maeSampleSize":len(mae_vals),
+        "mfeSampleSize":len(mfe_vals),
+    }
+
+
+# ── Direction Analysis ────────────────────────────────────────────────────────
+
+def _direction_analysis(trades: list[dict]) -> dict:
+    """
+    Break down win rate, profit factor, and average P&L by trade direction
+    (Long vs Short).  Highlights directional bias in the edge.
+    """
+    longs  = [t for t in trades if (t.get("direction") or "").lower() in ("long",  "buy",  "b", "bullish")]
+    shorts = [t for t in trades if (t.get("direction") or "").lower() in ("short", "sell", "s", "bearish")]
+
+    if not longs and not shorts:
+        return {"hasData": False}
+
+    def _stats(group: list[dict]) -> dict:
+        if not group:
+            return {"trades": 0, "winRate": 0.0, "profitFactor": 0.0, "avgPnl": 0.0}
+        pnls = [t["pnl"] for t in group if t.get("pnl") is not None]
+        return {
+            "trades":       len(group),
+            "winRate":      round(win_rate(group), 1),
+            "profitFactor": round(min(profit_factor(group), 20.0), 2),
+            "avgPnl":       round(safe_mean(pnls), 2) if pnls else 0.0,
+        }
+
+    ls = _stats(longs)
+    ss = _stats(shorts)
+
+    if ls["winRate"] > ss["winRate"] + 5:
+        edge_dir = "Long"
+    elif ss["winRate"] > ls["winRate"] + 5:
+        edge_dir = "Short"
+    else:
+        edge_dir = "Neutral"
+
+    return {
+        "hasData":      True,
+        "longTrades":   ls["trades"],
+        "longWinRate":  ls["winRate"],
+        "longPF":       ls["profitFactor"],
+        "longAvgPnl":   ls["avgPnl"],
+        "shortTrades":  ss["trades"],
+        "shortWinRate": ss["winRate"],
+        "shortPF":      ss["profitFactor"],
+        "shortAvgPnl":  ss["avgPnl"],
+        "directionEdge":edge_dir,
+    }
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def compute_level3(trades: list[dict], starting_balance: float = 10_000.0) -> dict:
@@ -358,6 +544,10 @@ def compute_level3(trades: list[dict], starting_balance: float = 10_000.0) -> di
         "regimeTransition":   _regime_transition(trades),
         "capitalHeat":        capital_data,
         "automationRisk":     _automation_risk(trades, cluster_data, capital_data),
+        # ── New mechanical analytics ─────────────────────────────────────────
+        "rrEfficiency":       _rr_efficiency(trades),
+        "maeMfeAnalysis":     _mae_mfe_analysis(trades),
+        "directionAnalysis":  _direction_analysis(trades),
     }
 
 
@@ -369,4 +559,7 @@ def _empty_level3(reason: str = "") -> dict:
         "capitalHeat":        {"avgRiskPerTrade": 0.0, "maxRiskPerTrade": 0.0,
                                 "riskConsistencyScore": 0.0, "correlatedExposure": []},
         "automationRisk":     {"score": 0.0, "issues": [reason] if reason else []},
+        "rrEfficiency":       {"hasData": False},
+        "maeMfeAnalysis":     {"hasData": False},
+        "directionAnalysis":  {"hasData": False},
     }

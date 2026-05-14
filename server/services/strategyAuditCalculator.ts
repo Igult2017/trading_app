@@ -45,7 +45,7 @@ const PYTHON_SCRIPT_PATH = path.join(
   "main.py"
 );
 
-const TIMEOUT_MS = 45_000;
+const TIMEOUT_MS = 90_000; // includes Gemini synthesis call (~45s stats + up to 45s LLM)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,9 @@ export interface StrategyAuditResult {
     regimeTransition: Record<string, any>;
     capitalHeat: Record<string, any>;
     automationRisk: Record<string, any>;
+    rrEfficiency?: Record<string, any>;
+    maeMfeAnalysis?: Record<string, any>;
+    directionAnalysis?: Record<string, any>;
   };
   level4?: {
     aiPolicySuggestions: any[];
@@ -83,6 +86,12 @@ export interface StrategyAuditResult {
     edgeDecay: Record<string, any>;
     finalVerdict: Record<string, any>;
   };
+  // Top-level shaped fields (from output_shaper + AI synthesis)
+  rrEfficiency?: Record<string, any>;
+  maeMfeAnalysis?: Record<string, any>;
+  directionAnalysis?: Record<string, any>;
+  aiStrengthsNarrative?: string;
+  aiRiskNarrative?: string;
   error?: string;
 }
 

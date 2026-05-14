@@ -568,6 +568,10 @@ def call_llm(
             user_content = primer
     elif mode == "strategy":
         user_content = _build_strategy_prompt(payload)
+    elif mode == "audit_synthesis":
+        user_content = payload.get("_raw_prompt", "")
+        if not user_content:
+            return "{}"
     else:
         return f"Unknown mode: {mode}"
 
