@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
+import { useAuth } from "@/context/AuthContext";
+import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { calcDollarRisk } from "@/lib/tradeCalculations";
 
 // ─── Obsidian font isolation (scoped, beats any global !important) ────────────
@@ -1163,6 +1165,7 @@ function getStickyRiskPct(sessionId: string | number | null | undefined): string
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JournalForm({ sessionId, startingBalance }: { sessionId?: string | number | null; startingBalance?: number }) {
+  const { user } = useAuth();
   const [step, setStep]           = useState(1);
   const [s1, setS1]               = useState({ ...INIT_STEP1 });
   const [s2, setS2]               = useState(() => ({ ...INIT_STEP2, riskPercent: getStickyRiskPct(sessionId) }));
@@ -1689,6 +1692,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       queryClient.invalidateQueries({ queryKey: ["strategyAudit"] });
       queryClient.invalidateQueries({ queryKey: ["aiAnalysis"] });
       queryClient.invalidateQueries({ queryKey: ["aiStrategy"] });
+      if (sessionId) prefetchAllPanels(queryClient, String(sessionId), user?.id);
       setS1({ ...INIT_STEP1 });
       setS2({ ...INIT_STEP2, riskPercent: getStickyRiskPct(sessionId) });
       setS3({ ...INIT_STEP3 });

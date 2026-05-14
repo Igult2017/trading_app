@@ -816,42 +816,7 @@ export default function Journal() {
   // By the time the user navigates to any panel the data is already cached — no spinner.
   useEffect(() => {
     if (!activeSessionId) return;
-    const sid = activeSessionId;
-    const STALE = 2 * 60 * 1000;
-
-    // The server scopes results to the authenticated user, so we no longer
-    // pass userId in the URL — relying on the Bearer token via authFetch.
-    const uid = user?.id;
-    const endpoints: { queryKey: unknown[]; url: string; staleTime: number }[] = [
-      { queryKey: ['/api/sessions',           sid], url: `/api/sessions/${sid}`,                     staleTime: STALE },
-      { queryKey: ['/api/metrics/compute',    sid], url: `/api/metrics/compute?sessionId=${sid}`,    staleTime: STALE },
-      { queryKey: ['/api/journal/entries',    sid], url: `/api/journal/entries?sessionId=${sid}`,    staleTime: STALE },
-      { queryKey: ['/api/calendar/compute',   sid], url: `/api/calendar/compute?sessionId=${sid}`,   staleTime: STALE },
-      { queryKey: ['/api/drawdown/compute',   sid], url: `/api/drawdown/compute?sessionId=${sid}`,   staleTime: STALE },
-      { queryKey: ['/api/tf-metrics/matrix',  sid], url: `/api/tf-metrics/matrix?sessionId=${sid}`,  staleTime: 60_000 },
-    ];
-
-    for (const { queryKey, url, staleTime } of endpoints) {
-      queryClient.prefetchQuery({
-        queryKey,
-        queryFn: () => authFetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status)),
-        staleTime,
-      });
-    }
-
-    // Strategy audit — heavier Python computation, prefetch so Audit tab is instant
-    queryClient.prefetchQuery({
-      queryKey: ["strategyAudit", sid, uid],
-      queryFn: async () => {
-        const p = new URLSearchParams();
-        if (sid) p.set("sessionId", sid);
-        if (uid) p.set("userId", uid);
-        const r = await authFetch(`/api/strategy-audit/compute?${p}`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      },
-      staleTime: 5 * 60 * 1000,
-    });
+    prefetchAllPanels(queryClient, activeSessionId, user?.id);
   }, [activeSessionId, queryClient, user?.id]);
 
   const { data: sessions = [] } = useQuery<any[]>({

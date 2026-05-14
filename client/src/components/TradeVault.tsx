@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, authFetch } from "@/lib/queryClient";
+import { useAuth } from "@/context/AuthContext";
+import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
 import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
@@ -358,6 +360,7 @@ function downloadCSV(trades: Trade[]) {
 }
 
 export default function TradeVault({ sessionId, startingBalance: sessionStartingBalance }: { sessionId?: string | null; startingBalance?: number }) {
+  const { user } = useAuth();
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [exported, setExported] = useState(false);
@@ -405,6 +408,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     queryClient.invalidateQueries({ queryKey: ["strategyAudit"] });
     queryClient.invalidateQueries({ queryKey: ["aiAnalysis"] });
     queryClient.invalidateQueries({ queryKey: ["aiStrategy"] });
+    if (sessionId) prefetchAllPanels(queryClient, sessionId, user?.id);
   }
 
   const updateMutation = useMutation({
