@@ -575,7 +575,7 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
     return TradeRecord(
         id=str(raw_id),
         session_id=str(g("sessionId") or raw.get("session_id") or ""),
-        instrument=str(g("instrument") or "").strip().upper(),
+        instrument=str(g("instrument") or "").strip().upper().replace("/", "").replace("-", "").replace("_", ""),
         direction=_normalise_direction(g("direction")),
         outcome=_normalise_outcome(g("outcome")),
         pnl=raw_pnl,
@@ -1061,8 +1061,28 @@ def calc_session_breakdown(ctx: SharedContext) -> Dict:
     return breakdown_by_categorical(ctx.trades, "session")
 
 
+def _normalize_instrument(name: str) -> str:
+    """Normalize instrument names so EUR/USD and EURUSD are treated as the same pair."""
+    return name.upper().replace("/", "").replace("-", "").replace("_", "").strip()
+
+
 def calc_instrument_breakdown(ctx: SharedContext) -> Dict:
-    return breakdown_by_categorical(ctx.trades, "instrument")
+    groups: Dict[str, List[TradeRecord]] = defaultdict(list)
+    for t in ctx.trades:
+        raw = getattr(t, "instrument", None)
+        if raw:
+            key = _normalize_instrument(str(raw))
+            if key:
+                groups[key].append(t)
+    return {
+        label: {
+            "winRate": win_rate_of(grp),
+            "trades":  len(grp),
+            "count":   len(grp),
+            "pl":      round(sum(t.pnl for t in grp), 2),
+        }
+        for label, grp in sorted(groups.items())
+    }
 
 
 def calc_strategy_performance(ctx: SharedContext) -> Dict:
