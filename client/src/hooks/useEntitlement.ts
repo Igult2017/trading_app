@@ -14,7 +14,7 @@ export interface Entitlement {
 export function useEntitlement() {
   const { session, role } = useAuth();
 
-  const { data, isLoading } = useQuery<Entitlement>({
+  const { data, isLoading, fetchStatus } = useQuery<Entitlement>({
     queryKey: ['/api/me/entitlement', session?.user?.id],
     queryFn: () =>
       authFetch('/api/me/entitlement').then(r => {
@@ -26,11 +26,15 @@ export function useEntitlement() {
     retry: false,
   });
 
-  // Admins always have access regardless of subscription state
+  // In TanStack Query v5, a disabled query still reports isLoading:true
+  // (status:"pending", fetchStatus:"idle"). We only want to block the UI
+  // while a real network request is in flight, not while the query is idle.
+  const actuallyLoading = isLoading && fetchStatus !== 'idle';
+
   const isAdmin = role === 'admin';
 
   return {
-    loading: isLoading,
+    loading: actuallyLoading,
     hasJournalAccess: isAdmin || (data?.hasJournalAccess ?? false),
     stripeConfigured: data?.stripeConfigured ?? false,
     subscriptionStatus: data?.subscriptionStatus ?? 'free',
