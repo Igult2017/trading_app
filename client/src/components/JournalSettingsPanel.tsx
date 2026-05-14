@@ -87,8 +87,8 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           }}>Journal Settings</h1>
         </div>
         <p className="jsp-subtitle" style={{
-          margin: '0 0 0 18px', fontSize: 11, color: T.textMuted,
-          letterSpacing: '0.06em',
+          margin: '0 0 0 18px', fontSize: 5.5, color: T.textMuted,
+          letterSpacing: '0.06em', fontFamily: "'DM Mono', monospace",
         }}>
           Personalise your trading environment — theme and typography changes apply instantly.
         </p>
