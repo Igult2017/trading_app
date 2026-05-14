@@ -304,10 +304,9 @@ export default function Leaderboard() {
 
           {/* Summary */}
           {summary && (
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 8 : 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 10 }}>
               {[
                 { label: 'Total PnL',      value: fmtPnl(summary.totalPnl) },
-                { label: 'Avg Win Rate',   value: `${summary.avgWinRate}%` },
                 { label: 'Total Trades',   value: summary.totalTrades.toLocaleString() },
                 { label: 'Active Traders', value: summary.activeTraders.toString() },
               ].map(({ label, value }) => (
