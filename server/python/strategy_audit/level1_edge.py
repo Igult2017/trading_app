@@ -79,38 +79,39 @@ def _scannable_fields() -> list[tuple[str, Any]]:
     """
     Each entry: (column_label_prefix, getter(trade) -> str | None)
     getter returns the discrete value for this trade, or None if not available.
+
+    Only market-structure and trade-execution fields are included here.
+    Emotional / psychological fields (emotional state, focus, energy, FOMO,
+    revenge trades, post-trade feelings) are intentionally excluded: they are
+    trader-state variables, not market conditions, and inflate edge-driver /
+    weakness discovery with noise that does not reflect strategy mechanics.
     """
     return [
-        ("Session",           lambda t: _val(t, "session_label")),
-        ("Phase",             lambda t: _val(t, "session_phase")),
-        ("Direction",         lambda t: _val(t, "direction")),
-        ("Day",               lambda t: _val(t, "day_of_week")),
-        ("HTF Bias",          lambda t: _val(t, "htf_bias")),
-        ("Confluence",        _confluence_bucket),
-        ("Emotional State",   lambda t: _val(t, "emotional_state")),
-        ("Focus",             lambda t: _val(t, "focus_level")),
-        ("Confidence",        lambda t: _val(t, "confidence_level")),
-        ("Energy",            lambda t: _val(t, "energy_level")),
-        ("Confidence@Entry",  lambda t: _val(t, "confidence_at_entry")),
-        ("Rules Followed",    lambda t: _val(t, "rules_followed")),
-        ("Risk Heat",         lambda t: _val(t, "risk_heat")),
-        ("Trade Grade",       lambda t: _val(t, "trade_grade")),
-        ("Setup Tag",         lambda t: _val(t, "setup_tag")),
+        # ── Market structure ───────────────────────────────────────────────────
         ("Market Regime",     lambda t: _val(t, "market_regime")),
         ("Volatility",        lambda t: _val(t, "volatility_state")),
-        ("Order Type",        lambda t: _val(t, "order_type")),
+        ("HTF Bias",          lambda t: _val(t, "htf_bias")),
         ("News",              lambda t: _val(t, "news_environment")),
+        # ── Session & timing ──────────────────────────────────────────────────
+        ("Session",           lambda t: _val(t, "session_label")),
+        ("Phase",             lambda t: _val(t, "session_phase")),
+        ("Day",               lambda t: _val(t, "day_of_week")),
+        # ── Setup & entry mechanics ───────────────────────────────────────────
+        ("Setup Tag",         lambda t: _val(t, "setup_tag")),
         ("Candle Pattern",    lambda t: _val(t, "candle_pattern")),
-        ("Management",        lambda t: _val(t, "management_type")),
-        ("Post-Trade Feel",   lambda t: _val(t, "post_trade_emotion")),
+        ("Order Type",        lambda t: _val(t, "order_type")),
+        ("Direction",         lambda t: _val(t, "direction")),
+        ("Confluence",        _confluence_bucket),
+        # ── Structural alignment checks ───────────────────────────────────────
         ("Setup Valid",       lambda t: _bool_label(t, "setup_fully_valid")),
         ("MTF Aligned",       lambda t: _bool_label(t, "mtf_alignment")),
         ("Trend Aligned",     lambda t: _bool_label(t, "trend_alignment")),
         ("HTF Level Present", lambda t: _bool_label(t, "htf_key_level")),
         ("Key Level Respect", lambda t: _bool_label(t, "key_level_respected")),
-        ("FOMO Trade",        lambda t: _bool_label(t, "fomo_trade")),
-        ("Revenge Trade",     lambda t: _bool_label(t, "revenge_trade")),
-        ("Emotional Trade",   lambda t: _bool_label(t, "emotional_trade")),
+        # ── Execution & risk mechanics ────────────────────────────────────────
+        ("Trade Grade",       lambda t: _val(t, "trade_grade")),
+        ("Risk Heat",         lambda t: _val(t, "risk_heat")),
+        ("Management",        lambda t: _val(t, "management_type")),
     ]
 
 

@@ -179,7 +179,7 @@ def _data_driven_guardrails(
     if avg_cluster >= 4:
         extra.append({
             "condition": f"4+ consecutive losses recorded (cluster avg: {avg_cluster:.0f})",
-            "action":    "Mandatory 24-hour trading break to reset psychology",
+            "action":    "Pause trading for 24 hours — review setup criteria and entry conditions for the session",
         })
 
     # High automation risk

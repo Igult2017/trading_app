@@ -94,7 +94,7 @@ def _regime_info(l3, l2, l1):
     return {
         "regime": regime, "entryLogic": entry_logic, "exitLogic": exit_logic,
         "scalingProperties": scaling, "sessionDependency": session_dep,
-        "behavioralFit": "Autonomous — verify rules adherence monthly",
+        "behavioralFit": "System-driven — review setup criteria and execution adherence monthly",
         "forwardConfirmation": fwd,
     }
 
