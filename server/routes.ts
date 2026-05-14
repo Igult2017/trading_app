@@ -136,6 +136,45 @@ function invalidateDrawdownCache(sessionId?: string, userId?: string): void {
   }
 }
 
+// ── Journal entries in-memory cache ──────────────────────────────────────────
+// resolveComputeScope reads from here instead of hitting the DB every request.
+// Cache hit path: requireAuth (~5ms) + memory lookup (~0ms) = ~5ms total.
+// Invalidated any time an entry is created, updated, or deleted.
+interface EntriesCacheEntry {
+  entries: any[];
+  startingBalance?: number;
+  cachedAt: number;
+}
+const entriesCache = new Map<string, EntriesCacheEntry>();
+const ENTRIES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function invalidateEntriesCache(sessionId?: string, userId?: string): void {
+  if (sessionId || userId) {
+    entriesCache.delete(metricsKey(userId, sessionId));
+  } else {
+    entriesCache.clear();
+  }
+}
+
+// ── TF-Matrix in-memory cache ─────────────────────────────────────────────────
+// The tf-metrics/matrix endpoint previously had no server cache — every hit
+// recomputed from scratch. Same invalidation pattern as metrics/calendar/drawdown.
+interface TFMatrixCacheEntry {
+  result: any;
+  entryCount: number;
+  cachedAt: number;
+}
+const tfMatrixCache = new Map<string, TFMatrixCacheEntry>();
+const TF_MATRIX_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function invalidateTFMatrixCache(sessionId?: string, userId?: string): void {
+  if (sessionId || userId) {
+    tfMatrixCache.delete(metricsKey(userId, sessionId));
+  } else {
+    tfMatrixCache.clear();
+  }
+}
+
 // ── AI response in-memory cache ───────────────────────────────────────────────
 // Prevents hitting Gemini on every page visit — same trade count = cached reply.
 // TTL: 30 minutes. Invalidated automatically when trade count changes.
@@ -897,9 +936,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertJournalEntrySchema.parse(enriched);
       const entry = await storage.createJournalEntry(validatedData);
+      invalidateEntriesCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateCalendarCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateDrawdownCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
+      invalidateTFMatrixCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       res.status(201).json(entry);
     } catch (error) {
       console.error("[Routes] Create journal entry error:", error);
@@ -952,9 +993,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entry = await storage.updateJournalEntry(req.params.id, updates);
       if (!entry) return res.status(404).json({ error: "Journal entry not found" });
 
+      invalidateEntriesCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateMetricsCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateCalendarCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       invalidateDrawdownCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
+      invalidateTFMatrixCache(entry.sessionId ?? undefined, entry.userId ?? undefined);
       res.json(entry);
     } catch (error) {
       res.status(500).json({ error: "Failed to update journal entry" });
@@ -973,9 +1016,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
+      invalidateEntriesCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
       invalidateMetricsCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
       invalidateCalendarCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
       invalidateDrawdownCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
+      invalidateTFMatrixCache(existing.sessionId ?? undefined, existing.userId ?? undefined);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete journal entry" });
@@ -989,6 +1034,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     req: Request,
   ): Promise<{ entries: any[]; startingBalance?: number; sessionId?: string } | null> {
     const sessionId = req.query.sessionId as string | undefined;
+
+    // Fast path: serve entries + startingBalance from memory when cache is fresh.
+    // Avoids two DB round-trips (getSessionById + getJournalEntries) on every hit.
+    const cacheKey = metricsKey(auth.id, sessionId);
+    const cached = entriesCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now - cached.cachedAt < ENTRIES_CACHE_TTL_MS) {
+      return { entries: cached.entries, startingBalance: cached.startingBalance, sessionId };
+    }
+
+    // Cache miss — fetch from DB, then populate cache.
     let startingBalance: number | undefined;
     if (sessionId) {
       const session = await storage.getSessionById(sessionId);
@@ -996,6 +1052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       startingBalance = parseFloat(session.startingBalance);
     }
     const entries = await storage.getJournalEntries(auth.id, sessionId);
+    entriesCache.set(cacheKey, { entries, startingBalance, cachedAt: now });
     return { entries, startingBalance, sessionId };
   }
 
@@ -1135,8 +1192,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scope = await resolveComputeScope(auth, req);
       if (!scope) return res.json({ success: true, matrix: {} });
-      const result = await computeTFMatrix(scope.entries);
+      const { entries, sessionId } = scope;
+
+      const cacheKey = metricsKey(auth.id, sessionId);
+      const cached = tfMatrixCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && cached.entryCount === entries.length && now - cached.cachedAt < TF_MATRIX_CACHE_TTL_MS) {
+        return res.json(cached.result);
+      }
+
+      if (!entries || entries.length === 0) {
+        const empty = { success: true, matrix: {}, rows: [] };
+        tfMatrixCache.set(cacheKey, { result: empty, entryCount: 0, cachedAt: now });
+        return res.json(empty);
+      }
+
+      const result = await computeTFMatrix(entries);
       if (result.success) {
+        tfMatrixCache.set(cacheKey, { result, entryCount: entries.length, cachedAt: now });
         res.json(result);
       } else {
         res.status(500).json(result);
