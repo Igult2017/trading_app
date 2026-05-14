@@ -65,6 +65,8 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
       return r.json();
     }),
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
   });
 
   const {
@@ -78,6 +80,8 @@ export function useSessionBalance(sessionId: string | null | undefined): Session
       return r.json();
     }),
     enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
   });
 
   // Guard: if no sessionId, return zeroed result immediately

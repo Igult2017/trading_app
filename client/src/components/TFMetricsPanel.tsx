@@ -485,7 +485,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
       if (!res.ok) throw new Error('Failed to fetch TF matrix');
       return res.json();
     },
-    enabled: !!matrixUrl,
+    enabled: !!sessionId && !!matrixUrl,
     staleTime: 60_000,
     gcTime:   30 * 60 * 1000,
   });

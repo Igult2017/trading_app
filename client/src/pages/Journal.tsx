@@ -1017,7 +1017,7 @@ export default function Journal() {
               </div>
             )
           ) : activeNav === 'strategy' ? (
-            <StrategyAudit sessionId={activeSessionId ?? undefined} />
+            <StrategyAudit sessionId={activeSessionId ?? undefined} userId={user?.id} />
           ) : activeNav === 'vault' ? (
             <TradeVault sessionId={activeSessionId ?? undefined} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
           ) : activeNav === 'calendar' ? (
