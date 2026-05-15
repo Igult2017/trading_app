@@ -1208,7 +1208,18 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   // Monthly running balance — resets each month per profit-withdrawal / deficit carry-over model.
   // Aliased as currentBalance so all downstream risk math, balance display, and
   // auto-calc effects use the monthly balance without any further changes.
-  const { monthlyCurrentBalance: currentBalance } = useSessionBalance(sessionId != null ? String(sessionId) : null);
+  const { monthlyCurrentBalance: currentBalance, startingBalance: sessionStartingBalance } = useSessionBalance(sessionId != null ? String(sessionId) : null);
+
+  // Effective balance for risk math: prefer the live monthly balance, but fall
+  // back to (a) the startingBalance prop passed from the parent session list, or
+  // (b) the raw startingBalance returned by the hook.  This prevents the auto-
+  // calc from being silently skipped while the query is still in-flight or when
+  // the monthly model resolves to 0 (e.g. the very first render after mount).
+  const effectiveBalance = currentBalance > 0
+    ? currentBalance
+    : (startingBalance ?? 0) > 0
+      ? (startingBalance ?? 0)
+      : (sessionStartingBalance ?? 0);
 
   // ── Parse "1:8.07" or "8.07" → 8.07
   const parseRRNum = (v: string) => {
@@ -1227,8 +1238,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   // ── Auto-calc monetary fields ──────────────────────────────────────────────
   useEffect(() => {
     const riskPct = parseFloat(s2.riskPercent);
-    if (!riskPct || riskPct <= 0 || !currentBalance || currentBalance <= 0) return;
-    const monetaryRisk = calcDollarRisk(currentBalance, riskPct);
+    if (!riskPct || riskPct <= 0 || !effectiveBalance || effectiveBalance <= 0) return;
+    const monetaryRisk = calcDollarRisk(effectiveBalance, riskPct);
     const outcome      = s2.outcome as "Win"|"Loss"|"BE";
     const plannedRRNum = parseRRNum(s4.plannedRR);
 
@@ -1251,7 +1262,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     else if (outcome === "Win" && achievedRRNum > 0)  pnl = monetaryRisk * achievedRRNum;
     if (pnl !== null) {
       s4Up.profitLoss     = pnl.toFixed(2);
-      s4Up.accountBalance = (currentBalance + pnl).toFixed(2);
+      s4Up.accountBalance = (effectiveBalance + pnl).toFixed(2);
     }
     if (outcome === "Loss" && s2.stopLossDistancePips) {
       const slPips = parseFloat(s2.stopLossDistancePips);
@@ -1264,7 +1275,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       Object.keys(s4Up).forEach(k => { if (!next.has(k)) { next.add(k); changed = true; } });
       return changed ? next : prev;
     });
-  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.exitScreenshot, currentBalance]);
+  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.exitScreenshot, effectiveBalance]);
 
   // ── Auto-fill achievedRR based on outcome (when no exit screenshot) ─────────
   // Loss → "1:-1", BE → "1:0", Win (or no outcome yet) → copy Planned R:R
@@ -1537,14 +1548,14 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       const f3 = fillDefaults(s3, INIT_STEP3);
       const f4 = fillDefaults(s4, INIT_STEP4) as typeof INIT_STEP4;
 
-      // Safety net: if the auto-calc effect never fired (e.g. currentBalance was
+      // Safety net: if the auto-calc effect never fired (e.g. effectiveBalance was
       // still 0 while the session was loading), compute P&L right here at submit
       // time using the balance we have now.  This guarantees profitLoss is never
       // sent as null when we have enough data to derive it.
-      if (f4.profitLoss === "" && currentBalance > 0) {
+      if (f4.profitLoss === "" && effectiveBalance > 0) {
         const riskPct = parseFloat(f2.riskPercent);
         if (riskPct > 0) {
-          const monetaryRisk = parseFloat(((currentBalance * riskPct) / 100).toFixed(2));
+          const monetaryRisk = parseFloat(((effectiveBalance * riskPct) / 100).toFixed(2));
           const outcome = f2.outcome as "Win" | "Loss" | "BE";
           const rrStr = (!s2.exitScreenshot && achievedRRAutoRef.current)
             ? f4.plannedRR
@@ -1556,7 +1567,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           else if (outcome === "Win" && rrNum > 0) pnl = monetaryRisk * rrNum;
           if (pnl !== null) {
             f4.profitLoss     = pnl.toFixed(2);
-            f4.accountBalance = (currentBalance + pnl).toFixed(2);
+            f4.accountBalance = (effectiveBalance + pnl).toFixed(2);
             f4.monetaryRisk   = monetaryRisk.toFixed(2);
           }
         }

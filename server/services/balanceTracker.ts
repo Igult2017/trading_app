@@ -130,13 +130,24 @@ export async function enrichTradeWithBalance(
   // Nothing to work with — skip enrichment
   if (!hasPnL && !hasRisk) return tradeData;
 
-  const { currentBalance } = await getCurrentBalance(sessionId);
+  const { currentBalance, startingBalance } = await getCurrentBalance(sessionId);
+
+  // Use the best available balance as the base for risk calculations.
+  // If the running balance is 0 (no trades yet or fully wiped), fall back to
+  // the session's starting balance so dollarRisk is computed correctly for
+  // the very first trade.
+  const baseBalance = currentBalance > 0 ? currentBalance : startingBalance;
+
+  // If we still have no meaningful balance AND the client didn't supply a
+  // profitLoss, there is nothing to compute — pass the trade through unchanged
+  // rather than storing a misleading $0.
+  if (baseBalance <= 0 && !hasPnL) return tradeData;
 
   let finalPnL: number;
 
   // Default riskPercent to 1 so monetaryRisk is always computable
   const effectiveRisk = hasRisk ? riskPercent : 1;
-  const dollarRisk = r2((currentBalance * effectiveRisk) / 100);
+  const dollarRisk = r2((baseBalance * effectiveRisk) / 100);
 
   if (hasPnL) {
     // Client already supplied profitLoss — trust it
@@ -162,7 +173,7 @@ export async function enrichTradeWithBalance(
   return {
     ...tradeData,
     profitLoss:     String(finalPnL),
-    accountBalance: String(r2(currentBalance + finalPnL)),
+    accountBalance: String(r2(baseBalance + finalPnL)),
     monetaryRisk,
   };
 }
