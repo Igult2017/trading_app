@@ -2332,124 +2332,126 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
 const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthlyData?: number[] | null; dailyData?: number[] | null }) => {
   const [period, setPeriod] = useState('monthly');
   const isMonthly = period === 'monthly';
-  const rawData = isMonthly ? (monthlyData ?? GROWTH_DATA_MONTHLY) : (dailyData ?? GROWTH_DATA_DAILY);
-  const safeData = Array.isArray(rawData) ? rawData.map(v => Number(v) || 0) : [];
+  const rawData   = isMonthly ? (monthlyData ?? GROWTH_DATA_MONTHLY) : (dailyData ?? GROWTH_DATA_DAILY);
+  const safeData  = Array.isArray(rawData) ? rawData.map(v => Number(v) || 0) : [];
 
   const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const dayLabels = Array.from({ length: 30 }, (_, i) => (i + 1) % 5 === 0 || i === 0 ? String(i + 1) : '');
-  const labels = isMonthly ? monthLabels : dayLabels;
+  const dayLabels   = Array.from({ length: 30 }, (_, i) => String(i + 1));
+  const labels      = isMonthly ? monthLabels : dayLabels;
 
-  // Build recharts data with cumulative line
-  let running = 0;
-  const chartData = safeData.map((v, i) => {
-    running += v;
-    return { label: labels[i] ?? String(i + 1), users: v, cumulative: running };
-  });
+  const chartData = safeData.map((v, i) => ({ label: labels[i] ?? String(i + 1), users: v }));
 
   // KPI summary
-  const total     = safeData.reduce((a, b) => a + b, 0);
-  const peak      = Math.max(...safeData, 0);
-  const peakLabel = labels[safeData.indexOf(peak)] ?? '—';
-  const nonZero   = safeData.filter(v => v > 0);
-  const avg       = nonZero.length ? Math.round(total / nonZero.length) : 0;
-  const last      = safeData[safeData.length - 1] ?? 0;
-  const prev      = safeData[safeData.length - 2] ?? 0;
-  const momPct    = prev > 0 ? Math.round(((last - prev) / prev) * 100) : null;
-  const momColor  = momPct === null ? '#607898' : momPct >= 0 ? C.greenL : C.redL;
-  const momLabel  = momPct === null ? '—' : `${momPct >= 0 ? '+' : ''}${momPct}%`;
+  const total    = safeData.reduce((a, b) => a + b, 0);
+  const peak     = Math.max(...safeData, 0);
+  const peakIdx  = safeData.indexOf(peak);
+  const peakLbl  = labels[peakIdx] ?? '—';
+  const nonZero  = safeData.filter(v => v > 0);
+  const avg      = nonZero.length ? (total / nonZero.length).toFixed(1) : '0';
+  const last     = safeData[safeData.length - 1] ?? 0;
+  const prev     = safeData[safeData.length - 2] ?? 0;
+  const momPct   = prev > 0 ? Math.round(((last - prev) / prev) * 100) : null;
+  const momColor = momPct === null ? '#607898' : momPct >= 0 ? C.greenL : C.redL;
+  const momLabel = momPct === null ? '—' : `${momPct >= 0 ? '+' : ''}${momPct}%`;
 
   const kpis = [
-    { label: isMonthly ? 'Total (12mo)' : 'Total (30d)', value: total.toLocaleString(), color: '#38bdf8' },
-    { label: 'Peak',    value: `${peak} · ${peakLabel}`, color: '#a78bfa' },
-    { label: 'Avg / period', value: String(avg),    color: C.greenL  },
-    { label: isMonthly ? 'MoM Change' : 'DoD Change', value: momLabel, color: momColor },
+    { label: isMonthly ? 'Total · 12 mo' : 'Total · 30 d', value: total.toLocaleString(), color: '#e2e8f0' },
+    { label: 'Peak',                                         value: `${peak} · ${peakLbl}`, color: '#e2e8f0' },
+    { label: 'Avg / period',                                 value: String(avg),             color: '#e2e8f0' },
+    { label: isMonthly ? 'vs prev month' : 'vs prev day',   value: momLabel,                color: momColor  },
   ];
 
+  // Custom tooltip — minimal, just the count
+  const BarTooltip = ({ active, payload, label: lbl }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ background: '#0a0e17', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
+        padding: '8px 12px', fontFamily: FONT }}>
+        <p style={{ color: '#607898', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+          textTransform: 'uppercase', margin: '0 0 4px' }}>{lbl}</p>
+        <p style={{ color: '#38bdf8', fontSize: 15, fontWeight: 800, margin: 0 }}>
+          {payload[0].value} <span style={{ color: '#607898', fontSize: 10, fontWeight: 500 }}>signups</span>
+        </p>
+      </div>
+    );
+  };
+
   return (
-    <div style={{ ...cs, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div style={{ ...cs, padding: '22px 24px 18px', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
-        <h3 style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
-          <TrendingUp size={15} style={{ color: C.greenL }} /> Growth Analytics
-        </h3>
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border2}`, borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: '0 0 2px',
+            display: 'flex', alignItems: 'center', gap: 7 }}>
+            <TrendingUp size={14} style={{ color: C.greenL }} /> Growth Analytics
+          </h3>
+          <p style={{ color: '#3d5878', fontSize: 10, margin: 0, fontWeight: 500 }}>
+            {isMonthly ? 'New user registrations by month' : 'New user registrations by day'}
+          </p>
+        </div>
+        <div style={{ display: 'flex', background: '#0a0e17', border: `1px solid ${C.border2}`,
+          borderRadius: 5, overflow: 'hidden' }}>
           {[{ v: 'monthly', l: '12 Months' }, { v: 'daily', l: '30 Days' }].map(opt => (
             <button key={opt.v} onClick={() => setPeriod(opt.v)} style={{
-              padding: '5px 14px', fontSize: 11, fontFamily: FONT, fontWeight: 600, letterSpacing: '0.04em',
-              background: period === opt.v ? 'rgba(56,189,248,0.12)' : 'transparent',
-              color: period === opt.v ? '#38bdf8' : '#607898',
+              padding: '6px 16px', fontSize: 11, fontFamily: FONT, fontWeight: 600,
+              letterSpacing: '0.03em',
+              background: period === opt.v ? 'rgba(56,189,248,0.1)' : 'transparent',
+              color: period === opt.v ? '#38bdf8' : '#4a6080',
+              borderRight: opt.v === 'monthly' ? `1px solid ${C.border2}` : 'none',
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
             }}>{opt.l}</button>
           ))}
         </div>
       </div>
 
-      {/* ── KPI tiles ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+      {/* ── KPI row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 22 }}>
         {kpis.map((k, i) => (
-          <div key={i} style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${C.border2}`, borderRadius: 6, padding: '10px 12px' }}>
-            <p style={{ color: '#3d5878', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 5px' }}>{k.label}</p>
-            <p style={{ color: k.color, fontSize: 14, fontWeight: 800, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{k.value}</p>
+          <div key={i} style={{ borderLeft: '2px solid rgba(56,189,248,0.2)', paddingLeft: 12 }}>
+            <p style={{ color: '#3d5878', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+              textTransform: 'uppercase', margin: '0 0 4px' }}>{k.label}</p>
+            <p style={{ color: k.color, fontSize: 16, fontWeight: 800, margin: 0,
+              fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{k.value}</p>
           </div>
         ))}
       </div>
 
-      {/* ── Chart ── */}
-      <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+      {/* ── Bar chart ── */}
+      <ResponsiveContainer width="100%" height={210}>
+        <ComposedChart data={chartData} margin={{ top: 2, right: 4, left: -18, bottom: 0 }}
+          barCategoryGap={isMonthly ? '28%' : '18%'}>
           <defs>
-            <linearGradient id="growthBarGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#38bdf8" stopOpacity={0.85} />
-              <stop offset="100%" stopColor="#0369a1" stopOpacity={0.4} />
+            <linearGradient id="gbGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#38bdf8" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#0c4a6e" stopOpacity={0.5} />
             </linearGradient>
-            <linearGradient id="growthAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#a78bfa" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
+            <linearGradient id="gbGradHov" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#7dd3fc" stopOpacity={1} />
+              <stop offset="100%" stopColor="#0369a1" stopOpacity={0.7} />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.035)" strokeDasharray="0" />
           <XAxis
             dataKey="label"
-            tick={{ fill: '#3d5878', fontSize: 9, fontWeight: 600, fontFamily: FONT }}
+            tick={{ fill: '#3d5878', fontSize: isMonthly ? 10 : 9, fontWeight: 600, fontFamily: FONT }}
             axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
             tickLine={false}
+            interval={isMonthly ? 0 : 4}
           />
           <YAxis
-            yAxisId="left"
-            tick={{ fill: '#3d5878', fontSize: 9, fontWeight: 600, fontFamily: FONT }}
+            tick={{ fill: '#3d5878', fontSize: 10, fontWeight: 600, fontFamily: FONT }}
             axisLine={false}
             tickLine={false}
-            width={32}
-            tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+            width={34}
+            allowDecimals={false}
+            tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
           />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            tick={{ fill: '#3d5878', fontSize: 9, fontWeight: 600, fontFamily: FONT }}
-            axisLine={false}
-            tickLine={false}
-            width={36}
-            tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
-          />
-          <RechartTooltip content={<GrowthChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-          <Bar yAxisId="left" dataKey="users" fill="url(#growthBarGrad)" radius={[3,3,0,0]} maxBarSize={28} />
-          <Area yAxisId="right" type="monotone" dataKey="cumulative"
-            stroke="#a78bfa" strokeWidth={1.5} fill="url(#growthAreaGrad)" dot={false} />
+          <RechartTooltip content={<BarTooltip />} cursor={{ fill: 'rgba(56,189,248,0.04)' }} />
+          <Bar dataKey="users" fill="url(#gbGrad)" radius={[4, 4, 0, 0]} maxBarSize={isMonthly ? 36 : 18} />
         </ComposedChart>
       </ResponsiveContainer>
-
-      {/* ── Legend ── */}
-      <div style={{ display: 'flex', gap: 20, marginTop: 12, justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: '#38bdf8' }} />
-          <span style={{ color: '#607898', fontSize: 10, fontWeight: 600, fontFamily: FONT }}>New signups</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 2, background: '#a78bfa', borderRadius: 2 }} />
-          <span style={{ color: '#607898', fontSize: 10, fontWeight: 600, fontFamily: FONT }}>Cumulative total</span>
-        </div>
-      </div>
     </div>
   );
 };
