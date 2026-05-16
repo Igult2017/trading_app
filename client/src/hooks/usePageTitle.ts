@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const APP = "myfm";
+const APP = "MYFM";
 
 export function usePageTitle(title: string) {
   useEffect(() => {

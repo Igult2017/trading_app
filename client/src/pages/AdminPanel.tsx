@@ -3037,8 +3037,8 @@ export default function AdminPanel() {
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontWeight: 700, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif" }}>
-              <span style={{ color: '#ffffff' }}>myfm</span>
-              <span style={{ color: '#3b82f6' }}> | journal</span>
+              <span style={{ color: '#ffffff' }}>MYFM</span>
+              <span style={{ color: '#3b82f6' }}> | JOURNAL</span>
             </span>
           </div>
 

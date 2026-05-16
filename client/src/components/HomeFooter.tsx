@@ -62,8 +62,8 @@ export default function HomeFooter() {
             <div style={{ marginBottom: 28 }}>
               <Link href="/" style={{ textDecoration: 'none' }}>
                 <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif" }}>
-                  <span style={{ color: '#ffffff' }}>myfm</span>
-                  <span style={{ color: '#3b82f6' }}> | journal</span>
+                  <span style={{ color: '#ffffff' }}>MYFM</span>
+                  <span style={{ color: '#3b82f6' }}> | JOURNAL</span>
                 </span>
               </Link>
             </div>
