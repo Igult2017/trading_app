@@ -1,4 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartTooltip, ResponsiveContainer, Area,
+  defs as RechartsDefs, linearGradient as RechartsLinearGradient,
+} from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 import TradingLoader from '@/components/TradingLoader';
 import { useLocation } from 'wouter';
@@ -353,75 +358,24 @@ const timeAgo = (ts: string | null) => {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 };
-const BarGraph = ({ data, labels, xAxisLabel }) => {
-  const [hovered, setHovered] = useState(null);
-  const w = 500, h = 210;
-  const padLeft = 46, padRight = 12, padTop = 16, padBot = 52;
-  const chartW = w - padLeft - padRight;
-  const chartH = h - padTop - padBot;
-  const safeData = Array.isArray(data) ? data.map(v => Number(v) || 0) : [];
-  const max = Math.max(1, ...safeData);
-  const rawStep = max / 4;
-  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const step = Math.ceil(rawStep / mag) * mag;
-  const yTicks = Array.from({ length: 5 }, (_, i) => i * step);
-  const yMax = yTicks[yTicks.length - 1];
-  const barW = chartW / Math.max(safeData.length, 1);
-  const gap = barW * 0.28;
+const GrowthChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const newUsers = payload.find((p: any) => p.dataKey === 'users')?.value ?? 0;
+  const cumulative = payload.find((p: any) => p.dataKey === 'cumulative')?.value ?? 0;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '210px', overflow: 'visible' }}>
-      <defs>
-        <linearGradient id="bargrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00c8e0" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="#006e80" stopOpacity="0.55" />
-        </linearGradient>
-        <linearGradient id="bargradhov" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#33d8f0" stopOpacity="1" />
-          <stop offset="100%" stopColor="#00c8e0" stopOpacity="0.75" />
-        </linearGradient>
-      </defs>
-      <text x={10} y={h / 2} textAnchor="middle" fill="#3d5878" fontSize="9" fontWeight="700"
-        transform={`rotate(-90, 10, ${h / 2})`} letterSpacing="0.08em">USERS</text>
-      {yTicks.map((tick, i) => {
-        const y = padTop + chartH - (tick / yMax) * chartH;
-        return (
-          <g key={i}>
-            <line x1={padLeft} y1={y} x2={padLeft + chartW} y2={y} stroke="#131c28" strokeWidth="1" />
-            <text x={padLeft - 6} y={y + 3.5} textAnchor="end" fill="#3d5878" fontSize="9" fontWeight="600">
-              {tick >= 1000 ? `${tick / 1000}k` : tick}
-            </text>
-          </g>
-        );
-      })}
-      <text x={padLeft + chartW / 2} y={h - 4} textAnchor="middle" fill="#3d5878" fontSize="9" fontWeight="700" letterSpacing="0.08em">
-        {xAxisLabel || 'MONTH'}
-      </text>
-      <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + chartH} stroke="#1b2840" strokeWidth="1" />
-      <line x1={padLeft} y1={padTop + chartH} x2={padLeft + chartW} y2={padTop + chartH} stroke="#1b2840" strokeWidth="1" />
-      {safeData.map((v, i) => {
-        const barH = (v / yMax) * chartH;
-        const x = padLeft + i * barW + gap / 2;
-        const y = padTop + chartH - barH;
-        const bw = barW - gap;
-        const isHov = hovered === i;
-        const lbl = labels ? labels[i] : MONTHS[i];
-        return (
-          <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'pointer' }}>
-            <rect x={x - 1} y={padTop} width={bw + 2} height={chartH} fill={isHov ? 'rgba(0,200,224,0.05)' : 'transparent'} />
-            <rect x={x} y={y} width={bw} height={barH} fill={isHov ? 'url(#bargradhov)' : 'url(#bargrad)'} rx="2" style={{ transition: 'fill 0.12s' }} />
-            {isHov && (
-              <g>
-                <rect x={x + bw / 2 - 20} y={y - 22} width={40} height={17} fill="#0c1018" rx="3" stroke="#1b2840" strokeWidth="1" />
-                <text x={x + bw / 2} y={y - 10} textAnchor="middle" fill="white" fontSize="10" fontWeight="700">{v} users</text>
-              </g>
-            )}
-            {lbl !== '' && (
-              <text x={x + bw / 2} y={padTop + chartH + 14} textAnchor="middle" fill="#3d5878" fontSize="9" fontWeight="600">{lbl}</text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
+    <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '10px 14px', fontFamily: FONT, minWidth: 140 }}>
+      <p style={{ color: '#607898', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+          <span style={{ color: '#607898', fontSize: 11 }}>New signups</span>
+          <span style={{ color: '#38bdf8', fontWeight: 700, fontSize: 11 }}>{newUsers}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+          <span style={{ color: '#607898', fontSize: 11 }}>Cumulative</span>
+          <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: 11 }}>{cumulative}</span>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -2378,24 +2332,123 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
 const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthlyData?: number[] | null; dailyData?: number[] | null }) => {
   const [period, setPeriod] = useState('monthly');
   const isMonthly = period === 'monthly';
-  const data = isMonthly ? (monthlyData ?? GROWTH_DATA_MONTHLY) : (dailyData ?? GROWTH_DATA_DAILY);
-  const labels = isMonthly
-    ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    : Array.from({ length: 30 }, (_, i) => (i + 1) % 5 === 0 || i === 0 ? String(i + 1) : '');
-  const xAxisLabel = isMonthly ? 'MONTH' : 'DAY';
+  const rawData = isMonthly ? (monthlyData ?? GROWTH_DATA_MONTHLY) : (dailyData ?? GROWTH_DATA_DAILY);
+  const safeData = Array.isArray(rawData) ? rawData.map(v => Number(v) || 0) : [];
+
+  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dayLabels = Array.from({ length: 30 }, (_, i) => (i + 1) % 5 === 0 || i === 0 ? String(i + 1) : '');
+  const labels = isMonthly ? monthLabels : dayLabels;
+
+  // Build recharts data with cumulative line
+  let running = 0;
+  const chartData = safeData.map((v, i) => {
+    running += v;
+    return { label: labels[i] ?? String(i + 1), users: v, cumulative: running };
+  });
+
+  // KPI summary
+  const total     = safeData.reduce((a, b) => a + b, 0);
+  const peak      = Math.max(...safeData, 0);
+  const peakLabel = labels[safeData.indexOf(peak)] ?? '—';
+  const nonZero   = safeData.filter(v => v > 0);
+  const avg       = nonZero.length ? Math.round(total / nonZero.length) : 0;
+  const last      = safeData[safeData.length - 1] ?? 0;
+  const prev      = safeData[safeData.length - 2] ?? 0;
+  const momPct    = prev > 0 ? Math.round(((last - prev) / prev) * 100) : null;
+  const momColor  = momPct === null ? '#607898' : momPct >= 0 ? C.greenL : C.redL;
+  const momLabel  = momPct === null ? '—' : `${momPct >= 0 ? '+' : ''}${momPct}%`;
+
+  const kpis = [
+    { label: isMonthly ? 'Total (12mo)' : 'Total (30d)', value: total.toLocaleString(), color: '#38bdf8' },
+    { label: 'Peak',    value: `${peak} · ${peakLabel}`, color: '#a78bfa' },
+    { label: 'Avg / period', value: String(avg),    color: C.greenL  },
+    { label: isMonthly ? 'MoM Change' : 'DoD Change', value: momLabel, color: momColor },
+  ];
+
   return (
-    <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-        <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0, display: 'flex', alignItems: 'center', gap: '7px' }}>
+    <div style={{ ...cs, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
           <TrendingUp size={15} style={{ color: C.greenL }} /> Growth Analytics
         </h3>
-        <select value={period} onChange={e => setPeriod(e.target.value)} style={{ background: C.border, color: '#607898', border: `1px solid ${C.border2}`, padding: '5px 10px', fontFamily: FONT, fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
-          <option value="monthly">Last 12 Months</option>
-          <option value="daily">Last 30 Days</option>
-        </select>
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border2}`, borderRadius: 4, overflow: 'hidden' }}>
+          {[{ v: 'monthly', l: '12 Months' }, { v: 'daily', l: '30 Days' }].map(opt => (
+            <button key={opt.v} onClick={() => setPeriod(opt.v)} style={{
+              padding: '5px 14px', fontSize: 11, fontFamily: FONT, fontWeight: 600, letterSpacing: '0.04em',
+              background: period === opt.v ? 'rgba(56,189,248,0.12)' : 'transparent',
+              color: period === opt.v ? '#38bdf8' : '#607898',
+              border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+            }}>{opt.l}</button>
+          ))}
+        </div>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-        <BarGraph data={data} labels={labels} xAxisLabel={xAxisLabel} />
+
+      {/* ── KPI tiles ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+        {kpis.map((k, i) => (
+          <div key={i} style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${C.border2}`, borderRadius: 6, padding: '10px 12px' }}>
+            <p style={{ color: '#3d5878', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 5px' }}>{k.label}</p>
+            <p style={{ color: k.color, fontSize: 14, fontWeight: 800, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Chart ── */}
+      <ResponsiveContainer width="100%" height={220}>
+        <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+          <defs>
+            <linearGradient id="growthBarGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#38bdf8" stopOpacity={0.85} />
+              <stop offset="100%" stopColor="#0369a1" stopOpacity={0.4} />
+            </linearGradient>
+            <linearGradient id="growthAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#a78bfa" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: '#3d5878', fontSize: 9, fontWeight: 600, fontFamily: FONT }}
+            axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
+            tickLine={false}
+          />
+          <YAxis
+            yAxisId="left"
+            tick={{ fill: '#3d5878', fontSize: 9, fontWeight: 600, fontFamily: FONT }}
+            axisLine={false}
+            tickLine={false}
+            width={32}
+            tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fill: '#3d5878', fontSize: 9, fontWeight: 600, fontFamily: FONT }}
+            axisLine={false}
+            tickLine={false}
+            width={36}
+            tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+          />
+          <RechartTooltip content={<GrowthChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Bar yAxisId="left" dataKey="users" fill="url(#growthBarGrad)" radius={[3,3,0,0]} maxBarSize={28} />
+          <Area yAxisId="right" type="monotone" dataKey="cumulative"
+            stroke="#a78bfa" strokeWidth={1.5} fill="url(#growthAreaGrad)" dot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      {/* ── Legend ── */}
+      <div style={{ display: 'flex', gap: 20, marginTop: 12, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: '#38bdf8' }} />
+          <span style={{ color: '#607898', fontSize: 10, fontWeight: 600, fontFamily: FONT }}>New signups</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 16, height: 2, background: '#a78bfa', borderRadius: 2 }} />
+          <span style={{ color: '#607898', fontSize: 10, fontWeight: 600, fontFamily: FONT }}>Cumulative total</span>
+        </div>
       </div>
     </div>
   );
