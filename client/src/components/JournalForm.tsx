@@ -1238,60 +1238,53 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   // ── Auto-calc monetary fields ──────────────────────────────────────────────
   useEffect(() => {
     const s4Up: Record<string,string> = {};
+    const outcome      = s2.outcome as "Win"|"Loss"|"BE";
+    const plannedRRNum = parseRRNum(s4.plannedRR);
 
-    // ── Path 1: Risk % + R:R based calculation (preferred) ───────────────────
+    // Mirror the auto-fill effect's logic: when achievedRR is still being
+    // auto-managed (user hasn't manually edited it and no exit screenshot has
+    // provided an OCR value), the auto-fill will set achievedRR = plannedRR
+    // for Win trades — but that state update hasn't happened yet in this same
+    // render pass.  Compute the effective achievedRR here so P&L is correct
+    // in one pass, without waiting for a second render cycle.
+    const effectiveAchievedRR = (!s2.exitScreenshot && achievedRRAutoRef.current)
+      ? s4.plannedRR
+      : s4.achievedRR;
+    const achievedRRNum = parseRRNum(effectiveAchievedRR);
+
+    // ── Monetary risk ─────────────────────────────────────────────────────────
+    // Primary: balance × risk % (requires both to be available).
+    // Fallback: whatever the user already typed in the Monetary Risk $ field —
+    // this covers the case where the session balance query is still in-flight
+    // or the session has no starting balance configured.
     const riskPct = parseFloat(s2.riskPercent);
+    let monetaryRisk = 0;
     if (riskPct > 0 && effectiveBalance > 0) {
-      const monetaryRisk = calcDollarRisk(effectiveBalance, riskPct);
-      const outcome      = s2.outcome as "Win"|"Loss"|"BE";
-      const plannedRRNum = parseRRNum(s4.plannedRR);
-
-      // Mirror the auto-fill effect's logic: when achievedRR is still being
-      // auto-managed (user hasn't manually edited it and no exit screenshot has
-      // provided an OCR value), the auto-fill will set achievedRR = plannedRR
-      // for Win trades — but that state update hasn't happened yet in this same
-      // render pass.  Compute the effective achievedRR here so P&L is correct
-      // in one pass, without waiting for a second render cycle.
-      const effectiveAchievedRR = (!s2.exitScreenshot && achievedRRAutoRef.current)
-        ? s4.plannedRR   // auto-fill mode: achieved mirrors planned
-        : s4.achievedRR; // manual / OCR mode: use the actual field value
-      const achievedRRNum = parseRRNum(effectiveAchievedRR);
-
+      monetaryRisk = calcDollarRisk(effectiveBalance, riskPct);
       s4Up.monetaryRisk = monetaryRisk.toFixed(2);
-      if (plannedRRNum > 0) s4Up.potentialReward = (monetaryRisk * plannedRRNum).toFixed(2);
+    } else {
+      monetaryRisk = parseFloat(s4.monetaryRisk) || 0;
+    }
 
+    if (plannedRRNum > 0 && monetaryRisk > 0)
+      s4Up.potentialReward = (monetaryRisk * plannedRRNum).toFixed(2);
+
+    // ── P&L ───────────────────────────────────────────────────────────────────
+    if (monetaryRisk > 0) {
       let pnl: number | null = null;
       if (outcome === "Loss")                          pnl = -monetaryRisk;
       else if (outcome === "BE")                        pnl = 0;
       else if (outcome === "Win" && achievedRRNum > 0)  pnl = monetaryRisk * achievedRRNum;
       if (pnl !== null) {
-        s4Up.profitLoss     = pnl.toFixed(2);
-        s4Up.accountBalance = (effectiveBalance + pnl).toFixed(2);
-      }
-      if (outcome === "Loss" && s2.stopLossDistancePips) {
-        const slPips = parseFloat(s2.stopLossDistancePips);
-        if (!isNaN(slPips) && slPips > 0) s4Up.pipsGainedLost = String(-Math.abs(slPips));
+        s4Up.profitLoss = pnl.toFixed(2);
+        if (effectiveBalance > 0)
+          s4Up.accountBalance = (effectiveBalance + pnl).toFixed(2);
       }
     }
 
-    // ── Path 2: Pips × Lot size fallback (when Path 1 didn't produce P&L) ───
-    // Covers Win trades with no R:R set, or any trade where only pips + lots
-    // are known.  Pip value is estimated per instrument type:
-    //   JPY pairs  → ~$9.10/pip/standard lot
-    //   XAU/Gold   → $100/pip (i.e. $1 per 0.01 move) per standard lot
-    //   All others → $10/pip/standard lot  (USD-quoted forex majors/minors)
-    if (!s4Up.profitLoss) {
-      const pips = parseFloat(s4.pipsGainedLost);
-      const lots = parseFloat(s2.lotSize);
-      if (!isNaN(pips) && pips !== 0 && !isNaN(lots) && lots > 0) {
-        const inst = (s2.instrument || "").toUpperCase();
-        const isJPY = inst.includes("JPY");
-        const isXAU = inst.includes("XAU") || inst.includes("GOLD");
-        const pipValue = isXAU ? lots * 100 : isJPY ? lots * 9.1 : lots * 10;
-        const pnl = pips * pipValue;
-        s4Up.profitLoss = pnl.toFixed(2);
-        if (effectiveBalance > 0) s4Up.accountBalance = (effectiveBalance + pnl).toFixed(2);
-      }
+    if (outcome === "Loss" && s2.stopLossDistancePips) {
+      const slPips = parseFloat(s2.stopLossDistancePips);
+      if (!isNaN(slPips) && slPips > 0) s4Up.pipsGainedLost = String(-Math.abs(slPips));
     }
 
     if (Object.keys(s4Up).length === 0) return;
@@ -1302,7 +1295,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       Object.keys(s4Up).forEach(k => { if (!next.has(k)) { next.add(k); changed = true; } });
       return changed ? next : prev;
     });
-  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.exitScreenshot, effectiveBalance, s4.pipsGainedLost, s2.lotSize, s2.instrument]);
+  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.exitScreenshot, effectiveBalance, s4.monetaryRisk]);
 
   // ── Auto-fill achievedRR based on outcome (when no exit screenshot) ─────────
   // Loss → "1:-1", BE → "1:0", Win (or no outcome yet) → copy Planned R:R
