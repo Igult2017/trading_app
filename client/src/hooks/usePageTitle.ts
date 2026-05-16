@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-export const HOME_TITLE = "myfm | journal – journal your trades seamlessly";
+export const HOME_TITLE = "My FM | Journal – journal your trades seamlessly";
 
 export function usePageTitle(title: string) {
   useEffect(() => {
