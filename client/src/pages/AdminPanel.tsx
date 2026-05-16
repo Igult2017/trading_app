@@ -1584,15 +1584,6 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-      {/* ── Status banner ── */}
-      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', border: `1px solid ${loadingHealth ? C.border : healthy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, background: loadingHealth ? 'transparent' : healthy ? 'rgba(16,185,129,0.05)' : 'rgba(244,63,94,0.05)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: loadingHealth ? C.muted : healthy ? C.green : C.red, boxShadow: loadingHealth ? 'none' : healthy ? `0 0 8px ${C.green}` : `0 0 8px ${C.red}` }} />
-          <span style={{ color: loadingHealth ? C.muted : healthy ? C.greenL : C.redL, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{statusLabel}</span>
-        </div>
-        <button onClick={() => setIsLive(p => !p)} style={{ ...btn, padding: '5px 12px', background: isLive ? 'rgba(16,185,129,0.1)' : C.border, color: isLive ? C.greenL : C.muted, border: `1px solid ${isLive ? 'rgba(16,185,129,0.3)' : C.border2}`, fontSize: '11px', textTransform: 'uppercase' }}>{isLive ? '● Live' : '⏸ Paused'}</button>
-      </div>
-
       {/* ── Server metrics ── */}
       <div style={{ display: 'grid', gridTemplateColumns: metricCols, gap: '6px' }}>
         {[
