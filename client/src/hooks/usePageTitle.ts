@@ -1,19 +1,19 @@
 import { useEffect } from "react";
 
-const APP = "MYFM";
+export const HOME_TITLE = "MYFM | JOURNAL – Sync and journal your trades with ease";
 
 export function usePageTitle(title: string) {
   useEffect(() => {
-    document.title = title ? `${APP} | ${title}` : APP;
+    document.title = title || HOME_TITLE;
     return () => {
-      document.title = APP;
+      document.title = HOME_TITLE;
     };
   }, [title]);
 }
 
 /** Map a top-level pathname to a human-readable page title. */
 export function titleFromPath(pathname: string): string {
-  if (pathname === "/" || pathname === "")         return "Home";
+  if (pathname === "/" || pathname === "")         return HOME_TITLE;
   if (pathname.startsWith("/auth/callback"))       return "Authenticating…";
   if (pathname.startsWith("/auth"))                return "Sign In";
   if (pathname.startsWith("/join"))                return "Join";
@@ -34,7 +34,7 @@ export function titleFromPath(pathname: string): string {
   if (pathname.startsWith("/stocks"))              return "Stocks";
   if (pathname.startsWith("/admin"))               return "Admin";
   if (pathname.startsWith("/journal"))             return "Journal";
-  return "";
+  return HOME_TITLE;
 }
 
 /** Map a Journal sidebar nav ID to a human-readable page title. */

@@ -776,8 +776,8 @@ export default function Journal() {
       leaderboard: "Leaderboard",
       settings:    "Settings",
     };
-    document.title = `MYFM | ${map[activeNav] ?? "Journal"}`;
-    return () => { document.title = "MYFM | Journal"; };
+    document.title = map[activeNav] ?? "Journal";
+    return () => { document.title = "Journal"; };
   }, [activeNav]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
