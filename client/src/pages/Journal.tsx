@@ -760,24 +760,24 @@ export default function Journal() {
   // Update browser tab title whenever the active panel changes
   useEffect(() => {
     const map: Record<string, string> = {
-      dashboard:   "Dashboard",
-      sessions:    "Sessions",
-      accounts:    "Accounts",
-      journal:     "Trading Journal",
-      vault:       "Trade Vault",
-      calendar:    "Calendar",
-      drawdown:    "Drawdown",
-      metrics:     "Metrics",
-      tfmetrics:   "TF Metrics",
-      strategy:    "Strategy Audit",
-      fsdai:       "Trader AI",
-      sync:        "Sync Trade",
-      assets:      "Assets",
-      leaderboard: "Leaderboard",
-      settings:    "Settings",
+      dashboard:   "journal | dashboard",
+      sessions:    "journal | sessions",
+      accounts:    "journal | accounts",
+      journal:     "journal | trading journal",
+      vault:       "journal | trade vault",
+      calendar:    "journal | calendar",
+      drawdown:    "journal | drawdown",
+      metrics:     "journal | metrics",
+      tfmetrics:   "journal | tf metrics",
+      strategy:    "journal | strategy audit",
+      fsdai:       "journal | trader ai",
+      sync:        "journal | sync trade",
+      assets:      "journal | assets",
+      leaderboard: "journal | leaderboard",
+      settings:    "journal | settings",
     };
-    document.title = map[activeNav] ?? "Journal";
-    return () => { document.title = "Journal"; };
+    document.title = map[activeNav] ?? "journal";
+    return () => { document.title = "journal"; };
   }, [activeNav]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
