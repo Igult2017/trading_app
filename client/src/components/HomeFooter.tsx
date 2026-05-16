@@ -8,32 +8,32 @@ const SOCIAL_ICONS = [
 ];
 
 const MARKETS = [
-  { label: 'MAJOR FOREX PAIRS', href: '#' },
-  { label: 'US INDICES (NAS/SPX)', href: '#' },
-  { label: 'COMMODITIES (GOLD/OIL)', href: '#' },
-  { label: 'CRYPTOCURRENCY', href: '#' },
+  { label: 'Major Forex Pairs', href: '#' },
+  { label: 'US Indices (NAS/SPX)', href: '#' },
+  { label: 'Commodities (Gold/Oil)', href: '#' },
+  { label: 'Cryptocurrency', href: '#' },
 ];
 
 const RESOURCES = [
-  { label: 'FREE TRADING JOURNAL', href: '/journal' },
-  { label: 'SESSION CLOCK (TSC)', href: '/tsc' },
-  { label: 'ECONOMIC CALENDAR', href: '/calendar' },
-  { label: 'TRADERS BLOG', href: '/blog' },
-  { label: 'COPIER', href: '#' },
+  { label: 'Free Trading Journal', href: '/journal' },
+  { label: 'Session Clock (TSC)', href: '/tsc' },
+  { label: 'Economic Calendar', href: '/calendar' },
+  { label: 'Traders Blog', href: '/blog' },
+  { label: 'Copier', href: '#' },
 ];
 
 const LEGAL = [
-  { label: 'PRIVACY POLICY', href: '/legal' },
-  { label: 'SUPPORT', href: '/legal' },
-  { label: 'TERMS OF SERVICE', href: '/legal' },
-  { label: 'CONTACT', href: '/legal' },
+  { label: 'Privacy Policy', href: '/legal' },
+  { label: 'Support', href: '/legal' },
+  { label: 'Terms of Service', href: '/legal' },
+  { label: 'Contact', href: '/legal' },
 ];
 
 const linkStyle: React.CSSProperties = {
   fontFamily: "'Montserrat',sans-serif",
-  fontWeight: 700,
-  fontSize: 11,
-  letterSpacing: '0.08em',
+  fontWeight: 600,
+  fontSize: 12,
+  letterSpacing: '0.02em',
   color: '#3b82f6',
   textDecoration: 'none',
   transition: 'color 0.2s',
@@ -62,8 +62,8 @@ export default function HomeFooter() {
             <div style={{ marginBottom: 28 }}>
               <Link href="/" style={{ textDecoration: 'none' }}>
                 <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif" }}>
-                  <span style={{ color: '#ffffff' }}>MYFM</span>
-                  <span style={{ color: '#3b82f6' }}> | JOURNAL</span>
+                  <span style={{ color: '#ffffff' }}>My FM</span>
+                  <span style={{ color: '#3b82f6' }}> | Journal</span>
                 </span>
               </Link>
             </div>
@@ -81,7 +81,7 @@ export default function HomeFooter() {
 
           {/* Markets */}
           <div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', color: '#c8d8e8', marginBottom: 24, marginTop: 0 }}>MARKETS</h4>
+            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: '#c8d8e8', marginBottom: 24, marginTop: 0 }}>Markets</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {MARKETS.map(({ label, href }) => (
                 <a key={label} href={href} style={linkStyle}
@@ -95,7 +95,7 @@ export default function HomeFooter() {
 
           {/* Resources */}
           <div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', color: '#c8d8e8', marginBottom: 24, marginTop: 0 }}>RESOURCES</h4>
+            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: '#c8d8e8', marginBottom: 24, marginTop: 0 }}>Resources</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {RESOURCES.map(({ label, href }) => (
                 <Link key={label} href={href} style={linkStyle}
@@ -109,19 +109,19 @@ export default function HomeFooter() {
 
           {/* Stay Updated */}
           <div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', color: '#c8d8e8', marginBottom: 16, marginTop: 0 }}>STAY UPDATED</h4>
-            <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 700, color: '#3b82f6', letterSpacing: '0.05em', lineHeight: 1.7, marginBottom: 20 }}>
-              Get Data backed Strategies with real edge directly into your email
+            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: '#c8d8e8', marginBottom: 16, marginTop: 0 }}>Stay Updated</h4>
+            <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600, color: '#3b82f6', letterSpacing: '0.02em', lineHeight: 1.7, marginBottom: 20 }}>
+              Get data-backed strategies with real edge directly into your inbox
             </p>
             <div style={{ display: 'flex' }}>
-              <input type="email" placeholder="EMAIL ADDRESS"
-                style={{ flex: 1, minWidth: 0, background: '#0c1219', border: '1px solid #172233', borderRight: 'none', borderRadius: '4px 0 0 4px', padding: '10px 14px', color: '#c8d8e8', fontSize: 11, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, letterSpacing: '0.06em', outline: 'none' }}
+              <input type="email" placeholder="Email address"
+                style={{ flex: 1, minWidth: 0, background: '#0c1219', border: '1px solid #172233', borderRight: 'none', borderRadius: '4px 0 0 4px', padding: '10px 14px', color: '#c8d8e8', fontSize: 12, fontFamily: "'Montserrat',sans-serif", fontWeight: 500, letterSpacing: '0.02em', outline: 'none' }}
               />
               <button
-                style={{ flexShrink: 0, background: '#2563eb', border: 'none', borderRadius: '0 4px 4px 0', padding: '10px 18px', color: '#fff', fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: '0.08em', cursor: 'pointer', transition: 'background 0.2s' }}
+                style={{ flexShrink: 0, background: '#2563eb', border: 'none', borderRadius: '0 4px 4px 0', padding: '10px 18px', color: '#fff', fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', cursor: 'pointer', transition: 'background 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
                 onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}>
-                JOIN
+                Join
               </button>
             </div>
           </div>
@@ -131,13 +131,13 @@ export default function HomeFooter() {
         {/* Bottom bar */}
         <div style={{ borderTop: '1px solid #0f1923', padding: '24px 0 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="hf-bottom">
-            <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: '0.1em', color: '#4a6580' }}>
-              © {new Date().getFullYear()} MYFM | JOURNAL — ALL RIGHTS RESERVED
+            <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.04em', color: '#4a6580' }}>
+              © {new Date().getFullYear()} My FM | Journal — All rights reserved
             </span>
             <div className="hf-legal">
               {LEGAL.map(item => (
                 <Link key={item.label} href={item.href}
-                  style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: '0.1em', color: '#4a6580', textDecoration: 'none', transition: 'color 0.2s', whiteSpace: 'nowrap' }}
+                  style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.04em', color: '#4a6580', textDecoration: 'none', transition: 'color 0.2s', whiteSpace: 'nowrap' }}
                   onMouseEnter={e => e.currentTarget.style.color = '#c8d8e8'}
                   onMouseLeave={e => e.currentTarget.style.color = '#4a6580'}>
                   {item.label}
@@ -145,8 +145,8 @@ export default function HomeFooter() {
               ))}
             </div>
           </div>
-          <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 9, letterSpacing: '0.06em', color: '#2a3a4a', lineHeight: 1.6, margin: 0 }}>
-            RISK WARNING: TRADING FINANCIAL MARKETS INVOLVES SIGNIFICANT RISK. MYFM | JOURNAL PROVIDES EDUCATIONAL CONTENT AND DATA ANALYTICS FOR INFORMATIONAL PURPOSES ONLY. PAST PERFORMANCE IS NOT INDICATIVE OF FUTURE RESULTS. NEVER TRADE WITH MONEY YOU CANNOT AFFORD TO LOSE.
+          <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 10, letterSpacing: '0.03em', color: '#2a3a4a', lineHeight: 1.6, margin: 0 }}>
+            Risk warning: Trading financial markets involves significant risk. My FM | Journal provides educational content and data analytics for informational purposes only. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
           </p>
         </div>
       </div>
