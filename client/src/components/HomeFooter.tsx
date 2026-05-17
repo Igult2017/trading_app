@@ -15,7 +15,7 @@ const MARKETS = [
 ];
 
 const RESOURCES = [
-  { label: 'Free Trading Journal', href: '/journal' },
+  { label: 'Free Trading Journal', href: '/journal', newTab: true },
   { label: 'Session Clock (TSC)', href: '/tsc' },
   { label: 'Economic Calendar', href: '/calendar' },
   { label: 'Traders Blog', href: '/blog' },
@@ -97,8 +97,11 @@ export default function HomeFooter() {
           <div>
             <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: '#c8d8e8', marginBottom: 24, marginTop: 0 }}>Resources</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {RESOURCES.map(({ label, href }) => (
-                <Link key={label} href={href} style={linkStyle}
+              {RESOURCES.map(({ label, href, newTab }) => (
+                <Link key={label} href={href}
+                  target={newTab ? '_blank' : undefined}
+                  rel={newTab ? 'noopener noreferrer' : undefined}
+                  style={linkStyle}
                   onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => e.currentTarget.style.color = '#60a5fa'}
                   onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => e.currentTarget.style.color = '#3b82f6'}>
                   {label}

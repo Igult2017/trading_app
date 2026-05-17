@@ -60,7 +60,7 @@ export default function NewFooter({ isDark }: NewFooterProps) {
           <div>
             <h4 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-8 ${isDark ? 'text-white' : 'text-black'}`}>Resources</h4>
             <ul className={`space-y-4 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              <li><a href="/journal" className="hover:text-blue-500 transition-colors">Free Trading Journal</a></li>
+              <li><a href="/journal" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Free Trading Journal</a></li>
               <li><a href="#tsc" className="hover:text-blue-500 transition-colors">Session Clock (TSC)</a></li>
               <li><a href="#calendar" className="hover:text-blue-500 transition-colors">Economic Calendar</a></li>
               <li><a href="#blog" className="hover:text-blue-500 transition-colors">Strategy Blog</a></li>

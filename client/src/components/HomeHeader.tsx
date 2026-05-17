@@ -36,15 +36,15 @@ function TickerTape() {
 }
 
 const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
-  { label: "Journal", href: "/auth" },
+  { label: "Journal", href: "/auth", newTab: true },
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
   { label: "Reviews", href: "/#reviews" },
   { label: "Economic Calendar", href: "/calendar" },
   { label: "Blog", href: "/blog" },
   { label: "TSC", href: "/tsc" },
-  { label: "Login", href: "/auth" },
-  { label: "Signup", href: "/auth?mode=signup" },
+  { label: "Login", href: "/auth", newTab: true },
+  { label: "Signup", href: "/auth?mode=signup", newTab: true },
 ];
 
 interface HomeHeaderProps {
