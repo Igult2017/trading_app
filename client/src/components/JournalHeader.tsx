@@ -526,7 +526,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <button className="jh-icon-btn" style={iconButtonStyle} title="Language"><Globe size={16} /></button>
             <Notifications dm={dm} />
             <button className="jh-icon-btn" style={iconButtonStyle} title="Fullscreen"><Maximize2 size={16} /></button>
-            <button className="jh-icon-btn" style={iconButtonStyle} title="Brightness"><SunMedium size={16} /></button>
+            <button className="jh-icon-btn" style={iconButtonStyle} title="Brightness" onClick={() => onToggleDarkMode()}><SunMedium size={16} /></button>
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 

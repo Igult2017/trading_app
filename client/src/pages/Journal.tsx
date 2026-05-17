@@ -789,14 +789,24 @@ export default function Journal() {
     }
     return true;
   });
-  const THEME_ORDER: Array<import('@/hooks/useJournalSettings').ThemeId> = ['navy','midnight','slate','forest','rose','light'];
+  // Remembers the last dark theme so toggling back from light restores it.
+  const lastDarkThemeRef = useRef<import('@/hooks/useJournalSettings').ThemeId>(
+    (settings.theme !== 'light' ? settings.theme : 'forest') as import('@/hooks/useJournalSettings').ThemeId
+  );
   const toggleDarkMode = () => {
-    const idx = THEME_ORDER.indexOf(settings.theme);
-    const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
-    setSettings({ theme: next });
-    const nextDark = THEMES[next].dark;
-    setDarkMode(nextDark);
-    localStorage.setItem('journal_dark_mode', String(nextDark));
+    if (settings.theme === 'light') {
+      // Switch back to the last dark theme
+      const prev = lastDarkThemeRef.current;
+      setSettings({ theme: prev });
+      setDarkMode(THEMES[prev].dark);
+      localStorage.setItem('journal_dark_mode', 'true');
+    } else {
+      // Remember current dark theme, then switch to light
+      lastDarkThemeRef.current = settings.theme;
+      setSettings({ theme: 'light' });
+      setDarkMode(false);
+      localStorage.setItem('journal_dark_mode', 'false');
+    }
   };
   const dm = T.dark;
   const [mobileOpen, setMobileOpen] = useState(false);
