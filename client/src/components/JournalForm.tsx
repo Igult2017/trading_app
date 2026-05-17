@@ -1241,15 +1241,14 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     const outcome      = s2.outcome as "Win"|"Loss"|"BE";
     const plannedRRNum = parseRRNum(s4.plannedRR);
 
-    // Mirror the auto-fill effect's logic: when achievedRR is still being
-    // auto-managed (user hasn't manually edited it and no exit screenshot has
-    // provided an OCR value), the auto-fill will set achievedRR = plannedRR
-    // for Win trades — but that state update hasn't happened yet in this same
-    // render pass.  Compute the effective achievedRR here so P&L is correct
-    // in one pass, without waiting for a second render cycle.
-    const effectiveAchievedRR = (!s2.exitScreenshot && achievedRRAutoRef.current)
-      ? s4.plannedRR
-      : s4.achievedRR;
+    // Use achievedRR if it has any value (typed by user, set by OCR, or
+    // auto-filled from plannedRR). Fall back to plannedRR if achievedRR is
+    // still empty — this covers the same-render-pass case where the auto-fill
+    // effect has fired but its setS4 hasn't committed yet, and also the case
+    // where the user never touched achievedRR at all (e.g. no exit screenshot
+    // was uploaded). This is pure state — no ref needed — so it is always
+    // reactive and never requires the user to manually "touch" the field.
+    const effectiveAchievedRR = s4.achievedRR || s4.plannedRR;
     const achievedRRNum = parseRRNum(effectiveAchievedRR);
 
     // ── Monetary risk ─────────────────────────────────────────────────────────
@@ -1577,9 +1576,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         if (riskPct > 0) {
           const monetaryRisk = parseFloat(((effectiveBalance * riskPct) / 100).toFixed(2));
           const outcome = f2.outcome as "Win" | "Loss" | "BE";
-          const rrStr = (!s2.exitScreenshot && achievedRRAutoRef.current)
-            ? f4.plannedRR
-            : f4.achievedRR;
+          const rrStr = f4.achievedRR || f4.plannedRR;
           const rrNum = parseRRNum(rrStr);
           let pnl: number | null = null;
           if (outcome === "Loss")                  pnl = -monetaryRisk;
