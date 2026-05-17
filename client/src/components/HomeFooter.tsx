@@ -29,59 +29,17 @@ const LEGAL = [
   { label: 'Contact', href: '/legal' },
 ];
 
-interface HomeFooterProps {
-  darkMode?: boolean;
-}
-
-export default function HomeFooter({ darkMode = true }: HomeFooterProps) {
-  const dm = darkMode;
-
-  const c = dm ? {
-    footerBg:    '#080c10',
-    borderColor: '#0f1923',
-    headingColor:'#c8d8e8',
-    logoMain:    '#ffffff',
-    linkColor:   '#3b82f6',
-    linkHover:   '#60a5fa',
-    inputBg:     '#0c1219',
-    inputBorder: '#172233',
-    inputText:   '#c8d8e8',
-    inputPlaceholder: '#4a6580',
-    copyright:   '#4a6580',
-    copyrightHover: '#c8d8e8',
-    riskText:    '#2a3a4a',
-  } : {
-    footerBg:    '#f1f5f9',
-    borderColor: '#e2e8f0',
-    headingColor:'#334155',
-    logoMain:    '#0f172a',
-    linkColor:   '#2563eb',
-    linkHover:   '#1d4ed8',
-    inputBg:     '#ffffff',
-    inputBorder: '#cbd5e1',
-    inputText:   '#334155',
-    inputPlaceholder: '#94a3b8',
-    copyright:   '#64748b',
-    copyrightHover: '#0f172a',
-    riskText:    '#94a3b8',
-  };
-
-  const linkStyle: React.CSSProperties = {
-    fontFamily: "'Montserrat',sans-serif",
-    fontWeight: 600,
-    fontSize: 12,
-    letterSpacing: '0.02em',
-    color: c.linkColor,
-    textDecoration: 'none',
-    transition: 'color 0.2s',
-  };
-
+export default function HomeFooter() {
   return (
-    <footer style={{ background: c.footerBg, borderTop: `1px solid ${c.borderColor}`, padding: '60px 24px 0', transition: 'background 0.3s, border-color 0.3s' }}>
+    <footer style={{ background: 'var(--hf-bg,#080c10)', borderTop: '1px solid var(--hf-border,#0f1923)', padding: '60px 24px 0', transition: 'background 0.3s, border-color 0.3s' }}>
       <style>{`
         .hf-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:48px; padding-bottom:60px; }
         .hf-bottom { display:flex; justify-content:space-between; align-items:center; }
         .hf-legal { display:flex; gap:24px; }
+        .hf-link { font-family:'Montserrat',sans-serif; font-weight:600; font-size:12px; letter-spacing:0.02em; color:var(--hf-link,#3b82f6); text-decoration:none; transition:color 0.2s; }
+        .hf-link:hover { color:var(--hf-link-hover,#60a5fa); }
+        .hf-copyright-link { font-family:'Montserrat',sans-serif; font-weight:600; font-size:11px; letter-spacing:0.04em; color:var(--hf-copyright,#4a6580); text-decoration:none; transition:color 0.2s; white-space:nowrap; }
+        .hf-copyright-link:hover { color:var(--hf-copyright-hover,#c8d8e8); }
         @media (max-width: 900px) { .hf-grid { grid-template-columns:1fr 1fr; gap:36px; } }
         @media (max-width: 560px) {
           .hf-grid { grid-template-columns:1fr; gap:32px; }
@@ -98,7 +56,7 @@ export default function HomeFooter({ darkMode = true }: HomeFooterProps) {
             <div style={{ marginBottom: 28 }}>
               <Link href="/" style={{ textDecoration: 'none' }}>
                 <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif" }}>
-                  <span style={{ color: c.logoMain }}>My FM</span>
+                  <span style={{ color: 'var(--hf-logo,#ffffff)' }}>My FM</span>
                   <span style={{ color: '#3b82f6' }}> | Journal</span>
                 </span>
               </Link>
@@ -117,29 +75,23 @@ export default function HomeFooter({ darkMode = true }: HomeFooterProps) {
 
           {/* Markets */}
           <div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: c.headingColor, marginBottom: 24, marginTop: 0 }}>Markets</h4>
+            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: 'var(--hf-heading,#c8d8e8)', marginBottom: 24, marginTop: 0 }}>Markets</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {MARKETS.map(({ label, href }) => (
-                <a key={label} href={href} style={linkStyle}
-                  onMouseEnter={e => e.currentTarget.style.color = c.linkHover}
-                  onMouseLeave={e => e.currentTarget.style.color = c.linkColor}>
-                  {label}
-                </a>
+                <a key={label} href={href} className="hf-link">{label}</a>
               ))}
             </div>
           </div>
 
           {/* Resources */}
           <div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: c.headingColor, marginBottom: 24, marginTop: 0 }}>Resources</h4>
+            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: 'var(--hf-heading,#c8d8e8)', marginBottom: 24, marginTop: 0 }}>Resources</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {RESOURCES.map(({ label, href, newTab }) => (
                 <Link key={label} href={href}
                   target={newTab ? 'myfm_journal' : undefined}
                   rel={newTab ? 'noopener noreferrer' : undefined}
-                  style={linkStyle}
-                  onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => e.currentTarget.style.color = c.linkHover}
-                  onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => e.currentTarget.style.color = c.linkColor}>
+                  className="hf-link">
                   {label}
                 </Link>
               ))}
@@ -148,13 +100,13 @@ export default function HomeFooter({ darkMode = true }: HomeFooterProps) {
 
           {/* Stay Updated */}
           <div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: c.headingColor, marginBottom: 16, marginTop: 0 }}>Stay Updated</h4>
-            <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600, color: c.linkColor, letterSpacing: '0.02em', lineHeight: 1.7, marginBottom: 20 }}>
+            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', color: 'var(--hf-heading,#c8d8e8)', marginBottom: 16, marginTop: 0 }}>Stay Updated</h4>
+            <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600, color: 'var(--hf-link,#3b82f6)', letterSpacing: '0.02em', lineHeight: 1.7, marginBottom: 20 }}>
               Get data-backed strategies with real edge directly into your inbox
             </p>
             <div style={{ display: 'flex' }}>
               <input type="email" placeholder="Email address"
-                style={{ flex: 1, minWidth: 0, background: c.inputBg, border: `1px solid ${c.inputBorder}`, borderRight: 'none', borderRadius: '4px 0 0 4px', padding: '10px 14px', color: c.inputText, fontSize: 12, fontFamily: "'Montserrat',sans-serif", fontWeight: 500, letterSpacing: '0.02em', outline: 'none', transition: 'background 0.3s, border-color 0.3s' }}
+                style={{ flex: 1, minWidth: 0, background: 'var(--hf-input-bg,#0c1219)', border: '1px solid var(--hf-input-border,#172233)', borderRight: 'none', borderRadius: '4px 0 0 4px', padding: '10px 14px', color: 'var(--hf-input-text,#c8d8e8)', fontSize: 12, fontFamily: "'Montserrat',sans-serif", fontWeight: 500, letterSpacing: '0.02em', outline: 'none' }}
               />
               <button
                 style={{ flexShrink: 0, background: '#2563eb', border: 'none', borderRadius: '0 4px 4px 0', padding: '10px 18px', color: '#fff', fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', cursor: 'pointer', transition: 'background 0.2s' }}
@@ -168,23 +120,20 @@ export default function HomeFooter({ darkMode = true }: HomeFooterProps) {
         </div>
 
         {/* Bottom bar */}
-        <div style={{ borderTop: `1px solid ${c.borderColor}`, padding: '24px 0 32px', display: 'flex', flexDirection: 'column', gap: 12, transition: 'border-color 0.3s' }}>
+        <div style={{ borderTop: '1px solid var(--hf-border,#0f1923)', padding: '24px 0 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="hf-bottom">
-            <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.04em', color: c.copyright }}>
+            <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.04em', color: 'var(--hf-copyright,#4a6580)' }}>
               © {new Date().getFullYear()} My FM | Journal — All rights reserved
             </span>
             <div className="hf-legal">
               {LEGAL.map(item => (
-                <Link key={item.label} href={item.href}
-                  style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.04em', color: c.copyright, textDecoration: 'none', transition: 'color 0.2s', whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => e.currentTarget.style.color = c.copyrightHover}
-                  onMouseLeave={e => e.currentTarget.style.color = c.copyright}>
+                <Link key={item.label} href={item.href} className="hf-copyright-link">
                   {item.label}
                 </Link>
               ))}
             </div>
           </div>
-          <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 10, letterSpacing: '0.03em', color: c.riskText, lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 10, letterSpacing: '0.03em', color: 'var(--hf-risk,#2a3a4a)', lineHeight: 1.6, margin: 0 }}>
             Risk warning: Trading financial markets involves significant risk. My FM | Journal provides educational content and data analytics for informational purposes only. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
           </p>
         </div>

@@ -163,7 +163,20 @@ export default function HomePage() {
   const isJournalLink = (item: string) => ['Journal', 'Login', 'Signup'].includes(item);
 
   return (
-    <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif",
+      ['--hf-bg' as string]:              dm ? '#080c10' : '#f1f5f9',
+      ['--hf-border' as string]:          dm ? '#0f1923' : '#e2e8f0',
+      ['--hf-heading' as string]:         dm ? '#c8d8e8' : '#334155',
+      ['--hf-logo' as string]:            dm ? '#ffffff' : '#0f172a',
+      ['--hf-link' as string]:            '#3b82f6',
+      ['--hf-link-hover' as string]:      dm ? '#60a5fa' : '#1d4ed8',
+      ['--hf-input-bg' as string]:        dm ? '#0c1219' : '#ffffff',
+      ['--hf-input-border' as string]:    dm ? '#172233' : '#cbd5e1',
+      ['--hf-input-text' as string]:      dm ? '#c8d8e8' : '#334155',
+      ['--hf-copyright' as string]:       dm ? '#4a6580' : '#64748b',
+      ['--hf-copyright-hover' as string]: dm ? '#c8d8e8' : '#0f172a',
+      ['--hf-risk' as string]:            dm ? '#2a3a4a' : '#94a3b8',
+    } as React.CSSProperties}>
       <style>{`
         .nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
         .nav-journal-btn { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; padding:6px 16px; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; background:linear-gradient(to right,#2563eb,#3b82f6); color:#fff; border:none; }
@@ -594,7 +607,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <HomeFooter darkMode={darkMode} />
+        <HomeFooter />
 
       </div>
     </div>
