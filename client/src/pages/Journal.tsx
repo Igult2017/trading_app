@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
 import { usePageTracking } from '@/hooks/usePageTracking';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -741,6 +741,7 @@ export default function Journal() {
   const { settings, setSettings } = useJournalSettings();
   const T = THEMES[settings.theme];
   const F = FONTS[settings.font];
+  const [location] = useLocation();
   const [activeNav, setActiveNav] = useState(() => {
     if (typeof window !== 'undefined') {
       const tab = new URLSearchParams(window.location.search).get('tab');
@@ -749,6 +750,18 @@ export default function Journal() {
     }
     return 'dashboard';
   });
+
+  // Sync activeNav whenever the URL ?tab= param changes (e.g. from the
+  // "account settings" button in the profile dropdown which navigates to
+  // /journal?tab=settings while already on the journal page).
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    const valid = NAV_SECTIONS.flatMap(g => g.items).map(i => i.id);
+    if (tab && valid.includes(tab) && tab !== activeNav) {
+      setActiveNav(tab);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
 
   // Keep ?tab= in sync with the active section so reloads restore the correct view
   useEffect(() => {
