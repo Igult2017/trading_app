@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -21,14 +22,17 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
  *  - After 10 min of inactivity the session is silently marked as expired.
  *    The page remains visible exactly as-is — no toast, no redirect.
  *  - The moment the user does ANYTHING (click, key, scroll…) they are
- *    signed out, shown a notification, and the normal auth redirect follows.
+ *    signed out, shown a notification, and redirected to /auth.
  *  - While the user is active the timer resets on every activity event.
  */
 export function useInactivityLogout() {
   const { session, signOut } = useAuth();
+  const [, navigate] = useLocation();
 
-  const signOutRef = useRef(signOut);
-  signOutRef.current = signOut;
+  const signOutRef  = useRef(signOut);
+  const navigateRef = useRef(navigate);
+  signOutRef.current  = signOut;
+  navigateRef.current = navigate;
 
   const logoutTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silentExpired = useRef(false);
@@ -70,6 +74,7 @@ export function useInactivityLogout() {
         });
 
         await signOutRef.current();
+        navigateRef.current('/auth');
         return;
       }
 

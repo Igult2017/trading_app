@@ -1,25 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { authFetch } from '@/lib/queryClient';
 import type { AdminNotification, AdminUnreadCounts, AdminNotifCategory } from './types';
 import { ADMIN_NOTIF_REFETCH_MS } from './constants';
-
-async function adminFetch(path: string, opts?: RequestInit) {
-  let token: string | null = null;
-  try {
-    const { supabase } = await import('@/lib/supabase');
-    if (supabase) {
-      const { data } = await supabase.auth.getSession();
-      token = data?.session?.access_token ?? null;
-    }
-  } catch {}
-  return fetch(path, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...((opts?.headers as Record<string, string>) ?? {}),
-    },
-  });
-}
 
 export function useAdminNotifications() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
@@ -30,8 +12,8 @@ export function useAdminNotifications() {
   const fetchAll = useCallback(async () => {
     try {
       const [nRes, cRes] = await Promise.all([
-        adminFetch('/api/admin/notifications'),
-        adminFetch('/api/admin/notifications/counts'),
+        authFetch('/api/admin/notifications'),
+        authFetch('/api/admin/notifications/counts'),
       ]);
       if (nRes.ok) setNotifications(await nRes.json());
       if (cRes.ok) setCounts(await cRes.json());
@@ -48,7 +30,7 @@ export function useAdminNotifications() {
   }, [fetchAll]);
 
   const markRead = useCallback(async (id: string) => {
-    await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'PATCH' });
+    await authFetch(`/api/admin/notifications/${id}/read`, { method: 'PATCH' });
     fetchAll();
   }, [fetchAll]);
 
@@ -56,12 +38,12 @@ export function useAdminNotifications() {
     const path = category
       ? `/api/admin/notifications/read-all?category=${category}`
       : '/api/admin/notifications/read-all';
-    await adminFetch(path, { method: 'PATCH' });
+    await authFetch(path, { method: 'PATCH' });
     fetchAll();
   }, [fetchAll]);
 
   const deleteOne = useCallback(async (id: string) => {
-    await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
+    await authFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
     fetchAll();
   }, [fetchAll]);
 
@@ -69,7 +51,7 @@ export function useAdminNotifications() {
     const path = category
       ? `/api/admin/notifications/clear?category=${category}`
       : '/api/admin/notifications/clear';
-    await adminFetch(path, { method: 'DELETE' });
+    await authFetch(path, { method: 'DELETE' });
     fetchAll();
   }, [fetchAll]);
 
