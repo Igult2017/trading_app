@@ -156,9 +156,11 @@ export default function HomePage() {
     if (item === 'Blog') return '/blog';
     if (item === 'Economic Calendar') return '/calendar';
     if (item === 'Journal') return '/auth';
-    if (item === 'Login' || item === 'Signup') return '/auth';
+    if (item === 'Login') return '/auth';
+    if (item === 'Signup') return '/auth?mode=signup';
     return `#${item.toLowerCase().replace(' ', '-')}`;
   };
+  const isJournalLink = (item: string) => ['Journal', 'Login', 'Signup'].includes(item);
 
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
@@ -247,8 +249,11 @@ export default function HomePage() {
           </span>
           <div className="nav-links">
             {navItems.map(item => {
+              const newTab = isJournalLink(item);
               return (
                 <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
+                  target={newTab ? 'myfm_journal' : undefined}
+                  rel={newTab ? 'noopener noreferrer' : undefined}
                   onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
                   onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
                 >{item}</a>
@@ -279,9 +284,12 @@ export default function HomePage() {
       {mobileMenuOpen && (
         <div className="mob-dropdown open" style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}` }}>
           {navItems.map(item => {
+            const newTab = isJournalLink(item);
             return (
               <a key={item} href={navHref(item)}
-                onClick={() => setMobileMenuOpen(false)}
+                target={newTab ? 'myfm_journal' : undefined}
+                rel={newTab ? 'noopener noreferrer' : undefined}
+                onClick={() => { if (!newTab) setMobileMenuOpen(false); }}
                 style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
                 onMouseEnter={e => e.currentTarget.style.color = t.text}
                 onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
