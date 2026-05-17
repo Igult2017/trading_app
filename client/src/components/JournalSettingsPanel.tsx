@@ -119,9 +119,9 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           <div className="jsp-title-bar" style={{ width: 4, height: 28, background: T.accent }} />
           <h1 className="jsp-title" style={{
             margin: 0, fontSize: 12, fontWeight: 700,
-            letterSpacing: '0.18em', textTransform: 'uppercase', color: T.text,
+            letterSpacing: '0.12em', color: T.text,
             fontFamily: "'DM Mono', monospace",
-          }}>Journal Settings</h1>
+          }}>Journal settings</h1>
         </div>
         <p className="jsp-subtitle" style={{
           margin: '0 0 0 18px', fontSize: 11, color: T.textMuted,
