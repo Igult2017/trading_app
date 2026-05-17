@@ -6,6 +6,68 @@ import { useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { calcDollarRisk } from "@/lib/tradeCalculations";
 
+// ─── Commission estimator ─────────────────────────────────────────────────────
+// Returns an estimated round-trip commission in USD based on instrument type,
+// lot size, and entry price.  Uses industry-standard ECN/exchange rate benchmarks:
+//   Forex     → $7 / standard lot  (ECN avg $3–4/side)
+//   Crypto    → 0.1% of notional per side  (Binance/Bybit taker)
+//   Gold      → $10 / standard lot (100 oz × ~$0.10/oz commission)
+//   Silver    → $5  / standard lot
+//   Oil       → $7  / standard lot
+//   Indices   → $6  / standard lot
+//   Stocks    → 0.1% of notional round-trip
+function estimateCommission(
+  instrument: string,
+  lotSize: string,
+  entryPrice: string,
+  pairCategory: string,
+): string | null {
+  const lot   = parseFloat(lotSize);
+  const price = parseFloat(entryPrice);
+  if (!lot || lot <= 0 || isNaN(lot)) return null;
+
+  const sym = (instrument || "").toUpperCase().trim();
+  const cat = (pairCategory || "").toLowerCase();
+
+  // ── Crypto ──────────────────────────────────────────────────────────────────
+  const isCrypto =
+    cat === "crypto" ||
+    /^(BTC|ETH|XRP|BNB|SOL|ADA|DOGE|AVAX|MATIC|DOT|LINK|LTC|UNI|SHIB|TON|TRX|XLM|ATOM)\/?/i.test(sym);
+  if (isCrypto) {
+    if (!price || isNaN(price)) return null;
+    const notional = lot * price;
+    return (notional * 0.002).toFixed(2);          // 0.1% × 2 sides
+  }
+
+  // ── Gold ────────────────────────────────────────────────────────────────────
+  if (/^(XAU|GOLD)/i.test(sym)) return (lot * 10).toFixed(2);
+
+  // ── Silver ──────────────────────────────────────────────────────────────────
+  if (/^(XAG|SILVER)/i.test(sym)) return (lot * 5).toFixed(2);
+
+  // ── Oil ─────────────────────────────────────────────────────────────────────
+  if (/OIL|WTI|BRENT|UKOIL|USOIL|CL[A-Z]?$/i.test(sym)) return (lot * 7).toFixed(2);
+
+  // ── Indices ──────────────────────────────────────────────────────────────────
+  const isIndex =
+    cat === "index" ||
+    /US30|NAS100|SPX|SP500|DAX|GER40|UK100|FTSE|JP225|AUS200|CAC40|NIKKEI|DOW|NDX|USTEC/i.test(sym);
+  if (isIndex) return (lot * 6).toFixed(2);
+
+  // ── Stocks (CFD or share) ────────────────────────────────────────────────────
+  const isStock =
+    cat === "stock" ||
+    // Single-word ticker that isn't a 6-char forex pair
+    (/^[A-Z]{1,5}$/.test(sym) && sym.length <= 5 && !/^(EUR|GBP|USD|JPY|CHF|CAD|AUD|NZD)/.test(sym));
+  if (isStock) {
+    if (!price || isNaN(price)) return null;
+    return (lot * price * 0.001).toFixed(2);        // 0.05% × 2 sides
+  }
+
+  // ── Forex default (Majors / Minors / Exotics / Metals not caught above) ─────
+  return (lot * 7).toFixed(2);
+}
+
 // ─── Obsidian font isolation (scoped, beats any global !important) ────────────
 const OBS_CSS = `
   .obs-jf,
@@ -1191,9 +1253,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const [unfilledSections, setUnfilledSections] = useState<{ step: number; name: string }[] | null>(null);
   const [mobileTab, setMobileTab] = useState<"form"|"stats">("form");
 
-  const regimeTouchedRef    = useRef(false);
-  const trendTouchedRef     = useRef(false);
-  const achievedRRAutoRef   = useRef(true); // true = value is auto-filled; false = user manually edited
+  const regimeTouchedRef      = useRef(false);
+  const trendTouchedRef       = useRef(false);
+  const achievedRRAutoRef     = useRef(true);  // true = auto-filled; false = user manually edited
+  const commissionUserEdited  = useRef(false); // true once user manually types in the commission field
+  const commissionAutoFilled  = useRef(false); // true when current value was auto-estimated
 
   // Live journal entries (all) — filtered by sessionId for sidebar
   const { data: allEntries = [] } = useQuery<any[]>({
