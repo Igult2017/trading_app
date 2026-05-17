@@ -103,7 +103,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           .jsp-grid-themes { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
           .jsp-grid-fonts  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
           .jsp-font-card { padding: 12px 14px 10px !important; }
-          .jsp-font-sample { font-size: 22px !important; margin-bottom: 7px !important; }
+          .jsp-font-sample { font-size: 15px !important; margin-bottom: 7px !important; }
           .jsp-preview-card { padding: 16px 16px !important; }
           .jsp-preview-title { font-size: 18px !important; }
           .jsp-preview-stats { flex-wrap: wrap !important; gap: 6px !important; }
@@ -255,7 +255,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                 }}
               >
                 <div className="jsp-font-sample" style={{
-                  fontSize: 28,
+                  fontSize: 19,
                   fontFamily: def.stack,
                   color: active ? T.accent : T.text,
                   lineHeight: 1,
