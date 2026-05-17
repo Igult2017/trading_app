@@ -887,7 +887,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 }
 
 // ─── Step 4 — Review ──────────────────────────────────────────────────────────
-function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
+function Step4({ d, set, hiddenPanels, onAchievedRRChange, onCommissionManualEdit, commissionIsEst }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   const H = hiddenPanels as string[];
   return (
@@ -906,7 +906,15 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
           <Inp label="Pips / Points" type="number" placeholder="25"      value={d.pipsGainedLost} onChange={f("pipsGainedLost")} />
           <Inp label="P&L Amount $"  type="number" placeholder="+250.00" value={d.profitLoss}     onChange={f("profitLoss")} />
           <Inp label="Account Balance" type="number" placeholder="10000" value={d.accountBalance} onChange={f("accountBalance")} />
-          <Inp label="Commission / Fees" type="number" placeholder="3.50" value={d.commission}   onChange={f("commission")} />
+          <Inp
+            label={commissionIsEst ? "Commission / Fees  ~ est." : "Commission / Fees"}
+            type="number" placeholder="3.50"
+            value={d.commission}
+            onChange={(v: any) => {
+              if (onCommissionManualEdit) onCommissionManualEdit();
+              f("commission")(v);
+            }}
+          />
         </div>
       </section>
 
@@ -1375,6 +1383,18 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     }
   }, [s4.plannedRR, s2.exitScreenshot, s2.outcome]);
 
+  // ── Auto-estimate commission ───────────────────────────────────────────────
+  // Fires whenever instrument, lot size, entry price, or category changes.
+  // Skips the update once the user has manually typed their own value.
+  useEffect(() => {
+    if (commissionUserEdited.current) return;
+    const est = estimateCommission(s2.instrument, s2.lotSize, s2.entryPrice, s2.pairCategory);
+    if (est !== null) {
+      commissionAutoFilled.current = true;
+      setS4(prev => ({ ...prev, commission: est }));
+    }
+  }, [s2.instrument, s2.lotSize, s2.entryPrice, s2.pairCategory]);
+
   // ── Auto-fill exit reason ──────────────────────────────────────────────────
   useEffect(() => {
     const outcome = s2.outcome as "Win"|"Loss"|"BE";
@@ -1789,9 +1809,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       setS2({ ...INIT_STEP2, riskPercent: getStickyRiskPct(sessionId) });
       setS3({ ...INIT_STEP3 });
       setS4({ ...INIT_STEP4 });
-      regimeTouchedRef.current  = false;
-      trendTouchedRef.current   = false;
-      achievedRRAutoRef.current = true; // re-enable auto-fill for next trade
+      regimeTouchedRef.current     = false;
+      trendTouchedRef.current      = false;
+      achievedRRAutoRef.current    = true;  // re-enable auto-fill for next trade
+      commissionUserEdited.current = false; // re-enable commission auto-estimate
+      commissionAutoFilled.current = false;
       setOcrFields(new Set());
       setStep(1);
     } catch (err: any) {
@@ -1885,9 +1907,14 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
             {step === 3 && <Step3 d={s3} set={setS3} direction={s2.direction} regimeTouchedRef={regimeTouchedRef} trendTouchedRef={trendTouchedRef} hiddenPanels={hiddenPanels} />}
             {step === 4 && <Step4 d={s4} set={setS4} hiddenPanels={hiddenPanels}
               onAchievedRRChange={(v: any) => {
-                achievedRRAutoRef.current = false; // user took manual control
+                achievedRRAutoRef.current = false;
                 setS4(prev => ({ ...prev, achievedRR: v }));
               }}
+              onCommissionManualEdit={() => {
+                commissionUserEdited.current = true;
+                commissionAutoFilled.current = false;
+              }}
+              commissionIsEst={commissionAutoFilled.current}
             />}
             <div className="h-8" />
           </div>
