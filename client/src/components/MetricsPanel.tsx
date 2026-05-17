@@ -554,7 +554,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
   const kpis = [
     { l: 'Total P&L',     v: fmtPL(totalPL),          s: isPos ? 'Profit' : 'Loss',    positive: isPos ? true : false },
     { l: 'Win Rate',      v: fmtPct(winRate),          s: `${wins}W · ${losses}L`,      positive: winRate >= 50 },
-    { l: 'R Expectancy',  v: expectancy.toFixed(2),    s: 'Per trade',                  positive: null as boolean | null },
+    { l: 'R Expectancy',  v: expectancy.toFixed(2),    s: 'Per trade',                  positive: expectancy > 0 as boolean | null },
     { l: 'Trades',        v: `${totalTrades}`,         s: 'This period',                positive: null as boolean | null },
     { l: 'Profit Factor', v: pfDisplay,                s: 'Gross ratio',                positive: profitFactor >= 1 },
     { l: 'Avg R:R',       v: `1:${avgRR.toFixed(1)}`, s: 'Achieved',                   positive: null as boolean | null },
@@ -582,7 +582,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
       {/* ── KPI STRIP ── */}
       <div className="mp-kpi">
         {kpis.map((k, i) => (
-          <div key={i} className="mp-kpi-cell" style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '10px 12px' }}>
+          <div key={i} className="mp-kpi-cell" data-testid={`metric-kpi-${i}`} style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ ...MONO, fontSize: 9, color: D.label, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 5 }}>{k.l}</div>
             <div style={{ ...MONO, fontSize: 17, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
             <div style={{ ...MONO, fontSize: 9, color: D.sub }}>{k.s}</div>
@@ -800,7 +800,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
           <Panel title="ATF + Session + Instrument" badge="Asset · TF · Session" badgeColor="green">
             {instrSessEntries.length > 0
               ? instrSessEntries.slice(0, 8).map((x, i) => <SplitBar key={i} label={x.k} win={x.win} loss={x.loss} count={x.count} />)
-              : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet</span>
+              : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet — ensure Analysis TF, Session, and Instrument are all filled</span>
             }
             {instrSessEntries.length > 8 && (
               <div style={{ borderTop: `0.5px solid ${D.bdRow}`, paddingTop: 6, textAlign: 'center' as const }}>
@@ -893,6 +893,9 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
             <DR label="Avg MFE"          value={maeMfe.avgMFE  != null ? `+${maeMfe.avgMFE.toFixed(2)} pips`  : '--'} vc={D.green} />
             <DR label="Best MFE"         value={maeMfe.bestMFE != null ? `+${maeMfe.bestMFE.toFixed(2)} pips` : '--'} vc={D.green} />
             <DR label="Avg Capture Rate" value={maeMfe.avgMFECapture != null ? `${maeMfe.avgMFECapture.toFixed(1)}% of MFE` : '--'} vc={D.cyan} />
+            {maeMfe.avgMFECapture != null && (
+              <DR label="Avg MFE captured" value={`${maeMfe.avgMFECapture.toFixed(1)}%`} vc={D.cyan} />
+            )}
             <DivLabel>Entry Quality</DivLabel>
             <DR label="MAE / MFE Ratio" value={maeMfe.avgMAEMFERatio != null ? `${maeMfe.avgMAEMFERatio.toFixed(3)}${maeMfe.avgMAEMFERatio < 0.35 ? ' · Good' : maeMfe.avgMAEMFERatio < 0.6 ? ' · Fair' : ' · Poor'}` : '--'}
               vc={maeMfe.avgMAEMFERatio != null ? (maeMfe.avgMAEMFERatio < 0.35 ? D.green : maeMfe.avgMAEMFERatio < 0.6 ? D.amber : D.red) : D.dim} />
@@ -911,7 +914,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
                   ))
                 : (
                   <div>
-                    <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet</span>
+                    <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet — fill Candle Pattern, Indicator State, and Entry TF on journal entries</span>
                     {candleEntries.length > 0 && (
                       <div style={{ marginTop: 10 }}>
                         <DivLabel>Candle Patterns (standalone)</DivLabel>
@@ -958,7 +961,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
               <DivLabel>Instrument × Phase × Momentum</DivLabel>
               {instrPhaseMomEntries.length > 0
                 ? instrPhaseMomEntries.map((x, i) => <SplitBar key={i} label={x.k} win={x.win} loss={x.loss} count={x.count} />)
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet</span>
+                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet — ensure Instrument, Session Phase, and Momentum Validity are all filled</span>
               }
             </Scroll>
           </Panel>
