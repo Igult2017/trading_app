@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { THEMES, FONTS, JOURNAL_PANELS, ThemeId, FontId } from '@/hooks/useJournalSettings';
 import type { ThemeDef, FontDef } from '@/hooks/useJournalSettings';
 import { useAuth } from '@/context/AuthContext';
+import { authFetch } from '@/lib/queryClient';
 
 
 interface Props {
@@ -37,6 +38,41 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
   const { user, signOut } = useAuth();
   const [, navigate] = useLocation();
   const [signingOut, setSigningOut] = useState(false);
+
+  // ── Display-name editing ─────────────────────────────────────────────────
+  const [displayName, setDisplayName] = useState('');
+  const [nameEdit, setNameEdit] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    authFetch('/api/me/profile').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.fullName) setDisplayName(d.fullName);
+    }).catch(() => {});
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (nameEdit) nameInputRef.current?.focus();
+  }, [nameEdit]);
+
+  async function saveName() {
+    const trimmed = displayName.trim();
+    if (!trimmed) return;
+    setNameSaving(true);
+    try {
+      await authFetch('/api/me/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName: trimmed }),
+      });
+      setNameEdit(false);
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 2500);
+    } catch (_) {}
+    setNameSaving(false);
+  }
 
   const handleLogout = async () => {
     if (signingOut) return;
@@ -82,8 +118,9 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
         <div className="jsp-title-row" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
           <div className="jsp-title-bar" style={{ width: 4, height: 28, background: T.accent }} />
           <h1 className="jsp-title" style={{
-            margin: 0, fontSize: 16, fontWeight: 900,
-            letterSpacing: '0.08em', textTransform: 'uppercase', color: T.text,
+            margin: 0, fontSize: 12, fontWeight: 700,
+            letterSpacing: '0.18em', textTransform: 'uppercase', color: T.text,
+            fontFamily: "'DM Mono', monospace",
           }}>Journal Settings</h1>
         </div>
         <p className="jsp-subtitle" style={{
@@ -356,9 +393,79 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
         })}
       </Section>
 
-      {/* ── ACCOUNT — sign out ────────────────────────────── */}
+      {/* ── ACCOUNT ───────────────────────────────────────── */}
       {user && (
         <Section label="Account" T={T}>
+
+          {/* Display name */}
+          <div style={{
+            background: T.surface, border: `1px solid ${T.border}`,
+            borderRadius: 10, padding: '18px 22px', marginBottom: 12,
+            fontFamily: "'DM Mono', monospace",
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 12 }}>
+              Display name
+            </div>
+            {nameEdit ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  ref={nameInputRef}
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setNameEdit(false); }}
+                  maxLength={100}
+                  style={{
+                    flex: 1, background: T.bg, border: `1px solid ${T.accent}`,
+                    borderRadius: 6, padding: '7px 11px',
+                    color: T.text, fontSize: 13, fontFamily: "'DM Mono', monospace",
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="button" onClick={saveName} disabled={nameSaving}
+                  style={{
+                    padding: '7px 14px', borderRadius: 6, border: 'none',
+                    background: T.accent, color: '#fff', fontSize: 11,
+                    fontWeight: 600, fontFamily: "'DM Mono', monospace",
+                    cursor: nameSaving ? 'wait' : 'pointer', opacity: nameSaving ? 0.6 : 1,
+                    letterSpacing: '0.05em',
+                  }}
+                >{nameSaving ? '…' : 'Save'}</button>
+                <button
+                  type="button" onClick={() => setNameEdit(false)}
+                  style={{
+                    padding: '7px 12px', borderRadius: 6, border: `1px solid ${T.border}`,
+                    background: 'transparent', color: T.textMuted, fontSize: 11,
+                    fontFamily: "'DM Mono', monospace", cursor: 'pointer',
+                  }}
+                >Cancel</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: displayName ? T.text : T.textMuted, letterSpacing: '-0.2px' }}>
+                  {displayName || 'Not set'}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {nameSaved && (
+                    <span style={{ fontSize: 9, color: '#22d3a5', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Saved ✓</span>
+                  )}
+                  <button
+                    type="button" onClick={() => setNameEdit(true)}
+                    style={{
+                      padding: '5px 12px', borderRadius: 5, border: `1px solid ${T.border}`,
+                      background: 'transparent', color: T.textMuted, fontSize: 10,
+                      fontFamily: "'DM Mono', monospace", cursor: 'pointer',
+                      letterSpacing: '0.06em', transition: 'color 0.15s, border-color 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = T.text; e.currentTarget.style.borderColor = T.textMuted; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}
+                  >Edit</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sign out */}
           <div className="jsp-logout-card" style={{
             background: T.surface,
             border: `1px solid ${T.border}`,
@@ -371,10 +478,11 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
               <div style={{
                 fontSize: 12, fontWeight: 800, color: T.text,
                 letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4,
+                fontFamily: "'DM Mono', monospace",
               }}>Sign out</div>
               <div style={{
                 fontSize: 11, color: T.textMuted, letterSpacing: '0.02em',
-                lineHeight: 1.5, wordBreak: 'break-word',
+                lineHeight: 1.5, wordBreak: 'break-word', fontFamily: "'DM Mono', monospace",
               }}>
                 You will be returned to the homepage. Your session data stays safe.
               </div>
@@ -388,15 +496,13 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
               aria-label={signingOut ? 'Signing out' : 'Logout'}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: '#ef4444',
-                color: '#ffffff',
+                background: '#ef4444', color: '#ffffff',
                 border: 'none', borderRadius: '50%',
                 width: 44, height: 44, padding: 0,
                 cursor: signingOut ? 'wait' : 'pointer',
                 opacity: signingOut ? 0.6 : 1,
                 transition: 'opacity 0.15s, transform 0.15s, box-shadow 0.15s',
-                fontFamily: 'inherit',
-                flexShrink: 0,
+                fontFamily: 'inherit', flexShrink: 0,
                 boxShadow: '0 4px 12px rgba(239,68,68,0.25)',
               }}
               onMouseEnter={e => { if (!signingOut) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239,68,68,0.4)'; } }}

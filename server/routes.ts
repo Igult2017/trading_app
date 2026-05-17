@@ -453,6 +453,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Update display name ---
+  app.patch("/api/me/profile", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const { fullName } = req.body as { fullName?: string };
+    if (typeof fullName !== 'string') return res.status(400).json({ error: 'fullName required' });
+    const trimmed = fullName.trim().slice(0, 100);
+    try {
+      await pool.query(
+        `UPDATE user_profiles SET full_name = $1 WHERE id = $2`,
+        [trimmed, auth.id],
+      );
+      res.json({ fullName: trimmed });
+    } catch (err: any) {
+      console.error('[Me/Profile PATCH]', err?.message);
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
+  });
+
   // --- Avatar upload ---
   app.post("/api/me/avatar", async (req, res) => {
     const auth = await requireAuth(req, res);

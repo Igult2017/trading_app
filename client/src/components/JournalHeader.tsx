@@ -104,16 +104,16 @@ const PROFILE_CARD_CSS = `
 
   .pc-meta { flex: 1; min-width: 0; }
   .pc-name {
-    font-size: 13.5px; font-weight: 500; color: #ede9ff;
-    letter-spacing: -.3px;
+    font-size: 12px; font-weight: 500; color: #ede9ff;
+    letter-spacing: -.2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .pc-pill {
-    display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;
     background: rgba(120,100,255,0.12);
     border: 1px solid rgba(120,100,255,0.22);
-    border-radius: 3px; padding: 3px 8px;
-    font-size: 9.5px; font-weight: 500; color: #9585f5;
+    border-radius: 3px; padding: 2px 7px;
+    font-size: 8.5px; font-weight: 500; color: #9585f5;
     letter-spacing: 1.2px; text-transform: uppercase;
     font-family: 'DM Mono', monospace;
   }
