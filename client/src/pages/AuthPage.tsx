@@ -113,13 +113,6 @@ export default function AuthPage() {
         {mode === 'login' ? 'Sign in to continue.' : 'Join My FM | Journal and start tracking your trades.'}
       </p>
 
-      {/* Admin mode notice */}
-      {!supabase && mode === 'login' && (
-        <div style={S.notice}>
-          <span style={{ color: '#3b82f6', fontWeight: 600 }}>Admin mode</span> — use your admin email and admin secret as the password.
-        </div>
-      )}
-
       {/* Loading indicator */}
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
