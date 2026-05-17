@@ -99,7 +99,7 @@ export default function HomeFooter() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {RESOURCES.map(({ label, href, newTab }) => (
                 <Link key={label} href={href}
-                  target={newTab ? '_blank' : undefined}
+                  target={newTab ? 'myfm_journal' : undefined}
                   rel={newTab ? 'noopener noreferrer' : undefined}
                   style={linkStyle}
                   onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => e.currentTarget.style.color = '#60a5fa'}

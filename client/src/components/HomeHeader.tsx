@@ -115,7 +115,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
               },
             };
             return newTab
-              ? <a {...linkProps} target="_blank" rel="noopener noreferrer">{label}</a>
+              ? <a {...linkProps} target="myfm_journal" rel="noopener noreferrer">{label}</a>
               : <Link {...linkProps}>{label}</Link>;
           })}
           <button
@@ -155,7 +155,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
               onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = textMuted; },
             };
             return newTab
-              ? <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={mobStyle} {...mobEvents}>{label}</a>
+              ? <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={mobStyle} {...mobEvents}>{label}</a>
               : <Link key={label} href={href} onClick={() => setMobileMenuOpen(false)} style={mobStyle} {...mobEvents}>{label}</Link>;
           })}
         </div>
