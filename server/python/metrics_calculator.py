@@ -794,10 +794,13 @@ def is_loss(t: TradeRecord) -> bool:
 
 
 def win_rate_of(trades: List[TradeRecord]) -> Optional[float]:
-    n = len(trades)
+    # Only count decisive outcomes (win or loss); breakevens are excluded
+    # from both numerator and denominator — they are neither wins nor losses.
+    decisive = [t for t in trades if t.outcome in ("win", "loss")]
+    n = len(decisive)
     if n < MIN_SAMPLE:
         return None
-    return round(sum(1 for t in trades if is_win(t)) / n * 100, 2)
+    return round(sum(1 for t in decisive if is_win(t)) / n * 100, 2)
 
 
 def safe_mean(values: List[Optional[float]]) -> Optional[float]:
