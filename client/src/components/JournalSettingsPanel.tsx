@@ -121,7 +121,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
             margin: 0, fontSize: 12, fontWeight: 700,
             letterSpacing: '0.12em', color: T.text,
             fontFamily: "'DM Mono', monospace",
-          }}>Journal settings</h1>
+          }}>Journal Settings</h1>
         </div>
         <p className="jsp-subtitle" style={{
           margin: '0 0 0 18px', fontSize: 11, color: T.textMuted,
