@@ -497,8 +497,8 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           {/* Left: Logo + Sidebar Toggle */}
           <div className="jh-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span className="jh-logo" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", cursor: 'pointer' }}>
-              <span style={{ color: t.logoWhite }}>MYFM</span>
-              <span style={{ color: '#3b82f6' }}> | JOURNAL</span>
+              <span style={{ color: t.logoWhite }}>My FM</span>
+              <span style={{ color: '#3b82f6' }}> | Journal</span>
             </span>
             <button
               className="jh-sidebar-desktop"

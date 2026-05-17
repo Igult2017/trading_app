@@ -91,7 +91,7 @@ export default function JournalPaywall({ stripeConfigured, onUpgrade }: Props) {
 
       {/* Footer brand */}
       <p style={{ color: '#1e293b', fontSize: 11, marginTop: 8 }}>
-        MYFM | JOURNAL · Your Trading Edge
+        My FM | Journal · Your Trading Edge
       </p>
     </div>
   );

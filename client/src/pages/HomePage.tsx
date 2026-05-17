@@ -138,11 +138,11 @@ export default function HomePage() {
 
   const testimonials = [
     { name: "Alex M.", text: "The dashboard is incredibly customizable and very convenient to use.", rating: 5 },
-    { name: "Jordan K.", text: "I love how MYFM | JOURNAL helps me track my performance and improve my strategies.", rating: 5 },
+    { name: "Jordan K.", text: "I love how My FM | Journal helps me track my performance and improve my strategies.", rating: 5 },
     { name: "Sarah T.", text: "This tool is fantastic, the user interface could be even more intuitive.", rating: 5 },
-    { name: "Michael R.", text: "MYFM | JOURNAL has changed the way I analyze my trading operations.", rating: 5 },
+    { name: "Michael R.", text: "My FM | Journal has changed the way I analyze my trading operations.", rating: 5 },
     { name: "Emily W.", text: "An excellent tool for traders. Easy to use and very comprehensive.", rating: 5 },
-    { name: "David P.", text: "I've tried other journaling platforms, but MYFM | JOURNAL is by far the best!", rating: 5 },
+    { name: "David P.", text: "I've tried other journaling platforms, but My FM | Journal is by far the best!", rating: 5 },
     { name: "Jessica L.", text: "The stats dashboard is so detailed and customizable. It's made a huge difference to my trading.", rating: 5 },
     { name: "Chris N.", text: "The community features have helped me connect with other traders and share strategies.", rating: 5 }
   ];
@@ -242,8 +242,8 @@ export default function HomePage() {
         <TickerTape />
         <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.3s' }}>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
-            <span style={{ color: t.logoWhite }}>MYFM</span>
-            <span style={{ color: '#3b82f6' }}> | JOURNAL</span>
+            <span style={{ color: t.logoWhite }}>My FM</span>
+            <span style={{ color: '#3b82f6' }}> | Journal</span>
           </span>
           <div className="nav-links">
             {navItems.map(item => {
@@ -393,7 +393,7 @@ export default function HomePage() {
               <div style={{ width: 260, background: t.mobilePhoneBg, borderRadius: 40, border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden' }}>
                 <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ ...oswald, fontSize: 10, letterSpacing: '0.01em' }}>
-                    <span style={{ color: t.text }}>MYFM</span><span style={{ color: '#3b82f6' }}> | JOURNAL</span>
+                    <span style={{ color: t.text }}>My FM</span><span style={{ color: '#3b82f6' }}> | Journal</span>
                   </span>
                   <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg,#2563eb,#60a5fa)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <TrendingUp size={13} color="white" />
@@ -566,7 +566,7 @@ export default function HomePage() {
         {/* Testimonials */}
         <section id="reviews" className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose MYFM | JOURNAL</h2>
+            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose My FM | Journal</h2>
             <div className="lp-testimonials-grid">
               {testimonials.map((r,i) => (
                 <div key={i} style={{ background: t.testimonialBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 24 }}>

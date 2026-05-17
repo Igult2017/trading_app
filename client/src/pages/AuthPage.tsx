@@ -98,8 +98,8 @@ export default function AuthPage() {
 
         <div style={styles.brand}>
           <span style={styles.brandName}>
-            <span style={{ color: '#ffffff' }}>MYFM</span>
-            <span style={{ color: '#3b82f6' }}> | JOURNAL</span>
+            <span style={{ color: '#ffffff' }}>My FM</span>
+            <span style={{ color: '#3b82f6' }}> | Journal</span>
           </span>
         </div>
 
@@ -107,7 +107,7 @@ export default function AuthPage() {
         <p style={styles.sub}>
           {mode === 'login'
             ? 'Sign in to access your trading dashboard.'
-            : 'Join MYFM | JOURNAL and start tracking your trades.'}
+            : 'Join My FM | Journal and start tracking your trades.'}
         </p>
 
         {!supabase && mode === 'login' && (

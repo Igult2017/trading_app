@@ -38,7 +38,7 @@ function PrivacyContent() {
   return (
     <div>
       <Para>
-        Effective Date: January 1, 2025. MYFM | JOURNAL ("we", "us", or "our") is committed to protecting your privacy.
+        Effective Date: January 1, 2025. My FM | Journal ("we", "us", or "our") is committed to protecting your privacy.
         This Privacy Policy explains how we collect, use, and safeguard your information when you visit our website and use our services.
       </Para>
 
@@ -103,24 +103,24 @@ function TermsContent() {
   return (
     <div>
       <Para>
-        Effective Date: January 1, 2025. By accessing or using MYFM | JOURNAL, you agree to be bound by these Terms of Service.
+        Effective Date: January 1, 2025. By accessing or using My FM | Journal, you agree to be bound by these Terms of Service.
         Please read them carefully before using our platform.
       </Para>
 
       <Heading>Acceptance of Terms</Heading>
       <Para>
-        By creating an account or using any part of our services, you agree to these Terms. If you do not agree, you must not use MYFM | JOURNAL.
+        By creating an account or using any part of our services, you agree to these Terms. If you do not agree, you must not use My FM | Journal.
       </Para>
 
       <Heading>Description of Service</Heading>
       <Para>
-        MYFM | JOURNAL provides an online trading journal, analytics tools, market session clock, economic calendar, and educational content.
+        My FM | Journal provides an online trading journal, analytics tools, market session clock, economic calendar, and educational content.
         Our services are intended for informational and record-keeping purposes only.
       </Para>
 
       <Heading>Risk Disclaimer</Heading>
       <Para>
-        Trading financial instruments involves substantial risk of loss and is not suitable for every investor. MYFM | JOURNAL provides
+        Trading financial instruments involves substantial risk of loss and is not suitable for every investor. My FM | Journal provides
         educational content and analytical tools for informational purposes only. Nothing on this platform constitutes financial,
         investment, or trading advice. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
       </Para>
@@ -144,14 +144,14 @@ function TermsContent() {
 
       <Heading>Intellectual Property</Heading>
       <Para>
-        All content on MYFM | JOURNAL, including text, graphics, logos, software, and data analysis tools, is the property of MYFM | JOURNAL
+        All content on My FM | Journal, including text, graphics, logos, software, and data analysis tools, is the property of My FM | Journal
         and is protected by applicable intellectual property laws. You may not reproduce, distribute, or create derivative works without our
         express written permission.
       </Para>
 
       <Heading>Limitation of Liability</Heading>
       <Para>
-        MYFM | JOURNAL shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from
+        My FM | Journal shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from
         your use of or inability to use our services, including but not limited to trading losses, data loss, or service interruptions.
       </Para>
 
@@ -314,7 +314,7 @@ export default function LegalPage() {
             {active}
           </h1>
           <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#2563eb', marginBottom: 32, marginTop: 0 }}>
-            MYFM | JOURNAL — LAST UPDATED MAY 2025
+            My FM | Journal — LAST UPDATED MAY 2025
           </p>
           {active === 'Privacy Policy' && <PrivacyContent />}
           {active === 'Terms of Service' && <TermsContent />}
