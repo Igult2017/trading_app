@@ -1,0 +1,383 @@
+import { useState, useEffect } from "react";
+
+const KPI_DATA = [
+  { label: "Total P&L", value: "+$8,770.64", sub: "Profit", positive: true },
+  { label: "Win Rate", value: "76%", sub: "39W · 11L", positive: true },
+  { label: "R Expectancy", value: "1.61", sub: "Per trade", positive: null },
+  { label: "Trades", value: "51", sub: "This period", positive: null },
+  { label: "Profit Factor", value: "8.98", sub: "Gross ratio", positive: true },
+  { label: "Avg R:R", value: "1:2.3", sub: "Achieved", positive: null },
+  { label: "Net Growth", value: "+175.4%", sub: "Account growth", positive: true },
+];
+
+const REGIME_DATA = [
+  { label: "Bullish", dot: "green", count: 20, win: "60%" },
+  { label: "Bearish", dot: "red", count: 31, win: "87%" },
+  { label: "Ranging", dot: "gray", count: 0, win: null },
+];
+
+const VOLATILITY_DATA = [
+  { label: "Low", count: 0, win: null },
+  { label: "Normal", count: 51, win: "76%" },
+  { label: "High", count: 0, win: null },
+];
+
+const EXECUTION_SCORES = [
+  { label: "Setup clarity", pips: 4, win: "76%" },
+  { label: "Confluence score", pips: 4, win: "76%" },
+  { label: "Signal validation", pips: 4, win: "76%" },
+];
+
+const DEVIATIONS = [
+  { label: "Entry deviation", value: "0.00 pips" },
+  { label: "SL deviation", value: "0.00 pips" },
+  { label: "TP deviation", value: "0.00 pips" },
+];
+
+const CONFLUENCE_ROWS = [
+  { label: "Clarity level", high: null, low: "76%" },
+  { label: "Setup clarity avg", high: null, low: null },
+];
+
+const YES_NO_ROWS = [
+  { label: "MTF alignment", yes: "76%", no: null },
+  { label: "Trend alignment", yes: "76%", no: null },
+  { label: "HTF key level present", yes: "76%", no: null },
+  { label: "Key level respect", yes: "76%", no: null },
+];
+
+const PSYCH_ROWS = [
+  { label: "Rules followed", high: "76%", med: null, low: null },
+  { label: "Confidence", high: null, med: "76%", low: null },
+  { label: "Energy level", high: null, med: "76%", low: null },
+  { label: "Focus level", high: null, med: "76%", low: null },
+  { label: "Confidence at entry", high: null, med: "76%", low: null },
+];
+
+const styles = {
+  root: {
+    fontFamily: "'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
+    background: "#0A0C10",
+    color: "#C8CDD8",
+    minHeight: "100vh",
+    padding: "16px",
+  },
+  kpiCard: {
+    background: "#111318",
+    border: "0.5px solid #1E2330",
+    borderRadius: "8px",
+    padding: "10px 12px",
+  },
+  kpiLabel: {
+    fontSize: "9px",
+    color: "#4A5568",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    marginBottom: "5px",
+  },
+  kpiValue: (positive) => ({
+    fontSize: "17px",
+    fontWeight: 600,
+    lineHeight: 1.1,
+    color: positive === true ? "#1D9E75" : positive === false ? "#E24B4A" : "#C8CDD8",
+  }),
+  kpiSub: {
+    fontSize: "9px",
+    color: "#3A4050",
+    marginTop: "3px",
+  },
+
+  panel: {
+    background: "#0E1016",
+    border: "0.5px solid #1A1F2E",
+    borderRadius: "10px",
+    overflow: "hidden",
+  },
+  panelHead: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "9px 12px",
+    borderBottom: "0.5px solid #1A1F2E",
+    background: "#0C0E14",
+  },
+  panelTitle: {
+    fontSize: "9px",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    color: "#4A5568",
+  },
+  panelBody: {
+    padding: "8px 12px 10px",
+  },
+  badge: (color) => {
+    const map = {
+      teal: { bg: "#0A2018", color: "#1D9E75", border: "#0F3D28" },
+      blue: { bg: "#0A1628", color: "#378ADD", border: "#0F2A4A" },
+      purple: { bg: "#140F28", color: "#7F77DD", border: "#251B4A" },
+      amber: { bg: "#1E1200", color: "#EF9F27", border: "#3A2200" },
+    };
+    const c = map[color] || map.teal;
+    return {
+      fontSize: "9px",
+      fontWeight: 600,
+      padding: "2px 7px",
+      borderRadius: "20px",
+      background: c.bg,
+      color: c.color,
+      border: `0.5px solid ${c.border}`,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+    };
+  },
+  dividerLabel: {
+    fontSize: "8px",
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    color: "#2E3545",
+    padding: "7px 0 3px",
+    borderBottom: "0.5px solid #141820",
+  },
+  row: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "5px 0",
+    borderBottom: "0.5px solid #12161E",
+  },
+  rowLabel: {
+    fontSize: "10px",
+    color: "#5A6278",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  rowRight: {
+    display: "flex",
+    gap: "4px",
+    alignItems: "center",
+  },
+  chip: (variant) => {
+    const map = {
+      green: { bg: "#0A2016", color: "#1D9E75", border: "#0F3020" },
+      red: { bg: "#1E0A0A", color: "#E24B4A", border: "#3A1010" },
+      gray: { bg: "#12151C", color: "#4A5568", border: "#1A1F2E" },
+      neutral: { bg: "#12151C", color: "#3A4050", border: "#1A1F2E" },
+    };
+    const c = map[variant] || map.neutral;
+    return {
+      fontSize: "9px",
+      fontWeight: 600,
+      padding: "1px 6px",
+      borderRadius: "20px",
+      background: c.bg,
+      color: c.color,
+      border: `0.5px solid ${c.border}`,
+    };
+  },
+  dot: (color) => ({
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    flexShrink: 0,
+    background: color === "green" ? "#1D9E75" : color === "red" ? "#E24B4A" : "#2E3545",
+  }),
+  pips: {
+    display: "flex",
+    gap: "3px",
+    alignItems: "center",
+  },
+  pip: (active) => ({
+    width: "16px",
+    height: "3px",
+    borderRadius: "2px",
+    background: active ? "#1D9E75" : "#1A1F2E",
+  }),
+  pipVal: {
+    fontSize: "9px",
+    color: "#1D9E75",
+    minWidth: "28px",
+    textAlign: "right",
+    fontWeight: 600,
+  },
+  devVal: {
+    fontSize: "10px",
+    fontWeight: 600,
+    color: "#1D9E75",
+  },
+  sectionSub: {
+    fontSize: "8px",
+    color: "#2E3545",
+    marginBottom: "4px",
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+  },
+};
+
+function KpiCard({ label, value, sub, positive }) {
+  return (
+    <div style={styles.kpiCard}>
+      <div style={styles.kpiLabel}>{label}</div>
+      <div style={styles.kpiValue(positive)}>{value}</div>
+      <div style={styles.kpiSub}>{sub}</div>
+    </div>
+  );
+}
+
+function PanelHead({ title, badge, badgeColor }) {
+  return (
+    <div style={styles.panelHead}>
+      <span style={styles.panelTitle}>{title}</span>
+      <span style={styles.badge(badgeColor)}>{badge}</span>
+    </div>
+  );
+}
+
+function Chip({ children, variant = "neutral" }) {
+  return <span style={styles.chip(variant)}>{children}</span>;
+}
+
+function PipBar({ filled, total = 5, winPct }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={styles.pips}>
+        {Array.from({ length: total }).map((_, i) => (
+          <div key={i} style={styles.pip(i < filled)} />
+        ))}
+      </div>
+      <span style={styles.pipVal}>{winPct}</span>
+    </div>
+  );
+}
+
+function Row({ label, children, noBorder }) {
+  return (
+    <div style={{ ...styles.row, borderBottom: noBorder ? "none" : "0.5px solid #12161E" }}>
+      <span style={styles.rowLabel}>{label}</span>
+      <div style={styles.rowRight}>{children}</div>
+    </div>
+  );
+}
+
+function DivLabel({ children }) {
+  return <div style={styles.dividerLabel}>{children}</div>;
+}
+
+export default function TradingDashboard() {
+  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handle = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", handle);
+    return () => window.removeEventListener("resize", handle);
+  }, []);
+
+  const isMobile = width < 600;
+  const isTablet = width >= 600 && width < 960;
+
+  const kpiCols = isMobile ? "repeat(2, 1fr)" : isTablet ? "repeat(4, 1fr)" : "repeat(7, 1fr)";
+  const panelCols = isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : "repeat(4, 1fr)";
+
+  return (
+    <div style={styles.root}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+      `}</style>
+
+      <div style={{ display: "grid", gridTemplateColumns: kpiCols, gap: "6px", marginBottom: "10px" }}>
+        {KPI_DATA.map((k, i) => (
+          <KpiCard key={i} {...k} />
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: panelCols, gap: "8px" }}>
+
+        {/* Market Regime */}
+        <div style={styles.panel}>
+          <PanelHead title="Market Regime" badge="Volatility" badgeColor="teal" />
+          <div style={styles.panelBody}>
+            <DivLabel>Regime</DivLabel>
+            {REGIME_DATA.map((r, i) => (
+              <Row key={i} label={<><span style={styles.dot(r.dot)} />{r.label}</>} noBorder={i === REGIME_DATA.length - 1 && false}>
+                <Chip variant="gray">{r.count}</Chip>
+                <Chip variant={r.win ? "green" : "neutral"}>{r.win || "—"}</Chip>
+              </Row>
+            ))}
+            <DivLabel>Volatility state</DivLabel>
+            {VOLATILITY_DATA.map((v, i) => (
+              <Row key={i} label={v.label} noBorder={i === VOLATILITY_DATA.length - 1}>
+                <Chip variant="gray">{v.count}</Chip>
+                <Chip variant={v.win ? "green" : "neutral"}>{v.win || "—"}</Chip>
+              </Row>
+            ))}
+          </div>
+        </div>
+
+        {/* Execution Precision */}
+        <div style={styles.panel}>
+          <PanelHead title="Execution Precision" badge="Score → Win%" badgeColor="blue" />
+          <div style={styles.panelBody}>
+            <div style={styles.sectionSub}>Score · win rate at threshold</div>
+            {EXECUTION_SCORES.map((s, i) => (
+              <Row key={i} label={s.label} noBorder={i === EXECUTION_SCORES.length - 1}>
+                <PipBar filled={s.pips} winPct={s.win} />
+              </Row>
+            ))}
+            <DivLabel>Planned vs actual · avg pips</DivLabel>
+            {DEVIATIONS.map((d, i) => (
+              <Row key={i} label={d.label} noBorder={i === DEVIATIONS.length - 1}>
+                <span style={styles.devVal}>{d.value}</span>
+              </Row>
+            ))}
+          </div>
+        </div>
+
+        {/* Clarity & Confluence */}
+        <div style={styles.panel}>
+          <PanelHead title="Clarity & Confluence" badge="Confluence" badgeColor="purple" />
+          <div style={styles.panelBody}>
+            <div style={styles.sectionSub}>High / Low split</div>
+            {CONFLUENCE_ROWS.map((r, i) => (
+              <Row key={i} label={r.label}>
+                <Chip variant={r.high ? "green" : "neutral"}>{r.high || "Hi —"}</Chip>
+                <Chip variant={r.low ? "green" : "neutral"}>{r.low || "Lo —"}</Chip>
+              </Row>
+            ))}
+            <DivLabel>Yes / No</DivLabel>
+            {YES_NO_ROWS.map((r, i) => (
+              <Row key={i} label={r.label} noBorder={i === YES_NO_ROWS.length - 1}>
+                <Chip variant={r.yes ? "green" : "neutral"}>{r.yes ? `Yes ${r.yes}` : "Yes —"}</Chip>
+                <Chip variant={r.no ? "red" : "neutral"}>{r.no ? `No ${r.no}` : "No —"}</Chip>
+              </Row>
+            ))}
+          </div>
+        </div>
+
+        {/* Psychology */}
+        <div style={styles.panel}>
+          <PanelHead title="Psychology & Discipline" badge="Psychology" badgeColor="amber" />
+          <div style={styles.panelBody}>
+            <div style={styles.sectionSub}>High / Medium / Low</div>
+            {PSYCH_ROWS.map((r, i) => (
+              <Row key={i} label={r.label}>
+                <Chip variant={r.high ? "green" : "neutral"}>{r.high || "Hi —"}</Chip>
+                <Chip variant={r.med ? "green" : "neutral"}>{r.med || "Med —"}</Chip>
+                <Chip variant={r.low ? "red" : "neutral"}>{r.low || "Lo —"}</Chip>
+              </Row>
+            ))}
+            <DivLabel>Calm / Neutral / Emotional</DivLabel>
+            <Row label="Emotional state" noBorder>
+              <Chip variant="green">Calm 76%</Chip>
+              <Chip variant="neutral">Neu —</Chip>
+              <Chip variant="neutral">Emo —</Chip>
+            </Row>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
