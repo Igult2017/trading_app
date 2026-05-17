@@ -6,21 +6,55 @@ import faviconUrl from '/favicon.png';
 
 type Mode = 'login' | 'signup';
 
-export default function AuthPage() {
-  const search = useSearch();
-  const urlMode = new URLSearchParams(search).get('mode');
+const COUNTRIES = [
+  'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia','Austria',
+  'Azerbaijan','Bahamas','Bahrain','Bangladesh','Belarus','Belgium','Belize','Benin','Bhutan',
+  'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso',
+  'Burundi','Cambodia','Cameroon','Canada','Cape Verde','Central African Republic','Chad','Chile',
+  'China','Colombia','Comoros','Congo','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic',
+  'Denmark','Djibouti','Dominican Republic','DR Congo','Ecuador','Egypt','El Salvador','Estonia',
+  'Eswatini','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana',
+  'Greece','Guatemala','Guinea','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran',
+  'Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kuwait',
+  'Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania',
+  'Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Mauritania','Mauritius',
+  'Mexico','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia',
+  'Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia',
+  'Norway','Oman','Pakistan','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines',
+  'Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Senegal','Serbia',
+  'Sierra Leone','Singapore','Slovakia','Slovenia','Somalia','South Africa','South Korea',
+  'South Sudan','Spain','Sri Lanka','Sudan','Sweden','Switzerland','Syria','Taiwan','Tajikistan',
+  'Tanzania','Thailand','Togo','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Uganda',
+  'Ukraine','United Arab Emirates','United Kingdom','United States','Uruguay','Uzbekistan',
+  'Venezuela','Vietnam','Yemen','Zambia','Zimbabwe',
+];
 
-  const [mode, setMode]                     = useState<Mode>(urlMode === 'signup' ? 'signup' : 'login');
-  const [email, setEmail]                   = useState('');
-  const [password, setPassword]             = useState('');
+async function handleGoogleSignIn() {
+  if (!supabase) return false;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  return !error;
+}
+
+export default function AuthPage() {
+  const search   = useSearch();
+  const urlMode  = new URLSearchParams(search).get('mode');
+
+  const [mode, setMode]                       = useState<Mode>(urlMode === 'signup' ? 'signup' : 'login');
+  const [email, setEmail]                     = useState('');
+  const [password, setPassword]               = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName]             = useState('');
-  const [showPass, setShowPass]             = useState(false);
-  const [showConfirm, setShowConfirm]       = useState(false);
-  const [rememberMe, setRememberMe]         = useState(true);
-  const [error, setError]                   = useState('');
-  const [info, setInfo]                     = useState('');
-  const [busy, setBusy]                     = useState(false);
+  const [fullName, setFullName]               = useState('');
+  const [country, setCountry]                 = useState('');
+  const [showPass, setShowPass]               = useState(false);
+  const [showConfirm, setShowConfirm]         = useState(false);
+  const [rememberMe, setRememberMe]           = useState(true);
+  const [error, setError]                     = useState('');
+  const [info, setInfo]                       = useState('');
+  const [busy, setBusy]                       = useState(false);
+  const [googleBusy, setGoogleBusy]           = useState(false);
 
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
@@ -30,6 +64,21 @@ export default function AuthPage() {
       navigate(role === 'admin' ? '/admin' : '/journal', { replace: true });
     }
   }, [loading, role, navigate]);
+
+  async function handleGoogleClick() {
+    if (!supabase) {
+      setError('Google sign-in requires Supabase to be configured. Please use email and password.');
+      return;
+    }
+    setGoogleBusy(true);
+    setError('');
+    const ok = await handleGoogleSignIn();
+    if (!ok) {
+      setError('Google sign-in failed. Please try again.');
+      setGoogleBusy(false);
+    }
+    // on success the page redirects — no need to reset
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,40 +109,75 @@ export default function AuthPage() {
           setInfo('Account created! Signing you in…');
         }
         setMode('login');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setFullName('');
+        setEmail(''); setPassword(''); setConfirmPassword('');
+        setFullName(''); setCountry('');
       }
     } finally {
       setBusy(false);
     }
   }
 
-  const disabled = loading || busy;
+  const disabled = loading || busy || googleBusy;
+
+  function switchMode(m: Mode) {
+    setMode(m);
+    setError('');
+    setInfo('');
+  }
 
   return (
     <div style={S.page}>
       <style>{`
         @keyframes auth-spin { to { transform: rotate(360deg); } }
-        .auth-input { width:100%; box-sizing:border-box; background:#0e1420; border:1px solid #1a2540; border-radius:8px; padding:14px 16px; color:#e2e8f0; font-size:14px; font-family:'Poppins','Inter',sans-serif; outline:none; transition:border-color 0.2s; }
-        .auth-input::placeholder { color:#3d5070; }
-        .auth-input:focus { border-color:#2563eb; }
-        .auth-input:disabled { opacity:0.5; }
-        .auth-pass-wrap { position:relative; }
-        .auth-pass-wrap .auth-input { padding-right:44px; }
-        .auth-eye { position:absolute; right:14px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#3d5070; padding:0; display:flex; align-items:center; transition:color 0.15s; }
-        .auth-eye:hover { color:#94a3b8; }
-        .auth-btn { width:100%; padding:14px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:700; font-family:'Poppins','Inter',sans-serif; cursor:pointer; letter-spacing:0.02em; transition:background 0.2s; }
-        .auth-btn:hover:not(:disabled) { background:#1d4ed8; }
-        .auth-btn:disabled { opacity:0.6; cursor:not-allowed; }
-        .auth-link { background:none; border:none; color:#3b82f6; font-size:14px; cursor:pointer; font-family:'Poppins','Inter',sans-serif; font-weight:500; padding:0; transition:color 0.15s; }
-        .auth-link:hover { color:#60a5fa; }
-        .auth-footer-link { color:#3d5070; font-size:12px; text-decoration:none; font-family:'Poppins','Inter',sans-serif; transition:color 0.15s; }
-        .auth-footer-link:hover { color:#94a3b8; }
-        .auth-check { width:16px; height:16px; accent-color:#2563eb; cursor:pointer; }
-        .auth-divider { display:flex; align-items:center; gap:12px; }
-        .auth-divider-line { flex:1; height:1px; background:#1a2540; }
+        .auth-input {
+          width: 100%; box-sizing: border-box;
+          background: #0e1420; border: 1px solid #1a2540; border-radius: 8px;
+          padding: 14px 16px; color: #e2e8f0; font-size: 14px;
+          font-family: 'Poppins','Inter',sans-serif; outline: none;
+          transition: border-color 0.2s;
+        }
+        .auth-input::placeholder { color: #3d5070; }
+        .auth-input:focus { border-color: #2563eb; }
+        .auth-input:disabled { opacity: 0.5; }
+        select.auth-input option { background: #0e1420; color: #e2e8f0; }
+        .auth-pass-wrap { position: relative; }
+        .auth-pass-wrap .auth-input { padding-right: 44px; }
+        .auth-eye {
+          position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+          background: none; border: none; cursor: pointer; color: #3d5070;
+          padding: 0; display: flex; align-items: center; transition: color 0.15s;
+        }
+        .auth-eye:hover { color: #94a3b8; }
+        .auth-btn {
+          width: 100%; padding: 14px; background: #2563eb; color: #fff;
+          border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
+          font-family: 'Poppins','Inter',sans-serif; cursor: pointer;
+          letter-spacing: 0.02em; transition: background 0.2s;
+        }
+        .auth-btn:hover:not(:disabled) { background: #1d4ed8; }
+        .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .auth-google-btn {
+          width: 100%; padding: 13px 16px;
+          background: transparent; border: 1px solid #1e3a5f;
+          border-radius: 8px; color: #e2e8f0; font-size: 14px; font-weight: 600;
+          font-family: 'Poppins','Inter',sans-serif; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .auth-google-btn:hover:not(:disabled) { border-color: #3b82f6; background: rgba(59,130,246,0.06); }
+        .auth-google-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .auth-link {
+          background: none; border: none; color: #3b82f6; font-size: 14px;
+          cursor: pointer; font-family: 'Poppins','Inter',sans-serif;
+          font-weight: 500; padding: 0; transition: color 0.15s;
+        }
+        .auth-link:hover { color: #60a5fa; }
+        .auth-footer-link {
+          color: #3d5070; font-size: 12px; text-decoration: none;
+          font-family: 'Poppins','Inter',sans-serif; transition: color 0.15s;
+        }
+        .auth-footer-link:hover { color: #94a3b8; }
+        .auth-check { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; }
       `}</style>
 
       {/* Logo */}
@@ -106,126 +190,154 @@ export default function AuthPage() {
       </div>
 
       {/* Heading */}
-      <h1 style={S.title}>
-        {mode === 'login' ? 'Welcome back' : 'Create account'}
-      </h1>
+      <h1 style={S.title}>{mode === 'login' ? 'Welcome back' : 'Create account'}</h1>
       <p style={S.sub}>
         {mode === 'login' ? 'Sign in to continue.' : 'Join My FM | Journal and start tracking your trades.'}
       </p>
 
-      {/* Loading indicator */}
-      {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
-          <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(59,130,246,0.25)', borderTopColor: '#3b82f6', animation: 'auth-spin 0.8s linear infinite' }} />
-          <span style={{ fontSize: 11, color: '#3d5070' }}>Checking session…</span>
-        </div>
-      )}
+      <div style={S.form}>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} style={S.form}>
-        {mode === 'signup' && (
-          <input
-            className="auth-input"
-            type="text"
-            placeholder="Full Name"
-            value={fullName}
-            onChange={e => setFullName(e.target.value)}
-            required
-            disabled={disabled}
-            autoComplete="name"
-          />
-        )}
+        {/* Google button */}
+        <button className="auth-google-btn" type="button" onClick={handleGoogleClick} disabled={disabled}>
+          {googleBusy ? (
+            <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', animation: 'auth-spin 0.7s linear infinite' }} />
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              <path fill="none" d="M0 0h48v48H0z"/>
+            </svg>
+          )}
+          {mode === 'login' ? 'Continue with Google' : 'Sign up with Google'}
+        </button>
 
-        <input
-          className="auth-input"
-          type="email"
-          placeholder="Email Address"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          disabled={disabled}
-          autoComplete="email"
-        />
-
-        <div className="auth-pass-wrap">
-          <input
-            className="auth-input"
-            type={showPass ? 'text' : 'password'}
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            disabled={disabled}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          />
-          <button type="button" className="auth-eye" onClick={() => setShowPass(v => !v)} tabIndex={-1}>
-            {showPass ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            )}
-          </button>
+        {/* Divider */}
+        <div className="auth-divider" style={{ margin: '2px 0' }}>
+          <div className="auth-divider-line" />
+          <span style={{ color: '#3d5070', fontSize: 12, whiteSpace: 'nowrap', fontFamily: "'Poppins','Inter',sans-serif" }}>
+            or sign in with email
+          </span>
+          <div className="auth-divider-line" />
         </div>
 
-        {mode === 'signup' && (
+        {/* Email form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {mode === 'signup' && (
+            <input
+              className="auth-input"
+              type="text"
+              placeholder="Full Name"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              required
+              disabled={disabled}
+              autoComplete="name"
+            />
+          )}
+
+          <input
+            className="auth-input"
+            type="email"
+            placeholder="Email Address"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            disabled={disabled}
+            autoComplete="email"
+          />
+
           <div className="auth-pass-wrap">
             <input
               className="auth-input"
-              type={showConfirm ? 'text' : 'password'}
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
+              type={showPass ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               required
               disabled={disabled}
-              autoComplete="new-password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
-            <button type="button" className="auth-eye" onClick={() => setShowConfirm(v => !v)} tabIndex={-1}>
-              {showConfirm ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              )}
+            <button type="button" className="auth-eye" onClick={() => setShowPass(v => !v)} tabIndex={-1}>
+              <EyeIcon open={showPass} />
             </button>
           </div>
-        )}
 
-        {/* Remember me / Forgot password row — login only */}
-        {mode === 'login' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                className="auth-check"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-              />
-              <span style={{ color: '#94a3b8', fontSize: 13, fontFamily: "'Poppins','Inter',sans-serif" }}>Keep me logged in</span>
-            </label>
-            <button type="button" className="auth-link" style={{ fontSize: 13, fontWeight: 600 }}>
-              Forgot Password?
+          {mode === 'signup' && (
+            <>
+              <div className="auth-pass-wrap">
+                <input
+                  className="auth-input"
+                  type={showConfirm ? 'text' : 'password'}
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={disabled}
+                  autoComplete="new-password"
+                />
+                <button type="button" className="auth-eye" onClick={() => setShowConfirm(v => !v)} tabIndex={-1}>
+                  <EyeIcon open={showConfirm} />
+                </button>
+              </div>
+
+              <select
+                className="auth-input"
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+                required
+                disabled={disabled}
+                style={{ appearance: 'none', cursor: 'pointer', color: country ? '#e2e8f0' : '#3d5070' }}
+              >
+                <option value="" disabled>Country</option>
+                {COUNTRIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {/* Remember me / Forgot password — login only */}
+          {mode === 'login' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  className="auth-check"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                />
+                <span style={{ color: '#94a3b8', fontSize: 13, fontFamily: "'Poppins','Inter',sans-serif" }}>Keep me logged in</span>
+              </label>
+              <button type="button" className="auth-link" style={{ fontSize: 13, fontWeight: 600 }}>
+                Forgot Password?
+              </button>
+            </div>
+          )}
+
+          {error && <div style={S.error}>{error}</div>}
+          {info  && <div style={S.infoBox}>{info}</div>}
+
+          <button className="auth-btn" type="submit" disabled={disabled}>
+            {busy ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
+          </button>
+        </form>
+
+        {/* Switch mode */}
+        <div style={{ textAlign: 'center', marginTop: 4 }}>
+          {mode === 'login' ? (
+            <button className="auth-link" onClick={() => switchMode('signup')}>
+              Create an account
             </button>
-          </div>
-        )}
+          ) : (
+            <button className="auth-link" onClick={() => switchMode('login')}>
+              Already have an account? Sign in
+            </button>
+          )}
+        </div>
 
-        {error && <div style={S.error}>{error}</div>}
-        {info  && <div style={S.infoBox}>{info}</div>}
-
-        <button className="auth-btn" type="submit" disabled={disabled}>
-          {busy ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
-        </button>
-      </form>
-
-      {/* Switch mode */}
-      <div style={{ marginTop: 20, textAlign: 'center' }}>
-        {mode === 'login' ? (
-          <button className="auth-link" onClick={() => { setMode('signup'); setError(''); setInfo(''); }}>
-            Create an account
-          </button>
-        ) : (
-          <button className="auth-link" onClick={() => { setMode('login'); setError(''); setInfo(''); }}>
-            Already have an account? Sign in
-          </button>
-        )}
       </div>
 
       {/* Footer links */}
@@ -235,6 +347,21 @@ export default function AuthPage() {
         <a href="/support" className="auth-footer-link">Support</a>
       </div>
     </div>
+  );
+}
+
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  ) : (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
   );
 }
 
@@ -274,19 +401,6 @@ const S: Record<string, React.CSSProperties> = {
     fontSize: 14,
     margin: '0 0 28px',
     textAlign: 'center',
-  },
-  notice: {
-    background: 'rgba(59,130,246,0.08)',
-    border: '1px solid rgba(59,130,246,0.2)',
-    borderRadius: 8,
-    padding: '10px 16px',
-    marginBottom: 20,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 1.6,
-    width: '100%',
-    maxWidth: 460,
-    boxSizing: 'border-box' as const,
   },
   form: {
     display: 'flex',
