@@ -1298,6 +1298,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (outcome === "Loss" && s2.stopLossDistancePips) {
       const slPips = parseFloat(s2.stopLossDistancePips);
       if (!isNaN(slPips) && slPips > 0) s4Up.pipsGainedLost = String(-Math.abs(slPips));
+    } else if (outcome !== "Loss" && s2.takeProfitDistancePips) {
+      const tpPips = parseFloat(s2.takeProfitDistancePips);
+      if (!isNaN(tpPips) && tpPips > 0)
+        s4Up.pipsGainedLost = outcome === "BE" ? "0" : String(Math.abs(tpPips));
     }
 
     if (Object.keys(s4Up).length === 0) return;
@@ -1308,7 +1312,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       Object.keys(s4Up).forEach(k => { if (!next.has(k)) { next.add(k); changed = true; } });
       return changed ? next : prev;
     });
-  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.exitScreenshot, effectiveBalance, s4.monetaryRisk]);
+  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.takeProfitDistancePips, s2.exitScreenshot, effectiveBalance, s4.monetaryRisk]);
 
   // ── Auto-fill achievedRR based on outcome (when no exit screenshot) ─────────
   // Loss → "1:-1", BE → "1:0", Win (or no outcome yet) → copy Planned R:R

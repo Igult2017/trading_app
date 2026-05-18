@@ -486,6 +486,7 @@ export const tradingSessions = pgTable("trading_sessions", {
   startingBalance: decimal("starting_balance", { precision: 12, scale: 2 }).notNull(),
   status: text("status").default("active"),
   createdAt: timestamp("created_at").defaultNow(),
+  brokerTimezone: integer("broker_timezone").default(2),
 });
 
 // ✅ FIX: Override drizzle-zod's auto-generated decimal validator for startingBalance.
@@ -504,6 +505,7 @@ export const insertTradingSessionSchema = createInsertSchema(tradingSessions)
         return num.toFixed(2);
       }),
     sessionName: z.string().min(1, 'Session name is required').trim(),
+    brokerTimezone: z.number().int().optional(),
   });
 
 export type InsertTradingSession = z.infer<typeof insertTradingSessionSchema>;
