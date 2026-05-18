@@ -1254,40 +1254,36 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   };
 
   // ── Auto-calc monetary fields ──────────────────────────────────────────────
+  // Deps deliberately exclude s4.monetaryRisk: the effect writes that field,
+  // so including it in deps creates a feedback loop that can fire a second time
+  // with a stale achievedRRNum = 0 and overwrite P&L with "0.00".
+  // All real triggers (balance, riskPercent, achievedRR, plannedRR) are included.
   useEffect(() => {
     const s4Up: Record<string,string> = {};
     const outcome      = s2.outcome as "Win"|"Loss"|"BE";
     const plannedRRNum = parseRRNum(s4.plannedRR);
 
-    // Use achievedRR if it has any value (typed by user, set by OCR, or
-    // auto-filled from plannedRR). Fall back to plannedRR if achievedRR is
-    // still empty — this covers the same-render-pass case where the auto-fill
-    // effect has fired but its setS4 hasn't committed yet, and also the case
-    // where the user never touched achievedRR at all (e.g. no exit screenshot
-    // was uploaded). This is pure state — no ref needed — so it is always
-    // reactive and never requires the user to manually "touch" the field.
+    // P&L = balance × risk% × achievedRR.
+    // Fall back to plannedRR when achievedRR hasn't been set yet — covers the
+    // case where the auto-fill effect hasn't committed its state update yet.
     const effectiveAchievedRR = s4.achievedRR || s4.plannedRR;
     const achievedRRNum = parseRRNum(effectiveAchievedRR);
 
     // ── Monetary risk ─────────────────────────────────────────────────────────
-    // Primary: balance × risk % (requires both to be available).
-    // Fallback: whatever the user already typed in the Monetary Risk $ field —
-    // this covers the case where the session balance query is still in-flight
-    // or the session has no starting balance configured.
     const riskPct = parseFloat(s2.riskPercent);
     let monetaryRisk = 0;
     if (riskPct > 0 && effectiveBalance > 0) {
       monetaryRisk = calcDollarRisk(effectiveBalance, riskPct);
       s4Up.monetaryRisk = monetaryRisk.toFixed(2);
-    } else {
-      monetaryRisk = parseFloat(s4.monetaryRisk) || 0;
     }
+    // No else-fallback from s4.monetaryRisk — that path was the source of the
+    // circular dep. If balance isn't loaded yet the effect will re-fire once
+    // effectiveBalance becomes non-zero.
 
     if (plannedRRNum > 0 && monetaryRisk > 0)
       s4Up.potentialReward = (monetaryRisk * plannedRRNum).toFixed(2);
 
-    // ── P&L ───────────────────────────────────────────────────────────────────
-    // Simple: P&L = achievedRR × monetaryRisk  (sign preserved — negative RR → negative P&L)
+    // ── P&L = achievedRR × monetary risk ──────────────────────────────────────
     if (monetaryRisk > 0 && effectiveAchievedRR) {
       const pnl = achievedRRNum * monetaryRisk;
       s4Up.profitLoss = pnl.toFixed(2);
@@ -1312,7 +1308,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       Object.keys(s4Up).forEach(k => { if (!next.has(k)) { next.add(k); changed = true; } });
       return changed ? next : prev;
     });
-  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.takeProfitDistancePips, s2.exitScreenshot, effectiveBalance, s4.monetaryRisk]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s2.riskPercent, s2.outcome, s4.achievedRR, s4.plannedRR, s2.stopLossDistancePips, s2.takeProfitDistancePips, s2.exitScreenshot, effectiveBalance]);
 
   // ── Auto-fill achievedRR based on outcome (when no exit screenshot) ─────────
   // Loss → "1:-1", BE → "1:0", Win (or no outcome yet) → copy Planned R:R
