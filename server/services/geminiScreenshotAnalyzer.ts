@@ -6,6 +6,7 @@ export function isGeminiScreenshotAvailable(): boolean {
 
 export async function analyzeScreenshotWithGemini(
   base64Image: string,
+  brokerTimezone?: number | null,
 ): Promise<{ success: boolean; fields?: Record<string, any>; method?: string; error?: string }> {
-  return extractFromScreenshot(base64Image);
+  return extractFromScreenshot(base64Image, brokerTimezone);
 }

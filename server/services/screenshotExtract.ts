@@ -22,7 +22,45 @@ function getAI(): GoogleGenAI {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const EXTRACTION_PROMPT = `You are an expert trading chart and platform screenshot analyzer. Your job is to extract EVERY piece of visible trading data from the screenshot with maximum precision.
+const TZ_LABELS: Record<number, string> = {
+  0: "UTC+0 (London winter / GMT)",
+  1: "UTC+1 (London summer / BST)",
+  2: "UTC+2 (Broker EET winter)",
+  3: "UTC+3 (Broker EEST summer)",
+};
+
+function buildExtractionPrompt(brokerTimezone?: number | null): string {
+  // Build the timezone + session derivation block when we know the offset
+  const tzBlock = brokerTimezone != null ? `
+═══════════════════════════════════════════
+BROKER CHART TIMEZONE — AUTHORITATIVE (do not guess or override)
+═══════════════════════════════════════════
+The trader's broker charts are set to UTC+${brokerTimezone} (${TZ_LABELS[brokerTimezone] ?? `UTC+${brokerTimezone}`}).
+Every timestamp shown on this chart is in UTC+${brokerTimezone} — NOT UTC.
+
+SESSION AND SESSION PHASE — derive directly from the entry time you read off the chart:
+  Step 1: Convert the chart time to UTC:  UTC hour = (chart hour) − ${brokerTimezone}
+  Step 2: Map the UTC hour to the correct session + phase using these exact rules:
+    UTC 21:00–23:59 or 00:00–00:59  →  sessionName: "Sydney",   sessionPhase: "Open"
+    UTC 01:00–02:59                 →  sessionName: "Tokyo",    sessionPhase: "Open"
+    UTC 03:00–05:59                 →  sessionName: "Tokyo",    sessionPhase: "Mid"
+    UTC 06:00–06:59                 →  sessionName: "Tokyo",    sessionPhase: "Close"
+    UTC 07:00–09:59                 →  sessionName: "London",   sessionPhase: "Open"
+    UTC 10:00–12:59                 →  sessionName: "London",   sessionPhase: "Mid"
+    UTC 13:00–15:59                 →  sessionName: "Overlap",  sessionPhase: "Open"
+    UTC 16:00–18:59                 →  sessionName: "New York", sessionPhase: "Mid"
+    UTC 19:00–20:59                 →  sessionName: "New York", sessionPhase: "Close"
+  Example: chart shows 10:30 and timezone is UTC+2 → UTC = 08:30 → London Open.
+  Set brokerTimezone to ${brokerTimezone} (the value you have been told — do not change it).
+` : `
+SESSION AND SESSION PHASE — if you can read the entry time and identify the broker timezone from
+the chart (e.g. MT4/MT5 servers default to UTC+2 winter / UTC+3 summer; TradingView shows the
+timezone in the chart footer), derive sessionName and sessionPhase using the same UTC-conversion
+rules above. If you cannot determine the timezone with confidence, return null for both.
+Set brokerTimezone to the UTC offset integer you identified (e.g. 2 for UTC+2), or null if unknown.
+`;
+
+  return `You are an expert trading chart and platform screenshot analyzer. Your job is to extract EVERY piece of visible trading data from the screenshot with maximum precision.
 
 Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fields. Use null only when a value is genuinely not visible anywhere in the image — never omit a field, never guess, never leave data on the screen un-extracted.
 
@@ -53,6 +91,8 @@ Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fi
   "entryTime": "YYYY-MM-DDTHH:mm:ss or null",
   "exitTime": "YYYY-MM-DDTHH:mm:ss or null",
   "brokerTimezone": number or null,
+  "sessionName": "Sydney or Tokyo or London or Overlap or New York or null",
+  "sessionPhase": "Open or Mid or Close or null",
   "dayOfWeek": "Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday or null",
   "outcome": "Win or Loss or BE or Open",
   "openPLPips": number or null,
@@ -68,6 +108,7 @@ Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fi
   "spreadInfo": "any spread data visible or null",
   "additionalNotes": "any other relevant data visible on chart or null"
 }
+${tzBlock}
 
 ═══════════════════════════════════════════
 CRITICAL EXTRACTION RULES — READ CAREFULLY
@@ -192,6 +233,7 @@ GENERAL:
 - Scan EVERY pixel of text — overlays, labels, indicators, info panels, history tables, column headers
 - Be precise: copy numbers exactly as shown, do not round or estimate
 - Return ONLY the raw JSON object, absolutely no markdown, no explanation`;
+}
 
 // ── Model fallback chain ──────────────────────────────────────────────────────
 //
@@ -378,9 +420,30 @@ function parseGeminiJson(text: string): Record<string, any> {
   throw new Error(`Could not parse JSON from Gemini response: ${text.slice(0, 200)}`);
 }
 
-function mapToJournalFields(extracted: Record<string, any>): Record<string, any> {
-  const tzOffset = typeof extracted.brokerTimezone === "number" ? extracted.brokerTimezone : null;
-  const session  = deriveSession(extracted.entryTime ?? null, tzOffset);
+function mapToJournalFields(extracted: Record<string, any>, knownTz?: number | null): Record<string, any> {
+  // Session resolution priority:
+  //   1. Gemini's own sessionName/sessionPhase when it was told the authoritative timezone (knownTz)
+  //   2. Server-side derivation from entryTime + timezone (either knownTz or what Gemini guessed)
+  //   3. null
+  let sessionName:  string | null = null;
+  let sessionPhase: string | null = null;
+
+  const tzOffset = knownTz != null ? knownTz
+    : (typeof extracted.brokerTimezone === "number" ? extracted.brokerTimezone : null);
+
+  if (knownTz != null && extracted.sessionName && extracted.sessionPhase) {
+    // Gemini was given the authoritative timezone and returned a session — trust it
+    sessionName  = extracted.sessionName  ?? null;
+    sessionPhase = extracted.sessionPhase ?? null;
+  }
+
+  // Always run the deterministic server-side derivation as a fallback / sanity check
+  const serverSession = deriveSession(extracted.entryTime ?? null, tzOffset);
+  if (!sessionName && serverSession.sessionName) {
+    sessionName  = serverSession.sessionName;
+    sessionPhase = serverSession.sessionPhase;
+  }
+
   const duration = computeDuration(extracted.entryTime ?? null, extracted.exitTime ?? null);
   const lotSize  = normalizeLotSize(extracted.lotSize);
 
@@ -412,8 +475,8 @@ function mapToJournalFields(extracted: Record<string, any>): Record<string, any>
     dayOfWeek:              extracted.dayOfWeek            ?? null,
     tradeDuration:          duration,
     outcome:                normalizeOutcome(extracted.outcome),
-    sessionName:            session.sessionName,
-    sessionPhase:           session.sessionPhase,
+    sessionName,
+    sessionPhase,
     primaryExitReason:      extracted.primaryExitReason    ?? null,
     openPLPips:             extracted.openPLPips           ?? null,
     closedPLPips:           extracted.closedPLPips         ?? null,
@@ -444,6 +507,7 @@ function detectMime(dataUri: string): string {
 
 export async function extractFromScreenshot(
   base64Image: string,
+  brokerTimezone?: number | null,
 ): Promise<{ success: boolean; fields?: Record<string, any>; method?: string; modelUsed?: string; error?: string }> {
   if (!process.env.GOOGLE_API_KEY) {
     return { success: false, method: "gemini", error: "GOOGLE_API_KEY not set" };
@@ -452,6 +516,11 @@ export async function extractFromScreenshot(
   const ai = getAI();
   const mimeType = detectMime(base64Image);
   const imageData = base64Image.includes(",") ? base64Image.split(",")[1] : base64Image;
+  const prompt    = buildExtractionPrompt(brokerTimezone);
+
+  if (brokerTimezone != null) {
+    console.log(`[GeminiScreenshot] Injecting broker timezone UTC+${brokerTimezone} into prompt`);
+  }
 
   let lastError: Error | null = null;
 
@@ -479,7 +548,7 @@ export async function extractFromScreenshot(
           {
             role: "user",
             parts: [
-              { text: EXTRACTION_PROMPT },
+              { text: prompt },
               { inlineData: { mimeType, data: imageData } },
             ],
           },
@@ -491,7 +560,7 @@ export async function extractFromScreenshot(
 
       const text = response.text ?? "";
       const extracted = parseGeminiJson(text);
-      const fields = mapToJournalFields(extracted);
+      const fields = mapToJournalFields(extracted, brokerTimezone);
       return { success: true, fields, method: "gemini", modelUsed: model };
 
     } catch (err: any) {

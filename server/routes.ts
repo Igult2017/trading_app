@@ -961,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ── Prefer Gemini when GOOGLE_API_KEY is available ──────────────────────
       if (isGeminiScreenshotAvailable()) {
         console.log("[Screenshot] Using Gemini vision extraction");
-        const geminiResult = await analyzeScreenshotWithGemini(image);
+        const geminiResult = await analyzeScreenshotWithGemini(image, sessionBrokerTz);
         if (geminiResult.success && geminiResult.fields) {
           geminiResult.fields = normalizeFields(geminiResult.fields);
           const f = geminiResult.fields;
