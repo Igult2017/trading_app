@@ -486,6 +486,7 @@ export async function initializeDatabase() {
 
     // ── Column additions for existing tables (safe — IF NOT EXISTS) ──────────
     const columnAdditions = [
+      `ALTER TABLE trading_sessions ADD COLUMN IF NOT EXISTS broker_timezone INTEGER DEFAULT 2`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name  TEXT DEFAULT ''`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country    TEXT DEFAULT ''`,

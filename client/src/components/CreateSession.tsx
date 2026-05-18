@@ -8,8 +8,34 @@ interface SessionData {
   id: string;
   sessionName: string;
   startingBalance: string;
+  brokerTimezone: number | null;
   status: string | null;
   createdAt: string | null;
+}
+
+const TZ_OPTIONS = [
+  { value: "0",  label: "UTC+0  (London winter / GMT)" },
+  { value: "1",  label: "UTC+1  (London summer / BST)" },
+  { value: "2",  label: "UTC+2  (Broker EET winter)" },
+  { value: "3",  label: "UTC+3  (Broker EEST summer)" },
+];
+
+function SCSelect({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="sc-input"
+        style={{
+          width: "100%", background: MC.bg, border: `1px solid ${MC.border}`,
+          padding: "10px 12px", color: MC.white,
+          fontFamily: MONO, fontSize: 12, letterSpacing: "0.04em",
+          boxSizing: "border-box", appearance: "none",
+        }}>
+        {TZ_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ background: MC.bg }}>{o.label}</option>)}
+      </select>
+    </div>
+  );
 }
 
 interface CreateSessionFormProps {
@@ -308,10 +334,11 @@ function SCField({ label, value, onChange, type = "text", placeholder, autoFocus
 function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
   const [name, setName] = useState('');
   const [balance, setBalance] = useState('');
+  const [tz, setTz] = useState('2');
   const [error, setError] = useState('');
 
   const createMutation = useMutation({
-    mutationFn: async (data: { sessionName: string; startingBalance: number }) => {
+    mutationFn: async (data: { sessionName: string; startingBalance: number; brokerTimezone: number }) => {
       const res = await apiRequest('POST', '/api/sessions', data);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -332,13 +359,14 @@ function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreat
     if (!name.trim()) { setError('Please enter a session name.'); return; }
     const bal = parseFloat(balance);
     if (!balance || isNaN(bal) || bal < 0) { setError('Please enter a valid starting balance.'); return; }
-    createMutation.mutate({ sessionName: name.trim().toUpperCase(), startingBalance: bal });
+    createMutation.mutate({ sessionName: name.trim().toUpperCase(), startingBalance: bal, brokerTimezone: parseInt(tz) });
   };
 
   return (
     <SCModal title="new session" onClose={onClose}>
       <SCField label="session name" value={name} onChange={(e) => setName(e.target.value)} placeholder="alpha-01" autoFocus />
       <SCField label="starting balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" placeholder="5000" />
+      <SCSelect label="broker chart timezone" value={tz} onChange={setTz} />
       {error && (
         <div style={{ fontSize: 10, color: MC.red, marginBottom: 12, fontFamily: MONO }}>{error}</div>
       )}
@@ -353,10 +381,11 @@ function GhostCreateModal({ onClose, onCreated }: { onClose: () => void; onCreat
 function EditSessionModal({ session, onClose }: { session: SessionData; onClose: () => void }) {
   const [name, setName] = useState(session.sessionName);
   const [balance, setBalance] = useState(session.startingBalance);
+  const [tz, setTz] = useState(String(session.brokerTimezone ?? 2));
   const [error, setError] = useState('');
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { sessionName: string; startingBalance: string }) => {
+    mutationFn: async (data: { sessionName: string; startingBalance: string; brokerTimezone: number }) => {
       const res = await apiRequest('PUT', `/api/sessions/${session.id}`, data);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -376,13 +405,14 @@ function EditSessionModal({ session, onClose }: { session: SessionData; onClose:
     if (!name.trim()) { setError('Please enter a session name.'); return; }
     const bal = parseFloat(balance);
     if (!balance || isNaN(bal) || bal < 0) { setError('Please enter a valid starting balance.'); return; }
-    updateMutation.mutate({ sessionName: name.trim().toUpperCase(), startingBalance: String(bal) });
+    updateMutation.mutate({ sessionName: name.trim().toUpperCase(), startingBalance: String(bal), brokerTimezone: parseInt(tz) });
   };
 
   return (
     <SCModal title="edit session" onClose={onClose}>
       <SCField label="session name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       <SCField label="starting balance ($)" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" />
+      <SCSelect label="broker chart timezone" value={tz} onChange={setTz} />
       {error && (
         <div style={{ fontSize: 10, color: MC.red, marginBottom: 12, fontFamily: MONO }}>{error}</div>
       )}

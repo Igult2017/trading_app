@@ -1469,7 +1469,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         setAnalyzing(true);
         setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: "" }));
         try {
-          const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field });
+          const raw = await apiRequest("POST", "/api/journal/analyze-screenshot", { image: value, field, sessionId });
           const res = await raw.json();
           if (res?.fields) {
             applyAnalyzedFields(res.fields, res.confidence ?? "high");

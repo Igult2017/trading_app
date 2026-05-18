@@ -890,11 +890,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- Journal Entry Routes ---
 
+  // Re-derive forex session + phase from a broker-local timestamp and a known UTC offset.
+  // Mirrors the Python derive_session() logic so the Node route can apply the override
+  // without a second Python call.
+  function deriveSessionFromTime(entryTime: string, brokerTzOffset: number): { sessionName: string | null; sessionPhase: string | null } {
+    try {
+      const dt = new Date(entryTime);
+      if (isNaN(dt.getTime())) return { sessionName: null, sessionPhase: null };
+      // Shift broker local → UTC
+      const utcHour = new Date(dt.getTime() - brokerTzOffset * 3_600_000).getUTCHours();
+      if (utcHour >= 21)             return { sessionName: "Sydney",    sessionPhase: "Open"  };
+      if (utcHour < 3)               return { sessionName: "Tokyo",     sessionPhase: "Open"  };
+      if (utcHour < 6)               return { sessionName: "Tokyo",     sessionPhase: "Mid"   };
+      if (utcHour < 7)               return { sessionName: "Tokyo",     sessionPhase: "Close" };
+      if (utcHour < 10)              return { sessionName: "London",    sessionPhase: "Open"  };
+      if (utcHour < 13)              return { sessionName: "London",    sessionPhase: "Mid"   };
+      if (utcHour < 16)              return { sessionName: "Overlap",   sessionPhase: "Open"  };
+      if (utcHour < 19)              return { sessionName: "New York",  sessionPhase: "Mid"   };
+                                     return { sessionName: "New York",  sessionPhase: "Close" };
+    } catch { return { sessionName: null, sessionPhase: null }; }
+  }
+
   app.post("/api/journal/analyze-screenshot", async (req, res) => {
     try {
-      const { image } = req.body;
+      const { image, sessionId } = req.body;
       if (!image) {
         return res.status(400).json({ error: "No image provided" });
+      }
+
+      // Look up this session's stored broker timezone (if a sessionId was sent).
+      let sessionBrokerTz: number | null = null;
+      if (sessionId) {
+        try {
+          const result = await pool.query(
+            `SELECT broker_timezone FROM trading_sessions WHERE id = $1 LIMIT 1`,
+            [sessionId]
+          );
+          if (result.rows[0]?.broker_timezone != null) {
+            sessionBrokerTz = parseInt(result.rows[0].broker_timezone, 10);
+          }
+        } catch { /* non-fatal — proceed without override */ }
       }
 
       // Normalize timestamps to YYYY-MM-DDTHH:MM format required by datetime-local inputs.
@@ -905,14 +940,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Field normalization applied to any result (OCR or Gemini).
-      // Bridges naming differences between the two pipelines and the frontend form.
+      // Also re-derives session/phase using the session's stored broker timezone when available,
+      // overriding whatever Gemini guessed from the chart image.
       const normalizeFields = (f: Record<string, any>): Record<string, any> => {
-        // Pips: OCR uses stopLossPips / takeProfitPips; frontend reads stopLossDistancePips / takeProfitDistancePips
         if (f.stopLossDistancePips == null && f.stopLossPips != null)   f.stopLossDistancePips   = f.stopLossPips;
         if (f.takeProfitDistancePips == null && f.takeProfitPips != null) f.takeProfitDistancePips = f.takeProfitPips;
-        // Timestamps: must be YYYY-MM-DDTHH:MM for datetime-local inputs
         f.entryTime = normTs(f.entryTime);
         f.exitTime  = normTs(f.exitTime);
+        // Override session/phase with authoritative timezone when available
+        if (sessionBrokerTz !== null && f.entryTime) {
+          const override = deriveSessionFromTime(f.entryTime, sessionBrokerTz);
+          if (override.sessionName) {
+            f.sessionName  = override.sessionName;
+            f.sessionPhase = override.sessionPhase;
+          }
+        }
         return f;
       };
 
@@ -923,11 +965,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (geminiResult.success && geminiResult.fields) {
           geminiResult.fields = normalizeFields(geminiResult.fields);
           const f = geminiResult.fields;
-          console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} lotSize:${f.lotSize} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
+          console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} lotSize:${f.lotSize} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime} session:${f.sessionName}/${f.sessionPhase}`);
           return res.json({ ...geminiResult, method: "gemini", confidence: "high" });
         }
         console.error(`[Screenshot] Gemini failed: ${geminiResult.error} — falling back to OCR`);
-        // Return gemini error to client so user sees it; still try OCR below
       }
 
       // ── Fallback: local OCR pipeline ────────────────────────────────────────
@@ -936,7 +977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (ocrResult.success && ocrResult.fields) {
         ocrResult.fields = normalizeFields(ocrResult.fields);
         const f = ocrResult.fields;
-        console.log(`[OCR] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} slPips:${f.stopLossDistancePips} tpPips:${f.takeProfitDistancePips}`);
+        console.log(`[OCR] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} session:${f.sessionName}/${f.sessionPhase}`);
         return res.json({ ...ocrResult, method: "ocr", confidence: "medium" });
       }
 
