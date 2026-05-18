@@ -96,11 +96,12 @@ class QAWorker {
   }
 
   ask(payload: {
-    trades:           any[];
-    question:         string;
-    messages?:        Array<{ role: string; content: string }>;
-    metrics_context?: Record<string, any>;
-    model?:           string;
+    trades:            any[];
+    question:          string;
+    messages?:         Array<{ role: string; content: string }>;
+    metrics_context?:  Record<string, any>;
+    broker_timezone?:  number;
+    model?:            string;
   }): Promise<string> {
     return new Promise((resolve, reject) => {
       const child = this.ensureRunning();
@@ -133,6 +134,7 @@ export async function askTraderAI(payload: {
   metrics_context?:  Record<string, any>;
   drawdown_context?: Record<string, any>;
   audit_context?:    Record<string, any>;
+  broker_timezone?:  number;
   model?:            string;
 }): Promise<string> {
   return worker.ask(payload);

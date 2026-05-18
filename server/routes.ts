@@ -1969,8 +1969,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Pre-compute metrics, drawdown, and strategy audit in parallel so the
       // AI has the same rich context as every analytics panel.
-      const sessionObj = sessionId ? await storage.getSessionById(sessionId) : null;
-      const startingBal: number = (sessionObj as any)?.startingBalance ?? 10_000;
+      const sessionObj   = sessionId ? await storage.getSessionById(sessionId) : null;
+      const startingBal: number  = (sessionObj as any)?.startingBalance ?? 10_000;
+      const brokerTzOffset: number | undefined =
+        (sessionObj as any)?.brokerTimezone != null
+          ? parseInt(String((sessionObj as any).brokerTimezone), 10)
+          : undefined;
 
       const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
         computeMetrics(rawTrades),
@@ -2023,6 +2027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           metrics_context:   metricsContext,
           drawdown_context:  drawdownContext,
           audit_context:     auditContext,
+          broker_timezone:   brokerTzOffset,
           model: modelParam || undefined,
         });
         await appendAIChatMessage(chatId, "model", answer ?? "");

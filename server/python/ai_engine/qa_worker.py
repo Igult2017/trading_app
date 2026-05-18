@@ -56,6 +56,7 @@ def main() -> None:
             metrics_context  = req.get("metrics_context")
             drawdown_context = req.get("drawdown_context")
             audit_context    = req.get("audit_context")
+            broker_timezone  = req.get("broker_timezone")
             model_override   = req.get("model") or None
 
             answer = run_qa(
@@ -65,6 +66,7 @@ def main() -> None:
                 metrics_context=metrics_context,
                 drawdown_context=drawdown_context,
                 audit_context=audit_context,
+                broker_timezone=broker_timezone,
                 model_override=model_override,
             )
             _emit({"id": req_id, "ok": True, "answer": answer})

@@ -315,6 +315,7 @@ def run_qa(
     metrics_context:  dict | None = None,
     drawdown_context: dict | None = None,
     audit_context:    dict | None = None,
+    broker_timezone:  int  | None = None,
     model_override:   str  | None = None,
 ) -> str:
     """
@@ -327,11 +328,23 @@ def run_qa(
 
     local_answer = route_query(question, trades)
 
+    _TZ_LABELS = {
+        0: "UTC+0 (London winter / GMT)",
+        1: "UTC+1 (London summer / BST)",
+        2: "UTC+2 (Broker EET winter)",
+        3: "UTC+3 (Broker EEST summer)",
+    }
+
     payload: dict[str, Any] = {
         "_local_answer":     local_answer,
         "total_trades":      n,
         "baseline_win_rate": f"{baseline_wr:.1%}",
     }
+
+    # Broker chart timezone — tells Gemini which UTC offset the trader's charts use
+    if broker_timezone is not None:
+        tz_label = _TZ_LABELS.get(int(broker_timezone), f"UTC+{broker_timezone}")
+        payload["broker_timezone"] = f"UTC+{broker_timezone} — {tz_label}"
 
     # Rich metrics context — execution quality, P&L by instrument/session/TF
     if metrics_context:

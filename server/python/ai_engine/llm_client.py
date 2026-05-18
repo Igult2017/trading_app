@@ -269,8 +269,17 @@ def _build_qa_prompt(question: str, local_answer: str, payload: dict) -> str:
         "=" * 50,
         f"Total trades    : {payload.get('total_trades', '?')}",
         f"Baseline win rate: {payload.get('baseline_win_rate', '?')}",
-        "",
     ]
+
+    broker_tz = payload.get("broker_timezone")
+    if broker_tz:
+        lines.append(f"Broker chart timezone: {broker_tz}")
+        lines.append(
+            "  NOTE: All trade entry/exit times and session labels (London, New York, etc.) "
+            "are expressed in this timezone. When answering time-based questions, apply this offset."
+        )
+
+    lines.append("")
 
     # Metrics — execution quality, P&L, session/instrument/TF breakdown
     metrics = payload.get("metrics") or {}
