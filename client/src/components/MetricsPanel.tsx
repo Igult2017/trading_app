@@ -584,7 +584,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
         {kpis.map((k, i) => (
           <div key={i} className="mp-kpi-cell" data-testid={`metric-kpi-${i}`} style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ ...MONO, fontSize: 9, color: D.label, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 5 }}>{k.l}</div>
-            <div style={{ ...MONO, fontSize: 17, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
+            <div style={{ ...MONO, fontSize: 13, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
             <div style={{ ...MONO, fontSize: 9, color: D.sub }}>{k.s}</div>
           </div>
         ))}
