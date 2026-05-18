@@ -16,16 +16,25 @@ import { calcDollarRisk } from "@/lib/tradeCalculations";
 //   Oil       → $7  / standard lot
 //   Indices   → $6  / standard lot
 //   Stocks    → 0.1% of notional round-trip
+// Normalise lot size: brokers/platforms (MT4/MT5, cTrader) sometimes report
+// volume in raw units (e.g. 1000 = 0.01 standard lots).  Any value > 100 for a
+// retail trade is almost certainly units, not standard lots — convert it.
+function normaliseLot(raw: number): number {
+  if (raw > 100) return raw / 100_000;
+  return raw;
+}
+
 function estimateCommission(
   instrument: string,
   lotSize: string,
   entryPrice: string,
   pairCategory: string,
 ): string | null {
-  const lot   = parseFloat(lotSize);
-  const price = parseFloat(entryPrice);
-  if (!lot || lot <= 0 || isNaN(lot)) return null;
+  const rawLot = parseFloat(lotSize);
+  const price  = parseFloat(entryPrice);
+  if (!rawLot || rawLot <= 0 || isNaN(rawLot)) return null;
 
+  const lot = normaliseLot(rawLot);
   const sym = (instrument || "").toUpperCase().trim();
   const cat = (pairCategory || "").toLowerCase();
 
@@ -35,7 +44,7 @@ function estimateCommission(
     /^(BTC|ETH|XRP|BNB|SOL|ADA|DOGE|AVAX|MATIC|DOT|LINK|LTC|UNI|SHIB|TON|TRX|XLM|ATOM)\/?/i.test(sym);
   if (isCrypto) {
     if (!price || isNaN(price)) return null;
-    const notional = lot * price;
+    const notional = rawLot * price;               // crypto uses raw qty × price
     return (notional * 0.002).toFixed(2);          // 0.1% × 2 sides
   }
 
@@ -57,11 +66,10 @@ function estimateCommission(
   // ── Stocks (CFD or share) ────────────────────────────────────────────────────
   const isStock =
     cat === "stock" ||
-    // Single-word ticker that isn't a 6-char forex pair
     (/^[A-Z]{1,5}$/.test(sym) && sym.length <= 5 && !/^(EUR|GBP|USD|JPY|CHF|CAD|AUD|NZD)/.test(sym));
   if (isStock) {
     if (!price || isNaN(price)) return null;
-    return (lot * price * 0.001).toFixed(2);        // 0.05% × 2 sides
+    return (lot * price * 0.001).toFixed(2);       // 0.05% × 2 sides
   }
 
   // ── Forex default (Majors / Minors / Exotics / Metals not caught above) ─────
@@ -887,7 +895,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 }
 
 // ─── Step 4 — Review ──────────────────────────────────────────────────────────
-function Step4({ d, set, hiddenPanels, onAchievedRRChange, onCommissionManualEdit, commissionIsEst }: any) {
+function Step4({ d, set, hiddenPanels, onAchievedRRChange, onCommissionManualEdit, commissionIsEst, onProfitLossManualEdit }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
   const H = hiddenPanels as string[];
   return (
@@ -904,7 +912,9 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange, onCommissionManualEdi
         <SectionLabel>Performance Data</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Inp label="Pips / Points" type="number" placeholder="25"      value={d.pipsGainedLost} onChange={f("pipsGainedLost")} />
-          <Inp label="P&L Amount $"  type="number" placeholder="+250.00" value={d.profitLoss}     onChange={f("profitLoss")} />
+          <Inp label="P&L Amount $"  type="number" placeholder="+250.00" value={d.profitLoss}
+            onChange={(v: any) => { if (onProfitLossManualEdit) onProfitLossManualEdit(); f("profitLoss")(v); }}
+          />
           <Inp label="Account Balance" type="number" placeholder="10000" value={d.accountBalance} onChange={f("accountBalance")} />
           <Inp
             label={commissionIsEst ? "Commission / Fees  ~ est." : "Commission / Fees"}
@@ -1266,6 +1276,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   const achievedRRAutoRef     = useRef(true);  // true = auto-filled; false = user manually edited
   const commissionUserEdited  = useRef(false); // true once user manually types in the commission field
   const commissionAutoFilled  = useRef(false); // true when current value was auto-estimated
+  const pnlUserEdited         = useRef(false); // true once user manually types in the P&L field
 
   // Live journal entries (all) — filtered by sessionId for sidebar
   const { data: allEntries = [] } = useQuery<any[]>({
@@ -1382,6 +1393,43 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       setOcrFields(prev => { const n = new Set(prev); n.add("achievedRR"); return n; });
     }
   }, [s4.plannedRR, s2.exitScreenshot, s2.outcome]);
+
+  // ── Pip-based P&L fallback ─────────────────────────────────────────────────
+  // Fires when pipsGainedLost or lot size changes.  Only fills P&L when the
+  // risk-based method produced nothing (monetaryRisk == 0) and the user hasn't
+  // manually typed a value.  Formula: P&L ≈ pips × normalisedLot × pipValue
+  //   USD-quoted pairs (EURUSD, GBPUSD…): pipValue = $10/std lot
+  //   USD-base pairs   (USDJPY, USDCAD…): pipValue = $10/std lot / entry_price
+  //   Gold (XAUUSD):                       pipValue = $1/std lot  (100oz × $0.01)
+  //   Most indices/CFDs:                   pipValue = $1/std lot  (approx)
+  useEffect(() => {
+    if (pnlUserEdited.current) return;
+    if (parseFloat(s4.monetaryRisk) > 0) return; // risk-based fill takes priority
+
+    const rawPips = parseFloat(s4.pipsGainedLost);
+    const rawLot  = parseFloat(s2.lotSize);
+    if (!rawPips || isNaN(rawPips) || !rawLot || isNaN(rawLot) || rawLot <= 0) return;
+
+    const cat = (s2.pairCategory || "").toLowerCase();
+    if (cat === "crypto") return;                  // crypto P&L ≠ pip convention
+
+    const lot = normaliseLot(rawLot);
+    const sym = (s2.instrument || "").toUpperCase().trim();
+    const ep  = parseFloat(s2.entryPrice);
+
+    let pipVal = 10; // $10/pip/std lot — default for USD-quoted pairs
+    if (/^USD(JPY|CHF|CAD|SGD|HKD|CNH|DKK|SEK|NOK|ZAR|MXN|TRY)/i.test(sym) && ep > 0) {
+      // For USD-base pairs the quote currency is not USD, so rescale
+      pipVal = 10 / ep;
+    } else if (/^(XAU|GOLD)/i.test(sym)) {
+      pipVal = 1;   // gold: 1 pip = $1/std lot
+    } else if (cat === "index" || /US30|NAS100|SPX|DAX|UK100|JP225/i.test(sym)) {
+      pipVal = 1;   // index CFDs: point value ≈ $1 per std lot
+    }
+
+    const pnl = rawPips * lot * pipVal;
+    setS4(prev => ({ ...prev, profitLoss: pnl.toFixed(2) }));
+  }, [s4.pipsGainedLost, s2.lotSize, s2.instrument, s2.pairCategory, s2.entryPrice, s4.monetaryRisk]);
 
   // ── Auto-estimate commission ───────────────────────────────────────────────
   // Fires whenever instrument, lot size, entry price, or category changes.
@@ -1814,6 +1862,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       achievedRRAutoRef.current    = true;  // re-enable auto-fill for next trade
       commissionUserEdited.current = false; // re-enable commission auto-estimate
       commissionAutoFilled.current = false;
+      pnlUserEdited.current        = false; // re-enable pip-based P&L fill
       setOcrFields(new Set());
       setStep(1);
     } catch (err: any) {
@@ -1915,6 +1964,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 commissionAutoFilled.current = false;
               }}
               commissionIsEst={commissionAutoFilled.current}
+              onProfitLossManualEdit={() => { pnlUserEdited.current = true; }}
             />}
             <div className="h-8" />
           </div>
