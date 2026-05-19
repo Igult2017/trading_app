@@ -607,7 +607,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <HomeFooter />
+        <HomeFooter darkMode={darkMode} />
 
       </div>
     </div>

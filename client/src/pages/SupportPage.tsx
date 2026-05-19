@@ -107,7 +107,7 @@ export default function SupportPage() {
           {status === 'error' && <p style={{ color: '#f87171', fontSize: 13 }}>{error}</p>}
         </form>
       </div>
-      <HomeFooter />
+      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

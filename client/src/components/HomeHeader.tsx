@@ -5,18 +5,22 @@ import { Link } from "wouter";
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
   { symbol: "BTC/USD", price: "67,204", change: "-1.34%", up: false },
-  { symbol: "GOLD", price: "2,318.4", change: "+0.45%", up: true },
-  { symbol: "SPX500", price: "5,236.1", change: "+0.28%", up: true },
-  { symbol: "GBP/USD", price: "1.2691", change: "-0.08%", up: false },
+  { symbol: "GOLD",    price: "2,318.4", change: "+0.45%", up: true },
+  { symbol: "SPX500",  price: "5,236.1", change: "+0.28%", up: true },
+  { symbol: "GBP/USD", price: "1.2691",  change: "-0.08%", up: false },
   { symbol: "ETH/USD", price: "3,512.7", change: "+2.11%", up: true },
-  { symbol: "OIL/WTI", price: "78.34", change: "-0.67%", up: false },
-  { symbol: "USD/JPY", price: "156.72", change: "+0.19%", up: true },
+  { symbol: "OIL/WTI", price: "78.34",   change: "-0.67%", up: false },
+  { symbol: "USD/JPY", price: "156.72",  change: "+0.19%", up: true },
 ];
 
-function TickerTape() {
+function TickerTape({ dark }: { dark: boolean }) {
   const items = [...TICKER_DATA, ...TICKER_DATA];
+  const bg     = dark ? "#080c10" : "#f1f5f9";
+  const border = dark ? "#0f1923" : "#e2e8f0";
+  const symClr = dark ? "#4a6580" : "#94a3b8";
+  const prClr  = dark ? "#c8d8e8" : "#334155";
   return (
-    <div style={{ background: "#080c10", borderBottom: "1px solid #0f1923", height: 32, overflow: "hidden", display: "flex", alignItems: "center" }}>
+    <div style={{ background: bg, borderBottom: `1px solid ${border}`, height: 32, overflow: "hidden", display: "flex", alignItems: "center", transition: "background 0.3s" }}>
       <style>{`
         @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
@@ -24,9 +28,9 @@ function TickerTape() {
       `}</style>
       <div className="ticker-wrap">
         {items.map((t, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
-            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
-            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600 }}>{t.price}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: `1px solid ${border}`, whiteSpace: "nowrap" }}>
+            <span style={{ color: symClr, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
+            <span style={{ color: prClr,  fontSize: 10, fontWeight: 600 }}>{t.price}</span>
             <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
@@ -36,15 +40,15 @@ function TickerTape() {
 }
 
 const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
-  { label: "Journal", href: "/auth", newTab: true },
-  { label: "Features", href: "/#features" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Reviews", href: "/#reviews" },
+  { label: "Journal",           href: "/auth",           newTab: true },
+  { label: "Features",          href: "/#features" },
+  { label: "Pricing",           href: "/#pricing" },
+  { label: "Reviews",           href: "/#reviews" },
   { label: "Economic Calendar", href: "/calendar" },
-  { label: "Blog", href: "/blog" },
-  { label: "TSC", href: "/tsc" },
-  { label: "Login", href: "/auth", newTab: true },
-  { label: "Signup", href: "/auth?mode=signup", newTab: true },
+  { label: "Blog",              href: "/blog" },
+  { label: "TSC",               href: "/tsc" },
+  { label: "Login",             href: "/auth",           newTab: true },
+  { label: "Signup",            href: "/auth?mode=signup", newTab: true },
 ];
 
 interface HomeHeaderProps {
@@ -57,13 +61,13 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dm = darkMode;
 
-  const navBg = dm ? "rgba(8,12,16,0.97)" : "rgba(255,255,255,0.97)";
-  const navBorder = dm ? "#172233" : "#e2e8f0";
-  const navLink = dm ? "#4a6580" : "#475569";
-  const navLinkHover = dm ? "#c8d8e8" : "#0f172a";
-  const logoWhite = dm ? "#ffffff" : "#0f172a";
-  const textMuted = dm ? "#94a3b8" : "#64748b";
-  const text = dm ? "#ffffff" : "#0f172a";
+  const navBg       = dm ? "rgba(8,12,16,0.97)"    : "rgba(255,255,255,0.97)";
+  const navBorder   = dm ? "#172233"                : "#e2e8f0";
+  const navLink     = dm ? "#4a6580"                : "#475569";
+  const navLinkHover= dm ? "#c8d8e8"                : "#0f172a";
+  const logoWhite   = dm ? "#ffffff"                : "#0f172a";
+  const textMuted   = dm ? "#94a3b8"                : "#64748b";
+  const text        = dm ? "#ffffff"                : "#0f172a";
 
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
@@ -83,7 +87,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
         }
       `}</style>
 
-      <TickerTape />
+      <TickerTape dark={dm} />
 
       <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", transition: "background 0.3s" }}>
         <Link href="/" style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.01em", fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: "pointer", textDecoration: "none" }}>

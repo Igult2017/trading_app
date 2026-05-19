@@ -661,7 +661,7 @@ export default function BlogPostPage() {
         </section>
       </main>
 
-      <HomeFooter />
+      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

@@ -331,7 +331,7 @@ export default function LegalPage() {
           {active === 'Contact & Support' && <ContactContent dark={dm} />}
         </div>
       </div>
-      <HomeFooter />
+      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

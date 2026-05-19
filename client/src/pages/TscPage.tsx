@@ -360,7 +360,7 @@ export default function TscPage() {
         {/* Footer */}
       </div>
     </div>
-    <HomeFooter />
+    <HomeFooter darkMode={darkMode} />
     </>
   );
 }

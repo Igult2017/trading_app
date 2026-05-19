@@ -270,7 +270,7 @@ export default function BlogPage() {
         )}
       </main>
 
-      <HomeFooter />
+      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

@@ -343,7 +343,7 @@ export default function EconomicCalendarPage() {
 
         </div>
       </main>
-      <HomeFooter />
+      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }
