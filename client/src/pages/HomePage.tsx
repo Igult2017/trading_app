@@ -13,10 +13,14 @@ const TICKER_DATA = [
   { symbol: "USD/JPY", price: "156.72", change: "+0.19%", up: true },
 ];
 
-function TickerTape() {
-  const items = [...TICKER_DATA, ...TICKER_DATA];
+function TickerTape({ dark }: { dark: boolean }) {
+  const items  = [...TICKER_DATA, ...TICKER_DATA];
+  const bg     = dark ? "#080c10" : "#f1f5f9";
+  const border = dark ? "#0f1923" : "#e2e8f0";
+  const symClr = dark ? "#4a6580" : "#94a3b8";
+  const prClr  = dark ? "#c8d8e8" : "#334155";
   return (
-    <div style={{ background: "#080c10", borderBottom: "1px solid #0f1923", height: 32, overflow: "hidden", display: "flex", alignItems: "center" }}>
+    <div style={{ background: bg, borderBottom: `1px solid ${border}`, height: 32, overflow: "hidden", display: "flex", alignItems: "center", transition: "background 0.3s" }}>
       <style>{`
         @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
@@ -24,9 +28,9 @@ function TickerTape() {
       `}</style>
       <div className="ticker-wrap">
         {items.map((t, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
-            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
-            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600 }}>{t.price}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: `1px solid ${border}`, whiteSpace: "nowrap" }}>
+            <span style={{ color: symClr, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
+            <span style={{ color: prClr,  fontSize: 10, fontWeight: 600 }}>{t.price}</span>
             <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
@@ -254,7 +258,7 @@ export default function HomePage() {
       `}</style>
 
       <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
-        <TickerTape />
+        <TickerTape dark={darkMode} />
         <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.3s' }}>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
             <span style={{ color: t.logoWhite }}>My FM</span>
