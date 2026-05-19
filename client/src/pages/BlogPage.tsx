@@ -42,7 +42,7 @@ const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'B
 export default function BlogPage() {
   usePageTracking('blog');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [location, navigate] = useLocation();
   const [apiPosts, setApiPosts] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);

@@ -37,7 +37,7 @@ function TickerTape() {
 
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {

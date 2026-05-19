@@ -344,7 +344,7 @@ export default function BlogPostPage() {
   usePageTracking('blog-post');
   const [, params] = useRoute('/blog/:id');
   const [, navigate]  = useLocation();
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [post, setPost]         = useState<Post | null>(null);
   const [related, setRelated]   = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);

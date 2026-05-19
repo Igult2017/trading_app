@@ -214,7 +214,7 @@ function SessionCard({ s, decimalTime, weekday, dark }: { s: Session; decimalTim
 export default function TscPage() {
   usePageTracking('tsc');
   const [now, setNow] = useState(new Date());
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [location] = useLocation();
 
   useEffect(() => {

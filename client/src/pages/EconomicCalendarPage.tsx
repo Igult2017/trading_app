@@ -61,7 +61,7 @@ export default function EconomicCalendarPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [ccyFilter, setCcyFilter] = useState('All');
   const [impactFilter, setImpactFilter] = useState('All');
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [location] = useLocation();
 
   const { data: eventsRaw, isLoading: loadingEvents } = useQuery<CalendarEvent[]>({
