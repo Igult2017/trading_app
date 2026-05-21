@@ -18,20 +18,6 @@ type Article = {
 const REFETCH_MS = 5 * 60 * 1000;
 const QUERY_KEY  = ['/api/blog'];
 
-function useNow() {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
-function formatAgo(ms: number): string {
-  if (ms < 5000)  return 'just now';
-  if (ms < 60000) return `${Math.floor(ms / 1000)}s ago`;
-  return `${Math.floor(ms / 60000)}m ago`;
-}
 
 
 function mapPost(p: any): Article {
@@ -81,7 +67,6 @@ export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const { darkMode } = usePublicTheme();
   const [, navigate] = useLocation();
-  const now          = useNow();
   const prevCountRef = useRef<number | null>(null);
   const [newBanner, setNewBanner] = useState(false);
 
@@ -120,7 +105,6 @@ export default function BlogPage() {
 
   const allPosts          = rawPosts ?? [];
   const isDark            = darkMode;
-  const updatedAgo        = dataUpdatedAt > 0 ? now - dataUpdatedAt : null;
   const filteredArticles  = activeCategory === 'All' ? allPosts : allPosts.filter(a => a.category === activeCategory);
   const featuredArticle   = filteredArticles[0];
   const sideArticles      = filteredArticles.slice(1, 4);
@@ -135,7 +119,6 @@ export default function BlogPage() {
         @keyframes marquee     { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
         @keyframes blog-pulse  { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes blog-spin   { to{transform:rotate(360deg)} }
-        @keyframes blog-live   { 0%,100%{opacity:1} 50%{opacity:0.3} }
         @keyframes blog-banner { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
         .blog-animate-marquee  { display:inline-flex; animation:marquee 35s linear infinite; }
         .scrollbar-hide::-webkit-scrollbar { display:none; }
@@ -190,17 +173,6 @@ export default function BlogPage() {
 
           {/* Right cluster: live indicator + countdown + refresh button */}
           <div className="flex items-center gap-3 shrink-0 pl-4">
-
-            {/* Live dot + last update */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#22c55e' }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'blog-live 2s infinite' }} />
-              LIVE
-              {updatedAgo !== null && (
-                <span style={{ color: isDark ? '#475569' : '#a8a29e', fontWeight: 600 }}>
-                  · {formatAgo(updatedAgo)}
-                </span>
-              )}
-            </div>
 
           </div>
         </nav>
