@@ -37,19 +37,19 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const dm = darkMode;
 
   /* ── Theme tokens aligned with landing page ─────────────────────────── */
-  const bg        = dm ? '#060b14'  : '#0f172a';   // always dark footer for strong contrast
-  const topBorder = dm ? '#0f1923'  : '#1e293b';
-  const botBorder = dm ? '#0f1923'  : '#1e293b';
-  const logoClr   = '#ffffff';
-  const headLabel = '#3b82f6';                      // same blue accent as landing page
-  const headTitle = '#ffffff';
-  const linkClr   = dm ? '#64748b'  : '#94a3b8';
-  const linkHov   = '#ffffff';
-  const inputBg   = dm ? '#0c1219'  : '#1e293b';
-  const inputBord = dm ? '#172233'  : '#334155';
-  const inputTxt  = '#c8d8e8';
-  const mutedTxt  = dm ? '#334155'  : '#475569';
-  const copyTxt   = '#475569';
+  const bg        = dm ? 'rgba(8,12,16,0.97)'   : 'rgba(255,255,255,0.97)';  // matches header
+  const topBorder = dm ? '#172233'              : '#e2e8f0';
+  const botBorder = dm ? '#172233'              : '#e2e8f0';
+  const logoClr   = dm ? '#ffffff'              : '#0f172a';
+  const headLabel = '#3b82f6';
+  const headTitle = dm ? '#ffffff'              : '#0f172a';
+  const linkClr   = dm ? '#64748b'              : '#475569';
+  const linkHov   = dm ? '#f1f5f9'              : '#0f172a';
+  const inputBg   = dm ? '#0c1219'              : '#f8fafc';
+  const inputBord = dm ? '#172233'              : '#e2e8f0';
+  const inputTxt  = dm ? '#c8d8e8'              : '#0f172a';
+  const mutedTxt  = dm ? '#475569'              : '#64748b';
+  const copyTxt   = dm ? '#475569'              : '#94a3b8';
 
   return (
     <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Poppins',sans-serif", transition: 'background 0.3s' }}>
