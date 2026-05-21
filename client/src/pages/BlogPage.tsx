@@ -87,7 +87,6 @@ export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const { darkMode } = usePublicTheme();
   const [, navigate] = useLocation();
-  const queryClient  = useQueryClient();
   const now          = useNow();
   const prevCountRef = useRef<number | null>(null);
   const [newBanner, setNewBanner] = useState(false);
