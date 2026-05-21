@@ -1,5 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { usePageTracking } from "@/hooks/usePageTracking";
 import { titleFromPath, usePageTitle } from "@/hooks/usePageTitle";
 import { queryClient, authFetch, localStoragePersister } from "./lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -138,18 +139,52 @@ function PublicPagesGroup() {
     try { localStorage.setItem("pub-theme", val ? "1" : "0"); } catch {}
   }, []);
 
+  const isCalendar = location === '/calendar';
+  const isBlog     = location === '/blog';
+  // Any other public route (TSC, legal, support, /blog/:slug) falls to the Switch
+  const isOther    = !isCalendar && !isBlog;
+
+  // Centralised page tracking — calendar/blog are always-mounted so they
+  // cannot self-track via useEffect on mount; do it here instead.
+  const trackPage = useMemo(
+    () => (isCalendar ? 'calendar' : isBlog ? 'blog' : ''),
+    [isCalendar, isBlog]
+  );
+  usePageTracking(trackPage);
+
   return (
     <PublicThemeContext.Provider value={{ darkMode, setDarkMode: handleSetDark }}>
       <HomeHeader darkMode={darkMode} setDarkMode={handleSetDark} activePath={location} />
-      <Switch>
-        <Route path="/calendar"   component={EconomicCalendarPage} />
-        <Route path="/blog/:slug" component={BlogPostPage} />
-        <Route path="/blog"       component={BlogPage} />
-        <Route path="/tsc"        component={TscPage} />
-        <Route path="/legal"      component={LegalPage} />
-        <Route path="/support"    component={SupportPage} />
-        <Route component={NotFound} />
-      </Switch>
+
+      {/*
+       * EconomicCalendarPage and BlogPage are ALWAYS mounted.
+       * We hide the inactive one with the HTML `hidden` attribute (display:none)
+       * instead of unmounting it via a Switch route.
+       *
+       * Why: the Switch would unmount the component on every navigation away,
+       * forcing React to rebuild the entire tree from scratch on return — that
+       * is exactly the "whole page loading" the user sees.  With always-mounted
+       * components, navigation is instant CSS toggling with zero re-initialisation.
+       * Queries keep polling in the background so data is always fresh.
+       */}
+      <div hidden={!isCalendar} aria-hidden={!isCalendar} style={isCalendar ? undefined : { display: 'none' }}>
+        <EconomicCalendarPage />
+      </div>
+      <div hidden={!isBlog} aria-hidden={!isBlog} style={isBlog ? undefined : { display: 'none' }}>
+        <BlogPage />
+      </div>
+
+      {/* Remaining public routes — less frequently visited, mount/unmount is fine */}
+      {isOther && (
+        <Switch>
+          <Route path="/blog/:slug" component={BlogPostPage} />
+          <Route path="/tsc"        component={TscPage} />
+          <Route path="/legal"      component={LegalPage} />
+          <Route path="/support"    component={SupportPage} />
+          <Route component={NotFound} />
+        </Switch>
+      )}
+
       <HomeFooter darkMode={darkMode} />
     </PublicThemeContext.Provider>
   );

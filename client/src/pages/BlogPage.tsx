@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
-import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
 
 type Article = {
@@ -40,7 +39,6 @@ function SafeImage({ src, alt, className, isDark }: { src: string; alt: string; 
 const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 
 export default function BlogPage() {
-  usePageTracking('blog');
   const [activeCategory, setActiveCategory] = useState('All');
   const { darkMode, setDarkMode } = usePublicTheme();
   const [, navigate] = useLocation();

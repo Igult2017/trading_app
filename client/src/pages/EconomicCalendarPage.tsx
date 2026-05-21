@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
 import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
@@ -47,7 +46,6 @@ function impactStyle(imp: string): React.CSSProperties {
 }
 
 export default function EconomicCalendarPage() {
-  usePageTracking('calendar');
   const [filter, setFilter]           = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [ccyFilter, setCcyFilter]     = useState('All');
