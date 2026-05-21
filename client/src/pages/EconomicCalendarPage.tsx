@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
