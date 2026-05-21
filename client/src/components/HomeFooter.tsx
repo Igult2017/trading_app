@@ -72,16 +72,6 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.75, marginBottom: 24, marginTop: 0, maxWidth: 260 }}>
               A professional-grade trading journal and analytics platform built for serious traders.
             </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {SOCIAL_ICONS.map(({ label, path, color, bg: iconBg, border: iconBorder }) => (
-                <a key={label} href="#" aria-label={label}
-                  style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${iconBorder}`, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, textDecoration: 'none', transition: 'opacity 0.2s, transform 0.15s', opacity: 0.8 }}
-                  onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.8'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d={path} /></svg>
-                </a>
-              ))}
-            </div>
           </div>
 
           {/* ── Socials ────────────────────────────────────────────────── */}
