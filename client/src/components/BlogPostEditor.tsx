@@ -812,11 +812,12 @@ export interface BlogEditorData {
 }
 
 interface Props {
-  initialData?: Partial<BlogEditorData>;
-  editPost?:    any;
-  onSubmit:     (data: BlogEditorData) => Promise<void>;
-  onCancel:     () => void;
-  saving?:      boolean;
+  initialData?:    Partial<BlogEditorData>;
+  editPost?:       any;
+  onSubmit:        (data: BlogEditorData) => Promise<void>;
+  onCancel:        () => void;
+  saving?:         boolean;
+  onImageUpload?:  (file: File) => Promise<string>;
 }
 
 const DEFAULTS: BlogEditorData = {
@@ -1034,7 +1035,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function BlogPostEditor({ initialData, editPost, onSubmit, onCancel, saving = false }: Props) {
+export default function BlogPostEditor({ initialData, editPost, onSubmit, onCancel, saving = false, onImageUpload }: Props) {
   const [form, setForm]     = useState<BlogEditorData>({ ...DEFAULTS, ...initialData });
   const contentRef          = useRef<HTMLTextAreaElement>(null);
 
@@ -1188,21 +1189,32 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       const file = imageItem.getAsFile();
       if (file) {
         e.preventDefault();
-        const reader = new FileReader();
-        reader.onload = () => {
-          const ta = contentRef.current;
-          if (!ta) return;
-          const start = ta.selectionStart;
-          const end = ta.selectionEnd;
-          const next = ta.value.slice(0, start) + `![pasted image](${reader.result as string}){Pasted image}` + ta.value.slice(end);
-          set({ content: next });
-          requestAnimationFrame(() => {
-            ta.focus();
-            const pos = start + `![pasted image](`.length + String(reader.result).length + 1;
-            ta.selectionStart = ta.selectionEnd = pos;
+        const ta = contentRef.current;
+        if (!ta) return;
+        const insertPos = ta.selectionStart;
+
+        if (onImageUpload) {
+          // Insert a placeholder, upload, then swap in the real URL
+          const placeholder = `![Uploading image…]()`;
+          const withPlaceholder = ta.value.slice(0, insertPos) + placeholder + '\n' + ta.value.slice(insertPos);
+          set({ content: withPlaceholder });
+          onImageUpload(file).then(url => {
+            setForm(f => ({
+              ...f,
+              content: f.content.replace(placeholder, `![image](${url})`),
+            }));
+          }).catch(() => {
+            setForm(f => ({ ...f, content: f.content.replace(placeholder + '\n', '') }));
           });
-        };
-        reader.readAsDataURL(file);
+        } else {
+          // Fallback: embed as base64 (works but large)
+          const reader = new FileReader();
+          reader.onload = () => {
+            const next = ta.value.slice(0, insertPos) + `![image](${reader.result as string})\n` + ta.value.slice(insertPos);
+            set({ content: next });
+          };
+          reader.readAsDataURL(file);
+        }
         return;
       }
     }
@@ -1236,7 +1248,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       ta.selectionStart = ta.selectionEnd = start + processed!.length;
       ta.focus();
     });
-  }, [htmlToMarkdown, contentRef]);
+  }, [htmlToMarkdown, contentRef, onImageUpload, setForm]);
 
   const fileName = editPost ? `edit_post_${editPost.id}.md` : "new_post.md";
 

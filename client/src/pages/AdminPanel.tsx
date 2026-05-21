@@ -1906,6 +1906,15 @@ const BlogSection = ({ bp }) => {
     return await compressDataUrl(dataUrl);
   };
 
+  const uploadFileForEditor = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => uploadCoverImage(reader.result as string).then(resolve).catch(reject);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleEditorSubmit = async (data: BlogEditorData) => {
     if (!data.title.trim() || saving) return;
     setSaving(true);
@@ -2117,6 +2126,7 @@ const BlogSection = ({ bp }) => {
           onSubmit={handleEditorSubmit}
           onCancel={() => setShowModal(false)}
           saving={saving}
+          onImageUpload={uploadFileForEditor}
         />
       ) : (
       <div style={{ display: 'grid', gridTemplateColumns: postCols, gap: '6px' }}>

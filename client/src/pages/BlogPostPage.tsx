@@ -73,6 +73,7 @@ function renderMarkdown(md: string, isDark: boolean): string {
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/_(.+?)_/g, '<em>$1</em>')
       .replace(/~~(.+?)~~/g, '<del>$1</del>')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, `<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;vertical-align:middle;display:block;margin:0.5rem 0;" loading="lazy" />`)
       .replace(/\[(.+?)\]\((.+?)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${linkClr};text-decoration:underline;text-underline-offset:3px;">$1</a>`);
 
   for (let i = 0; i < lines.length; i++) {
@@ -114,6 +115,19 @@ function renderMarkdown(md: string, isDark: boolean): string {
     }
     closeList();
     if (line.trim() === '') { out.push('<div style="margin:0.9rem 0;"></div>'); continue; }
+    // Block-level image: a line that is solely an image tag (optionally followed by {caption})
+    const imgBlock = line.match(/^!\[([^\]]*)\]\(([^)]+)\)(?:\{([^}]*)\})?$/);
+    if (imgBlock) {
+      const [, alt, src, caption] = imgBlock;
+      const cap = caption?.trim();
+      out.push(
+        `<figure style="margin:2rem 0;text-align:center;">` +
+        `<img src="${esc(src)}" alt="${esc(alt)}" style="max-width:100%;border-radius:8px;display:block;margin:0 auto;" loading="lazy" />` +
+        (cap ? `<figcaption style="font-size:0.85rem;color:${quoteClr};margin-top:8px;font-style:italic;">${esc(cap)}</figcaption>` : '') +
+        `</figure>`
+      );
+      continue;
+    }
     out.push(`<p style="margin:0 0 1.1rem;line-height:1.9;font-size:1.06rem;">${inlineStyles(esc(line))}</p>`);
   }
 
