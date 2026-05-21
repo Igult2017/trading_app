@@ -629,7 +629,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
   }
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : windowWidth < 900 ? 3 : 6},1fr)`, gap: 4 }}>
         {stats.map(s => <StatCard key={s.id} stat={s} />)}
       </div>
