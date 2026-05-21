@@ -62,12 +62,6 @@ function formatAgo(ms: number): string {
   return `${Math.floor(ms / 60000)}m ago`;
 }
 
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return 'now';
-  const s = Math.ceil(ms / 1000);
-  if (s < 60)  return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
-}
 
 export default function EconomicCalendarPage() {
   const [filter, setFilter]           = useState('All');
@@ -138,7 +132,6 @@ export default function EconomicCalendarPage() {
   const fetching = fetchingEvents || fetchingRates;
 
   const lastUpdate    = Math.max(calUpdatedAt, ratesUpdatedAt);
-  const nextRefreshIn = lastUpdate > 0 ? Math.max(0, lastUpdate + REFETCH_MS - now) : null;
   const updatedAgo    = lastUpdate > 0 ? now - lastUpdate : null;
 
   const availableCurrencies = ['All', ...Array.from(new Set(events.map(e => e.currency))).filter(Boolean).sort()];
@@ -212,24 +205,6 @@ export default function EconomicCalendarPage() {
                   </span>
                 )}
               </div>
-
-              {/* Countdown to next refresh */}
-              {nextRefreshIn !== null && !fetching && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: dm ? '#0f1923' : '#f1f5f9', border: `1px solid ${border}`, borderRadius: 7, fontSize: 10, fontWeight: 600, color: textMut, fontFamily: "'Montserrat',sans-serif" }}>
-                  <Clock size={11} color={textMut} />
-                  <span>Next refresh in {formatCountdown(nextRefreshIn)}</span>
-                </div>
-              )}
-
-              {/* Fetching spinner (inline) */}
-              {fetching && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: dm ? '#0f1923' : '#eff6ff', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 7, fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: '0.06em' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ animation: 'ec-spin 0.8s linear infinite', flexShrink: 0 }}>
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                  </svg>
-                  Refreshing…
-                </div>
-              )}
 
               {/* UTC badge */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.08em' }}>

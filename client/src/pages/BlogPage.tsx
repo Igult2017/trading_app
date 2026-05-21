@@ -33,12 +33,6 @@ function formatAgo(ms: number): string {
   return `${Math.floor(ms / 60000)}m ago`;
 }
 
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return 'now';
-  const s = Math.ceil(ms / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
-}
 
 function mapPost(p: any): Article {
   return {
@@ -94,7 +88,6 @@ export default function BlogPage() {
   const {
     data: rawPosts,
     isLoading: loading,
-    isFetching,
     dataUpdatedAt,
   } = useQuery<Article[]>({
     queryKey: QUERY_KEY,
@@ -128,7 +121,6 @@ export default function BlogPage() {
   const allPosts          = rawPosts ?? [];
   const isDark            = darkMode;
   const updatedAgo        = dataUpdatedAt > 0 ? now - dataUpdatedAt : null;
-  const nextRefreshIn     = dataUpdatedAt > 0 ? Math.max(0, dataUpdatedAt + REFETCH_MS - now) : null;
   const filteredArticles  = activeCategory === 'All' ? allPosts : allPosts.filter(a => a.category === activeCategory);
   const featuredArticle   = filteredArticles[0];
   const sideArticles      = filteredArticles.slice(1, 4);
@@ -209,21 +201,6 @@ export default function BlogPage() {
                 </span>
               )}
             </div>
-
-            {/* Countdown to next refresh */}
-            {nextRefreshIn !== null && !isFetching && (
-              <span style={{ fontSize: 9, fontWeight: 600, color: isDark ? '#334155' : '#94a3b8', letterSpacing: '0.06em' }}>
-                ↻ {formatCountdown(nextRefreshIn)}
-              </span>
-            )}
-
-            {/* Inline spinner when refreshing */}
-            {isFetching && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#3b82f6' : '#2563eb'} strokeWidth="2.5"
-                style={{ animation: 'blog-spin 0.8s linear infinite', flexShrink: 0 }}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-            )}
 
           </div>
         </nav>
