@@ -44,14 +44,15 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const copyTxt   = dm ? '#475569'              : '#94a3b8';
 
   return (
-    <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Poppins',sans-serif", transition: 'background 0.3s' }}>
+    <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Montserrat',sans-serif", transition: 'background 0.3s' }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap');
         .hf-grid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1.2fr; gap:60px; padding:64px 0 56px; }
         .hf-bottom { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
         .hf-legal-links { display:flex; gap:20px; flex-wrap:wrap; }
-        .hf-lnk { font-family:'Poppins',sans-serif; font-weight:500; font-size:13px; color:${linkClr}; text-decoration:none; transition:color 0.2s; }
+        .hf-lnk { font-family:'Montserrat',sans-serif; font-weight:500; font-size:13px; color:${linkClr}; text-decoration:none; transition:color 0.2s; }
         .hf-lnk:hover { color:${linkHov}; }
-        .hf-copy-lnk { font-family:'Poppins',sans-serif; font-weight:500; font-size:11px; color:${copyTxt}; text-decoration:none; transition:color 0.2s; }
+        .hf-copy-lnk { font-family:'Montserrat',sans-serif; font-weight:500; font-size:11px; color:${copyTxt}; text-decoration:none; transition:color 0.2s; }
         .hf-copy-lnk:hover { color:#94a3b8; }
         @media (max-width:1000px) { .hf-grid { grid-template-columns:1fr 1fr; gap:40px; padding:48px 0 44px; } }
         @media (max-width:560px)  { .hf-grid { grid-template-columns:1fr; gap:36px; padding:40px 0 36px; } .hf-bottom { flex-direction:column; align-items:flex-start; } }
@@ -63,9 +64,9 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           {/* ── Brand ──────────────────────────────────────────────────── */}
           <div>
             <Link href="/" style={{ textDecoration: 'none', display: 'inline-block', marginBottom: 16 }}>
-              <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em' }}>
+              <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em' }}>
                 <span style={{ color: logoClr }}>My FM</span>
-                <span style={{ color: '#3b82f6' }}> | Journal</span>
+                <span style={{ color: '#3b82f6', fontStyle: 'italic' }}> | Journal</span>
               </span>
             </Link>
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.75, marginBottom: 24, marginTop: 0, maxWidth: 260 }}>
@@ -75,7 +76,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Socials ────────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 20 }}>Community</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 700, color: headTitle, marginBottom: 16, letterSpacing: '-0.01em' }}>Community</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {SOCIAL_ICONS.map(({ label, path, color, bg: iconBg, border: iconBorder }) => (
                 <a key={label} href="#" aria-label={label}
@@ -85,7 +86,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
                   <span style={{ width: 32, height: 32, borderRadius: 7, border: `1px solid ${iconBorder}`, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d={path} /></svg>
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: linkClr, fontFamily: "'Poppins',sans-serif" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: linkClr, fontFamily: "'Montserrat',sans-serif" }}>{label}</span>
                 </a>
               ))}
             </div>
@@ -93,7 +94,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Resources ──────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 20 }}>Tools</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 700, color: headTitle, marginBottom: 16, letterSpacing: '-0.01em' }}>Tools</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
               {RESOURCES.map(({ label, href, newTab }) => (
                 <Link key={label} href={href}
@@ -108,13 +109,13 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Newsletter ─────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 12 }}>Newsletter</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 700, color: headTitle, marginBottom: 12, letterSpacing: '-0.01em' }}>Newsletter</div>
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.7, marginBottom: 20, marginTop: 0 }}>
               Data-backed strategies and market insights delivered to your inbox.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <input type="email" placeholder="your@email.com"
-                style={{ background: inputBg, border: `1px solid ${inputBord}`, borderRadius: 8, padding: '11px 14px', color: inputTxt, fontSize: 13, fontFamily: "'Poppins',sans-serif", fontWeight: 500, outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                style={{ background: inputBg, border: `1px solid ${inputBord}`, borderRadius: 8, padding: '11px 14px', color: inputTxt, fontSize: 13, fontFamily: "'Montserrat',sans-serif", fontWeight: 500, outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
                 onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
                 onBlur={e => e.currentTarget.style.borderColor = inputBord}
               />

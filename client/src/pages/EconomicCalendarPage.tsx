@@ -260,7 +260,7 @@ export default function EconomicCalendarPage() {
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Globe size={14} color="#2563eb" />
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#2563eb' }}>Terminal Rates</span>
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 700, color: textPrim, letterSpacing: '-0.01em' }}>Terminal Rates</span>
                   <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: textMut }}>Real Yields</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -297,7 +297,7 @@ export default function EconomicCalendarPage() {
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ArrowRightLeft size={14} color="#2563eb" />
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#2563eb' }}>Pair Differentials</span>
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 700, color: textPrim, letterSpacing: '-0.01em' }}>Pair Differentials</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                   {currencyPairs.filter(p => bankData[p.base] && bankData[p.quote]).map(pair => {
