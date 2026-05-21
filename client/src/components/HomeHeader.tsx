@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { prefetchCalendarData } from "@/lib/prefetchCalendar";
+import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -71,7 +71,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     if (!PREFETCH_HREFS.has(href)) return;
     if (prefetchedRef.current.has(href)) return;
     prefetchedRef.current.add(href);
-    prefetchCalendarData(qc);
+    prefetchIfEmpty(qc);
   }, [qc]);
 
   const navBg     = dm ? "rgba(8,12,16,0.97)"  : "rgba(255,255,255,0.97)";

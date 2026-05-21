@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
-import { prefetchCalendarData } from "@/lib/prefetchCalendar";
+import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
@@ -154,7 +154,10 @@ function AppRoutes() {
 
 function PrefetchCalendar() {
   useEffect(() => {
-    prefetchCalendarData(queryClient);
+    // Start the background loop — fires immediately, then every 12 min.
+    // Returns cleanup so the interval is cleared if this component ever unmounts.
+    const stop = startCalendarBackgroundRefresh(queryClient);
+    return stop;
   }, []);
   return null;
 }
