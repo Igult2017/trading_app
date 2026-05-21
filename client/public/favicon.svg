@@ -1,38 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="100%" stop-color="#1d4ed8"/>
-    </linearGradient>
-    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Background rounded square -->
-  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
-  <!-- Subtle top shine -->
-  <rect width="32" height="16" rx="7" fill="url(#shine)"/>
-
-  <!-- Candlestick chart bars (trading icon) -->
-  <!-- Bar 1 (left, short down) -->
-  <rect x="5" y="19" width="4" height="6" rx="1" fill="rgba(255,255,255,0.30)"/>
-  <line x1="7" y1="17" x2="7" y2="19" stroke="rgba(255,255,255,0.30)" stroke-width="1.2" stroke-linecap="round"/>
-
-  <!-- Bar 2 (mid, tall up) -->
-  <rect x="12" y="13" width="4" height="12" rx="1" fill="white"/>
-  <line x1="14" y1="10" x2="14" y2="13" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="14" y1="25" x2="14" y2="27" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
-
-  <!-- Bar 3 (right, medium up) -->
-  <rect x="19" y="15" width="4" height="9" rx="1" fill="rgba(255,255,255,0.75)"/>
-  <line x1="21" y1="12" x2="21" y2="15" stroke="rgba(255,255,255,0.75)" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="21" y1="24" x2="21" y2="26" stroke="rgba(255,255,255,0.75)" stroke-width="1.2" stroke-linecap="round"/>
-
-  <!-- Upward trend line -->
-  <polyline points="5,23 14,14 21,16 27,8" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- "fm" text mark at top-left -->
-  <text x="5" y="11" font-family="Arial Black, sans-serif" font-weight="900" font-size="9" fill="white" letter-spacing="-0.3" opacity="0.95">fm</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Y axis -->
+  <line x1="5" y1="2.5" x2="5" y2="27" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+  <!-- X axis -->
+  <line x1="5" y1="27" x2="29.5" y2="27" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+  <!-- Arrow up -->
+  <polyline points="3,6.5 5,2.5 7,6.5" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Arrow right -->
+  <polyline points="25.5,25 29.5,27 25.5,29" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Bar 1 – tallest -->
+  <rect x="7.5" y="9" width="5.5" height="18" rx="1" fill="#38bdf8"/>
+  <!-- Bar 2 – shortest -->
+  <rect x="14.5" y="19" width="5.5" height="8" rx="1" fill="#0ea5e9"/>
+  <!-- Bar 3 – medium -->
+  <rect x="21.5" y="14" width="5.5" height="13" rx="1" fill="#7dd3fc"/>
 </svg>
