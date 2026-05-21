@@ -389,7 +389,10 @@ export default function BlogPostPage() {
           author:     data.author      ?? 'Admin',
           date:       data.date        ?? '',
           readTime:   data.readTime    ?? data.read_time ?? '5 min',
-          imageUrl:   data.imageUrl    ?? data.image_url ?? '',
+          imageUrl:   data.imageUrl ?? data.image_url ?? (() => {
+            const m = (data.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
+            return m ? m[1] : '';
+          })(),
           status:     data.status      ?? 'Published',
           authorData: data.authorData  ?? data.author_data ?? null,
         });
@@ -405,16 +408,23 @@ export default function BlogPostPage() {
         if (!all) return;
         setRelated(
           all
-            .filter((p: any) => String(p.id) !== String(id))
+            .filter((p: any) => p.id !== id && (p.slug ?? p.id) !== id)
             .slice(0, 3)
-            .map((p: any) => ({
-              id: p.id, title: p.title, excerpt: p.excerpt ?? '',
-              content: '', category: p.category ?? 'Analysis',
-              author: p.author ?? 'Admin', date: p.date ?? '',
-              readTime: p.readTime ?? p.read_time ?? '5 min',
-              imageUrl: p.imageUrl ?? p.image_url ?? '',
-              status: p.status, authorData: null,
-            }))
+            .map((p: any) => {
+              const rawImage = p.imageUrl ?? p.image_url ?? '';
+              const firstImg = rawImage || (() => {
+                const m = (p.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
+                return m ? m[1] : '';
+              })();
+              return {
+                id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
+                content: '', category: p.category ?? 'Analysis',
+                author: p.author ?? 'Admin', date: p.date ?? '',
+                readTime: p.readTime ?? p.read_time ?? '5 min',
+                imageUrl: firstImg,
+                status: p.status, authorData: null,
+              };
+            })
         );
         setComments(Array.isArray(commentData) ? commentData : []);
       })

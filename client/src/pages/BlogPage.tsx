@@ -20,7 +20,14 @@ const QUERY_KEY  = ['/api/blog'];
 
 
 
+function extractFirstImage(markdown: string): string {
+  if (!markdown) return '';
+  const m = markdown.match(/!\[[^\]]*\]\(([^)]+)\)/);
+  return m ? m[1] : '';
+}
+
 function mapPost(p: any): Article {
+  const rawImage = p.imageUrl ?? p.image_url ?? '';
   return {
     id:       p.slug || p.id,   // prefer slug for clean URLs; fall back to UUID
     title:    p.title,
@@ -29,7 +36,7 @@ function mapPost(p: any): Article {
     author:   p.author ?? 'Admin',
     date:     p.date ?? '',
     readTime: p.readTime ?? p.read_time ?? '5 min',
-    image:    p.imageUrl ?? p.image_url ?? '',
+    image:    rawImage || extractFirstImage(p.content ?? ''),
   };
 }
 
