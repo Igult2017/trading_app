@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Y axis -->
-  <line x1="5" y1="2.5" x2="5" y2="27" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-  <!-- X axis -->
-  <line x1="5" y1="27" x2="29.5" y2="27" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-  <!-- Arrow up -->
-  <polyline points="3,6.5 5,2.5 7,6.5" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Arrow right -->
-  <polyline points="25.5,25 29.5,27 25.5,29" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Bar 1 – tallest -->
-  <rect x="7.5" y="9" width="5.5" height="18" rx="1" fill="#38bdf8"/>
-  <!-- Bar 2 – shortest -->
-  <rect x="14.5" y="19" width="5.5" height="8" rx="1" fill="#0ea5e9"/>
-  <!-- Bar 3 – medium -->
-  <rect x="21.5" y="14" width="5.5" height="13" rx="1" fill="#7dd3fc"/>
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="#0f172a"/>
+
+  <!-- Bar 1 – shortest (left) -->
+  <rect x="5" y="18" width="5" height="9" rx="1.5" fill="#3b82f6"/>
+
+  <!-- Bar 2 – tallest (middle) -->
+  <rect x="13.5" y="9" width="5" height="18" rx="1.5" fill="#2563eb"/>
+
+  <!-- Bar 3 – medium (right) -->
+  <rect x="22" y="14" width="5" height="13" rx="1.5" fill="#60a5fa"/>
+
+  <!-- Upward trend line -->
+  <polyline points="7.5,22 16,13 24.5,17" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
 </svg>
