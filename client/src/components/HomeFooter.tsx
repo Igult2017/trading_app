@@ -11,8 +11,7 @@ const RESOURCES = [
   { label: 'Free Trading Journal', href: '/journal', newTab: true },
   { label: 'Session Clock (TSC)',  href: '/tsc' },
   { label: 'Economic Calendar',   href: '/calendar' },
-  { label: 'Traders Blog',        href: '/blog' },
-  { label: 'Copier',              href: '#' },
+  { label: 'Blog',                href: '/blog' },
 ];
 
 const LEGAL = [
@@ -76,8 +75,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Socials ────────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 6 }}>Community</div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: '-0.01em', color: headTitle, marginBottom: 20, marginTop: 0 }}>Follow Us</h4>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 20 }}>Community</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {SOCIAL_ICONS.map(({ label, path, color, bg: iconBg, border: iconBorder }) => (
                 <a key={label} href="#" aria-label={label}
@@ -95,8 +93,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Resources ──────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 6 }}>Tools</div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: '-0.01em', color: headTitle, marginBottom: 20, marginTop: 0 }}>Resources</h4>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 20 }}>Tools</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
               {RESOURCES.map(({ label, href, newTab }) => (
                 <Link key={label} href={href}
@@ -111,8 +108,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Newsletter ─────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 6 }}>Newsletter</div>
-            <h4 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: '-0.01em', color: headTitle, marginBottom: 12, marginTop: 0 }}>Stay Sharp</h4>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: headLabel, marginBottom: 12 }}>Newsletter</div>
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.7, marginBottom: 20, marginTop: 0 }}>
               Data-backed strategies and market insights delivered to your inbox.
             </p>
