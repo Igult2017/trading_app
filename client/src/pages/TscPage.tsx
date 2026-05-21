@@ -302,7 +302,7 @@ export default function TscPage() {
             {/* Right: live clock */}
             <div style={{ flex: "0 0 auto", textAlign: "right" }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: textMuted, marginBottom: 6 }}>UTC Clock</div>
-              <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(1.2rem,2vw,1.6rem)", fontWeight: 700, letterSpacing: "-0.02em", color: textPrim, lineHeight: 1, transition: "color 0.3s" }}>
+              <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(1.5rem,2.5vw,2.1rem)", fontWeight: 700, letterSpacing: "-0.02em", color: textPrim, lineHeight: 1, transition: "color 0.3s" }}>
                 {timeStr}
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: textMuted, marginTop: 8, letterSpacing: "0.01em" }}>{dateStr}</div>
