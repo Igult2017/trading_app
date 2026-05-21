@@ -155,25 +155,25 @@ export default function EconomicCalendarPage() {
   const selectStyle: React.CSSProperties = {
     appearance: 'none', background: inputBg, border: `1px solid ${border}`,
     borderRadius: 8, padding: '10px 36px 10px 14px',
-    color: textPrim, fontSize: 12, fontFamily: "'Poppins',sans-serif",
+    color: textPrim, fontSize: 12, fontFamily: "'Montserrat',sans-serif",
     fontWeight: 600, outline: 'none', cursor: 'pointer',
     transition: 'border-color 0.2s',
   };
   const thStyle: React.CSSProperties = {
     padding: '12px 20px', fontSize: 9, fontWeight: 800,
     letterSpacing: '0.12em', textTransform: 'uppercase',
-    fontFamily: "'Poppins',sans-serif", color: textMut,
+    fontFamily: "'Montserrat',sans-serif", color: textMut,
     background: thBg, borderBottom: `1px solid ${border}`,
     whiteSpace: 'nowrap',
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Poppins',sans-serif", transition: 'background 0.3s' }}>
+    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Montserrat',sans-serif", transition: 'background 0.3s' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@400;500;600;700&display=swap');
-        .ec-filter-btn { font-family:'Poppins',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap');
+        .ec-filter-btn { font-family:'Montserrat',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
         .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
-        .ec-input { font-family:'Poppins',sans-serif; font-size:13px; font-weight:500; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
+        .ec-input { font-family:'Montserrat',sans-serif; font-size:13px; font-weight:500; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
         .ec-input::placeholder { color:${dm ? '#334155' : '#94a3b8'}; }
         .ec-input:focus { border-color:#2563eb; }
         .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
@@ -215,7 +215,7 @@ export default function EconomicCalendarPage() {
 
               {/* Countdown to next refresh */}
               {nextRefreshIn !== null && !fetching && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: dm ? '#0f1923' : '#f1f5f9', border: `1px solid ${border}`, borderRadius: 7, fontSize: 10, fontWeight: 600, color: textMut, fontFamily: "'Poppins',sans-serif" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: dm ? '#0f1923' : '#f1f5f9', border: `1px solid ${border}`, borderRadius: 7, fontSize: 10, fontWeight: 600, color: textMut, fontFamily: "'Montserrat',sans-serif" }}>
                   <Clock size={11} color={textMut} />
                   <span>Next refresh in {formatCountdown(nextRefreshIn)}</span>
                 </div>
@@ -259,7 +259,7 @@ export default function EconomicCalendarPage() {
 
               {(ccyFilter !== 'All' || impactFilter !== 'All' || searchQuery) && (
                 <button onClick={() => { setCcyFilter('All'); setImpactFilter('All'); setSearchQuery(''); }}
-                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 11, fontWeight: 700, color: textMut, cursor: 'pointer', fontFamily: "'Poppins',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 11, fontWeight: 700, color: textMut, cursor: 'pointer', fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Clear
                 </button>
               )}
@@ -376,7 +376,7 @@ export default function EconomicCalendarPage() {
                     const rowBorder = `1px solid ${border}`;
                     return (
                       <tr key={idx} className="ec-tr">
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, color: textPrim, fontFamily: "'Poppins',sans-serif" }}>{item.date}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, color: textPrim, fontFamily: "'Montserrat',sans-serif" }}>{item.date}</td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 800, fontFamily: "'Montserrat',sans-serif", borderRadius: 4, letterSpacing: '0.05em' }}>
@@ -384,11 +384,11 @@ export default function EconomicCalendarPage() {
                           </span>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: textPrim, fontFamily: "'Poppins',sans-serif", lineHeight: 1.4 }}>{item.event}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: textPrim, fontFamily: "'Montserrat',sans-serif", lineHeight: 1.4 }}>{item.event}</div>
                           <div style={{ fontSize: 9, fontWeight: 700, color: textMut, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: "'Poppins',sans-serif" }}>
+                          <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: "'Montserrat',sans-serif" }}>
                             {item.importance}
                           </span>
                         </td>
