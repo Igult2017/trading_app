@@ -67,22 +67,24 @@ export default function EconomicCalendarPage() {
   const inputBg  = dm ? '#0c1219'              : '#f8fafc';
   const thBg     = dm ? '#0f1923'              : '#f8fafc';
 
-  const { data: eventsRaw, isLoading: loadingEvents } = useQuery<CalendarEvent[]>({
+  const { data: eventsRaw, isFetching: fetchingEvents } = useQuery<CalendarEvent[]>({
     queryKey: ['/api/homepage/calendar'],
     queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
     staleTime: 5 * 60 * 1000,
     gcTime:    60 * 60 * 1000,
-    placeholderData: (prev) => prev,
+    placeholderData: (prev) => prev ?? [],
+    refetchInterval: (query) => (!query.state.data || (query.state.data as CalendarEvent[]).length === 0) ? 20_000 : false,
   });
-  const { data: bankDataRaw, isLoading: loadingRates } = useQuery<Record<string, RateEntry>>({
+  const { data: bankDataRaw, isFetching: fetchingRates } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
     queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
     staleTime: 5 * 60 * 1000,
     gcTime:    60 * 60 * 1000,
-    placeholderData: (prev) => prev,
+    placeholderData: (prev) => prev ?? {},
   });
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
+  const fetching = fetchingEvents || fetchingRates;
 
   const availableCurrencies = ['All', ...Array.from(new Set(events.map(e => e.currency))).filter(Boolean).sort()];
 
@@ -94,8 +96,6 @@ export default function EconomicCalendarPage() {
     const matchesImpact   = impactFilter === 'All' || event.importance === impactFilter;
     return matchesCategory && matchesSearch && matchesCcy && matchesImpact;
   });
-
-  const loading = loadingEvents || loadingRates;
 
   /* ── shared element styles ───────────────────────────────────────────── */
   const selectStyle: React.CSSProperties = {
@@ -190,19 +190,21 @@ export default function EconomicCalendarPage() {
             </div>
           )}
 
-          {/* ── Loading skeleton ──────────────────────────────────────────── */}
-          {loading && (
-            <div className="ec-card" style={{ padding: '64px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ animation: 'ec-spin 0.8s linear infinite' }}>
+          {/* ── Fetching indicator (subtle — shown while background refresh runs) */}
+          {fetching && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: dm ? '#0f1923' : '#eff6ff', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 8, alignSelf: 'flex-start' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ animation: 'ec-spin 0.8s linear infinite', flexShrink: 0 }}>
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
               </svg>
               <style>{`@keyframes ec-spin { to { transform: rotate(360deg); } }`}</style>
-              <span style={{ fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Loading live data…</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {events.length === 0 ? 'Fetching live calendar data…' : 'Refreshing…'}
+              </span>
             </div>
           )}
 
           {/* ── Rate Differentials ────────────────────────────────────────── */}
-          {!loading && filter === 'Rate Differentials' && (
+          {filter === 'Rate Differentials' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
               {/* Central Bank Rates */}
@@ -277,7 +279,7 @@ export default function EconomicCalendarPage() {
           )}
 
           {/* ── Calendar table ────────────────────────────────────────────── */}
-          {!loading && filter !== 'Rate Differentials' && (
+          {filter !== 'Rate Differentials' && (
             <div className="ec-card" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -330,7 +332,9 @@ export default function EconomicCalendarPage() {
               {filteredEvents.length === 0 && (
                 <div style={{ padding: '72px 24px', textAlign: 'center' }}>
                   <AlertCircle size={28} color={dm ? '#334155' : '#cbd5e1'} style={{ margin: '0 auto 16px' }} />
-                  <p style={{ fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>No matching events found</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
+                    {events.length === 0 && fetchingEvents ? 'Fetching live calendar data…' : 'No matching events found'}
+                  </p>
                 </div>
               )}
             </div>

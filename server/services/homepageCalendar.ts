@@ -158,25 +158,18 @@ async function _attemptCalendarRefresh(): Promise<CalendarEvent[]> {
   return _calendarCache ?? [];
 }
 
-export async function getHomepageCalendar(): Promise<CalendarEvent[]> {
+export function getHomepageCalendar(): Promise<CalendarEvent[]> {
   const now = Date.now();
   const due = now - _calendarLastAttemptAt >= CALENDAR_RETRY_INTERVAL;
 
-  // Always return stale cache immediately if we have data.
-  if (_calendarCache && _calendarCache.length > 0) {
-    if (due && !_calendarInFlight) {
-      // Fire a background refresh — don't make the caller wait for it.
-      _calendarInFlight = _attemptCalendarRefresh()
-        .finally(() => { _calendarInFlight = null; });
-    }
-    return _calendarCache;
+  // Always fire a background refresh when due — never block the caller.
+  if (due && !_calendarInFlight) {
+    _calendarInFlight = _attemptCalendarRefresh()
+      .finally(() => { _calendarInFlight = null; });
   }
 
-  // No cache yet — first fetch, caller must wait.
-  if (_calendarInFlight) return _calendarInFlight;
-  _calendarInFlight = _attemptCalendarRefresh()
-    .finally(() => { _calendarInFlight = null; });
-  return _calendarInFlight;
+  // Return whatever is in cache right now (may be empty on very first startup).
+  return Promise.resolve(_calendarCache ?? []);
 }
 
 export async function getHomepageRates(): Promise<Record<string, RateEntry>> {

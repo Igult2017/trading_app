@@ -176,8 +176,8 @@ def _scrape_myfxbook() -> list:
             browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
         )
         # Prime cookies with a homepage visit first
-        scraper.get('https://www.myfxbook.com', timeout=20)
-        resp = scraper.get(url, timeout=30)
+        scraper.get('https://www.myfxbook.com', timeout=10)
+        resp = scraper.get(url, timeout=15)
         print(
             f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes)',
             file=sys.stderr,
