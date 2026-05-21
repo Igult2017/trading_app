@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Moon, Sun, Menu } from "lucide-react";
+import { Moon, Sun, Menu, X } from "lucide-react";
 import { Link } from "wouter";
 
 const TICKER_DATA = [
@@ -13,7 +13,7 @@ const TICKER_DATA = [
   { symbol: "USD/JPY", price: "156.72",  change: "+0.19%", up: true },
 ];
 
-function TickerTape({ dark }: { dark: boolean }) {
+export function TickerTape({ dark }: { dark: boolean }) {
   const items = [...TICKER_DATA, ...TICKER_DATA];
   const bg     = dark ? "#080c10" : "#f1f5f9";
   const border = dark ? "#0f1923" : "#e2e8f0";
@@ -29,8 +29,8 @@ function TickerTape({ dark }: { dark: boolean }) {
       <div className="ticker-wrap">
         {items.map((t, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: `1px solid ${border}`, whiteSpace: "nowrap" }}>
-            <span style={{ color: symClr, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
-            <span style={{ color: prClr,  fontSize: 10, fontWeight: 600 }}>{t.price}</span>
+            <span style={{ color: symClr, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", fontFamily: "'Montserrat',sans-serif" }}>{t.symbol}</span>
+            <span style={{ color: prClr,  fontSize: 10, fontWeight: 600, fontFamily: "'Montserrat',sans-serif" }}>{t.price}</span>
             <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
@@ -39,16 +39,16 @@ function TickerTape({ dark }: { dark: boolean }) {
   );
 }
 
-const NAV_LINKS: { label: string; href: string; newTab?: boolean }[] = [
-  { label: "Journal",           href: "/auth",           newTab: true },
+const NAV_LINKS: { label: string; href: string; newTab?: boolean; cta?: "outline" | "solid" }[] = [
+  { label: "Journal",           href: "/auth",            newTab: true },
   { label: "Features",          href: "/#features" },
   { label: "Pricing",           href: "/#pricing" },
   { label: "Reviews",           href: "/#reviews" },
   { label: "Economic Calendar", href: "/calendar" },
   { label: "Blog",              href: "/blog" },
   { label: "TSC",               href: "/tsc" },
-  { label: "Login",             href: "/auth",           newTab: true },
-  { label: "Signup",            href: "/auth?mode=signup", newTab: true },
+  { label: "Login",             href: "/auth",            newTab: true, cta: "outline" },
+  { label: "Signup",            href: "/auth?mode=signup", newTab: true, cta: "solid" },
 ];
 
 interface HomeHeaderProps {
@@ -58,112 +58,141 @@ interface HomeHeaderProps {
 }
 
 export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const dm = darkMode;
 
-  const navBg       = dm ? "rgba(8,12,16,0.97)"    : "rgba(255,255,255,0.97)";
-  const navBorder   = dm ? "#172233"                : "#e2e8f0";
-  const navLink     = dm ? "#4a6580"                : "#475569";
-  const navLinkHover= dm ? "#c8d8e8"                : "#0f172a";
-  const logoWhite   = dm ? "#ffffff"                : "#0f172a";
-  const textMuted   = dm ? "#94a3b8"                : "#64748b";
-  const text        = dm ? "#ffffff"                : "#0f172a";
+  const navBg     = dm ? "rgba(8,12,16,0.97)"  : "rgba(255,255,255,0.97)";
+  const navBorder = dm ? "#172233"              : "#e2e8f0";
+  const linkClr   = dm ? "#94a3b8"              : "#475569";
+  const linkHover = dm ? "#f1f5f9"              : "#0f172a";
+  const logoClr   = dm ? "#ffffff"              : "#0f172a";
+  const mobBg     = dm ? "#0c1219"              : "#ffffff";
+  const mobRow    = dm ? "#172233"              : "#f1f5f9";
+
+  function linkStyle(isActive: boolean, cta?: "outline" | "solid"): React.CSSProperties {
+    if (cta === "solid") return {
+      background: "#2563eb", color: "#ffffff",
+      border: "none", borderRadius: 7,
+      padding: "8px 18px", cursor: "pointer",
+      fontFamily: "'Montserrat',sans-serif", fontWeight: 800,
+      fontSize: 11, letterSpacing: "0.08em", textDecoration: "none",
+      display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
+      transition: "background 0.15s",
+    };
+    if (cta === "outline") return {
+      background: "transparent",
+      color: dm ? "#94a3b8" : "#334155",
+      border: `1px solid ${navBorder}`, borderRadius: 7,
+      padding: "7px 18px", cursor: "pointer",
+      fontFamily: "'Montserrat',sans-serif", fontWeight: 700,
+      fontSize: 11, letterSpacing: "0.08em", textDecoration: "none",
+      display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
+      transition: "all 0.15s",
+    };
+    return {
+      color: isActive ? "#2563eb" : linkClr,
+      background: isActive ? (dm ? "rgba(37,99,235,0.12)" : "rgba(37,99,235,0.07)") : "transparent",
+      border: `1px solid ${isActive ? "rgba(37,99,235,0.25)" : "transparent"}`,
+      borderRadius: 6, padding: "7px 12px", cursor: "pointer",
+      fontFamily: "'Montserrat',sans-serif", fontWeight: 700,
+      fontSize: 11, letterSpacing: "0.06em", textDecoration: "none",
+      display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
+      transition: "all 0.15s",
+    };
+  }
 
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
-      <style>{`
-        .hh-nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
-        .hh-nav-a.active { color:#3b82f6 !important; border-color:rgba(59,130,246,0.3) !important; background:rgba(59,130,246,0.08) !important; }
-        .hh-nav-links { display:flex; align-items:center; gap:6px; }
-        .hh-mob-controls { display:none; align-items:center; gap:8px; }
-        @media (max-width: 1024px) {
-          .hh-nav-links { display:none; }
-          .hh-mob-controls { display:flex; }
-        }
-        .hh-mob-dropdown { display:none; }
-        .hh-mob-dropdown.open { display:block; }
-        @media (min-width: 1025px) {
-          .hh-mob-dropdown { display:none !important; }
-        }
-      `}</style>
-
       <TickerTape dark={dm} />
 
-      <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", transition: "background 0.3s" }}>
-        <Link href="/" style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.01em", fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: "pointer", textDecoration: "none" }}>
-          <span style={{ color: logoWhite }}>My FM</span>
-          <span style={{ color: "#3b82f6" }}> | Journal</span>
+      <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", gap: 12, transition: "background 0.3s" }}>
+
+        {/* Logo */}
+        <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}>
+            <span style={{ color: logoClr }}>My FM</span>
+            <span style={{ color: "#3b82f6" }}> | Journal</span>
+          </span>
         </Link>
 
-        <div className="hh-nav-links">
-          {NAV_LINKS.map(({ label, href, newTab }) => {
+        {/* Desktop nav */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }} className="hh-nav-desktop">
+          {NAV_LINKS.filter(l => !l.cta).map(({ label, href, newTab }) => {
             const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
-            const linkProps = {
-              key: label,
-              href,
-              className: `hh-nav-a${isActive ? " active" : ""}`,
-              style: { color: isActive ? "#3b82f6" : navLink } as React.CSSProperties,
-              onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => {
-                if (!isActive) {
-                  e.currentTarget.style.color = navLinkHover;
-                  e.currentTarget.style.borderColor = navBorder;
-                  e.currentTarget.style.background = dm ? "#0c1219" : "#f1f5f9";
-                }
-              },
-              onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => {
-                if (!isActive) {
-                  e.currentTarget.style.color = navLink;
-                  e.currentTarget.style.borderColor = "transparent";
-                  e.currentTarget.style.background = "none";
-                }
-              },
-            };
+            const s = linkStyle(isActive);
+            const handlers = !isActive ? {
+              onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkHover; e.currentTarget.style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc"; e.currentTarget.style.borderColor = navBorder; },
+              onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkClr; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; },
+            } : {};
             return newTab
-              ? <a {...linkProps} target="myfm_journal" rel="noopener noreferrer">{label}</a>
-              : <Link {...linkProps}>{label}</Link>;
+              ? <a key={label} href={href} style={s} target="myfm_journal" rel="noopener noreferrer" {...handlers}>{label}</a>
+              : <Link key={label} href={href} style={s} {...handlers}>{label}</Link>;
           })}
-          <button
-            onClick={() => setDarkMode(!dm)}
-            style={{ width: 40, height: 22, borderRadius: 11, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0, marginLeft: 4 }}
-          >
-            <div style={{ position: "absolute", left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        </div>
+
+        {/* Right: CTA buttons + toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }} className="hh-nav-desktop">
+          {NAV_LINKS.filter(l => l.cta).map(({ label, href, cta }) => (
+            <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={linkStyle(false, cta)}
+              onMouseEnter={e => { if (cta === "solid") e.currentTarget.style.background = "#1d4ed8"; }}
+              onMouseLeave={e => { if (cta === "solid") e.currentTarget.style.background = "#2563eb"; }}>
+              {label}
+            </a>
+          ))}
+
+          {/* Dark mode toggle */}
+          <button onClick={() => setDarkMode(!dm)}
+            style={{ width: 42, height: 23, borderRadius: 12, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0, marginLeft: 4 }}>
+            <div style={{ position: "absolute", left: dm ? 21 : 2, top: 2, width: 19, height: 19, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
             </div>
           </button>
         </div>
 
-        <div className="hh-mob-controls">
-          <button
-            onClick={() => setDarkMode(!dm)}
-            style={{ width: 40, height: 22, borderRadius: 11, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0 }}
-          >
-            <div style={{ position: "absolute", left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* Mobile controls */}
+        <div style={{ display: "none", alignItems: "center", gap: 8 }} className="hh-mob-controls">
+          <button onClick={() => setDarkMode(!dm)}
+            style={{ width: 42, height: 23, borderRadius: 12, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0 }}>
+            <div style={{ position: "absolute", left: dm ? 21 : 2, top: 2, width: 19, height: 19, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
             </div>
           </button>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", background: dm ? "#0c1219" : "#f1f5f9", border: `1px solid ${navBorder}`, borderRadius: 4, cursor: "pointer", color: text }}
-          >
-            <Menu size={18} />
+          <button onClick={() => setMobileOpen(!mobileOpen)}
+            style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: dm ? "#0c1219" : "#f1f5f9", border: `1px solid ${navBorder}`, borderRadius: 7, cursor: "pointer", color: logoClr, transition: "background 0.2s" }}>
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </nav>
 
-      {mobileMenuOpen && (
-        <div className="hh-mob-dropdown open" style={{ background: dm ? "#0c1219" : "#ffffff", borderBottom: `1px solid ${navBorder}` }}>
-          {NAV_LINKS.map(({ label, href, newTab }) => {
-            const mobStyle: React.CSSProperties = { display: "block", padding: "13px 24px", borderBottom: `1px solid ${navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", color: textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: "none" };
-            const mobEvents = {
-              onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = text; },
-              onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.color = textMuted; },
+      {/* Mobile dropdown */}
+      {mobileOpen && (
+        <div style={{ background: mobBg, borderBottom: `1px solid ${navBorder}` }} className="hh-mob-dropdown">
+          {NAV_LINKS.map(({ label, href, newTab, cta }) => {
+            const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
+            const s: React.CSSProperties = {
+              display: "flex", alignItems: "center",
+              padding: "14px 24px", borderBottom: `1px solid ${mobRow}`,
+              fontFamily: "'Montserrat',sans-serif", fontWeight: 700,
+              fontSize: 12, letterSpacing: "0.08em",
+              color: isActive ? "#2563eb" : (cta === "solid" ? "#2563eb" : (dm ? "#94a3b8" : "#475569")),
+              textDecoration: "none", cursor: "pointer",
+              background: isActive ? (dm ? "rgba(37,99,235,0.08)" : "rgba(37,99,235,0.05)") : "transparent",
             };
             return newTab
-              ? <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={mobStyle} {...mobEvents}>{label}</a>
-              : <Link key={label} href={href} onClick={() => setMobileMenuOpen(false)} style={mobStyle} {...mobEvents}>{label}</Link>;
+              ? <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={s} onClick={() => setMobileOpen(false)}>{label}</a>
+              : <Link key={label} href={href} style={s} onClick={() => setMobileOpen(false)}>{label}</Link>;
           })}
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 1080px) {
+          .hh-nav-desktop { display: none !important; }
+          .hh-mob-controls { display: flex !important; }
+        }
+        .hh-mob-dropdown { display: none; }
+        .hh-mob-dropdown.open { display: block; }
+      `}</style>
     </div>
   );
 }
