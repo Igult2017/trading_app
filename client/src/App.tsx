@@ -154,9 +154,7 @@ function AppRoutes() {
 
 function PrefetchCalendar() {
   useEffect(() => {
-    // Delayed slightly so the critical auth/session bootstrap finishes first
-    const id = setTimeout(() => prefetchCalendarData(queryClient), 800);
-    return () => clearTimeout(id);
+    prefetchCalendarData(queryClient);
   }, []);
   return null;
 }

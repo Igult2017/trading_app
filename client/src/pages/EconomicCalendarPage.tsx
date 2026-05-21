@@ -67,23 +67,22 @@ export default function EconomicCalendarPage() {
   const inputBg  = dm ? '#0c1219'              : '#f8fafc';
   const thBg     = dm ? '#0f1923'              : '#f8fafc';
 
-  // Retry counter — exponential back-off when server cache is still warming
+  // Retry counter for exponential back-off on cold-start empty responses
   const retryCount = useRef(0);
 
   const { data: eventsRaw, isFetching: fetchingEvents } = useQuery<CalendarEvent[]>({
     queryKey: ['/api/homepage/calendar'],
-    queryFn: async () => {
-      const d = await fetch('/api/homepage/calendar').then(r => r.json()).catch(() => []);
-      if (!Array.isArray(d) || d.length === 0) throw new Error('empty');
-      retryCount.current = 0;
-      return d;
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime:    60 * 60 * 1000,
+    // Never throw — always return an array so the query stays in "success"
+    // state and gets persisted to localStorage for instant next-visit load.
+    queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
+    staleTime:      15 * 60 * 1000,  // treat as fresh for 15 min — no spinner on repeat visits
+    gcTime:          2 * 60 * 60 * 1000,
     placeholderData: (prev) => prev ?? [],
-    // Exponential back-off: 3 s → 6 s → 12 s → … capped at 30 s
+    refetchOnMount:  false,           // if data is in cache, don't re-fetch just because component mounted
+    // Only poll while data is empty (server cold-start) — back off exponentially
     refetchInterval: (query) => {
-      if (Array.isArray(query.state.data) && query.state.data.length > 0) return false;
+      const d = query.state.data as CalendarEvent[] | undefined;
+      if (d && d.length > 0) return false;
       retryCount.current += 1;
       return Math.min(3_000 * Math.pow(2, retryCount.current - 1), 30_000);
     },
@@ -91,14 +90,11 @@ export default function EconomicCalendarPage() {
   });
   const { data: bankDataRaw, isFetching: fetchingRates } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
-    queryFn: async () => {
-      const d = await fetch('/api/homepage/rates').then(r => r.json()).catch(() => ({}));
-      if (!d || typeof d !== 'object' || Object.keys(d).length === 0) throw new Error('empty');
-      return d;
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime:    60 * 60 * 1000,
+    queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
+    staleTime:      15 * 60 * 1000,
+    gcTime:          2 * 60 * 60 * 1000,
     placeholderData: (prev) => prev ?? {},
+    refetchOnMount:  false,
     retry: false,
   });
   const events   = eventsRaw   ?? [];
@@ -194,16 +190,20 @@ export default function EconomicCalendarPage() {
             </div>
           )}
 
-          {/* ── Fetching indicator (subtle — shown while background refresh runs) */}
-          {fetching && (
+          {/* ── Background refresh dot — only visible when actively fetching */}
+          <style>{`@keyframes ec-spin { to { transform: rotate(360deg); } } @keyframes ec-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+          {fetching && events.length === 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: dm ? '#0f1923' : '#eff6ff', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 8, alignSelf: 'flex-start' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ animation: 'ec-spin 0.8s linear infinite', flexShrink: 0 }}>
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
               </svg>
-              <style>{`@keyframes ec-spin { to { transform: rotate(360deg); } }`}</style>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {events.length === 0 ? 'Fetching live calendar data…' : 'Refreshing…'}
-              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Loading live data…</span>
+            </div>
+          )}
+          {fetching && events.length > 0 && (
+            <div style={{ position: 'fixed', bottom: 20, right: 20, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: dm ? '#0f1923ee' : '#ffffffee', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', zIndex: 50, backdropFilter: 'blur(6px)' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#2563eb', animation: 'ec-pulse 1.2s ease-in-out infinite' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: dm ? '#64748b' : '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Refreshing</span>
             </div>
           )}
 
