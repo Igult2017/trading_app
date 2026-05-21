@@ -154,9 +154,6 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
               ))}
             </div>
           </div>
-          <p style={{ fontFamily: "'Poppins',sans-serif", fontSize: 11, fontWeight: 500, color: mutedTxt, lineHeight: 1.65, margin: 0 }}>
-            Risk warning: Trading financial markets involves significant risk of loss and is not suitable for all investors. My FM | Journal provides educational content and data analytics for informational purposes only. Nothing on this platform constitutes financial, investment, or trading advice. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
-          </p>
         </div>
 
       </div>
