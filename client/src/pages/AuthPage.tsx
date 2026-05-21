@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import faviconUrl from '/favicon.png';
 
 type Mode = 'login' | 'signup';
 
@@ -182,7 +181,6 @@ export default function AuthPage() {
 
       {/* Logo */}
       <div style={S.logoRow}>
-        <img src={faviconUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
         <span style={S.logoText}>
           <span style={{ color: '#ffffff' }}>My FM</span>
           <span style={{ color: '#3b82f6' }}> | Journal</span>
