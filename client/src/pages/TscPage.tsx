@@ -276,8 +276,8 @@ export default function TscPage() {
         <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
         {/* ── Hero Section ──────────────────────────────────────────────── */}
-        <section style={{ background: sectionBg, borderBottom: `1px solid ${border}`, padding: "56px 24px 52px" }}>
-          <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 40 }}>
+        <section style={{ background: sectionBg, borderBottom: `1px solid ${border}`, padding: "56px 28px 52px" }}>
+          <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 40 }}>
 
             {/* Left: heading + description */}
             <div style={{ flex: "1 1 380px" }}>
@@ -326,7 +326,7 @@ export default function TscPage() {
         </section>
 
         {/* ── Main Content ──────────────────────────────────────────────── */}
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px 60px", display: "flex", flexDirection: "column", gap: "2rem" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "40px 28px 60px", display: "flex", flexDirection: "column", gap: "2rem" }}>
 
           {/* Timeline */}
           <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 16, padding: "1.5rem 1.75rem", boxShadow: dm ? "none" : "0 1px 4px rgba(0,0,0,0.04)" }}>

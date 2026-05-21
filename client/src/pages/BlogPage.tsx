@@ -100,7 +100,7 @@ export default function BlogPage() {
 
       <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
-      <main className="max-w-[1200px] mx-auto p-6 md:px-12 md:py-8">
+      <main className="max-w-[1280px] mx-auto px-7 py-8">
 
         {/* Category Navigation */}
         <nav className={`flex items-center justify-center space-x-6 sm:space-x-10 border-y py-4 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
