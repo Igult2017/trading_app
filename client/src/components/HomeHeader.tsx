@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+import { prefetchCalendarData } from "@/lib/prefetchCalendar";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -60,6 +62,17 @@ interface HomeHeaderProps {
 export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const dm = darkMode;
+  const qc = useQueryClient();
+
+  // Prefetch targets: fire on hover so data is ready before navigation completes
+  const PREFETCH_HREFS = new Set(["/calendar", "/blog"]);
+  const prefetchedRef = useRef(new Set<string>());
+  const handleLinkHover = useCallback((href: string) => {
+    if (!PREFETCH_HREFS.has(href)) return;
+    if (prefetchedRef.current.has(href)) return;
+    prefetchedRef.current.add(href);
+    prefetchCalendarData(qc);
+  }, [qc]);
 
   const navBg     = dm ? "rgba(8,12,16,0.97)"  : "rgba(255,255,255,0.97)";
   const navBorder = dm ? "#172233"              : "#e2e8f0";
@@ -122,7 +135,12 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
               const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
               const s = linkStyle(isActive);
               const handlers = !isActive ? {
-                onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkHover; e.currentTarget.style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc"; e.currentTarget.style.borderColor = navBorder; },
+                onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+                  e.currentTarget.style.color = linkHover;
+                  e.currentTarget.style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc";
+                  e.currentTarget.style.borderColor = navBorder;
+                  handleLinkHover(href);
+                },
                 onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkClr; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; },
               } : {};
               return newTab

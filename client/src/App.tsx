@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
+import { prefetchCalendarData } from "@/lib/prefetchCalendar";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
@@ -153,11 +154,9 @@ function AppRoutes() {
 
 function PrefetchCalendar() {
   useEffect(() => {
-    // Keep data for 60 min so repeat visits to /calendar and /blog are instant.
-    const opts = { staleTime: 5 * 60 * 1000, gcTime: 60 * 60 * 1000 };
-    queryClient.prefetchQuery({ queryKey: ['/api/homepage/calendar'], queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).catch(() => []), ...opts });
-    queryClient.prefetchQuery({ queryKey: ['/api/homepage/rates'],   queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).catch(() => ({})), ...opts });
-    queryClient.prefetchQuery({ queryKey: ['/api/blog'],             queryFn: () => fetch('/api/blog').then(r => r.ok ? r.json() : []).catch(() => []), ...opts });
+    // Delayed slightly so the critical auth/session bootstrap finishes first
+    const id = setTimeout(() => prefetchCalendarData(queryClient), 800);
+    return () => clearTimeout(id);
   }, []);
   return null;
 }

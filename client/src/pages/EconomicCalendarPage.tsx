@@ -67,20 +67,39 @@ export default function EconomicCalendarPage() {
   const inputBg  = dm ? '#0c1219'              : '#f8fafc';
   const thBg     = dm ? '#0f1923'              : '#f8fafc';
 
+  // Retry counter — exponential back-off when server cache is still warming
+  const retryCount = useRef(0);
+
   const { data: eventsRaw, isFetching: fetchingEvents } = useQuery<CalendarEvent[]>({
     queryKey: ['/api/homepage/calendar'],
-    queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
+    queryFn: async () => {
+      const d = await fetch('/api/homepage/calendar').then(r => r.json()).catch(() => []);
+      if (!Array.isArray(d) || d.length === 0) throw new Error('empty');
+      retryCount.current = 0;
+      return d;
+    },
     staleTime: 5 * 60 * 1000,
     gcTime:    60 * 60 * 1000,
     placeholderData: (prev) => prev ?? [],
-    refetchInterval: (query) => (!query.state.data || (query.state.data as CalendarEvent[]).length === 0) ? 20_000 : false,
+    // Exponential back-off: 3 s → 6 s → 12 s → … capped at 30 s
+    refetchInterval: (query) => {
+      if (Array.isArray(query.state.data) && query.state.data.length > 0) return false;
+      retryCount.current += 1;
+      return Math.min(3_000 * Math.pow(2, retryCount.current - 1), 30_000);
+    },
+    retry: false,
   });
   const { data: bankDataRaw, isFetching: fetchingRates } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
-    queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
+    queryFn: async () => {
+      const d = await fetch('/api/homepage/rates').then(r => r.json()).catch(() => ({}));
+      if (!d || typeof d !== 'object' || Object.keys(d).length === 0) throw new Error('empty');
+      return d;
+    },
     staleTime: 5 * 60 * 1000,
     gcTime:    60 * 60 * 1000,
     placeholderData: (prev) => prev ?? {},
+    retry: false,
   });
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
