@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
@@ -44,7 +44,7 @@ export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const { darkMode, setDarkMode } = usePublicTheme();
   const [, navigate] = useLocation();
-  const { data: rawPosts, isLoading: loading } = useQuery<Article[]>({
+  const { data: rawPosts, isLoading: loading, dataUpdatedAt: blogUpdatedAt } = useQuery<Article[]>({
     queryKey: ['/api/blog'],
     queryFn: () =>
       fetch('/api/blog')
@@ -63,10 +63,20 @@ export default function BlogPage() {
           }));
         })
         .catch(() => []),
-    staleTime: 5 * 60 * 1000,
-    gcTime:    60 * 60 * 1000,
-    placeholderData: (prev) => prev,
+    staleTime:            4 * 60 * 1000,
+    gcTime:               60 * 60 * 1000,
+    placeholderData:      (prev) => prev,
+    refetchOnMount:       true,
+    refetchOnWindowFocus: true,
+    refetchInterval:      5 * 60 * 1000,
+    refetchIntervalInBackground: false,
   });
+
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const allPosts = rawPosts ?? [];
   const isDark = darkMode;
@@ -101,16 +111,29 @@ export default function BlogPage() {
       <main className="max-w-[1280px] mx-auto px-7 py-8">
 
         {/* Category Navigation */}
-        <nav className={`flex items-center justify-center space-x-6 sm:space-x-10 border-y py-4 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`text-[9px] font-extrabold uppercase tracking-[0.25em] transition-all ${activeCategory === cat ? (isDark ? 'text-white border-b-2 border-white' : 'text-blue-600 border-b-2 border-blue-600') : (isDark ? 'text-[#475569] hover:text-blue-300' : 'text-stone-400 hover:text-stone-600')}`}
-            >
-              {cat}
-            </button>
-          ))}
+        <nav className={`flex items-center justify-between border-y py-4 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
+          <div className="flex items-center justify-center space-x-6 sm:space-x-10 flex-1">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`text-[9px] font-extrabold uppercase tracking-[0.25em] transition-all ${activeCategory === cat ? (isDark ? 'text-white border-b-2 border-white' : 'text-blue-600 border-b-2 border-blue-600') : (isDark ? 'text-[#475569] hover:text-blue-300' : 'text-stone-400 hover:text-stone-600')}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+          {/* Live indicator */}
+          <div className="flex items-center gap-1.5 shrink-0 pl-4" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#22c55e' }}>
+            <style>{`.blog-live-dot{width:5px;height:5px;border-radius:50%;background:#22c55e;animation:blogPulse 2s infinite}@keyframes blogPulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
+            <span className="blog-live-dot" />
+            LIVE
+            {blogUpdatedAt > 0 && (
+              <span style={{ color: isDark ? '#475569' : '#a8a29e', fontWeight: 600 }}>
+                · {(() => { const d = Date.now() - blogUpdatedAt; if (d < 60000) return 'just now'; return `${Math.floor(d / 60000)}m ago`; })()}
+              </span>
+            )}
+          </div>
         </nav>
 
         {/* Empty / loading states */}

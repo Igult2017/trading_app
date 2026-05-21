@@ -8,8 +8,8 @@ export const BLOG_QUERY_KEY     = ["/api/blog"]              as const;
 export const CALENDAR_STALE_MS = 15 * 60 * 1000;
 export const CALENDAR_GC_MS    =  2 * 60 * 60 * 1000;
 
-// Background loop fires every 12 min so cache is never older than 12 min
-const REFRESH_INTERVAL_MS = 12 * 60 * 1000;
+// Background loop fires every 3 min so cache is always nearly fresh
+const REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 // ── Raw fetchers (always return gracefully, never throw) ──────────────────────
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
 import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
@@ -67,33 +67,47 @@ export default function EconomicCalendarPage() {
   // Retry counter for exponential back-off on cold-start empty responses
   const retryCount = useRef(0);
 
-  const { data: eventsRaw, isFetching: fetchingEvents } = useQuery<CalendarEvent[]>({
+  const {
+    data: eventsRaw,
+    isFetching: fetchingEvents,
+    dataUpdatedAt: calUpdatedAt,
+  } = useQuery<CalendarEvent[]>({
     queryKey: ['/api/homepage/calendar'],
-    // Never throw — always return an array so the query stays in "success"
-    // state and gets persisted to localStorage for instant next-visit load.
     queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
-    staleTime:      15 * 60 * 1000,  // treat as fresh for 15 min — no spinner on repeat visits
-    gcTime:          2 * 60 * 60 * 1000,
-    placeholderData: (prev) => prev ?? [],
-    refetchOnMount:  false,           // if data is in cache, don't re-fetch just because component mounted
-    // Only poll while data is empty (server cold-start) — back off exponentially
-    refetchInterval: (query) => {
+    staleTime:               2 * 60 * 1000,
+    gcTime:                  2 * 60 * 60 * 1000,
+    placeholderData:         (prev) => prev ?? [],
+    refetchOnMount:          true,
+    refetchOnWindowFocus:    true,
+    refetchInterval:         (query) => {
       const d = query.state.data as CalendarEvent[] | undefined;
-      if (d && d.length > 0) return false;
-      retryCount.current += 1;
-      return Math.min(3_000 * Math.pow(2, retryCount.current - 1), 30_000);
+      if (!d || d.length === 0) {
+        retryCount.current += 1;
+        return Math.min(3_000 * Math.pow(2, retryCount.current - 1), 30_000);
+      }
+      return 3 * 60 * 1000;
     },
+    refetchIntervalInBackground: false,
     retry: false,
   });
   const { data: bankDataRaw, isFetching: fetchingRates } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
     queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
-    staleTime:      15 * 60 * 1000,
-    gcTime:          2 * 60 * 60 * 1000,
-    placeholderData: (prev) => prev ?? {},
-    refetchOnMount:  false,
+    staleTime:            2 * 60 * 1000,
+    gcTime:               2 * 60 * 60 * 1000,
+    placeholderData:      (prev) => prev ?? {},
+    refetchOnMount:       true,
+    refetchOnWindowFocus: true,
+    refetchInterval:      3 * 60 * 1000,
+    refetchIntervalInBackground: false,
     retry: false,
   });
+
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
   const fetching = fetchingEvents || fetchingRates;
@@ -154,9 +168,22 @@ export default function EconomicCalendarPage() {
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.08em' }}>
-              <Clock size={13} color="#3b82f6" />
-              <span>UTC</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Live badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#22c55e' }}>
+                <style>{`.ec-live-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:ecPulse 2s infinite}@keyframes ecPulse{0%,100%{opacity:1}50%{opacity:0.35}}`}</style>
+                <span className="ec-live-dot" />
+                LIVE
+                {calUpdatedAt > 0 && (
+                  <span style={{ color: textMut, fontWeight: 600 }}>
+                    · updated {(() => { const d = Date.now() - calUpdatedAt; if (d < 60000) return 'just now'; return `${Math.floor(d / 60000)}m ago`; })()}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.08em' }}>
+                <Clock size={13} color="#3b82f6" />
+                <span>UTC</span>
+              </div>
             </div>
           </div>
 
