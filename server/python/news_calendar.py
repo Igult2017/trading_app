@@ -246,11 +246,15 @@ def _scrape_myfxbook() -> list:
 
 
 def scrape_calendar() -> list:
-    """Fetch forex calendar: MyFXBook first, TradingView fallback."""
+    """Fetch forex calendar from MyFXBook only.
+    If MyFXBook is unavailable the caller (Node service) will continue to
+    serve the last cached result until a fresh scrape succeeds.
+    """
     events = _scrape_myfxbook()
     if not events:
-        print('[news_calendar] Falling back to TradingView…', file=sys.stderr)
-        events = _scrape_tradingview()
+        # Signal to the Node service that this attempt produced no data;
+        # the service will keep serving its stale in-memory cache.
+        print('[news_calendar] MyFXBook returned no data — no fallback source', file=sys.stderr)
     return events
 
 

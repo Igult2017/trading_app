@@ -1,6 +1,14 @@
 /**
- * Homepage economic calendar service.
- * Calls the newskeeper-based Python scraper (news_calendar.py) and caches results.
+ * Homepage economic calendar service — MyFXBook only.
+ *
+ * Strategy:
+ *  - The Python scraper targets MyFXBook exclusively (no TradingView fallback).
+ *  - We keep a "last good" in-memory cache that is NEVER expired on its own.
+ *    If MyFXBook is blocked or unreachable, every API request gets the stale
+ *    cache until a successful scrape comes in.
+ *  - A background refresh runs every CALENDAR_RETRY_INTERVAL ms.  It only
+ *    updates the cache when MyFXBook actually returns data.
+ *  - In-flight deduplication prevents multiple Python processes running at once.
  */
 
 import { spawn } from "child_process";
@@ -29,37 +37,40 @@ export interface RateEntry {
   live: boolean;
 }
 
-// ── In-memory cache ──────────────────────────────────────────────────────────
+// ── Cache ─────────────────────────────────────────────────────────────────────
+// Calendar: never expires for serving — only replaced on successful MyFXBook fetch.
 let _calendarCache: CalendarEvent[] | null = null;
-let _calendarFetchedAt = 0;
-const CALENDAR_TTL = 15 * 60 * 1000; // 15 minutes
+let _calendarFetchedAt = 0;           // timestamp of last SUCCESSFUL fetch
+let _calendarLastAttemptAt = 0;       // timestamp of last fetch ATTEMPT
+const CALENDAR_RETRY_INTERVAL = 15 * 60 * 1000; // retry every 15 min
 
+// Rates: refreshed hourly.
 let _ratesCache: Record<string, RateEntry> | null = null;
 let _ratesFetchedAt = 0;
-const RATES_TTL = 60 * 60 * 1000; // 1 hour
+const RATES_TTL = 60 * 60 * 1000;
 
-// In-flight promise deduplication — prevents spawning multiple Python processes
-// for concurrent requests while one scrape is already running.
+// In-flight deduplication.
 let _calendarInFlight: Promise<CalendarEvent[]> | null = null;
 let _ratesInFlight: Promise<Record<string, RateEntry>> | null = null;
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Service status tracking ──────────────────────────────────────────────────
-let _calendarSource: 'myfxbook' | 'tradingview' | 'unknown' = 'unknown';
+// ── Status ────────────────────────────────────────────────────────────────────
+let _calendarSource: 'myfxbook' | 'unknown' = 'unknown';
 let _calendarEventCount = 0;
 let _calendarLastError: string | null = null;
-let _ratesLiveCount   = 0;
+let _ratesLiveCount     = 0;
 let _ratesFallbackCount = 0;
 let _ratesLastError: string | null = null;
 
 export function getCalendarServiceStatus() {
   return {
     calendar: {
-      fetchedAt:  _calendarFetchedAt || null,
-      eventCount: _calendarEventCount,
-      source:     _calendarSource,
-      inFlight:   _calendarInFlight !== null,
-      lastError:  _calendarLastError,
+      fetchedAt:     _calendarFetchedAt || null,
+      lastAttemptAt: _calendarLastAttemptAt || null,
+      eventCount:    _calendarEventCount,
+      source:        _calendarSource,
+      inFlight:      _calendarInFlight !== null,
+      lastError:     _calendarLastError,
     },
     rates: {
       fetchedAt:     _ratesFetchedAt || null,
@@ -87,9 +98,9 @@ function runPython(mode: "calendar" | "rates"): Promise<string> {
       if (!settled) {
         settled = true;
         child.kill();
-        reject(new Error("Python timeout (30s)"));
+        reject(new Error("Python timeout (60s)"));
       }
-    }, 30_000);
+    }, 60_000);
 
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
@@ -104,44 +115,67 @@ function runPython(mode: "calendar" | "rates"): Promise<string> {
       clearTimeout(timer);
       if (stderr) console.log(`[homepageCalendar/${mode}]`, stderr.trim());
       if (code !== 0) return reject(new Error(`Python exited ${code}`));
-      // Pass stderr along so callers can inspect the source
       resolve(JSON.stringify({ stdout, stderr }));
     });
   });
 }
 
+/**
+ * Attempt one MyFXBook scrape.
+ * - Updates _calendarCache only if MyFXBook returned actual events.
+ * - Always returns whatever is in _calendarCache (stale or fresh).
+ */
+async function _attemptCalendarRefresh(): Promise<CalendarEvent[]> {
+  _calendarLastAttemptAt = Date.now();
+  try {
+    const envelope = await runPython("calendar");
+    const { stdout, stderr } = JSON.parse(envelope);
+    const data = JSON.parse(stdout) as CalendarEvent[];
+
+    if (data.length > 0) {
+      // MyFXBook succeeded — update the cache.
+      _calendarCache    = data;
+      _calendarFetchedAt = Date.now();
+      _calendarEventCount = data.length;
+      _calendarSource   = 'myfxbook';
+      _calendarLastError = null;
+      console.log(`[homepageCalendar] MyFXBook: ${data.length} events cached`);
+    } else {
+      // MyFXBook returned 0 events (blocked / challenge page).
+      // Log the reason but DO NOT touch the cache — stale data keeps serving.
+      const reason = stderr.includes('Cloudflare') ? 'Cloudflare challenge'
+                   : stderr.includes('0 rows')     ? '0 rows scraped'
+                   : 'no data';
+      _calendarLastError = `MyFXBook unavailable (${reason}) — serving stale cache`;
+      console.warn(`[homepageCalendar] ${_calendarLastError}`);
+    }
+  } catch (err: any) {
+    _calendarLastError = err.message;
+    console.error("[homepageCalendar] calendar fetch failed:", err.message);
+    // Cache remains untouched — stale data keeps serving.
+  }
+
+  return _calendarCache ?? [];
+}
+
 export async function getHomepageCalendar(): Promise<CalendarEvent[]> {
-  if (_calendarCache && _calendarCache.length > 0 && Date.now() - _calendarFetchedAt < CALENDAR_TTL) {
+  const now = Date.now();
+  const due = now - _calendarLastAttemptAt >= CALENDAR_RETRY_INTERVAL;
+
+  // Always return stale cache immediately if we have data.
+  if (_calendarCache && _calendarCache.length > 0) {
+    if (due && !_calendarInFlight) {
+      // Fire a background refresh — don't make the caller wait for it.
+      _calendarInFlight = _attemptCalendarRefresh()
+        .finally(() => { _calendarInFlight = null; });
+    }
     return _calendarCache;
   }
 
+  // No cache yet — first fetch, caller must wait.
   if (_calendarInFlight) return _calendarInFlight;
-
-  _calendarInFlight = runPython("calendar")
-    .then((envelope) => {
-      const { stdout, stderr } = JSON.parse(envelope);
-      // Detect source from Python stderr logs
-      if (stderr.includes('Falling back to TradingView')) {
-        _calendarSource = 'tradingview';
-      } else if (stderr.includes('MyFXBook:') && !stderr.includes('0 rows')) {
-        _calendarSource = 'myfxbook';
-      }
-      const data = JSON.parse(stdout) as CalendarEvent[];
-      if (data.length > 0) {
-        _calendarCache = data;
-        _calendarFetchedAt = Date.now();
-        _calendarEventCount = data.length;
-        _calendarLastError = null;
-      }
-      return data.length > 0 ? data : (_calendarCache ?? []);
-    })
-    .catch((err) => {
-      _calendarLastError = err.message;
-      console.error("[homepageCalendar] calendar fetch failed:", err);
-      return _calendarCache ?? [];
-    })
+  _calendarInFlight = _attemptCalendarRefresh()
     .finally(() => { _calendarInFlight = null; });
-
   return _calendarInFlight;
 }
 
@@ -157,11 +191,11 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
       const { stdout } = JSON.parse(envelope);
       const data = JSON.parse(stdout) as Record<string, RateEntry>;
       if (Object.keys(data).length > 0) {
-        _ratesCache = data;
-        _ratesFetchedAt = Date.now();
+        _ratesCache         = data;
+        _ratesFetchedAt     = Date.now();
         _ratesLiveCount     = Object.values(data).filter(r => r.live).length;
         _ratesFallbackCount = Object.values(data).filter(r => !r.live).length;
-        _ratesLastError = null;
+        _ratesLastError     = null;
       }
       return Object.keys(data).length > 0 ? data : (_ratesCache ?? {});
     })
@@ -175,7 +209,7 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
   return _ratesInFlight;
 }
 
-// ── Startup cache warm-up ─────────────────────────────────────────────────────
+// ── Startup warm-up ───────────────────────────────────────────────────────────
 (function warmupOnStartup() {
   console.log("[homepageCalendar] Warming up calendar + rates cache in background…");
   getHomepageCalendar()
