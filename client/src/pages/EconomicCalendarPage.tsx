@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
+import { Globe, Clock, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 
 interface CalendarEvent {
@@ -37,6 +37,8 @@ const currencyPairs = [
 const filterCategories = ['All', 'Currencies', 'Crypto', 'Commodities', 'Stocks', 'Rate Differentials'];
 const IMPACT_LEVELS = ['All', 'High', 'Medium', 'Low'] as const;
 
+const REFETCH_MS = 3 * 60 * 1000;
+
 function impactStyle(imp: string): React.CSSProperties {
   switch (imp) {
     case 'High':   return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' };
@@ -45,14 +47,36 @@ function impactStyle(imp: string): React.CSSProperties {
   }
 }
 
+function useNow() {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function formatAgo(ms: number): string {
+  if (ms < 5000)  return 'just now';
+  if (ms < 60000) return `${Math.floor(ms / 1000)}s ago`;
+  return `${Math.floor(ms / 60000)}m ago`;
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return 'now';
+  const s = Math.ceil(ms / 1000);
+  if (s < 60)  return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
 export default function EconomicCalendarPage() {
   const [filter, setFilter]           = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [ccyFilter, setCcyFilter]     = useState('All');
   const [impactFilter, setImpactFilter] = useState('All');
-  const { darkMode, setDarkMode } = usePublicTheme();
-
+  const { darkMode } = usePublicTheme();
   const dm = darkMode;
+  const now = useNow();
 
   const pageBg   = dm ? 'rgba(8,12,16,0.97)'  : '#f8fafc';
   const cardBg   = dm ? '#0c1219'              : '#ffffff';
@@ -62,53 +86,66 @@ export default function EconomicCalendarPage() {
   const inputBg  = dm ? '#0c1219'              : '#f8fafc';
   const thBg     = dm ? '#0f1923'              : '#f8fafc';
 
-  // Retry counter for exponential back-off on cold-start empty responses
   const retryCount = useRef(0);
 
   const {
     data: eventsRaw,
     isFetching: fetchingEvents,
     dataUpdatedAt: calUpdatedAt,
+    refetch: refetchCalendar,
   } = useQuery<CalendarEvent[]>({
     queryKey: ['/api/homepage/calendar'],
-    queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
-    staleTime:               2 * 60 * 1000,
-    gcTime:                  2 * 60 * 60 * 1000,
-    placeholderData:         (prev) => prev ?? [],
-    refetchOnMount:          true,
-    refetchOnWindowFocus:    true,
-    refetchInterval:         (query) => {
+    queryFn: () =>
+      fetch('/api/homepage/calendar').then(r => r.json())
+        .then(d => Array.isArray(d) ? d : []).catch(() => []),
+    staleTime: 2 * 60 * 1000,
+    gcTime:    2 * 60 * 60 * 1000,
+    placeholderData: (prev) => prev ?? [],
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => {
       const d = query.state.data as CalendarEvent[] | undefined;
       if (!d || d.length === 0) {
         retryCount.current += 1;
         return Math.min(3_000 * Math.pow(2, retryCount.current - 1), 30_000);
       }
-      return 3 * 60 * 1000;
+      return REFETCH_MS;
     },
     refetchIntervalInBackground: false,
     retry: false,
   });
-  const { data: bankDataRaw, isFetching: fetchingRates } = useQuery<Record<string, RateEntry>>({
+
+  const {
+    data: bankDataRaw,
+    isFetching: fetchingRates,
+    dataUpdatedAt: ratesUpdatedAt,
+    refetch: refetchRates,
+  } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
-    queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
-    staleTime:            2 * 60 * 1000,
-    gcTime:               2 * 60 * 60 * 1000,
-    placeholderData:      (prev) => prev ?? {},
-    refetchOnMount:       true,
+    queryFn: () =>
+      fetch('/api/homepage/rates').then(r => r.json())
+        .then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
+    staleTime: 2 * 60 * 1000,
+    gcTime:    2 * 60 * 60 * 1000,
+    placeholderData: (prev) => prev ?? {},
+    refetchOnMount: true,
     refetchOnWindowFocus: true,
-    refetchInterval:      3 * 60 * 1000,
+    refetchInterval: REFETCH_MS,
     refetchIntervalInBackground: false,
     retry: false,
   });
 
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(n => n + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  const handleManualRefresh = useCallback(async () => {
+    await Promise.all([refetchCalendar(), refetchRates()]);
+  }, [refetchCalendar, refetchRates]);
+
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
   const fetching = fetchingEvents || fetchingRates;
+
+  const lastUpdate    = Math.max(calUpdatedAt, ratesUpdatedAt);
+  const nextRefreshIn = lastUpdate > 0 ? Math.max(0, lastUpdate + REFETCH_MS - now) : null;
+  const updatedAgo    = lastUpdate > 0 ? now - lastUpdate : null;
 
   const availableCurrencies = ['All', ...Array.from(new Set(events.map(e => e.currency))).filter(Boolean).sort()];
 
@@ -121,7 +158,6 @@ export default function EconomicCalendarPage() {
     return matchesCategory && matchesSearch && matchesCcy && matchesImpact;
   });
 
-  /* ── shared element styles ───────────────────────────────────────────── */
   const selectStyle: React.CSSProperties = {
     appearance: 'none', background: inputBg, border: `1px solid ${border}`,
     borderRadius: 8, padding: '10px 36px 10px 14px',
@@ -149,13 +185,18 @@ export default function EconomicCalendarPage() {
         .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
         .ec-select-wrap { position:relative; display:inline-block; }
         .ec-select-wrap::after { content:''; position:absolute; right:12px; top:50%; transform:translateY(-50%); border:4px solid transparent; border-top-color:${textMut}; pointer-events:none; margin-top:2px; }
+        .ec-refresh-btn { display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid ${border};background:${cardBg};color:${textMut};font-family:'Poppins',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.2s; }
+        .ec-refresh-btn:hover { border-color:#2563eb;color:#2563eb;background:${dm?'rgba(37,99,235,0.06)':'#eff6ff'}; }
+        .ec-refresh-btn:disabled { opacity:0.5;cursor:not-allowed; }
+        @keyframes ec-spin   { to { transform: rotate(360deg); } }
+        @keyframes ec-pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes ec-live   { 0%,100%{opacity:1} 50%{opacity:0.35} }
       `}</style>
-
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 64px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* ── Filter tabs + UTC badge ───────────────────────────────────── */}
+          {/* Filter tabs + status bar */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', background: cardBg, border: `1px solid ${border}`, borderRadius: 10, overflow: 'hidden', flexWrap: 'nowrap', overflowX: 'auto' }}>
               {filterCategories.map(cat => (
@@ -166,26 +207,54 @@ export default function EconomicCalendarPage() {
                 </button>
               ))}
             </div>
+
+            {/* Status cluster: live dot + last update + countdown + refresh btn */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {/* Live badge */}
+
+              {/* Live dot + timestamps */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#22c55e' }}>
-                <style>{`.ec-live-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:ecPulse 2s infinite}@keyframes ecPulse{0%,100%{opacity:1}50%{opacity:0.35}}`}</style>
-                <span className="ec-live-dot" />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ec-live 2s infinite' }} />
                 LIVE
-                {calUpdatedAt > 0 && (
+                {updatedAgo !== null && (
                   <span style={{ color: textMut, fontWeight: 600 }}>
-                    · updated {(() => { const d = Date.now() - calUpdatedAt; if (d < 60000) return 'just now'; return `${Math.floor(d / 60000)}m ago`; })()}
+                    · {formatAgo(updatedAgo)}
                   </span>
                 )}
               </div>
+
+              {/* Countdown to next refresh */}
+              {nextRefreshIn !== null && !fetching && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: dm ? '#0f1923' : '#f1f5f9', border: `1px solid ${border}`, borderRadius: 7, fontSize: 10, fontWeight: 600, color: textMut, fontFamily: "'Poppins',sans-serif" }}>
+                  <Clock size={11} color={textMut} />
+                  <span>Next refresh in {formatCountdown(nextRefreshIn)}</span>
+                </div>
+              )}
+
+              {/* Fetching spinner (inline) */}
+              {fetching && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: dm ? '#0f1923' : '#eff6ff', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 7, fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: '0.06em' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ animation: 'ec-spin 0.8s linear infinite', flexShrink: 0 }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                  Refreshing…
+                </div>
+              )}
+
+              {/* UTC badge */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.08em' }}>
                 <Clock size={13} color="#3b82f6" />
                 <span>UTC</span>
               </div>
+
+              {/* Manual refresh button */}
+              <button className="ec-refresh-btn" disabled={fetching} onClick={handleManualRefresh} title="Refresh now">
+                <RefreshCw size={12} style={fetching ? { animation: 'ec-spin 0.8s linear infinite' } : {}} />
+                Refresh
+              </button>
             </div>
           </div>
 
-          {/* ── Search + filters row ──────────────────────────────────────── */}
+          {/* Search + filters row */}
           {filter !== 'Rate Differentials' && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <input className="ec-input" type="text" placeholder="Search events or currency…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
@@ -211,28 +280,22 @@ export default function EconomicCalendarPage() {
             </div>
           )}
 
-          {/* ── Background refresh dot — only visible when actively fetching */}
-          <style>{`@keyframes ec-spin { to { transform: rotate(360deg); } } @keyframes ec-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+          {/* Full-page skeleton on first load */}
           {fetching && events.length === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: dm ? '#0f1923' : '#eff6ff', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 8, alignSelf: 'flex-start' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ animation: 'ec-spin 0.8s linear infinite', flexShrink: 0 }}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Loading live data…</span>
-            </div>
-          )}
-          {fetching && events.length > 0 && (
-            <div style={{ position: 'fixed', bottom: 20, right: 20, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: dm ? '#0f1923ee' : '#ffffffee', border: `1px solid ${dm ? '#1e2d3d' : '#bfdbfe'}`, borderRadius: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', zIndex: 50, backdropFilter: 'blur(6px)' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#2563eb', animation: 'ec-pulse 1.2s ease-in-out infinite' }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: dm ? '#64748b' : '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Refreshing</span>
+            <div className="ec-card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  {[80, 60, 48, 220, 64, 50, 50, 50].map((w, j) => (
+                    <div key={j} style={{ width: w, height: 14, borderRadius: 4, background: dm ? 'rgba(255,255,255,0.05)' : '#e2e8f0', flexShrink: 0, animation: `ec-pulse 1.4s ${i * 0.07}s ease-in-out infinite` }} />
+                  ))}
+                </div>
+              ))}
             </div>
           )}
 
-          {/* ── Rate Differentials ────────────────────────────────────────── */}
+          {/* Rate Differentials */}
           {filter === 'Rate Differentials' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-
-              {/* Central Bank Rates */}
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Globe size={14} color="#2563eb" />
@@ -270,7 +333,6 @@ export default function EconomicCalendarPage() {
                 </div>
               </div>
 
-              {/* Pair Differentials */}
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ArrowRightLeft size={14} color="#2563eb" />
@@ -299,12 +361,11 @@ export default function EconomicCalendarPage() {
                   })}
                 </div>
               </div>
-
             </div>
           )}
 
-          {/* ── Calendar table ────────────────────────────────────────────── */}
-          {filter !== 'Rate Differentials' && (
+          {/* Calendar table */}
+          {filter !== 'Rate Differentials' && events.length > 0 && (
             <div className="ec-card" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -325,7 +386,7 @@ export default function EconomicCalendarPage() {
                     const forecastNum = parseFloat(item.forecast);
                     const hasNumbers  = !isNaN(actualNum) && !isNaN(forecastNum) && item.actual !== '-';
                     const actualColor = item.actual === '-' ? textMut : hasNumbers && actualNum > forecastNum ? '#16a34a' : hasNumbers ? '#dc2626' : textPrim;
-                    const rowBg = cardBg;
+                    const rowBg     = cardBg;
                     const rowBorder = `1px solid ${border}`;
                     return (
                       <tr key={idx} className="ec-tr">
@@ -358,7 +419,7 @@ export default function EconomicCalendarPage() {
                 <div style={{ padding: '72px 24px', textAlign: 'center' }}>
                   <AlertCircle size={28} color={dm ? '#334155' : '#cbd5e1'} style={{ margin: '0 auto 16px' }} />
                   <p style={{ fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
-                    {events.length === 0 && fetchingEvents ? 'Fetching live calendar data…' : 'No matching events found'}
+                    No matching events found
                   </p>
                 </div>
               )}
@@ -367,7 +428,6 @@ export default function EconomicCalendarPage() {
 
         </div>
       </main>
-
     </div>
   );
 }
