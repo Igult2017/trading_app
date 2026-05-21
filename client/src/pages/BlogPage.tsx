@@ -35,14 +35,17 @@ function mapPost(p: any): Article {
 
 function SafeImage({ src, alt, className, isDark }: { src: string; alt: string; className: string; isDark: boolean }) {
   const [error, setError] = useState(false);
-  if (error) {
+  const noSrc = !src || src.trim() === '';
+  if (error || noSrc) {
     return (
       <div className={`${className} ${isDark ? 'bg-[#1a2b45] border-[#253a5e]' : 'bg-stone-100 border-stone-200'} flex items-center justify-center border`}>
         <div className="flex flex-col items-center opacity-30">
           <ImageIcon size={24} className={isDark ? 'text-blue-400' : 'text-stone-400'} />
-          <span className={`text-[10px] font-sans font-bold uppercase mt-2 tracking-widest ${isDark ? 'text-blue-500' : 'text-stone-500'}`}>
-            Image Unavailable
-          </span>
+          {!noSrc && (
+            <span className={`text-[10px] font-sans font-bold uppercase mt-2 tracking-widest ${isDark ? 'text-blue-500' : 'text-stone-500'}`}>
+              Image Unavailable
+            </span>
+          )}
         </div>
       </div>
     );

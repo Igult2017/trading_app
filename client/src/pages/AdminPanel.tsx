@@ -1886,7 +1886,23 @@ const BlogSection = ({ bp }) => {
         }
       } catch { /* fall through */ }
     }
-    // Store data URL directly in DB — compress first so the request stays well under any payload limits
+    // Upload to server — saves the file to disk and returns a /uploads/... path
+    try {
+      const headers = await getAdminHeaders(true);
+      const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+      const mimeType  = mimeMatch?.[1] ?? 'image/jpeg';
+      const b64       = dataUrl.replace(/^data:[^;]+;base64,/, '');
+      const r = await fetch('/api/upload/image', {
+        method:  'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ data: b64, mimeType }),
+      });
+      if (r.ok) {
+        const json = await r.json();
+        if (json?.url) return json.url;
+      }
+    } catch { /* fall through */ }
+    // Last resort: compress and store as data URL
     return await compressDataUrl(dataUrl);
   };
 
@@ -1986,8 +2002,8 @@ const BlogSection = ({ bp }) => {
       // Shrink any base64 images embedded in the cover or body to keep the request
       // body well under the dev-proxy / server payload limits.
       let coverImage = f.imageUrl || '';
-      if (coverImage.startsWith('data:image/')) {
-        coverImage = await compressDataUrl(coverImage);
+      if (coverImage.startsWith('data:')) {
+        coverImage = await uploadCoverImage(coverImage);
       }
       const compressedContent = await compressInlineImages(f.content || '');
 
