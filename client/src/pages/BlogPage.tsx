@@ -84,6 +84,7 @@ export default function BlogPage() {
     data: rawPosts,
     isLoading: loading,
     dataUpdatedAt,
+    refetch,
   } = useQuery<Article[]>({
     queryKey: QUERY_KEY,
     queryFn: () =>
@@ -94,10 +95,10 @@ export default function BlogPage() {
           return data.map(mapPost);
         })
         .catch(() => []),
-    staleTime: 4 * 60 * 1000,
+    staleTime: 0,
     gcTime:    60 * 60 * 1000,
     placeholderData: (prev) => prev,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchInterval: REFETCH_MS,
     refetchIntervalInBackground: false,
@@ -112,6 +113,8 @@ export default function BlogPage() {
     }
     prevCountRef.current = count;
   }, [rawPosts]);
+
+  const handleRefresh = () => { refetch(); setNewBanner(false); };
 
   const allPosts          = rawPosts ?? [];
   const isDark            = darkMode;
