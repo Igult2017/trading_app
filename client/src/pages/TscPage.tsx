@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { usePageTracking } from '@/hooks/usePageTracking';
-import { useLocation } from "wouter";
-import HomeHeader from "@/components/HomeHeader";
-import HomeFooter from "@/components/HomeFooter";
+import { usePublicTheme } from "@/context/PublicThemeContext";
 
 /* ── DST helpers ──────────────────────────────────────────────────────────── */
 function lastSunday(year: number, monthIndex: number) {
@@ -212,8 +210,7 @@ function SessionCard({ s, decimalTime, weekday, dark }: { s: Session; decimalTim
 export default function TscPage() {
   usePageTracking('tsc');
   const [now, setNow]         = useState(new Date());
-  const [darkMode, setDarkMode] = useState(false);
-  const [location]            = useLocation();
+  const { darkMode, setDarkMode } = usePublicTheme();
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -273,7 +270,6 @@ export default function TscPage() {
   return (
     <>
       <div style={{ minHeight: "100vh", background: pageBg, fontFamily: "'Poppins', sans-serif", transition: "background 0.3s" }}>
-        <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
         {/* ── Hero Section ──────────────────────────────────────────────── */}
         <section style={{ background: sectionBg, borderBottom: `1px solid ${border}`, padding: "56px 28px 52px" }}>
@@ -402,7 +398,6 @@ export default function TscPage() {
 
         </div>
       </div>
-      <HomeFooter darkMode={darkMode} />
     </>
   );
 }

@@ -1,10 +1,8 @@
 import { useState, useRef } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
 import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
-import HomeHeader from '@/components/HomeHeader';
-import HomeFooter from '@/components/HomeFooter';
+import { usePublicTheme } from '@/context/PublicThemeContext';
 
 interface CalendarEvent {
   date: string;
@@ -54,8 +52,7 @@ export default function EconomicCalendarPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [ccyFilter, setCcyFilter]     = useState('All');
   const [impactFilter, setImpactFilter] = useState('All');
-  const [darkMode, setDarkMode]       = useState(false);
-  const [location] = useLocation();
+  const { darkMode, setDarkMode } = usePublicTheme();
 
   const dm = darkMode;
 
@@ -142,7 +139,6 @@ export default function EconomicCalendarPage() {
         .ec-select-wrap::after { content:''; position:absolute; right:12px; top:50%; transform:translateY(-50%); border:4px solid transparent; border-top-color:${textMut}; pointer-events:none; margin-top:2px; }
       `}</style>
 
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 64px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -347,7 +343,6 @@ export default function EconomicCalendarPage() {
         </div>
       </main>
 
-      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

@@ -1,14 +1,11 @@
 import { useState } from 'react';
-import { useLocation } from 'wouter';
-import HomeHeader from '@/components/HomeHeader';
-import HomeFooter from '@/components/HomeFooter';
+import { usePublicTheme } from '@/context/PublicThemeContext';
 
 export default function SupportPage() {
   const [form, setForm]     = useState({ user_name: '', user_email: '', subject: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError]   = useState('');
-  const [darkMode, setDarkMode] = useState(false);
-  const [location]          = useLocation();
+  const { darkMode, setDarkMode } = usePublicTheme();
 
   const dm = darkMode;
   const pageBg  = dm ? '#080c10' : '#f8fafc';
@@ -45,7 +42,6 @@ export default function SupportPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Poppins', sans-serif", transition: 'background 0.3s' }}>
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section style={{ background: heroBg, borderBottom: `1px solid ${border}`, padding: '52px 24px 48px' }}>
@@ -160,7 +156,6 @@ export default function SupportPage() {
         </div>
 
       </div>
-      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

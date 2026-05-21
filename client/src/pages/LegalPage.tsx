@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import HomeHeader from '@/components/HomeHeader';
-import HomeFooter from '@/components/HomeFooter';
+import { usePublicTheme } from '@/context/PublicThemeContext';
 
 const SECTIONS = ['Privacy Policy', 'Terms of Service', 'Contact & Support'] as const;
 type Section = typeof SECTIONS[number];
@@ -305,8 +304,7 @@ const HERO: Record<Section, { icon: string; title: string; sub: string; color: s
 
 export default function LegalPage() {
   const [active, setActive]     = useState<Section>('Privacy Policy');
-  const [location]              = useLocation();
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, setDarkMode } = usePublicTheme();
   const dm = darkMode;
 
   const pageBg  = dm ? '#080c10' : '#f8fafc';
@@ -319,7 +317,6 @@ export default function LegalPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Poppins', sans-serif", transition: 'background 0.3s' }}>
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section style={{ background: heroBg, borderBottom: `1px solid ${border}`, padding: '52px 24px 48px' }}>
@@ -404,7 +401,6 @@ export default function LegalPage() {
         </div>
       </div>
 
-      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

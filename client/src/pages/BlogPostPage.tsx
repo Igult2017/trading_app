@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { ArrowLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
-import HomeHeader from '@/components/HomeHeader';
-import HomeFooter from '@/components/HomeFooter';
+import { usePublicTheme } from '@/context/PublicThemeContext';
 import { usePageTracking } from '@/hooks/usePageTracking';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -344,7 +343,7 @@ export default function BlogPostPage() {
   usePageTracking('blog-post');
   const [, params] = useRoute('/blog/:id');
   const [, navigate]  = useLocation();
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, setDarkMode } = usePublicTheme();
   const [post, setPost]         = useState<Post | null>(null);
   const [related, setRelated]   = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -458,7 +457,6 @@ export default function BlogPostPage() {
   return (
     <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat",sans-serif', transition: 'background 0.5s,color 0.5s' }}>
       <ReadingProgress isDark={isDark} />
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath="/blog" />
 
       {/* ── Cover image ───────────────────────────────────────────────────────── */}
       {post.imageUrl && (
@@ -661,7 +659,6 @@ export default function BlogPostPage() {
         </section>
       </main>
 
-      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }

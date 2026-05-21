@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { titleFromPath, usePageTitle } from "@/hooks/usePageTitle";
 import { queryClient, authFetch, localStoragePersister } from "./lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
+import { PublicThemeContext } from "@/context/PublicThemeContext";
 import HomePage from "@/pages/HomePage";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
@@ -114,39 +115,84 @@ function TitleUpdater() {
   return null;
 }
 
+/**
+ * Shared layout for public sub-pages (/calendar, /blog, /tsc, /legal, /support).
+ *
+ * This component is used as the CATCH-ALL route at the bottom of AppRoutes.
+ * Because it is always the same Route element that matches, React never
+ * unmounts it while navigating between public pages — only the inner <Switch>
+ * content swaps.  HomeHeader therefore stays mounted and never re-renders from
+ * scratch on navigation, eliminating the "whole page loads" flash.
+ *
+ * darkMode is persisted to localStorage so the user's preference survives
+ * page-to-page navigation and browser sessions.
+ */
+function PublicPagesGroup() {
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try { return localStorage.getItem("pub-theme") === "1"; } catch { return false; }
+  });
+  const [location] = useLocation();
+
+  const handleSetDark = useCallback((val: boolean) => {
+    setDarkMode(val);
+    try { localStorage.setItem("pub-theme", val ? "1" : "0"); } catch {}
+  }, []);
+
+  return (
+    <PublicThemeContext.Provider value={{ darkMode, setDarkMode: handleSetDark }}>
+      <HomeHeader darkMode={darkMode} setDarkMode={handleSetDark} activePath={location} />
+      <Switch>
+        <Route path="/calendar"   component={EconomicCalendarPage} />
+        <Route path="/blog/:slug" component={BlogPostPage} />
+        <Route path="/blog"       component={BlogPage} />
+        <Route path="/tsc"        component={TscPage} />
+        <Route path="/legal"      component={LegalPage} />
+        <Route path="/support"    component={SupportPage} />
+        <Route component={NotFound} />
+      </Switch>
+      <HomeFooter darkMode={darkMode} />
+    </PublicThemeContext.Provider>
+  );
+}
+
 // ── Top-level router ──────────────────────────────────────────────────────────
 function AppRoutes() {
   return (
     <>
     <TitleUpdater />
     <Switch>
-      {/* Public routes — no login required */}
-      <Route path="/"              component={HomePage} />
-      <Route path="/auth"          component={AuthPage} />
+      {/* Pages with their own full layouts — must come before the catch-all */}
+      <Route path="/"                     component={HomePage} />
+      <Route path="/auth"                 component={AuthPage} />
       <Route path="/auth/callback"        component={AuthCallbackPage} />
       <Route path="/auth/reset-password"  component={ResetPasswordPage} />
-      <Route path="/join"          component={Join} />
-      <Route path="/tsc"           component={TscPage} />
-      <Route path="/blog"          component={BlogPage} />
-      <Route path="/blog/:slug"    component={BlogPostPage} />
-      <Route path="/calendar"      component={EconomicCalendarPage} />
-      <Route path="/support"       component={SupportPage} />
-      <Route path="/legal"         component={LegalPage} />
+      <Route path="/join"                 component={Join} />
 
-      {/* Journal — protected, has its own header (no shared header/footer) */}
+      {/* Journal — protected, has its own header */}
       <Route path="/journal">
         {() => <RequireAuth><Journal /></RequireAuth>}
       </Route>
 
-      {/* Admin route */}
+      {/* Admin */}
       <Route path="/admin">
         {() => <RequireAdmin><AdminPanel /></RequireAdmin>}
       </Route>
 
-      {/* Protected inner routes — login required */}
-      <Route>
-        {() => <RequireAuth><InnerPages /></RequireAuth>}
-      </Route>
+      {/* Protected inner pages — listed explicitly so they aren't caught by PublicPagesGroup */}
+      <Route path="/history">    {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/analytics">  {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/assets">     {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/accounts">   {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/stocks">     {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/major-pairs">{() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/commodities">{() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/crypto">     {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/markets">    {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/signals">    {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+
+      {/* Public sub-pages — shared layout keeps HomeHeader mounted across navigations.
+          This catch-all also handles 404 via NotFound inside PublicPagesGroup. */}
+      <Route component={PublicPagesGroup} />
     </Switch>
     </>
   );

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
-import HomeHeader from '@/components/HomeHeader';
-import HomeFooter from '@/components/HomeFooter';
+import { usePublicTheme } from '@/context/PublicThemeContext';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useQuery } from '@tanstack/react-query';
 
@@ -43,8 +42,8 @@ const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'B
 export default function BlogPage() {
   usePageTracking('blog');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [darkMode, setDarkMode] = useState(false);
-  const [location, navigate] = useLocation();
+  const { darkMode, setDarkMode } = usePublicTheme();
+  const [, navigate] = useLocation();
   const { data: rawPosts, isLoading: loading } = useQuery<Article[]>({
     queryKey: ['/api/blog'],
     queryFn: () =>
@@ -98,7 +97,6 @@ export default function BlogPage() {
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
       <main className="max-w-[1280px] mx-auto px-7 py-8">
 
@@ -269,7 +267,6 @@ export default function BlogPage() {
         )}
       </main>
 
-      <HomeFooter darkMode={darkMode} />
     </div>
   );
 }
