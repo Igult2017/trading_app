@@ -4167,13 +4167,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Blog slug helpers ─────────────────────────────────────────────────────────
+  function makeSlugBase(title: string): string {
+    return title
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 80);
+  }
+
+  async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
+    let candidate = base;
+    let attempt   = 0;
+    while (true) {
+      const { rows } = await pool.query<{ id: string }>(
+        `SELECT id FROM blog_posts WHERE slug = $1 LIMIT 1`, [candidate]
+      );
+      if (rows.length === 0 || (excludeId && rows[0].id === excludeId)) return candidate;
+      attempt++;
+      candidate = `${base}-${attempt + 1}`;
+    }
+  }
+
   // ── Blog: create post ─────────────────────────────────────────────────────────
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
       const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, videoUrl, status, section, signalData, authorData } = req.body;
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+      const slug = await uniqueSlug(makeSlugBase(title.trim()));
       const post = await storage.createBlogPost({
+        slug,
         title: title.trim(),
         excerpt: excerpt ?? '',
         content: content ?? '',
@@ -4200,7 +4228,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/blog/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updated = await storage.updateBlogPost(id, req.body);
+      const body = { ...req.body };
+      // Regenerate slug only when title changes and no explicit slug was provided
+      if (body.title?.trim() && !body.slug) {
+        body.slug = await uniqueSlug(makeSlugBase(body.title.trim()), id);
+      }
+      const updated = await storage.updateBlogPost(id, body);
       if (!updated) return res.status(404).json({ error: 'Post not found' });
       return res.json(updated);
     } catch (err: any) {

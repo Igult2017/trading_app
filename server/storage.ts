@@ -875,7 +875,11 @@ export class DbStorage implements IStorage {
   }
 
   async getBlogPostById(id: string): Promise<BlogPost | undefined> {
-    const r = await db.select().from(blogPosts).where(eq(blogPosts.id, id)).limit(1);
+    // Try UUID first, then slug (allows /blog/<slug> and /blog/<uuid> both to work)
+    let r = await db.select().from(blogPosts).where(eq(blogPosts.id, id)).limit(1);
+    if (r.length === 0) {
+      r = await db.select().from(blogPosts).where(eq(blogPosts.slug, id)).limit(1);
+    }
     return r[0];
   }
 

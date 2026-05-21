@@ -532,6 +532,19 @@ export async function initializeDatabase() {
         )
       `));
       console.log('[Database] blog_posts table ready');
+      // Add slug column if it doesn't exist yet (migration for existing tables)
+      await db.execute(sql.raw(`ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE`));
+      // Back-fill slugs for any existing rows that don't have one
+      await db.execute(sql.raw(`
+        UPDATE blog_posts
+        SET slug = regexp_replace(
+          regexp_replace(
+            regexp_replace(lower(trim(title)), '[^a-z0-9\\s-]', '', 'g'),
+            '\\s+', '-', 'g'
+          ), '-{2,}', '-', 'g'
+        ) || '-' || substring(id, 1, 8)
+        WHERE slug IS NULL OR slug = ''
+      `));
     } catch (e: any) {
       console.warn('[Database] Could not ensure blog_posts table:', e.message);
     }

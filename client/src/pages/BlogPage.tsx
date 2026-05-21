@@ -22,7 +22,7 @@ const QUERY_KEY  = ['/api/blog'];
 
 function mapPost(p: any): Article {
   return {
-    id:       p.id,
+    id:       p.slug || p.id,   // prefer slug for clean URLs; fall back to UUID
     title:    p.title,
     excerpt:  p.excerpt ?? '',
     category: p.category ?? 'Analysis',

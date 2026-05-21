@@ -646,6 +646,7 @@ export type SyncedTrade = typeof syncedTrades.$inferSelect;
 // ─────────────────────────────────────────────────────────────────────────────
 export const blogPosts = pgTable("blog_posts", {
   id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug:       text("slug").unique(),
   title:      text("title").notNull(),
   excerpt:    text("excerpt").default(''),
   content:    text("content").default(''),
