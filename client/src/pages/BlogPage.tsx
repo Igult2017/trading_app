@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive, RefreshCw, Bell } from 'lucide-react';
+import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive, Bell } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 type Article = {
   id: string | number;
@@ -97,7 +97,6 @@ export default function BlogPage() {
     isLoading: loading,
     isFetching,
     dataUpdatedAt,
-    refetch,
   } = useQuery<Article[]>({
     queryKey: QUERY_KEY,
     queryFn: () =>
@@ -126,11 +125,6 @@ export default function BlogPage() {
     }
     prevCountRef.current = count;
   }, [rawPosts]);
-
-  const handleRefresh = useCallback(async () => {
-    setNewBanner(false);
-    await refetch();
-  }, [refetch]);
 
   const allPosts          = rawPosts ?? [];
   const isDark            = darkMode;
@@ -232,28 +226,6 @@ export default function BlogPage() {
               </svg>
             )}
 
-            {/* Manual refresh button */}
-            <button
-              onClick={handleRefresh}
-              disabled={isFetching}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '6px 12px', borderRadius: 7,
-                border: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`,
-                background: isDark ? '#1e293b' : '#f8fafc',
-                color: isDark ? '#64748b' : '#475569',
-                fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                textTransform: 'uppercase', cursor: isFetching ? 'not-allowed' : 'pointer',
-                opacity: isFetching ? 0.5 : 1, transition: 'all 0.2s',
-                fontFamily: '"Montserrat", sans-serif',
-              }}
-              onMouseEnter={e => { if (!isFetching) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLButtonElement).style.color = '#2563eb'; } }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? '#1e293b' : '#e2e8f0'; (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#64748b' : '#475569'; }}
-              title="Refresh posts"
-            >
-              <RefreshCw size={10} style={isFetching ? { animation: 'blog-spin 0.8s linear infinite' } : {}} />
-              Refresh
-            </button>
           </div>
         </nav>
 

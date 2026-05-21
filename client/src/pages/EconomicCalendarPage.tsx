@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Globe, Clock, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
+import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 
 interface CalendarEvent {
@@ -92,7 +92,6 @@ export default function EconomicCalendarPage() {
     data: eventsRaw,
     isFetching: fetchingEvents,
     dataUpdatedAt: calUpdatedAt,
-    refetch: refetchCalendar,
   } = useQuery<CalendarEvent[]>({
     queryKey: ['/api/homepage/calendar'],
     queryFn: () =>
@@ -119,7 +118,6 @@ export default function EconomicCalendarPage() {
     data: bankDataRaw,
     isFetching: fetchingRates,
     dataUpdatedAt: ratesUpdatedAt,
-    refetch: refetchRates,
   } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
     queryFn: () =>
@@ -134,10 +132,6 @@ export default function EconomicCalendarPage() {
     refetchIntervalInBackground: false,
     retry: false,
   });
-
-  const handleManualRefresh = useCallback(async () => {
-    await Promise.all([refetchCalendar(), refetchRates()]);
-  }, [refetchCalendar, refetchRates]);
 
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
@@ -185,9 +179,6 @@ export default function EconomicCalendarPage() {
         .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
         .ec-select-wrap { position:relative; display:inline-block; }
         .ec-select-wrap::after { content:''; position:absolute; right:12px; top:50%; transform:translateY(-50%); border:4px solid transparent; border-top-color:${textMut}; pointer-events:none; margin-top:2px; }
-        .ec-refresh-btn { display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid ${border};background:${cardBg};color:${textMut};font-family:'Poppins',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.2s; }
-        .ec-refresh-btn:hover { border-color:#2563eb;color:#2563eb;background:${dm?'rgba(37,99,235,0.06)':'#eff6ff'}; }
-        .ec-refresh-btn:disabled { opacity:0.5;cursor:not-allowed; }
         @keyframes ec-spin   { to { transform: rotate(360deg); } }
         @keyframes ec-pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
         @keyframes ec-live   { 0%,100%{opacity:1} 50%{opacity:0.35} }
@@ -246,11 +237,6 @@ export default function EconomicCalendarPage() {
                 <span>UTC</span>
               </div>
 
-              {/* Manual refresh button */}
-              <button className="ec-refresh-btn" disabled={fetching} onClick={handleManualRefresh} title="Refresh now">
-                <RefreshCw size={12} style={fetching ? { animation: 'ec-spin 0.8s linear infinite' } : {}} />
-                Refresh
-              </button>
             </div>
           </div>
 
