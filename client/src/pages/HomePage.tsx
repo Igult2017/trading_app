@@ -261,7 +261,7 @@ export default function HomePage() {
         <TickerTape dark={darkMode} />
         <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, transition: 'background 0.3s' }}>
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
+            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
               <span style={{ color: t.logoWhite }}>My FM</span>
               <span style={{ color: '#3b82f6' }}> | Journal</span>
             </span>
