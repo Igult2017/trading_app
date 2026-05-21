@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 import { usePageTracking } from '@/hooks/usePageTracking';
+import { useQuery } from '@tanstack/react-query';
 
 type Article = {
   id: string | number;
@@ -44,33 +45,31 @@ export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [darkMode, setDarkMode] = useState(false);
   const [location, navigate] = useLocation();
-  const [apiPosts, setApiPosts] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawPosts, isLoading: loading } = useQuery<Article[]>({
+    queryKey: ['/api/blog'],
+    queryFn: () =>
+      fetch('/api/blog')
+        .then(r => r.ok ? r.json() : [])
+        .then((data: any[] | null) => {
+          if (!data || !Array.isArray(data)) return [];
+          return data.map(p => ({
+            id:       p.id,
+            title:    p.title,
+            excerpt:  p.excerpt ?? '',
+            category: p.category ?? 'Analysis',
+            author:   p.author ?? 'Admin',
+            date:     p.date ?? '',
+            readTime: p.readTime ?? p.read_time ?? '5 min',
+            image:    p.imageUrl ?? p.image_url ?? '',
+          }));
+        })
+        .catch(() => []),
+    staleTime: 5 * 60 * 1000,
+    gcTime:    60 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
 
-  useEffect(() => {
-    fetch('/api/blog')
-      .then(r => r.ok ? r.json() : [])
-      .then((data: any[] | null) => {
-        if (!data || !Array.isArray(data)) {
-          setApiPosts([]);
-          return;
-        }
-        setApiPosts(data.map(p => ({
-          id:       p.id,
-          title:    p.title,
-          excerpt:  p.excerpt ?? '',
-          category: p.category ?? 'Analysis',
-          author:   p.author ?? 'Admin',
-          date:     p.date ?? '',
-          readTime: p.readTime ?? p.read_time ?? '5 min',
-          image:    p.imageUrl ?? p.image_url ?? '',
-        })));
-      })
-      .catch(() => setApiPosts([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const allPosts = apiPosts;
+  const allPosts = rawPosts ?? [];
   const isDark = darkMode;
 
   const filteredArticles = activeCategory === 'All'

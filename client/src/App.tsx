@@ -153,9 +153,11 @@ function AppRoutes() {
 
 function PrefetchCalendar() {
   useEffect(() => {
-    const opts = { staleTime: 5 * 60 * 1000 };
+    // Keep data for 60 min so repeat visits to /calendar and /blog are instant.
+    const opts = { staleTime: 5 * 60 * 1000, gcTime: 60 * 60 * 1000 };
     queryClient.prefetchQuery({ queryKey: ['/api/homepage/calendar'], queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).catch(() => []), ...opts });
     queryClient.prefetchQuery({ queryKey: ['/api/homepage/rates'],   queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).catch(() => ({})), ...opts });
+    queryClient.prefetchQuery({ queryKey: ['/api/blog'],             queryFn: () => fetch('/api/blog').then(r => r.ok ? r.json() : []).catch(() => []), ...opts });
   }, []);
   return null;
 }

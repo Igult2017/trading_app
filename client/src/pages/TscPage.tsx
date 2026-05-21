@@ -124,8 +124,8 @@ function TimelineBar({ sessions, decimalTime, weekday, dark }: { sessions: Sessi
 function SessionCard({ s, decimalTime, weekday, dark }: { s: Session; decimalTime: number; weekday: boolean; dark: boolean }) {
   const live    = isLive(s, decimalTime, weekday);
   const metrics = getMetrics(s, decimalTime);
-  const [inView, setInView] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setInView(true), 60); return () => clearTimeout(t); }, []);
+  // Cards render immediately — no fade-in delay that causes a blank flash.
+  const inView = true;
 
   const cardBg    = dark ? (live ? "#0f172a" : "#0c1219") : (live ? "#ffffff" : "#ffffff");
   const cardBorder= live ? s.borderColor : (dark ? "#172233" : "#e2e8f0");

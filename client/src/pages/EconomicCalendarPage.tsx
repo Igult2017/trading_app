@@ -71,13 +71,15 @@ export default function EconomicCalendarPage() {
     queryKey: ['/api/homepage/calendar'],
     queryFn: () => fetch('/api/homepage/calendar').then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
     staleTime: 5 * 60 * 1000,
-    gcTime:    30 * 60 * 1000,
+    gcTime:    60 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
   const { data: bankDataRaw, isLoading: loadingRates } = useQuery<Record<string, RateEntry>>({
     queryKey: ['/api/homepage/rates'],
     queryFn: () => fetch('/api/homepage/rates').then(r => r.json()).then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
     staleTime: 5 * 60 * 1000,
-    gcTime:    30 * 60 * 1000,
+    gcTime:    60 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
