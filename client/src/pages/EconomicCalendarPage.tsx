@@ -228,13 +228,13 @@ export default function EconomicCalendarPage() {
                         const realRate = data.inflation != null ? data.nominal - data.inflation : null;
                         return (
                           <tr key={ccy} className="ec-tr">
-                            <td style={{ padding: '14px 20px', borderBottom: `1px solid ${border}` }}>
-                              <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 13, color: textPrim }}>{ccy}</div>
-                              {data.live && <div style={{ fontSize: 8, fontWeight: 800, color: '#16a34a', letterSpacing: '0.1em', textTransform: 'uppercase' }}>live</div>}
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}` }}>
+                              <div style={{ fontWeight: 700, fontSize: 11, color: textPrim }}>{ccy}</div>
+                              {data.live && <div style={{ fontSize: 8, fontWeight: 700, color: '#16a34a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>live</div>}
                             </td>
-                            <td style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 12, fontWeight: 600, color: textMut }}>{data.nominal.toFixed(2)}%</td>
-                            <td style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 12, fontWeight: 600, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
-                            <td style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 13, fontFamily: "'Montserrat',sans-serif", fontWeight: 900, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 11, fontWeight: 700, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
                               {realRate != null ? `${realRate.toFixed(2)}%` : '—'}
                             </td>
                           </tr>
@@ -256,17 +256,17 @@ export default function EconomicCalendarPage() {
                     const diff = bankData[pair.base].nominal - bankData[pair.quote].nominal;
                     const isCarry = Math.abs(diff) > 3;
                     return (
-                      <div key={`${pair.base}${pair.quote}`} style={{ padding: '18px 20px', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 13, color: textPrim }}>{pair.base}/{pair.quote}</span>
-                          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
+                      <div key={`${pair.base}${pair.quote}`} style={{ padding: '12px 16px', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontWeight: 700, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
                         </div>
-                        <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 22, color: textPrim, marginBottom: 4 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: textPrim, marginBottom: 4 }}>
                           {diff > 0 ? '+' : ''}{diff.toFixed(2)}%
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 8, marginTop: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
                           <span>{pair.base} {bankData[pair.base].nominal.toFixed(2)}%</span>
-                          {isCarry && <span style={{ color: '#2563eb', fontWeight: 800 }}>CARRY</span>}
+                          {isCarry && <span style={{ color: '#2563eb', fontWeight: 700 }}>CARRY</span>}
                           <span>{pair.quote} {bankData[pair.quote].nominal.toFixed(2)}%</span>
                         </div>
                       </div>
