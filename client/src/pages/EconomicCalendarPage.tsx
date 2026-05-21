@@ -129,21 +129,6 @@ export default function EconomicCalendarPage() {
 
       <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath={location} />
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <div style={{ background: dm ? 'rgba(8,12,16,0.97)' : '#ffffff', borderBottom: `1px solid ${border}`, padding: '52px 28px 44px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#3b82f6', marginBottom: 10 }}>
-            My FM | Journal — Live Data
-          </div>
-          <h1 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 'clamp(28px,4vw,46px)', letterSpacing: '-0.03em', color: textPrim, margin: '0 0 12px', lineHeight: 1.1 }}>
-            Economic <span style={{ color: '#2563eb' }}>Calendar</span>
-          </h1>
-          <p style={{ fontSize: 14, fontWeight: 500, color: textMut, margin: 0, maxWidth: 520, lineHeight: 1.7 }}>
-            Live macro events, central bank rate data, and currency pair differentials — updated in real time.
-          </p>
-        </div>
-      </div>
-
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 64px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
