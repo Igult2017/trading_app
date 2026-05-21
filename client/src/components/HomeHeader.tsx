@@ -123,7 +123,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
 
           {/* Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-            <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.02em" }}>
+            <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 900, fontSize: 28, letterSpacing: "-0.02em" }}>
               <span style={{ color: logoClr }}>My FM</span>
               <span style={{ color: "#3b82f6", fontStyle: "italic" }}> | Journal</span>
             </span>
@@ -206,6 +206,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       )}
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&display=swap');
         @media (max-width: 1080px) {
           .hh-nav-desktop { display: none !important; }
           .hh-mob-controls { display: flex !important; }
