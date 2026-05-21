@@ -105,62 +105,64 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
       <TickerTape dark={dm} />
 
-      <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", gap: 12, transition: "background 0.3s" }}>
+      <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 64, transition: "background 0.3s" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px", height: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
 
-        {/* Logo */}
-        <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}>
-            <span style={{ color: logoClr }}>My FM</span>
-            <span style={{ color: "#3b82f6" }}> | Journal</span>
-          </span>
-        </Link>
+          {/* Logo */}
+          <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
+            <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}>
+              <span style={{ color: logoClr }}>My FM</span>
+              <span style={{ color: "#3b82f6" }}> | Journal</span>
+            </span>
+          </Link>
 
-        {/* Desktop nav */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }} className="hh-nav-desktop">
-          {NAV_LINKS.filter(l => !l.cta).map(({ label, href, newTab }) => {
-            const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
-            const s = linkStyle(isActive);
-            const handlers = !isActive ? {
-              onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkHover; e.currentTarget.style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc"; e.currentTarget.style.borderColor = navBorder; },
-              onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkClr; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; },
-            } : {};
-            return newTab
-              ? <a key={label} href={href} style={s} target="myfm_journal" rel="noopener noreferrer" {...handlers}>{label}</a>
-              : <Link key={label} href={href} style={s} {...handlers}>{label}</Link>;
-          })}
-        </div>
+          {/* Desktop nav */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }} className="hh-nav-desktop">
+            {NAV_LINKS.filter(l => !l.cta).map(({ label, href, newTab }) => {
+              const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
+              const s = linkStyle(isActive);
+              const handlers = !isActive ? {
+                onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkHover; e.currentTarget.style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc"; e.currentTarget.style.borderColor = navBorder; },
+                onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkClr; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; },
+              } : {};
+              return newTab
+                ? <a key={label} href={href} style={s} target="myfm_journal" rel="noopener noreferrer" {...handlers}>{label}</a>
+                : <Link key={label} href={href} style={s} {...handlers}>{label}</Link>;
+            })}
+          </div>
 
-        {/* Right: CTA buttons + toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }} className="hh-nav-desktop">
-          {NAV_LINKS.filter(l => l.cta).map(({ label, href, cta }) => (
-            <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={linkStyle(false, cta)}
-              onMouseEnter={e => { if (cta === "solid") e.currentTarget.style.background = "#1d4ed8"; }}
-              onMouseLeave={e => { if (cta === "solid") e.currentTarget.style.background = "#2563eb"; }}>
-              {label}
-            </a>
-          ))}
+          {/* Right: CTA buttons + toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }} className="hh-nav-desktop">
+            {NAV_LINKS.filter(l => l.cta).map(({ label, href, cta }) => (
+              <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={linkStyle(false, cta)}
+                onMouseEnter={e => { if (cta === "solid") e.currentTarget.style.background = "#1d4ed8"; }}
+                onMouseLeave={e => { if (cta === "solid") e.currentTarget.style.background = "#2563eb"; }}>
+                {label}
+              </a>
+            ))}
 
-          {/* Dark mode toggle */}
-          <button onClick={() => setDarkMode(!dm)}
-            style={{ width: 42, height: 23, borderRadius: 12, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0, marginLeft: 4 }}>
-            <div style={{ position: "absolute", left: dm ? 21 : 2, top: 2, width: 19, height: 19, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-            </div>
-          </button>
-        </div>
+            {/* Dark mode toggle */}
+            <button onClick={() => setDarkMode(!dm)}
+              style={{ width: 42, height: 23, borderRadius: 12, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0, marginLeft: 4 }}>
+              <div style={{ position: "absolute", left: dm ? 21 : 2, top: 2, width: 19, height: 19, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
+              </div>
+            </button>
+          </div>
 
-        {/* Mobile controls */}
-        <div style={{ display: "none", alignItems: "center", gap: 8 }} className="hh-mob-controls">
-          <button onClick={() => setDarkMode(!dm)}
-            style={{ width: 42, height: 23, borderRadius: 12, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0 }}>
-            <div style={{ position: "absolute", left: dm ? 21 : 2, top: 2, width: 19, height: 19, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-            </div>
-          </button>
-          <button onClick={() => setMobileOpen(!mobileOpen)}
-            style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: dm ? "#0c1219" : "#f1f5f9", border: `1px solid ${navBorder}`, borderRadius: 7, cursor: "pointer", color: logoClr, transition: "background 0.2s" }}>
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
+          {/* Mobile controls */}
+          <div style={{ display: "none", alignItems: "center", gap: 8 }} className="hh-mob-controls">
+            <button onClick={() => setDarkMode(!dm)}
+              style={{ width: 42, height: 23, borderRadius: 12, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s", padding: 0, flexShrink: 0 }}>
+              <div style={{ position: "absolute", left: dm ? 21 : 2, top: 2, width: 19, height: 19, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
+              </div>
+            </button>
+            <button onClick={() => setMobileOpen(!mobileOpen)}
+              style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: dm ? "#0c1219" : "#f1f5f9", border: `1px solid ${navBorder}`, borderRadius: 7, cursor: "pointer", color: logoClr, transition: "background 0.2s" }}>
+              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
         </div>
       </nav>
 
