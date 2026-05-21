@@ -198,7 +198,7 @@ export default function HomePage() {
         }
 
         /* ── Responsive landing-page layout ───────────────────────── */
-        .lp-nav { padding: 0 24px; }
+        .lp-nav { padding: 0; }
         .lp-section { padding: 80px 24px; }
         .lp-section-sm { padding: 60px 24px; }
         .lp-section-xs { padding: 48px 24px; }
@@ -229,7 +229,7 @@ export default function HomePage() {
         }
 
         @media (max-width: 768px) {
-          .lp-nav { padding: 0 16px; }
+          .lp-nav { padding: 0; }
           .lp-section { padding: 56px 16px; }
           .lp-section-sm { padding: 40px 16px; }
           .lp-section-xs { padding: 32px 16px; }
@@ -259,41 +259,43 @@ export default function HomePage() {
 
       <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
         <TickerTape dark={darkMode} />
-        <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.3s' }}>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
-            <span style={{ color: t.logoWhite }}>My FM</span>
-            <span style={{ color: '#3b82f6' }}> | Journal</span>
-          </span>
-          <div className="nav-links">
-            {navItems.map(item => {
-              const newTab = isJournalLink(item);
-              return (
-                <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
-                  target={newTab ? 'myfm_journal' : undefined}
-                  rel={newTab ? 'noopener noreferrer' : undefined}
-                  onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-                >{item}</a>
-              );
-            })}
-            <button onClick={() => setDarkMode(!dm)}
-              style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0, marginLeft: 4 }}>
-              <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-              </div>
-            </button>
-          </div>
-          <div className="nav-mob-controls">
-            <button onClick={() => setDarkMode(!dm)}
-              style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-              </div>
-            </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>
-              <Menu size={18} />
-            </button>
+        <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, transition: 'background 0.3s' }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
+              <span style={{ color: t.logoWhite }}>My FM</span>
+              <span style={{ color: '#3b82f6' }}> | Journal</span>
+            </span>
+            <div className="nav-links">
+              {navItems.map(item => {
+                const newTab = isJournalLink(item);
+                return (
+                  <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
+                    target={newTab ? 'myfm_journal' : undefined}
+                    rel={newTab ? 'noopener noreferrer' : undefined}
+                    onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+                  >{item}</a>
+                );
+              })}
+              <button onClick={() => setDarkMode(!dm)}
+                style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0, marginLeft: 4 }}>
+                <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
+                </div>
+              </button>
+            </div>
+            <div className="nav-mob-controls">
+              <button onClick={() => setDarkMode(!dm)}
+                style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
+                <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
+                </div>
+              </button>
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>
+                <Menu size={18} />
+              </button>
+            </div>
           </div>
         </nav>
       </div>
