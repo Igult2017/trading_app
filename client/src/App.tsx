@@ -29,6 +29,7 @@ import SupportPage from "@/pages/SupportPage";
 import LegalPage from "@/pages/LegalPage";
 import AuthPage from "@/pages/AuthPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import AdminPanel from "@/pages/AdminPanel";
 import AccountsPage from "@/pages/AccountsPage";
 import NotFound from "@/pages/not-found";
@@ -121,7 +122,8 @@ function AppRoutes() {
       {/* Public routes — no login required */}
       <Route path="/"              component={HomePage} />
       <Route path="/auth"          component={AuthPage} />
-      <Route path="/auth/callback" component={AuthCallbackPage} />
+      <Route path="/auth/callback"        component={AuthCallbackPage} />
+      <Route path="/auth/reset-password"  component={ResetPasswordPage} />
       <Route path="/join"          component={Join} />
       <Route path="/tsc"           component={TscPage} />
       <Route path="/blog"          component={BlogPage} />

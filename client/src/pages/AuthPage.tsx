@@ -3,7 +3,7 @@ import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-type Mode = 'login' | 'signup';
+type Mode = 'login' | 'signup' | 'forgot';
 
 const COUNTRIES = [
   'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia','Austria',
@@ -79,6 +79,30 @@ export default function AuthPage() {
     // on success the page redirects — no need to reset
   }
 
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    if (!supabase) {
+      setError('Password reset requires Supabase to be configured on this instance.');
+      return;
+    }
+    if (!email) {
+      setError('Please enter your email address.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      if (err) { setError(err.message); return; }
+      setInfo('Reset link sent! Check your inbox and follow the link to set a new password.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -122,6 +146,60 @@ export default function AuthPage() {
     setMode(m);
     setError('');
     setInfo('');
+  }
+
+  if (mode === 'forgot') {
+    return (
+      <div style={S.page}>
+        <div style={S.logoRow}>
+          <span style={S.logoText}>
+            <span style={{ color: '#ffffff' }}>My FM</span>
+            <span style={{ color: '#3b82f6' }}> | Journal</span>
+          </span>
+        </div>
+        <h1 style={S.title}>Reset Password</h1>
+        <p style={S.sub}>Enter your email and we'll send you a reset link.</p>
+
+        <div style={S.form}>
+          <style>{`
+            .auth-input { width:100%; box-sizing:border-box; background:#0e1420; border:1px solid #1a2540; border-radius:8px; padding:14px 16px; color:#e2e8f0; font-size:14px; font-family:'Poppins','Inter',sans-serif; outline:none; transition:border-color 0.2s; }
+            .auth-input::placeholder { color:#3d5070; }
+            .auth-input:focus { border-color:#2563eb; }
+            .auth-btn { width:100%; padding:14px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:700; font-family:'Poppins','Inter',sans-serif; cursor:pointer; letter-spacing:0.02em; transition:background 0.2s; }
+            .auth-btn:hover:not(:disabled) { background:#1d4ed8; }
+            .auth-btn:disabled { opacity:0.6; cursor:not-allowed; }
+            .auth-link { background:none; border:none; color:#3b82f6; font-size:14px; cursor:pointer; font-family:'Poppins','Inter',sans-serif; font-weight:500; padding:0; transition:color 0.15s; }
+            .auth-link:hover { color:#60a5fa; }
+          `}</style>
+          <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <input
+              className="auth-input"
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              disabled={busy}
+              autoComplete="email"
+            />
+            {error && <div style={S.error}>{error}</div>}
+            {info  && <div style={S.infoBox}>{info}</div>}
+            <button className="auth-btn" type="submit" disabled={busy}>
+              {busy ? 'Sending…' : 'Send Reset Link'}
+            </button>
+          </form>
+          <div style={{ textAlign: 'center', marginTop: 4 }}>
+            <button className="auth-link" onClick={() => switchMode('login')}>← Back to Sign In</button>
+          </div>
+        </div>
+
+        <div style={S.footer}>
+          <a href="/legal" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Terms</a>
+          <a href="/legal" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Privacy</a>
+          <a href="/support" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Support</a>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -309,7 +387,7 @@ export default function AuthPage() {
                 />
                 <span style={{ color: '#94a3b8', fontSize: 13, fontFamily: "'Poppins','Inter',sans-serif" }}>Keep me logged in</span>
               </label>
-              <button type="button" className="auth-link" style={{ fontSize: 13, fontWeight: 600 }}>
+              <button type="button" className="auth-link" style={{ fontSize: 13, fontWeight: 600 }} onClick={() => switchMode('forgot')}>
                 Forgot Password?
               </button>
             </div>
