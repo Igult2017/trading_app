@@ -272,8 +272,8 @@ export default function TscPage() {
       <div style={{ minHeight: "100vh", background: pageBg, fontFamily: "'Poppins', sans-serif", transition: "background 0.3s" }}>
 
         {/* ── Hero Section ──────────────────────────────────────────────── */}
-        <section style={{ background: sectionBg, borderBottom: `1px solid ${border}`, padding: "56px 28px 52px" }}>
-          <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 40 }}>
+        <section style={{ background: sectionBg, borderBottom: `1px solid ${border}`, padding: "56px 0 52px" }}>
+          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 40 }}>
 
             {/* Left: heading + description */}
             <div style={{ flex: "1 1 380px" }}>
