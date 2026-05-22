@@ -1,46 +1,10 @@
 import { useState, useEffect } from "react";
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, Menu, Sun, Moon, TrendingUp } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
+import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 
-const TICKER_DATA = [
-  { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
-  { symbol: "BTC/USD", price: "67,204", change: "-1.34%", up: false },
-  { symbol: "GOLD", price: "2,318.4", change: "+0.45%", up: true },
-  { symbol: "SPX500", price: "5,236.1", change: "+0.28%", up: true },
-  { symbol: "GBP/USD", price: "1.2691", change: "-0.08%", up: false },
-  { symbol: "ETH/USD", price: "3,512.7", change: "+2.11%", up: true },
-  { symbol: "OIL/WTI", price: "78.34", change: "-0.67%", up: false },
-  { symbol: "USD/JPY", price: "156.72", change: "+0.19%", up: true },
-];
-
-function TickerTape({ dark }: { dark: boolean }) {
-  const items  = [...TICKER_DATA, ...TICKER_DATA];
-  const bg     = dark ? "#080c10" : "#f1f5f9";
-  const border = dark ? "#0f1923" : "#e2e8f0";
-  const symClr = dark ? "#4a6580" : "#94a3b8";
-  const prClr  = dark ? "#c8d8e8" : "#334155";
-  return (
-    <div style={{ background: bg, borderBottom: `1px solid ${border}`, height: 32, overflow: "hidden", display: "flex", alignItems: "center", transition: "background 0.3s" }}>
-      <style>{`
-        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
-        .ticker-wrap:hover { animation-play-state: paused; }
-      `}</style>
-      <div className="ticker-wrap">
-        {items.map((t, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: `1px solid ${border}`, whiteSpace: "nowrap" }}>
-            <span style={{ color: symClr, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
-            <span style={{ color: prClr,  fontSize: 10, fontWeight: 600 }}>{t.price}</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function HomePage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [time, setTime] = useState(new Date());
 
@@ -154,18 +118,6 @@ export default function HomePage() {
   const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
   const calData = Array.from({ length: 35 }, () => (Math.random() - 0.45) * 900);
 
-  const navItems = ['Journal', 'Features', 'Pricing', 'Reviews', 'Economic Calendar', 'Blog', 'TSC', 'Login', 'Signup'];
-  const navHref = (item: string) => {
-    if (item === 'TSC') return '/tsc';
-    if (item === 'Blog') return '/blog';
-    if (item === 'Economic Calendar') return '/calendar';
-    if (item === 'Journal') return '/auth';
-    if (item === 'Login') return '/auth';
-    if (item === 'Signup') return '/auth?mode=signup';
-    return `#${item.toLowerCase().replace(' ', '-')}`;
-  };
-  const isJournalLink = (item: string) => ['Journal', 'Login', 'Signup'].includes(item);
-
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif",
       ['--hf-bg' as string]:              dm ? '#080c10' : '#f1f5f9',
@@ -182,21 +134,6 @@ export default function HomePage() {
       ['--hf-risk' as string]:            dm ? '#2a3a4a' : '#94a3b8',
     } as React.CSSProperties}>
       <style>{`
-        .nav-a { text-decoration:none; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Poppins',sans-serif; }
-        .nav-journal-btn { text-decoration:none; font-size:10px; font-weight:800; letter-spacing:0.12em; padding:6px 16px; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Montserrat',sans-serif; background:linear-gradient(to right,#2563eb,#3b82f6); color:#fff; border:none; }
-        .nav-journal-btn:hover { background:linear-gradient(to right,#1d4ed8,#2563eb); }
-        .nav-links { display:flex; align-items:center; gap:6px; }
-        .nav-mob-controls { display:none; align-items:center; gap:8px; }
-        @media (max-width: 1024px) {
-          .nav-links { display:none; }
-          .nav-mob-controls { display:flex; }
-        }
-        .mob-dropdown { display:none; }
-        .mob-dropdown.open { display:block; }
-        @media (min-width: 1025px) {
-          .mob-dropdown { display:none !important; }
-        }
-
         /* ── Responsive landing-page layout ───────────────────────── */
         .lp-nav { padding: 0; }
         .lp-section { padding: 80px 24px; }
@@ -257,66 +194,7 @@ export default function HomePage() {
         }
       `}</style>
 
-      <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
-        <TickerTape dark={darkMode} />
-        <nav className="lp-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, transition: 'background 0.3s' }}>
-          <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em', fontFamily: "'Montserrat',sans-serif", flexShrink: 0, cursor: 'pointer' }}>
-              <span style={{ color: t.logoWhite }}>My FM</span>
-              <span style={{ color: '#3b82f6' }}> | Journal</span>
-            </span>
-            <div className="nav-links">
-              {navItems.map(item => {
-                const newTab = isJournalLink(item);
-                return (
-                  <a key={item} href={navHref(item)} className="nav-a" style={{ color: t.navLink }}
-                    target={newTab ? 'myfm_journal' : undefined}
-                    rel={newTab ? 'noopener noreferrer' : undefined}
-                    onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
-                  >{item}</a>
-                );
-              })}
-              <button onClick={() => setDarkMode(!dm)}
-                style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0, marginLeft: 4 }}>
-                <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-                </div>
-              </button>
-            </div>
-            <div className="nav-mob-controls">
-              <button onClick={() => setDarkMode(!dm)}
-                style={{ width: 40, height: 22, borderRadius: 11, background: dm ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.3s', padding: 0, flexShrink: 0 }}>
-                <div style={{ position: 'absolute', left: dm ? 20 : 2, top: 2, width: 18, height: 18, borderRadius: '50%', background: dm ? '#60a5fa' : '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {dm ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-                </div>
-              </button>
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dm ? '#0c1219' : '#f1f5f9', border: `1px solid ${t.navBorder}`, borderRadius: 4, cursor: 'pointer', color: t.text }}>
-                <Menu size={18} />
-              </button>
-            </div>
-          </div>
-        </nav>
-      </div>
-
-      {mobileMenuOpen && (
-        <div className="mob-dropdown open" style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}` }}>
-          {navItems.map(item => {
-            const newTab = isJournalLink(item);
-            return (
-              <a key={item} href={navHref(item)}
-                target={newTab ? 'myfm_journal' : undefined}
-                rel={newTab ? 'noopener noreferrer' : undefined}
-                onClick={() => { if (!newTab) setMobileMenuOpen(false); }}
-                style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.textMuted, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-                onMouseEnter={e => e.currentTarget.style.color = t.text}
-                onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
-              >{item}</a>
-            );
-          })}
-        </div>
-      )}
+      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath="/" />
 
       <div>
 
