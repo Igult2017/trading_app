@@ -1,0 +1,113 @@
+[Supabase] Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY — auth endpoints will not work
+[Database] Connecting to PostgreSQL...
+[Database] Database pool initialized
+[DrawdownCalculator] PYTHON_BIN=/home/runner/workspace/.pythonlibs/bin/python3  SCRIPT=/home/runner/workspace/server/python/drawdown/main.py
+[Telegram] Service is muted. Notifications disabled.
+[homepageCalendar] Warming up calendar + rates cache in background…
+[crypto] Warming up crypto data cache in background…
+[Strategies] Initializing trading strategies...
+[StrategyRegistry] Registered strategy: Smart Money Concepts (smc-v1)
+[Strategies] Registered 1 strategies (1 enabled)
+[Database] Initializing schema...
+[Database] Running constraint cleanup: ALTER TABLE trading_sessions DROP CONSTRAINT IF EXISTS trading_sessions_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE journal_entries  DROP CONSTRAINT IF EXISTS journal_entries_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE journal_entries  DROP CONSTRAINT IF EXISTS journal_entries_session_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE trades           DROP CONSTRAINT IF EXISTS trades_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE copy_accounts    DROP CONSTRAINT IF EXISTS copy_accounts_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE copy_masters     DROP CONSTRAINT IF EXISTS copy_masters_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE copy_followers   DROP CONSTRAINT IF EXISTS copy_followers_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS user_profiles (
+        id VARCHAR PRIMARY KEY,
+        email T...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS trades (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS trading_sessions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_r...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS journal_entries (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ra...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS economic_events (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ra...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS telegram_subscribers (
+        id VARCHAR PRIMARY KEY DEFAULT g...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR PRIMARY KEY DEFAULT gen_rand...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS trading_signals (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ra...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS pending_setups (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ran...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS interest_rates (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ran...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_accounts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_rand...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_masters (
+        id VARCHAR PRIMARY KEY DEFAULT gen_rando...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS telegram_signal_sources (
+        id VARCHAR PRIMARY KEY DEFAUL...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_followers (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ran...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_trades_master (
+        id VARCHAR PRIMARY KEY DEFAULT gen...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_trades_follower (
+        id VARCHAR PRIMARY KEY DEFAULT g...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_execution_logs (
+        id VARCHAR PRIMARY KEY DEFAULT ge...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS ai_chats (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uu...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS ai_chat_messages (
+        id VARCHAR PRIMARY KEY DEFAULT gen_r...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS admin_notifications (
+        id VARCHAR PRIMARY KEY DEFAULT ge...
+[Database] Applying column change: ALTER TABLE trading_sessions ADD COLUMN IF NOT EXISTS broker_timezone INTEGER DEFAULT 2
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name  TEXT DEFAULT ''
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country    TEXT DEFAULT ''
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan       TEXT DEFAULT 'Free'
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free'
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMP
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_ends_at TIMESTAMP
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_granted_by VARCHAR
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'Active'
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate   TEXT DEFAULT ''
+[Database] blog_posts table ready
+[Database] blog_comments table ready
+[Database] Creating index: CREATE UNIQUE INDEX IF NOT EXISTS idx_copy_trades_master_dedup
+         ON copy_trades_master (master_id, external_id)
+[Database] Schema initialization complete - all tables created
+[Server] Signal monitor: DISABLED
+Re-optimizing dependencies because lockfile has changed
+[homepageCalendar/calendar] [news_calendar] cloudscraper unavailable; skipping MyFXBook
+[news_calendar] Falling back to TradingView…
+[news_calendar] TradingView: 432 events
+[news_calendar] https://www.coindesk.com/arc/outboundfeeds/rss/: not XML, skipping
+[news_calendar] https://cointelegraph.com/rss: not XML, skipping
+[news_calendar] crypto events: 10
+[homepageCalendar] Calendar cache ready (442 events)
+9:39:14 AM [express] serving on port 5000
+Starting economic calendar scheduler (scraper only)...
+MyFXBook scraper: DISABLED
+Interest rate scraper: DISABLED
+Scheduled Telegram notifications: every 5 minutes
+Signal scanning: DISABLED
+Error: The following dependencies are imported but could not be resolved:
+
+  @tanstack/react-query-persist-client (imported by /home/runner/workspace/client/src/App.tsx)
+  @tanstack/query-sync-storage-persister (imported by /home/runner/workspace/client/src/lib/queryClient.ts)
+
+Are they installed?
+    at <anonymous> (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:50669:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:50174:26)
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.15.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.15.0
+npm notice To update run: npm install -g npm@11.15.0
+npm notice
