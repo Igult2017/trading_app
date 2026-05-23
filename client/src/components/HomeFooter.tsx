@@ -64,9 +64,8 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           {/* ── Brand ──────────────────────────────────────────────────── */}
           <div>
             <Link href="/" style={{ textDecoration: 'none', display: 'inline-block', marginBottom: 16 }}>
-              <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em' }}>
-                <span style={{ color: logoClr }}>My FM</span>
-                <span style={{ color: '#3b82f6' }}> | Journal</span>
+              <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em', color: logoClr }}>
+                Myfmjournal
               </span>
             </Link>
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.75, marginBottom: 24, marginTop: 0, maxWidth: 260 }}>
@@ -134,7 +133,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         <div style={{ borderTop: `1px solid ${botBorder}`, padding: '24px 0 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="hf-bottom">
             <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', color: copyTxt }}>
-              © {new Date().getFullYear()} My FM | Journal — All rights reserved
+              © {new Date().getFullYear()} Myfmjournal — All rights reserved
             </span>
             <div className="hf-legal-links">
               {LEGAL.map(item => (
