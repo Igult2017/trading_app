@@ -466,20 +466,24 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
         <input type="file" id={inputId} accept="image/*" onChange={handleFile}
           style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
         {value ? (
-          <div className="w-full h-full flex flex-col relative p-1.5" style={{ minHeight: 0 }}>
-            <img src={value} alt="chart" className="w-full object-contain rounded-sm" style={{ flex: 1, minHeight: 0, maxHeight: "calc(100% - 28px)" }} />
-            {analyzing && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-sm gap-1.5">
-                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4e8cff" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4e8cff"/></svg>
-                <span className="text-[9px] text-[#4e8cff] uppercase tracking-[0.15em]">Analyzing…</span>
-              </div>
-            )}
-            {!analyzing && (
-              <div className="flex gap-2 mt-1 flex-shrink-0" style={{ position: "relative", zIndex: 10, height: "22px" }}>
-                <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-0.5 cursor-pointer hover:bg-[#4e8cff]/5 transition-all leading-none flex items-center justify-center">↺ Replace</label>
-                <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
-                  className="flex-1 text-[9px] text-rose-400 border border-rose-500/30 rounded-sm py-0.5 hover:bg-rose-500/5 transition-all leading-none flex items-center justify-center">✕ Remove</button>
-              </div>
+          <div className="w-full h-full flex flex-col items-center justify-center relative gap-2 px-3">
+            {analyzing ? (
+              <>
+                <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4e8cff" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4e8cff"/></svg>
+                <span className="text-[9px] text-[#4e8cff] uppercase tracking-[0.2em]">Analyzing…</span>
+              </>
+            ) : (
+              <>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#16a34a18', border: '1px solid #16a34a50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <span className="text-[9px] text-emerald-400 uppercase tracking-[0.2em]">Screenshot captured</span>
+                <div className="flex gap-2 w-full mt-1" style={{ maxWidth: 200 }}>
+                  <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all leading-none flex items-center justify-center">↺ Replace</label>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
+                    className="flex-1 text-[9px] text-rose-400 border border-rose-500/30 rounded-sm py-1 hover:bg-rose-500/5 transition-all leading-none flex items-center justify-center">✕ Remove</button>
+                </div>
+              </>
             )}
           </div>
         ) : (
