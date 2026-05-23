@@ -42,7 +42,7 @@ export interface RateEntry {
 let _calendarCache: CalendarEvent[] | null = null;
 let _calendarFetchedAt = 0;           // timestamp of last SUCCESSFUL fetch
 let _calendarLastAttemptAt = 0;       // timestamp of last fetch ATTEMPT
-const CALENDAR_RETRY_INTERVAL = 5 * 60 * 1000; // retry every 5 min
+const CALENDAR_RETRY_INTERVAL = 15 * 60 * 1000; // retry every 15 min
 
 // Rates: refreshed hourly.
 let _ratesCache: Record<string, RateEntry> | null = null;

@@ -18,6 +18,7 @@ function resolve(): string {
   const cwd = process.cwd();
 
   const candidates = [
+    path.join(cwd, ".pythonlibs", "bin", "python3"),
     path.join(cwd, ".venv", "bin", "python3"),
     path.join(cwd, ".venv", "bin", "python"),
     "/usr/bin/python3",
