@@ -241,7 +241,7 @@ const Dots = ({ name, value = 0, onChange, max = 5 }: any) => {
         <span className="text-[11px] text-[#71717a]">{name}</span>
         <span style={{ fontSize: 10, fontWeight: 700, color: '#4e8cff' }}>{value}/{max}</span>
       </div>
-      <div style={{ display: 'flex', gap: 5 }}>
+      <div style={{ display: 'flex', gap: 14 }}>
         {steps.map(n => (
           <button key={n} type="button" onClick={() => onChange(n)}
             className={`obs-rating-btn${value === n ? ' obs-rating-active' : ''}`}
@@ -264,7 +264,7 @@ const Slider = ({ label, min = 1, max = 5, value, onChange }: any) => {
         <FieldLabel>{label}</FieldLabel>
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#4e8cff', textTransform: 'uppercase' }}>{v} / {max}</span>
       </div>
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 14 }}>
         {steps.map(n => (
           <button
             key={n}
