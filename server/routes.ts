@@ -1428,75 +1428,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── AI Engine — Analysis ────────────────────────────────────────────────────
+  // ── AI Engine — Analysis (disabled — API quota conservation) ────────────────
   app.get("/api/ai/analysis", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
-    try {
-      const scope = await resolveComputeScope(auth, req);
-      if (!scope) return res.json({ success: true, analysis: {} });
-      const sessionId = req.query.sessionId as string | undefined;
-      const entryCount = scope.entries.length;
-
-      // Return cached result if trades haven't changed
-      const cached = getAICache("analysis", auth.id, sessionId, entryCount);
-      if (cached) { console.log("[AI] Analysis cache hit"); return res.json(cached); }
-
-      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
-      const startingBal = scope.startingBalance ?? 10000;
-
-      // Fetch all three context sources in parallel — all non-fatal
-      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
-        computeMetrics(remapped),
-        computeDrawdown(remapped, startingBal),
-        computeStrategyAudit(remapped, startingBal),
-      ]);
-      const metricsContext  = metricsRes.status  === "fulfilled" && metricsRes.value.success  ? metricsRes.value.metrics        : undefined;
-      const drawdownContext = drawdownRes.status === "fulfilled" && drawdownRes.value.success ? drawdownRes.value                : undefined;
-      const auditContext    = auditRes.status    === "fulfilled" && auditRes.value.success    ? auditRes.value                  : undefined;
-
-      const result = await computeAIAnalysis(remapped, metricsContext as any, drawdownContext as any, auditContext as any);
-      if (result.success) setAICache("analysis", result, auth.id, sessionId, entryCount);
-      res.json(result);
-    } catch (error) {
-      console.error("[Routes] AI analysis error:", error);
-      res.status(500).json({ success: false, error: "AI analysis failed" });
-    }
+    return res.json({ success: true, analysis: {} });
   });
 
-  // ── AI Engine — Strategy ────────────────────────────────────────────────────
+  // ── AI Engine — Strategy (disabled — API quota conservation) ────────────────
   app.get("/api/ai/strategy", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
-    try {
-      const scope = await resolveComputeScope(auth, req);
-      if (!scope) return res.json({ success: true, strategy: {} });
-      const sessionId = req.query.sessionId as string | undefined;
-      const entryCount = scope.entries.length;
-
-      // Return cached result if trades haven't changed
-      const cached = getAICache("strategy", auth.id, sessionId, entryCount);
-      if (cached) { console.log("[AI] Strategy cache hit"); return res.json(cached); }
-
-      const remapped = scope.entries.map((e) => remapJournalEntry(e as Record<string, any>));
-      const startingBal = scope.startingBalance ?? 10000;
-
-      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
-        computeMetrics(remapped),
-        computeDrawdown(remapped, startingBal),
-        computeStrategyAudit(remapped, startingBal),
-      ]);
-      const metricsContext  = metricsRes.status  === "fulfilled" && metricsRes.value.success  ? metricsRes.value.metrics        : undefined;
-      const drawdownContext = drawdownRes.status === "fulfilled" && drawdownRes.value.success ? drawdownRes.value                : undefined;
-      const auditContext    = auditRes.status    === "fulfilled" && auditRes.value.success    ? auditRes.value                  : undefined;
-
-      const result = await computeAIStrategy(remapped, metricsContext as any, drawdownContext as any, auditContext as any);
-      if (result.success) setAICache("strategy", result, auth.id, sessionId, entryCount);
-      res.json(result);
-    } catch (error) {
-      console.error("[Routes] AI strategy error:", error);
-      res.status(500).json({ success: false, error: "AI strategy failed" });
-    }
+    return res.json({ success: true, strategy: {} });
   });
 
   app.get("/api/analytics", async (req, res) => {
@@ -1933,7 +1876,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   console.log('[Server] Signal monitor: DISABLED');
 
+  // ── Trader AI chat (disabled — API quota conservation) ───────────────────────
   app.post("/api/trader-ai/chat", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    return res.json({ reply: "", chatId: null });
+  });
+  app.post("/api/trader-ai/chat/__disabled", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
     try {
