@@ -236,19 +236,21 @@ const Radio = ({ label, options, value, onChange }: any) => (
 const Dots = ({ name, value = 0, onChange, max = 5 }: any) => {
   const steps = Array.from({ length: max }, (_, i) => i + 1);
   return (
-    <div className="flex items-center gap-4 py-2 border-b border-[#18181b]/60 last:border-0">
-      <span className="text-[11px] text-[#71717a] min-w-[150px] flex-shrink-0">{name}</span>
+    <div className="space-y-1.5 py-2 border-b border-[#18181b]/60 last:border-0">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-[#71717a]">{name}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#4e8cff' }}>{value}/{max}</span>
+      </div>
       <div style={{ display: 'flex', gap: 5 }}>
         {steps.map(n => (
           <button key={n} type="button" onClick={() => onChange(n)}
             className={`obs-rating-btn${value === n ? ' obs-rating-active' : ''}`}
-            style={{ width: 34, height: 30, fontSize: 12, flex: 'none' }}
+            style={{ flex: 1, minWidth: 0, height: 30, fontSize: 12 }}
           >
             {n}
           </button>
         ))}
       </div>
-      <span style={{ fontSize: 10, fontWeight: 700, color: '#4e8cff', minWidth: 28, textAlign: 'right' }}>{value}/{max}</span>
     </div>
   );
 };
