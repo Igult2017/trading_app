@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
+import { geminiRateLimiter } from "../lib/geminiRateLimiter";
 
 // ── Lazy client factory ───────────────────────────────────────────────────────
 // The client is created fresh on every call so GOOGLE_API_KEY is always read
@@ -16,15 +17,14 @@ function getAIClient(): GoogleGenAI {
 }
 
 // ── Model fallback chain ──────────────────────────────────────────────────────
-// Ordered by preference — flash first (fast/cheap), then pro.
-// Auto-discovery runs after all these are exhausted.
+// FREE-TIER SAFE: only flash models are listed.
+// Pro models have severely restricted free limits (gemini-2.5-pro = 25 RPD!)
+// and would be exhausted within minutes of normal usage. Never add pro models
+// here unless the user switches to a paid plan.
 const MODEL_FALLBACK_CHAIN = [
-  "gemini-2.0-flash",
-  "gemini-2.5-flash-preview-05-20",
-  "gemini-2.5-flash",
-  "gemini-2.5-pro-preview-05-06",
-  "gemini-2.5-pro",
-  "gemini-1.5-pro",
+  "gemini-2.0-flash",           // primary: 15 RPM · 1,500 RPD — best free tier
+  "gemini-2.0-flash-lite",      // fallback-1: 30 RPM · 1,500 RPD — even lighter
+  "gemini-2.5-flash-preview-05-20", // fallback-2: 10 RPM · 500 RPD
 ];
 
 function isModelError(msg: string): boolean {
@@ -61,6 +61,10 @@ type GenerateParams = {
 };
 
 async function generateWithFallback(params: GenerateParams): Promise<string> {
+  // Acquire one free-tier slot before touching the network.
+  // Queues if at the 15 RPM limit; throws after 60 s or when daily cap is hit.
+  await geminiRateLimiter.acquire();
+
   const ai = getAIClient();
 
   // Build deduplicated candidate list

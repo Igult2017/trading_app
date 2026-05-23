@@ -9,6 +9,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import { geminiRateLimiter } from "../lib/geminiRateLimiter";
 
 // ── Singleton AI client ───────────────────────────────────────────────────────
 // Created once per process — avoids repeated init overhead on every upload.
@@ -250,15 +251,14 @@ interface ModelConfig {
   thinkingBudget?: number;
 }
 
+// FREE-TIER SAFE: flash-only chain.
+// Pro models are NOT included — gemini-2.5-pro has only 25 RPD on the free
+// tier and would be exhausted within one trading session. If all flash models
+// are unavailable, the upload fails gracefully rather than burning the pro quota.
 const MODEL_CHAIN: ModelConfig[] = [
-  // ── Fast flash models with thinking disabled (best speed/accuracy for data extraction)
-  { model: "gemini-2.0-flash",       thinkingBudget: 0 },
-  { model: "gemini-2.5-flash",       thinkingBudget: 0 },
-  { model: "gemini-2.5-flash-lite",  thinkingBudget: 0 },
-  { model: "gemini-3-flash-preview", thinkingBudget: 0 },
-  // ── Pro fallback (most accurate, use only if flash models fail)
-  { model: "gemini-2.5-pro" },
-  { model: "gemini-3-pro-preview" },
+  { model: "gemini-2.0-flash",      thinkingBudget: 0 },  // primary  · 15 RPM · 1500 RPD
+  { model: "gemini-2.0-flash-lite", thinkingBudget: 0 },  // fallback · 30 RPM · 1500 RPD
+  { model: "gemini-2.5-flash-preview-05-20", thinkingBudget: 0 }, // last-resort · 10 RPM · 500 RPD
 ];
 
 function isModelError(msg: string): boolean {
@@ -521,6 +521,10 @@ export async function extractFromScreenshot(
   if (brokerTimezone != null) {
     console.log(`[GeminiScreenshot] Injecting broker timezone UTC+${brokerTimezone} into prompt`);
   }
+
+  // Acquire one free-tier slot (15 RPM / 1,500 RPD).
+  // Queues automatically when the minute window is full; throws after 60 s.
+  await geminiRateLimiter.acquire();
 
   let lastError: Error | null = null;
 

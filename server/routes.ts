@@ -53,6 +53,7 @@ import path from 'path';
 import { getInterestRateData, getInflationData, parseCurrencyPair, generateMockTimeframeData } from "./services/marketData";
 import { getCachedPrice, getCachedMultiplePrices, pingPriceService, getCachedCandleData } from "./lib/priceService";
 import { validateSignalWithGemini, quickMarketScan, testGeminiConnection, isGeminiConfigured, analyzeWithGemini, quickAnalyzeWithGemini } from "./services/geminiAnalysis";
+import { geminiRateLimiter } from "./lib/geminiRateLimiter";
 import { generateTradingSignalChart, isChartGeneratorAvailable, cleanupOldCharts } from "./services/chartGenerator";
 import os from "os";
 
@@ -1914,6 +1915,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(500).json({ error: "Failed to check Gemini status" });
     }
+  });
+
+  // Free-tier usage stats — live counter of RPM / RPD consumption.
+  app.get("/api/gemini/usage", (_req, res) => {
+    res.json(geminiRateLimiter.getStats());
   });
 
   app.post("/api/gemini/validate", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
