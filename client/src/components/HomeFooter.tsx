@@ -35,13 +35,13 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const logoClr   = dm ? '#ffffff'              : '#0f172a';
   const headLabel = '#3b82f6';
   const headTitle = dm ? '#f1f5f9'              : '#0f172a';
-  const linkClr   = dm ? '#94a3b8'              : '#334155';
-  const linkHov   = dm ? '#f1f5f9'              : '#0f172a';
+  const linkClr   = dm ? '#cbd5e1'              : '#1e293b';
+  const linkHov   = dm ? '#ffffff'              : '#0f172a';
   const inputBg   = dm ? '#0c1219'              : '#ffffff';
   const inputBord = dm ? '#1e293b'              : '#cbd5e1';
   const inputTxt  = dm ? '#c8d8e8'              : '#0f172a';
-  const mutedTxt  = dm ? '#64748b'              : '#475569';
-  const copyTxt   = dm ? '#64748b'              : '#475569';
+  const mutedTxt  = dm ? '#94a3b8'              : '#334155';
+  const copyTxt   = dm ? '#94a3b8'              : '#334155';
 
   return (
     <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Montserrat',sans-serif", transition: 'background 0.3s' }}>
