@@ -29,19 +29,19 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const dm = darkMode;
 
   /* ── Theme tokens aligned with landing page ─────────────────────────── */
-  const bg        = dm ? 'rgba(8,12,16,0.97)'   : 'rgba(255,255,255,0.97)';  // matches header
-  const topBorder = dm ? '#172233'              : '#e2e8f0';
-  const botBorder = dm ? '#172233'              : '#e2e8f0';
+  const bg        = dm ? '#08090d'              : '#f1f5f9';
+  const topBorder = dm ? '#1e293b'              : '#cbd5e1';
+  const botBorder = dm ? '#1e293b'              : '#cbd5e1';
   const logoClr   = dm ? '#ffffff'              : '#0f172a';
   const headLabel = '#3b82f6';
-  const headTitle = dm ? '#ffffff'              : '#0f172a';
-  const linkClr   = dm ? '#64748b'              : '#475569';
+  const headTitle = dm ? '#f1f5f9'              : '#0f172a';
+  const linkClr   = dm ? '#94a3b8'              : '#334155';
   const linkHov   = dm ? '#f1f5f9'              : '#0f172a';
-  const inputBg   = dm ? '#0c1219'              : '#f8fafc';
-  const inputBord = dm ? '#172233'              : '#e2e8f0';
+  const inputBg   = dm ? '#0c1219'              : '#ffffff';
+  const inputBord = dm ? '#1e293b'              : '#cbd5e1';
   const inputTxt  = dm ? '#c8d8e8'              : '#0f172a';
-  const mutedTxt  = dm ? '#475569'              : '#64748b';
-  const copyTxt   = dm ? '#475569'              : '#94a3b8';
+  const mutedTxt  = dm ? '#64748b'              : '#475569';
+  const copyTxt   = dm ? '#64748b'              : '#475569';
 
   return (
     <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Montserrat',sans-serif", transition: 'background 0.3s' }}>
@@ -53,7 +53,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         .hf-lnk { font-family:'Montserrat',sans-serif; font-weight:500; font-size:13px; color:${linkClr}; text-decoration:none; transition:color 0.2s; }
         .hf-lnk:hover { color:${linkHov}; }
         .hf-copy-lnk { font-family:'Montserrat',sans-serif; font-weight:500; font-size:11px; color:${copyTxt}; text-decoration:none; transition:color 0.2s; }
-        .hf-copy-lnk:hover { color:#94a3b8; }
+        .hf-copy-lnk:hover { color:${linkHov}; }
         @media (max-width:1000px) { .hf-grid { grid-template-columns:1fr 1fr; gap:40px; padding:48px 0 44px; } }
         @media (max-width:560px)  { .hf-grid { grid-template-columns:1fr; gap:36px; padding:40px 0 36px; } .hf-bottom { flex-direction:column; align-items:flex-start; } }
       `}</style>
