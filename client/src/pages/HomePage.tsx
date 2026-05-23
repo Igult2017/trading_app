@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp, DollarSign, CheckCircle, BarChart2, Target } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
@@ -148,6 +148,7 @@ export default function HomePage() {
         .lp-section-sub { font-size: 18px; }
         .lp-dash-card { padding: 32px; border-radius: 16px; }
         .lp-dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .lp-stats-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
         .lp-dash-cell { padding: 24px; }
         .lp-dash-stat { font-size: 32px; }
         .lp-brokers-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px; }
@@ -178,6 +179,7 @@ export default function HomePage() {
           .lp-section-sub { font-size: 14px; }
           .lp-dash-card { padding: 16px; border-radius: 12px; }
           .lp-dash-grid { grid-template-columns: 1fr; gap: 10px; }
+          .lp-stats-strip { grid-template-columns: repeat(2, 1fr); gap: 10px; }
           .lp-dash-cell { padding: 16px; }
           .lp-dash-stat { font-size: 24px; }
           .lp-brokers-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
@@ -228,24 +230,34 @@ export default function HomePage() {
         {/* Dashboard preview */}
         <section className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div className="lp-dash-card" style={{ maxWidth: 1100, margin: '0 auto', background: dm ? 'linear-gradient(135deg,#1e293b,#0f172a)' : '#fff', border: `1px solid ${t.cardBorder}`, boxShadow: dm ? '0 25px 50px rgba(0,0,0,0.4)' : '0 10px 40px rgba(0,0,0,0.06)' }}>
-            <div className="lp-dash-grid" style={{ marginBottom: 20 }}>
-              {[{ label:'Winrate', value:'69.67%', w:'69.67%' },{ label:'Avg Win / Avg Loss', value:'0.89', w:'45%' }].map((s,i) => (
-                <div key={i} className="lp-dash-cell" style={{ background: t.cardBg, borderRadius: 12, border: `1px solid ${t.cardBorder}` }}>
-                  <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 8 }}>{s.label}</div>
-                  <div className="lp-dash-stat" style={{ fontWeight: 700, color: t.statValue, marginBottom: 12 }}>{s.value}</div>
-                  <div style={{ height: 10, background: t.progressBg, borderRadius: 5, overflow: 'hidden' }}>
-                    <div style={{ width: s.w, height: '100%', background: 'linear-gradient(to right,#2563eb,#60a5fa)', borderRadius: 5 }} />
+
+            {/* 6-stat strip */}
+            <div className="lp-stats-strip" style={{ marginBottom: 24 }}>
+              {([
+                { icon: DollarSign, label: 'TOTAL P&L',      value: '+$90,042.69', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+                { icon: CheckCircle, label: 'WIN RATE',       value: '78.3%',       color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+                { icon: TrendingUp,  label: 'R EXPECTANCY',   value: '2.23R',       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+                { icon: BarChart2,   label: 'TRADES',         value: '118',         color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+                { icon: Target,      label: 'PROFIT FACTOR',  value: '11.22',       color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
+                { icon: DollarSign,  label: 'AVG TRADE',      value: '+$763.07',    color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+              ] as const).map(({ icon: Icon, label, value, color, bg }, i) => (
+                <div key={i} style={{
+                  background: dm ? 'rgba(255,255,255,0.04)' : '#fff',
+                  border: `1px solid ${dm ? 'rgba(255,255,255,0.07)' : '#e2e8f0'}`,
+                  borderRadius: 14,
+                  padding: '18px 16px 16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  boxShadow: dm ? 'none' : '0 2px 8px rgba(0,0,0,0.05)',
+                }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={18} color={color} strokeWidth={2} />
                   </div>
+                  <div style={{ fontSize: 10, fontFamily: "'Montserrat',sans-serif", fontWeight: 700, letterSpacing: '0.08em', color: dm ? '#64748b' : '#94a3b8' }}>{label}</div>
+                  <div style={{ fontSize: 20, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
                 </div>
               ))}
-              <div className="lp-dash-cell" style={{ background: t.cardBg, borderRadius: 12, border: `1px solid ${t.cardBorder}` }}>
-                <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 8 }}>Trade Count</div>
-                <div className="lp-dash-stat" style={{ fontWeight: 700, color: t.statValue }}>1131</div>
-                <svg viewBox="0 0 200 40" style={{ width: '100%', height: 48, marginTop: 12 }}>
-                  <defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
-                  <polyline points="0,30 20,25 40,28 60,20 80,22 100,18 120,15 140,20 160,17 180,15 200,12" fill="none" stroke="url(#g1)" strokeWidth="2"/>
-                </svg>
-              </div>
             </div>
             <div className="lp-cal-grid">
               {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
