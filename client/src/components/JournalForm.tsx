@@ -36,12 +36,9 @@ const OBS_CSS = `
                  "Liberation Mono", "Courier New", monospace !important;
     box-sizing: border-box;
   }
-  .obs-jf input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; outline: none; cursor: pointer; width: 100%; }
-  .obs-jf input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: linear-gradient(to right, #4e8cff var(--pct, 50%), #27272a var(--pct, 50%)); }
-  .obs-jf input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: 2px solid #0c0c0e; box-shadow: 0 0 0 1px rgba(78,140,255,0.4); margin-top: -4px; }
-  .obs-jf input[type=range]::-moz-range-track { height: 4px; border-radius: 99px; background: #27272a; }
-  .obs-jf input[type=range]::-moz-range-progress { height: 4px; border-radius: 99px; background: #4e8cff; }
-  .obs-jf input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #4e8cff; cursor: pointer; border: 2px solid #0c0c0e; box-sizing: border-box; }
+  .obs-rating-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #27272a; background:#0c0c0e; color:#71717a; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; font-family:inherit; flex-shrink:0; }
+  .obs-rating-btn:hover:not(.obs-rating-active) { border-color:#4e8cff80; color:#4e8cff; background:#4e8cff0d; }
+  .obs-rating-active { background:#4e8cff; border-color:#4e8cff; color:#fff; box-shadow:0 0 0 2px #4e8cff30; }
   .obs-jf select option { background: #0c0c0e; color: #e4e4e7; }
   .obs-jf textarea::placeholder, .obs-jf input::placeholder { opacity: 0.35; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar { width: 2px; }
@@ -249,20 +246,29 @@ const Dots = ({ name, value = 0, onChange, max = 5 }: any) => (
   </div>
 );
 
-const Slider = ({ label, min = 1, max = 5, step = 1, value, onChange, suffix = "" }: any) => {
+const Slider = ({ label, min = 1, max = 5, value, onChange }: any) => {
   const v = value ?? min;
-  const pct = ((v - min) / (max - min)) * 100;
+  const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   return (
-  <div className="space-y-1.5">
-    <FieldLabel>{label}</FieldLabel>
-    <div className="flex items-center gap-3">
-      <input type="range" min={min} max={max} step={step} value={v}
-        onChange={e => onChange(Number(e.target.value))}
-        className="flex-1 cursor-pointer"
-        style={{ '--pct': `${pct}%` } as React.CSSProperties} />
-      <span className="text-xs font-bold text-[#4e8cff] min-w-[36px] text-right">{v}{suffix}</span>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <FieldLabel>{label}</FieldLabel>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#4e8cff', textTransform: 'uppercase' }}>{v} / {max}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {steps.map(n => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={`obs-rating-btn${v === n ? ' obs-rating-active' : ''}`}
+            style={{ flex: 1, minWidth: 0 }}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
     </div>
-  </div>
   );
 };
 
