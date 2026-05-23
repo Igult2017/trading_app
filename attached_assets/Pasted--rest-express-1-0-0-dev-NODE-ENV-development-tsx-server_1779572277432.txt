@@ -1,0 +1,166 @@
+ rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[Supabase] Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY — auth endpoints will not work
+[Database] Connecting to PostgreSQL...
+[Database] Database pool initialized
+[Telegram] Service is muted. Notifications disabled.
+[homepageCalendar] Warming up calendar + rates cache in background…
+[crypto] Warming up crypto data cache in background…
+[Strategies] Initializing trading strategies...
+[StrategyRegistry] Registered strategy: Smart Money Concepts (smc-v1)
+[Strategies] Registered 1 strategies (1 enabled)
+[Database] Initializing schema...
+[homepageCalendar/calendar] Traceback (most recent call last):
+  File "/home/runner/workspace/server/python/news_calendar.py", line 24, in <module>
+    import cloudscraper
+ModuleNotFoundError: No module named 'cloudscraper'
+[homepageCalendar] calendar fetch failed: Error: Python exited 1
+    at ChildProcess.<anonymous> (/home/runner/workspace/server/services/homepageCalendar.ts:106:37)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+[homepageCalendar] Calendar cache ready (0 events)
+[homepageCalendar/rates] Traceback (most recent call last):
+  File "/home/runner/workspace/server/python/news_calendar.py", line 24, in <module>
+    import cloudscraper
+ModuleNotFoundError: No module named 'cloudscraper'
+[homepageCalendar] rates fetch failed: Error: Python exited 1
+    at ChildProcess.<anonymous> (/home/runner/workspace/server/services/homepageCalendar.ts:106:37)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at Socket.<anonymous> (node:internal/child_process:456:11)
+    at Socket.emit (node:events:524:28)
+    at Pipe.<anonymous> (node:net:343:12)
+[homepageCalendar] Rates cache ready (0 currencies)
+[Database] Schema initialization complete - all tables created
+[Server] Signal monitor: DISABLED
+9:18:05 PM [express] serving on port 5000
+Starting economic calendar scheduler (scraper only)...
+MyFXBook scraper: DISABLED
+Interest rate scraper: DISABLED
+Scheduled Telegram notifications: every 5 minutes
+Signal scanning: DISABLED
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+warn - The class `duration-[2000ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;2000ms&rsqb;` to silence this warning.
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+[crypto/all] [crypto_data] market: 20 coins
+[crypto_data] fear/greed: 28 (Fear)
+[crypto_data] trending: 7 coins
+[crypto] Cache ready — 20 coins
+[homepageCalendar/rates] Traceback (most recent call last):
+  File "/home/runner/workspace/server/python/news_calendar.py", line 24, in <module>
+    import cloudscraper
+ModuleNotFoundError: No module named 'cloudscraper'
+[homepageCalendar] rates fetch failed: Error: Python exited 1
+    at ChildProcess.<anonymous> (/home/runner/workspace/server/services/homepageCalendar.ts:106:37)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+9:18:22 PM [express] GET /api/homepage/rates 200 in 119ms :: {}
+[homepageCalendar/calendar] Traceback (most recent call last):
+  File "/home/runner/workspace/server/python/news_calendar.py", line 24, in <module>
+    import cloudscraper
+ModuleNotFoundError: No module named 'cloudscraper'
+[homepageCalendar] calendar fetch failed: Error: Python exited 1
+    at ChildProcess.<anonymous> (/home/runner/workspace/server/services/homepageCalendar.ts:106:37)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at Socket.<anonymous> (node:internal/child_process:456:11)
+    at Socket.emit (node:events:524:28)
+    at Pipe.<anonymous> (node:net:343:12)
+9:18:22 PM [express] GET /api/homepage/calendar 200 in 115ms :: []
+[homepageCalendar/calendar] Traceback (most recent call last):
+  File "/home/runner/workspace/server/python/news_calendar.py", line 24, in <module>
+    import cloudscraper
+ModuleNotFoundError: No module named 'cloudscraper'
+[homepageCalendar] calendar fetch failed: Error: Python exited 1
+    at ChildProcess.<anonymous> (/home/runner/workspace/server/services/homepageCalendar.ts:106:37)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+9:19:42 PM [express] GET /api/homepage/calendar 304 in 113ms :: []
+[homepageCalendar/rates] Traceback (most recent call last):
+  File "/home/runner/workspace/server/python/news_calendar.py", line 24, in <module>
+    import cloudscraper
+ModuleNotFoundError: No module named 'cloudscraper'
+[homepageCalendar] rates fetch failed: Error: Python exited 1
+    at ChildProcess.<anonymous> (/home/runner/workspace/server/services/homepageCalendar.ts:106:37)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+9:19:42 PM [express] GET /api/homepage/rates 304 in 110ms :: {}
+9:20:14 PM [vite] page reload index.html
+9:20:14 PM [vite] hmr update /src/App.tsx?v=NSQmOMrztB5HYzTS-MS0f, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/BlogPostEditor.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/CreateSession.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/DrawdownPanel.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/Footer.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/HomeFooter.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/HomeHeader.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/JournalForm.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/JournalSettingsPanel.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/Leaderboard.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/MetricsPanel.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] page reload src/components/NewFooter.tsx
+9:20:14 PM [vite] page reload src/components/Notifications.tsx
+9:20:14 PM [vite] hmr update /src/components/StrategyAudit.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/TFMetricsPanel.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/TradeHistory.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/TradeVault.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/TraderAI.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/TradingCalendar.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] page reload src/components/TradingSignals.tsx
+9:20:14 PM [vite] hmr update /src/context/AuthContext.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/index.css?v=NSQmOMrztB5HYzTS-MS0f, /src/pages/Journal.tsx, /src/components/JournalSettingsPanel.tsx
+9:20:14 PM [vite] hmr update /src/pages/EconomicCalendarPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f, /src/pages/TscPage.tsx, /src/pages/BlogPage.tsx, /src/pages/Journal.tsx, /src/pages/BlogPostPage.tsx
+9:20:14 PM [vite] hmr update /src/index.css?v=NSQmOMrztB5HYzTS-MS0f, /src/components/JournalForm.tsx, /src/components/CreateSession.tsx, /src/components/MetricsPanel.tsx
+9:20:14 PM [vite] hmr update /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/App.tsx?v=NSQmOMrztB5HYzTS-MS0f, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f, /src/pages/Journal.tsx, /src/components/JournalHeader.tsx, /src/components/JournalForm.tsx, /src/components/StrategyAudit.tsx, /src/components/TradeVault.tsx, /src/components/CreateSession.tsx, /src/components/DrawdownPanel.tsx, /src/components/TFMetricsPanel.tsx, /src/components/MetricsPanel.tsx, /src/components/TraderAI.tsx, /src/components/TradingCalendar.tsx, /src/components/LivePriceDisplay.tsx
+9:20:14 PM [vite] hmr update /src/index.css?v=NSQmOMrztB5HYzTS-MS0f, /src/components/JournalForm.tsx, /src/components/CreateSession.tsx, /src/components/MetricsPanel.tsx
+9:20:14 PM [vite] hmr update /src/pages/AdminPanel.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/Analytics.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/AuthPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/BlogPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/BlogPostPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/Commodities.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/Cryptocurrency.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/EconomicCalendarPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/HomePage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/components/JournalHeader.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/MajorPairs.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/Stocks.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/TradeSyncPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/TscPage.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:14 PM [vite] hmr update /src/pages/Journal.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:15 PM [vite] hmr update /src/components/Header.tsx, /src/index.css?v=NSQmOMrztB5HYzTS-MS0f
+9:20:15 PM [vite] page reload src/components/NewHeader.tsx
+9:20:15 PM [vite] Internal server error: Failed to resolve import "@tanstack/react-query-persist-client" from "client/src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/runner/workspace/client/src/App.tsx:7:43
+  22 |  import { queryClient, authFetch, localStoragePersister } from "./lib/queryClient";
+  23 |  import { useQueryClient } from "@tanstack/react-query";
+  24 |  import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+     |                                              ^
+  25 |  import { Toaster } from "@/components/ui/toaster";
+  26 |  import { TooltipProvider } from "@/components/ui/tooltip";
+      at TransformPluginContext._formatError (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49258:41)
+      at TransformPluginContext.error (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49253:16)
+      at normalizeUrl (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64307:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64439:39)
+      at async Promise.all (index 9)
+      at async TransformPluginContext.transform (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64366:7)
+      at async PluginContainer.transform (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
+      at async loadAndTransform (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
+      at async viteTransformMiddleware (/home/runner/workspace/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24)
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.15.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.15.0
+npm notice To update run: npm install -g npm@11.15.0
+npm notice
