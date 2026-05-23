@@ -205,7 +205,7 @@ function AppRoutes() {
 
       {/* Journal — protected, has its own header */}
       <Route path="/journal">
-        {() => <RequireAuth><Journal /></RequireAuth>}
+        {() => <RequireAuth><InactivityWatcher /><Journal /></RequireAuth>}
       </Route>
 
       {/* Admin */}
@@ -315,7 +315,6 @@ export default function App() {
       <PrefetchCalendar />
       <TooltipProvider>
         <AuthProvider>
-          <InactivityWatcher />
           <JournalPrefetcher />
           <AppRoutes />
         </AuthProvider>
