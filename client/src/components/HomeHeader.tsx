@@ -158,7 +158,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           {/* Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
             <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}>
-              <span style={{ color: '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+              <span style={{ color: logoClr }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
             </span>
           </Link>
 
