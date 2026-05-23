@@ -23,6 +23,7 @@ import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from xml.etree import ElementTree as ET
 
 try:
     import cloudscraper
@@ -245,16 +246,110 @@ def _scrape_myfxbook() -> list:
         return []
 
 
+_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+def _scrape_forexfactory() -> list:
+    """Scrape ForexFactory XML calendar (this week + next week).
+    No Cloudflare — plain HTTP, always accessible from servers.
+    Returns events in the same shape as _scrape_myfxbook().
+    """
+    feeds = [
+        'https://nfs.faireconomy.media/ff_calendar_thisweek.xml',
+        'https://nfs.faireconomy.media/ff_calendar_nextweek.xml',
+    ]
+    results = []
+    seen = set()
+
+    for url in feeds:
+        try:
+            r = requests.get(url, timeout=12, headers={'User-Agent': 'Mozilla/5.0'})
+            if r.status_code != 200:
+                print(f'[news_calendar] ForexFactory {url} -> HTTP {r.status_code}', file=sys.stderr)
+                continue
+            root = ET.fromstring(r.content)
+        except Exception as exc:
+            print(f'[news_calendar] ForexFactory fetch error: {exc}', file=sys.stderr)
+            continue
+
+        for ev in root.findall('event'):
+            def txt(tag):
+                node = ev.find(tag)
+                return (node.text or '').strip() if node is not None else ''
+
+            title    = txt('title')
+            currency = txt('country')
+            date_str = txt('date')   # "05-17-2026"
+            time_str = txt('time')   # "10:30pm" or "All Day" or ""
+            impact   = txt('impact') # "Low" / "Medium" / "High"
+            forecast = txt('forecast') or '-'
+            previous = txt('previous') or '-'
+
+            if not title or not currency or not date_str:
+                continue
+
+            dedup_key = f'{date_str}|{time_str}|{currency}|{title}'
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            # Parse date "05-17-2026" -> "May 17" + ISO
+            try:
+                month, day, year = int(date_str[:2]), int(date_str[3:5]), int(date_str[6:])
+                date_label = f'{_MONTH_NAMES[month - 1]} {day}'
+            except Exception:
+                date_label = date_str
+                year = datetime.now().year
+
+            # Parse time "10:30pm" -> ISO
+            time_label = time_str if time_str and time_str.lower() != 'tentative' else 'All Day'
+            iso_dt = ''
+            try:
+                if time_str and time_str.lower() not in ('tentative', 'all day', ''):
+                    dt = datetime.strptime(f'{date_str} {time_str}', '%m-%d-%Y %I:%M%p')
+                    iso_dt = dt.isoformat()
+            except Exception:
+                pass
+
+            importance = impact if impact in ('High', 'Medium', 'Low') else 'Low'
+
+            results.append({
+                'date':       date_label,
+                'time':       time_label,
+                'currency':   currency,
+                'event':      title,
+                'importance': importance,
+                'actual':     '-',
+                'forecast':   forecast,
+                'previous':   previous,
+                'eventTime':  iso_dt,
+                'category':   _categorize(title, currency),
+            })
+
+    print(f'[news_calendar] ForexFactory: {len(results)} events', file=sys.stderr)
+    return results
+
+
 def scrape_calendar() -> list:
-    """Fetch forex calendar from MyFXBook only.
-    If MyFXBook is unavailable the caller (Node service) will continue to
-    serve the last cached result until a fresh scrape succeeds.
+    """Fetch forex calendar.
+    Priority:
+      1. MyFXBook  — richest data, but Cloudflare-protected
+      2. TradingView JSON API — 300+ events, no auth, always accessible
+      3. ForexFactory XML — good from VPS, may 429 on shared IPs
+    The Node service keeps serving stale cache if all sources return 0 events.
     """
     events = _scrape_myfxbook()
+    if events:
+        return events
+
+    print('[news_calendar] MyFXBook blocked — trying TradingView fallback', file=sys.stderr)
+    events = _scrape_tradingview()
+    if events:
+        return events
+
+    print('[news_calendar] TradingView failed — trying ForexFactory XML fallback', file=sys.stderr)
+    events = _scrape_forexfactory()
     if not events:
-        # Signal to the Node service that this attempt produced no data;
-        # the service will keep serving its stale in-memory cache.
-        print('[news_calendar] MyFXBook returned no data — no fallback source', file=sys.stderr)
+        print('[news_calendar] All calendar sources failed', file=sys.stderr)
     return events
 
 
