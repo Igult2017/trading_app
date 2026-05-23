@@ -233,35 +233,57 @@ ENTRY PRICE (entryPrice / openingPrice):
 - Look for: "Open", "Price", "Entry", "Open Price", "Entry Price", "at price", "@" followed by a number
 - In MT4/MT5: the "Price" column in trade history is the entry price
 - On order tickets: the price shown when the order was placed
+- TradingView: a horizontal dashed line at the entry level often has the price printed on the right-side axis — that is the entryPrice
 - Copy the exact number — e.g. 1.09250 not 1.09 or 1.093
 - NEVER return null if any open/entry price is shown on the image
 
+CLOSING PRICE (closingPrice):
+- TradingView: an orange, yellow, or white horizontal price arrow "1.22021 →" near the last visible candle or at the right edge of a trade bracket = closingPrice
+- MT4/MT5: "Close" column price in trade history = closingPrice
+- Any price level labelled "Close", "Exit Price", "Closed at", or shown at the end of a trade bracket
+- Copy the exact number shown — do NOT use the entry price as closing price
+
 ENTRY TIME (entryTime):
-PRIMARY LOCATIONS — check all of these:
-1. X-AXIS (time bar at bottom of chart): The entry time appears as a HIGHLIGHTED timestamp directly on the horizontal time axis — it is usually a different colour (cyan, blue, white, or bold) compared to surrounding regular time labels. The vertical line or bracket marking the trade open intersects the X-axis at exactly this timestamp. Read the full date+time at that intersection point.
+PRIMARY LOCATIONS — check all of these in order:
+
+★ TRADINGVIEW REPLAY MODE (most important special case):
+  When the status bar shows "Replay mode has been activated" or "Last processed tick:":
+  - The X-axis will have TWO highlighted (blue/cyan background) timestamps
+  - The LEFTMOST highlighted timestamp = entryTime (this is where the replay / trade started)
+  - The RIGHTMOST highlighted timestamp OR "Last processed tick: YYYY-MM-DD HH:MM:SS" = exitTime
+  - Example: leftmost shows "Tue 08 Oct'19 18:13" → entryTime = "2019-10-08T18:13:00"
+  - Example: rightmost shows "Tue 08 Oct'19 19:12" AND status bar says "Last processed tick: 2019-10-08 19:12:59" → exitTime = "2019-10-08T19:12:59"
+  - DO NOT confuse these two — the leftmost highlight is ALWAYS entry, rightmost is ALWAYS exit
+
+1. X-AXIS (time bar at bottom of chart): A HIGHLIGHTED timestamp directly on the horizontal time axis — usually a different colour (cyan, blue, white, or bold) from surrounding labels. The vertical line or bracket marking the trade open intersects the X-axis at exactly this timestamp.
 2. TradingView trade info panel / tooltip: look for "Open time", "Entry", "Date", "Time" fields inside any floating panel or tooltip attached to the trade bracket.
 3. MT4/MT5 history table: "Open Time" or "Time" column for the opening row.
 4. Any on-chart label, annotation, or arrow marking the start of the trade.
-- Format as YYYY-MM-DDTHH:mm:ss. If only the time is shown on the axis (e.g. "10:39"), use the full date visible elsewhere on the same X-axis (e.g. "Fri 22 May'20") to reconstruct the complete timestamp.
-- "Fri 22 May'20 10:39" → "2020-05-22T10:39:00"
+
+- Format as YYYY-MM-DDTHH:mm:ss
+- If only the time is shown on the axis (e.g. "18:13"), use the full date visible elsewhere on the same X-axis to reconstruct the complete timestamp
+- Format examples:
+  · "Fri 22 May'20 10:39"    → "2020-05-22T10:39:00"
+  · "Tue 08 Oct'19 18:13"    → "2019-10-08T18:13:00"
+  · "18:13" + date "Tue 08 Oct'19" visible → "2019-10-08T18:13:00"
 - NEVER return null if any open/entry date or time is shown anywhere on the image
 
 EXIT TIME (exitTime):
 PRIMARY LOCATIONS — check all of these:
-1. X-AXIS (time bar at bottom of chart): The exit time appears as a HIGHLIGHTED or COLOURED timestamp on the horizontal time axis where the trade's closing vertical line or bracket end intersects it. It may be highlighted in a different colour (e.g. blue, white, bold) from surrounding labels. This is the MOST COMMON place TradingView shows the close time.
-2. STATUS BAR / REPLAY BAR at the very bottom of the screen: Look for text like "Last processed tick: 2020-05-22 10:58:59" or "Replay mode... tick: YYYY-MM-DD HH:MM:SS" — this timestamp IS the exit time.
+1. STATUS BAR / REPLAY BAR (highest priority in Replay mode): Text like "Last processed tick: 2020-05-22 10:58:59" or "Replay mode... tick: YYYY-MM-DD HH:MM:SS" — this timestamp IS the exit time. "Last processed tick: 2019-10-08 19:12:59" → exitTime = "2019-10-08T19:12:59"
+2. X-AXIS: The RIGHTMOST highlighted/coloured timestamp (blue/cyan background) on the horizontal time axis where the trade closes.
 3. TradingView trade info panel: look for "Close time", "Exit", "Date closed" in any floating panel or tooltip.
 4. MT4/MT5 history table: "Close Time" column.
 5. Any annotation, arrow, or label at the trade exit point on the chart.
 - Format as YYYY-MM-DDTHH:mm:ss. If only the time is visible on the axis, combine it with the full date shown elsewhere on the same X-axis.
 - "10:58" on axis + "Fri 22 May'20" date label = "2020-05-22T10:58:00"
-- "Last processed tick: 2020-05-22 10:58:59" → exitTime = "2020-05-22T10:58:59"
 - NEVER return null if any close/exit date or time is visible anywhere on the image
 
 TIMESTAMPS general:
 - Broker/platform local time (not UTC). Most MT4/MT5 brokers: UTC+2 winter, UTC+3 summer. TradingView uses the timezone set by the user — check for any timezone label.
 - Always combine date and time into YYYY-MM-DDTHH:mm:ss format regardless of display format
-- If the X-axis shows a full date label (e.g. "Fri 22 May'20") at one point and only times elsewhere, use that date for all time-only labels nearby
+- If the X-axis shows a full date label (e.g. "Tue 08 Oct'19") at one point and only times elsewhere, use that date for all nearby time-only labels
+- Apostrophe year shorthand: Oct'19 = 2019, May'20 = 2020, Nov'22 = 2022
 
 PRIMARY EXIT REASON:
 - "Target Hit"    → price reached the exact planned TP level
