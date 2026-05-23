@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
+import { usePublicTheme } from '@/context/PublicThemeContext';
 
 
 export default function HomePage() {
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, setDarkMode } = usePublicTheme();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {

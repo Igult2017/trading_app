@@ -143,8 +143,12 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
                 },
                 onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkClr; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; },
               } : {};
-              return newTab
-                ? <a key={label} href={href} style={s} target="myfm_journal" rel="noopener noreferrer" {...handlers}>{label}</a>
+              // Hash-anchor links (e.g. /#features) must be plain <a> tags so
+              // the browser handles the scroll natively. Wouter's <Link> strips
+              // the hash and only navigates to "/", losing the scroll target.
+              const isHashAnchor = href.includes('#');
+              return (newTab || isHashAnchor)
+                ? <a key={label} href={href} style={s} target={newTab ? "myfm_journal" : undefined} rel={newTab ? "noopener noreferrer" : undefined} {...handlers}>{label}</a>
                 : <Link key={label} href={href} style={s} {...handlers}>{label}</Link>;
             })}
           </div>
@@ -198,8 +202,9 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
               textDecoration: "none", cursor: "pointer",
               background: isActive ? (dm ? "rgba(37,99,235,0.08)" : "rgba(37,99,235,0.05)") : "transparent",
             };
-            return newTab
-              ? <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={s} onClick={() => setMobileOpen(false)}>{label}</a>
+            const isHashAnchor = href.includes('#');
+            return (newTab || isHashAnchor)
+              ? <a key={label} href={href} target={newTab ? "myfm_journal" : undefined} rel={newTab ? "noopener noreferrer" : undefined} style={s} onClick={() => setMobileOpen(false)}>{label}</a>
               : <Link key={label} href={href} style={s} onClick={() => setMobileOpen(false)}>{label}</Link>;
           })}
         </div>

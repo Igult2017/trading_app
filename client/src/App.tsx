@@ -13,7 +13,7 @@ import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
-import { PublicThemeContext } from "@/context/PublicThemeContext";
+import { PublicThemeContext, usePublicTheme } from "@/context/PublicThemeContext";
 import HomePage from "@/pages/HomePage";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
@@ -129,15 +129,8 @@ function TitleUpdater() {
  * page-to-page navigation and browser sessions.
  */
 function PublicPagesGroup() {
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    try { return localStorage.getItem("pub-theme") === "1"; } catch { return false; }
-  });
+  const { darkMode, setDarkMode: handleSetDark } = usePublicTheme();
   const [location] = useLocation();
-
-  const handleSetDark = useCallback((val: boolean) => {
-    setDarkMode(val);
-    try { localStorage.setItem("pub-theme", val ? "1" : "0"); } catch {}
-  }, []);
 
   const isCalendar = location === '/calendar';
   const isBlog     = location === '/blog';
@@ -153,7 +146,7 @@ function PublicPagesGroup() {
   usePageTracking(trackPage);
 
   return (
-    <PublicThemeContext.Provider value={{ darkMode, setDarkMode: handleSetDark }}>
+    <>
       <HomeHeader darkMode={darkMode} setDarkMode={handleSetDark} activePath={location} />
 
       {/*
@@ -186,7 +179,7 @@ function PublicPagesGroup() {
       )}
 
       <HomeFooter darkMode={darkMode} />
-    </PublicThemeContext.Provider>
+    </>
   );
 }
 
@@ -307,19 +300,33 @@ function JournalPrefetcher() {
 }
 
 export default function App() {
+  // Single source of truth for the public-pages dark mode toggle.
+  // Stored in localStorage so the preference survives page refreshes and
+  // cross-page navigation (HomePage, Calendar, Blog, TSC, etc. all share it).
+  const [darkMode, setDarkModeRaw] = useState<boolean>(() => {
+    try { return localStorage.getItem("pub-theme") === "1"; } catch { return false; }
+  });
+
+  const setDarkMode = useCallback((val: boolean) => {
+    setDarkModeRaw(val);
+    try { localStorage.setItem("pub-theme", val ? "1" : "0"); } catch {}
+  }, []);
+
   return (
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{ persister: localStoragePersister, maxAge: 24 * 60 * 60 * 1000 }}
     >
-      <PrefetchCalendar />
-      <TooltipProvider>
-        <AuthProvider>
-          <JournalPrefetcher />
-          <AppRoutes />
-        </AuthProvider>
-        <Toaster />
-      </TooltipProvider>
+      <PublicThemeContext.Provider value={{ darkMode, setDarkMode }}>
+        <PrefetchCalendar />
+        <TooltipProvider>
+          <AuthProvider>
+            <JournalPrefetcher />
+            <AppRoutes />
+          </AuthProvider>
+          <Toaster />
+        </TooltipProvider>
+      </PublicThemeContext.Provider>
     </PersistQueryClientProvider>
   );
 }
