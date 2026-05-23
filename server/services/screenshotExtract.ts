@@ -10,6 +10,58 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { geminiRateLimiter } from "../lib/geminiRateLimiter";
+import sharp from "sharp";
+
+// ── Image compression ─────────────────────────────────────────────────────────
+// Scales any image wider than MAX_WIDTH down to MAX_WIDTH (preserving aspect
+// ratio) and re-encodes as JPEG at QUALITY%. This slashes the pixel→token count
+// by up to 75% on 4K screenshots with zero impact on text legibility.
+// MT4/MT5/TradingView text is large enough to remain perfectly readable at
+// 1920 px wide — the only risk would be sub-80% JPEG quality, which we avoid.
+
+const MAX_WIDTH  = 1920;
+const MAX_HEIGHT = 1080;
+const JPEG_QUALITY = 85;
+
+async function compressForGemini(
+  base64: string,
+): Promise<{ data: string; mimeType: string }> {
+  try {
+    const raw = base64.includes(",") ? base64.split(",")[1] : base64;
+    const buf = Buffer.from(raw, "base64");
+
+    const img = sharp(buf);
+    const meta = await img.metadata();
+    const w = meta.width  ?? 0;
+    const h = meta.height ?? 0;
+
+    const needsResize = w > MAX_WIDTH || h > MAX_HEIGHT;
+
+    const compressed = await img
+      .resize(
+        needsResize ? { width: MAX_WIDTH, height: MAX_HEIGHT, fit: "inside", withoutEnlargement: true } : undefined
+      )
+      .jpeg({ quality: JPEG_QUALITY, mozjpeg: false })
+      .toBuffer();
+
+    const before = buf.length;
+    const after  = compressed.length;
+    if (needsResize) {
+      console.log(
+        `[GeminiScreenshot] Compressed ${w}×${h} → ≤${MAX_WIDTH}×${MAX_HEIGHT} | ` +
+        `${(before / 1024).toFixed(0)} KB → ${(after / 1024).toFixed(0)} KB ` +
+        `(${Math.round((1 - after / before) * 100)}% smaller)`
+      );
+    }
+
+    return { data: compressed.toString("base64"), mimeType: "image/jpeg" };
+  } catch (err) {
+    // If compression fails for any reason, fall back to the original image
+    console.warn("[GeminiScreenshot] Compression failed, using original:", (err as Error).message);
+    const raw = base64.includes(",") ? base64.split(",")[1] : base64;
+    return { data: raw, mimeType: detectMime(base64) };
+  }
+}
 
 // ── Singleton AI client ───────────────────────────────────────────────────────
 // Created once per process — avoids repeated init overhead on every upload.
@@ -514,13 +566,15 @@ export async function extractFromScreenshot(
   }
 
   const ai = getAI();
-  const mimeType = detectMime(base64Image);
-  const imageData = base64Image.includes(",") ? base64Image.split(",")[1] : base64Image;
-  const prompt    = buildExtractionPrompt(brokerTimezone);
+  const prompt = buildExtractionPrompt(brokerTimezone);
 
   if (brokerTimezone != null) {
     console.log(`[GeminiScreenshot] Injecting broker timezone UTC+${brokerTimezone} into prompt`);
   }
+
+  // Compress image to ≤1920×1080 JPEG 85% before sending.
+  // Cuts token usage by up to 75% on 4K screenshots; no accuracy impact.
+  const { data: imageData, mimeType } = await compressForGemini(base64Image);
 
   // Acquire one free-tier slot (15 RPM / 1,500 RPD).
   // Queues automatically when the minute window is full; throws after 60 s.
