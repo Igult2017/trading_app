@@ -233,18 +233,25 @@ const Radio = ({ label, options, value, onChange }: any) => (
   </div>
 );
 
-const Dots = ({ name, value = 0, onChange, max = 5 }: any) => (
-  <div className="flex items-center gap-4 py-1.5 border-b border-[#18181b]/60 last:border-0">
-    <span className="text-[11px] text-[#71717a] min-w-[170px] flex-shrink-0">{name}</span>
-    <div className="flex gap-1.5">
-      {Array.from({ length: max }).map((_, i) => (
-        <button key={i} type="button" onClick={() => onChange(i + 1)}
-          className={`w-4 h-4 rounded-full border transition-all ${i < value ? "bg-[#4e8cff] border-[#4e8cff]" : "bg-[#0c0c0e] border-[#27272a] hover:border-[#4e8cff]/50"}`}
-        />
-      ))}
+const Dots = ({ name, value = 0, onChange, max = 5 }: any) => {
+  const steps = Array.from({ length: max }, (_, i) => i + 1);
+  return (
+    <div className="flex items-center gap-4 py-2 border-b border-[#18181b]/60 last:border-0">
+      <span className="text-[11px] text-[#71717a] min-w-[150px] flex-shrink-0">{name}</span>
+      <div style={{ display: 'flex', gap: 5, flex: 1 }}>
+        {steps.map(n => (
+          <button key={n} type="button" onClick={() => onChange(n)}
+            className={`obs-rating-btn${value === n ? ' obs-rating-active' : ''}`}
+            style={{ flex: 1, minWidth: 0, height: 30, fontSize: 12 }}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 700, color: '#4e8cff', minWidth: 28, textAlign: 'right' }}>{value}/{max}</span>
     </div>
-  </div>
-);
+  );
+};
 
 const Slider = ({ label, min = 1, max = 5, value, onChange }: any) => {
   const v = value ?? min;
