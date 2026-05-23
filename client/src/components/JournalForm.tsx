@@ -238,11 +238,11 @@ const Dots = ({ name, value = 0, onChange, max = 5 }: any) => {
   return (
     <div className="flex items-center gap-4 py-2 border-b border-[#18181b]/60 last:border-0">
       <span className="text-[11px] text-[#71717a] min-w-[150px] flex-shrink-0">{name}</span>
-      <div style={{ display: 'flex', gap: 5, flex: 1 }}>
+      <div style={{ display: 'flex', gap: 5 }}>
         {steps.map(n => (
           <button key={n} type="button" onClick={() => onChange(n)}
             className={`obs-rating-btn${value === n ? ' obs-rating-active' : ''}`}
-            style={{ flex: 1, minWidth: 0, height: 30, fontSize: 12 }}
+            style={{ width: 34, height: 30, fontSize: 12, flex: 'none' }}
           >
             {n}
           </button>
