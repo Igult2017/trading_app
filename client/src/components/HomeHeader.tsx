@@ -74,6 +74,20 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     prefetchIfEmpty(qc);
   }, [qc]);
 
+  // For hash-anchor links (/#features, /#pricing, /#reviews):
+  // if the target section is already on the page, just scroll — no navigation.
+  // Only fall back to a real href navigation when coming from a different page.
+  const handleHashClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    const hash = href.split('#')[1];
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      e.preventDefault();
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // else: let the browser navigate normally (we're on a different page)
+  }, []);
+
   const navBg     = dm ? "rgba(8,12,16,0.97)"  : "rgba(255,255,255,0.97)";
   const navBorder = dm ? "#172233"              : "#e2e8f0";
   const linkClr   = dm ? "#94a3b8"              : "#475569";
@@ -143,12 +157,13 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
                 },
                 onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = linkClr; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; },
               } : {};
-              // Hash-anchor links (e.g. /#features) must be plain <a> tags so
-              // the browser handles the scroll natively. Wouter's <Link> strips
-              // the hash and only navigates to "/", losing the scroll target.
               const isHashAnchor = href.includes('#');
               return (newTab || isHashAnchor)
-                ? <a key={label} href={href} style={s} target={newTab ? "myfm_journal" : undefined} rel={newTab ? "noopener noreferrer" : undefined} {...handlers}>{label}</a>
+                ? <a key={label} href={href} style={s}
+                    target={newTab ? "myfm_journal" : undefined}
+                    rel={newTab ? "noopener noreferrer" : undefined}
+                    onClick={isHashAnchor ? (e) => handleHashClick(e, href) : undefined}
+                    {...handlers}>{label}</a>
                 : <Link key={label} href={href} style={s} {...handlers}>{label}</Link>;
             })}
           </div>
@@ -204,7 +219,11 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
             };
             const isHashAnchor = href.includes('#');
             return (newTab || isHashAnchor)
-              ? <a key={label} href={href} target={newTab ? "myfm_journal" : undefined} rel={newTab ? "noopener noreferrer" : undefined} style={s} onClick={() => setMobileOpen(false)}>{label}</a>
+              ? <a key={label} href={href}
+                  target={newTab ? "myfm_journal" : undefined}
+                  rel={newTab ? "noopener noreferrer" : undefined}
+                  style={s}
+                  onClick={(e) => { setMobileOpen(false); if (isHashAnchor) handleHashClick(e, href); }}>{label}</a>
               : <Link key={label} href={href} style={s} onClick={() => setMobileOpen(false)}>{label}</Link>;
           })}
         </div>
