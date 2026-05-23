@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp, DollarSign, CheckCircle, BarChart2, Target } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp, DollarSign, Gauge, Activity, CalendarDays, CircleDot } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
@@ -234,11 +234,11 @@ export default function HomePage() {
             {/* 6-stat strip */}
             <div className="lp-stats-strip" style={{ marginBottom: 24 }}>
               {([
-                { icon: DollarSign, label: 'TOTAL P&L',      value: '+$90,042.69', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-                { icon: CheckCircle, label: 'WIN RATE',       value: '78.3%',       color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
-                { icon: TrendingUp,  label: 'R EXPECTANCY',   value: '2.23R',       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-                { icon: BarChart2,   label: 'TRADES',         value: '118',         color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
-                { icon: Target,      label: 'PROFIT FACTOR',  value: '11.22',       color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
+                { icon: DollarSign,  label: 'TOTAL P&L',     value: '+$90,042.69', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+                { icon: Gauge,       label: 'WIN RATE',       value: '78.3%',       color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+                { icon: Activity,    label: 'R EXPECTANCY',   value: '2.23R',       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+                { icon: CalendarDays,label: 'TRADES',         value: '118',         color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+                { icon: CircleDot,   label: 'PROFIT FACTOR',  value: '11.22',       color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
                 { icon: DollarSign,  label: 'AVG TRADE',      value: '+$763.07',    color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
               ] as const).map(({ icon: Icon, label, value, color, bg }, i) => (
                 <div key={i} style={{
@@ -255,7 +255,7 @@ export default function HomePage() {
                     <Icon size={18} color={color} strokeWidth={2} />
                   </div>
                   <div style={{ fontSize: 10, fontFamily: "'Montserrat',sans-serif", fontWeight: 700, letterSpacing: '0.08em', color: dm ? '#64748b' : '#94a3b8' }}>{label}</div>
-                  <div style={{ fontSize: 20, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 20, fontFamily: "'DM Mono',monospace", fontWeight: 500, color, lineHeight: 1 }}>{value}</div>
                 </div>
               ))}
             </div>
