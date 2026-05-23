@@ -1,6 +1,8 @@
 """
-Newskeeper-based economic calendar scraper.
-Scrapes MyFXBook economic calendar (same approach as the newskeeper library).
+Economic calendar scraper.
+Primary source: MyFXBook — bypasses Cloudflare using curl_cffi iOS Safari TLS impersonation.
+Fallbacks (emergency only): TradingView JSON API, ForexFactory XML.
+
 Fetches central bank interest rates from accessible free sources — no hardcoded values.
 
 Sources used (all accessible from Replit environment):
@@ -26,9 +28,10 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 
 try:
-    import cloudscraper
+    import curl_cffi.requests as cffi_requests
+    _CFFI_OK = True
 except Exception:
-    cloudscraper = None
+    _CFFI_OK = False
 
 HEADERS = {
     'User-Agent': (
@@ -167,22 +170,35 @@ def _scrape_tradingview() -> list:
 
 
 def _scrape_myfxbook() -> list:
-    """Newskeeper-style scrape of MyFXBook using cloudscraper to bypass Cloudflare."""
+    """
+    Scrape MyFXBook economic calendar.
+
+    Bypass strategy: curl_cffi with iOS Safari 17.2 TLS fingerprint impersonation.
+    Cloudflare rates Chrome/Firefox JA3 fingerprints as bots but passes real iOS
+    Safari traffic — impersonating that profile lets us bypass the JS challenge
+    without needing a headless browser.
+
+    The page embeds all calendar events server-side inside #calendarMobile, so a
+    single HTTP request is enough — no JS execution required after bypass.
+    """
     url = 'https://www.myfxbook.com/forex-economic-calendar'
-    if cloudscraper is None:
-        print('[news_calendar] cloudscraper unavailable; skipping MyFXBook', file=sys.stderr)
+
+    if not _CFFI_OK:
+        print('[news_calendar] curl_cffi unavailable — install with: pip install curl_cffi', file=sys.stderr)
         return []
+
     try:
-        scraper = cloudscraper.create_scraper(
-            browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
-        )
-        # Prime cookies with a homepage visit first
-        scraper.get('https://www.myfxbook.com', timeout=10)
-        resp = scraper.get(url, timeout=15)
+        session = cffi_requests.Session(impersonate='safari17_2_ios')
+
+        # Prime cookies with a homepage visit (sets XSRF-TOKEN + session cookies)
+        session.get('https://www.myfxbook.com', timeout=15)
+
+        resp = session.get(url, timeout=25)
         print(
             f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes)',
             file=sys.stderr,
         )
+
         if resp.status_code != 200:
             print(f'[news_calendar] MyFXBook body snippet: {resp.text[:300]}', file=sys.stderr)
             return []
@@ -192,48 +208,95 @@ def _scrape_myfxbook() -> list:
             return []
 
         soup = BeautifulSoup(resp.text, 'html.parser')
-        rows = soup.find_all('tr', class_='economicCalendarRow')
+        cal_div = soup.find(id='calendarMobile')
 
-        if not rows:
+        if not cal_div:
             title = soup.title.string if soup.title else 'none'
-            print(
-                f'[news_calendar] MyFXBook: 0 rows. Title={title!r}. '
-                f'First 300: {resp.text[:300]}',
-                file=sys.stderr,
-            )
+            print(f'[news_calendar] MyFXBook: #calendarMobile not found. Title={title!r}', file=sys.stderr)
             return []
 
-        year = datetime.now().year
         results = []
+        current_date_label = ''
 
-        for row in rows:
-            cells = row.find_all('td', class_='calendarToggleCell')
-            if len(cells) < 9:
+        MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
+                  'Jul','Aug','Sep','Oct','Nov','Dec']
+
+        children = [c for c in cal_div.children if getattr(c, 'name', None) == 'div']
+
+        for div in children:
+            classes = div.get('class', [])
+
+            # ── Date header row ───────────────────────────────────────────────
+            if 'economicCalendarDateRow' in classes:
+                raw = div.get_text(strip=True)          # "Saturday, May 23, 2026"
+                try:
+                    dt = datetime.strptime(raw, '%A, %B %d, %Y')
+                    current_date_label = f'{MONTHS[dt.month - 1]} {dt.day:02d}'
+                except Exception:
+                    current_date_label = raw
                 continue
 
-            date_str  = cells[0].get_text().strip()
-            currency  = cells[3].get_text().strip()
-            name      = ' '.join(cells[4].get_text().split())
-            impact    = cells[5].get_text().strip()
-            previous  = cells[6].get_text().strip()
-            consensus = cells[7].get_text().strip()
-            actual    = cells[8].get_text().strip()
+            # ── Event row ─────────────────────────────────────────────────────
+            if 'calendar-mobile-row' not in classes:
+                continue
+
+            # Time — Unix-ms timestamp stored in data-time attribute of calendarLeft
+            cal_left = div.find('div', class_='calendarLeft')
+            time_label = 'All Day'
+            iso_dt = ''
+            if cal_left:
+                ts_ms = cal_left.get('time', '')
+                if ts_ms:
+                    try:
+                        dt = datetime.utcfromtimestamp(int(ts_ms) / 1000)
+                        time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
+                        iso_dt = dt.isoformat()
+                    except Exception:
+                        pass
+
+            name_el = div.find('div', class_='calendar-title')
+            name = ' '.join(name_el.get_text().split()) if name_el else ''
+
+            currency_el = div.find('div', class_='calendar-country')
+            currency = currency_el.get_text(strip=True) if currency_el else ''
 
             if not name or not currency:
                 continue
 
-            date_label, time_label, iso_dt = _parse_datetime(date_str, year)
-            importance = impact if impact in ('High', 'Medium', 'Low') else 'Low'
+            # Impact level
+            impact_div = div.find('div', class_='calendar-impact')
+            importance = 'Low'
+            if impact_div:
+                if impact_div.find(class_='impact_high'):
+                    importance = 'High'
+                elif impact_div.find(class_='impact_medium'):
+                    importance = 'Medium'
+
+            # Actual value
+            actual_el = div.find('span', class_='actualCell')
+            actual = (actual_el.get_text(strip=True) if actual_el else '') or '-'
+
+            # Consensus/forecast
+            cons_div = div.find(attrs={'data-concensus': True})
+            consensus = '-'
+            if cons_div:
+                full = cons_div.get_text(strip=True)
+                if ':' in full:
+                    consensus = full.split(':', 1)[1].strip() or '-'
+
+            # Previous value
+            prev_el = div.find('span', class_='previousCell')
+            previous = (prev_el.get_text(strip=True) if prev_el else '') or '-'
 
             results.append({
-                'date':       date_label,
+                'date':       current_date_label,
                 'time':       time_label,
                 'currency':   currency,
                 'event':      name,
                 'importance': importance,
-                'actual':     actual    or '-',
-                'forecast':   consensus or '-',
-                'previous':   previous  or '-',
+                'actual':     actual,
+                'forecast':   consensus,
+                'previous':   previous,
                 'eventTime':  iso_dt,
                 'category':   _categorize(name, currency),
             })
@@ -330,25 +393,34 @@ def _scrape_forexfactory() -> list:
 
 
 def scrape_calendar() -> list:
-    """Fetch forex calendar.
-    Priority:
-      1. MyFXBook  — richest data, but Cloudflare-protected
-      2. TradingView JSON API — 300+ events, no auth, always accessible
-      3. ForexFactory XML — good from VPS, may 429 on shared IPs
-    The Node service keeps serving stale cache if all sources return 0 events.
+    """Fetch forex economic calendar.
+
+    Primary source: MyFXBook (sole intended source for forex news).
+      Uses curl_cffi iOS Safari TLS impersonation to bypass Cloudflare.
+
+    Emergency fallbacks (only activated if MyFXBook is completely unavailable):
+      1. TradingView JSON API  — 300+ events, no auth, always accessible
+      2. ForexFactory XML      — good from VPS, may 429 on shared IPs
+
+    The Node service keeps serving stale cache if all sources return 0 events,
+    so returning [] here is safe and won't break the UI.
     """
     events = _scrape_myfxbook()
     if events:
+        print(f'[news_calendar] Using MyFXBook: {len(events)} events', file=sys.stderr)
         return events
 
-    print('[news_calendar] MyFXBook blocked — trying TradingView fallback', file=sys.stderr)
+    print('[news_calendar] MyFXBook unavailable — trying TradingView emergency fallback', file=sys.stderr)
     events = _scrape_tradingview()
     if events:
+        print(f'[news_calendar] Using TradingView fallback: {len(events)} events', file=sys.stderr)
         return events
 
-    print('[news_calendar] TradingView failed — trying ForexFactory XML fallback', file=sys.stderr)
+    print('[news_calendar] TradingView failed — trying ForexFactory emergency fallback', file=sys.stderr)
     events = _scrape_forexfactory()
-    if not events:
+    if events:
+        print(f'[news_calendar] Using ForexFactory fallback: {len(events)} events', file=sys.stderr)
+    else:
         print('[news_calendar] All calendar sources failed', file=sys.stderr)
     return events
 
