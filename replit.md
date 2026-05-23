@@ -62,12 +62,52 @@ Required env vars:
 - Keep price daemon disabled at startup (too slow / resource-heavy for Replit dev)
 - Signal monitor disabled by default
 
+## Hostinger (external VPS) deployment
+
+Step-by-step for deploying to a Hostinger VPS or any Linux server:
+
+1. **Install Node.js 20+** and **Python 3.11+** on the server
+2. **Clone / upload** the project files
+3. **Install Python packages** (one-time, after any pyproject.toml change):
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Install Node packages**:
+   ```bash
+   npm install
+   ```
+5. **Build the app**:
+   ```bash
+   npm run build
+   ```
+6. **Set environment variables** in `.env` or your systemd/PM2 config:
+   ```
+   DATABASE_URL=postgres://user:pass@host:5432/dbname
+   ADMIN_EMAIL=your@email.com
+   ADMIN_SECRET=yourpassword
+   GOOGLE_API_KEY=...          # optional
+   TELEGRAM_BOT_TOKEN=...      # optional
+   PYTHON_BIN=/usr/bin/python3 # set to whichever python has the packages installed
+   NODE_ENV=production
+   PORT=5000
+   ```
+7. **Run**:
+   ```bash
+   node dist/index.js
+   ```
+   Or with PM2 for auto-restart: `pm2 start dist/index.js --name myfmjournal`
+
+> **Key rule**: `PYTHON_BIN` must point to the Python that has `cloudscraper` installed.
+> The server verifies this automatically at startup and logs a clear warning if it's missing.
+> `requirements.txt` is generated from `pyproject.toml` — re-run `pip install -r requirements.txt` after any Python dependency change.
+
 ## Gotchas
 
 - `server/db-init.ts` runs raw SQL DDL on every startup — idempotent (`IF NOT EXISTS`) so safe
 - Blog comments table creation fails if `blog_posts` table doesn't exist yet — non-fatal, handled with try/catch
 - Supabase console warnings on startup are expected when running in local auth mode
 - `npm run build` also runs `uv sync` for Python deps — ensure `uv` is available
+- `requirements.txt` is auto-generated via `uv export` — do not hand-edit it
 
 ## Pointers
 
