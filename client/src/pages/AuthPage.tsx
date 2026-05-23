@@ -153,8 +153,7 @@ export default function AuthPage() {
       <div style={S.page}>
         <div style={S.logoRow}>
           <span style={S.logoText}>
-            <span style={{ color: '#ffffff' }}>My FM</span>
-            <span style={{ color: '#3b82f6' }}> | Journal</span>
+            <span style={{ color: '#ffffff' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
           </span>
         </div>
         <h1 style={S.title}>Reset Password</h1>
@@ -260,8 +259,7 @@ export default function AuthPage() {
       {/* Logo */}
       <div style={S.logoRow}>
         <span style={S.logoText}>
-          <span style={{ color: '#ffffff' }}>My FM</span>
-          <span style={{ color: '#3b82f6' }}> | Journal</span>
+          <span style={{ color: '#ffffff' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
         </span>
       </div>
 
