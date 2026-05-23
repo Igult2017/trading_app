@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { Moon, Sun, Menu, X } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
 
@@ -63,6 +63,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const [mobileOpen, setMobileOpen] = useState(false);
   const dm = darkMode;
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Prefetch targets: fire on hover so data is ready before navigation completes
   const PREFETCH_HREFS = new Set(["/calendar", "/blog"]);
@@ -75,18 +76,37 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   }, [qc]);
 
   // For hash-anchor links (/#features, /#pricing, /#reviews):
-  // if the target section is already on the page, just scroll — no navigation.
-  // Only fall back to a real href navigation when coming from a different page.
+  // Always prevent the browser's default navigation (avoids full page reload).
+  // If the section exists on the current page → scroll instantly.
+  // Otherwise → SPA-navigate to "/" via wouter (no reload), then poll until
+  // React renders the section and scroll to it.
   const handleHashClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
     const hash = href.split('#')[1];
     if (!hash) return;
+
     const el = document.getElementById(hash);
     if (el) {
-      e.preventDefault();
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
     }
-    // else: let the browser navigate normally (we're on a different page)
-  }, []);
+
+    // Not on the homepage — navigate there via wouter (SPA, no reload)
+    navigate('/');
+
+    // Poll until the section mounts (React needs a render cycle or two)
+    let attempts = 0;
+    const tryScroll = () => {
+      const target = document.getElementById(hash);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (attempts < 25) {
+        attempts++;
+        setTimeout(tryScroll, 60);
+      }
+    };
+    setTimeout(tryScroll, 80);
+  }, [navigate]);
 
   const navBg     = dm ? "rgba(8,12,16,0.97)"  : "rgba(255,255,255,0.97)";
   const navBorder = dm ? "#172233"              : "#e2e8f0";
