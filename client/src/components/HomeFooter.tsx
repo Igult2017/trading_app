@@ -64,8 +64,8 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           {/* ── Brand ──────────────────────────────────────────────────── */}
           <div>
             <Link href="/" style={{ textDecoration: 'none', display: 'inline-block', marginBottom: 16 }}>
-              <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em', color: logoClr }}>
-                Myfmjournal
+              <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em' }}>
+                <span style={{ color: '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
               </span>
             </Link>
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.75, marginBottom: 24, marginTop: 0, maxWidth: 260 }}>
