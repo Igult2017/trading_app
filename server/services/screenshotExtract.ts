@@ -20,8 +20,8 @@ import sharp from "sharp";
 // 1920 px wide — the only risk would be sub-80% JPEG quality, which we avoid.
 
 const MAX_WIDTH  = 1920;
-const MAX_HEIGHT = 1080;
-const JPEG_QUALITY = 85;
+const MAX_HEIGHT = 1200;
+const JPEG_QUALITY = 92;
 
 async function compressForGemini(
   base64: string,
@@ -326,13 +326,13 @@ interface ModelConfig {
 }
 
 // FREE-TIER SAFE: flash-only chain.
-// Pro models are NOT included — gemini-2.5-pro has only 25 RPD on the free
-// tier and would be exhausted within one trading session. If all flash models
-// are unavailable, the upload fails gracefully rather than burning the pro quota.
+// 2.5-flash is primary — far superior vision for reading x-axis timestamps,
+// small thinking budget (512) lets it correlate date+time labels accurately
+// without the 30-60s "silent thinking" delay that thinkingBudget:unset causes.
 const MODEL_CHAIN: ModelConfig[] = [
-  { model: "gemini-2.0-flash",      thinkingBudget: 0 },  // primary  · 15 RPM · 1500 RPD
-  { model: "gemini-2.0-flash-lite", thinkingBudget: 0 },  // fallback · 30 RPM · 1500 RPD
-  { model: "gemini-2.5-flash-preview-05-20", thinkingBudget: 0 }, // last-resort · 10 RPM · 500 RPD
+  { model: "gemini-2.5-flash-preview-05-20", thinkingBudget: 512 },  // primary  · best vision · 10 RPM · 500 RPD
+  { model: "gemini-2.0-flash",      thinkingBudget: 0 },             // fallback · 15 RPM · 1500 RPD
+  { model: "gemini-2.0-flash-lite", thinkingBudget: 0 },             // last-resort · 30 RPM · 1500 RPD
 ];
 
 function isModelError(msg: string): boolean {
@@ -607,7 +607,7 @@ export async function extractFromScreenshot(
   for (const { model, thinkingBudget } of MODEL_CHAIN) {
     try {
       const config: Record<string, any> = {
-        maxOutputTokens: 1500,
+        maxOutputTokens: 2048,
         // Force raw JSON output — no markdown fences, no explanation preamble.
         // This is the single cleanest speed win: the model skips all text
         // formatting overhead and goes straight to structured data.
@@ -640,6 +640,45 @@ export async function extractFromScreenshot(
 
       const text = response.text ?? "";
       const extracted = parseGeminiJson(text);
+
+      // ── Focused timestamp retry ─────────────────────────────────────────
+      // If the main pass missed entryTime (the most critical missing field),
+      // fire a small focused call asking ONLY about timestamps. This adds
+      // ~2-4s but prevents the user from having to re-upload.
+      if (!extracted.entryTime) {
+        console.log(`[GeminiScreenshot] entryTime missing — running focused timestamp pass`);
+        try {
+          const tsPrompt = `Look at this trading chart screenshot very carefully.
+
+Your ONLY job is to find timestamps. Return ONLY valid JSON with these fields:
+{
+  "entryTime": "YYYY-MM-DDTHH:mm:ss or null",
+  "exitTime": "YYYY-MM-DDTHH:mm:ss or null"
+}
+
+RULES:
+- Look at the horizontal X-axis at the bottom. Find timestamps with a highlighted/coloured background (blue, cyan, white) — those mark the trade open (leftmost) and close (rightmost).
+- If you see "Replay mode" or "Last processed tick: YYYY-MM-DD HH:MM:SS" in a status bar at the bottom, that date+time is the exitTime.
+- Combine a date label (e.g. "Mon 14 Oct'19") with a nearby time (e.g. "09:54") to build a full timestamp.
+- Apostrophe year: Oct'19 = 2019, May'20 = 2020.
+- Format: YYYY-MM-DDTHH:mm:ss. Return null only if truly invisible.`;
+
+          await geminiRateLimiter.acquire();
+          const tsResponse = await ai.models.generateContent({
+            model,
+            config: { maxOutputTokens: 256, responseMimeType: "application/json",
+              ...(typeof thinkingBudget === "number" ? { thinkingConfig: { thinkingBudget: 256 } } : {}) },
+            contents: [{ role: "user", parts: [{ text: tsPrompt }, { inlineData: { mimeType, data: imageData } }] }],
+          });
+          const tsParsed = parseGeminiJson(tsResponse.text ?? "{}");
+          if (tsParsed.entryTime) extracted.entryTime = tsParsed.entryTime;
+          if (tsParsed.exitTime && !extracted.exitTime) extracted.exitTime = tsParsed.exitTime;
+          console.log(`[GeminiScreenshot] Timestamp retry: entryTime=${tsParsed.entryTime}, exitTime=${tsParsed.exitTime}`);
+        } catch (tsErr: any) {
+          console.warn(`[GeminiScreenshot] Timestamp retry failed: ${tsErr?.message}`);
+        }
+      }
+
       const fields = mapToJournalFields(extracted, brokerTimezone);
       return { success: true, fields, method: "gemini", modelUsed: model };
 
