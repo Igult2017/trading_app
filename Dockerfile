@@ -90,5 +90,6 @@ RUN echo '#!/bin/sh' > /app/start.sh && \
 EXPOSE 5000
 
 ENV NODE_ENV=production
+ENV PYTHON_BIN=/usr/bin/python3
 
 CMD ["/app/start.sh"]
