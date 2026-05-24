@@ -80,24 +80,30 @@ Step-by-step for deploying to a Hostinger VPS or any Linux server:
    ```bash
    npm run build
    ```
-6. **Set environment variables** in `.env` or your systemd/PM2 config:
+6. **Set environment variables** — create a `.env` file in the project root on the VPS:
    ```
    DATABASE_URL=postgres://user:pass@host:5432/dbname
    ADMIN_EMAIL=your@email.com
    ADMIN_SECRET=yourpassword
-   GOOGLE_API_KEY=...          # optional
+   GOOGLE_API_KEY=your_gemini_key_here
    TELEGRAM_BOT_TOKEN=...      # optional
    PYTHON_BIN=/usr/bin/python3 # set to whichever python has the packages installed
    NODE_ENV=production
    PORT=5000
    ```
+   > **Critical — why `.env` and not the Hostinger panel:**
+   > The server uses `dotenv` to load this file at startup. PM2 runs as a daemon
+   > and does NOT inherit system environment variables set after `pm2 start` was
+   > first run. Setting `GOOGLE_API_KEY` only in Hostinger's control panel will
+   > not work — PM2 won't see it. Put all vars in `.env` in the project root.
+
 7. **Run**:
    ```bash
    node dist/index.js
    ```
    Or with PM2 for auto-restart: `pm2 start dist/index.js --name myfmjournal`
 
-> **Key rule**: `PYTHON_BIN` must point to the Python that has `cloudscraper` installed.
+> **Key rule**: `PYTHON_BIN` must point to the Python that has `cloudscraper` and `google-genai` installed.
 > The server verifies this automatically at startup and logs a clear warning if it's missing.
 > `requirements.txt` is generated from `pyproject.toml` — re-run `pip install -r requirements.txt` after any Python dependency change.
 
