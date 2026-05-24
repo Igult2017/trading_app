@@ -106,6 +106,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       NODE_ENV: production
+      # Pull these directly from the host OS / Hostinger env var panel —
+      # so they work even if not present in the .env file on disk.
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
