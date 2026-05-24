@@ -80,7 +80,7 @@ Step-by-step for deploying to a Hostinger VPS or any Linux server:
    ```bash
    npm run build
    ```
-6. **Set environment variables** — create a `.env` file in the project root on the VPS:
+6. **Set environment variables** in Hostinger's control panel (or however your VPS exposes them):
    ```
    DATABASE_URL=postgres://user:pass@host:5432/dbname
    ADMIN_EMAIL=your@email.com
@@ -91,17 +91,22 @@ Step-by-step for deploying to a Hostinger VPS or any Linux server:
    NODE_ENV=production
    PORT=5000
    ```
-   > **Critical — why `.env` and not the Hostinger panel:**
-   > The server uses `dotenv` to load this file at startup. PM2 runs as a daemon
-   > and does NOT inherit system environment variables set after `pm2 start` was
-   > first run. Setting `GOOGLE_API_KEY` only in Hostinger's control panel will
-   > not work — PM2 won't see it. Put all vars in `.env` in the project root.
 
-7. **Run**:
+7. **Run with PM2** (auto-restart on crash):
+   ```bash
+   pm2 start ecosystem.config.cjs
+   pm2 save
+   ```
+   The `ecosystem.config.cjs` file captures the current shell environment at startup,
+   so all env vars set in Hostinger's panel are automatically passed in.
+   After changing any env var in the panel, just run:
+   ```bash
+   pm2 restart myfmjournal --update-env
+   ```
+   Or for a plain one-off run without PM2:
    ```bash
    node dist/index.js
    ```
-   Or with PM2 for auto-restart: `pm2 start dist/index.js --name myfmjournal`
 
 > **Key rule**: `PYTHON_BIN` must point to the Python that has `cloudscraper` and `google-genai` installed.
 > The server verifies this automatically at startup and logs a clear warning if it's missing.
