@@ -2,27 +2,29 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Install Python + uv so `npm run build` (which calls `uv sync`) works
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    curl \
+    && pip3 install --no-cache-dir --break-system-packages uv \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install ALL dependencies (including dev for build)
+# Copy package files and install ALL deps (including dev — needed for build)
+COPY package*.json ./
 RUN npm ci
 
-# Copy source code
+# Copy source and build everything exactly as `npm run build` does
 COPY . .
+RUN npm run build
 
-# Build frontend with Vite
-RUN npx vite build
-
-# Build production server
-RUN npx esbuild server/index.prod.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
-
-# Stage 2: Production
+# ── Stage 2: Production ────────────────────────────────────────────────────────
 FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Install Python, pip, system libraries, and PostgreSQL client (for migration scripts)
+# System libraries needed by Python scripts + sharp (libvips is bundled in
+# sharp >= 0.31 but the Debian slim base still needs these for native addons)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -37,7 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Install all Python dependencies the server actually uses
+# Python packages
 RUN pip3 install --no-cache-dir --break-system-packages \
     matplotlib \
     mplfinance \
@@ -59,19 +61,21 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     beautifulsoup4 \
     cloudscraper
 
-# Copy package files and install production Node dependencies
+# Install production Node dependencies (includes sharp)
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy built files from builder stage
+# Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
 # Copy Python scripts
 COPY server/python ./server/python
 COPY python ./python
 
-# Create startup script
+# Copy DB migration file
 COPY docker-migrate.sql /app/docker-migrate.sql
+
+# Startup script: run DB migrations then start the app
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'echo "=== Environment Check ==="' >> /app/start.sh && \
     echo 'echo "NODE_ENV: $NODE_ENV"' >> /app/start.sh && \
@@ -83,7 +87,6 @@ RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'exec node dist/index.prod.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
-# Expose port
 EXPOSE 5000
 
 ENV NODE_ENV=production

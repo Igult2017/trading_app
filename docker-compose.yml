@@ -16,8 +16,8 @@
 #   docker compose logs -f mt5          # watch MT5 installation progress
 #   docker compose logs -f bridge
 #
-# UPDATE:
-#   docker compose pull && docker compose up -d --build
+# UPDATE (run this on Hostinger after every git pull):
+#   git pull && docker compose up -d --build
 #
 # VNC (optional — visual access to the MT5 terminal):
 #   Browse to http://<your-vps-ip>:3010  (localhost only by default)
