@@ -19,9 +19,9 @@ import sharp from "sharp";
 // MT4/MT5/TradingView text is large enough to remain perfectly readable at
 // 1920 px wide — the only risk would be sub-80% JPEG quality, which we avoid.
 
-const MAX_WIDTH  = 1920;
-const MAX_HEIGHT = 1200;
-const JPEG_QUALITY = 92;
+const MAX_WIDTH  = 1280;   // 1920→1280: ~55% fewer pixels, text stays legible
+const MAX_HEIGHT = 800;    // 1200→800
+const JPEG_QUALITY = 82;   // 92→82: further cuts payload, no readability loss on chart text
 
 async function compressForGemini(
   base64: string,
@@ -113,8 +113,35 @@ rules above. If you cannot determine the timezone with confidence, return null f
 Set brokerTimezone to the UTC offset integer you identified (e.g. 2 for UTC+2), or null if unknown.
 `;
 
-  return `You are an expert trading chart and platform screenshot analyzer. Your job is to extract EVERY piece of visible trading data from the screenshot with maximum precision.
+  return `You are an expert trading chart and platform screenshot analyzer.
 
+════════════════════════════════════════════
+STEP 1 — FIND TIMESTAMPS FIRST (before reading anything else)
+════════════════════════════════════════════
+Scan the image RIGHT NOW for these three timestamp sources before processing the JSON schema:
+
+A) STATUS BAR at the very bottom of the image:
+   • Text like "Replay mode has been activated. Last processed tick: 2019-09-09 16:42:59"
+   • The "Last processed tick" datetime IS the exitTime — copy it exactly as-is.
+
+B) X-AXIS (horizontal time bar at the chart bottom):
+   • Find labels with a highlighted/coloured background (cyan, blue, white, bold, inverted).
+   • LEFTMOST highlighted label = entryTime. RIGHTMOST highlighted label = exitTime.
+   • Date labels use formats like "Mon 09 Sept'19" (Sept = September), "Fri 22 May'20", "Tue 08 Oct'19 18:13".
+   • Combine a date label with the nearest time to build a full timestamp.
+   • Examples: "Mon 09 Sept'19" + "15:58" → "2019-09-09T15:58:00"
+              "Tue 08 Oct'19" + "18:13" → "2019-10-08T18:13:00"
+              "Fri 22 May'20" + "10:39" → "2020-05-22T10:39:00"
+
+C) TRADE PANEL or FLOATING TOOLTIP:
+   • Any "Open time:", "Close time:", "Entry:", "Exit:", "Date:", "Time:" label next to a datetime.
+
+The values found in steps A–C MUST appear in entryTime and exitTime in your JSON.
+NEVER return null for entryTime or exitTime if any date or time is visible anywhere on screen.
+
+════════════════════════════════════════════
+STEP 2 — EXTRACT ALL TRADING DATA
+════════════════════════════════════════════
 Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fields. Use null only when a value is genuinely not visible anywhere in the image — never omit a field, never guess, never leave data on the screen un-extracted.
 
 {
@@ -668,14 +695,15 @@ RULES:
 - Look at the horizontal X-axis at the bottom. Find timestamps with a highlighted/coloured background (blue, cyan, white) — those mark the trade open (leftmost) and close (rightmost).
 - If you see "Replay mode" or "Last processed tick: YYYY-MM-DD HH:MM:SS" in a status bar at the bottom, that date+time is the exitTime.
 - Combine a date label (e.g. "Mon 14 Oct'19") with a nearby time (e.g. "09:54") to build a full timestamp.
-- Apostrophe year: Oct'19 = 2019, May'20 = 2020.
+- Apostrophe year: Oct'19 = 2019, May'20 = 2020, Sept'19 = Sep'19 = 2019.
+- Month abbreviation note: "Sept" = September (same as "Sep").
 - Format: YYYY-MM-DDTHH:mm:ss. Return null only if truly invisible.`;
 
           await geminiRateLimiter.acquire();
           const tsResponse = await ai.models.generateContent({
             model,
             config: { maxOutputTokens: 256, responseMimeType: "application/json",
-              ...(typeof thinkingBudget === "number" ? { thinkingConfig: { thinkingBudget: 256 } } : {}) },
+              ...(typeof thinkingBudget === "number" ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
             contents: [{ role: "user", parts: [{ text: tsPrompt }, { inlineData: { mimeType, data: imageData } }] }],
           });
           const tsParsed = parseGeminiJson(tsResponse.text ?? "{}");
