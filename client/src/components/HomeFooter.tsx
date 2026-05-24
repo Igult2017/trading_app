@@ -44,14 +44,14 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const copyTxt   = dm ? '#94a3b8'              : '#334155';
 
   return (
-    <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Inter',sans-serif", transition: 'background 0.3s' }}>
+    <footer style={{ background: bg, borderTop: `1px solid ${topBorder}`, fontFamily: "'Barlow',sans-serif", transition: 'background 0.3s' }}>
       <style>{`
         .hf-grid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1.2fr; gap:60px; padding:64px 0 56px; }
         .hf-bottom { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
         .hf-legal-links { display:flex; gap:20px; flex-wrap:wrap; }
-        .hf-lnk { font-family:'Inter',sans-serif; font-weight:400; font-size:13px; color:${linkClr}; text-decoration:none; transition:color 0.2s; }
+        .hf-lnk { font-family:'Barlow',sans-serif; font-weight:400; font-size:13px; color:${linkClr}; text-decoration:none; transition:color 0.2s; }
         .hf-lnk:hover { color:${linkHov}; }
-        .hf-copy-lnk { font-family:'Inter',sans-serif; font-weight:400; font-size:12px; color:${copyTxt}; text-decoration:none; transition:color 0.2s; }
+        .hf-copy-lnk { font-family:'Barlow',sans-serif; font-weight:400; font-size:12px; color:${copyTxt}; text-decoration:none; transition:color 0.2s; }
         .hf-copy-lnk:hover { color:${linkHov}; }
         @media (max-width:1000px) { .hf-grid { grid-template-columns:1fr 1fr; gap:40px; padding:48px 0 44px; } }
         @media (max-width:560px)  { .hf-grid { grid-template-columns:1fr; gap:36px; padding:40px 0 36px; } .hf-bottom { flex-direction:column; align-items:flex-start; } }
@@ -74,7 +74,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Socials ────────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 16, letterSpacing: '0em' }}>Community</div>
+            <div style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 16, letterSpacing: '0em' }}>Community</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {SOCIAL_ICONS.map(({ label, path, color, bg: iconBg, border: iconBorder }) => (
                 <a key={label} href="#" aria-label={label}
@@ -84,7 +84,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
                   <span style={{ width: 32, height: 32, borderRadius: 7, border: `1px solid ${iconBorder}`, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d={path} /></svg>
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: 400, color: linkClr, fontFamily: "'Inter',sans-serif" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 400, color: linkClr, fontFamily: "'Barlow',sans-serif" }}>{label}</span>
                 </a>
               ))}
             </div>
@@ -92,7 +92,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Resources ──────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 16, letterSpacing: '0em' }}>Tools</div>
+            <div style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 16, letterSpacing: '0em' }}>Tools</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
               {RESOURCES.map(({ label, href, newTab }) => (
                 <Link key={label} href={href}
@@ -107,18 +107,18 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* ── Newsletter ─────────────────────────────────────────────── */}
           <div>
-            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 12, letterSpacing: '0em' }}>Newsletter</div>
+            <div style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 12, letterSpacing: '0em' }}>Newsletter</div>
             <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', lineHeight: 1.7, marginBottom: 20, marginTop: 0 }}>
               Data-backed strategies and market insights delivered to your inbox.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <input type="email" placeholder="your@email.com"
-                style={{ background: inputBg, border: `1px solid ${inputBord}`, borderRadius: 8, padding: '11px 14px', color: inputTxt, fontSize: 13, fontFamily: "'Inter',sans-serif", fontWeight: 400, outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                style={{ background: inputBg, border: `1px solid ${inputBord}`, borderRadius: 8, padding: '11px 14px', color: inputTxt, fontSize: 13, fontFamily: "'Barlow',sans-serif", fontWeight: 400, outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
                 onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
                 onBlur={e => e.currentTarget.style.borderColor = inputBord}
               />
               <button
-                style={{ width: '100%', background: '#2563eb', border: 'none', borderRadius: 8, padding: '12px 20px', color: '#fff', fontFamily: "'Inter',sans-serif", fontWeight: 600, fontSize: 13, letterSpacing: '0em', cursor: 'pointer', transition: 'background 0.2s' }}
+                style={{ width: '100%', background: '#2563eb', border: 'none', borderRadius: 8, padding: '12px 20px', color: '#fff', fontFamily: "'Barlow',sans-serif", fontWeight: 600, fontSize: 13, letterSpacing: '0em', cursor: 'pointer', transition: 'background 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
                 onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}>
                 Subscribe
@@ -131,7 +131,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         {/* ── Bottom bar ───────────────────────────────────────────────── */}
         <div style={{ borderTop: `1px solid ${botBorder}`, padding: '24px 0 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="hf-bottom">
-            <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 400, fontSize: 12, letterSpacing: '0em', color: copyTxt }}>
+            <span style={{ fontFamily: "'Barlow',sans-serif", fontWeight: 400, fontSize: 12, letterSpacing: '0em', color: copyTxt }}>
               © {new Date().getFullYear()} Myfmjournal — All rights reserved
             </span>
             <div className="hf-legal-links">
