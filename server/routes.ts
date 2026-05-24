@@ -1879,11 +1879,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/gemini/status", async (req, res) => {
     try {
       const isConfigured = isGeminiConfigured();
-      if (!isConfigured) return res.json({ configured: false, connected: false, message: "GOOGLE_API_KEY not configured" });
+
+      // Check Python google-genai package availability
+      let pythonPackage = false;
+      let pythonError = "";
+      try {
+        const { execFileSync } = await import("child_process");
+        execFileSync(PYTHON_BIN, ["-c", "from google import genai"], { timeout: 8000, stdio: "pipe" });
+        pythonPackage = true;
+      } catch (e: any) {
+        pythonError = e?.stderr?.toString?.()?.trim() || e?.message || "google-genai not importable";
+      }
+
+      if (!isConfigured) {
+        return res.json({
+          configured: false,
+          connected: false,
+          pythonPackage,
+          pythonError: pythonError || undefined,
+          message: "GOOGLE_API_KEY is not set — add it to your server environment variables.",
+        });
+      }
+
       const connectionTest = await testGeminiConnection();
-      res.json({ configured: true, connected: connectionTest.success, message: connectionTest.message });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to check Gemini status" });
+      res.json({
+        configured: true,
+        connected: connectionTest.success,
+        pythonPackage,
+        pythonError: pythonError || undefined,
+        message: connectionTest.message,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Failed to check Gemini status" });
     }
   });
 

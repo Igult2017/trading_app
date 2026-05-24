@@ -320,10 +320,12 @@ def synthesize_audit(shaped_result: dict) -> dict:
         "aiStrengthsNarrative": "",
         "aiRiskNarrative":      "",
         "aiStrategyBlueprint":  None,
+        "aiError":              None,
     }
 
     # Require API key
     if not os.environ.get("GOOGLE_API_KEY", ""):
+        fallback["aiError"] = "GOOGLE_API_KEY is not set — add it to your server environment variables."
         return fallback
 
     # Require minimum sample to be meaningful
@@ -400,5 +402,16 @@ def synthesize_audit(shaped_result: dict) -> dict:
         }
 
     except Exception as exc:
-        print(f"[AuditSynthesis] Gemini call failed — {exc}", file=sys.stderr)
+        msg = str(exc)
+        print(f"[AuditSynthesis] Gemini call failed — {msg}", file=sys.stderr)
+        if "api_key" in msg.lower() or "api key" in msg.lower() or "invalid" in msg.lower():
+            fallback["aiError"] = f"Invalid API key — {msg}"
+        elif "quota" in msg.lower() or "429" in msg:
+            fallback["aiError"] = f"API quota exceeded — {msg}"
+        elif "importerror" in type(exc).__name__.lower() or "modulenotfounderror" in type(exc).__name__.lower():
+            fallback["aiError"] = "google-genai package not installed — run: pip install google-genai"
+        elif "network" in msg.lower() or "connect" in msg.lower() or "timeout" in msg.lower():
+            fallback["aiError"] = f"Network error reaching Gemini API — {msg}"
+        else:
+            fallback["aiError"] = f"Gemini call failed — {msg}"
         return fallback
