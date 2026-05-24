@@ -48,7 +48,7 @@ const NAV_LINKS: { label: string; href: string; newTab?: boolean; cta?: "outline
   { label: "Reviews",           href: "/#reviews" },
   { label: "Economic Calendar", href: "/calendar" },
   { label: "Blog",              href: "/blog" },
-  { label: "TSC",               href: "/tsc" },
+  { label: "Sessions",          href: "/tsc" },
   { label: "Login",             href: "/auth",            newTab: true, cta: "outline" },
   { label: "Signup",            href: "/auth?mode=signup", newTab: true, cta: "solid" },
 ];
