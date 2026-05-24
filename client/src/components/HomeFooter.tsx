@@ -94,14 +94,16 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div>
             <div style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 600, color: headTitle, marginBottom: 16, letterSpacing: '0em' }}>Tools</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {RESOURCES.map(({ label, href, newTab }) => (
-                <Link key={label} href={href}
-                  target={newTab ? 'myfm_journal' : undefined}
-                  rel={newTab ? 'noopener noreferrer' : undefined}
-                  className="hf-lnk">
-                  {label}
-                </Link>
-              ))}
+              {RESOURCES.map(({ label, href, newTab }) =>
+                newTab
+                  ? <a key={label} href={href}
+                      target="myfm_journal"
+                      rel="noopener noreferrer"
+                      className="hf-lnk">
+                      {label}
+                    </a>
+                  : <Link key={label} href={href} className="hf-lnk">{label}</Link>
+              )}
             </div>
           </div>
 
