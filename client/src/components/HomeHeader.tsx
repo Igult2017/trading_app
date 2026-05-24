@@ -119,7 +119,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   function linkStyle(isActive: boolean, cta?: "outline" | "solid"): React.CSSProperties {
     if (cta === "solid") return {
       background: "#2563eb", color: "#ffffff",
-      border: "none", borderRadius: 7,
+      border: "none", borderRadius: 4,
       padding: "8px 18px", cursor: "pointer",
       fontFamily: "'Inter',sans-serif", fontWeight: 600,
       fontSize: 13, letterSpacing: "0em", textDecoration: "none",
@@ -129,7 +129,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     if (cta === "outline") return {
       background: "transparent",
       color: dm ? "#94a3b8" : "#334155",
-      border: `1px solid ${navBorder}`, borderRadius: 7,
+      border: `1px solid ${navBorder}`, borderRadius: 4,
       padding: "7px 18px", cursor: "pointer",
       fontFamily: "'Inter',sans-serif", fontWeight: 500,
       fontSize: 13, letterSpacing: "0em", textDecoration: "none",
