@@ -10,6 +10,7 @@ import { scraperScheduler } from "./scrapers/scheduler";
 import { initializeDatabase } from "./db-init";
 import { getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 import { PYTHON_BIN } from "./lib/pythonBin";
+import { logServiceStatus } from "./lib/serviceCheck";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -137,7 +138,7 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
+    logServiceStatus();
     scraperScheduler.start();
 
     // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests

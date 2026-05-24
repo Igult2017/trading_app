@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
+import { logServiceStatus } from "./lib/serviceCheck";
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -63,7 +64,7 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
+    logServiceStatus();
     scraperScheduler.start();
   });
 
