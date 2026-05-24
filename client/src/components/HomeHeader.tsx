@@ -31,8 +31,8 @@ export function TickerTape({ dark }: { dark: boolean }) {
       <div className="ticker-wrap">
         {items.map((t, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: `1px solid ${border}`, whiteSpace: "nowrap" }}>
-            <span style={{ color: symClr, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", fontFamily: "'Montserrat',sans-serif" }}>{t.symbol}</span>
-            <span style={{ color: prClr,  fontSize: 10, fontWeight: 600, fontFamily: "'Montserrat',sans-serif" }}>{t.price}</span>
+            <span style={{ color: symClr, fontSize: 10, fontWeight: 600, letterSpacing: "0.03em", fontFamily: "'Inter',sans-serif" }}>{t.symbol}</span>
+            <span style={{ color: prClr,  fontSize: 10, fontWeight: 500, fontFamily: "'Inter',sans-serif" }}>{t.price}</span>
             <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
@@ -121,8 +121,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       background: "#2563eb", color: "#ffffff",
       border: "none", borderRadius: 7,
       padding: "8px 18px", cursor: "pointer",
-      fontFamily: "'Montserrat',sans-serif", fontWeight: 800,
-      fontSize: 11, letterSpacing: "0.08em", textDecoration: "none",
+      fontFamily: "'Inter',sans-serif", fontWeight: 600,
+      fontSize: 13, letterSpacing: "0em", textDecoration: "none",
       display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
       transition: "background 0.15s",
     };
@@ -131,8 +131,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       color: dm ? "#94a3b8" : "#334155",
       border: `1px solid ${navBorder}`, borderRadius: 7,
       padding: "7px 18px", cursor: "pointer",
-      fontFamily: "'Montserrat',sans-serif", fontWeight: 700,
-      fontSize: 11, letterSpacing: "0.08em", textDecoration: "none",
+      fontFamily: "'Inter',sans-serif", fontWeight: 500,
+      fontSize: 13, letterSpacing: "0em", textDecoration: "none",
       display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
       transition: "all 0.15s",
     };
@@ -141,8 +141,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       background: isActive ? (dm ? "rgba(37,99,235,0.12)" : "rgba(37,99,235,0.07)") : "transparent",
       border: `1px solid ${isActive ? "rgba(37,99,235,0.25)" : "transparent"}`,
       borderRadius: 6, padding: "7px 12px", cursor: "pointer",
-      fontFamily: "'Montserrat',sans-serif", fontWeight: 700,
-      fontSize: 11, letterSpacing: "0.06em", textDecoration: "none",
+      fontFamily: "'Inter',sans-serif", fontWeight: 500,
+      fontSize: 13, letterSpacing: "0em", textDecoration: "none",
       display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
       transition: "all 0.15s",
     };
@@ -157,7 +157,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
 
           {/* Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-            <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}>
+            <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em" }}>
               <span style={{ color: logoClr }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
             </span>
           </Link>
@@ -230,8 +230,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
             const s: React.CSSProperties = {
               display: "flex", alignItems: "center",
               padding: "14px 24px", borderBottom: `1px solid ${mobRow}`,
-              fontFamily: "'Montserrat',sans-serif", fontWeight: 700,
-              fontSize: 12, letterSpacing: "0.08em",
+              fontFamily: "'Inter',sans-serif", fontWeight: 500,
+              fontSize: 14, letterSpacing: "0em",
               color: isActive ? "#2563eb" : (cta === "solid" ? "#2563eb" : (dm ? "#94a3b8" : "#475569")),
               textDecoration: "none", cursor: "pointer",
               background: isActive ? (dm ? "rgba(37,99,235,0.08)" : "rgba(37,99,235,0.05)") : "transparent",

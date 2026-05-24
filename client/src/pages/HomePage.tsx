@@ -88,7 +88,7 @@ export default function HomePage() {
     mobileHomebar: '#cbd5e1',
   };
 
-  const navFont = { fontFamily: "'Montserrat',sans-serif", fontWeight: 800 };
+  const navFont = { fontFamily: "'Inter',sans-serif", fontWeight: 600 };
   const oswald = { fontFamily: "'Oswald',sans-serif", fontWeight: 700 };
 
   const features = [
