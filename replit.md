@@ -62,9 +62,50 @@ Required env vars:
 - Keep price daemon disabled at startup (too slow / resource-heavy for Replit dev)
 - Signal monitor disabled by default
 
-## Hostinger (external VPS) deployment
+## Coolify deployment (Docker — recommended)
 
-Step-by-step for deploying to a Hostinger VPS or any Linux server:
+The app ships with a `Dockerfile` and `docker-compose.yml` for single-command deployment on any VPS.
+
+### Critical: where to set environment variables
+
+> **Hostinger's VPS server panel ≠ Coolify environment variables.**
+> Variables set in Hostinger's control panel live at the *OS level* and are invisible inside
+> Docker containers. You must enter them inside **Coolify → your service → Environment → Variables**.
+
+Set every variable below inside Coolify's Environment Variables UI:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | ✓ | Auto-set if using Coolify's managed Postgres |
+| `ADMIN_EMAIL` | ✓ | Admin login email |
+| `ADMIN_SECRET` | ✓ | Admin login password |
+| `GOOGLE_API_KEY` | optional | Gemini AI — AI features disabled without it |
+| `TELEGRAM_BOT_TOKEN` | optional | Telegram alerts |
+| `VITE_SUPABASE_URL` | optional | Supabase auth (falls back to local login without it) |
+| `VITE_SUPABASE_ANON_KEY` | optional | Supabase publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | optional | Supabase service key |
+| `PYTHON_BIN` | optional | Default: `/usr/bin/python3` |
+| `PORT` | optional | Default: `5000` |
+
+### How docker-compose.yml passes env vars
+
+The `docker-compose.yml` uses **null-value map entries** (`KEY:` with no value) for user-supplied vars.
+This means Docker Compose reads the real value from whatever Coolify injected into the container
+environment. It never writes an empty string — so Coolify's values are always preserved.
+
+Do NOT use `${VAR:-}` in docker-compose overrides — the `:-` (empty default) silently sets the
+var to `""`, which wipes out the Coolify-injected value and makes the service check show MISSING.
+
+### Deploy steps
+
+1. Push your code to the git repo connected to Coolify
+2. In Coolify → your service → Environment → Variables, add every var from the table above
+3. Trigger a new deployment (Coolify rebuilds the image and restarts the container)
+4. Check the container logs — the startup SERVICE STATUS CHECK table will confirm all vars are OK
+
+## Hostinger (external VPS) deployment — PM2 without Docker
+
+Step-by-step for deploying directly on the VPS (no Docker), using PM2:
 
 1. **Install Node.js 20+** and **Python 3.11+** on the server
 2. **Clone / upload** the project files

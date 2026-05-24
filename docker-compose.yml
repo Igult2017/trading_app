@@ -99,19 +99,29 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-5000}:5000"
-    env_file: .env
     environment:
-      # Override DATABASE_URL to point at the internal postgres service.
+      # ── Fixed / computed values ─────────────────────────────────────────────
       DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       NODE_ENV: production
-      # Pull these directly from the host OS / Hostinger env var panel —
-      # so they work even if not present in the .env file on disk.
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_SECRET: ${ADMIN_SECRET:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      # ── Pass-through from Coolify environment variables ─────────────────────
+      # Null-value map entries: Docker Compose reads from the host/Coolify env
+      # and passes the real value into the container.  Unlike ${VAR:-}, null
+      # entries never write an empty string — if the var is absent on the host
+      # the key is simply omitted, so nothing ever shadows a Coolify-injected
+      # value.
+      # IMPORTANT: set these in Coolify → Environment → Variables.
+      # Hostinger's VPS server panel does NOT reach inside Docker containers.
+      GOOGLE_API_KEY:
+      ADMIN_EMAIL:
+      ADMIN_SECRET:
+      TELEGRAM_BOT_TOKEN:
+      VITE_SUPABASE_URL:
+      VITE_SUPABASE_ANON_KEY:
+      SUPABASE_SERVICE_ROLE_KEY:
+      PYTHON_BIN:
+      SESSION_SECRET:
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,15 +156,14 @@ services:
       - "1"
     ports:
       - "127.0.0.1:8001:8001"
-    env_file: .env
     environment:
       DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       MT5_BRIDGE_HOST: mt5
       MT5_BRIDGE_PORT: "8812"
-      BRIDGE_SECRET: "${BRIDGE_SECRET:-changeme_set_in_env}"
       APP_URL: "http://app:5000"
+      BRIDGE_SECRET:
     depends_on:
       redis:
         condition: service_healthy
