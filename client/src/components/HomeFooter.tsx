@@ -9,7 +9,7 @@ const SOCIAL_ICONS = [
 
 const RESOURCES = [
   { label: 'Free Trading Journal', href: '/journal', newTab: true },
-  { label: 'Session Clock (TSC)',  href: '/tsc' },
+  { label: 'Sessions',  href: '/tsc' },
   { label: 'Economic Calendar',   href: '/calendar' },
   { label: 'Blog',                href: '/blog' },
 ];
