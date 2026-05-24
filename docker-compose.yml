@@ -99,29 +99,17 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-5000}:5000"
+    env_file:
+      - path: .env
+        required: false   # Coolify generates this file from its env var UI;
+                          # skipped silently when deploying without a .env file.
     environment:
       # ── Fixed / computed values ─────────────────────────────────────────────
+      # These override anything in the env_file above for docker-compose deploys.
       DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       NODE_ENV: production
-      # ── Pass-through from Coolify environment variables ─────────────────────
-      # Null-value map entries: Docker Compose reads from the host/Coolify env
-      # and passes the real value into the container.  Unlike ${VAR:-}, null
-      # entries never write an empty string — if the var is absent on the host
-      # the key is simply omitted, so nothing ever shadows a Coolify-injected
-      # value.
-      # IMPORTANT: set these in Coolify → Environment → Variables.
-      # Hostinger's VPS server panel does NOT reach inside Docker containers.
-      GOOGLE_API_KEY:
-      ADMIN_EMAIL:
-      ADMIN_SECRET:
-      TELEGRAM_BOT_TOKEN:
-      VITE_SUPABASE_URL:
-      VITE_SUPABASE_ANON_KEY:
-      SUPABASE_SERVICE_ROLE_KEY:
-      PYTHON_BIN:
-      SESSION_SECRET:
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,6 +144,9 @@ services:
       - "1"
     ports:
       - "127.0.0.1:8001:8001"
+    env_file:
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
       REDIS_HOST: redis
