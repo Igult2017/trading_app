@@ -1500,7 +1500,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               achievedRRAutoRef.current = false;
             }
             const methodLabel = res.method === "gemini" ? "Gemini" : "OCR";
-            setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: "" }));
+            const geminiWarn  = res.geminiWarning ? ` ⚠ ${res.geminiWarning}` : "";
+            setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: geminiWarn }));
           } else if (res?.error) {
             setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: `Analysis failed: ${res.error}` }));
           }

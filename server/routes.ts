@@ -959,6 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // ── Prefer Gemini when GOOGLE_API_KEY is available ──────────────────────
+      let geminiErrorMsg: string | undefined;
       if (isGeminiScreenshotAvailable()) {
         console.log("[Screenshot] Using Gemini vision extraction");
         const geminiResult = await analyzeScreenshotWithGemini(image, sessionBrokerTz);
@@ -968,7 +969,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} lotSize:${f.lotSize} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime} session:${f.sessionName}/${f.sessionPhase}`);
           return res.json({ ...geminiResult, method: "gemini", confidence: "high" });
         }
-        console.error(`[Screenshot] Gemini failed: ${geminiResult.error} — falling back to OCR`);
+        geminiErrorMsg = geminiResult.error ?? "Gemini returned no data";
+        console.error(`[Screenshot] Gemini failed: ${geminiErrorMsg} — falling back to OCR`);
       }
 
       // ── Fallback: local OCR pipeline ────────────────────────────────────────
@@ -978,7 +980,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ocrResult.fields = normalizeFields(ocrResult.fields);
         const f = ocrResult.fields;
         console.log(`[OCR] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} session:${f.sessionName}/${f.sessionPhase}`);
-        return res.json({ ...ocrResult, method: "ocr", confidence: "medium" });
+        // Surface the Gemini failure reason so the UI can show it as a warning
+        return res.json({ ...ocrResult, method: "ocr", confidence: "medium",
+          ...(geminiErrorMsg ? { geminiWarning: `Gemini failed: ${geminiErrorMsg}` } : {}) });
       }
 
       return res.status(422).json({
@@ -1030,6 +1034,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to check analysis status" });
+    }
+  });
+
+  // ── Gemini connectivity test ────────────────────────────────────────────────
+  // GET /api/gemini/test — sends a minimal text-only prompt to verify the API
+  // key is valid and the model is reachable. Safe to call from browser or curl.
+  app.get("/api/gemini/test", async (_req, res) => {
+    const key = process.env.GOOGLE_API_KEY;
+    if (!key) return res.status(503).json({ ok: false, error: "GOOGLE_API_KEY not set" });
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: key });
+      const t0 = Date.now();
+      const resp = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        config: { maxOutputTokens: 8, thinkingConfig: { thinkingBudget: 0 } },
+        contents: [{ role: "user", parts: [{ text: "Reply with the single word: ok" }] }],
+      });
+      const elapsed = Date.now() - t0;
+      const text = resp.text?.trim() ?? "";
+      res.json({ ok: true, reply: text, latencyMs: elapsed, model: "gemini-2.5-flash" });
+    } catch (err: any) {
+      res.status(502).json({ ok: false, error: err?.message ?? String(err) });
     }
   });
 
