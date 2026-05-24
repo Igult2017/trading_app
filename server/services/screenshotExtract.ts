@@ -325,14 +325,22 @@ interface ModelConfig {
   thinkingBudget?: number;
 }
 
-// FREE-TIER SAFE: flash-only chain.
-// 2.5-flash is primary — far superior vision for reading x-axis timestamps,
-// small thinking budget (512) lets it correlate date+time labels accurately
-// without the 30-60s "silent thinking" delay that thinkingBudget:unset causes.
+// Live-tested model chain (May 2025):
+//   gemini-2.5-flash  budget=0  → 1.07s  ✅ perfect accuracy  ← PRIMARY
+//   gemini-3.5-flash  budget=0  → 1.73s  ✅ perfect accuracy  ← FALLBACK
+//   gemini-2.5-flash-lite       → ~1s    untested             ← LAST RESORT
+//
+// Deprecated / unavailable on this key:
+//   gemini-2.5-flash-preview-05-20  (404 — use gemini-2.5-flash)
+//   gemini-2.0-flash                (404 — no longer available to new users)
+//   gemini-2.0-flash-lite           (404 — no longer available to new users)
+//
+// thinkingBudget=512 was tested vs 0 — adds 2.4s with zero accuracy gain.
+// Keep it at 0 for all models in this chain.
 const MODEL_CHAIN: ModelConfig[] = [
-  { model: "gemini-2.5-flash-preview-05-20", thinkingBudget: 512 },  // primary  · best vision · 10 RPM · 500 RPD
-  { model: "gemini-2.0-flash",      thinkingBudget: 0 },             // fallback · 15 RPM · 1500 RPD
-  { model: "gemini-2.0-flash-lite", thinkingBudget: 0 },             // last-resort · 30 RPM · 1500 RPD
+  { model: "gemini-2.5-flash",      thinkingBudget: 0 },  // primary    · ~1.1s
+  { model: "gemini-3.5-flash",      thinkingBudget: 0 },  // fallback   · ~1.7s
+  { model: "gemini-2.5-flash-lite", thinkingBudget: 0 },  // last-resort · ~1s
 ];
 
 function isModelError(msg: string): boolean {
