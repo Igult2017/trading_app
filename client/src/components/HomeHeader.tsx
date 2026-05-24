@@ -117,24 +117,16 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const mobRow    = dm ? "#172233"              : "#f1f5f9";
 
   function linkStyle(isActive: boolean, cta?: "outline" | "solid"): React.CSSProperties {
-    if (cta === "solid") return {
-      background: "#2563eb", color: "#ffffff",
-      border: "none", borderRadius: 4,
-      padding: "8px 18px", cursor: "pointer",
-      fontFamily: "'Inter',sans-serif", fontWeight: 600,
-      fontSize: 13, letterSpacing: "0em", textDecoration: "none",
-      display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
-      transition: "background 0.15s",
-    };
-    if (cta === "outline") return {
+    if (cta === "solid" || cta === "outline") return {
       background: "transparent",
-      color: dm ? "#94a3b8" : "#334155",
-      border: `1px solid ${navBorder}`, borderRadius: 4,
-      padding: "7px 18px", cursor: "pointer",
-      fontFamily: "'Inter',sans-serif", fontWeight: 500,
+      color: dm ? "#94a3b8" : "#475569",
+      border: "none", borderRadius: 0,
+      padding: "7px 4px", cursor: "pointer",
+      fontFamily: "'Inter',sans-serif",
+      fontWeight: cta === "solid" ? 600 : 500,
       fontSize: 13, letterSpacing: "0em", textDecoration: "none",
       display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
-      transition: "all 0.15s",
+      transition: "color 0.15s",
     };
     return {
       color: isActive ? "#2563eb" : linkClr,
@@ -191,8 +183,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }} className="hh-nav-desktop">
             {NAV_LINKS.filter(l => l.cta).map(({ label, href, cta }) => (
               <a key={label} href={href} target="myfm_journal" rel="noopener noreferrer" style={linkStyle(false, cta)}
-                onMouseEnter={e => { if (cta === "solid") e.currentTarget.style.background = "#1d4ed8"; }}
-                onMouseLeave={e => { if (cta === "solid") e.currentTarget.style.background = "#2563eb"; }}>
+                onMouseEnter={e => { e.currentTarget.style.color = "#2563eb"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = dm ? "#94a3b8" : "#475569"; }}>
                 {label}
               </a>
             ))}
