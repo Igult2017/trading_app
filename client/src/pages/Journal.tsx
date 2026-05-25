@@ -334,7 +334,7 @@ function getEntryDateStr(entry: any): string | null {
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_LABELS = ['S','M','T','W','T','F','S'];
 
-function ActivityCalendar({ entries }: { entries: any[] }) {
+function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMode?: boolean }) {
   // Build full trade map: "YYYY-M" → { day: 'profit' | 'loss' | 'mixed' }
   const { tradeMap, sortedMonths } = useMemo(() => {
     // map: "YYYY-M" → { [day]: { wins, losses } }
@@ -438,11 +438,13 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
     if (status === 'profit') return { bg: 'rgba(16,185,129,0.2)', border: 'rgba(16,185,129,0.3)', color: '#34d399' };
     if (status === 'loss')   return { bg: 'rgba(244,63,94,0.2)',  border: 'rgba(244,63,94,0.3)',  color: '#fb7185' };
     if (status === 'mixed')  return { bg: 'rgba(251,191,36,0.15)',border: 'rgba(251,191,36,0.25)',color: '#fbbf24' };
-    return { bg: 'rgba(22,27,34,0.8)', border: 'transparent', color: 'rgba(55,65,81,0.8)' };
+    return darkMode
+      ? { bg: 'rgba(22,27,34,0.8)',    border: 'transparent', color: 'rgba(55,65,81,0.8)' }
+      : { bg: 'rgba(226,232,240,0.6)', border: 'transparent', color: 'rgba(100,116,139,0.7)' };
   };
 
   return (
-    <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', padding: 20, borderRadius: 8 }} data-testid="panel-activity-calendar">
+    <div style={{ background: darkMode ? '#0d1117' : '#ffffff', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, padding: 20, borderRadius: 8 }} data-testid="panel-activity-calendar">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
@@ -457,11 +459,11 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
             <button
               onClick={prev}
               disabled={!canPrev}
-              style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+              style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? '#38bdf8' : (darkMode ? 'rgba(55,65,81,0.4)' : 'rgba(203,213,225,0.8)'), padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 10, fontWeight: 900, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
               {/* Dot indicators — one per month that has trades; click to jump */}
@@ -486,7 +488,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
             <button
               onClick={next}
               disabled={!canNext}
-              style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? '#38bdf8' : 'rgba(55,65,81,0.4)', padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+              style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? '#38bdf8' : (darkMode ? 'rgba(55,65,81,0.4)' : 'rgba(203,213,225,0.8)'), padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
               <ChevronRight size={14} strokeWidth={3} />
             </button>
           </div>
@@ -494,7 +496,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
           {/* Day-of-week headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 3 }}>
             {DAY_LABELS.map((d, i) => (
-              <div key={i} style={{ fontSize: 8, color: 'rgba(55,65,81,0.8)', textAlign: 'center', paddingBottom: 2, fontWeight: 900 }}>{d}</div>
+              <div key={i} style={{ fontSize: 8, color: darkMode ? 'rgba(55,65,81,0.8)' : 'rgba(100,116,139,0.7)', textAlign: 'center', paddingBottom: 2, fontWeight: 900 }}>{d}</div>
             ))}
           </div>
 
@@ -554,7 +556,7 @@ function ActivityCalendar({ entries }: { entries: any[] }) {
   );
 }
 
-function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: string | null; isMobile: boolean; windowWidth: number }) {
+function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { sessionId?: string | null; isMobile: boolean; windowWidth: number; darkMode?: boolean }) {
   const metricsUrl = sessionId ? `/api/metrics/compute?sessionId=${sessionId}` : '';
   const entriesUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '';
 
@@ -727,7 +729,7 @@ function DashboardView({ sessionId, isMobile, windowWidth }: { sessionId?: strin
         </div>
 
         {/* ── Smart Activity Calendar ── */}
-        <ActivityCalendar entries={entries} />
+        <ActivityCalendar entries={entries} darkMode={darkMode} />
       </div>
     </div>
   );
@@ -1089,6 +1091,74 @@ export default function Journal() {
         .journal-light .ts-page .ts-step { background: ${T.surface} !important; border-color: ${T.border} !important; }
         .journal-light .ts-page section,
         .journal-light .ts-page .ts-section { background: ${T.bg} !important; }
+
+        /* ── Session cards (obs-sessions-root + Tailwind arbitrary classes) ── */
+        .journal-light .obs-sessions-root { background: ${T.bg} !important; color: ${T.text} !important; }
+        .journal-light .obs-sessions-root > * { background: ${T.border} !important; }
+        .journal-light [class*="bg-[#0d1117]"] { background: ${T.surface} !important; }
+        .journal-light [class*="bg-[#111827]"] { background: ${T.bg} !important; }
+        .journal-light [class*="bg-[#1e2740]"] { background: ${T.border} !important; }
+        .journal-light [class*="bg-[#0c0c0e]"] { background: ${T.surface} !important; }
+        .journal-light [class*="bg-[#09090b]"] { background: ${T.bg} !important; }
+        .journal-light [class*="text-[#c9d1d9]"] { color: ${T.text} !important; }
+        .journal-light [class*="text-[#f0f6fc]"] { color: ${T.text} !important; }
+        .journal-light [class*="text-[#e4e4e7]"] { color: ${T.text} !important; }
+        .journal-light [class*="text-[#d4d4d8]"] { color: ${T.text} !important; }
+        .journal-light [class*="text-[#a1a1aa]"] { color: ${T.text} !important; }
+        .journal-light [class*="text-[#64748b]"] { color: ${T.textMuted} !important; }
+        .journal-light [class*="text-[#4b5563]"] { color: ${T.textMuted} !important; }
+        .journal-light [class*="text-[#374151]"] { color: ${T.textMuted} !important; }
+        .journal-light [class*="text-[#3f3f46]"] { color: ${T.textMuted} !important; }
+        .journal-light [class*="text-[#71717a]"] { color: ${T.textMuted} !important; }
+        .journal-light [class*="border-[#1e2740]"] { border-color: ${T.border} !important; }
+        .journal-light [class*="border-[#080d14]"] { border-color: ${T.border} !important; }
+        .journal-light [class*="border-[#1a2035]"] { border-color: ${T.border} !important; }
+        .journal-light [class*="border-[#18181b]"] { border-color: ${T.border} !important; }
+        .journal-light [class*="border-[#27272a]"] { border-color: ${T.border} !important; }
+
+        /* ── JournalForm (obs-jf) ────────────────────────────────────────── */
+        .journal-light .obs-jf { background: ${T.bg} !important; color: ${T.text} !important; }
+        .journal-light .obs-jf nav,
+        .journal-light .obs-jf main { background: ${T.bg} !important; border-color: ${T.border} !important; }
+        .journal-light .obs-jf input,
+        .journal-light .obs-jf textarea,
+        .journal-light .obs-jf select { background: ${T.surface} !important; color: ${T.text} !important; border-color: ${T.border} !important; }
+        .journal-light .obs-jf input::placeholder,
+        .journal-light .obs-jf textarea::placeholder { color: ${T.textMuted} !important; }
+        .journal-light .obs-jf button:not([class*="bg-[#4e8cff]"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]) { border-color: ${T.border} !important; }
+
+        /* ── TraderAI empty-state heading + suggestion cards ─────────────── */
+        .journal-light .traderai-empty-wrap h2,
+        .journal-light .traderai-empty-title { color: ${T.text} !important; }
+        .journal-light .traderai-subtitle { color: ${T.textMuted} !important; }
+        .journal-light .traderai-empty-grid button { background: ${T.surface} !important; border-color: ${T.border} !important; color: ${T.textMuted} !important; }
+        .journal-light .traderai-empty-grid button span { color: ${T.textMuted} !important; }
+
+        /* ── AccountsPage additional inline backgrounds ───────────────────── */
+        .journal-light [style*="background: #0d1827"],
+        .journal-light [style*="background:#0d1827"],
+        .journal-light [style*="background: #0a1628"],
+        .journal-light [style*="background:#0a1628"],
+        .journal-light [style*="background: #0c1422"],
+        .journal-light [style*="background:#0c1422"],
+        .journal-light [style*="background: #070f1e"],
+        .journal-light [style*="background:#070f1e"],
+        .journal-light [style*="background: #0b1220"],
+        .journal-light [style*="background:#0b1220"] { background: ${T.surface} !important; color: ${T.text} !important; }
+        .journal-light [style*="background: #1e3050"],
+        .journal-light [style*="background:#1e3050"],
+        .journal-light [style*="background: #1e3a55"],
+        .journal-light [style*="background:#1e3a55"],
+        .journal-light [style*="background: #0c2a1a"],
+        .journal-light [style*="background:#0c2a1a"] { background: ${T.surface} !important; color: ${T.text} !important; }
+        .journal-light [style*="border: 1px solid #1e3050"],
+        .journal-light [style*="border:1px solid #1e3050"],
+        .journal-light [style*="border: 1px solid #1e3a55"],
+        .journal-light [style*="border:1px solid #1e3a55"],
+        .journal-light [style*="border: 1px solid #334155"],
+        .journal-light [style*="border:1px solid #334155"] { border-color: ${T.border} !important; }
+        .journal-light .accounts-root [style*="color: #38bdf8"],
+        .journal-light .accounts-root [style*="color:#38bdf8"] { color: #1d4ed8 !important; }
       `}</style>
 
       <JournalHeader
@@ -1158,7 +1228,7 @@ export default function Journal() {
               }}
             />
           ) : (
-            <DashboardView sessionId={activeSessionId ?? undefined} isMobile={isMobile} windowWidth={windowWidth} />
+            <DashboardView sessionId={activeSessionId ?? undefined} isMobile={isMobile} windowWidth={windowWidth} darkMode={T.dark} />
           )}
         </main>
       </div>
