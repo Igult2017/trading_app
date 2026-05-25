@@ -497,6 +497,15 @@ export async function initializeDatabase() {
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_granted_by VARCHAR`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'Active'`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate   TEXT DEFAULT ''`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS candle_pattern TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS primary_signals TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS secondary_signals TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS indicator_state TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS liquidity_targets TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS higher_tf_context TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS analysis_tf_context TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS entry_tf_context TEXT`,
+      `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS other_confluences TEXT`,
     ];
     for (const stmt of columnAdditions) {
       try {
