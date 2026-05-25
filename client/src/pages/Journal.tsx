@@ -926,15 +926,27 @@ export default function Journal() {
         .journal-light *::before,
         .journal-light *::after { border-color: ${T.border} !important; }
 
-        /* Pure-white inline text → dark slate so it's readable on light bg. */
+        /* Pure-white / near-white inline text → dark slate so it's readable on light bg. */
         .journal-light [style*="color: #fff"],
         .journal-light [style*="color:#fff"],
         .journal-light [style*="color: #FFF"],
         .journal-light [style*="color:#FFF"],
         .journal-light [style*="color: #ffffff"],
         .journal-light [style*="color:#ffffff"],
+        .journal-light [style*="color: #FFFFFF"],
+        .journal-light [style*="color:#FFFFFF"],
         .journal-light [style*="color: white"],
         .journal-light [style*="color:white"],
+        .journal-light [style*="color: #f1f5f9"],
+        .journal-light [style*="color:#f1f5f9"],
+        .journal-light [style*="color: #e2e8f0"],
+        .journal-light [style*="color:#e2e8f0"],
+        .journal-light [style*="color: #e0e6f0"],
+        .journal-light [style*="color:#e0e6f0"],
+        .journal-light [style*="color: #e8edf5"],
+        .journal-light [style*="color:#e8edf5"],
+        .journal-light [style*="color: #d1d5db"],
+        .journal-light [style*="color:#d1d5db"],
         .journal-light [style*="color: rgb(255,255,255)"],
         .journal-light [style*="color:rgb(255,255,255)"],
         .journal-light [style*="color: rgba(255,255,255"],
@@ -955,14 +967,52 @@ export default function Journal() {
         .journal-light [style*="background:#0a0e15"],
         .journal-light [style*="background: #161b22"],
         .journal-light [style*="background:#161b22"],
+        .journal-light [style*="background: #080a0e"],
+        .journal-light [style*="background:#080a0e"],
+        .journal-light [style*="background: #0c0c0e"],
+        .journal-light [style*="background:#0c0c0e"],
+        .journal-light [style*="background: #111520"],
+        .journal-light [style*="background:#111520"],
+        .journal-light [style*="background: #0d1018"],
+        .journal-light [style*="background:#0d1018"],
+        .journal-light [style*="background: #0d1220"],
+        .journal-light [style*="background:#0d1220"],
+        .journal-light [style*="background: #1a2035"],
+        .journal-light [style*="background:#1a2035"],
+        .journal-light [style*="background: #111825"],
+        .journal-light [style*="background:#111825"],
+        .journal-light [style*="background: #080c15"],
+        .journal-light [style*="background:#080c15"],
+        .journal-light [style*="background: #080b10"],
+        .journal-light [style*="background:#080b10"],
+        .journal-light [style*="background: #020617"],
+        .journal-light [style*="background:#020617"],
+        .journal-light [style*="background: #0f172a"],
+        .journal-light [style*="background:#0f172a"],
+        .journal-light [style*="background: #111827"],
+        .journal-light [style*="background:#111827"],
+        .journal-light [style*="background: #151e2e"],
+        .journal-light [style*="background:#151e2e"],
+        .journal-light [style*="background: #070b14"],
+        .journal-light [style*="background:#070b14"],
+        .journal-light [style*="background: #161b27"],
+        .journal-light [style*="background:#161b27"],
+        .journal-light [style*="background: #1e2535"],
+        .journal-light [style*="background:#1e2535"],
         .journal-light [style*="background: rgb(13,17,23)"],
-        .journal-light [style*="background:rgb(13,17,23)"] { background: ${T.surface} !important; }
+        .journal-light [style*="background:rgb(13,17,23)"] { background: ${T.surface} !important; color: ${T.text} !important; }
 
         /* Dim greyish text used in panels → muted theme color. */
         .journal-light [style*="color: #cbd5e1"],
         .journal-light [style*="color:#cbd5e1"],
         .journal-light [style*="color: #94a3b8"],
         .journal-light [style*="color:#94a3b8"],
+        .journal-light [style*="color: #8a99b3"],
+        .journal-light [style*="color:#8a99b3"],
+        .journal-light [style*="color: #64748b"],
+        .journal-light [style*="color:#64748b"],
+        .journal-light [style*="color: #475569"],
+        .journal-light [style*="color:#475569"],
         .journal-light [style*="color: rgba(148,163,184"],
         .journal-light [style*="color:rgba(148,163,184"],
         .journal-light [style*="color: rgba(203,213,225"],
@@ -976,6 +1026,32 @@ export default function Journal() {
         .journal-light [style*="rgba(255,255,255,0.06)"],
         .journal-light [style*="rgba(255,255,255,0.08)"],
         .journal-light [style*="rgba(255,255,255,0.1)"] { border-color: ${T.border} !important; }
+
+        /* Dark borders on dark-themed components */
+        .journal-light [style*="border: 1px solid #1e293b"],
+        .journal-light [style*="border:1px solid #1e293b"],
+        .journal-light [style*="border: 1px solid #1e2535"],
+        .journal-light [style*="border:1px solid #1e2535"],
+        .journal-light [style*="border: 1px solid #1e2d45"],
+        .journal-light [style*="border:1px solid #1e2d45"] { border-color: ${T.border} !important; }
+
+        /* CSS-class-based dark styling (DrawdownPanel, TradeSync, TradeVault, Leaderboard) */
+        .journal-light .dd-card,
+        .journal-light .dd-card-dark { background: ${T.surface} !important; border-color: ${T.border} !important; color: ${T.text} !important; }
+        .journal-light .ts-root,
+        .journal-light .ts-platform-card,
+        .journal-light .ts-vote-section,
+        .journal-light .ts-platforms-section { background: ${T.bg} !important; color: ${T.text} !important; }
+        .journal-light .ts-platform-card,
+        .journal-light .ts-vote-row,
+        .journal-light .ts-modal { background: ${T.surface} !important; border-color: ${T.border} !important; color: ${T.text} !important; }
+        .journal-light .ts-modal input,
+        .journal-light .ts-modal select,
+        .journal-light .ts-modal textarea { background: ${T.bg} !important; color: ${T.text} !important; border-color: ${T.border} !important; }
+        .journal-light .trade-vault-root select option,
+        .journal-light select option { background: ${T.surface} !important; color: ${T.text} !important; }
+        .journal-light .obs-jf select option { background: ${T.surface} !important; color: ${T.text} !important; }
+        .journal-light .obs-rating-btn { background: ${T.surface} !important; border-color: ${T.border} !important; color: ${T.text} !important; }
       `}</style>
 
       <JournalHeader
@@ -989,7 +1065,7 @@ export default function Journal() {
       <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
-        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? '#0d1117' : activeNav === 'drawdown' ? '#0d1117' : undefined }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>
 
           {activeNav === 'metrics' ? (
             <MetricsPanel sessionId={activeSessionId ?? undefined} />
