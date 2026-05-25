@@ -1282,11 +1282,13 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     const outcome      = s2.outcome as "Win"|"Loss"|"BE";
     const plannedRRNum = parseRRNum(s4.plannedRR);
 
-    // P&L = balance × risk% × achievedRR.
-    // Fall back to plannedRR when achievedRR hasn't been set yet — covers the
-    // case where the auto-fill effect hasn't committed its state update yet.
-    const effectiveAchievedRR = s4.achievedRR || s4.plannedRR;
-    const achievedRRNum = parseRRNum(effectiveAchievedRR);
+    // P&L = balance × risk% × achievedRR (signed by outcome).
+    // Use achievedRR when available; fall back to plannedRR for Win when
+    // achievedRR hasn't been set yet (e.g. auto-fill hasn't committed yet).
+    // For Loss and BE the sign comes from outcome directly — we never use
+    // plannedRR as a fallback for those because it would give the wrong sign.
+    const effectiveWinRR = s4.achievedRR || s4.plannedRR;
+    const achievedRRNum  = parseRRNum(effectiveWinRR);
 
     // ── Monetary risk ─────────────────────────────────────────────────────────
     const riskPct = parseFloat(s2.riskPercent);
@@ -1302,12 +1304,25 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (plannedRRNum > 0 && monetaryRisk > 0)
       s4Up.potentialReward = (monetaryRisk * plannedRRNum).toFixed(2);
 
-    // ── P&L = achievedRR × monetary risk ──────────────────────────────────────
-    if (monetaryRisk > 0 && effectiveAchievedRR) {
-      const pnl = achievedRRNum * monetaryRisk;
-      s4Up.profitLoss = pnl.toFixed(2);
-      if (effectiveBalance > 0)
-        s4Up.accountBalance = (effectiveBalance + pnl).toFixed(2);
+    // ── P&L — outcome-based sign, no longer dependent on achievedRR having ────
+    // the right sign encoded in it (e.g. "1:-1" for a loss).
+    // Loss:  always -monetaryRisk (full stop hit)
+    // BE:    always 0
+    // Win:   achievedRRNum × monetaryRisk, only when a non-zero RR is available
+    if (monetaryRisk > 0) {
+      let pnl: number | null = null;
+      if (outcome === "Loss") {
+        pnl = -monetaryRisk;
+      } else if (outcome === "BE") {
+        pnl = 0;
+      } else if (achievedRRNum !== 0) {
+        pnl = achievedRRNum * monetaryRisk;
+      }
+      if (pnl !== null) {
+        s4Up.profitLoss = pnl.toFixed(2);
+        if (effectiveBalance > 0)
+          s4Up.accountBalance = (effectiveBalance + pnl).toFixed(2);
+      }
     }
 
     if (outcome === "Loss" && s2.stopLossDistancePips) {
