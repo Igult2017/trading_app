@@ -257,9 +257,12 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
     setLoading(true);
     try {
       const reply = await callAI(next);
-      setMessages([...next, { role: "model", content: reply }]);
-      // Refresh sidebar so the new/updated chat appears at the top
-      refreshChats();
+      if (reply) {
+        setMessages([...next, { role: "model", content: reply }]);
+        refreshChats();
+      } else {
+        setMessages(next);
+      }
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
     } finally {

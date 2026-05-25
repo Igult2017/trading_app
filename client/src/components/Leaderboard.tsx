@@ -73,11 +73,11 @@ export default function Leaderboard() {
     return () => mq.removeEventListener?.('change', update);
   }, []);
 
-  // Overall leaderboard
+  // Overall leaderboard — ranked per session (same as by-session, no name filter)
   const { data: lbData, isLoading: loadingOverall, error: overallError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
-    queryKey: ['/api/leaderboard', activePeriod],
+    queryKey: ['/api/leaderboard/by-session', activePeriod, '__overall__'],
     queryFn: async () => {
-      const r = await authFetch(`/api/leaderboard?period=${activePeriod}`);
+      const r = await authFetch(`/api/leaderboard/by-session?period=${activePeriod}`);
       const d = await r.json();
       if (d.error) throw new Error(d.error);
       return { leaderboard: d.leaderboard || [], summary: d.summary || null };

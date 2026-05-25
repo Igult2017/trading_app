@@ -486,7 +486,7 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#16a34a18', border: '1px solid #16a34a50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
-                <span className="text-[9px] text-emerald-400 uppercase tracking-[0.2em]">Screenshot captured</span>
+                <span className="text-[9px] text-emerald-400 uppercase tracking-[0.2em]">Entry Successful</span>
                 <div className="flex gap-2 w-full mt-1" style={{ maxWidth: 200 }}>
                   <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all leading-none flex items-center justify-center">↺ Replace</label>
                   <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
@@ -655,7 +655,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
         {d.ocrConfidence && !d.ocrValidation && (
           <div className="mt-3 flex items-center gap-2 rounded-sm border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
             <span className="text-emerald-400 text-[11px]">✓</span>
-            <span className="text-[11px] text-emerald-300">Extracted with <strong>{d.ocrConfidence}</strong></span>
+            <span className="text-[11px] text-emerald-300">{d.ocrConfidence}</span>
           </div>
         )}
       </section>
@@ -1499,7 +1499,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               // actual outcome, don't override it with plannedRR.
               achievedRRAutoRef.current = false;
             }
-            const methodLabel = res.method === "gemini" ? "Gemini" : "OCR";
+            const methodLabel = res.method === "gemini" ? "Powered by AI" : "Powered by OCR";
             const geminiWarn  = res.geminiWarning ? ` ⚠ ${res.geminiWarning}` : "";
             setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: geminiWarn }));
           } else if (res?.error) {

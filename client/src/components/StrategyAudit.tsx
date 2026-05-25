@@ -736,12 +736,7 @@ function Page4({ d }: { d: AuditData }) {
                 {item.expectedImpact && <span style={{ color: T.green, fontWeight: 700 }}>{item.expectedImpact}</span>}
               </div>
             </div>
-          )) : d.aiError ? (
-            <div style={{ padding: 12, border: `1px solid #7f1d1d`, background: "#1c0a0a", borderRadius: 4 }}>
-              <div style={{ ...mono, fontSize: 10, color: "#f87171", letterSpacing: ".08em", marginBottom: 4 }}>AI UNAVAILABLE</div>
-              <div style={{ fontSize: 12, color: "#fca5a5", fontFamily: FONT, lineHeight: 1.6 }}>{d.aiError}</div>
-            </div>
-          ) : (
+          )) : (
             <div style={{ fontSize: 12, color: T.muted, fontFamily: FONT }}>No AI suggestions yet — run more trades to generate policy recommendations.</div>
           )}
         </Cell>
