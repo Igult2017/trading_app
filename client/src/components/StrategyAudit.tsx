@@ -97,22 +97,22 @@ interface Props { sessionId?: string; userId?: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 const T = {
-  bg:    "#080a0e",
-  bg2:   "#0d1117",
-  bg3:   "#0d1117",
-  bg4:   "#11161e",
-  line:  "rgba(255,255,255,0.04)",
-  line2: "rgba(255,255,255,0.08)",
-  text:  "#ffffff",
-  muted: "#94a3b8",
-  dim:   "#475569",
-  green: "#10b981",
-  green2:"#059669",
-  red:   "#f43f5e",
-  red2:  "#e11d48",
-  amber: "#f59e0b",
-  blue:  "#6366f1",
-  blue2: "#4f46e5",
+  bg:    'var(--sa-bg,    #080a0e)',
+  bg2:   'var(--sa-bg2,   #0d1117)',
+  bg3:   'var(--sa-bg3,   #0d1117)',
+  bg4:   'var(--sa-bg4,   #11161e)',
+  line:  'var(--sa-line,  rgba(255,255,255,0.04))',
+  line2: 'var(--sa-line2, rgba(255,255,255,0.08))',
+  text:  'var(--sa-text,  #ffffff)',
+  muted: 'var(--sa-mut,   #94a3b8)',
+  dim:   'var(--sa-dim,   #475569)',
+  green:  "#10b981",
+  green2: "#059669",
+  red:    "#f43f5e",
+  red2:   "#e11d48",
+  amber:  "#f59e0b",
+  blue:   "#6366f1",
+  blue2:  "#4f46e5",
 };
 
 const FONT  = "'Montserrat', sans-serif";
@@ -1236,7 +1236,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function StrategyAudit({ sessionId, userId }: Props) {
+export default function StrategyAudit({ sessionId, userId, darkMode = true }: Props & { darkMode?: boolean }) {
   const [active, setActive] = useState(1);
 
   const { data, isLoading, isError, error, refetch } = useQuery<AuditData>({
@@ -1248,9 +1248,15 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
 
   const F = { fontFamily: FONT };
 
+  const saVars = !darkMode ? {
+    '--sa-bg':    '#EEF2F7', '--sa-bg2':   '#FFFFFF', '--sa-bg3':   '#FFFFFF', '--sa-bg4':   '#F1F5F9',
+    '--sa-line':  '#CBD5E1', '--sa-line2':  '#E2E8F0',
+    '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#94A3B8',
+  } as React.CSSProperties : {};
+
   const showAuditLoader = useDelayedLoading(isLoading);
   if (showAuditLoader) return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", ...saVars }}>
       <TradingLoader message="Analysing your trades…" />
     </div>
   );
@@ -1258,7 +1264,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   if (isError || (data && !data.success)) {
     const msg = (error as Error)?.message ?? data?.error ?? "Unknown error";
     return (
-      <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, ...F }}>
+      <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, ...F, ...saVars }}>
         <WifiOff style={{ width: 48, height: 48, color: T.red }} />
         <div style={{ textAlign: "center" }}>
           <p style={{ ...mono, fontSize: 12, letterSpacing: ".18em", color: T.red, textTransform: "uppercase" }}>Audit Engine Error</p>
@@ -1275,7 +1281,7 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
   // (happens when no session is selected or session has no trade entries)
   if (!data || !data.auditSummary) {
     return (
-      <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, ...F }}>
+      <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, ...F, ...saVars }}>
         <ShieldCheck style={{ width: 44, height: 44, color: T.dim }} />
         <div style={{ textAlign: "center" }}>
           <p style={{ ...mono, fontSize: 11, letterSpacing: ".18em", color: T.muted, textTransform: "uppercase" }}>No audit data yet</p>
@@ -1355,7 +1361,11 @@ export default function StrategyAudit({ sessionId, userId }: Props) {
         }
       `}} />
 
-      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0" }}>
+      <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0", ...(!darkMode ? {
+        '--sa-bg':    '#EEF2F7', '--sa-bg2':   '#FFFFFF', '--sa-bg3':   '#FFFFFF', '--sa-bg4':   '#F1F5F9',
+        '--sa-line':  '#CBD5E1', '--sa-line2':  '#E2E8F0',
+        '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#94A3B8',
+      } as React.CSSProperties : {}) }}>
         <div style={{ width: "100%", margin: "0 auto" }}>
 
           {/* HEADER — drawdown-style */}

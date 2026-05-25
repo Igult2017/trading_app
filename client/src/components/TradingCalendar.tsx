@@ -6,9 +6,9 @@ import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 const FONT   = "'Montserrat', sans-serif";
 const GREEN  = "#00E5A0";
 const RED    = "#FF3D5A";
-const BG     = "#0A0D14";
-const CARD   = "#0F1520";
-const BORDER = "#1C2333";
+const BG     = 'var(--tc-bg,     #0A0D14)';
+const CARD   = 'var(--tc-card,   #0F1520)';
+const BORDER = 'var(--tc-border, #1C2333)';
 
 const MONTH_NAMES  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTH_SHORT  = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -65,7 +65,7 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
 
 function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | null; data: MonthData; maxPnl: number; cellHeight: number; isMobile: boolean }) {
   const [hovered, setHovered] = useState(false);
-  if (!day) return <div style={{ background: "#080B11", minHeight: cellHeight }} />;
+  if (!day) return <div style={{ background: BG, minHeight: cellHeight }} />;
 
   const d        = data[String(day)];
   const isProfit = d && d.pnl >= 0;
@@ -119,7 +119,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
       {d && hovered && !isMobile && (
         <div style={{
           position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
-          background: "#141C2E", border: `1px solid ${isProfit ? "rgba(0,229,160,0.3)" : "rgba(255,61,90,0.3)"}`,
+          background: CARD, border: `1px solid ${isProfit ? "rgba(0,229,160,0.3)" : "rgba(255,61,90,0.3)"}`,
           padding: "12px 16px", zIndex: 999, minWidth: 150, pointerEvents: "none" as const,
           boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
         }}>
@@ -260,7 +260,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
   );
 }
 
-export default function TradingCalendar({ sessionId }: { sessionId?: string | null }) {
+export default function TradingCalendar({ sessionId, darkMode = true }: { sessionId?: string | null; darkMode?: boolean }) {
   const now = new Date();
   const [date, setDate]         = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [flashKey, setFlashKey] = useState(0);
@@ -332,9 +332,15 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const yearOptions  = YEARS.map(y => ({ value: y, label: String(y) }));
 
   const showCalendarLoader = useDelayedLoading(!!sessionId && isLoading);
+  const tcVars = !darkMode ? {
+    '--tc-bg':     '#EEF2F7',
+    '--tc-card':   '#FFFFFF',
+    '--tc-border': '#CBD5E1',
+  } as React.CSSProperties : {};
+
   if (showCalendarLoader) {
     return (
-      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center", ...tcVars }}>
         <TradingLoader size="sm" message="Loading calendar…" />
       </div>
     );
@@ -343,10 +349,10 @@ export default function TradingCalendar({ sessionId }: { sessionId?: string | nu
   const hasCalendarData = Object.keys(data).length > 0;
 
   return (
-    <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad }}>
+    <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, ...tcVars }}>
       <style>{`
         * { box-sizing: border-box; }
-        select option { background: #0F1520; color: #E8EDF5; }
+        ${darkMode ? 'select option { background: #0F1520; color: #E8EDF5; }' : 'select option { background: #FFFFFF; color: #1E293B; }'}
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes tagFlash { 0% { border-color: ${GREEN}; } 60% { border-color: ${GREEN}; } 100% { border-color: #1C2333; } }
         @keyframes dotBlink { 0%,100% { opacity:1; } 50% { opacity:0; } }

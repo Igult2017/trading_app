@@ -301,7 +301,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 }
 
 // ── Main AccountsPage ─────────────────────────────────────────────────────────
-export default function AccountsPage({ openModal = false }: { openModal?: boolean }) {
+export default function AccountsPage({ openModal = false, darkMode = true }: { openModal?: boolean; darkMode?: boolean }) {
   const { session } = useAuth();
   const [accounts,    setAccounts]    = useState<BrokerAccount[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -381,7 +381,7 @@ export default function AccountsPage({ openModal = false }: { openModal?: boolea
   const paged = accounts.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-    <div style={s.root as CSSProperties}>
+    <div className="accounts-root" style={{ ...(s.root as CSSProperties), ...(darkMode ? {} : { background: 'var(--jr-bg, #EEF2F7)', color: 'var(--jr-text, #1E293B)' }) }}>
       <style>{`* { box-sizing: border-box; } ::-webkit-scrollbar { height: 4px; width: 4px; background: #0b1220; } ::-webkit-scrollbar-thumb { background: #1e293b; }`}</style>
 
       {/* Top Banner */}

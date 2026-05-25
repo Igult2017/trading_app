@@ -50,7 +50,7 @@ interface ChatSummary {
   updatedAt: string;
 }
 
-export default function TraderAI({ sessionId }: { sessionId?: string }) {
+export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: string; darkMode?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -463,7 +463,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
   };
 
   return (
-    <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: "#070d15", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
+    <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: darkMode ? "#070d15" : "var(--jr-bg, #EEF2F7)", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
 
       <style>{`
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
@@ -575,7 +575,7 @@ export default function TraderAI({ sessionId }: { sessionId?: string }) {
       )}
 
       <div className={`traderai-sidebar ${mobileSidebarOpen ? "is-open" : ""}`}
-        style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, background: "rgba(7,13,21,0.97)", display: sidebarCollapsed ? "none" : "flex", flexDirection: "column", transition: isDragging ? "none" : "width 0.18s ease", overflow: "hidden", position: "relative" }}>
+        style={{ width: sidebarCollapsed ? 0 : sidebarWidth, flexShrink: 0, background: darkMode ? "rgba(7,13,21,0.97)" : "var(--jr-panel, #F1F5F9)", display: sidebarCollapsed ? "none" : "flex", flexDirection: "column", transition: isDragging ? "none" : "width 0.18s ease", overflow: "hidden", position: "relative" }}>
 
         {/* Drag handle — right edge of sidebar */}
         <div

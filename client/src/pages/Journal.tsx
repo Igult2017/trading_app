@@ -1052,6 +1052,43 @@ export default function Journal() {
         .journal-light select option { background: ${T.surface} !important; color: ${T.text} !important; }
         .journal-light .obs-jf select option { background: ${T.surface} !important; color: ${T.text} !important; }
         .journal-light .obs-rating-btn { background: ${T.surface} !important; border-color: ${T.border} !important; color: ${T.text} !important; }
+
+        /* ── TraderAI CSS-in-JS class overrides ──────────────────────── */
+        .journal-light .traderai-root { color: ${T.text} !important; }
+        .journal-light .tai-user-pill { background: ${T.surface} !important; border-color: ${T.border} !important; color: ${T.text} !important; }
+        .journal-light .tai-ai-row { border-color: ${T.border} !important; color: ${T.text} !important; }
+        .journal-light .tai-section-heading::after { background: ${T.border} !important; }
+        .journal-light .tai-chip { background: ${T.bg} !important; border-color: ${T.border} !important; color: ${T.textMuted} !important; }
+        .journal-light .tai-footer-note { background: ${T.bg} !important; color: ${T.textMuted} !important; }
+        .journal-light .tai-pre { background: ${T.bg} !important; border-color: ${T.border} !important; color: ${T.text} !important; }
+        .journal-light .tai-rule { background: ${T.border} !important; }
+        .journal-light .tai-badge-warn { background: rgba(245,158,11,0.1) !important; }
+        .journal-light .tai-badge-danger { background: rgba(239,68,68,0.1) !important; }
+        .journal-light .tai-badge-ok { background: rgba(52,211,153,0.1) !important; }
+        .journal-light .traderai-sidebar { border-right: 1px solid ${T.border} !important; }
+        .journal-light .traderai-chatrow:hover { background: rgba(0,0,0,0.04) !important; }
+
+        /* ── AccountsPage child overrides ───────────────────────────── */
+        .journal-light .accounts-root table { background: ${T.surface} !important; color: ${T.text} !important; }
+        .journal-light .accounts-root th,
+        .journal-light .accounts-root td { color: ${T.text} !important; border-color: ${T.border} !important; }
+        .journal-light .accounts-root tr { border-color: ${T.border} !important; }
+
+        /* ── TradeSyncPage landing — override CSS custom properties ─── */
+        .journal-light .ts-page {
+          --ts-bg:   ${T.bg}; --ts-bg2:  ${T.surface}; --ts-card: ${T.surface}; --ts-card2: ${T.bg};
+          --ts-border: ${T.border}; --ts-text: ${T.text}; --ts-muted: ${T.textMuted};
+          background: ${T.bg} !important; color: ${T.text} !important;
+        }
+        .journal-light .ts-page .ts-hero h1 { -webkit-text-fill-color: ${T.text} !important; background: none !important; }
+        .journal-light .ts-page .ts-hero p,
+        .journal-light .ts-page .ts-step p,
+        .journal-light .ts-page .ts-platform-meta { color: ${T.textMuted} !important; }
+        .journal-light .ts-page .ts-platform-card { background: ${T.surface} !important; border-color: ${T.border} !important; }
+        .journal-light .ts-page .ts-feat-item,
+        .journal-light .ts-page .ts-step { background: ${T.surface} !important; border-color: ${T.border} !important; }
+        .journal-light .ts-page section,
+        .journal-light .ts-page .ts-section { background: ${T.bg} !important; }
       `}</style>
 
       <JournalHeader
@@ -1062,13 +1099,13 @@ export default function Journal() {
         themeAccent={T.accent}
       />
 
-      <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
+      <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? '10px 10px 32px' : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '0' : activeNav === 'tfmetrics' ? '0 0 0 6px' : activeNav === 'sync' ? '0 0 0 6px' : activeNav === 'accounts' ? '0 0 0 6px' : activeNav === 'addaccount' ? '0 0 0 6px' : activeNav === 'vault' ? '0 0 0 6px' : activeNav === 'strategy' ? '0 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>
 
           {activeNav === 'metrics' ? (
-            <MetricsPanel sessionId={activeSessionId ?? undefined} />
+            <MetricsPanel sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'journal' ? (
             activeSessionId ? (
               <JournalForm sessionId={activeSessionId} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
@@ -1083,11 +1120,11 @@ export default function Journal() {
               </div>
             )
           ) : activeNav === 'strategy' ? (
-            <StrategyAudit sessionId={activeSessionId ?? undefined} userId={user?.id} />
+            <StrategyAudit sessionId={activeSessionId ?? undefined} userId={user?.id} darkMode={T.dark} />
           ) : activeNav === 'vault' ? (
             <TradeVault sessionId={activeSessionId ?? undefined} startingBalance={parseFloat((sessions.find((s: any) => s.id === activeSessionId)?.startingBalance) || "0") || undefined} />
           ) : activeNav === 'calendar' ? (
-            <TradingCalendar sessionId={activeSessionId ?? undefined} />
+            <TradingCalendar sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sessions' ? (
             <SessionsList onSelectSession={handleSelectSession} activeSessionId={activeSessionId} onDeleteSession={handleDeleteSession} onCreated={handleSessionCreated} />
           ) : activeNav === 'tfmetrics' ? (
@@ -1095,13 +1132,13 @@ export default function Journal() {
           ) : activeNav === 'drawdown' ? (
             <DrawdownPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'fsdai' ? (
-            <TraderAI sessionId={activeSessionId ?? undefined} />
+            <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (
             <TradeSyncPage />
           ) : activeNav === 'accounts' ? (
-            <AccountsPage />
+            <AccountsPage darkMode={T.dark} />
           ) : activeNav === 'addaccount' ? (
-            <AccountsPage openModal={true} />
+            <AccountsPage openModal={true} darkMode={T.dark} />
           ) : activeNav === 'assets' ? (
             <AssetPage />
           ) : activeNav === 'leaderboard' ? (

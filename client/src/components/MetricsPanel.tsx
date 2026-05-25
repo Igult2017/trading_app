@@ -8,40 +8,40 @@ import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
    DESIGN TOKENS  (matches attached reference)
 ───────────────────────────────────────────────────────────────────── */
 const D = {
-  bg:       '#0A0C10',
-  bg2:      '#111318',
-  bg3:      '#0E1016',
-  bg4:      '#0C0E14',
-  bdOuter:  '#1E2330',
-  bdInner:  '#1A1F2E',
-  bdRow:    '#12161E',
-  bdDiv:    '#141820',
-  text:     '#C8CDD8',
-  label:    '#4A5568',
-  muted:    '#5A6278',
-  dim:      '#2E3545',
-  sub:      '#3A4050',
+  bg:       'var(--mp-bg,  #0A0C10)',
+  bg2:      'var(--mp-bg2, #111318)',
+  bg3:      'var(--mp-bg3, #0E1016)',
+  bg4:      'var(--mp-bg4, #0C0E14)',
+  bdOuter:  'var(--mp-bdo, #1E2330)',
+  bdInner:  'var(--mp-bdi, #1A1F2E)',
+  bdRow:    'var(--mp-bdr, #12161E)',
+  bdDiv:    'var(--mp-bdd, #141820)',
+  text:     'var(--mp-txt, #C8CDD8)',
+  label:    'var(--mp-lbl, #4A5568)',
+  muted:    'var(--mp-mut, #5A6278)',
+  dim:      'var(--mp-dim, #2E3545)',
+  sub:      'var(--mp-sub, #3A4050)',
   green:    '#1D9E75',
-  greenBg:  '#0A2016',
-  greenBd:  '#0F3020',
+  greenBg:  'var(--mp-grbg, #0A2016)',
+  greenBd:  'var(--mp-grbd, #0F3020)',
   red:      '#E24B4A',
-  redBg:    '#1E0A0A',
-  redBd:    '#3A1010',
+  redBg:    'var(--mp-rdbg, #1E0A0A)',
+  redBd:    'var(--mp-rdbd, #3A1010)',
   amber:    '#EF9F27',
-  amberBg:  '#1E1200',
-  amberBd:  '#3A2200',
+  amberBg:  'var(--mp-ambg, #1E1200)',
+  amberBd:  'var(--mp-ambd, #3A2200)',
   blue:     '#378ADD',
-  blueBg:   '#0A1628',
-  blueBd:   '#0F2A4A',
+  blueBg:   'var(--mp-blbg, #0A1628)',
+  blueBd:   'var(--mp-blbd, #0F2A4A)',
   purple:   '#7F77DD',
-  purpleBg: '#140F28',
-  purpleBd: '#251B4A',
+  purpleBg: 'var(--mp-pubg, #140F28)',
+  purpleBd: 'var(--mp-pubd, #251B4A)',
   cyan:     '#4AE8D8',
-  cyanBg:   '#0A2028',
-  cyanBd:   '#0F3038',
+  cyanBg:   'var(--mp-cybg, #0A2028)',
+  cyanBd:   'var(--mp-cybd, #0F3038)',
   gray:     '#4A5568',
-  grayBg:   '#12151C',
-  grayBd:   '#1A1F2E',
+  grayBg:   'var(--mp-gybg, #12151C)',
+  grayBd:   'var(--mp-gybd, #1A1F2E)',
 };
 
 const MONO: React.CSSProperties = {
@@ -345,7 +345,7 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equity
 /* ═════════════════════════════════════════════════════════════════════
    MAIN EXPORT
 ═════════════════════════════════════════════════════════════════════ */
-export default function MetricsPanel({ sessionId }: { sessionId?: string | null }) {
+export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId?: string | null; darkMode?: boolean }) {
   const [strat, setStrat] = useState('ALL STRATEGIES');
 
   const queryUrl = sessionId
@@ -409,8 +409,21 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
 
   /* ── GUARDS ── */
   const showMetricsLoader = useDelayedLoading(!!sessionId && (isLoading || (balLoading && !metricsData)));
+  const lightVars = !darkMode ? {
+    '--mp-bg':   '#F8FAFC', '--mp-bg2':  '#FFFFFF', '--mp-bg3':  '#F8FAFC', '--mp-bg4':  '#F1F5F9',
+    '--mp-bdo':  '#CBD5E1', '--mp-bdi':  '#E2E8F0', '--mp-bdr':  '#F1F5F9', '--mp-bdd':  '#E2E8F0',
+    '--mp-txt':  '#1E293B', '--mp-lbl':  '#64748B', '--mp-mut':  '#475569', '--mp-dim':  '#94A3B8', '--mp-sub': '#CBD5E1',
+    '--mp-grbg': 'rgba(29,158,117,0.1)',  '--mp-grbd': 'rgba(29,158,117,0.3)',
+    '--mp-rdbg': 'rgba(226,75,74,0.1)',   '--mp-rdbd': 'rgba(226,75,74,0.3)',
+    '--mp-ambg': 'rgba(239,159,39,0.1)',  '--mp-ambd': 'rgba(239,159,39,0.3)',
+    '--mp-blbg': 'rgba(55,138,221,0.1)',  '--mp-blbd': 'rgba(55,138,221,0.3)',
+    '--mp-pubg': 'rgba(127,119,221,0.1)', '--mp-pubd': 'rgba(127,119,221,0.3)',
+    '--mp-cybg': 'rgba(74,232,216,0.1)',  '--mp-cybd': 'rgba(74,232,216,0.3)',
+    '--mp-gybg': '#F1F5F9', '--mp-gybd': '#CBD5E1',
+  } as React.CSSProperties : {};
+
   if (showMetricsLoader) return (
-    <div className="mp-root" style={{ minHeight: '100vh', background: D.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="mp-root" style={{ minHeight: '100vh', background: D.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...lightVars }}>
       <style>{css}</style>
       <TradingLoader size="sm" message="Loading metrics…" />
     </div>
@@ -568,7 +581,7 @@ export default function MetricsPanel({ sessionId }: { sessionId?: string | null 
 
   /* ─── RENDER ── */
   return (
-    <div className="mp-root">
+    <div className="mp-root" style={lightVars as React.CSSProperties}>
       <style>{css}</style>
 
       {/* ── SYNC INDICATOR ── */}
