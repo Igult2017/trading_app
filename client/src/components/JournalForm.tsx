@@ -180,6 +180,90 @@ const Inp = ({ label, type = "text", value, onChange, placeholder, readOnly }: a
   </div>
 );
 
+// ─── PinTxt — textarea with inline pin button (same look as Txt) ──────────────
+function PinTxt({ storageKey, label, value, onChange, placeholder, rows = 2 }: {
+  storageKey: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
+}) {
+  const [sticky, setSticky] = useState<string>(() => {
+    try { return localStorage.getItem(storageKey) || ""; } catch { return ""; }
+  });
+  useEffect(() => {
+    if (sticky && !value) onChange(sticky);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sticky]);
+  const pin = () => {
+    const v = (value || "").trim();
+    if (!v) return;
+    try { localStorage.setItem(storageKey, v); } catch {}
+    setSticky(v);
+  };
+  const clear = () => {
+    try { localStorage.removeItem(storageKey); } catch {}
+    setSticky("");
+  };
+  return (
+    <div className="group space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+        {sticky ? (
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#4e8cff]/10 border border-[#4e8cff]/40 rounded-sm">
+            <span className="text-[9px] text-[#4e8cff] font-bold">pinned</span>
+            <button type="button" onClick={clear} className="text-[#4e8cff]/60 hover:text-rose-400 text-xs leading-none transition-colors">×</button>
+          </div>
+        ) : (
+          <button type="button" onClick={pin} disabled={!value?.trim()}
+            className="px-2 py-0.5 bg-[#0c0c0e] border border-[#27272a] hover:border-[#4e8cff]/50 rounded-sm text-[#3f3f46] hover:text-[#4e8cff] disabled:opacity-30 text-[9px] transition-all">pin</button>
+        )}
+      </div>
+      <textarea rows={rows} value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder || ""}
+        className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 p-3 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#3f3f46] text-xs leading-relaxed transition-all resize-none"
+      />
+    </div>
+  );
+}
+
+// ─── PinInp — single-line input with inline pin button (same look as Inp) ─────
+function PinInp({ storageKey, label, value, onChange, placeholder }: {
+  storageKey: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [sticky, setSticky] = useState<string>(() => {
+    try { return localStorage.getItem(storageKey) || ""; } catch { return ""; }
+  });
+  useEffect(() => {
+    if (sticky && !value) onChange(sticky);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sticky]);
+  const pin = () => {
+    const v = (value || "").trim();
+    if (!v) return;
+    try { localStorage.setItem(storageKey, v); } catch {}
+    setSticky(v);
+  };
+  const clear = () => {
+    try { localStorage.removeItem(storageKey); } catch {}
+    setSticky("");
+  };
+  return (
+    <div className="group space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+        {sticky ? (
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#4e8cff]/10 border border-[#4e8cff]/40 rounded-sm">
+            <span className="text-[9px] text-[#4e8cff] font-bold">pinned</span>
+            <button type="button" onClick={clear} className="text-[#4e8cff]/60 hover:text-rose-400 text-xs leading-none transition-colors">×</button>
+          </div>
+        ) : (
+          <button type="button" onClick={pin} disabled={!value?.trim()}
+            className="px-2 py-0.5 bg-[#0c0c0e] border border-[#27272a] hover:border-[#4e8cff]/50 rounded-sm text-[#3f3f46] hover:text-[#4e8cff] disabled:opacity-30 text-[9px] transition-all">pin</button>
+        )}
+      </div>
+      <input type="text" value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder || ""}
+        className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 px-3 py-2 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#3f3f46] text-xs transition-all"
+      />
+    </div>
+  );
+}
+
 const OBS_ARROW = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`;
 
 function Sel({ label, options, value, onChange }: any) {
@@ -803,10 +887,10 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
           <Radio label="MTF Alignment"         options={["Yes","No"]}           value={d.multitimeframeAlignment} onChange={f("multitimeframeAlignment")} />
         </div>
         <div className="space-y-4">
-          <Txt label="Higher TF Context"    value={d.higherTFContext}    onChange={f("higherTFContext")}    placeholder="Weekly / Daily bias and key levels…" rows={2} />
-          <Txt label="Analysis TF Context"  value={d.analysisTFContext}  onChange={f("analysisTFContext")}  placeholder="4H / 1H structure overview…" rows={2} />
-          <Txt label="Entry TF Context"     value={d.entryTFContext}     onChange={f("entryTFContext")}     placeholder="15M / 5M entry setup details…" rows={2} />
-          <Txt label="Other Confluences"    value={d.otherConfluences}   onChange={f("otherConfluences")}   placeholder="Any additional confluences…" rows={2} />
+          <PinTxt storageKey="fsd:pin:higherTFContext"   label="Higher TF Context"   value={d.higherTFContext}   onChange={f("higherTFContext")}   placeholder="Weekly / Daily bias and key levels…" rows={2} />
+          <PinTxt storageKey="fsd:pin:analysisTFContext" label="Analysis TF Context" value={d.analysisTFContext} onChange={f("analysisTFContext")} placeholder="4H / 1H structure overview…" rows={2} />
+          <PinTxt storageKey="fsd:pin:entryTFContext"    label="Entry TF Context"    value={d.entryTFContext}    onChange={f("entryTFContext")}    placeholder="15M / 5M entry setup details…" rows={2} />
+          <PinTxt storageKey="fsd:pin:otherConfluences"  label="Other Confluences"   value={d.otherConfluences}  onChange={f("otherConfluences")}  placeholder="Any additional confluences…" rows={2} />
         </div>
       </section>
       )}
@@ -816,13 +900,13 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
         <SectionLabel>Technical Signals</SectionLabel>
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Inp label="Timing Context"   placeholder="Kill zone, London open push…" value={d.timingContext}  onChange={f("timingContext")} />
-            <Inp label="Candle Pattern"   placeholder="Engulfing, Pin Bar, Doji…"    value={d.candlePattern} onChange={f("candlePattern")} />
+            <PinInp storageKey="fsd:pin:timingContext" label="Timing Context" value={d.timingContext}  onChange={f("timingContext")} placeholder="Kill zone, London open push…" />
+            <PinInp storageKey="fsd:pin:candlePattern" label="Candle Pattern" value={d.candlePattern} onChange={f("candlePattern")} placeholder="Engulfing, Pin Bar, Doji…" />
           </div>
-          <Txt label="Primary Signals"   value={d.primarySignals}   onChange={f("primarySignals")}   placeholder="Describe the primary technical signals…" rows={2} />
-          <Txt label="Secondary Signals" value={d.secondarySignals} onChange={f("secondarySignals")} placeholder="Describe any secondary signals…" rows={2} />
-          <Inp label="Indicator State"   placeholder="RSI 62, MACD bullish cross, above 50 EMA…" value={d.indicatorState} onChange={f("indicatorState")} />
-          <Txt label="Liquidity Targets" value={d.liquidityTargets} onChange={f("liquidityTargets")} placeholder="Nearby liquidity pools, equal highs/lows, order blocks…" rows={2} />
+          <PinTxt storageKey="fsd:pin:primarySignals"   label="Primary Signals"   value={d.primarySignals}   onChange={f("primarySignals")}   placeholder="Describe the primary technical signals…" rows={2} />
+          <PinTxt storageKey="fsd:pin:secondarySignals" label="Secondary Signals" value={d.secondarySignals} onChange={f("secondarySignals")} placeholder="Describe any secondary signals…" rows={2} />
+          <PinInp storageKey="fsd:pin:indicatorState"   label="Indicator State"   value={d.indicatorState}   onChange={f("indicatorState")}   placeholder="RSI 62, MACD bullish cross, above 50 EMA…" />
+          <PinTxt storageKey="fsd:pin:liquidityTargets" label="Liquidity Targets" value={d.liquidityTargets} onChange={f("liquidityTargets")} placeholder="Nearby liquidity pools, equal highs/lows, order blocks…" rows={2} />
         </div>
       </section>
       )}
