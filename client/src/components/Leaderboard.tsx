@@ -73,7 +73,6 @@ export default function Leaderboard() {
     return () => mq.removeEventListener?.('change', update);
   }, []);
 
-  // Overall leaderboard — ranked per session (same as by-session, no name filter)
   const { data: lbData, isLoading: loadingOverall, error: overallError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
     queryKey: ['/api/leaderboard/by-session', activePeriod, '__overall__'],
     queryFn: async () => {
@@ -86,7 +85,6 @@ export default function Leaderboard() {
     enabled: viewMode === 'overall',
   });
 
-  // Session leaderboard
   const sessionParam = selectedSession ? `&session_name=${encodeURIComponent(selectedSession)}` : '';
   const { data: sessionData, isLoading: loadingSession, error: sessionError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
     queryKey: ['/api/leaderboard/by-session', activePeriod, selectedSession],
@@ -100,7 +98,6 @@ export default function Leaderboard() {
     enabled: viewMode === 'session',
   });
 
-  // Session names for filter dropdown
   const { data: sessionNamesData } = useQuery<{ sessionNames: string[] }>({
     queryKey: ['/api/leaderboard/session-names'],
     queryFn: async () => {
@@ -147,18 +144,18 @@ export default function Leaderboard() {
 
   const btnBase: React.CSSProperties = {
     padding: '7px 16px', fontSize: 11, fontWeight: 700,
-    letterSpacing: '0.08em', border: '1px solid #1e293b',
+    letterSpacing: '0.08em', border: '1px solid var(--jr-border)',
     cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
   };
   const btnActive: React.CSSProperties  = { ...btnBase, background: '#2563eb', color: '#fff', borderColor: '#2563eb' };
-  const btnIdle: React.CSSProperties    = { ...btnBase, background: '#0f172a', color: '#64748b' };
+  const btnIdle: React.CSSProperties    = { ...btnBase, background: 'var(--jr-panel)', color: 'var(--jr-muted)' };
 
   return (
-    <div style={{ background: '#020617', color: '#f1f5f9', padding: isMobile ? '14px 0 28px' : '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
+    <div style={{ background: 'var(--jr-panel)', color: 'var(--jr-text)', padding: isMobile ? '14px 0 28px' : '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
 
       {/* Disclaimer */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 8 : 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: isMobile ? '10px 12px' : '12px 16px', marginBottom: isMobile ? 12 : 16, fontSize: isMobile ? 10 : 11, color: '#64748b', lineHeight: 1.55 }}>
-        <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 8 : 10, background: 'rgba(0,0,0,0.03)', border: '1px solid var(--jr-border)', padding: isMobile ? '10px 12px' : '12px 16px', marginBottom: isMobile ? 12 : 16, fontSize: isMobile ? 10 : 11, color: 'var(--jr-muted)', lineHeight: 1.55 }}>
+        <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate.</span>
       </div>
 
@@ -169,17 +166,16 @@ export default function Leaderboard() {
           { id: 'session' as const, label: 'By Session', icon: <Layers size={13} /> },
         ]).map(m => (
           <button key={m.id} onClick={() => setViewMode(m.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 12px' : '7px 16px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${viewMode === m.id ? '#2563eb' : '#1e293b'}`, background: viewMode === m.id ? 'rgba(37,99,235,0.15)' : '#0f172a', color: viewMode === m.id ? '#60a5fa' : '#475569', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 12px' : '7px 16px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${viewMode === m.id ? '#2563eb' : 'var(--jr-border)'}`, background: viewMode === m.id ? 'rgba(37,99,235,0.15)' : 'var(--jr-panel)', color: viewMode === m.id ? '#60a5fa' : 'var(--jr-muted)', transition: 'all 0.15s', fontFamily: 'inherit' }}>
             {m.icon}{m.label}
           </button>
         ))}
 
-        {/* Session name filter — only in session mode */}
         {viewMode === 'session' && sessionNames.length > 0 && (
           <select
             value={selectedSession}
             onChange={e => setSelectedSession(e.target.value)}
-            style={{ marginLeft: 6, padding: isMobile ? '6px 10px' : '7px 14px', fontSize: isMobile ? 10 : 11, fontWeight: 700, background: '#0f172a', color: selectedSession ? '#60a5fa' : '#475569', border: `1px solid ${selectedSession ? '#2563eb60' : '#1e293b'}`, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
+            style={{ marginLeft: 6, padding: isMobile ? '6px 10px' : '7px 14px', fontSize: isMobile ? 10 : 11, fontWeight: 700, background: 'var(--jr-panel)', color: selectedSession ? '#60a5fa' : 'var(--jr-muted)', border: `1px solid ${selectedSession ? '#2563eb60' : 'var(--jr-border)'}`, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
             <option value="">All Sessions</option>
             {sessionNames.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -190,12 +186,12 @@ export default function Leaderboard() {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 14 : 20 }}>
         {categories.map(c => (
           <button key={c.id} onClick={() => setActiveCategory(c.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 10px' : '7px 14px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${activeCategory === c.id ? c.color + '60' : '#1e293b'}`, background: activeCategory === c.id ? c.color + '18' : '#0f172a', color: activeCategory === c.id ? c.color : '#64748b', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 10px' : '7px 14px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${activeCategory === c.id ? c.color + '60' : 'var(--jr-border)'}`, background: activeCategory === c.id ? c.color + '18' : 'var(--jr-panel)', color: activeCategory === c.id ? c.color : 'var(--jr-muted)', transition: 'all 0.15s', fontFamily: 'inherit' }}>
             {c.icon}{isMobile ? c.label.replace('By ', '') : c.label}
           </button>
         ))}
-        {!isMobile && <div style={{ width: 1, height: 22, background: '#1e293b', margin: '0 4px' }} />}
-        <div style={{ display: 'flex', border: '1px solid #1e293b', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+        {!isMobile && <div style={{ width: 1, height: 22, background: 'var(--jr-border)', margin: '0 4px' }} />}
+        <div style={{ display: 'flex', border: '1px solid var(--jr-border)', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           {(['all', 'daily', 'weekly', 'monthly'] as const).map(p => (
             <button key={p} onClick={() => setActivePeriod(p)} style={activePeriod === p
               ? { ...btnActive, padding: isMobile ? '6px 10px' : '7px 16px', fontSize: isMobile ? 10 : 11 }
@@ -208,7 +204,7 @@ export default function Leaderboard() {
 
       {/* Loading */}
       {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '80px 0', color: '#475569' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '80px 0', color: 'var(--jr-muted)' }}>
           <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
           <span style={{ fontSize: 13, fontWeight: 700 }}>Loading leaderboard…</span>
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -224,10 +220,10 @@ export default function Leaderboard() {
 
       {/* Empty state */}
       {!loading && !error && sortedTraders.length === 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: 14, color: '#475569' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: 14, color: 'var(--jr-muted)' }}>
           <Users size={40} strokeWidth={1.2} />
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#64748b', margin: 0 }}>No traders ranked yet</p>
-          <p style={{ fontSize: 12, color: '#334155', margin: 0, textAlign: 'center', maxWidth: 300 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--jr-muted)', margin: 0 }}>No traders ranked yet</p>
+          <p style={{ fontSize: 12, color: 'var(--jr-muted)', margin: 0, textAlign: 'center', maxWidth: 300 }}>
             {viewMode === 'session'
               ? 'No session data found. Trades must be linked to a session to appear here.'
               : 'Start logging trades in your journal to appear on the leaderboard.'}
@@ -245,10 +241,10 @@ export default function Leaderboard() {
               const podiumColor = isFirst ? '#eab308' : rank === 2 ? '#94a3b8' : '#f97316';
               return (
                 <div key={trader.sessionId ?? trader.userId} style={{ flex: 1, minWidth: isMobile ? 140 : 180, position: 'relative' }}>
-                  <div style={{ background: '#0f172a', border: `1px solid ${isFirst ? 'rgba(234,179,8,0.4)' : '#1e293b'}`, padding: isMobile ? '14px 12px 12px' : '16px 16px 14px', position: 'relative', overflow: 'hidden', minHeight: isFirst ? (isMobile ? 220 : 260) : (isMobile ? 180 : 200), display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: isFirst ? '0 0 32px rgba(234,179,8,0.08)' : 'none', marginBottom: isFirst && !isMobile ? 14 : 0 }}>
+                  <div style={{ background: 'var(--jr-panel)', border: `1px solid ${isFirst ? 'rgba(234,179,8,0.4)' : 'var(--jr-border)'}`, padding: isMobile ? '14px 12px 12px' : '16px 16px 14px', position: 'relative', overflow: 'hidden', minHeight: isFirst ? (isMobile ? 220 : 260) : (isMobile ? 180 : 200), display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: isFirst ? '0 0 32px rgba(234,179,8,0.08)' : 'none', marginBottom: isFirst && !isMobile ? 14 : 0 }}>
                     {/* Top-left rank diamond */}
                     <div style={{ position: 'absolute', top: 12, left: 12, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ position: 'absolute', width: 22, height: 22, border: `1px solid ${podiumColor}`, background: isFirst ? 'rgba(234,179,8,0.12)' : 'rgba(30,41,59,0.6)', transform: 'rotate(45deg)' }} />
+                      <div style={{ position: 'absolute', width: 22, height: 22, border: `1px solid ${podiumColor}`, background: isFirst ? 'rgba(234,179,8,0.12)' : 'rgba(0,0,0,0.06)', transform: 'rotate(45deg)' }} />
                       <span style={{ position: 'relative', zIndex: 1, fontSize: 11, fontWeight: 800, color: podiumColor }}>{rank}</span>
                     </div>
                     {/* Top-right country flag */}
@@ -259,30 +255,29 @@ export default function Leaderboard() {
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
                       <div style={{ position: 'relative', marginBottom: 8 }}>
-                        <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : '#94a3b8' }}>
+                        <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : '#94a3b8' }}>
                           {trader.avatar}
                         </div>
                         {isFirst && (
-                          <div style={{ position: 'absolute', bottom: -4, right: -4, background: '#020617', padding: 3, borderRadius: '50%', border: '2px solid #eab308' }}>
+                          <div style={{ position: 'absolute', bottom: -4, right: -4, background: 'var(--jr-panel)', padding: 3, borderRadius: '50%', border: '2px solid #eab308' }}>
                             <Trophy size={10} color="#eab308" />
                           </div>
                         )}
                       </div>
-                      <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: isFirst ? '#fff' : '#cbd5e1', lineHeight: 1.3 }}>{truncateName(trader.name)}</h3>
-                      {/* Session name badge — only in session mode */}
+                      <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: 'var(--jr-text)', lineHeight: 1.3 }}>{truncateName(trader.name)}</h3>
                       {viewMode === 'session' && trader.sessionName && (
-                        <span style={{ marginTop: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#475569', background: '#0f172a', border: '1px solid #1e293b', padding: '2px 7px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ marginTop: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--jr-muted)', background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: '2px 7px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {trader.sessionName}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
                       <div>
-                        <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
+                        <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>{fmtPnl(trader.pnl)}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
+                        <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
                           {activeCategory === 'profitFactor' ? 'P. Factor' : 'Win Rate'}
                         </p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: accentFor(activeCategory) }}>
@@ -290,8 +285,8 @@ export default function Leaderboard() {
                         </p>
                       </div>
                     </div>
-                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #1e293b' }}>
-                      <Sparkline data={trader.growth} color={isFirst ? '#eab308' : '#334155'} />
+                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--jr-border)' }}>
+                      <Sparkline data={trader.growth} color={isFirst ? '#eab308' : '#94a3b8'} />
                     </div>
                   </div>
                 </div>
@@ -300,10 +295,10 @@ export default function Leaderboard() {
           </div>
 
           {/* Table */}
-          <div style={{ background: '#0f172a', border: '1px solid #1e293b', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', marginBottom: 10 }}>
+          <div style={{ background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', marginBottom: 10 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: isMobile ? 560 : undefined }}>
               <thead>
-                <tr style={{ background: 'rgba(30,41,59,0.5)' }}>
+                <tr style={{ background: 'var(--jr-divider,rgba(0,0,0,0.04))' }}>
                   {[
                     { label: '#',             align: 'left'  as const, key: null,            hideOnMobile: false },
                     { label: 'Trader',        align: 'left'  as const, key: null,            hideOnMobile: false },
@@ -314,7 +309,7 @@ export default function Leaderboard() {
                     { label: 'Trades',        align: 'right' as const, key: null,            hideOnMobile: true  },
                     { label: 'Growth',        align: 'right' as const, key: null,            hideOnMobile: false },
                   ].filter(col => !(isMobile && col.hideOnMobile)).map(col => (
-                    <th key={col.label} style={{ padding: isMobile ? '10px 10px' : '12px 20px', fontSize: 9, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.16em', color: col.key === activeCategory ? accentFor(activeCategory) : '#475569', textAlign: col.align, whiteSpace: 'nowrap' }}>
+                    <th key={col.label} style={{ padding: isMobile ? '10px 10px' : '12px 20px', fontSize: 9, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.16em', color: col.key === activeCategory ? accentFor(activeCategory) : 'var(--jr-muted)', textAlign: col.align, whiteSpace: 'nowrap' }}>
                       {col.label}
                     </th>
                   ))}
@@ -322,18 +317,18 @@ export default function Leaderboard() {
               </thead>
               <tbody>
                 {sortedTraders.map((trader, index) => (
-                  <tr key={trader.sessionId ?? trader.userId} style={{ borderTop: '1px solid #1e293b', transition: 'background 0.1s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(30,41,59,0.3)')}
+                  <tr key={trader.sessionId ?? trader.userId} style={{ borderTop: '1px solid var(--jr-border)', transition: 'background 0.1s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
                       <div style={{ position: 'relative', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ position: 'absolute', width: 24, height: 24, border: `1px solid ${index < 3 ? '#eab308' : '#334155'}`, background: index < 3 ? 'rgba(234,179,8,0.08)' : 'rgba(30,41,59,0.4)', transform: 'rotate(45deg)' }} />
-                        <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? '#eab308' : '#64748b' }}>{trader.rank}</span>
+                        <div style={{ position: 'absolute', width: 24, height: 24, border: `1px solid ${index < 3 ? '#eab308' : 'var(--jr-border)'}`, background: index < 3 ? 'rgba(234,179,8,0.08)' : 'rgba(0,0,0,0.04)', transform: 'rotate(45deg)' }} />
+                        <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? '#eab308' : 'var(--jr-muted)' }}>{trader.rank}</span>
                       </div>
                     </td>
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10 }}>
-                        <div style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
+                        <div style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', background: 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
                           {trader.avatar}
                         </div>
                         {trader.country && (
@@ -341,28 +336,27 @@ export default function Leaderboard() {
                             {flagEmoji(trader.country)}
                           </span>
                         )}
-                        <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: 'nowrap', color: '#e2e8f0' }}>{truncateName(trader.name)}</span>
+                        <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--jr-text)' }}>{truncateName(trader.name)}</span>
                       </div>
                     </td>
-                    {/* Session column — only in session mode, hidden on mobile */}
                     {viewMode === 'session' && !isMobile && (
-                      <td style={{ padding: '12px 20px', fontSize: 11, fontWeight: 600, color: '#475569', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '12px 20px', fontSize: 11, fontWeight: 600, color: 'var(--jr-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {trader.sessionName || '—'}
                       </td>
                     )}
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>
                       {fmtPnl(trader.pnl)}
                     </td>
-                    <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: activeCategory === 'winRate' ? '#60a5fa' : '#64748b' }}>
+                    <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: activeCategory === 'winRate' ? '#60a5fa' : 'var(--jr-muted)' }}>
                       {trader.winRate}%
                     </td>
                     {!isMobile && (
-                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? '#a78bfa' : '#64748b' }}>
+                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? '#a78bfa' : 'var(--jr-muted)' }}>
                         {trader.profitFactor > 0 ? trader.profitFactor.toFixed(2) : '—'}
                       </td>
                     )}
                     {!isMobile && (
-                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
+                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--jr-muted)' }}>
                         {trader.trades}
                       </td>
                     )}
@@ -383,11 +377,11 @@ export default function Leaderboard() {
                 { label: 'Total Trades',                                            value: summary.totalTrades.toLocaleString() },
                 { label: viewMode === 'session' ? 'Sessions Ranked' : 'Active Traders', value: summary.activeTraders.toString() },
               ].map(({ label, value }) => (
-                <div key={label} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid #1e293b', padding: isMobile ? '12px 14px' : '16px 18px', transition: 'border-color 0.15s', minWidth: 0 }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#334155')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e293b')}>
-                  <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px' }}>{label}</p>
-                  <p style={{ fontSize: isMobile ? 17 : 22, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</p>
+                <div key={label} style={{ background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: isMobile ? '12px 14px' : '16px 18px', transition: 'border-color 0.15s', minWidth: 0 }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--jr-muted)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--jr-border)')}>
+                  <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px' }}>{label}</p>
+                  <p style={{ fontSize: isMobile ? 17 : 22, fontWeight: 800, color: 'var(--jr-text)', margin: 0, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</p>
                 </div>
               ))}
             </div>

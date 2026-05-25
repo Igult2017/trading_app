@@ -29,10 +29,10 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
     minWidth: 0,
     padding: isMobile ? "8px 4px" : "10px 0",
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
-    borderLeft: first ? "none" : "1px solid #1e2535",
+    borderLeft: first ? "none" : "1px solid var(--jr-border)",
     borderTop: "1px solid transparent",
   }}>
-    <span style={{ fontSize: 9, fontWeight: 900, color: "#3d4d6a", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+    <span style={{ fontSize: 9, fontWeight: 900, color: "var(--jr-muted)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
     </span>
     <span style={{
@@ -109,7 +109,7 @@ function DirectionBadge({ direction }: { direction: string }) {
   const isBearish = direction === "bearish";
 
   if (!isBullish && !isBearish) {
-    return <span style={{ color: "#3a4a6a", fontSize: 9 }}>—</span>;
+    return <span style={{ color: "var(--jr-muted)", fontSize: 9 }}>—</span>;
   }
 
   return (
@@ -144,7 +144,7 @@ function DirectionBadge({ direction }: { direction: string }) {
 
 function RRBadge({ rr }: { rr: string }) {
   const val = parseFloat(rr);
-  if (!rr || isNaN(val)) return <span style={{ color: "#3a4a6a", fontSize: 9 }}>—</span>;
+  if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-muted)", fontSize: 9 }}>—</span>;
   const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
   return (
     <span style={{
@@ -476,8 +476,8 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   const vaultHeader = (subtitle: string) => (
     <header style={{
       width: "100%",
-      background: "#111520",
-      borderBottom: "1px solid #1e2535",
+      background: "var(--jr-panel)",
+      borderBottom: "1px solid var(--jr-border)",
       padding: isMobile ? "12px 14px" : "14px 20px",
       display: "flex",
       flexDirection: isMobile ? "column" : "row",
@@ -492,11 +492,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#eef2ff", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>TRADE VAULT</div>
-          <div style={{ fontSize: 11, fontWeight: 900, color: "#4a5778", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-text)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>TRADE VAULT</div>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-muted)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
-      <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "#0d1018", border: "1px solid #1e2535", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
+      <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "var(--jr-panel)", border: "1px solid var(--jr-border)", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
         <VaultCell label="NET P/L"  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
         <VaultCell label="WIN RATE" value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
         <VaultCell label="TRADES"   value={String(trades.length)} color="#f0f4ff" isMobile={isMobile} />
@@ -508,16 +508,16 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
             flex: isMobile ? "1 1 33%" : "none", width: isMobile ? "auto" : 110,
             minWidth: 0,
             padding: isMobile ? "8px 4px" : "10px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
-            borderLeft: "1px solid #1e2535",
+            borderLeft: "1px solid var(--jr-border)",
             cursor: trades.length > 0 ? "pointer" : "default",
             opacity: trades.length > 0 ? 1 : 0.4,
             transition: "background 0.15s",
           }}
-          onMouseEnter={e => { if (trades.length > 0) e.currentTarget.style.background = "#161b27"; }}
+          onMouseEnter={e => { if (trades.length > 0) e.currentTarget.style.background = "rgba(0,0,0,0.06)"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
           data-testid="button-download-csv"
         >
-          <span style={{ fontSize: 9, fontWeight: 900, color: "#3d4d6a", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+          <span style={{ fontSize: 9, fontWeight: 900, color: "var(--jr-muted)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
             {exported ? "EXPORTED" : "EXPORT CSV"}
           </span>
           <CircleDownloadIcon success={exported} />
@@ -547,13 +547,13 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     <div className="trade-vault-root" style={styles.page}>
       <style>{`
         .trade-vault-root, .trade-vault-root * { box-sizing: border-box; }
-        .trade-vault-root select option { background: #111520; color: #e0e6f0; }
+        .trade-vault-root select option { background: var(--jr-panel); color: var(--jr-text); }
 
         @media (max-width: 640px) {
           .trade-vault-root .tv-table-wrap { border-left: 0 !important; border-right: 0 !important; }
           .trade-vault-root .tv-table th { padding: 10px 10px !important; font-size: 8.5px !important; }
           .trade-vault-root .tv-table td { padding: 12px 10px !important; }
-          .trade-vault-root .tv-stats > div { border-top: 1px solid #1a2030; }
+          .trade-vault-root .tv-stats > div { border-top: 1px solid var(--jr-border); }
           .trade-vault-root .tv-stats > div:nth-child(-n+3) { border-top: none; }
           .trade-vault-root .tv-stats > div:nth-child(3n+1) { border-left: none !important; }
         }
@@ -563,13 +563,13 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         }
 
         .row-hover { transition: background 0.15s ease; }
-        .row-hover:hover { background: rgba(255,255,255,0.03) !important; }
+        .row-hover:hover { background: rgba(0,0,0,0.04) !important; }
 
         .edit-btn {
           background: none;
           border: none;
           cursor: pointer;
-          color: #3a4560;
+          color: var(--jr-muted);
           transition: color 0.2s, transform 0.2s;
           font-size: 16px;
           padding: 6px;
@@ -584,7 +584,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           background: none;
           border: none;
           cursor: pointer;
-          color: #3a4560;
+          color: var(--jr-muted);
           transition: color 0.2s, transform 0.2s, background 0.2s;
           font-size: 16px;
           padding: 6px;
@@ -615,7 +615,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ padding: 0 }}>
       {trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "#3a4a6a", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
+          <div style={{ color: "var(--jr-muted)", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
         </div>
       ) : (
         <div className="tv-table-wrap" style={{ ...styles.tableWrapper, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -634,7 +634,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                   className="row-hover"
                   style={{
                     ...styles.tr,
-                    borderTop: i === 0 ? "1px solid #1a2035" : "none",
+                    borderTop: i === 0 ? "1px solid var(--jr-border)" : "none",
                   }}
                   data-testid={`row-trade-${trade.id}`}
                 >
@@ -734,9 +734,9 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
 const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
-    background: "#080b10",
+    background: "var(--jr-panel)",
     fontFamily: "'JetBrains Mono', monospace",
-    color: "#c0cce0",
+    color: "var(--jr-text)",
     padding: 0,
   },
   header: {
@@ -751,20 +751,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
     fontSize: 14,
-    color: "#e8eeff",
+    color: "var(--jr-text)",
     letterSpacing: "0.06em",
   },
   vaultSub: {
     fontSize: 11,
-    color: "#3a4a6a",
+    color: "var(--jr-muted)",
     marginTop: 4,
     letterSpacing: "0.05em",
   },
   statsRow: {
     display: "flex",
     alignItems: "center",
-    background: "#0d1220",
-    border: "1px solid #1a2035",
+    background: "var(--jr-panel)",
+    border: "1px solid var(--jr-border)",
     borderRadius: 12,
     padding: "12px 20px",
     gap: 20,
@@ -772,7 +772,7 @@ const styles: Record<string, React.CSSProperties> = {
   statCard: { textAlign: "center" as const },
   statLabel: {
     fontSize: 9,
-    color: "#3a4a6a",
+    color: "var(--jr-muted)",
     letterSpacing: "0.12em",
     marginBottom: 4,
   },
@@ -784,11 +784,11 @@ const styles: Record<string, React.CSSProperties> = {
   statDivider: {
     width: 1,
     height: 32,
-    background: "#1a2035",
+    background: "var(--jr-border)",
   },
   tableWrapper: {
-    background: "#0d1220",
-    border: "1px solid #1a2035",
+    background: "var(--jr-panel)",
+    border: "1px solid var(--jr-border)",
     borderRadius: 0,
     overflow: "hidden",
   },
@@ -801,13 +801,13 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "left" as const,
     fontSize: 9,
     fontWeight: 600,
-    color: "#3a4a6a",
+    color: "var(--jr-muted)",
     letterSpacing: "0.12em",
-    borderBottom: "1px solid #1a2035",
+    borderBottom: "1px solid var(--jr-border)",
     fontFamily: "'Montserrat', sans-serif",
   },
   tr: {
-    borderBottom: "1px solid #111825",
+    borderBottom: "1px solid var(--jr-border)",
     transition: "background 0.15s",
   },
   td: {
@@ -816,35 +816,35 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dateText: {
     fontSize: 10,
-    color: "#8899bb",
+    color: "var(--jr-text)",
     fontWeight: 500,
   },
   timeText: {
     fontSize: 9,
-    color: "#3a4a6a",
+    color: "var(--jr-muted)",
     marginTop: 2,
   },
   asset: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
     fontSize: 11,
-    color: "#e8eeff",
+    color: "var(--jr-text)",
     letterSpacing: "0.05em",
     fontStyle: "italic" as const,
   },
   strategy: {
     fontSize: 10,
-    color: "#8899bb",
+    color: "var(--jr-muted)",
   },
   sessionBadge: {
     display: "inline-block",
     padding: "4px 10px",
-    background: "#111825",
-    border: "1px solid #1e2d4a",
+    background: "var(--jr-panel)",
+    border: "1px solid var(--jr-border)",
     borderRadius: 6,
     fontSize: 9,
     fontWeight: 600,
-    color: "#5b7aaa",
+    color: "var(--jr-muted)",
     letterSpacing: "0.08em",
   },
   outcomeBadge: {
@@ -887,8 +887,8 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 1000,
   },
   modal: {
-    background: "#0d1220",
-    border: "1px solid #1e2d4a",
+    background: "var(--jr-panel)",
+    border: "1px solid var(--jr-border)",
     borderRadius: 12,
     padding: 28,
     width: "100%",
@@ -906,13 +906,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 800,
     fontSize: 14,
-    color: "#e8eeff",
+    color: "var(--jr-text)",
     letterSpacing: "0.1em",
   },
   closeBtn: {
     background: "none",
     border: "none",
-    color: "#3a4a6a",
+    color: "var(--jr-muted)",
     cursor: "pointer",
     fontSize: 16,
   },
@@ -930,16 +930,16 @@ const styles: Record<string, React.CSSProperties> = {
   label: {
     fontSize: 9,
     fontWeight: 700,
-    color: "#3a4a6a",
+    color: "var(--jr-muted)",
     letterSpacing: "0.12em",
     fontFamily: "'Montserrat', sans-serif",
   },
   input: {
-    background: "#080c15",
-    border: "1px solid #1e2d4a",
+    background: "var(--jr-panel)",
+    border: "1px solid var(--jr-border)",
     borderRadius: 6,
     padding: "8px 10px",
-    color: "#c0cce0",
+    color: "var(--jr-text)",
     fontSize: 12,
     fontFamily: "'JetBrains Mono', monospace",
     outline: "none",
@@ -953,9 +953,9 @@ const styles: Record<string, React.CSSProperties> = {
   cancelBtn: {
     padding: "8px 18px",
     background: "none",
-    border: "1px solid #1e2d4a",
+    border: "1px solid var(--jr-border)",
     borderRadius: 6,
-    color: "#5b7aaa",
+    color: "var(--jr-muted)",
     fontSize: 11,
     fontWeight: 700,
     cursor: "pointer",

@@ -239,7 +239,7 @@ const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => 
           <stop offset="100%" stopColor="#7c3aed" stopOpacity="0"/>
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width={W} height={H} fill="#080d18"/>
+      <rect x="0" y="0" width={W} height={H} fill="var(--jr-chart,#080d18)"/>
       {[0.25,0.5,0.75,1].map((t,i)=><line key={i} x1={PL} y1={PT+(1-t)*(H-PT-PB)} x2={W-PR} y2={PT+(1-t)*(H-PT-PB)} stroke="rgba(99,120,180,0.15)" strokeWidth="1" strokeDasharray="4 4"/>)}
       {[0,1,2,3].map(i=>{const v=minV+(i/3)*range; return <text key={i} x={PL-5} y={toY(v)+4} textAnchor="end" fontSize="9" fill="rgba(100,116,139,0.6)" fontFamily="Montserrat,sans-serif" fontWeight="900">{v>=1000?`${(v/1000).toFixed(1)}k`:Math.round(v)}</text>;})}
       {labelIdxs.map(i=><text key={i} x={toX(i)} y={H-PB+16} textAnchor="middle" fontSize="9" fill="rgba(100,116,139,0.6)" fontFamily="Montserrat,sans-serif" fontWeight="900">{data[i].label}</text>)}
@@ -248,7 +248,7 @@ const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => 
       <path d={linePath} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
       <path d={linePath} fill="none" stroke="#c4b5fd" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)"/>
       <circle cx={last.x} cy={last.y} r="8" fill="#a78bfa" opacity="0.2"/>
-      <circle cx={last.x} cy={last.y} r="5" fill="#080d18" stroke="#a78bfa" strokeWidth="2"/>
+      <circle cx={last.x} cy={last.y} r="5" fill="var(--jr-chart,#080d18)" stroke="#a78bfa" strokeWidth="2"/>
       <circle cx={last.x} cy={last.y} r="2" fill="#c4b5fd"/>
     </svg>
   );

@@ -457,7 +457,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 4 */}
-      <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Logical Verification</CellTitle>
         <div className="sa-lv-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {lvRows.map((item, i) => (
@@ -612,7 +612,7 @@ function Page3({ d }: { d: AuditData }) {
 
   return (
     <div>
-      <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Core Robustness</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}`, padding: "8px 0" }}>
           <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 9, letterSpacing: ".25em", color: T.dim, textTransform: "uppercase" }}>Status Bar</span>
@@ -756,7 +756,7 @@ function Page4({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
         <CellTitle>Final Verdict &amp; Next Actions</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
           {(d.finalVerdict?.nextActions ?? []).slice(0, 2).map((action, i) => (
