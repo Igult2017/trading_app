@@ -1,0 +1,336 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>EquiTrade | Trading Session Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#131b2e",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#3f465c",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#0b1c30",
+                        "background": "#f8f9ff",
+                        "error": "#ba1a1a",
+                        "tertiary": "#005438",
+                        "surface-container-low": "#eff4ff",
+                        "secondary-fixed-dim": "#bec6e0",
+                        "surface-container-high": "#dce9ff",
+                        "inverse-surface": "#213145",
+                        "on-secondary-container": "#5c647a",
+                        "on-primary-container": "#d4dcff",
+                        "on-primary-fixed": "#00174d",
+                        "outline-variant": "#c3c5d7",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#006f4b",
+                        "on-surface": "#0b1c30",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-tertiary-container": "#68f5b8",
+                        "error-container": "#ffdad6",
+                        "outline": "#737686",
+                        "surface-bright": "#f8f9ff",
+                        "surface": "#f8f9ff",
+                        "primary-fixed": "#dbe1ff",
+                        "primary-container": "#1a56db",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#b5c4ff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#1353d8",
+                        "surface-container": "#e5eeff",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "secondary": "#565e74",
+                        "on-primary-fixed-variant": "#003dab",
+                        "secondary-container": "#dae2fd",
+                        "primary": "#003fb1",
+                        "surface-dim": "#cbdbf5",
+                        "on-tertiary-fixed": "#002113",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "primary-fixed-dim": "#b5c4ff",
+                        "on-surface-variant": "#434654",
+                        "surface-variant": "#d3e4fe",
+                        "tertiary-fixed": "#6ffbbe",
+                        "secondary-fixed": "#dae2fd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "xs": "4px",
+                        "grid-margin": "16px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "xl": "40px",
+                        "grid-gutter": "1px"
+                    },
+                    "fontFamily": {
+                        "data-lg": ["DM Mono"],
+                        "data-sm": ["DM Mono"],
+                        "data-md": ["DM Mono"],
+                        "display-lg": ["Montserrat"],
+                        "headline-md": ["Montserrat"],
+                        "headline-sm": ["Montserrat"],
+                        "headline-lg": ["Montserrat"],
+                        "label-caps": ["DM Mono"]
+                    },
+                    "fontSize": {
+                        "data-lg": ["20px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "data-sm": ["12px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                        "data-md": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "900"}],
+                        "headline-md": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "headline-sm": ["18px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "800"}],
+                        "label-caps": ["10px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #ffffff; color: #0b1c30; -webkit-font-smoothing: antialiased; }
+        .thin-border { border: 1px solid #e2e8f0; }
+        .hairline-b { border-bottom: 1px solid #e2e8f0; }
+        .hairline-r { border-right: 1px solid #e2e8f0; }
+        .timeline-grid { background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px); background-size: calc(100% / 24) 100%; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="font-headline-sm" data-mode="connect">
+<!-- TopAppBar Shell -->
+
+<!-- SideNavBar Shell -->
+
+<!-- Main Content -->
+<main class="pt-16 min-h-screen bg-background">
+<div class="p-lg">
+<!-- Session Hub Header -->
+<header class="flex justify-between items-end mb-lg pb-sm border-b border-outline">
+<div class="">
+<h1 class="uppercase font-label-caps text-[10px] text-on-surface-variant">MARKET SESSIONS</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant mt-1">Market Sessions</p>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Global Standard Time</span>
+<span class="font-data-lg text-data-lg text-on-surface bg-surface-container border border-outline-variant px-md py-1" id="utc-clock-main">14:29:51 UTC</span>
+</div>
+</header>
+<!-- Section 1: 24-Hour Market Timeline -->
+<section class="mb-xl">
+<div class="flex items-center justify-between mb-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface">24-Hour Market Timeline</h2>
+<span class="font-data-sm text-data-sm text-on-surface-variant">Unit: 1 Hour Block</span>
+</div>
+<div class="thin-border bg-white p-base relative overflow-hidden">
+<!-- Time Markers -->
+<div class="flex border-b border-outline-variant bg-surface-container-low">
+<div class="w-full flex">
+<template id="hour-marker">
+<div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0">00</div>
+</template>
+</div>
+</div>
+<div class="flex border-b border-outline-variant" id="hour-labels"><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">00</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">01</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">02</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">03</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">04</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">05</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">06</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">07</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">08</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">09</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">10</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">11</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">12</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">13</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">14</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">15</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">16</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">17</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">18</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">19</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">20</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">21</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">22</div><div class="flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low">23</div></div>
+<!-- Session Bars -->
+<div class="relative h-48 timeline-grid py-sm space-y-sm">
+<!-- Sydney -->
+<div class="relative h-8 flex items-center">
+<div class="absolute left-[83.3%] w-[33.3%] h-6 bg-tertiary-container border-l-2 border-tertiary opacity-90 flex items-center px-sm">
+<span class="font-label-caps text-on-tertiary-container text-[9px]">Sydney Open</span>
+</div>
+</div>
+<!-- Tokyo -->
+<div class="relative h-8 flex items-center">
+<div class="absolute left-[0%] w-[37.5%] h-6 bg-secondary-container border-l-2 border-secondary opacity-90 flex items-center px-sm">
+<span class="font-label-caps text-on-secondary-container text-[9px]">Tokyo Open</span>
+</div>
+</div>
+<!-- London -->
+<div class="relative h-8 flex items-center">
+<div class="absolute left-[33.3%] w-[37.5%] h-6 bg-primary-container border-l-2 border-primary opacity-90 flex items-center px-sm">
+<span class="font-label-caps text-on-primary-container text-[9px]">London Open</span>
+</div>
+</div>
+<!-- New York -->
+<div class="relative h-8 flex items-center">
+<div class="absolute left-[54.1%] w-[37.5%] h-6 bg-error-container border-l-2 border-error opacity-90 flex items-center px-sm">
+<span class="font-label-caps text-on-error-container text-[9px]">New York Open</span>
+</div>
+</div>
+<!-- Current Time Indicator -->
+<div class="absolute top-0 bottom-0 w-[2px] bg-primary z-10 transition-all duration-1000" id="time-needle" style="left: 59.375%;">
+<div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-primary rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Market Sessions Grid -->
+<section class="mb-xl">
+<h2 class="font-label-caps text-[10px] text-on-surface-variant uppercase mb-md">ACTIVE SESSIONS</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Sydney -->
+<div class="thin-border bg-white flex flex-col">
+<div class="p-md hairline-b bg-surface-container-low flex justify-between items-start">
+<h3 class="font-label-caps text-[10px] text-on-surface-variant uppercase">Sydney</h3>
+<span class="px-sm py-0.5 bg-outline-variant text-white font-label-caps text-[9px]">Closed</span>
+</div>
+<div class="p-md space-y-md">
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Timezone</p>
+<p class="font-data-md text-data-md">GMT +11 (AEDT)</p>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between font-label-caps text-[9px]">
+<span class="">Session Progress</span>
+<span class="">100%</span>
+</div>
+<div class="w-full h-1 bg-surface-container">
+<div class="h-full bg-outline w-full"></div>
+</div>
+</div>
+<div class="pt-sm border-t border-outline-variant">
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Opening In</p>
+<p class="font-data-lg text-data-lg text-on-surface">06:37:42</p>
+</div>
+</div>
+</div>
+<!-- Tokyo -->
+<div class="thin-border bg-white flex flex-col border-secondary">
+<div class="p-md hairline-b bg-secondary-container flex justify-between items-start">
+<h3 class="font-label-caps text-[10px] text-on-surface-variant uppercase">Tokyo</h3>
+<span class="px-sm py-0.5 bg-tertiary text-white font-label-caps text-[9px]">Live</span>
+</div>
+<div class="p-md space-y-md">
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Timezone</p>
+<p class="font-data-md text-data-md">GMT +9 (JST)</p>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between font-label-caps text-[9px]">
+<span class="">Session Progress</span>
+<span class="">62.5%</span>
+</div>
+<div class="w-full h-1 bg-surface-container">
+<div class="h-full bg-tertiary w-[62.5%]"></div>
+</div>
+</div>
+<div class="pt-sm border-t border-outline-variant">
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Closing In</p>
+<p class="font-data-lg text-data-lg text-tertiary">03:12:18</p>
+</div>
+</div>
+</div>
+<!-- London -->
+<div class="thin-border bg-white flex flex-col border-primary">
+<div class="p-md hairline-b bg-primary-container flex justify-between items-start">
+<h3 class="font-label-caps text-[10px] text-on-surface-variant uppercase">London</h3>
+<span class="px-sm py-0.5 bg-tertiary text-white font-label-caps text-[9px]">Live</span>
+</div>
+<div class="p-md space-y-md">
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Timezone</p>
+<p class="font-data-md text-data-md">GMT +0 (GMT)</p>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between font-label-caps text-[9px]">
+<span class="">Session Progress</span>
+<span class="">12.4%</span>
+</div>
+<div class="w-full h-1 bg-surface-container">
+<div class="h-full bg-primary w-[12.4%]"></div>
+</div>
+</div>
+<div class="pt-sm border-t border-outline-variant">
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Closing In</p>
+<p class="font-data-lg text-data-lg text-primary">07:44:02</p>
+</div>
+</div>
+</div>
+<!-- New York -->
+<div class="thin-border bg-white flex flex-col">
+<div class="p-md hairline-b bg-surface-container-low flex justify-between items-start">
+<h3 class="font-label-caps text-[10px] text-on-surface-variant uppercase">New York</h3>
+<span class="px-sm py-0.5 bg-outline-variant text-white font-label-caps text-[9px]">Closed</span>
+</div>
+<div class="p-md space-y-md">
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Timezone</p>
+<p class="font-data-md text-data-md">GMT -5 (EST)</p>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between font-label-caps text-[9px]">
+<span class="">Session Progress</span>
+<span class="">0%</span>
+</div>
+<div class="w-full h-1 bg-surface-container">
+<div class="h-full bg-outline w-0"></div>
+</div>
+</div>
+<div class="pt-sm border-t border-outline-variant">
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Opening In</p>
+<p class="font-data-lg text-data-lg text-on-surface">04:22:51</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Technical Insights -->
+
+</div>
+</main>
+<script>
+        // Clock Functionality
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toISOString().split('T')[1].split('.')[0] + ' UTC';
+            document.getElementById('utc-clock-main').textContent = timeString;
+            document.getElementById('utc-clock-side').textContent = 'UTC: ' + timeString.split(' ')[0];
+            
+            // Move time needle (simplified calc for 24h)
+            const hours = now.getUTCHours();
+            const minutes = now.getUTCMinutes();
+            const percent = ((hours * 60 + minutes) / 1440) * 100;
+            document.getElementById('time-needle').style.left = percent + '%';
+        }
+
+        // Generate Hour Labels
+        function initTimeline() {
+            const container = document.getElementById('hour-labels');
+            for (let i = 0; i < 24; i++) {
+                const label = document.createElement('div');
+                label.className = 'flex-1 text-center font-data-sm text-[10px] py-1 border-r border-outline-variant last:border-0 bg-surface-container-low';
+                label.textContent = i.toString().padStart(2, '0');
+                container.appendChild(label);
+            }
+        }
+
+        initTimeline();
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>
