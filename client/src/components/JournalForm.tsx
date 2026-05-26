@@ -1062,6 +1062,16 @@ function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]
   // True once the user manually clicks ‹ › — prevents auto-jump from overriding their choice
   const userNavigated = useRef(false);
 
+  // Reset manual navigation flag whenever the session changes so the sidebar
+  // auto-jumps to the correct month for the newly selected session.
+  const prevSessionId = useRef(sessionId);
+  useEffect(() => {
+    if (prevSessionId.current !== sessionId) {
+      prevSessionId.current = sessionId;
+      userNavigated.current = false;
+    }
+  }, [sessionId]);
+
   // Auto-detect the active month from the current session's entries.
   // Runs whenever entries or sessionId change (e.g. after async data loads).
   useEffect(() => {
@@ -1998,7 +2008,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className={`w-full lg:w-auto bg-[#09090b] flex flex-col overflow-hidden ${mobileTab === "form" ? "hidden lg:flex" : "flex"}`}
         style={{ height:"100%" }}>
-        <Sidebar allEntries={allEntries} startingBalance={startingBalance} sessionId={sessionId} />
+        <Sidebar allEntries={sessionEntries} startingBalance={startingBalance} sessionId={sessionId} />
       </aside>
 
       {/* ── Mobile tab bar ─────────────────────────────────────────────── */}
