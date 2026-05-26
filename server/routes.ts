@@ -1455,80 +1455,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── AI Engine — Analysis ─────────────────────────────────────────────────────
+  // ── AI Engine — Analysis (disabled) ─────────────────────────────────────────
   app.get("/api/ai/analysis", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
-    try {
-      if (!isGeminiConfigured()) {
-        return res.status(503).json({ success: false, error: "GOOGLE_API_KEY is not configured. Add it to enable AI analysis." });
-      }
-      const scope = await resolveComputeScope(auth, req);
-      if (!scope) return res.json({ success: true, analysis: {} });
-      const { entries, startingBalance, sessionId } = scope;
-
-      const cached = getAICache("analysis", auth.id, sessionId, entries.length);
-      if (cached) return res.json(cached);
-
-      if (!entries || entries.length === 0) {
-        return res.json({ success: true, analysis: {}, message: "No trades to analyse yet." });
-      }
-
-      const trades = entries.map((e) => remapJournalEntry(e as Record<string, any>));
-      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
-        computeMetrics(entries),
-        computeDrawdown(entries, startingBalance ?? 10_000),
-        computeStrategyAudit(entries, startingBalance ?? 10_000),
-      ]);
-      const metricsCtx  = metricsRes.status  === "fulfilled" && metricsRes.value?.success  ? (metricsRes.value as any).metrics : undefined;
-      const drawdownCtx = drawdownRes.status === "fulfilled" && (drawdownRes.value as any)?.success ? drawdownRes.value as any : undefined;
-      const auditCtx    = auditRes.status    === "fulfilled" && (auditRes.value as any)?.success    ? auditRes.value as any    : undefined;
-
-      const result = await computeAIAnalysis(trades, metricsCtx, drawdownCtx, auditCtx);
-      setAICache("analysis", result, auth.id, sessionId, entries.length);
-      res.json(result);
-    } catch (error: any) {
-      console.error("[Routes] AI analysis error:", error);
-      res.status(500).json({ success: false, error: error?.message || "AI analysis failed" });
-    }
+    return res.json({ success: true, analysis: {} });
   });
 
-  // ── AI Engine — Strategy ─────────────────────────────────────────────────────
+  // ── AI Engine — Strategy (disabled) ─────────────────────────────────────────
   app.get("/api/ai/strategy", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
-    try {
-      if (!isGeminiConfigured()) {
-        return res.status(503).json({ success: false, error: "GOOGLE_API_KEY is not configured. Add it to enable AI strategy." });
-      }
-      const scope = await resolveComputeScope(auth, req);
-      if (!scope) return res.json({ success: true, strategy: {} });
-      const { entries, startingBalance, sessionId } = scope;
-
-      const cached = getAICache("strategy", auth.id, sessionId, entries.length);
-      if (cached) return res.json(cached);
-
-      if (!entries || entries.length === 0) {
-        return res.json({ success: true, strategy: {}, message: "No trades to analyse yet." });
-      }
-
-      const trades = entries.map((e) => remapJournalEntry(e as Record<string, any>));
-      const [metricsRes, drawdownRes, auditRes] = await Promise.allSettled([
-        computeMetrics(entries),
-        computeDrawdown(entries, startingBalance ?? 10_000),
-        computeStrategyAudit(entries, startingBalance ?? 10_000),
-      ]);
-      const metricsCtx  = metricsRes.status  === "fulfilled" && metricsRes.value?.success  ? (metricsRes.value as any).metrics : undefined;
-      const drawdownCtx = drawdownRes.status === "fulfilled" && (drawdownRes.value as any)?.success ? drawdownRes.value as any : undefined;
-      const auditCtx    = auditRes.status    === "fulfilled" && (auditRes.value as any)?.success    ? auditRes.value as any    : undefined;
-
-      const result = await computeAIStrategy(trades, metricsCtx, drawdownCtx, auditCtx);
-      setAICache("strategy", result, auth.id, sessionId, entries.length);
-      res.json(result);
-    } catch (error: any) {
-      console.error("[Routes] AI strategy error:", error);
-      res.status(500).json({ success: false, error: error?.message || "AI strategy failed" });
-    }
+    return res.json({ success: true, strategy: {} });
   });
 
   app.get("/api/analytics", async (req, res) => {
@@ -1981,57 +1919,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(geminiRateLimiter.getStats());
   });
 
-  app.post("/api/gemini/validate", async (req, res) => {
-    if (!isGeminiConfigured()) return res.status(503).json({ error: "GOOGLE_API_KEY is not configured." });
-    try {
-      const { signal, priceData, chartImagePaths } = req.body as {
-        signal: any; priceData: any[]; chartImagePaths?: string[];
-      };
-      if (!signal || !priceData) return res.status(400).json({ error: "signal and priceData are required" });
-      const result = await validateSignalWithGemini(signal, priceData, chartImagePaths);
-      res.json(result);
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || "Validation failed" });
-    }
-  });
-
-  app.post("/api/gemini/scan", async (req, res) => {
-    if (!isGeminiConfigured()) return res.status(503).json({ error: "GOOGLE_API_KEY is not configured." });
-    try {
-      const { symbol, priceData } = req.body as { symbol: string; priceData: any[] };
-      if (!symbol || !priceData) return res.status(400).json({ error: "symbol and priceData are required" });
-      const result = await quickMarketScan(symbol, priceData);
-      res.json(result);
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || "Scan failed" });
-    }
-  });
-
-  app.post("/api/gemini/analyze", async (req, res) => {
-    if (!isGeminiConfigured()) return res.status(503).json({ error: "GOOGLE_API_KEY is not configured." });
-    try {
-      const { symbol, priceData, chartImagePath } = req.body as {
-        symbol: string; priceData: any[]; chartImagePath?: string;
-      };
-      if (!symbol || !priceData) return res.status(400).json({ error: "symbol and priceData are required" });
-      const result = await analyzeWithGemini(symbol, priceData, chartImagePath);
-      res.json(result);
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || "Analysis failed" });
-    }
-  });
-
-  app.post("/api/gemini/quick-scan", async (req, res) => {
-    if (!isGeminiConfigured()) return res.status(503).json({ error: "GOOGLE_API_KEY is not configured." });
-    try {
-      const { symbol, priceData } = req.body as { symbol: string; priceData: any[] };
-      if (!symbol || !priceData) return res.status(400).json({ error: "symbol and priceData are required" });
-      const result = await quickAnalyzeWithGemini(symbol, priceData);
-      res.json(result ?? { direction: "HOLD", confidence: 0, reasoning: "No setup detected" });
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || "Quick scan failed" });
-    }
-  });
+  app.post("/api/gemini/validate", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/gemini/scan",     async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/gemini/analyze",  async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+  app.post("/api/gemini/quick-scan", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
 
   app.get("/api/charts/status",     async (_req, res) => { res.json({ available: false }); });
   app.post("/api/charts/generate",  async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
@@ -2039,8 +1930,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   console.log('[Server] Signal monitor: DISABLED');
 
-  // ── Trader AI chat ───────────────────────────────────────────────────────────
+  // ── Trader AI chat (disabled) ────────────────────────────────────────────────
   app.post("/api/trader-ai/chat", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    return res.json({ reply: "", chatId: null });
+  });
+  app.post("/api/trader-ai/chat/__disabled", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
     try {
