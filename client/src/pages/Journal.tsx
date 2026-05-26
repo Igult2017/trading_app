@@ -846,8 +846,8 @@ export default function Journal() {
     prefetchAllPanels(queryClient, activeSessionId, user.id);
   }, [activeSessionId, queryClient, user]);
 
-  const { data: sessions = [] } = useQuery<any[]>({
-    queryKey: ['/api/sessions', user?.id],
+  const { data: sessions = [], isFetching: sessionsFetching } = useQuery<any[]>({
+    queryKey: ['/api/sessions'],
     queryFn: () => user
       ? authFetch(`/api/sessions`).then(r => r.json())
       : Promise.resolve([]),
@@ -857,12 +857,14 @@ export default function Journal() {
   // If the persisted activeSessionId points to a session that no longer
   // exists (deleted on another device, etc.), clear it so we don't keep
   // querying for ghost data.
+  // Guard: skip while sessions are being fetched/refetched to avoid
+  // clearing a newly-created session that hasn't landed in cache yet.
   useEffect(() => {
-    if (!activeSessionId || !sessions.length) return;
+    if (!activeSessionId || !sessions.length || sessionsFetching) return;
     if (!sessions.some((s: any) => s.id === activeSessionId)) {
       setActiveSessionId(null);
     }
-  }, [sessions, activeSessionId]);
+  }, [sessions, activeSessionId, sessionsFetching]);
 
   const handleSessionCreated = (sessionId: string) => {
     setActiveSessionId(sessionId);
