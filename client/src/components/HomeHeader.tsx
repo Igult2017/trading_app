@@ -155,7 +155,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           </Link>
 
           {/* Desktop nav */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }} className="hh-nav-desktop">
+          <div style={{ display: "flex", alignItems: "center", flex: 1, justifyContent: "space-evenly" }} className="hh-nav-desktop">
             {NAV_LINKS.filter(l => !l.cta).map(({ label, href, newTab }) => {
               const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
               const s = linkStyle(isActive);
