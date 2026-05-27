@@ -111,18 +111,19 @@ function PulsingDot({ color }: { color: string }) {
 }
 
 /* ── Timeline ─────────────────────────────────────────────────────────────── */
-function TimelineGrid({ sessions, decimalTime, weekday }: { sessions: Session[]; decimalTime: number; weekday: boolean }) {
+function TimelineGrid({ sessions, decimalTime, weekday, darkMode }: { sessions: Session[]; decimalTime: number; weekday: boolean; darkMode: boolean }) {
   const needlePct = (decimalTime / 24) * 100;
+  const bd = darkMode ? "#1e2740" : "#e2e8f0";
 
   return (
-    <div style={{ border: "1px solid #1e2740", overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${bd}`, overflow: "hidden" }}>
       {/* Hour labels */}
-      <div style={{ display: "flex", borderBottom: "1px solid #1e2740", background: "#0d1117" }}>
+      <div style={{ display: "flex", borderBottom: `1px solid ${bd}`, background: darkMode ? "#0d1117" : "#f8fafc" }}>
         {Array.from({ length: 24 }, (_, i) => (
           <div key={i} style={{
             flex: 1, textAlign: "center", fontSize: 9, padding: "4px 0",
             fontFamily: "'DM Mono', monospace", color: "#374151",
-            borderRight: i < 23 ? "1px solid #1e2740" : "none",
+            borderRight: i < 23 ? `1px solid ${bd}` : "none",
           }}>
             {String(i).padStart(2, "0")}
           </div>
@@ -130,12 +131,12 @@ function TimelineGrid({ sessions, decimalTime, weekday }: { sessions: Session[];
       </div>
 
       {/* Session bars */}
-      <div style={{ position: "relative", padding: "8px 0", display: "flex", flexDirection: "column", gap: 5 }}>
+      <div style={{ position: "relative", padding: "8px 0", display: "flex", flexDirection: "column", gap: 5, background: darkMode ? undefined : "#ffffff" }}>
         {/* Vertical grid lines */}
         {Array.from({ length: 23 }, (_, i) => (
           <div key={i} style={{
             position: "absolute", top: 0, bottom: 0, width: 1,
-            background: "#1a2235", left: `${((i + 1) / 24) * 100}%`,
+            background: darkMode ? "#1a2235" : "#e2e8f0", left: `${((i + 1) / 24) * 100}%`,
             pointerEvents: "none",
           }} />
         ))}
@@ -156,7 +157,7 @@ function TimelineGrid({ sessions, decimalTime, weekday }: { sessions: Session[];
                 <div key={bi} style={{
                   position: "absolute", top: 0, height: "100%",
                   left: `${seg.left}%`, width: `${seg.width}%`,
-                  background: live ? s.dimColor : "rgba(255,255,255,0.025)",
+                  background: live ? s.dimColor : (darkMode ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.03)"),
                   borderLeft: `2px solid ${s.color}`,
                   opacity: live ? 1 : 0.45,
                   display: "flex", alignItems: "center", paddingLeft: 7, overflow: "hidden",
@@ -194,16 +195,21 @@ function TimelineGrid({ sessions, decimalTime, weekday }: { sessions: Session[];
 }
 
 /* ── Session Card ─────────────────────────────────────────────────────────── */
-function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: number; weekday: boolean }) {
+function SessionCard({ s, decimalTime, weekday, darkMode }: { s: Session; decimalTime: number; weekday: boolean; darkMode: boolean }) {
   const live    = isLive(s, decimalTime, weekday);
   const metrics = getMetrics(s, decimalTime);
+  const bd = darkMode ? "#1e2740" : "#e2e8f0";
+  const cardBg = darkMode ? "#0d1117" : "#ffffff";
+  const headerBg = live ? s.dimColor : (darkMode ? "#111827" : "#f8fafc");
+  const bodyText = darkMode ? "#9ca3af" : "#374151";
+  const mutedText = darkMode ? "#4b5563" : "#6b7280";
 
   return (
     <div
       data-testid={`card-session-${s.id}`}
       style={{
-        background: "#0d1117",
-        border: "1px solid #1e2740",
+        background: cardBg,
+        border: `1px solid ${bd}`,
         display: "flex", flexDirection: "column",
         transition: "border-color 0.4s",
       }}
@@ -211,8 +217,8 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
       {/* Card header */}
       <div style={{
         padding: "10px 14px",
-        background: live ? s.dimColor : "#111827",
-        borderBottom: "1px solid #1e2740",
+        background: headerBg,
+        borderBottom: `1px solid ${bd}`,
         display: "flex", justifyContent: "space-between", alignItems: "center",
         transition: "background 0.4s",
       }}>
@@ -229,8 +235,8 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
           style={{
             fontFamily: "'DM Mono', monospace", fontSize: 8, letterSpacing: "0.12em",
             textTransform: "uppercase", fontWeight: 700, padding: "2px 8px",
-            background: live ? s.color : "#1e2740",
-            color: live ? "#fff" : "#4b5563",
+            background: live ? s.color : (darkMode ? "#1e2740" : "#e2e8f0"),
+            color: live ? "#fff" : mutedText,
             transition: "background 0.4s, color 0.4s",
           }}
         >
@@ -246,11 +252,11 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
           <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#374151", marginBottom: 5 }}>
             Timezone
           </p>
-          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500, color: "#9ca3af", margin: 0 }}>
+          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500, color: bodyText, margin: 0 }}>
             {s.tzLabel}
           </p>
           {s.dstLabel && (
-            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#4b5563", margin: "3px 0 0", letterSpacing: "0.06em" }}>
+            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mutedText, margin: "3px 0 0", letterSpacing: "0.06em" }}>
               {s.dstLabel}
             </p>
           )}
@@ -261,7 +267,7 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
           <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#374151", marginBottom: 5 }}>
             Hours (UTC)
           </p>
-          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500, color: "#9ca3af", margin: 0 }}>
+          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500, color: bodyText, margin: 0 }}>
             {fmtDecimal(s.start)} — {fmtDecimal(s.end)}{s.start > s.end ? " +1d" : ""}
           </p>
         </div>
@@ -272,11 +278,11 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.1em", color: "#374151", textTransform: "uppercase" }}>
               Session Progress
             </span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#4b5563" }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mutedText }}>
               {live ? `${Math.round(metrics.pct)}%` : "0%"}
             </span>
           </div>
-          <div style={{ width: "100%", height: 3, background: "#1e2740" }}>
+          <div style={{ width: "100%", height: 3, background: darkMode ? "#1e2740" : "#e2e8f0" }}>
             <div style={{
               height: "100%",
               width: live ? `${metrics.pct}%` : "0%",
@@ -287,13 +293,13 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
         </div>
 
         {/* Countdown */}
-        <div style={{ paddingTop: 12, borderTop: "1px solid #1e2740" }}>
+        <div style={{ paddingTop: 12, borderTop: `1px solid ${bd}` }}>
           <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#374151", marginBottom: 5 }}>
             {live ? "Closing In" : weekday ? "Opening In" : "Opens Monday"}
           </p>
           <p style={{
             fontFamily: "'DM Mono', monospace", fontSize: 20, fontWeight: 500,
-            color: live ? s.color : "#4b5563",
+            color: live ? s.color : mutedText,
             letterSpacing: "0.03em", lineHeight: 1.2, margin: 0,
             transition: "color 0.4s",
           }}>
@@ -311,7 +317,7 @@ function SessionCard({ s, decimalTime, weekday }: { s: Session; decimalTime: num
 }
 
 /* ── Stats strip ──────────────────────────────────────────────────────────── */
-function StatsStrip({ sessions, decimal, weekday, liveCount }: { sessions: Session[]; decimal: number; weekday: boolean; liveCount: number }) {
+function StatsStrip({ sessions, decimal, weekday, liveCount, darkMode }: { sessions: Session[]; decimal: number; weekday: boolean; liveCount: number; darkMode: boolean }) {
   const stats = [
     {
       label: "Active Sessions",
@@ -360,16 +366,17 @@ function StatsStrip({ sessions, decimal, weekday, liveCount }: { sessions: Sessi
     },
   ];
 
+  const bd = darkMode ? "#1e2740" : "#e2e8f0";
   return (
-    <div style={{ border: "1px solid #1e2740", background: "#111827" }}>
-      <div style={{ padding: "10px 20px", borderBottom: "1px solid #1e2740" }}>
+    <div style={{ border: `1px solid ${bd}`, background: darkMode ? "#111827" : "#ffffff" }}>
+      <div style={{ padding: "10px 20px", borderBottom: `1px solid ${bd}` }}>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#374151" }}>
           At a Glance
         </span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 0 }}>
         {stats.map(({ label, value, sub, color }, i) => (
-          <div key={label} style={{ padding: "16px 20px", borderRight: i < stats.length - 1 ? "1px solid #1e2740" : "none" }}>
+          <div key={label} style={{ padding: "16px 20px", borderRight: i < stats.length - 1 ? `1px solid ${bd}` : "none" }}>
             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#374151", marginBottom: 6 }}>
               {label}
             </p>
@@ -489,7 +496,7 @@ export default function TscPage() {
                 Unit: 1 Hour Block
               </span>
             </div>
-            <TimelineGrid sessions={SESSIONS} decimalTime={decimal} weekday={weekday} />
+            <TimelineGrid sessions={SESSIONS} decimalTime={decimal} weekday={weekday} darkMode={darkMode} />
           </div>
 
           {/* Session cards */}
@@ -497,29 +504,29 @@ export default function TscPage() {
             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#374151", marginBottom: 12 }}>
               Active Sessions
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 1, background: "#1e2740" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 1, background: darkMode ? "#1e2740" : "#e2e8f0" }}>
               {SESSIONS.map(s => (
-                <SessionCard key={s.id} s={s} decimalTime={decimal} weekday={weekday} />
+                <SessionCard key={s.id} s={s} decimalTime={decimal} weekday={weekday} darkMode={darkMode} />
               ))}
             </div>
           </div>
 
           {/* Stats strip */}
-          <StatsStrip sessions={SESSIONS} decimal={decimal} weekday={weekday} liveCount={liveCount} />
+          <StatsStrip sessions={SESSIONS} decimal={decimal} weekday={weekday} liveCount={liveCount} darkMode={darkMode} />
 
           {/* Info cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 1, background: "#1e2740" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 1, background: darkMode ? "#1e2740" : "#e2e8f0" }}>
             {[
               { title: "How Sessions Overlap", body: "The London–New York overlap (12:00–16:00 UTC) is historically the most volatile period. Both sessions are active and liquidity peaks during this window.", color: "#0ea5e9" },
               { title: "Daylight Saving Time",  body: "London (BST) and New York (EDT) apply DST, shifting their sessions by ±1 hour. The clock adjusts automatically based on the current date.", color: "#8b5cf6" },
               { title: "Weekend Closure",        body: "Forex markets close at 21:00 UTC Friday (New York close) and reopen 22:00 UTC Sunday (Sydney open). Crypto markets trade 24/7.", color: "#10b981" },
             ].map(({ title, body, color }) => (
-              <div key={title} style={{ background: "#111827", padding: "20px 24px" }}>
+              <div key={title} style={{ background: darkMode ? "#111827" : "#ffffff", padding: "20px 24px" }}>
                 <div style={{ width: 24, height: 3, background: color, marginBottom: 14 }} />
-                <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, fontWeight: 800, color: "#e5e7eb", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
+                <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, fontWeight: 800, color: darkMode ? "#e5e7eb" : "#0f172a", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
                   {title}
                 </h3>
-                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4b5563", lineHeight: 1.8, margin: 0 }}>
+                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: darkMode ? "#4b5563" : "#64748b", lineHeight: 1.8, margin: 0 }}>
                   {body}
                 </p>
               </div>
