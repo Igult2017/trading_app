@@ -263,7 +263,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = uploading ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)'; }}
             >
               {uploading
-                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'fsd-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'mfj-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               }
             </div>
@@ -448,7 +448,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   return (
     <div>
       <style>{`
-        @keyframes fsd-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes mfj-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         .nav-a { text-decoration:none; font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'DM Mono',monospace; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }

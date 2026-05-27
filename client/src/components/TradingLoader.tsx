@@ -151,7 +151,7 @@ export default function TradingLoader({
               border: `${innerBorder}px solid rgba(59,130,246,0.15)`,
               borderTopColor: "#3b82f6",
               borderRadius: "50%",
-              animation: "fsd-spin 0.9s linear infinite",
+              animation: "mfj-spin 0.9s linear infinite",
             }}
           />
         </div>
@@ -196,7 +196,7 @@ export default function TradingLoader({
       )}
 
       <style>{`
-        @keyframes fsd-spin { to { transform: rotate(360deg); } }
+        @keyframes mfj-spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );

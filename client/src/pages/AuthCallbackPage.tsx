@@ -62,11 +62,11 @@ export default function AuthCallbackPage() {
       <div style={styles.card}>
         <div style={styles.brand}>
           <div style={styles.logo}>
-            <span style={{ color: '#ffffff' }}>FSD</span>
+            <span style={{ color: '#ffffff' }}>M</span>
           </div>
           <span style={styles.brandName}>
-            <span style={{ color: '#ffffff' }}>FSD </span>
-            <span style={{ color: '#3b82f6' }}>Journal</span>
+            <span style={{ color: '#ffffff' }}>Myfm</span>
+            <span style={{ color: '#3b82f6' }}>journal</span>
           </span>
         </div>
 
