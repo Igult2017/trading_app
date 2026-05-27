@@ -163,7 +163,7 @@ export default function EconomicCalendarPage() {
   return (
     <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Montserrat',sans-serif", transition: 'background 0.3s' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap');
         .ec-filter-btn { font-family:'Montserrat',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
         .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
         .ec-input { font-family:'Montserrat',sans-serif; font-size:13px; font-weight:500; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
@@ -196,18 +196,18 @@ export default function EconomicCalendarPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 
               {/* Live dot + timestamps */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#22c55e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ec-live 2s infinite' }} />
                 LIVE
                 {updatedAgo !== null && (
-                  <span style={{ color: textMut, fontWeight: 600 }}>
+                  <span style={{ color: textMut }}>
                     · {formatAgo(updatedAgo)}
                   </span>
                 )}
               </div>
 
               {/* UTC badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700, color: textMut, letterSpacing: '0.08em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.12em' }}>
                 <Clock size={13} color="#3b82f6" />
                 <span>UTC</span>
               </div>
@@ -260,7 +260,7 @@ export default function EconomicCalendarPage() {
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Globe size={14} color="#2563eb" />
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 700, color: textPrim, letterSpacing: '-0.01em' }}>Terminal Rates</span>
+                  <span style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 800, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Terminal Rates</span>
                   <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: textMut }}>Real Yields</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -281,9 +281,9 @@ export default function EconomicCalendarPage() {
                               <div style={{ fontWeight: 700, fontSize: 11, color: textPrim }}>{ccy}</div>
                               {data.live && <div style={{ fontSize: 8, fontWeight: 700, color: '#16a34a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>live</div>}
                             </td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontSize: 11, fontWeight: 700, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
                               {realRate != null ? `${realRate.toFixed(2)}%` : '—'}
                             </td>
                           </tr>
@@ -297,7 +297,7 @@ export default function EconomicCalendarPage() {
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ArrowRightLeft size={14} color="#2563eb" />
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 700, color: textPrim, letterSpacing: '-0.01em' }}>Pair Differentials</span>
+                  <span style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 800, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Pair Differentials</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                   {currencyPairs.filter(p => bankData[p.base] && bankData[p.quote]).map(pair => {
@@ -306,15 +306,15 @@ export default function EconomicCalendarPage() {
                     return (
                       <div key={`${pair.base}${pair.quote}`} style={{ padding: '12px 16px', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}` }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontWeight: 700, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
+                          <span style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
+                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, fontWeight: 500, letterSpacing: '0.12em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: textPrim, marginBottom: 4 }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontWeight: 500, fontSize: 13, color: textPrim, marginBottom: 4 }}>
                           {diff > 0 ? '+' : ''}{diff.toFixed(2)}%
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
                           <span>{pair.base} {bankData[pair.base].nominal.toFixed(2)}%</span>
-                          {isCarry && <span style={{ color: '#2563eb', fontWeight: 700 }}>CARRY</span>}
+                          {isCarry && <span style={{ color: '#2563eb', letterSpacing: '0.1em' }}>CARRY</span>}
                           <span>{pair.quote} {bankData[pair.quote].nominal.toFixed(2)}%</span>
                         </div>
                       </div>
@@ -352,7 +352,7 @@ export default function EconomicCalendarPage() {
                     return (
                       <tr key={idx} className="ec-tr">
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, color: textPrim, fontFamily: "'Montserrat',sans-serif" }}>{item.date}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 800, fontFamily: "'Montserrat',sans-serif", borderRadius: 4, letterSpacing: '0.05em' }}>
                             {item.currency}
@@ -360,16 +360,16 @@ export default function EconomicCalendarPage() {
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: textPrim, fontFamily: "'Montserrat',sans-serif", lineHeight: 1.4 }}>{item.event}</div>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: textMut, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, fontWeight: 500, color: textMut, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'center' }}>
                           <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: "'Montserrat',sans-serif" }}>
                             {item.importance}
                           </span>
                         </td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontSize: 12, fontWeight: 700, color: actualColor, fontFamily: "'Montserrat',sans-serif" }}>{item.actual}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontSize: 12, fontWeight: 600, color: textMut }}>{item.forecast}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontSize: 12, fontWeight: 600, color: textMut }}>{item.previous}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: actualColor }}>{item.actual}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textMut }}>{item.forecast}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textMut }}>{item.previous}</td>
                       </tr>
                     );
                   })}
