@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Wallet, Clock, ChevronRight, Plus, Trash2, ArrowUpRight, MoreVertical, Terminal } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -43,19 +43,66 @@ const TZ_OPTIONS = [
 ];
 
 function SCSelect({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = TZ_OPTIONS.find(o => o.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div ref={ref} style={{ marginBottom: 14, position: 'relative' }}>
       <div style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className="sc-input"
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
         style={{
-          width: "100%", background: MC.bg, border: `1px solid ${MC.border}`,
+          width: "100%", background: MC.bg, border: `1px solid ${open ? "#6366f1" : MC.border}`,
           padding: "10px 12px", color: MC.white,
           fontFamily: MONO, fontSize: 12, letterSpacing: "0.04em",
-          boxSizing: "border-box", appearance: "none",
+          boxSizing: "border-box", cursor: "pointer",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          textAlign: "left", transition: "border-color 0.15s",
+        }}
+      >
+        <span>{selected?.label ?? "Select timezone"}</span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+          <path d="M1 3l4 4 4-4" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
+          background: MC.bg, border: `1px solid #6366f1`,
+          borderTop: "none", maxHeight: 220, overflowY: "auto",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
         }}>
-        {TZ_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ background: MC.bg }}>{o.label}</option>)}
-      </select>
+          {TZ_OPTIONS.map(o => (
+            <div
+              key={o.value}
+              onMouseDown={() => { onChange(o.value); setOpen(false); }}
+              style={{
+                padding: "9px 12px", cursor: "pointer", fontFamily: MONO,
+                fontSize: 12, letterSpacing: "0.04em",
+                color: o.value === value ? "#a5b4fc" : MC.white,
+                background: o.value === value ? "rgba(99,102,241,0.15)" : "transparent",
+                borderBottom: `1px solid ${MC.borderSoft}`,
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={e => { if (o.value !== value) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+              onMouseLeave={e => { if (o.value !== value) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >
+              {o.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
