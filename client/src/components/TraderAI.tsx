@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
-  Send, RotateCcw, Copy, Check, Download,
-  FileText, ChevronRight, AlertCircle, User,
-  Plus, Trash2, MessageSquare, Pencil, Cpu, Menu
+  Send, Copy, Check, Download,
+  ChevronRight, AlertCircle,
+  Plus, Trash2, MessageSquare, Pencil
 } from "lucide-react";
 import { authFetch } from "@/lib/queryClient";
 
@@ -17,14 +17,6 @@ type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
 const DEFAULT_MODEL: GeminiModelId = "gemini-1.5-flash";
 
 
-const AtomAI = ({ size = 20, color = "white" }: { size?: number; color?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none"/>
-    <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none" transform="rotate(60 20 20)"/>
-    <ellipse cx="20" cy="20" rx="18" ry="7" stroke={color} strokeWidth="2" fill="none" transform="rotate(120 20 20)"/>
-    <text x="20" y="24.5" textAnchor="middle" fontSize="9" fontWeight="700" fontFamily="Montserrat, sans-serif" fill={color} letterSpacing="0.5">AI</text>
-  </svg>
-);
 
 const SUGGESTIONS = [
   "Build me a strategy based on my best-performing conditions",
@@ -462,8 +454,21 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
     return elements;
   };
 
+  const dm        = darkMode;
+  const panelBg   = dm ? "rgba(7,13,21,0.97)"    : "#ffffff";
+  const borderC   = dm ? "rgba(255,255,255,0.06)" : "#e2e8f0";
+  const textPrim  = dm ? "rgba(255,255,255,0.90)" : "#0f172a";
+  const textMut   = dm ? "rgba(255,255,255,0.22)" : "#64748b";
+  const textDim   = dm ? "rgba(255,255,255,0.15)" : "#94a3b8";
+  const suggBg    = dm ? "rgba(255,255,255,0.03)" : "#f8fafc";
+  const suggBd    = dm ? "rgba(255,255,255,0.08)" : "#e2e8f0";
+  const suggText  = dm ? "rgba(255,255,255,0.55)" : "#475569";
+  const inputBg   = dm ? "rgba(255,255,255,0.05)" : "#f1f5f9";
+  const inputBd   = dm ? "rgba(255,255,255,0.09)" : "#e2e8f0";
+  const taColor   = dm ? "rgba(255,255,255,0.88)" : "#0f172a";
+
   return (
-    <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: darkMode ? "#070d15" : "var(--jr-bg, #EEF2F7)", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
+    <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: dm ? "#070d15" : "var(--jr-bg, #EEF2F7)", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
 
       <style>{`
         @keyframes traderai-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
@@ -473,7 +478,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         .traderai-scroll::-webkit-scrollbar{width:4px}
         .traderai-scroll::-webkit-scrollbar-track{background:transparent}
         .traderai-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
-        .traderai-ta::placeholder{color:rgba(255,255,255,0.2);font-family:'Montserrat',sans-serif;}
+        .traderai-ta::placeholder{color:${dm ? "rgba(255,255,255,0.2)" : "#94a3b8"};font-family:'Montserrat',sans-serif;}
         .traderai-chatrow .traderai-chatactions{opacity:0;transition:opacity .15s}
         .traderai-chatrow:hover .traderai-chatactions{opacity:1}
         .tai-delete-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);transition:color .2s,transform .2s,background .2s;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:3px;width:22px;height:22px;flex-shrink:0;}
@@ -566,7 +571,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         <div
           onMouseDown={onDragHandleMouseDown}
           title="Drag to expand sidebar"
-          style={{ width: 14, flexShrink: 0, background: "rgba(7,13,21,0.97)", borderRight: "1px solid rgba(255,255,255,0.06)", cursor: "col-resize", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}
+          style={{ width: 14, flexShrink: 0, background: panelBg, borderRight: `1px solid ${borderC}`, cursor: "col-resize", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {[0,1,2].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.2)" }} />)}
@@ -587,7 +592,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         />
 
         {/* Sidebar border line */}
-        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.06)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 1, background: borderC, pointerEvents: "none" }} />
 
         <div style={{ padding: "12px 10px 8px", display: "flex", alignItems: "center", gap: 6, paddingRight: 14 }}>
           <button onClick={newChat}
@@ -676,26 +681,10 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
 
         {/* Header */}
-        <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: "rgba(7,13,21,0.97)", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
+        <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: panelBg, borderBottom: `1px solid ${borderC}`, flexShrink: 0, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <button
-              onClick={() => {
-                if (window.innerWidth < 640) {
-                  setMobileSidebarOpen(v => !v);
-                } else {
-                  setSidebarWidth(w => w < SIDEBAR_MIN ? 240 : 0);
-                }
-              }}
-              title={sidebarCollapsed ? "Show chat history" : "Hide chat history"}
-              style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: sidebarCollapsed ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)", color: sidebarCollapsed ? "#a5b4fc" : "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all 0.15s" }}
-            >
-              <Menu size={14} />
-            </button>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <AtomAI size={14} color="white" />
-            </div>
-            <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "-0.02em" }}>Trader AI</span>
-            <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.22)", fontWeight: 400 }}>Your Personal Trading Coach</span>
+            <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: textPrim, letterSpacing: "-0.02em" }}>Trader AI</span>
+            <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: textMut, fontWeight: 400 }}>Your Personal Trading Coach</span>
           </div>
         </div>
 
@@ -703,15 +692,15 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {messages.length === 0 ? (
             <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "32px 20px", textAlign: "center" }}>
-              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.04em", marginBottom: 20, lineHeight: 1.2 }}>
+              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: textPrim, letterSpacing: "-0.04em", marginBottom: 20, lineHeight: 1.2 }}>
                 How can I analyse<br />your trades today?
               </h2>
               <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%", maxWidth: 600 }}>
                 {SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => send(s)}
-                    style={{ padding: "13px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "rgba(255,255,255,0.55)", fontSize: 12, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 8 }}
-                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(99,102,241,0.08)"; b.style.borderColor = "rgba(99,102,241,0.35)"; b.style.color = "rgba(255,255,255,0.85)"; }}
-                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.03)"; b.style.borderColor = "rgba(255,255,255,0.08)"; b.style.color = "rgba(255,255,255,0.55)"; }}
+                    style={{ padding: "13px 14px", background: suggBg, border: `1px solid ${suggBd}`, borderRadius: 12, color: suggText, fontSize: 12, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 8 }}
+                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(99,102,241,0.08)"; b.style.borderColor = "rgba(99,102,241,0.35)"; b.style.color = dm ? "rgba(255,255,255,0.85)" : "#1e293b"; }}
+                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = suggBg; b.style.borderColor = suggBd; b.style.color = suggText; }}
                   >
                     <div style={{ width: 24, height: 24, borderRadius: 6, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <ChevronRight size={11} color="#818cf8" />
@@ -769,16 +758,16 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         </div>
 
         {/* Input bar */}
-        <div className="traderai-inputwrap" style={{ flexShrink: 0, padding: "12px 16px 14px", background: "rgba(7,13,21,0.97)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="traderai-inputwrap" style={{ flexShrink: 0, padding: "12px 16px 14px", background: panelBg, borderTop: `1px solid ${borderC}` }}>
           {error && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, marginBottom: 8 }}>
               <AlertCircle size={12} color="#f87171" />
               <span style={{ fontFamily: F, fontSize: 12, color: "#f87171" }}>{error}</span>
             </div>
           )}
-          <div className="traderai-inputbox" style={{ display: "flex", alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 8px 8px 14px", transition: "border-color 0.15s, box-shadow 0.15s" }}
+          <div className="traderai-inputbox" style={{ display: "flex", alignItems: "flex-end", background: inputBg, border: `1px solid ${inputBd}`, borderRadius: 12, padding: "8px 8px 8px 14px", transition: "border-color 0.15s, box-shadow 0.15s" }}
             onFocusCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = "rgba(99,102,241,0.45)"; d.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)"; }}
-            onBlurCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = "rgba(255,255,255,0.09)"; d.style.boxShadow = "none"; }}
+            onBlurCapture={e => { const d = e.currentTarget as HTMLDivElement; d.style.borderColor = inputBd; d.style.boxShadow = "none"; }}
           >
             <textarea
               ref={taRef}
@@ -789,7 +778,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
               rows={1}
               placeholder="Message Trader AI..."
               className="traderai-ta"
-              style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F, fontSize: 14, fontWeight: 400, color: "rgba(255,255,255,0.88)", lineHeight: 1.55, minHeight: 28, maxHeight: 160, padding: 0 }}
+              style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F, fontSize: 14, fontWeight: 400, color: taColor, lineHeight: 1.55, minHeight: 28, maxHeight: 160, padding: 0 }}
             />
             <button onClick={() => send()} disabled={!input.trim() || loading}
               style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: input.trim() && !loading ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", cursor: input.trim() && !loading ? "pointer" : "default", transition: "all 0.15s", flexShrink: 0, boxShadow: input.trim() && !loading ? "0 2px 14px rgba(99,102,241,0.35)" : "none" }}
@@ -800,7 +789,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
               }
             </button>
           </div>
-          <p style={{ fontFamily: F, textAlign: "center", fontSize: 10, fontWeight: 400, color: "rgba(255,255,255,0.15)", marginTop: 6 }}>
+          <p style={{ fontFamily: F, textAlign: "center", fontSize: 10, fontWeight: 400, color: textDim, marginTop: 6 }}>
             Trader AI can make mistakes. Verify important insights independently.
           </p>
         </div>
