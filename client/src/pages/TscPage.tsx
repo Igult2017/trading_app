@@ -435,7 +435,7 @@ export default function TscPage() {
                   {weekday ? `${liveCount} Sessions Live` : "Weekend — Markets Closed"}
                 </span>
               </div>
-              <h1 style={{ margin: "0 0 10px", fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: "clamp(2rem,4vw,3rem)", letterSpacing: "-0.03em", lineHeight: 1.05, color: textPrim }}>
+              <h1 style={{ margin: "0 0 10px", fontFamily: "'DM Mono', monospace", fontWeight: 500, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", lineHeight: 1.05, color: textPrim }}>
                 Trading Session<br /><span style={{ color: "#2563eb" }}>Clock</span>
               </h1>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: textMuted, lineHeight: 1.7, maxWidth: 440 }}>
