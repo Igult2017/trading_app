@@ -14,10 +14,32 @@ interface SessionData {
 }
 
 const TZ_OPTIONS = [
-  { value: "0",  label: "UTC+0  (London winter / GMT)" },
-  { value: "1",  label: "UTC+1  (London summer / BST)" },
-  { value: "2",  label: "UTC+2  (Broker EET winter)" },
-  { value: "3",  label: "UTC+3  (Broker EEST summer)" },
+  { value: "-12", label: "UTC-12 (Baker Island)" },
+  { value: "-11", label: "UTC-11 (American Samoa)" },
+  { value: "-10", label: "UTC-10 (Hawaii)" },
+  { value: "-9",  label: "UTC-9  (Alaska)" },
+  { value: "-8",  label: "UTC-8  (Pacific Standard / PST)" },
+  { value: "-7",  label: "UTC-7  (Mountain Standard / MST)" },
+  { value: "-6",  label: "UTC-6  (Central Standard / CST)" },
+  { value: "-5",  label: "UTC-5  (Eastern Standard / EST)" },
+  { value: "-4",  label: "UTC-4  (Eastern Daylight / EDT)" },
+  { value: "-3",  label: "UTC-3  (Buenos Aires / BRT)" },
+  { value: "-2",  label: "UTC-2  (Mid-Atlantic)" },
+  { value: "-1",  label: "UTC-1  (Azores)" },
+  { value: "0",   label: "UTC+0  (London winter / GMT)" },
+  { value: "1",   label: "UTC+1  (London summer / BST)" },
+  { value: "2",   label: "UTC+2  (Broker EET winter)" },
+  { value: "3",   label: "UTC+3  (Broker EEST summer)" },
+  { value: "4",   label: "UTC+4  (Dubai / GST)" },
+  { value: "5",   label: "UTC+5  (Pakistan / PKT)" },
+  { value: "5.5", label: "UTC+5:30 (India / IST)" },
+  { value: "6",   label: "UTC+6  (Bangladesh / BST)" },
+  { value: "7",   label: "UTC+7  (Bangkok / ICT)" },
+  { value: "8",   label: "UTC+8  (Singapore / SGT)" },
+  { value: "9",   label: "UTC+9  (Tokyo / JST)" },
+  { value: "10",  label: "UTC+10 (Sydney / AEST)" },
+  { value: "11",  label: "UTC+11 (Solomon Islands)" },
+  { value: "12",  label: "UTC+12 (Auckland / NZST)" },
 ];
 
 function SCSelect({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
