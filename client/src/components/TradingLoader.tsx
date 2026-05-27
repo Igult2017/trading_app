@@ -94,14 +94,14 @@ export default function TradingLoader({
         <div
           style={{
             marginBottom: 4,
-            fontFamily: "'Montserrat', sans-serif",
+            fontFamily: "'Playfair Display', serif",
             fontWeight: 900,
-            fontSize: 16,
+            fontSize: 17,
             letterSpacing: "-0.01em",
           }}
         >
-          <span style={{ color: "#ffffff" }}>FSD </span>
-          <span style={{ color: "#3b82f6" }}>Journal</span>
+          <span style={{ color: "#ffffff" }}>Myfm</span>
+          <span style={{ color: "#3b82f6" }}>journal</span>
         </div>
       )}
 
