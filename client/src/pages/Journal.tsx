@@ -894,6 +894,19 @@ export default function Journal() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Dynamically load the selected Google Font by injecting a <link> into <head>.
+  // @import inside a nested <style> tag is ignored by browsers — this is the
+  // correct way to load fonts on-demand.
+  useEffect(() => {
+    const id = `jr-font-${settings.font}`;
+    if (document.getElementById(id)) return; // already loaded
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = F.googleUrl;
+    document.head.appendChild(link);
+  }, [settings.font, F.googleUrl]);
+
   // ── Paywall gate ───────────────────────────────────────────────────────────
   // Show a loading state while entitlement is being resolved so we don't
   // flash the paywall for users who do have access.
@@ -912,7 +925,6 @@ export default function Journal() {
   return (
     <div style={{ fontFamily: F.stack, height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: T.bg, color: T.text, transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
-        @import url('${F.googleUrl}');
         .journal-root *{font-family:${F.stack}!important;font-weight:900!important;letter-spacing:.02em;box-sizing:border-box;}
         .journal-root svg text{font-family:${F.stack}!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
