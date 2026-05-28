@@ -32,8 +32,9 @@ export async function setupVite(app: Express, server: Server) {
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
+        // Log the error but do NOT exit — a single Vite transform error
+        // should never bring down the whole server (causes Bad Gateway on reload).
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: serverOptions,
