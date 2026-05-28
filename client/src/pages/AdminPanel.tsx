@@ -1744,9 +1744,21 @@ const BlogSection = ({ bp }) => {
   const [saving, setSaving] = useState(false);
   const [editorInitialData, setEditorInitialData] = useState<Partial<BlogEditorData>>({});
 
-  const getToken = async () => {
-    const r = await (supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
-    return (r as any).data?.session?.access_token as string | null;
+  const getToken = async (): Promise<string | null> => {
+    // Supabase session (when configured)
+    if (supabase) {
+      const r = await supabase.auth.getSession();
+      if (r.data?.session?.access_token) return r.data.session.access_token;
+    }
+    // Local-admin mode: token is stored in localStorage by AuthContext on login
+    try {
+      const stored = localStorage.getItem('local_admin_session');
+      if (stored) {
+        const { token } = JSON.parse(stored) as { token?: string };
+        if (token) return token;
+      }
+    } catch { /* ignore parse errors */ }
+    return null;
   };
 
   const getAdminHeaders = async (withContentType = false): Promise<Record<string, string>> => {
