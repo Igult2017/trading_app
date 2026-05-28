@@ -1224,6 +1224,35 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     if (html && html.trim()) {
       // Rich content from Word, Google Docs, web pages — convert HTML to markdown
       processed = htmlToMarkdown(html);
+
+      // Upload any blob: URLs from pasted HTML (they expire when the tab closes)
+      if (onImageUpload && processed.includes('blob:')) {
+        e.preventDefault();
+        const ta = contentRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end   = ta.selectionEnd;
+        const next  = ta.value.slice(0, start) + processed + ta.value.slice(end);
+        set({ content: next });
+        requestAnimationFrame(() => {
+          ta.selectionStart = ta.selectionEnd = start + processed!.length;
+          ta.focus();
+        });
+        const blobRe = /!\[([^\]]*)\]\((blob:[^)]+)\)/g;
+        for (const match of [...processed.matchAll(blobRe)]) {
+          const [full, alt, blobUrl] = match;
+          (async () => {
+            try {
+              const resp = await fetch(blobUrl);
+              const blob = await resp.blob();
+              const file = new File([blob], 'pasted-image', { type: blob.type || 'image/png' });
+              const uploadedUrl = await onImageUpload(file);
+              setForm(f => ({ ...f, content: f.content.replace(full, `![${alt}](${uploadedUrl})`) }));
+            } catch { /* leave blob URL if fetch/upload fails */ }
+          })();
+        }
+        return;
+      }
     } else if (plain) {
       // Plain text — only intervene if there are bare URLs to linkify
       const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;

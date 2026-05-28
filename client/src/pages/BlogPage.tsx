@@ -15,7 +15,7 @@ type Article = {
   image: string;
 };
 
-const REFETCH_MS = 5 * 60 * 1000;
+const REFETCH_MS = 30 * 1000;
 const QUERY_KEY  = ['/api/blog'];
 
 
@@ -103,6 +103,15 @@ export default function BlogPage() {
     refetchInterval: REFETCH_MS,
     refetchIntervalInBackground: false,
   });
+
+  // Cross-tab: refetch immediately when admin publishes a post
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'blog_post_published') refetch();
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [refetch]);
 
   // Detect when a background refetch brings new posts
   useEffect(() => {

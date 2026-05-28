@@ -1961,6 +1961,7 @@ const BlogSection = ({ bp }) => {
         if (r.ok) {
           const savedPost = await r.json();
           setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...savedPost, category: savedPost.category, authorData: savedPost.authorData } : x));
+          localStorage.setItem('blog_post_published', Date.now().toString());
         } else {
           const err = await r.json().catch(() => ({}));
           alert(`Failed to save post: ${err.error || `Server error ${r.status}`}`);
@@ -1978,6 +1979,7 @@ const BlogSection = ({ bp }) => {
             content: savedPost.content ?? '', readTime: savedPost.readTime ?? '5 min',
             authorData: savedPost.authorData,
           }]);
+          localStorage.setItem('blog_post_published', Date.now().toString());
         } else {
           const err = await r.json().catch(() => ({}));
           alert(`Failed to save post: ${err.error || `Server error ${r.status}`}`);
@@ -2036,6 +2038,7 @@ const BlogSection = ({ bp }) => {
         if (r.ok) {
           savedPost = await r.json();
           setPosts(p => p.map(x => x.id === editPost.id ? { ...x, ...savedPost, category: savedPost.category, authorData: savedPost.authorData } : x));
+          localStorage.setItem('blog_post_published', Date.now().toString());
         } else {
           const err = await r.json().catch(() => ({}));
           saveError = err.error || `Server error ${r.status}`;
@@ -2045,6 +2048,7 @@ const BlogSection = ({ bp }) => {
         if (r.ok) {
           savedPost = await r.json();
           setPosts(p => [...p, { id: savedPost.id, title: savedPost.title, section: savedPost.section, category: savedPost.category, status: savedPost.status, author: savedPost.author, date: savedPost.date, signal: savedPost.signalData, imageUrl: savedPost.imageUrl ?? '', excerpt: savedPost.excerpt ?? '', content: savedPost.content ?? '', readTime: savedPost.readTime ?? '5 min', authorData: savedPost.authorData }]);
+          localStorage.setItem('blog_post_published', Date.now().toString());
         } else {
           const err = await r.json().catch(() => ({}));
           saveError = err.error || `Server error ${r.status}`;
