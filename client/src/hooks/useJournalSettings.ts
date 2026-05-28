@@ -118,14 +118,14 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   light: {
     label: 'Light',
     dark: false,
-    bg: '#EEF2F7',
-    sidebarBg: '#E2E8F2',
-    surface: '#FFFFFF',
+    bg: '#FFFFFF',
+    sidebarBg: '#F1F5F9',
+    surface: '#F8FAFC',
     text: '#1E293B',
     textMuted: '#64748B',
-    border: '#CBD5E1',
+    border: '#E2E8F0',
     accent: '#2563eb',
-    swatches: ['#EEF2F7', '#FFFFFF', '#2563eb'],
+    swatches: ['#FFFFFF', '#F8FAFC', '#2563eb'],
   },
 };
 
