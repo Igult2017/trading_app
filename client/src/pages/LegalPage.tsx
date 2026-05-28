@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 
 const F = "'DM Mono', 'Courier New', monospace";
@@ -409,69 +409,138 @@ function ContactContent({ dm }: { dm: boolean }) {
   );
 }
 
+/* ── Tab param map ──────────────────────────────────────────────────────────── */
+const TAB_MAP: Record<string, Section> = {
+  privacy: 'Privacy Policy',
+  terms:   'Terms of Service',
+  contact: 'Contact & Support',
+};
+
 /* ── Page ───────────────────────────────────────────────────────────────────── */
 export default function LegalPage() {
   const [active, setActive] = useState<Section>('Privacy Policy');
   const { darkMode: dm } = usePublicTheme();
+
+  /* Read ?tab= param from URL on mount and whenever URL changes */
+  useEffect(() => {
+    const sync = () => {
+      const param = new URLSearchParams(window.location.search).get('tab') ?? '';
+      const section = TAB_MAP[param.toLowerCase()];
+      if (section) setActive(section);
+    };
+    sync();
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
 
   const pageBg   = dm ? 'rgba(8,12,16,0.97)' : '#f8fafc';
   const cardBg   = dm ? '#0d1420' : '#ffffff';
   const sidebarBg= dm ? '#0a1018' : '#ffffff';
   const border   = dm ? 'rgba(255,255,255,0.07)' : '#e5e7eb';
 
-  const NAV = [
-    { key: 'Privacy Policy'    as Section, label: 'Privacy Policy' },
-    { key: 'Terms of Service'  as Section, label: 'Terms of Service' },
-    { key: 'Contact & Support' as Section, label: 'Contact & Support' },
+  const NAV: { key: Section; label: string; param: string }[] = [
+    { key: 'Privacy Policy',    label: 'Privacy Policy',    param: 'privacy' },
+    { key: 'Terms of Service',  label: 'Terms of Service',  param: 'terms'   },
+    { key: 'Contact & Support', label: 'Contact & Support', param: 'contact' },
   ];
+
+  function navigate(key: Section, param: string) {
+    setActive(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', param);
+    window.history.pushState({}, '', url.toString());
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, transition: 'background 0.3s' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 80px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+      <style>{`
+        .legal-layout { display:flex; gap:32px; align-items:flex-start; }
+        .legal-sidebar { flex-shrink:0; width:220px; position:sticky; top:100px; }
+        .legal-mobile-tabs { display:none; }
+        .legal-content { flex:1; min-width:0; }
+        @media (max-width:768px) {
+          .legal-layout { flex-direction:column; gap:0; }
+          .legal-sidebar { display:none; }
+          .legal-mobile-tabs { display:flex; overflow-x:auto; gap:4px; padding:16px 16px 0; scrollbar-width:none; }
+          .legal-mobile-tabs::-webkit-scrollbar { display:none; }
+          .legal-content { width:100%; }
+        }
+      `}</style>
 
-        {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-        <aside style={{ flexShrink: 0, width: 220, position: 'sticky', top: 100 }}>
-          <div style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${border}` }}>
-              <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#64748b' : '#9ca3af' }}>Legal & Support</span>
-            </div>
-            {NAV.map(({ key, label }) => {
-              const isActive = active === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActive(key)}
-                  style={{
-                    display: 'block', width: '100%', padding: '12px 16px',
-                    background: isActive ? (dm ? 'rgba(37,99,235,0.12)' : '#eff6ff') : 'transparent',
-                    border: 'none', borderBottom: `1px solid ${border}`,
-                    textAlign: 'left', cursor: 'pointer',
-                    borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  <span style={{ fontFamily: F, fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? '#2563eb' : (dm ? '#94a3b8' : '#374151'), transition: 'color 0.15s' }}>
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
-            <div style={{ padding: '14px 16px' }}>
-              <div style={{ fontFamily: F, fontSize: 10, color: dm ? '#4b5563' : '#9ca3af', lineHeight: 1.6 }}>
-                Last updated<br />
-                <span style={{ color: dm ? '#64748b' : '#6b7280' }}>May 2025</span>
-              </div>
-            </div>
-          </div>
-        </aside>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 80px' }}>
 
-        {/* ── Content ───────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0, background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' }}>
-          {active === 'Privacy Policy'    && <PrivacyContent    dm={dm} />}
-          {active === 'Terms of Service'  && <TermsContent      dm={dm} />}
-          {active === 'Contact & Support' && <ContactContent    dm={dm} />}
+        {/* ── Mobile tab bar (hidden on desktop) ────────────────────────────── */}
+        <div className="legal-mobile-tabs">
+          {NAV.map(({ key, label, param }) => {
+            const isActive = active === key;
+            return (
+              <button
+                key={key}
+                onClick={() => navigate(key, param)}
+                style={{
+                  fontFamily: F, fontSize: 12, fontWeight: isActive ? 700 : 500,
+                  padding: '9px 16px', borderRadius: 4, border: `1px solid ${isActive ? '#2563eb' : border}`,
+                  background: isActive ? (dm ? 'rgba(37,99,235,0.15)' : '#eff6ff') : (dm ? sidebarBg : '#fff'),
+                  color: isActive ? '#2563eb' : (dm ? '#94a3b8' : '#374151'),
+                  cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                  transition: 'all 0.15s',
+                }}
+              >{label}</button>
+            );
+          })}
         </div>
 
+        <div className="legal-layout" style={{ marginTop: 20 }}>
+
+          {/* ── Sidebar (desktop) ───────────────────────────────────────────── */}
+          <aside className="legal-sidebar">
+            <div style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
+                <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#64748b' : '#9ca3af' }}>Legal & Support</span>
+              </div>
+              {NAV.map(({ key, label, param }) => {
+                const isActive = active === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => navigate(key, param)}
+                    style={{
+                      display: 'block', width: '100%', padding: '12px 16px',
+                      background: isActive ? (dm ? 'rgba(37,99,235,0.12)' : '#eff6ff') : 'transparent',
+                      border: 'none', borderBottom: `1px solid ${border}`,
+                      textAlign: 'left', cursor: 'pointer',
+                      borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span style={{ fontFamily: F, fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? '#2563eb' : (dm ? '#94a3b8' : '#374151'), transition: 'color 0.15s' }}>
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ fontFamily: F, fontSize: 10, color: dm ? '#4b5563' : '#9ca3af', lineHeight: 1.6 }}>
+                  Last updated<br />
+                  <span style={{ color: dm ? '#64748b' : '#6b7280' }}>May 2025</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* ── Content card ────────────────────────────────────────────────── */}
+          <div className="legal-content" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 6, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <style>{`
+              @media (max-width:600px) {
+                .legal-content { padding: 24px 20px !important; }
+              }
+            `}</style>
+            {active === 'Privacy Policy'    && <PrivacyContent    dm={dm} />}
+            {active === 'Terms of Service'  && <TermsContent      dm={dm} />}
+            {active === 'Contact & Support' && <ContactContent    dm={dm} />}
+          </div>
+
+        </div>
       </div>
     </div>
   );

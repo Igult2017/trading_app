@@ -15,10 +15,10 @@ const RESOURCES = [
 ];
 
 const LEGAL = [
-  { label: 'Privacy Policy',   href: '/legal' },
+  { label: 'Privacy Policy',   href: '/legal?tab=privacy' },
   { label: 'Support',          href: '/support' },
-  { label: 'Terms of Service', href: '/legal' },
-  { label: 'Contact',          href: '/legal' },
+  { label: 'Terms of Service', href: '/legal?tab=terms' },
+  { label: 'Contact',          href: '/legal?tab=contact' },
 ];
 
 interface HomeFooterProps {
