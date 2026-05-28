@@ -852,6 +852,7 @@ export default function Journal() {
       ? authFetch(`/api/sessions`).then(r => r.json())
       : Promise.resolve([]),
     enabled: !!user,
+    staleTime: 0,
   });
 
   // If the persisted activeSessionId points to a session that no longer

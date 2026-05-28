@@ -695,6 +695,7 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
 export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession, onCreated }: SessionsListProps) => {
   const { data: sessions = [], isLoading } = useQuery<SessionData[]>({
     queryKey: ['/api/sessions'],
+    staleTime: 0,
   });
   const [showCreate, setShowCreate]   = useState(false);
   const [editTarget, setEditTarget]   = useState<SessionData | null>(null);

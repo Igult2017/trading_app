@@ -1882,7 +1882,7 @@ const BlogSection = ({ bp }) => {
   };
 
   const uploadCoverImage = async (dataUrl: string): Promise<string> => {
-    // Try Supabase first if configured
+    // Try Supabase Storage first (when configured)
     if (supabase) {
       try {
         const res  = await fetch(dataUrl);
@@ -1898,23 +1898,8 @@ const BlogSection = ({ bp }) => {
         }
       } catch { /* fall through */ }
     }
-    // Upload to server — saves the file to disk and returns a /uploads/... path
-    try {
-      const headers = await getAdminHeaders(true);
-      const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
-      const mimeType  = mimeMatch?.[1] ?? 'image/jpeg';
-      const b64       = dataUrl.replace(/^data:[^;]+;base64,/, '');
-      const r = await fetch('/api/upload/image', {
-        method:  'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ data: b64, mimeType }),
-      });
-      if (r.ok) {
-        const json = await r.json();
-        if (json?.url) return json.url;
-      }
-    } catch { /* fall through */ }
-    // Last resort: compress and store as data URL
+    // No Supabase — compress and store as a base64 data URL directly in the DB.
+    // Disk-based /uploads paths are ephemeral on Replit and break after restarts.
     return await compressDataUrl(dataUrl);
   };
 
