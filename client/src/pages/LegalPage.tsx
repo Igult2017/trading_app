@@ -1,214 +1,399 @@
 import { useState } from 'react';
-import { useLocation } from 'wouter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
+
+const F = "'DM Mono', 'Courier New', monospace";
+
+const C = {
+  bg:       '#070d15',
+  surface:  '#0c1421',
+  border:   'rgba(255,255,255,0.06)',
+  borderHi: 'rgba(99,102,241,0.35)',
+  text:     'rgba(255,255,255,0.88)',
+  muted:    'rgba(255,255,255,0.38)',
+  dim:      'rgba(255,255,255,0.55)',
+  indigo:   '#6366f1',
+  indigoL:  '#818cf8',
+  green:    '#10b981',
+  amber:    '#f59e0b',
+  red:      '#f43f5e',
+};
 
 const SECTIONS = ['Privacy Policy', 'Terms of Service', 'Contact & Support'] as const;
 type Section = typeof SECTIONS[number];
 
-/* ── Shared typography helpers ─────────────────────────────────────────────── */
-function SectionLabel({ children, color = '#2563eb' }: { children: React.ReactNode; color?: string }) {
+/* ── Shared primitives ─────────────────────────────────────────────────────── */
+function Tag({ children, color = C.indigo }: { children: React.ReactNode; color?: string }) {
   return (
-    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color, marginBottom: 6 }}>
-      {children}
+    <span style={{
+      fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.18em',
+      textTransform: 'uppercase', color,
+      background: `${color}18`, border: `1px solid ${color}35`,
+      borderRadius: 4, padding: '3px 8px',
+    }}>{children}</span>
+  );
+}
+
+function SectionHead({ children, accent = C.indigo }: { children: React.ReactNode; accent?: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      marginTop: 44, marginBottom: 16,
+    }}>
+      <div style={{ width: 2, height: 14, background: accent, borderRadius: 1, flexShrink: 0 }} />
+      <span style={{
+        fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.18em',
+        textTransform: 'uppercase', color: accent,
+      }}>{children}</span>
     </div>
   );
 }
 
-function DocHeading({ children, dm }: { children: React.ReactNode; dm: boolean }) {
+function Para({ children }: { children: React.ReactNode }) {
   return (
-    <h2 style={{
-      fontFamily: "'Montserrat',sans-serif", fontSize: 11, fontWeight: 800,
-      letterSpacing: '0.12em', textTransform: 'uppercase',
-      color: dm ? '#94a3b8' : '#64748b',
-      marginTop: 36, marginBottom: 12, paddingBottom: 10,
-      borderBottom: `1px solid ${dm ? '#172233' : '#f1f5f9'}`,
-    }}>
-      {children}
-    </h2>
-  );
-}
-
-function Para({ children, dm }: { children: React.ReactNode; dm: boolean }) {
-  return (
-    <p style={{ fontSize: 13, fontWeight: 500, color: dm ? '#8aa0b8' : '#475569', lineHeight: 1.9, marginBottom: 14, marginTop: 0 }}>
+    <p style={{ fontFamily: F, fontSize: 12.5, color: C.dim, lineHeight: 2.0, marginBottom: 16, marginTop: 0, fontWeight: 400 }}>
       {children}
     </p>
   );
 }
 
-function Li({ children, dm }: { children: React.ReactNode; dm: boolean }) {
+function Bullet({ items, accent = C.indigo }: { items: string[]; accent?: string }) {
   return (
-    <li style={{ fontSize: 13, fontWeight: 500, color: dm ? '#8aa0b8' : '#475569', lineHeight: 1.9, marginBottom: 8 }}>
-      {children}
-    </li>
+    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map((item, i) => (
+        <li key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <span style={{ color: accent, fontFamily: F, fontSize: 11, marginTop: 3, flexShrink: 0 }}>›</span>
+          <span style={{ fontFamily: F, fontSize: 12.5, color: C.dim, lineHeight: 1.85, fontWeight: 400 }}>{item}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-/* ── Privacy ────────────────────────────────────────────────────────────────── */
-function PrivacyContent({ dm }: { dm: boolean }) {
-  const hi = dm ? '#c8d8e8' : '#1e293b';
+function InfoRow({ label, value, accent = C.indigo }: { label: string; value: string; accent?: string }) {
   return (
-    <div>
-      <Para dm={dm}>
-        Effective Date: January 1, 2025. My FM | Journal ("we", "us", or "our") is committed to protecting your privacy.
-        This Privacy Policy explains how we collect, use, and safeguard your information when you visit our website and use our services.
-      </Para>
-
-      <DocHeading dm={dm}>Information We Collect</DocHeading>
-      <Para dm={dm}>We may collect the following types of information:</Para>
-      <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
-        <Li dm={dm}><strong style={{ color: hi }}>Account Information:</strong> Name, email address, and password when you register.</Li>
-        <Li dm={dm}><strong style={{ color: hi }}>Journal Data:</strong> Trade entries, notes, screenshots, and performance data you input into the trading journal.</Li>
-        <Li dm={dm}><strong style={{ color: hi }}>Usage Data:</strong> Pages visited, features used, and time spent on the platform.</Li>
-        <Li dm={dm}><strong style={{ color: hi }}>Device Data:</strong> Browser type, IP address, and operating system for security and analytics purposes.</Li>
-      </ul>
-
-      <DocHeading dm={dm}>How We Use Your Information</DocHeading>
-      <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
-        <Li dm={dm}>To provide, maintain, and improve our trading journal and analytics tools.</Li>
-        <Li dm={dm}>To authenticate your account and protect against unauthorized access.</Li>
-        <Li dm={dm}>To send service-related communications and support responses.</Li>
-        <Li dm={dm}>To analyze usage patterns and improve platform performance.</Li>
-        <Li dm={dm}>To comply with legal obligations.</Li>
-      </ul>
-
-      <DocHeading dm={dm}>Data Security</DocHeading>
-      <Para dm={dm}>
-        We implement industry-standard security measures including encryption at rest and in transit, secure authentication, and regular security audits.
-        Your trade journal data is private to your account and is never shared with or sold to third parties.
-      </Para>
-
-      <DocHeading dm={dm}>Data Retention</DocHeading>
-      <Para dm={dm}>
-        We retain your account data for as long as your account is active. You may request deletion of your account and associated data at any time by contacting our support team.
-      </Para>
-
-      <DocHeading dm={dm}>Cookies</DocHeading>
-      <Para dm={dm}>
-        We use essential cookies to maintain your session and preferences. We do not use advertising cookies or sell your data to advertisers.
-      </Para>
-
-      <DocHeading dm={dm}>Third-Party Services</DocHeading>
-      <Para dm={dm}>
-        We may use third-party services for hosting and analytics. These providers are contractually obligated to keep your data confidential and use it only to provide services to us.
-      </Para>
-
-      <DocHeading dm={dm}>Your Rights</DocHeading>
-      <Para dm={dm}>
-        You have the right to access, correct, or delete your personal data. You may also request a copy of the data we hold about you. Contact us at the address below to exercise these rights.
-      </Para>
-
-      <DocHeading dm={dm}>Changes to This Policy</DocHeading>
-      <Para dm={dm}>
-        We may update this Privacy Policy from time to time. We will notify you of significant changes by posting a notice on our website or emailing you directly.
-      </Para>
-
-      <DocHeading dm={dm}>Contact</DocHeading>
-      <Para dm={dm}>
-        For privacy-related inquiries, please contact us via our Support page or email{' '}
-        <strong style={{ color: '#2563eb' }}>privacy@myfmjournal.com</strong>.
-      </Para>
+    <div style={{
+      display: 'flex', gap: 16, alignItems: 'flex-start', padding: '12px 16px',
+      background: `${accent}08`, border: `1px solid ${accent}20`, borderRadius: 8,
+    }}>
+      <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, paddingTop: 1, flexShrink: 0, minWidth: 90 }}>{label}</span>
+      <span style={{ fontFamily: F, fontSize: 12, color: C.dim, lineHeight: 1.7 }}>{value}</span>
     </div>
   );
 }
 
-/* ── Terms ──────────────────────────────────────────────────────────────────── */
-function TermsContent({ dm }: { dm: boolean }) {
+/* ── Privacy Policy ─────────────────────────────────────────────────────────── */
+function PrivacyContent() {
   return (
     <div>
-      <Para dm={dm}>
-        Effective Date: January 1, 2025. By accessing or using My FM | Journal, you agree to be bound by these Terms of Service.
-        Please read them carefully before using our platform.
+      <Para>
+        Effective Date: 1 January 2025 · Last Revised: May 2025. My FM | Journal ("we", "us", "our", or the "Platform") is
+        committed to safeguarding the privacy of everyone who uses our services. This Privacy Policy describes in detail
+        how we collect, process, store, transfer, and protect your personal data when you access myfmjournal.com and any
+        related mobile or web applications. By using our services, you acknowledge that you have read and understood this policy.
       </Para>
 
-      <DocHeading dm={dm}>Acceptance of Terms</DocHeading>
-      <Para dm={dm}>
-        By creating an account or using any part of our services, you agree to these Terms. If you do not agree, you must not use My FM | Journal.
+      <SectionHead>1. Information We Collect</SectionHead>
+      <Para>
+        We collect information you provide directly, data generated by your use of the platform, and technical signals
+        from your devices. The categories below describe each type.
+      </Para>
+      <Bullet items={[
+        'Account Information — Full name, email address, hashed password, country of residence, and account creation timestamp.',
+        'Journal & Trade Data — Trade entries including symbol, entry/exit prices, lot size, P&L, notes, screenshots, strategy tags, and psychological annotations you record in your journal.',
+        'Session & Analytics Data — Which features you use, how long you spend on each panel, click patterns, error reports, and crash logs that help us diagnose and improve the platform.',
+        'Device & Network Information — IP address, browser type and version, operating system, device identifiers, and timezone used for security and fraud prevention.',
+        'Communication Data — Messages sent to our support team, feedback you submit, and responses to any surveys or questionnaires.',
+        'Payment Information — If you subscribe to a paid plan, billing information is handled by our third-party payment processor. We do not store full card numbers on our servers.',
+        'Automatically Collected Data — Cookies, local storage tokens, and session identifiers used to keep you logged in and remember your UI preferences.',
+      ]} />
+
+      <SectionHead>2. How We Use Your Information</SectionHead>
+      <Bullet items={[
+        'To provide, operate, and maintain the trading journal, analytics engine, AI coach, and economic calendar features.',
+        'To authenticate your identity and protect your account from unauthorized access.',
+        'To process subscription payments and send billing-related notifications.',
+        'To respond to support tickets, bug reports, and account enquiries.',
+        'To analyze aggregated, anonymized usage patterns for product improvement — no individual user data is used for advertising.',
+        'To detect and prevent fraud, abuse, policy violations, and security incidents.',
+        'To comply with applicable legal and regulatory obligations.',
+        'To send you service announcements, security alerts, and product update notifications. You may opt out of non-essential communications at any time.',
+      ]} />
+
+      <SectionHead>3. Legal Basis for Processing (GDPR)</SectionHead>
+      <Para>
+        If you are located in the European Economic Area (EEA) or United Kingdom, our processing of your personal data
+        relies on the following legal bases under the General Data Protection Regulation (GDPR):
+      </Para>
+      <Bullet items={[
+        'Contract Performance — Processing necessary to deliver the services you have registered for.',
+        'Legitimate Interests — Security monitoring, fraud prevention, analytics, and platform improvement, where these do not override your fundamental rights.',
+        'Legal Obligation — Compliance with applicable laws including financial record-keeping and anti-money-laundering regulations.',
+        'Consent — For optional communications such as newsletters or marketing emails. You may withdraw consent at any time.',
+      ]} />
+
+      <SectionHead>4. Data Security</SectionHead>
+      <Para>
+        We implement layered security controls to protect your data at every stage. All data in transit is encrypted using
+        TLS 1.2 or higher. Data at rest is encrypted using AES-256. Access to production systems is restricted to
+        authorised personnel using multi-factor authentication and role-based access controls. We conduct periodic security
+        audits and vulnerability assessments. In the event of a confirmed data breach that is likely to result in a risk
+        to your rights and freedoms, we will notify you and the relevant supervisory authority within 72 hours of becoming
+        aware of it, as required by applicable law.
       </Para>
 
-      <DocHeading dm={dm}>Description of Service</DocHeading>
-      <Para dm={dm}>
-        My FM | Journal provides an online trading journal, analytics tools, market session clock, economic calendar, and educational content.
-        Our services are intended for informational and record-keeping purposes only.
+      <SectionHead>5. Data Retention</SectionHead>
+      <Para>
+        We retain your account and journal data for as long as your account remains active. If you delete your account,
+        we will remove your personal data from our active systems within 30 days. Certain records may be retained for up
+        to 7 years where required by financial or tax regulations. Anonymized, aggregated data — which cannot be used to
+        identify you — may be retained indefinitely for statistical purposes.
       </Para>
 
-      <DocHeading dm={dm}>Risk Disclaimer</DocHeading>
-      <Para dm={dm}>
-        Trading financial instruments involves substantial risk of loss and is not suitable for every investor. My FM | Journal provides
-        educational content and analytical tools for informational purposes only. Nothing on this platform constitutes financial,
-        investment, or trading advice. Past performance is not indicative of future results. Never trade with money you cannot afford to lose.
+      <SectionHead>6. Cookies & Tracking Technologies</SectionHead>
+      <Bullet items={[
+        'Essential Cookies — Required for authentication, session management, and security. Cannot be disabled without breaking core functionality.',
+        'Preference Cookies — Store your theme, language, and UI settings between visits.',
+        'Analytics Cookies — Help us understand how the platform is used. We use privacy-respecting analytics that do not fingerprint users or share data with advertisers.',
+        'We do not use third-party advertising cookies or tracking pixels. We do not sell your data to data brokers or ad networks.',
+      ]} />
+
+      <SectionHead>7. Third-Party Services</SectionHead>
+      <Para>
+        We use a limited set of third-party infrastructure providers to operate the platform. Each provider is bound by
+        a data processing agreement that restricts how they may use your data:
+      </Para>
+      <Bullet items={[
+        'Cloud Hosting — Our infrastructure provider stores and processes data in data centres with ISO 27001 certification.',
+        'Payment Processing — Stripe, Inc. processes card payments. Stripe is PCI-DSS Level 1 compliant. We never see your full card number.',
+        'Supabase — Used for authentication and managed database services when configured. Your data remains within the selected region.',
+        'Telegram — If you opt in to Telegram notifications, your Telegram chat ID is stored solely to deliver those notifications.',
+        'AI Services — Gemini (Google) is used to power the AI chat and signal analysis features. Conversation context is not stored by Google beyond the scope of the API call.',
+      ]} />
+
+      <SectionHead>8. International Data Transfers</SectionHead>
+      <Para>
+        Our servers are primarily located in the United States and the European Union. If you access the platform from
+        outside these regions, your data may be transferred internationally. For transfers from the EEA or UK, we rely on
+        Standard Contractual Clauses (SCCs) approved by the European Commission to ensure adequate protection.
       </Para>
 
-      <DocHeading dm={dm}>Account Responsibilities</DocHeading>
-      <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
-        <Li dm={dm}>You must be at least 18 years of age to use our services.</Li>
-        <Li dm={dm}>You are responsible for maintaining the confidentiality of your account credentials.</Li>
-        <Li dm={dm}>You are responsible for all activity that occurs under your account.</Li>
-        <Li dm={dm}>You must provide accurate and truthful information during registration.</Li>
-      </ul>
+      <SectionHead>9. Your Rights</SectionHead>
+      <Para>
+        Depending on your jurisdiction, you may have the following rights regarding your personal data. To exercise any
+        of these rights, contact us via the Support page.
+      </Para>
+      <Bullet accent={C.green} items={[
+        'Right of Access — Request a copy of all personal data we hold about you.',
+        'Right to Rectification — Request correction of inaccurate or incomplete data.',
+        'Right to Erasure — Request deletion of your data (subject to legal retention obligations).',
+        'Right to Restriction — Request that we limit processing of your data in certain circumstances.',
+        'Right to Data Portability — Receive your journal data in a machine-readable format (CSV or JSON).',
+        'Right to Object — Object to processing based on legitimate interests.',
+        'Right to Withdraw Consent — Where processing is based on consent, withdraw it at any time without affecting prior processing.',
+        'Right to Lodge a Complaint — File a complaint with your local data protection authority if you believe we have mishandled your data.',
+      ]} />
 
-      <DocHeading dm={dm}>Prohibited Conduct</DocHeading>
-      <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
-        <Li dm={dm}>Attempting to gain unauthorized access to any part of the platform.</Li>
-        <Li dm={dm}>Uploading malicious code, viruses, or harmful content.</Li>
-        <Li dm={dm}>Using the platform for any illegal or fraudulent purpose.</Li>
-        <Li dm={dm}>Reverse engineering or attempting to extract proprietary algorithms or data.</Li>
-        <Li dm={dm}>Sharing your account with others or reselling access to our services.</Li>
-      </ul>
-
-      <DocHeading dm={dm}>Intellectual Property</DocHeading>
-      <Para dm={dm}>
-        All content on My FM | Journal, including text, graphics, logos, software, and data analysis tools, is the property of My FM | Journal
-        and is protected by applicable intellectual property laws. You may not reproduce, distribute, or create derivative works without our express written permission.
+      <SectionHead>10. Children's Privacy</SectionHead>
+      <Para>
+        Our services are not directed to individuals under the age of 18. We do not knowingly collect personal data from
+        minors. If we become aware that a user is under 18, we will promptly delete their account and associated data.
+        If you believe a minor has registered, please contact us immediately.
       </Para>
 
-      <DocHeading dm={dm}>Limitation of Liability</DocHeading>
-      <Para dm={dm}>
-        My FM | Journal shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from
-        your use of or inability to use our services, including but not limited to trading losses, data loss, or service interruptions.
+      <SectionHead>11. Changes to This Policy</SectionHead>
+      <Para>
+        We may update this Privacy Policy to reflect changes in our practices or applicable law. For material changes,
+        we will provide prominent notice on the platform at least 14 days before the change takes effect, and we will
+        update the "Last Revised" date at the top of this document. Your continued use of the platform after the effective
+        date constitutes acceptance of the revised policy.
       </Para>
 
-      <DocHeading dm={dm}>Service Availability</DocHeading>
-      <Para dm={dm}>
-        We strive to maintain high availability but do not guarantee uninterrupted access. We reserve the right to modify, suspend,
-        or discontinue any part of our service at any time without liability.
-      </Para>
-
-      <DocHeading dm={dm}>Termination</DocHeading>
-      <Para dm={dm}>
-        We reserve the right to suspend or terminate your account at our discretion if you violate these Terms. You may also delete your account at any time by contacting support.
-      </Para>
-
-      <DocHeading dm={dm}>Governing Law</DocHeading>
-      <Para dm={dm}>
-        These Terms shall be governed by and construed in accordance with applicable law. Any disputes shall be resolved through binding arbitration or in the courts of applicable jurisdiction.
-      </Para>
-
-      <DocHeading dm={dm}>Changes to Terms</DocHeading>
-      <Para dm={dm}>
-        We reserve the right to update these Terms at any time. Continued use of the platform after changes constitutes acceptance of the new Terms.
-      </Para>
+      <SectionHead accent={C.indigo}>12. Contact — Privacy Team</SectionHead>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+        <InfoRow label="Email" value="privacy@myfmjournal.com" accent={C.indigo} />
+        <InfoRow label="Response" value="Within 72 hours for privacy-related requests" accent={C.green} />
+      </div>
     </div>
   );
 }
 
-/* ── Contact ────────────────────────────────────────────────────────────────── */
-function ContactContent({ dm }: { dm: boolean }) {
+/* ── Terms of Service ───────────────────────────────────────────────────────── */
+function TermsContent() {
+  return (
+    <div>
+      <Para>
+        Effective Date: 1 January 2025 · Last Revised: May 2025. These Terms of Service ("Terms") constitute a legally
+        binding agreement between you ("User", "you") and My FM | Journal ("Company", "we", "us") governing your access
+        to and use of the myfmjournal.com platform, APIs, mobile interfaces, and any related services (collectively,
+        the "Services"). Please read these Terms carefully. By creating an account or using any part of our Services,
+        you confirm that you are at least 18 years old and agree to be bound by these Terms and our Privacy Policy.
+      </Para>
+
+      <SectionHead>1. Acceptance & Eligibility</SectionHead>
+      <Bullet items={[
+        'You must be at least 18 years of age to register for or use our Services.',
+        'By clicking "Sign Up", completing registration, or accessing any feature, you accept these Terms in full.',
+        'If you are using the Services on behalf of a company or organisation, you represent that you have authority to bind that entity to these Terms.',
+        'We reserve the right to refuse service to any person or entity at our sole discretion.',
+      ]} />
+
+      <SectionHead>2. Description of Services</SectionHead>
+      <Para>
+        My FM | Journal provides an online platform for retail and professional traders that includes:
+      </Para>
+      <Bullet items={[
+        'Trading Journal — A database-backed tool to log, annotate, and categorise trade entries, including screenshot uploads and psychological tagging.',
+        'Performance Analytics — Computed metrics including win rate, expectancy, drawdown curves, risk-adjusted returns, and timeframe analysis.',
+        'AI Trading Coach — Powered by Google Gemini, provides contextual analysis and Q&A based on your journal data. Not financial advice.',
+        'Economic Calendar — Aggregated high-impact macro events from multiple data sources, updated in real time.',
+        'Market Session Clock — Live tracking of major trading session overlaps (Sydney, Tokyo, London, New York).',
+        'Signal Analysis — Optional signal detection and copy-trading infrastructure for advanced users.',
+        'Blog & Educational Content — Market analysis, strategy guides, and trader education articles published by the Company and invited contributors.',
+      ]} />
+
+      <SectionHead>3. Risk Disclaimer — Please Read Carefully</SectionHead>
+      <Para>
+        TRADING FINANCIAL INSTRUMENTS INCLUDING FOREIGN EXCHANGE, CONTRACTS FOR DIFFERENCE (CFDs), CRYPTOCURRENCIES,
+        EQUITIES, AND COMMODITIES INVOLVES SUBSTANTIAL RISK OF LOSS AND IS NOT SUITABLE FOR ALL INVESTORS. THE LEVERAGE
+        AVAILABLE IN MANY INSTRUMENTS MEANS THAT LOSSES CAN EXCEED YOUR INITIAL DEPOSIT.
+      </Para>
+      <Para>
+        MY FM | JOURNAL PROVIDES TOOLS FOR RECORDING, ANALYSING, AND REVIEWING YOUR OWN TRADING ACTIVITY. NOTHING ON
+        THIS PLATFORM — INCLUDING AI-GENERATED COMMENTARY, BLOG ARTICLES, SIGNAL DATA, OR ANALYTICS — CONSTITUTES
+        FINANCIAL, INVESTMENT, OR TRADING ADVICE. PAST PERFORMANCE OF ANY STRATEGY OR METRIC SHOWN IS NOT INDICATIVE
+        OF FUTURE RESULTS. ALWAYS CONSULT A LICENSED FINANCIAL ADVISER BEFORE MAKING INVESTMENT DECISIONS.
+      </Para>
+
+      <SectionHead>4. Account Registration & Security</SectionHead>
+      <Bullet items={[
+        'You must provide accurate, current, and complete information during registration and keep it updated.',
+        'You are solely responsible for maintaining the confidentiality of your login credentials.',
+        'You must notify us immediately at support@myfmjournal.com if you suspect unauthorised access to your account.',
+        'You may not share your account with others or allow third parties to access the platform using your credentials.',
+        'We are not liable for losses resulting from unauthorised use of your account if you failed to protect your credentials.',
+        'We reserve the right to require password resets or suspend accounts we believe have been compromised.',
+      ]} />
+
+      <SectionHead>5. Subscriptions, Billing & Refunds</SectionHead>
+      <Bullet items={[
+        'Certain features of the platform are available only to subscribers on paid plans ("Pro", "Enterprise", or similar tiers).',
+        'Subscription fees are charged on the cycle stated at the time of purchase (monthly or annual).',
+        'All fees are stated exclusive of VAT, GST, or applicable sales taxes, which will be added at checkout where required by law.',
+        'Subscriptions renew automatically at the end of each billing cycle unless cancelled before the renewal date.',
+        'You may cancel your subscription at any time from your account settings. Cancellation takes effect at the end of the current billing period — no partial-period refunds are issued.',
+        'Refunds may be granted at our discretion for billing errors or service failures. Submit a refund request within 7 days of the charge to support@myfmjournal.com.',
+        'We reserve the right to change pricing with 30 days prior notice to active subscribers.',
+      ]} />
+
+      <SectionHead>6. Acceptable Use & Prohibited Conduct</SectionHead>
+      <Para>You agree not to:</Para>
+      <Bullet accent={C.red} items={[
+        'Attempt to gain unauthorised access to any system, account, or data on the platform.',
+        'Upload, transmit, or store malware, viruses, ransomware, or any other harmful code.',
+        'Use the platform for any unlawful purpose, including money laundering, market manipulation, or fraud.',
+        'Scrape, crawl, or systematically extract data from the platform without prior written permission.',
+        'Reverse-engineer, decompile, or disassemble any part of the platform or its underlying algorithms.',
+        'Attempt to circumvent or disable any security feature, rate limit, or access control.',
+        'Post, upload, or transmit any content that is defamatory, harassing, obscene, or violates any third-party rights.',
+        'Use automated tools, bots, or scripts to interact with the platform in a manner not expressly authorised.',
+        'Sell, sublicense, or resell access to the platform or any portion of it.',
+        'Impersonate any person, entity, or trademark, or misrepresent your affiliation with any organisation.',
+      ]} />
+
+      <SectionHead>7. Intellectual Property</SectionHead>
+      <Para>
+        All content, software, algorithms, designs, trademarks, logos, and data models on the platform are owned by
+        My FM | Journal or its licensors and are protected by copyright, patent, trade secret, and other intellectual
+        property laws. You are granted a limited, non-exclusive, non-transferable, revocable licence to use the platform
+        solely for your personal, non-commercial trading journal purposes.
+      </Para>
+      <Para>
+        You retain full ownership of the trade data and content you input into the journal. By submitting content to the
+        platform, you grant us a limited licence to store, process, and display that content solely to provide you with
+        the Services. We do not claim any ownership over your personal trade data.
+      </Para>
+
+      <SectionHead>8. Data Ownership & Export</SectionHead>
+      <Bullet items={[
+        'Your journal entries, trades, and annotations are your data. We are custodians, not owners.',
+        'You may export your data in CSV or JSON format at any time from the Analytics section.',
+        'Upon account deletion, we will return your data in a machine-readable format upon request submitted before deletion.',
+        'We do not sell, license, or share your individual trading data with third parties.',
+      ]} />
+
+      <SectionHead>9. Limitation of Liability</SectionHead>
+      <Para>
+        TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, MY FM | JOURNAL AND ITS OFFICERS, DIRECTORS, EMPLOYEES,
+        AGENTS, AND AFFILIATES SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES, INCLUDING BUT NOT LIMITED TO: TRADING LOSSES INFORMED BY ANY CONTENT ON THE PLATFORM; LOSS OF PROFITS,
+        REVENUE, OR DATA; BUSINESS INTERRUPTION; OR COST OF SUBSTITUTE SERVICES.
+      </Para>
+      <Para>
+        OUR AGGREGATE LIABILITY FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THESE TERMS OR THE SERVICES SHALL NOT
+        EXCEED THE GREATER OF (A) THE TOTAL FEES PAID BY YOU IN THE TWELVE MONTHS PRECEDING THE CLAIM, OR (B) USD 100.
+      </Para>
+
+      <SectionHead>10. Service Availability & Modifications</SectionHead>
+      <Bullet items={[
+        'We strive for 99.5% uptime but do not guarantee uninterrupted access.',
+        'Scheduled maintenance will be announced with reasonable advance notice.',
+        'We reserve the right to modify, suspend, or discontinue any feature or the entire platform at any time.',
+        'We will provide at least 30 days notice before permanently discontinuing a core feature that affects paid subscribers.',
+      ]} />
+
+      <SectionHead>11. Termination</SectionHead>
+      <Para>
+        We may suspend or terminate your account immediately and without prior notice if you violate these Terms, engage
+        in fraudulent activity, or if we are required to do so by law. Upon termination, your right to use the platform
+        ceases immediately. You may request an export of your data within 14 days of termination. You may delete your
+        own account at any time from your profile settings.
+      </Para>
+
+      <SectionHead>12. Governing Law & Dispute Resolution</SectionHead>
+      <Para>
+        These Terms are governed by and construed in accordance with the laws of the applicable jurisdiction. Any dispute
+        arising out of or relating to these Terms or the Services that cannot be resolved informally within 30 days shall
+        be submitted to binding arbitration under the rules of a mutually agreed arbitration body. Nothing in this clause
+        prevents either party from seeking injunctive or other equitable relief in a court of competent jurisdiction.
+      </Para>
+
+      <SectionHead>13. Force Majeure</SectionHead>
+      <Para>
+        We shall not be liable for any failure or delay in performance resulting from causes beyond our reasonable control,
+        including but not limited to: acts of God, war, terrorism, government action, internet outages, DDoS attacks,
+        third-party service failures, or natural disasters.
+      </Para>
+
+      <SectionHead>14. Amendments</SectionHead>
+      <Para>
+        We reserve the right to amend these Terms at any time. For material changes, we will post notice on the platform
+        and, where feasible, email registered users at least 14 days before the change takes effect. Continued use after
+        the effective date constitutes acceptance of the updated Terms.
+      </Para>
+
+      <SectionHead accent={C.indigo}>15. Contact — Legal</SectionHead>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+        <InfoRow label="Email" value="legal@myfmjournal.com" accent={C.indigo} />
+        <InfoRow label="Support" value="support@myfmjournal.com" accent={C.green} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Contact & Support ──────────────────────────────────────────────────────── */
+function ContactContent() {
   const [form, setForm]     = useState({ user_name: '', user_email: '', subject: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError]   = useState('');
 
-  const hi = dm ? '#c8d8e8' : '#1e293b';
-  const cardBg  = dm ? '#0c1219' : '#f8fafc';
-  const cardBrd = dm ? '#172233' : '#e2e8f0';
   const inp: React.CSSProperties = {
-    background: dm ? '#080c10' : '#ffffff',
-    border: `1px solid ${dm ? '#172233' : '#e2e8f0'}`,
-    borderRadius: 8, padding: '11px 14px',
-    color: dm ? '#c8d8e8' : '#0f172a',
-    fontSize: 13, fontWeight: 500, outline: 'none',
+    background: 'rgba(255,255,255,0.03)',
+    border: `1px solid ${C.border}`,
+    borderRadius: 8, padding: '12px 14px',
+    color: C.text,
+    fontSize: 12, fontWeight: 400, outline: 'none',
     width: '100%', boxSizing: 'border-box',
-    fontFamily: "'Poppins', sans-serif",
+    fontFamily: F,
     transition: 'border-color 0.2s',
   };
 
@@ -226,68 +411,100 @@ function ContactContent({ dm }: { dm: boolean }) {
     } catch (err: any) { setStatus('error'); setError(err.message || 'Failed to send ticket'); }
   }
 
+  const faqs = [
+    { q: 'How do I reset my password?',        a: 'Use the "Forgot Password" link on the login page to receive a reset link to your email address.' },
+    { q: 'Is my journal data private?',         a: 'Yes. Your trade entries, notes, and screenshots are encrypted at rest and in transit. No one else can view your data.' },
+    { q: 'Can I export my trades?',             a: 'CSV and JSON export is available in the Analytics section. You can export all trades or filter by session and date range.' },
+    { q: 'How do I import trades from MT4/MT5?',a: 'We support CSV import. Use the standard statement export from your broker and map columns in the Import panel inside the Journal.' },
+    { q: 'How do I delete my account?',         a: 'Submit a ticket below with the subject "Account Deletion". We will process it within 5 business days and send a confirmation.' },
+    { q: 'Is there a mobile app?',              a: 'The platform is fully responsive and works on all modern mobile browsers. A dedicated native app is on the product roadmap.' },
+    { q: 'Why is Trader AI not responding?',    a: 'Trader AI requires a Gemini API key to be configured. Ask your admin to add GOOGLE_API_KEY to the environment variables.' },
+    { q: 'Can I connect my broker account?',    a: 'Live broker sync is supported for selected platforms. See the Accounts section in your dashboard for available integrations.' },
+  ];
+
   return (
     <div>
-      <Para dm={dm}>
-        Have a question, found a bug, or need help with your account? Fill in the form below and our support team will respond within 24–48 hours.
-        You can also reach us at <strong style={{ color: '#2563eb' }}>support@myfmjournal.com</strong>.
+      <Para>
+        Have a question, found a bug, or need help with your account? Fill in the form below and our support team
+        will get back to you within 24–48 hours on business days. You can also reach us directly at{' '}
+        <span style={{ color: C.indigoL, fontFamily: F }}>support@myfmjournal.com</span>.
       </Para>
 
-      {/* Quick info cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 36 }}>
         {[
-          { label: 'Email', value: 'support@myfmjournal.com', color: '#2563eb' },
-          { label: 'Response Time', value: '24 – 48 hours', color: '#10b981' },
-          { label: 'Hours', value: 'Mon – Fri, 9am – 6pm UTC', color: '#8b5cf6' },
+          { label: 'Email',         value: 'support@myfmjournal.com', color: C.indigo },
+          { label: 'Response Time', value: '24 – 48 hours',           color: C.green },
+          { label: 'Hours',         value: 'Mon – Fri · 9am – 6pm UTC', color: C.amber },
         ].map(({ label, value, color }) => (
-          <div key={label} style={{ background: cardBg, border: `1px solid ${cardBrd}`, borderRadius: 10, padding: '14px 16px' }}>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: color, marginBottom: 5 }}>{label}</div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: dm ? '#c8d8e8' : '#1e293b', lineHeight: 1.4 }}>{value}</div>
+          <div key={label} style={{
+            background: `${color}0a`, border: `1px solid ${color}25`, borderRadius: 10, padding: '14px 16px',
+          }}>
+            <div style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color, marginBottom: 6 }}>{label}</div>
+            <div style={{ fontFamily: F, fontSize: 11, color: C.text, lineHeight: 1.5 }}>{value}</div>
           </div>
         ))}
       </div>
 
-      <DocHeading dm={dm}>Frequently Asked Questions</DocHeading>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32 }}>
-        {[
-          { q: 'How do I reset my password?', a: 'Use the "Forgot Password" link on the login page.' },
-          { q: 'Is my journal data private?',  a: 'Yes, your data is encrypted and only visible to you.' },
-          { q: 'Can I export my trades?',      a: 'Export functionality is available in the Analytics section.' },
-          { q: 'How do I delete my account?',  a: 'Submit a ticket below with the subject "Account Deletion".' },
-        ].map(({ q, a }) => (
-          <div key={q} style={{ background: cardBg, border: `1px solid ${cardBrd}`, borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 12 }}>
-            <div style={{ width: 3, borderRadius: 99, background: '#2563eb', flexShrink: 0 }} />
+      <SectionHead>Frequently Asked Questions</SectionHead>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 36 }}>
+        {faqs.map(({ q, a }) => (
+          <div key={q} style={{
+            background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
+            borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 14,
+          }}>
+            <div style={{ width: 2, borderRadius: 99, background: C.indigo, flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: hi, marginBottom: 3 }}>{q}</div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: dm ? '#64748b' : '#64748b' }}>{a}</div>
+              <div style={{ fontFamily: F, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 5 }}>{q}</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: C.muted, lineHeight: 1.75 }}>{a}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <DocHeading dm={dm}>Send a Support Ticket</DocHeading>
+      <SectionHead>Submit a Support Ticket</SectionHead>
       {status === 'sent' ? (
-        <div style={{ background: dm ? '#0d1f12' : '#f0fdf4', border: `1px solid ${dm ? '#166534' : '#bbf7d0'}`, borderRadius: 12, padding: '28px', textAlign: 'center' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#10b981', margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#fff', fontSize: 20, fontWeight: 900 }}>✓</span>
+        <div style={{
+          background: `${C.green}08`, border: `1px solid ${C.green}30`,
+          borderRadius: 12, padding: '36px 28px', textAlign: 'center',
+        }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${C.green}15`, border: `1px solid ${C.green}40`, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: C.green, fontSize: 20, fontWeight: 900 }}>✓</span>
           </div>
-          <p style={{ fontWeight: 800, fontSize: 15, color: '#10b981', marginBottom: 6 }}>Ticket submitted successfully!</p>
-          <p style={{ fontSize: 13, color: dm ? '#8aa0b8' : '#64748b', marginBottom: 16 }}>Our team will get back to you within 24–48 hours.</p>
-          <button onClick={() => setStatus('idle')} style={{ background: '#2563eb', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', fontWeight: 800, fontSize: 11, letterSpacing: '0.1em', cursor: 'pointer', fontFamily: "'Poppins', sans-serif" }}>
+          <p style={{ fontFamily: F, fontWeight: 700, fontSize: 14, color: C.green, marginBottom: 6 }}>Ticket submitted.</p>
+          <p style={{ fontFamily: F, fontSize: 12, color: C.muted, marginBottom: 20, lineHeight: 1.7 }}>Our team will respond within 24–48 hours. Check your inbox for a confirmation email.</p>
+          <button onClick={() => setStatus('idle')} style={{ background: C.indigo, border: 'none', borderRadius: 8, padding: '10px 28px', color: '#fff', fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', cursor: 'pointer', fontFamily: F }}>
             SEND ANOTHER
           </button>
         </div>
       ) : (
         <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <input style={inp} placeholder="Your name" value={form.user_name} onChange={e => setForm(p => ({ ...p, user_name: e.target.value }))} required />
-            <input style={inp} placeholder="Your email" type="email" value={form.user_email} onChange={e => setForm(p => ({ ...p, user_email: e.target.value }))} required />
+            <div>
+              <label style={{ display: 'block', fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, marginBottom: 6 }}>Name</label>
+              <input style={inp} placeholder="Your name" value={form.user_name} onChange={e => setForm(p => ({ ...p, user_name: e.target.value }))} required />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, marginBottom: 6 }}>Email</label>
+              <input style={inp} placeholder="your@email.com" type="email" value={form.user_email} onChange={e => setForm(p => ({ ...p, user_email: e.target.value }))} required />
+            </div>
           </div>
-          <input style={inp} placeholder="Subject" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} required />
-          <textarea style={{ ...inp, minHeight: 130, resize: 'vertical' }} placeholder="How can we help?" value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} required />
-          {status === 'error' && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
-          <button type="submit" disabled={status === 'sending'} style={{ background: status === 'sending' ? '#1e3a6e' : '#2563eb', border: 'none', borderRadius: 8, padding: '13px 24px', color: '#fff', fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: status === 'sending' ? 'not-allowed' : 'pointer', opacity: status === 'sending' ? 0.7 : 1, transition: 'background 0.2s', fontFamily: "'Poppins', sans-serif" }}>
-            {status === 'sending' ? 'Sending…' : 'Submit Ticket'}
+          <div>
+            <label style={{ display: 'block', fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, marginBottom: 6 }}>Subject</label>
+            <input style={inp} placeholder="What is this about?" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} required />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, marginBottom: 6 }}>Message</label>
+            <textarea style={{ ...inp, minHeight: 140, resize: 'vertical' }} placeholder="Describe your issue in detail…" value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} required />
+          </div>
+          {status === 'error' && <p style={{ fontFamily: F, fontSize: 12, color: C.red, margin: 0 }}>{error}</p>}
+          <button type="submit" disabled={status === 'sending'} style={{
+            background: status === 'sending' ? 'rgba(99,102,241,0.4)' : C.indigo,
+            border: 'none', borderRadius: 8, padding: '13px 24px',
+            color: '#fff', fontWeight: 700, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+            cursor: status === 'sending' ? 'not-allowed' : 'pointer',
+            transition: 'background 0.2s', fontFamily: F,
+          }}>
+            {status === 'sending' ? 'Sending…' : 'Submit Ticket →'}
           </button>
         </form>
       )}
@@ -295,59 +512,63 @@ function ContactContent({ dm }: { dm: boolean }) {
   );
 }
 
-/* ── Page ───────────────────────────────────────────────────────────────────── */
-const HERO: Record<Section, { icon: string; title: string; sub: string; color: string }> = {
-  'Privacy Policy':    { icon: '🔒', title: 'Privacy Policy',    sub: 'How we collect, use, and protect your data.',                  color: '#8b5cf6' },
-  'Terms of Service':  { icon: '📋', title: 'Terms of Service',   sub: 'Rules and responsibilities for using My FM | Journal.',        color: '#2563eb' },
-  'Contact & Support': { icon: '💬', title: 'Contact & Support',  sub: 'Reach our team or browse answers to common questions.',        color: '#10b981' },
+/* ── Page shell ─────────────────────────────────────────────────────────────── */
+const META: Record<Section, { title: string; sub: string; accent: string }> = {
+  'Privacy Policy':    { title: 'Privacy Policy',    sub: 'How we collect, process, store, and protect your data.',       accent: C.indigo },
+  'Terms of Service':  { title: 'Terms of Service',  sub: 'Rules, responsibilities, and rights governing your account.',   accent: '#818cf8' },
+  'Contact & Support': { title: 'Contact & Support', sub: 'Reach our team or browse answers to frequently asked questions.', accent: C.green },
 };
 
 export default function LegalPage() {
-  const [active, setActive]     = useState<Section>('Privacy Policy');
-  const { darkMode, setDarkMode } = usePublicTheme();
-  const dm = darkMode;
-
-  const pageBg  = dm ? '#080c10' : '#f8fafc';
-  const cardBg  = dm ? '#0c1219' : '#ffffff';
-  const border  = dm ? '#172233' : '#e2e8f0';
-  const textPrim= dm ? '#f1f5f9' : '#0f172a';
-  const textMut = dm ? '#64748b' : '#94a3b8';
-  const heroBg  = dm ? '#060b14' : 'rgba(241,245,249,0.8)';
-  const hero    = HERO[active];
+  const [active, setActive] = useState<Section>('Privacy Policy');
+  const { darkMode } = usePublicTheme();
+  const meta = META[active];
 
   return (
-    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Poppins', sans-serif", transition: 'background 0.3s' }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: F }}>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section style={{ background: heroBg, borderBottom: `1px solid ${border}`, padding: '52px 24px 48px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <SectionLabel color={hero.color}>My FM | Journal — Last Updated May 2025</SectionLabel>
-          <h1 style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 'clamp(1.75rem,4vw,2.75rem)', fontWeight: 900, letterSpacing: '-0.03em', color: textPrim, margin: '10px 0 10px', lineHeight: 1.1 }}>
-            {hero.title.split(' ').slice(0, -1).join(' ')}{' '}
-            <span style={{ color: hero.color }}>{hero.title.split(' ').slice(-1)[0]}</span>
+      {/* ── Hero ────────────────────────────────────────────────────────────── */}
+      <section style={{
+        background: 'linear-gradient(180deg, #0a1220 0%, #070d15 100%)',
+        borderBottom: `1px solid ${C.border}`,
+        padding: '60px 24px 52px',
+      }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <Tag color={meta.accent}>My FM | Journal</Tag>
+            <span style={{ fontFamily: F, fontSize: 10, color: C.muted }}>// Legal & Support</span>
+          </div>
+
+          <h1 style={{
+            fontFamily: F, fontSize: 'clamp(1.6rem,3.5vw,2.4rem)',
+            fontWeight: 700, letterSpacing: '-0.03em',
+            color: C.text, margin: '0 0 12px', lineHeight: 1.15,
+          }}>
+            {active.split(' ').slice(0, -1).join(' ')}{' '}
+            <span style={{ color: meta.accent }}>{active.split(' ').slice(-1)[0]}</span>
           </h1>
-          <p style={{ fontSize: 15, fontWeight: 500, color: textMut, margin: '0 0 32px', maxWidth: 540, lineHeight: 1.6 }}>
-            {hero.sub}
+
+          <p style={{ fontFamily: F, fontSize: 13, color: C.muted, margin: '0 0 36px', maxWidth: 500, lineHeight: 1.7 }}>
+            {meta.sub}
           </p>
 
-          {/* Tab navigation */}
-          <div style={{ display: 'inline-flex', gap: 4, background: cardBg, borderRadius: 10, padding: 4, border: `1px solid ${border}` }}>
+          {/* Tab nav */}
+          <div style={{
+            display: 'inline-flex', gap: 2,
+            background: 'rgba(255,255,255,0.03)',
+            border: `1px solid ${C.border}`,
+            borderRadius: 10, padding: 3,
+          }}>
             {SECTIONS.map(s => (
-              <button
-                key={s}
-                onClick={() => setActive(s)}
-                style={{
-                  fontFamily: "'Poppins', sans-serif",
-                  fontWeight: 700, fontSize: 11,
-                  letterSpacing: '0.06em',
-                  padding: '9px 18px',
-                  borderRadius: 7, border: 'none', cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: active === s ? '#2563eb' : 'transparent',
-                  color: active === s ? '#ffffff' : (dm ? '#475569' : '#64748b'),
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <button key={s} onClick={() => setActive(s)} style={{
+                fontFamily: F, fontWeight: 700, fontSize: 11,
+                letterSpacing: '0.06em', padding: '9px 20px',
+                borderRadius: 8, border: 'none', cursor: 'pointer',
+                transition: 'all 0.18s',
+                background: active === s ? META[s].accent : 'transparent',
+                color: active === s ? '#ffffff' : C.muted,
+                whiteSpace: 'nowrap',
+              }}>
                 {s}
               </button>
             ))}
@@ -355,52 +576,59 @@ export default function LegalPage() {
         </div>
       </section>
 
-      {/* ── Content ──────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+      {/* ── Content ─────────────────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '44px 24px 100px', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
 
-        {/* Sidebar quick-nav */}
-        <aside style={{ flexShrink: 0, width: 180, position: 'sticky', top: 90, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Sidebar */}
+        <aside style={{ flexShrink: 0, width: 190, position: 'sticky', top: 90 }}>
           {SECTIONS.map(s => {
-            const h = HERO[s];
+            const isActive = active === s;
             return (
-              <button
-                key={s}
-                onClick={() => setActive(s)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 10, border: 'none',
-                  cursor: 'pointer', textAlign: 'left', width: '100%',
-                  background: active === s ? (dm ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.07)') : 'transparent',
-                  transition: 'background 0.15s',
-                }}
-              >
-                <div style={{ width: 3, height: 28, borderRadius: 99, background: active === s ? h.color : (dm ? '#172233' : '#e2e8f0'), flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: active === s ? h.color : (dm ? '#475569' : '#94a3b8'), lineHeight: 1.3 }}>{s}</span>
+              <button key={s} onClick={() => setActive(s)} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                width: '100%', padding: '10px 12px', marginBottom: 2,
+                borderRadius: 8, border: `1px solid ${isActive ? `${META[s].accent}30` : 'transparent'}`,
+                background: isActive ? `${META[s].accent}0d` : 'transparent',
+                cursor: 'pointer', textAlign: 'left',
+                transition: 'all 0.15s',
+              }}>
+                <div style={{ width: 2, height: 26, borderRadius: 1, background: isActive ? META[s].accent : C.border, flexShrink: 0, transition: 'background 0.15s' }} />
+                <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: isActive ? META[s].accent : C.muted, lineHeight: 1.3, transition: 'color 0.15s' }}>{s}</span>
               </button>
             );
           })}
+          <div style={{ marginTop: 32, padding: '14px 14px', background: `${C.indigo}0a`, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+            <div style={{ fontFamily: F, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, marginBottom: 8 }}>Last updated</div>
+            <div style={{ fontFamily: F, fontSize: 11, color: C.dim }}>May 2025</div>
+            <div style={{ fontFamily: F, fontSize: 9, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>Questions? Contact support@myfmjournal.com</div>
+          </div>
         </aside>
 
         {/* Main card */}
-        <div style={{ flex: 1, minWidth: 0, background: cardBg, border: `1px solid ${border}`, borderRadius: 16, padding: '32px 36px', boxShadow: dm ? 'none' : '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${border}` }}>
-            <div style={{ width: 4, height: 36, borderRadius: 99, background: hero.color }} />
+        <div style={{
+          flex: 1, minWidth: 0,
+          background: 'rgba(255,255,255,0.02)',
+          border: `1px solid ${C.border}`,
+          borderRadius: 16, padding: '36px 40px',
+        }}>
+          {/* Card header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32, paddingBottom: 24, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ width: 3, height: 40, borderRadius: 2, background: meta.accent }} />
             <div>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: hero.color, marginBottom: 4 }}>
+              <div style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: meta.accent, marginBottom: 5 }}>
                 My FM | Journal
               </div>
-              <h2 style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em', color: textPrim, margin: 0 }}>
+              <h2 style={{ fontFamily: F, fontSize: 19, fontWeight: 700, letterSpacing: '-0.025em', color: C.text, margin: 0 }}>
                 {active}
               </h2>
             </div>
           </div>
 
-          {active === 'Privacy Policy'    && <PrivacyContent dm={dm} />}
-          {active === 'Terms of Service'  && <TermsContent   dm={dm} />}
-          {active === 'Contact & Support' && <ContactContent dm={dm} />}
+          {active === 'Privacy Policy'    && <PrivacyContent />}
+          {active === 'Terms of Service'  && <TermsContent />}
+          {active === 'Contact & Support' && <ContactContent />}
         </div>
       </div>
-
     </div>
   );
 }
