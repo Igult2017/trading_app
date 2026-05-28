@@ -80,16 +80,21 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   // If the section exists on the current page → scroll instantly.
   // Otherwise → SPA-navigate to "/" via wouter (no reload), then poll until
   // React renders the section and scroll to it.
+  const scrollToHash = (hash: string) => {
+    const el = document.getElementById(hash);
+    if (!el) return false;
+    const headerH = (document.getElementById('site-header')?.offsetHeight ?? 72) + 8;
+    const top = el.getBoundingClientRect().top + window.scrollY - headerH;
+    window.scrollTo({ top, behavior: 'smooth' });
+    return true;
+  };
+
   const handleHashClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
     const hash = href.split('#')[1];
     if (!hash) return;
 
-    const el = document.getElementById(hash);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
+    if (scrollToHash(hash)) return;
 
     // Not on the homepage — navigate there via wouter (SPA, no reload)
     navigate('/');
@@ -97,13 +102,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     // Poll until the section mounts (React needs a render cycle or two)
     let attempts = 0;
     const tryScroll = () => {
-      const target = document.getElementById(hash);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (attempts < 25) {
-        attempts++;
-        setTimeout(tryScroll, 60);
-      }
+      if (scrollToHash(hash)) return;
+      if (attempts < 25) { attempts++; setTimeout(tryScroll, 60); }
     };
     setTimeout(tryScroll, 80);
   }, [navigate]);
@@ -141,7 +141,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   }
 
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
+    <div id="site-header" style={{ position: "sticky", top: 0, zIndex: 100 }}>
       <TickerTape dark={dm} />
 
       <nav style={{ background: navBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, height: 64, transition: "background 0.3s" }}>
