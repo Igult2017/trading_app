@@ -9,7 +9,7 @@ type Section = typeof SECTIONS[number];
 /* ── shared doc primitives ─────────────────────────────────────────────────── */
 function H1({ children, dm }: { children: React.ReactNode; dm: boolean }) {
   return (
-    <h1 style={{ fontFamily: F, fontSize: 'clamp(1.6rem,3vw,2.2rem)', fontWeight: 700, color: dm ? '#e2e8f0' : '#0f172a', margin: '0 0 6px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+    <h1 style={{ fontFamily: F, fontSize: 'clamp(0.9rem,1.6vw,1.1rem)', fontWeight: 700, color: dm ? '#e2e8f0' : '#0f172a', margin: '0 0 6px', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
       {children}
     </h1>
   );
@@ -494,7 +494,7 @@ export default function LegalPage() {
 
           {/* ── Sidebar (desktop) ───────────────────────────────────────────── */}
           <aside className="legal-sidebar">
-            <div style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 6, overflow: 'hidden' }}>
+            <div style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
                 <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#64748b' : '#9ca3af' }}>Legal & Support</span>
               </div>
@@ -529,7 +529,7 @@ export default function LegalPage() {
           </aside>
 
           {/* ── Content card ────────────────────────────────────────────────── */}
-          <div className="legal-content" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 6, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="legal-content" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 3, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' }}>
             <style>{`
               @media (max-width:600px) {
                 .legal-content { padding: 24px 20px !important; }

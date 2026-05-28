@@ -21,7 +21,7 @@ export default function SupportPage() {
   const inp: React.CSSProperties = {
     background: dm ? 'rgba(255,255,255,0.04)' : '#ffffff',
     border: `1px solid ${border}`,
-    borderRadius: 4, padding: '11px 14px',
+    borderRadius: 2, padding: '11px 14px',
     color: textPrim,
     fontSize: 13, fontWeight: 400, outline: 'none',
     width: '100%', boxSizing: 'border-box',
@@ -80,7 +80,7 @@ export default function SupportPage() {
 
           {/* ── Sidebar ─────────────────────────────────────────────────────── */}
           <aside className="sp-sidebar">
-            <div className="sp-sidebar-inner" style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
+            <div className="sp-sidebar-inner" style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
                 <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: textMut, whiteSpace: 'nowrap' }}>Support</span>
               </div>
@@ -119,7 +119,7 @@ export default function SupportPage() {
             </div>
 
             {/* Contact info — hidden on mobile */}
-            <div className="sp-sidebar-contact" style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 6, overflow: 'hidden' }}>
+            <div className="sp-sidebar-contact" style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
                 <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: textMut }}>Contact</span>
               </div>
@@ -140,8 +140,8 @@ export default function SupportPage() {
           <div className="sp-main">
 
             {/* Intro card */}
-            <div className="sp-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 6, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20 }}>
-              <h1 style={{ fontFamily: F, fontSize: 'clamp(1.6rem,3vw,2.2rem)', fontWeight: 700, color: textPrim, margin: '0 0 6px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <div className="sp-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 3, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20 }}>
+              <h1 style={{ fontFamily: F, fontSize: 'clamp(0.9rem,1.6vw,1.1rem)', fontWeight: 700, color: textPrim, margin: '0 0 6px', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
                 Support Centre
               </h1>
               <p style={{ fontFamily: F, fontSize: 12, color: textMut, margin: '0 0 20px' }}>
@@ -157,7 +157,7 @@ export default function SupportPage() {
                   { label: 'Response', value: '24–48 hours',             color: '#059669' },
                   { label: 'Hours',    value: 'Mon–Fri 9am–6pm UTC',     color: '#7c3aed' },
                 ].map(({ label, value, color }) => (
-                  <div key={label} style={{ padding: '10px 14px', border: `1px solid ${border}`, borderRadius: 4, background: dm ? 'rgba(255,255,255,0.02)' : '#f9fafb' }}>
+                  <div key={label} style={{ padding: '10px 14px', border: `1px solid ${border}`, borderRadius: 2, background: dm ? 'rgba(255,255,255,0.02)' : '#f9fafb' }}>
                     <div style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color, marginBottom: 3 }}>{label}</div>
                     <div style={{ fontFamily: F, fontSize: 11, color: textPrim }}>{value}</div>
                   </div>
@@ -167,7 +167,7 @@ export default function SupportPage() {
             </div>
 
             {/* FAQ card */}
-            <div id="faq" className="sp-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 6, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20 }}>
+            <div id="faq" className="sp-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 3, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20 }}>
               <h2 style={{ fontFamily: F, fontSize: 18, fontWeight: 700, color: textPrim, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
                 Frequently Asked Questions
               </h2>
@@ -178,7 +178,7 @@ export default function SupportPage() {
                 {faqs.map(({ q, a }, i) => {
                   const isOpen = open === i;
                   return (
-                    <div key={i} style={{ border: `1px solid ${isOpen ? (dm ? 'rgba(37,99,235,0.4)' : '#bfdbfe') : border}`, borderRadius: 4, overflow: 'hidden', transition: 'border-color 0.15s', background: isOpen ? (dm ? 'rgba(37,99,235,0.05)' : '#f8faff') : 'transparent' }}>
+                    <div key={i} style={{ border: `1px solid ${isOpen ? (dm ? 'rgba(37,99,235,0.4)' : '#bfdbfe') : border}`, borderRadius: 2, overflow: 'hidden', transition: 'border-color 0.15s', background: isOpen ? (dm ? 'rgba(37,99,235,0.05)' : '#f8faff') : 'transparent' }}>
                       <button
                         onClick={() => setOpen(isOpen ? null : i)}
                         style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', gap: 12 }}
@@ -198,7 +198,7 @@ export default function SupportPage() {
             </div>
 
             {/* Ticket form card */}
-            <div id="ticket" className="sp-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 6, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div id="ticket" className="sp-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 3, padding: '40px 48px', boxShadow: dm ? 'none' : '0 1px 3px rgba(0,0,0,0.05)' }}>
               <h2 style={{ fontFamily: F, fontSize: 18, fontWeight: 700, color: textPrim, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
                 Submit a Support Ticket
               </h2>
@@ -207,13 +207,13 @@ export default function SupportPage() {
               </p>
 
               {status === 'sent' ? (
-                <div style={{ padding: '32px 24px', textAlign: 'center', border: `1px solid ${dm ? 'rgba(5,150,105,0.35)' : '#6ee7b7'}`, borderRadius: 6, background: dm ? 'rgba(5,150,105,0.06)' : '#f0fdf4' }}>
+                <div style={{ padding: '32px 24px', textAlign: 'center', border: `1px solid ${dm ? 'rgba(5,150,105,0.35)' : '#6ee7b7'}`, borderRadius: 3, background: dm ? 'rgba(5,150,105,0.06)' : '#f0fdf4' }}>
                   <div style={{ width: 46, height: 46, borderRadius: '50%', background: dm ? 'rgba(5,150,105,0.15)' : '#d1fae5', border: `1px solid ${dm ? 'rgba(5,150,105,0.4)' : '#6ee7b7'}`, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ color: '#059669', fontSize: 19 }}>✓</span>
                   </div>
                   <p style={{ fontFamily: F, fontWeight: 700, fontSize: 15, color: '#059669', marginBottom: 6 }}>Ticket Submitted.</p>
                   <p style={{ fontFamily: F, fontSize: 13, color: textBody, marginBottom: 18, lineHeight: 1.7 }}>Our team will respond within 24–48 hours.</p>
-                  <button onClick={() => setStatus('idle')} style={{ background: '#2563eb', border: 'none', borderRadius: 4, padding: '10px 28px', color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', cursor: 'pointer', fontFamily: F }}>
+                  <button onClick={() => setStatus('idle')} style={{ background: '#2563eb', border: 'none', borderRadius: 2, padding: '10px 28px', color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', cursor: 'pointer', fontFamily: F }}>
                     Send Another
                   </button>
                 </div>
@@ -239,7 +239,7 @@ export default function SupportPage() {
                   </div>
                   {status === 'error' && <p style={{ fontFamily: F, fontSize: 12, color: '#ef4444', margin: 0 }}>{error}</p>}
                   <div>
-                    <button type="submit" disabled={status === 'sending'} style={{ background: status === 'sending' ? '#93c5fd' : '#2563eb', border: 'none', borderRadius: 4, padding: '12px 32px', color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', cursor: status === 'sending' ? 'not-allowed' : 'pointer', transition: 'background 0.2s', fontFamily: F }}>
+                    <button type="submit" disabled={status === 'sending'} style={{ background: status === 'sending' ? '#93c5fd' : '#2563eb', border: 'none', borderRadius: 2, padding: '12px 32px', color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', cursor: status === 'sending' ? 'not-allowed' : 'pointer', transition: 'background 0.2s', fontFamily: F }}>
                       {status === 'sending' ? 'Sending…' : 'Submit Ticket'}
                     </button>
                   </div>
