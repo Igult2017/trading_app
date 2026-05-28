@@ -184,7 +184,7 @@ function load(): JournalSettings {
       return parsed;
     }
   } catch {}
-  return { theme: 'navy', font: 'montserrat', hiddenPanels: [] };
+  return { theme: 'light', font: 'dm-mono', hiddenPanels: [] };
 }
 
 export function useJournalSettings() {

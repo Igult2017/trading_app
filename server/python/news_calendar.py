@@ -792,6 +792,106 @@ def _fetch_wb_inflation(currency: str) -> float | None:
 
 
 # --------------------------------------------------------------------------- #
+# MyFXBook interest rates scraper (primary source)                             #
+# --------------------------------------------------------------------------- #
+
+_MYFXBOOK_RATE_MAP = {
+    'United States':  ('USD', 'Federal Reserve'),
+    'Euro Area':      ('EUR', 'European Central Bank'),
+    'United Kingdom': ('GBP', 'Bank of England'),
+    'Japan':          ('JPY', 'Bank of Japan'),
+    'Canada':         ('CAD', 'Bank of Canada'),
+    'Australia':      ('AUD', 'Reserve Bank of Australia'),
+    'New Zealand':    ('NZD', 'Reserve Bank of New Zealand'),
+    'Switzerland':    ('CHF', 'Swiss National Bank'),
+    'China':          ('CNY', "People's Bank of China"),
+}
+
+
+def _scrape_myfxbook_rates() -> dict:
+    """
+    Scrape central bank interest rates from MyFXBook.
+
+    Uses curl_cffi iOS Safari 17.2 TLS impersonation — the same Cloudflare
+    bypass used by the calendar scraper — so no separate proxy or key is needed.
+
+    Returns a dict: currency -> {bank, nominal, inflation (None), live (True)}.
+    Returns {} on any failure; caller falls back to bank APIs.
+    """
+    if not _CFFI_OK:
+        print('[news_calendar] curl_cffi unavailable — skipping MyFXBook rates', file=sys.stderr)
+        return {}
+
+    url = 'https://www.myfxbook.com/forex-economic-calendar/interest-rates'
+
+    try:
+        session = cffi_requests.Session(impersonate='safari17_2_ios')
+        # Prime cookies with a homepage visit (sets XSRF-TOKEN + session cookie)
+        session.get('https://www.myfxbook.com', timeout=15)
+
+        resp = session.get(url, timeout=25)
+        print(
+            f'[news_calendar] MyFXBook rates HTTP {resp.status_code} ({len(resp.text)} bytes)',
+            file=sys.stderr,
+        )
+
+        if resp.status_code != 200:
+            print(f'[news_calendar] MyFXBook rates: unexpected status {resp.status_code}', file=sys.stderr)
+            return {}
+
+        if 'Just a moment' in resp.text or 'cf-browser-verification' in resp.text:
+            print('[news_calendar] MyFXBook rates: Cloudflare challenge not bypassed', file=sys.stderr)
+            return {}
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        rates: dict = {}
+        seen: set = set()
+
+        for row in soup.select('table tbody tr'):
+            cells = row.find_all('td')
+            if len(cells) < 4:
+                continue
+
+            # Country name — prefer the anchor text inside the cell
+            country_cell = cells[0]
+            anchor = country_cell.find('a')
+            country = (anchor.get_text(strip=True) if anchor else country_cell.get_text(strip=True))
+
+            if not country or country not in _MYFXBOOK_RATE_MAP:
+                continue
+
+            currency, bank = _MYFXBOOK_RATE_MAP[country]
+            if currency in seen:
+                continue
+            seen.add(currency)
+
+            # Current rate is the 4th cell (index 3), strip the % sign
+            try:
+                rate_str = cells[3].get_text(strip=True).replace('%', '').strip()
+                nominal = float(rate_str)
+            except (ValueError, IndexError):
+                continue
+
+            rates[currency] = {
+                'bank':      bank,
+                'nominal':   nominal,
+                'inflation': None,
+                'live':      True,
+            }
+            print(f'[news_calendar] MyFXBook rates: {currency} -> {nominal}%', file=sys.stderr)
+
+        print(
+            f'[news_calendar] MyFXBook rates: {len(rates)} currencies scraped',
+            file=sys.stderr,
+        )
+        return rates
+
+    except Exception as exc:
+        print(f'[news_calendar] MyFXBook rates scrape failed: {exc}', file=sys.stderr)
+        return {}
+
+
+# --------------------------------------------------------------------------- #
 # Orchestrator                                                                 #
 # --------------------------------------------------------------------------- #
 
@@ -820,15 +920,26 @@ _BANK_NAMES = {
 
 def get_interest_rates() -> dict:
     """
-    Fetch central bank policy rates from accessible free sources.
-    If a live fetch fails, Trading Economics is tried as a universal fallback.
-    If all live attempts fail, a recent hardcoded fallback is used and
-    marked live=False so the UI can indicate the data may not be real-time.
-    """
-    rates: dict = {}
+    Fetch central bank policy rates.
 
-    def _add(currency: str, nominal: float | None, source: str = 'live') -> bool:
-        if nominal is not None:
+    Priority:
+      1. MyFXBook interest rates page (curl_cffi Cloudflare bypass — same as calendar).
+      2. Dedicated bank APIs (FRED, BoE, BoC, RBA, Trading Economics) — only for
+         currencies that MyFXBook did not return.
+      3. Hardcoded last-resort values marked live=False.
+
+    Inflation is always appended from the World Bank CPI YoY API.
+    """
+    # ── 1. Primary: MyFXBook ──────────────────────────────────────────────────
+    rates = _scrape_myfxbook_rates()
+    if rates:
+        print(f'[news_calendar] MyFXBook rates primary: {sorted(rates.keys())}', file=sys.stderr)
+    else:
+        print('[news_calendar] MyFXBook rates unavailable — falling back to bank APIs', file=sys.stderr)
+
+    # ── 2. Fallback: bank APIs (only for currencies missing from MyFXBook) ────
+    def _add(currency: str, nominal: float | None, source: str) -> bool:
+        if nominal is not None and currency not in rates:
             rates[currency] = {
                 'bank':      _BANK_NAMES.get(currency, currency),
                 'nominal':   nominal,
@@ -839,24 +950,21 @@ def get_interest_rates() -> dict:
             return True
         return False
 
-    # ── Primary sources (dedicated, stable APIs/scrapes) ──────────────────────
     _add('USD', _fetch_usd_rate(),  'FRED FEDFUNDS')
     _add('EUR', _fetch_eur_rate(),  'FRED ECBDFR')
     _add('GBP', _fetch_gbp_rate(),  'BoE website')
     _add('CAD', _fetch_cad_rate(),  'BoC Valet API')
     _add('AUD', _fetch_aud_rate(),  'RBA CSV')
 
-    # JPY, CHF, NZD — Trading Economics as primary
     for ccy in ('JPY', 'CHF', 'NZD'):
         if ccy not in rates:
             _add(ccy, _fetch_trading_economics_rate(ccy), 'Trading Economics')
 
-    # ── Trading Economics universal fallback ──────────────────────────────────
     for ccy in list(_FALLBACK_RATES.keys()):
         if ccy not in rates:
             _add(ccy, _fetch_trading_economics_rate(ccy), 'Trading Economics (fallback)')
 
-    # ── Hardcoded last-resort fallback ────────────────────────────────────────
+    # ── 3. Hardcoded last-resort ──────────────────────────────────────────────
     for ccy, (bank, fallback_rate) in _FALLBACK_RATES.items():
         if ccy not in rates:
             print(f'[news_calendar] Using hardcoded fallback for {ccy}: {fallback_rate}%', file=sys.stderr)

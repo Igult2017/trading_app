@@ -800,9 +800,9 @@ export default function Journal() {
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('journal_dark_mode');
-      return saved === null ? true : saved === 'true';
+      return saved === null ? false : saved === 'true';
     }
-    return true;
+    return false;
   });
   // Remembers the last dark theme so toggling back from light restores it.
   const lastDarkThemeRef = useRef<import('@/hooks/useJournalSettings').ThemeId>(
