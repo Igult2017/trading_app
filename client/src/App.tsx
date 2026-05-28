@@ -269,13 +269,14 @@ function JournalPrefetcher() {
     const STALE = 2 * 60 * 1000;
 
     // Step 1 — warm the sessions list
+    // Key must match Journal.tsx useQuery key exactly: ['/api/sessions']
     qc.prefetchQuery({
-      queryKey: ['/api/sessions', user.id],
+      queryKey: ['/api/sessions'],
       queryFn: () => authFetch('/api/sessions').then(r => r.ok ? r.json() : []).catch(() => []),
       staleTime: STALE,
     }).then(() => {
       // Step 2 — resolve which session to warm panels for
-      const sessions: any[] = qc.getQueryData(['/api/sessions', user.id]) ?? [];
+      const sessions: any[] = qc.getQueryData(['/api/sessions']) ?? [];
       if (sessions.length === 0) return;
 
       const savedId = typeof window !== 'undefined'

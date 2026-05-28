@@ -4,6 +4,28 @@ import { supabase } from '@/lib/supabase';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
 
+/**
+ * Resolve initial auth state synchronously from localStorage.
+ * When running in local-admin mode (no Supabase), the session is persisted in
+ * localStorage so we can skip the async useEffect entirely on reload —
+ * loading starts as false and RequireAuth never shows the spinner.
+ */
+function getLocalInitialState() {
+  const noSupabase = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!noSupabase || typeof window === 'undefined') {
+    return { session: null as Session | null, user: null as User | null, role: null as 'admin' | 'user' | null, loading: true };
+  }
+  try {
+    const stored = localStorage.getItem(LOCAL_ADMIN_KEY);
+    if (stored) {
+      const { email, token } = JSON.parse(stored) as { email: string; token?: string };
+      const { session, user, role } = makeLocalSession(email, token);
+      return { session, user, role, loading: false };
+    }
+  } catch {}
+  return { session: null as Session | null, user: null as User | null, role: null as 'admin' | 'user' | null, loading: false };
+}
+
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
@@ -44,10 +66,10 @@ function makeLocalSession(email: string, token = 'local-admin-token'): { session
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser]       = useState<User | null>(null);
-  const [role, setRole]       = useState<'admin' | 'user' | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(() => getLocalInitialState().session);
+  const [user, setUser]       = useState<User | null>(() => getLocalInitialState().user);
+  const [role, setRole]       = useState<'admin' | 'user' | null>(() => getLocalInitialState().role);
+  const [loading, setLoading] = useState<boolean>(() => getLocalInitialState().loading);
 
   function extractRole(u: User | null): 'admin' | 'user' | null {
     if (!u) return null;

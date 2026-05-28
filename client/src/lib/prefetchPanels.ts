@@ -20,9 +20,12 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { authFetch } from "./queryClient";
 
-const STALE_FAST  = 2 * 60 * 1000;   // 2 min — metrics / drawdown / calendar / entries
-const STALE_TF    = 60_000;           // 1 min — tf-metrics
-const STALE_AUDIT = 5 * 60 * 1000;   // 5 min — strategy audit (heavy Python)
+// Match the global queryClient default (staleTime: Infinity) so persisted
+// cache entries are never considered stale on reload. Data is invalidated
+// explicitly after mutations — no background refetch is needed.
+const STALE_FAST  = Infinity;
+const STALE_TF    = Infinity;
+const STALE_AUDIT = Infinity;
 
 export function prefetchAllPanels(
   queryClient: QueryClient,
