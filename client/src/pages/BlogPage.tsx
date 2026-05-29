@@ -94,10 +94,9 @@ export default function BlogPage() {
           return data.map(mapPost);
         })
         .catch(() => []),
-    staleTime: 10 * 60 * 1000,
-    gcTime:    24 * 60 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    gcTime:    10 * 60 * 1000,
     placeholderData: (prev) => prev,
-    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchInterval: false,
   });
