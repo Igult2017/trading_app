@@ -172,19 +172,53 @@ export class ScraperScheduler {
   }
 
   start(): void {
-    console.log('Starting economic calendar scheduler (scraper only)...');
+    console.log('Starting economic calendar scheduler...');
 
-    // MyFXBook scraper disabled for deployment safety
-    // this.setupScraperSchedule();
+    // ── 1. Daily full scrape — midnight UTC ──────────────────────────────────
+    // Populates the full week of events so the watchdog has data to check.
+    this._jobs.myfxbook.enabled = true;
+    this.fullWeekJob = cron.schedule('0 0 * * *', async () => {
+      console.log('[Calendar] Daily full scrape (midnight UTC)');
+      await this.fetchEvents();
+      this._jobs.myfxbook.lastRunAt = Date.now();
+      this._jobs.myfxbook.lastResult = 'success';
+    }, { timezone: 'UTC' });
 
-    // const cleanupIntervalHours = Math.floor(
-    //   scraperSettings.cacheSettings.cleanupInterval / (60 * 60 * 1000)
-    // );
-    // const cleanupCronPattern = `0 */${cleanupIntervalHours} * * *`;
-    // this.cleanupJob = cron.schedule(cleanupCronPattern, async () => {
-    //   await this.runCleanup();
-    // });
+    // ── 2. Every-5-min event watchdog ────────────────────────────────────────
+    // Pure DB query — no network cost unless a High/Medium event is imminent.
+    // Fires a real Myfxbook scrape only when an unreleased High/Medium event
+    // is within 35 minutes (or released up to 10 min ago with no actual yet).
+    this.upcomingEventsJob = cron.schedule('*/5 * * * *', async () => {
+      try {
+        const imminent = await cacheService.hasImminentHighMediumEvent(35);
+        if (!imminent) return;
+        console.log('[Calendar] Imminent High/Medium event detected — fetching actuals from Myfxbook');
+        await this.fetchEvents();
+        this._jobs.myfxbook.lastRunAt = Date.now();
+        this._jobs.myfxbook.lastResult = 'success';
+      } catch (err: any) {
+        this._jobs.myfxbook.lastResult = 'error';
+        console.error('[Calendar] Watchdog error:', err?.message);
+      }
+    }, { timezone: 'UTC' });
 
+    // ── 3. Safety-net every-2-hour scrape on weekdays ────────────────────────
+    // Catches any data drift and refreshes Low-impact events the watchdog skips.
+    this.scraperJobs.push(
+      cron.schedule('0 */2 * * 1-5', async () => {
+        console.log('[Calendar] Safety-net 2-hour scrape');
+        await this.fetchEvents();
+        this._jobs.myfxbook.lastRunAt = Date.now();
+        this._jobs.myfxbook.lastResult = 'success';
+      }, { timezone: 'UTC' })
+    );
+
+    // ── 4. Cleanup — remove events older than retention window ───────────────
+    this.cleanupJob = cron.schedule('0 1 * * *', async () => {
+      await this.runCleanup();
+    }, { timezone: 'UTC' });
+
+    // ── 5. Telegram notifications — every 5 min ──────────────────────────────
     this._jobs.notifications.enabled = true;
     this.notificationJob = cron.schedule('*/5 * * * *', async () => {
       if (!telegramNotificationService) return;
@@ -200,29 +234,17 @@ export class ScraperScheduler {
       }
     });
 
-    // Signal scanning disabled for deployment safety
-    // this.signalScanJob = cron.schedule('*/1 * * * *', async () => {
-    //   console.log('Running automated signal market scan...');
-    //   await signalScannerService.scanMarkets();
-    // });
+    // Signal scanning disabled
+    // Interest rate scraper disabled
 
-    // this.setupSessionAwareScanJobs();
-
-    // this.signalCleanupJob = cron.schedule('0 */2 * * *', async () => {
-    //   console.log('Running signal cleanup...');
-    //   await signalScannerService.cleanupExpiredSignals();
-    // });
-
-    // Interest rate scraper disabled (also uses MyFXBook)
-    // this.interestRateJob = cron.schedule('0 */6 * * *', async () => {
-    //   console.log('[InterestRates] Scheduled update...');
-    //   await this.fetchInterestRates();
-    // });
-
-    console.log('MyFXBook scraper: DISABLED');
-    console.log('Interest rate scraper: DISABLED');
-    console.log('Scheduled Telegram notifications: every 5 minutes');
-    console.log('Signal scanning: DISABLED');
+    console.log('MyFXBook scraper: ENABLED (event-aware)');
+    console.log('  • Daily full scrape:    midnight UTC');
+    console.log('  • Watchdog (5-min):     scrapes only when High/Medium event imminent');
+    console.log('  • Safety-net:           every 2 hours on weekdays');
+    console.log('  • Cleanup:              01:00 UTC daily');
+    console.log('Interest rate scraper:   DISABLED');
+    console.log('Telegram notifications:  every 5 minutes');
+    console.log('Signal scanning:         DISABLED');
   }
 
   stop(): void {

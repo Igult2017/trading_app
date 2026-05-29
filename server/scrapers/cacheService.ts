@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { economicEvents, InsertEconomicEvent } from '@shared/schema';
-import { eq, gte, and, sql } from 'drizzle-orm';
+import { eq, gte, lte, and, sql, inArray, isNull } from 'drizzle-orm';
 import { ScrapedEvent } from './economicCalendarScraper';
 import { scraperSettings } from './config';
 
@@ -143,6 +143,38 @@ export class CacheService {
     } catch (error) {
       console.error('Error fetching week events:', error);
       return [];
+    }
+  }
+
+  /**
+   * Returns true when a High or Medium impact event is scheduled to release
+   * within the next `windowMinutes` minutes AND has not yet published an actual.
+   * This is a pure DB query — zero network cost.
+   */
+  async hasImminentHighMediumEvent(windowMinutes: number = 35): Promise<boolean> {
+    try {
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000);
+      // Also catch events that released up to 10 min ago but still have no actual
+      const windowStart = new Date(now.getTime() - 10 * 60 * 1000);
+
+      const hits = await db
+        .select({ id: economicEvents.id })
+        .from(economicEvents)
+        .where(
+          and(
+            gte(economicEvents.eventTime, windowStart),
+            lte(economicEvents.eventTime, windowEnd),
+            inArray(economicEvents.impactLevel, ['High', 'Medium']),
+            isNull(economicEvents.actualValue)
+          )
+        )
+        .limit(1);
+
+      return hits.length > 0;
+    } catch (error) {
+      console.error('[CacheService] Error checking imminent events:', error);
+      return false;
     }
   }
 
