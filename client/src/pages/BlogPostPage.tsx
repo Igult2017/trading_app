@@ -569,13 +569,6 @@ export default function BlogPostPage() {
 
           {/* ── THE INSIGHT sidebar ────────────────────────────────────── */}
           <div className="bpp-sidebar">
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', borderBottom: `2px solid ${text}`, paddingBottom: 10, marginBottom: 22 }}>
-              <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: text }}>The Insight</span>
-              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: muted }}>
-                {post.category}
-              </span>
-            </div>
 
             {related.length === 0 ? (
               <p style={{ fontSize: 12, color: muted }}>No related articles yet.</p>

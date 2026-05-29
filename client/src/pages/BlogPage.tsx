@@ -271,10 +271,6 @@ export default function BlogPage() {
             {/* Sidebar */}
             <aside className="lg:col-span-4">
               <div className="space-y-10">
-                <div className={`flex items-center justify-between border-b-4 pb-2 mb-8 transition-colors duration-700 ${isDark ? 'border-blue-500' : 'border-stone-900'}`}>
-                  <h3 className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${isDark ? 'text-blue-200' : ''}`}>The Insight</h3>
-                  <span className={`text-[10px] font-bold uppercase tracking-tighter ${isDark ? 'text-blue-500' : 'text-stone-400'}`}>Latest</span>
-                </div>
 
                 <div className="space-y-10">
                   {(sideArticles.length > 0 ? sideArticles : allPosts.slice(1)).map((art) => (
