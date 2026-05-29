@@ -406,26 +406,24 @@ export default function BlogPostPage() {
         const all = postsRes?.ok ? await postsRes.json() : [];
         const commentData = commentsRes?.ok ? await commentsRes.json() : [];
         if (!all) return;
-        setRelated(
-          all
-            .filter((p: any) => p.id !== id && (p.slug ?? p.id) !== id)
-            .slice(0, 3)
-            .map((p: any) => {
-              const rawImage = p.imageUrl ?? p.image_url ?? '';
-              const firstImg = rawImage || (() => {
-                const m = (p.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
-                return m ? m[1] : '';
-              })();
-              return {
-                id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
-                content: '', category: p.category ?? 'Analysis',
-                author: p.author ?? 'Admin', date: p.date ?? '',
-                readTime: p.readTime ?? p.read_time ?? '5 min',
-                imageUrl: firstImg,
-                status: p.status, authorData: null,
-              };
-            })
-        );
+        const mapRelated = (p: any) => {
+          const rawImage = p.imageUrl ?? p.image_url ?? '';
+          const firstImg = rawImage || (() => {
+            const m = (p.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
+            return m ? m[1] : '';
+          })();
+          return {
+            id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
+            content: '', category: p.category ?? 'Analysis',
+            author: p.author ?? 'Admin', date: p.date ?? '',
+            readTime: p.readTime ?? p.read_time ?? '5 min',
+            imageUrl: firstImg, status: p.status, authorData: null,
+          };
+        };
+        const notCurrent = (p: any) => p.id !== id && (p.slug ?? p.id) !== id;
+        const sameCat  = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === data.category).slice(0, 5).map(mapRelated);
+        const fallback = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== data.category).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
+        setRelated([...sameCat, ...fallback]);
         setComments(Array.isArray(commentData) ? commentData : []);
       })
       .catch(() => setNotFound(true))
@@ -482,206 +480,285 @@ export default function BlogPostPage() {
     <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat",sans-serif', transition: 'background 0.5s,color 0.5s' }}>
       <ReadingProgress isDark={isDark} />
 
-      {/* ── Cover image ───────────────────────────────────────────────────────── */}
-      {post.imageUrl && (
-        <div style={{ width: '100%', maxHeight: 480, overflow: 'hidden', position: 'relative' }}>
-          <SafeImage
-            src={post.imageUrl}
-            alt={post.title}
-            isDark={isDark}
-            style={{ width: '100%', height: 480, objectFit: 'cover', display: 'block', opacity: isDark ? 0.85 : 1 }}
-          />
-          <div style={{ position: 'absolute', inset: 0, background: isDark ? 'linear-gradient(to bottom,transparent 50%,#0f172a)' : 'linear-gradient(to bottom,transparent 60%,#FDFCFB)' }} />
-        </div>
-      )}
+      {/* ── Responsive grid styles ─────────────────────────────────────────── */}
+      <style>{`
+        .bpp-outer { max-width: 1280px; margin: 0 auto; padding: 32px 28px 80px; }
+        .bpp-grid  { display: grid; grid-template-columns: 1fr 290px; gap: 0 48px; align-items: start; }
+        .bpp-cover { grid-column: 1; grid-row: 1; }
+        .bpp-sidebar { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; }
+        .bpp-content { grid-column: 1; grid-row: 2; padding-top: 36px; min-width: 0; }
+        @media (max-width: 860px) {
+          .bpp-outer { padding: 20px 16px 60px; }
+          .bpp-grid  { grid-template-columns: 1fr; gap: 0; }
+          .bpp-cover   { grid-column: 1; grid-row: 1; }
+          .bpp-sidebar { grid-column: 1; grid-row: 3; position: static; margin-top: 48px; }
+          .bpp-content { grid-column: 1; grid-row: 2; }
+        }
+      `}</style>
 
-      <main style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 80px' }}>
+      <div className="bpp-outer">
+        <div className="bpp-grid">
 
-        {/* ── Back link ─────────────────────────────────────────────────────── */}
-        <div style={{ padding: post.imageUrl ? '0' : '40px 0 0', marginBottom: 32, marginTop: post.imageUrl ? -40 : 0, position: 'relative', zIndex: 1 }}>
-          <button
-            onClick={() => navigate('/blog')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: muted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: '"Montserrat",sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', padding: 0, transition: 'color 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.color = accentL)}
-            onMouseLeave={e => (e.currentTarget.style.color = muted)}
-          >
-            <ArrowLeft size={14} /> Blog
-          </button>
-        </div>
-
-        {/* ── Article header ────────────────────────────────────────────────── */}
-        <header style={{ marginBottom: 40 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.25em', color: accent, marginBottom: 16 }}>
-            {post.category}
-          </div>
-          <h1 style={{
-            fontFamily: '"Playfair Display",serif',
-            fontSize: 'clamp(2rem,5vw,3.2rem)',
-            fontWeight: 900,
-            lineHeight: 1.12,
-            letterSpacing: '-0.02em',
-            color: text,
-            margin: '0 0 20px',
-          }}>
-            {post.title}
-          </h1>
-          {post.excerpt && (
-            <p style={{ fontSize: '1.15rem', lineHeight: 1.7, color: muted, margin: '0 0 28px', fontWeight: 500 }}>
-              {post.excerpt}
-            </p>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: '14px 0', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Initials name={post.author} />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: text }}>{post.author}</div>
-                {ad?.bio && <div style={{ fontSize: 11, color: muted, marginTop: 2, maxWidth: 280 }}>{ad.bio}</div>}
+          {/* ── Cover image ────────────────────────────────────────────── */}
+          <div className="bpp-cover">
+            {post.imageUrl ? (
+              <div style={{ position: 'relative', overflow: 'hidden' }}>
+                <SafeImage
+                  src={post.imageUrl}
+                  alt={post.title}
+                  isDark={isDark}
+                  style={{ width: '100%', height: 480, objectFit: 'cover', display: 'block', opacity: isDark ? 0.88 : 1 }}
+                />
+                {/* Bottom gradient overlay */}
+                <div style={{ position: 'absolute', inset: 0, background: isDark ? 'linear-gradient(to bottom,transparent 55%,rgba(15,23,42,0.5))' : 'linear-gradient(to bottom,transparent 65%,rgba(253,252,251,0.35))' }} />
+                {/* Category + feature tags */}
+                <div style={{ position: 'absolute', bottom: 14, left: 16, display: 'flex', gap: 8 }}>
+                  {[post.category].map(tag => (
+                    <span key={tag} style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '4px 10px', backdropFilter: 'blur(4px)' }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-              {post.date && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                  <Calendar size={12} /> {post.date}
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                <Clock size={12} /> {post.readTime}
-              </div>
-            </div>
+            ) : (
+              <div style={{ width: '100%', height: 480, background: isDark ? '#1e293b' : '#f1f5f9' }} />
+            )}
           </div>
 
-          {/* expertise tags */}
-          {ad?.expertise && ad.expertise.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
-              {ad.expertise.map(tag => (
-                <span key={tag} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 10px', border: `1px solid ${isDark ? '#1e3a5f' : '#bfdbfe'}`, color: accentL, background: isDark ? 'rgba(30,58,95,0.3)' : '#eff6ff', borderRadius: 20 }}>
-                  {tag}
-                </span>
-              ))}
+          {/* ── THE INSIGHT sidebar ────────────────────────────────────── */}
+          <div className="bpp-sidebar">
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', borderBottom: `2px solid ${text}`, paddingBottom: 10, marginBottom: 22 }}>
+              <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: text }}>The Insight</span>
+              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: muted }}>
+                {post.category}
+              </span>
             </div>
-          )}
-        </header>
 
-        {/* ── YouTube embed ─────────────────────────────────────────────────── */}
-        {post.videoUrl && extractYoutubeId(post.videoUrl) && (
-          <div style={{ marginBottom: 40 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: muted, marginBottom: 12 }}>Video Version</div>
-            <div style={{ width: '100%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${border}` }}>
-              <iframe
-                src={`https://www.youtube.com/embed/${extractYoutubeId(post.videoUrl)}`}
-                title={post.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ display: 'block', width: '100%', aspectRatio: '16/9', border: 'none' }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ── Article body ──────────────────────────────────────────────────── */}
-        <article
-          ref={contentRef}
-          style={{ color: isDark ? '#cbd5e1' : '#374151', fontSize: '1.06rem', lineHeight: 1.9 }}
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content || '_No content yet._', isDark) }}
-        />
-
-        {/* ── Share bar ────────────────────────────────────────────────────── */}
-        <ShareBar post={post} isDark={isDark} border={border} accent={accent} muted={muted} cardBg={cardBg} />
-
-        {/* ── Author card ───────────────────────────────────────────────────── */}
-        <div style={{ marginTop: 60, padding: '28px 32px', background: cardBg, border: `1px solid ${border}`, borderLeft: `4px solid ${accent}` }}>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <Initials name={post.author} />
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 6 }}>Written by</div>
-              <div style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.3rem', fontWeight: 800, color: text, marginBottom: 8 }}>{post.author}</div>
-              {ad?.bio && <p style={{ fontSize: 13, lineHeight: 1.7, color: muted, margin: 0 }}>{ad.bio}</p>}
-              {(ad?.twitter || ad?.linkedin || ad?.telegram) && (
-                <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
-                  {ad.twitter && (
-                    <a href={`https://${ad.twitter.replace(/^https?:\/\//, '')}`} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>𝕏 Twitter</a>
-                  )}
-                  {ad.linkedin && (
-                    <a href={`https://${ad.linkedin.replace(/^https?:\/\//, '')}`} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>in LinkedIn</a>
-                  )}
-                  {ad.telegram && (
-                    <a href={`https://t.me/${ad.telegram.replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>✈ Telegram</a>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Related posts ─────────────────────────────────────────────────── */}
-        {related.length > 0 && (
-          <section style={{ marginTop: 64 }}>
-            <div style={{ borderBottom: `4px solid ${accent}`, paddingBottom: 10, marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.4rem', fontWeight: 900, color: text, margin: 0, letterSpacing: '-0.01em' }}>More Articles</h2>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 20 }}>
-              {related.map(r => (
-                <article
-                  key={r.id}
-                  onClick={() => navigate(`/blog/${r.id}`)}
-                  style={{ cursor: 'pointer', background: cardBg, border: `1px solid ${border}`, padding: '20px', transition: 'border-color 0.2s,transform 0.2s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = accent; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = border; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
-                >
-                  {r.imageUrl && (
-                    <SafeImage src={r.imageUrl} alt={r.title} isDark={isDark}
-                      style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', marginBottom: 14 }} />
-                  )}
-                  <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 8 }}>{r.category}</div>
-                  <h3 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1rem', fontWeight: 800, color: text, lineHeight: 1.3, margin: '0 0 10px' }}>{r.title}</h3>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: muted }}>{r.author} · {r.readTime}</div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section style={{ marginTop: 64 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-            <MessageCircle size={18} color={accentL} />
-            <h2 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.4rem', fontWeight: 900, color: text, margin: 0 }}>Comments</h2>
-          </div>
-          <form onSubmit={submitComment} style={{ background: cardBg, border: `1px solid ${border}`, padding: 20, marginBottom: 24 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your name" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
-              <div />
-            </div>
-            <textarea value={commentMessage} onChange={e => setCommentMessage(e.target.value)} placeholder="Share your thoughts..." rows={4} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none', marginBottom: 12 }} />
-            <button type="submit" disabled={commentSending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: accent, color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-              <Send size={14} />
-              {commentSending ? 'Posting...' : 'Post Comment'}
-            </button>
-            {commentError && <div style={{ marginTop: 10, color: '#f87171', fontSize: 12 }}>{commentError}</div>}
-          </form>
-          <div style={{ display: 'grid', gap: 12 }}>
-            {comments.length === 0 ? (
-              <div style={{ color: muted, fontSize: 13 }}>No comments yet.</div>
-            ) : comments.map(c => (
-              <div key={c.id} style={{ background: cardBg, border: `1px solid ${border}`, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-                  <strong>{c.name || 'Anonymous'}</strong>
-                  <span style={{ color: muted, fontSize: 11 }}>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</span>
-                </div>
-                <div style={{ color: isDark ? '#cbd5e1' : '#374151', lineHeight: 1.7 }}>{c.message}</div>
-                {c.reply && (
-                  <div style={{ marginTop: 12, padding: 12, borderLeft: `3px solid ${accent}`, background: isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff' }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: accentL, marginBottom: 6 }}>Admin reply</div>
-                    <div style={{ color: isDark ? '#e2e8f0' : '#1f2937', lineHeight: 1.7 }}>{c.reply}</div>
+            {related.length === 0 ? (
+              <p style={{ fontSize: 12, color: muted }}>No related articles yet.</p>
+            ) : related.slice(0, 5).map((r, i) => (
+              <div
+                key={r.id}
+                onClick={() => navigate(`/blog/${r.id}`)}
+                style={{ display: 'flex', gap: 12, marginBottom: 0, cursor: 'pointer', paddingBottom: 18, paddingTop: i === 0 ? 0 : 18, borderBottom: `1px solid ${border}`, transition: 'opacity 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.72')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 5 }}>{r.category}</div>
+                  <h3 style={{ fontFamily: '"Playfair Display",serif', fontSize: '0.84rem', fontWeight: 800, color: text, lineHeight: 1.35, margin: '0 0 6px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
+                    {r.title}
+                  </h3>
+                  <div style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted }}>
+                    {r.author}{r.date ? ` · ${r.date}` : ''}
                   </div>
+                </div>
+                {r.imageUrl && (
+                  <SafeImage
+                    src={r.imageUrl}
+                    alt={r.title}
+                    isDark={isDark}
+                    style={{ width: 72, height: 58, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                  />
                 )}
               </div>
             ))}
           </div>
-        </section>
-      </main>
+
+          {/* ── Article content (same column width as cover) ────────────── */}
+          <main className="bpp-content">
+
+            {/* Back link */}
+            <div style={{ marginBottom: 28 }}>
+              <button
+                onClick={() => navigate('/blog')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: muted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: '"Montserrat",sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', padding: 0, transition: 'color 0.2s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = accentL)}
+                onMouseLeave={e => (e.currentTarget.style.color = muted)}
+              >
+                <ArrowLeft size={14} /> Blog
+              </button>
+            </div>
+
+            {/* Article header */}
+            <header style={{ marginBottom: 40 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.25em', color: accent, marginBottom: 16 }}>
+                {post.category}
+              </div>
+              <h1 style={{
+                fontFamily: '"Playfair Display",serif',
+                fontSize: 'clamp(1.8rem,4vw,2.8rem)',
+                fontWeight: 900,
+                lineHeight: 1.12,
+                letterSpacing: '-0.02em',
+                color: text,
+                margin: '0 0 20px',
+              }}>
+                {post.title}
+              </h1>
+              {post.excerpt && (
+                <p style={{ fontSize: '1.05rem', lineHeight: 1.7, color: muted, margin: '0 0 28px', fontWeight: 500 }}>
+                  {post.excerpt}
+                </p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: '14px 0', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Initials name={post.author} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: text }}>{post.author}</div>
+                    {ad?.bio && <div style={{ fontSize: 11, color: muted, marginTop: 2, maxWidth: 280 }}>{ad.bio}</div>}
+                  </div>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                  {post.date && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      <Calendar size={12} /> {post.date}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    <Clock size={12} /> {post.readTime}
+                  </div>
+                </div>
+              </div>
+
+              {/* expertise tags */}
+              {ad?.expertise && ad.expertise.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+                  {ad.expertise.map(tag => (
+                    <span key={tag} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 10px', border: `1px solid ${isDark ? '#1e3a5f' : '#bfdbfe'}`, color: accentL, background: isDark ? 'rgba(30,58,95,0.3)' : '#eff6ff', borderRadius: 20 }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </header>
+
+            {/* YouTube embed */}
+            {post.videoUrl && extractYoutubeId(post.videoUrl) && (
+              <div style={{ marginBottom: 40 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: muted, marginBottom: 12 }}>Video Version</div>
+                <div style={{ width: '100%', borderRadius: 10, overflow: 'hidden', border: `1px solid ${border}` }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${extractYoutubeId(post.videoUrl)}`}
+                    title={post.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ display: 'block', width: '100%', aspectRatio: '16/9', border: 'none' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Article body */}
+            <article
+              ref={contentRef}
+              style={{ color: isDark ? '#cbd5e1' : '#374151', fontSize: '1.06rem', lineHeight: 1.9 }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content || '_No content yet._', isDark) }}
+            />
+
+            {/* Share bar */}
+            <ShareBar post={post} isDark={isDark} border={border} accent={accent} muted={muted} cardBg={cardBg} />
+
+            {/* Author card */}
+            <div style={{ marginTop: 60, padding: '28px 32px', background: cardBg, border: `1px solid ${border}`, borderLeft: `4px solid ${accent}` }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <Initials name={post.author} />
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 6 }}>Written by</div>
+                  <div style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.3rem', fontWeight: 800, color: text, marginBottom: 8 }}>{post.author}</div>
+                  {ad?.bio && <p style={{ fontSize: 13, lineHeight: 1.7, color: muted, margin: 0 }}>{ad.bio}</p>}
+                  {(ad?.twitter || ad?.linkedin || ad?.telegram) && (
+                    <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
+                      {ad.twitter && (
+                        <a href={`https://${ad.twitter.replace(/^https?:\/\//, '')}`} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>𝕏 Twitter</a>
+                      )}
+                      {ad.linkedin && (
+                        <a href={`https://${ad.linkedin.replace(/^https?:\/\//, '')}`} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>in LinkedIn</a>
+                      )}
+                      {ad.telegram && (
+                        <a href={`https://t.me/${ad.telegram.replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>✈ Telegram</a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* More articles (bottom — mobile-friendly supplement to sidebar) */}
+            {related.length > 0 && (
+              <section style={{ marginTop: 64 }}>
+                <div style={{ borderBottom: `4px solid ${accent}`, paddingBottom: 10, marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.3rem', fontWeight: 900, color: text, margin: 0, letterSpacing: '-0.01em' }}>More in {post.category}</h2>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 20 }}>
+                  {related.slice(0, 3).map(r => (
+                    <article
+                      key={r.id}
+                      onClick={() => navigate(`/blog/${r.id}`)}
+                      style={{ cursor: 'pointer', background: cardBg, border: `1px solid ${border}`, padding: '18px', transition: 'border-color 0.2s,transform 0.2s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = accent; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = border; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                    >
+                      {r.imageUrl && (
+                        <SafeImage src={r.imageUrl} alt={r.title} isDark={isDark}
+                          style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', marginBottom: 12 }} />
+                      )}
+                      <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 7 }}>{r.category}</div>
+                      <h3 style={{ fontFamily: '"Playfair Display",serif', fontSize: '0.92rem', fontWeight: 800, color: text, lineHeight: 1.3, margin: '0 0 8px' }}>{r.title}</h3>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: muted }}>{r.author} · {r.readTime}</div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Comments */}
+            <section style={{ marginTop: 64 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                <MessageCircle size={18} color={accentL} />
+                <h2 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.4rem', fontWeight: 900, color: text, margin: 0 }}>Comments</h2>
+              </div>
+              <form onSubmit={submitComment} style={{ background: cardBg, border: `1px solid ${border}`, padding: 20, marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your name" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
+                  <div />
+                </div>
+                <textarea value={commentMessage} onChange={e => setCommentMessage(e.target.value)} placeholder="Share your thoughts..." rows={4} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none', marginBottom: 12 }} />
+                <button type="submit" disabled={commentSending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: accent, color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                  <Send size={14} />
+                  {commentSending ? 'Posting...' : 'Post Comment'}
+                </button>
+                {commentError && <div style={{ marginTop: 10, color: '#f87171', fontSize: 12 }}>{commentError}</div>}
+              </form>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {comments.length === 0 ? (
+                  <div style={{ color: muted, fontSize: 13 }}>No comments yet.</div>
+                ) : comments.map(c => (
+                  <div key={c.id} style={{ background: cardBg, border: `1px solid ${border}`, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                      <strong>{c.name || 'Anonymous'}</strong>
+                      <span style={{ color: muted, fontSize: 11 }}>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</span>
+                    </div>
+                    <div style={{ color: isDark ? '#cbd5e1' : '#374151', lineHeight: 1.7 }}>{c.message}</div>
+                    {c.reply && (
+                      <div style={{ marginTop: 12, padding: 12, borderLeft: `3px solid ${accent}`, background: isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: accentL, marginBottom: 6 }}>Admin reply</div>
+                        <div style={{ color: isDark ? '#e2e8f0' : '#1f2937', lineHeight: 1.7 }}>{c.reply}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+          </main>
+
+        </div>
+      </div>
 
     </div>
   );
