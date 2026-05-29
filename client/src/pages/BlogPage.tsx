@@ -236,7 +236,7 @@ export default function BlogPage() {
 
             {/* Featured Article */}
             <section onClick={() => navigate(`/blog/${featuredArticle.id}`)} className={`lg:col-span-8 group cursor-pointer lg:border-r lg:pr-12 transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-100'}`}>
-              <div className={`relative overflow-hidden mb-8 aspect-[16/9] border transition-colors duration-700 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-stone-100 border-stone-200'}`}>
+              <div className={`relative overflow-hidden mb-8 h-[320px] border transition-colors duration-700 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-stone-100 border-stone-200'}`}>
                 {featuredArticle.imageUrl && (
                   <SafeImage
                     src={featuredArticle.imageUrl}
