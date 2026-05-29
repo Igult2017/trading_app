@@ -495,8 +495,11 @@ export default function LegalPage() {
           {/* ── Sidebar (desktop) ───────────────────────────────────────────── */}
           <aside className="legal-sidebar">
             <div style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
-                <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#64748b' : '#9ca3af' }}>Legal & Support</span>
+              <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontFamily: "'Inter','Segoe UI',sans-serif", fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+                </span>
+                <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#64748b' : '#9ca3af' }}>Legal & Support</span>
               </div>
               {NAV.map(({ key, label, param }) => {
                 const isActive = active === key;
