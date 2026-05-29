@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 
 const F = "'DM Mono', 'Courier New', monospace";
@@ -428,18 +429,14 @@ const TAB_MAP: Record<string, Section> = {
 export default function LegalPage() {
   const [active, setActive] = useState<Section>('Privacy Policy');
   const { darkMode: dm } = usePublicTheme();
+  const [location] = useLocation();
 
-  /* Read ?tab= param from URL on mount and whenever URL changes */
+  /* Sync active tab whenever the URL changes (wouter pushState or popstate) */
   useEffect(() => {
-    const sync = () => {
-      const param = new URLSearchParams(window.location.search).get('tab') ?? '';
-      const section = TAB_MAP[param.toLowerCase()];
-      if (section) setActive(section);
-    };
-    sync();
-    window.addEventListener('popstate', sync);
-    return () => window.removeEventListener('popstate', sync);
-  }, []);
+    const param = new URLSearchParams(window.location.search).get('tab') ?? '';
+    const section = TAB_MAP[param.toLowerCase()];
+    if (section) setActive(section);
+  }, [location]);
 
   const pageBg   = dm ? 'rgba(8,12,16,0.97)' : '#f8fafc';
   const cardBg   = dm ? '#0d1420' : '#ffffff';
