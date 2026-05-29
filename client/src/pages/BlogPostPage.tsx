@@ -570,6 +570,8 @@ export default function BlogPostPage() {
           {/* ── THE INSIGHT sidebar ────────────────────────────────────── */}
           <div className="bpp-sidebar">
 
+            <div style={{ borderBottom: `2px solid ${text}`, marginBottom: 22 }} />
+
             {related.length === 0 ? (
               <p style={{ fontSize: 12, color: muted }}>No related articles yet.</p>
             ) : related.slice(0, 5).map((r, i) => (
