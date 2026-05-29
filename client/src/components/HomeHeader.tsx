@@ -42,7 +42,7 @@ export function TickerTape({ dark }: { dark: boolean }) {
 }
 
 const NAV_LINKS: { label: string; href: string; newTab?: boolean; cta?: "outline" | "solid" }[] = [
-  { label: "Journal",           href: "/auth",            newTab: true },
+  { label: "Journal",           href: "/" },
   { label: "Features",          href: "/#features" },
   { label: "Pricing",           href: "/#pricing" },
   { label: "Reviews",           href: "/#reviews" },
