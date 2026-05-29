@@ -43,7 +43,7 @@
     "@radix-ui/react-toggle-group": "^1.1.3",
     "@radix-ui/react-tooltip": "^1.2.0",
     "@supabase/supabase-js": "^2.105.1",
-    "@tanstack/query-sync-storage-persister": "^5.100.11",
+    "@tanstack/query-sync-storage-persister": "^5.100.14",
     "@tanstack/react-query": "^5.60.5",
     "@tanstack/react-query-persist-client": "^5.100.14",
     "@types/node-telegram-bot-api": "^0.64.11",
