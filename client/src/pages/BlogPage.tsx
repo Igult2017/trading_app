@@ -173,29 +173,28 @@ export default function BlogPage() {
         </div>
       )}
 
-      <main className="max-w-[1280px] mx-auto px-7 py-8">
-
-        {/* Category nav + live status + refresh */}
-        <nav className={`flex items-center justify-between border-y py-4 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
-
-          {/* Category buttons */}
-          <div className="flex items-center justify-center space-x-6 sm:space-x-10 flex-1">
+      {/* ── Category nav — full-width, same edge-alignment as header ── */}
+      <div className={`w-full border-b overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px' }}>
+          <nav className="flex items-center gap-8 py-3">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`text-[9px] font-extrabold uppercase tracking-[0.25em] transition-all ${activeCategory === cat ? (isDark ? 'text-white border-b-2 border-white' : 'text-blue-600 border-b-2 border-blue-600') : (isDark ? 'text-[#475569] hover:text-blue-300' : 'text-stone-400 hover:text-stone-600')}`}
+                className={`text-[9px] font-extrabold uppercase tracking-[0.25em] transition-all shrink-0 pb-0.5 ${
+                  activeCategory === cat
+                    ? (isDark ? 'text-white border-b-2 border-white' : 'text-blue-600 border-b-2 border-blue-600')
+                    : (isDark ? 'text-[#475569] hover:text-blue-300' : 'text-stone-400 hover:text-stone-600')
+                }`}
               >
                 {cat}
               </button>
             ))}
-          </div>
+          </nav>
+        </div>
+      </div>
 
-          {/* Right cluster: live indicator + countdown + refresh button */}
-          <div className="flex items-center gap-3 shrink-0 pl-4">
-
-          </div>
-        </nav>
+      <main className="max-w-[1280px] mx-auto px-7 py-8">
 
         {/* ── Skeleton loading state (first load) ─────────────────────── */}
         {loading && (
