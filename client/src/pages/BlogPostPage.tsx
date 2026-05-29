@@ -549,7 +549,7 @@ export default function BlogPostPage() {
                   src={post.imageUrl}
                   alt={post.title}
                   isDark={isDark}
-                  style={{ width: '100%', height: 320, objectFit: 'cover', display: 'block', opacity: isDark ? 0.88 : 1 }}
+                  style={{ width: '100%', height: 480, objectFit: 'cover', display: 'block', opacity: isDark ? 0.88 : 1 }}
                 />
                 {/* Bottom gradient overlay */}
                 <div style={{ position: 'absolute', inset: 0, background: isDark ? 'linear-gradient(to bottom,transparent 55%,rgba(15,23,42,0.5))' : 'linear-gradient(to bottom,transparent 65%,rgba(253,252,251,0.35))' }} />
