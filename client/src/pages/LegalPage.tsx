@@ -49,6 +49,14 @@ function UL({ items, dm }: { items: string[]; dm: boolean }) {
   );
 }
 
+function Brand({ dm }: { dm: boolean }) {
+  return (
+    <span style={{ fontFamily: "'Inter','Segoe UI',sans-serif", fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+      <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+    </span>
+  );
+}
+
 /* ── Privacy Policy ─────────────────────────────────────────────────────────── */
 function PrivacyContent({ dm }: { dm: boolean }) {
   return (
@@ -57,7 +65,7 @@ function PrivacyContent({ dm }: { dm: boolean }) {
       <Updated dm={dm} />
 
       <P dm={dm}>
-        My FM | Journal ("we", "us", "our", or the "Platform") is committed to safeguarding the privacy of everyone who uses our services. This Privacy Policy describes how we collect, process, store, transfer, and protect your personal data when you access myfmjournal.com and any related web applications. By using our services you acknowledge that you have read and understood this policy.
+        <Brand dm={dm} /> ("we", "us", "our", or the "Platform") is committed to safeguarding the privacy of everyone who uses our services. This Privacy Policy describes how we collect, process, store, transfer, and protect your personal data when you access myfmjournal.com and any related web applications. By using our services you acknowledge that you have read and understood this policy.
       </P>
 
       <H2 dm={dm}>1. Information We Collect</H2>
@@ -163,7 +171,7 @@ function TermsContent({ dm }: { dm: boolean }) {
       <Updated dm={dm} />
 
       <P dm={dm}>
-        These Terms of Service ("Terms") constitute a legally binding agreement between you ("User", "you") and My FM | Journal ("Company", "we", "us") governing your access to and use of myfmjournal.com and any related services (collectively, the "Services"). By creating an account or using any part of our Services, you confirm that you are at least 18 years old and agree to be bound by these Terms and our Privacy Policy.
+        These Terms of Service ("Terms") constitute a legally binding agreement between you ("User", "you") and <Brand dm={dm} /> ("Company", "we", "us") governing your access to and use of myfmjournal.com and any related services (collectively, the "Services"). By creating an account or using any part of our Services, you confirm that you are at least 18 years old and agree to be bound by these Terms and our Privacy Policy.
       </P>
 
       <H2 dm={dm}>1. Acceptance & Eligibility</H2>
@@ -175,7 +183,7 @@ function TermsContent({ dm }: { dm: boolean }) {
       ]} />
 
       <H2 dm={dm}>2. Description of Services</H2>
-      <P dm={dm}>My FM | Journal provides an online platform for retail and professional traders, including:</P>
+      <P dm={dm}><Brand dm={dm} /> provides an online platform for retail and professional traders, including:</P>
       <UL dm={dm} items={[
         'Trading Journal — A tool to log, annotate, and categorise trades, including screenshot uploads and psychological tagging.',
         'Performance Analytics — Metrics including win rate, expectancy, drawdown, risk-adjusted returns, and timeframe analysis.',
@@ -224,7 +232,7 @@ function TermsContent({ dm }: { dm: boolean }) {
 
       <H2 dm={dm}>7. Intellectual Property</H2>
       <P dm={dm}>
-        All content, software, algorithms, designs, trademarks, and data models on the platform are owned by My FM | Journal or its licensors and are protected by applicable intellectual property laws. You retain full ownership of the trade data you input. We do not claim any ownership over your personal trade data.
+        All content, software, algorithms, designs, trademarks, and data models on the platform are owned by <Brand dm={dm} /> or its licensors and are protected by applicable intellectual property laws. You retain full ownership of the trade data you input. We do not claim any ownership over your personal trade data.
       </P>
 
       <H2 dm={dm}>8. Data Ownership & Export</H2>
@@ -236,7 +244,7 @@ function TermsContent({ dm }: { dm: boolean }) {
 
       <H2 dm={dm}>9. Limitation of Liability</H2>
       <P dm={dm}>
-        To the fullest extent permitted by applicable law, My FM | Journal shall not be liable for any indirect, incidental, special, or consequential damages, including trading losses, loss of data, or business interruption. Our aggregate liability for all claims shall not exceed the greater of (a) the total fees paid by you in the twelve months preceding the claim, or (b) USD 100.
+        To the fullest extent permitted by applicable law, <Brand dm={dm} /> shall not be liable for any indirect, incidental, special, or consequential damages, including trading losses, loss of data, or business interruption. Our aggregate liability for all claims shall not exceed the greater of (a) the total fees paid by you in the twelve months preceding the claim, or (b) USD 100.
       </P>
 
       <H2 dm={dm}>10. Service Availability</H2>
