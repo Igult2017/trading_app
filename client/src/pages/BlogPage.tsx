@@ -12,7 +12,7 @@ type Article = {
   author: string;
   date: string;
   readTime: string;
-  image: string;
+  imageUrl: string;
 };
 
 const QUERY_KEY  = ['/api/blog'];
@@ -35,7 +35,7 @@ function mapPost(p: any): Article {
     author:   p.author ?? 'Admin',
     date:     p.date ?? '',
     readTime: p.readTime ?? p.read_time ?? '5 min',
-    image:    rawImage || extractFirstImage(p.content ?? ''),
+    imageUrl: rawImage || extractFirstImage(p.content ?? ''),
   };
 }
 
@@ -237,12 +237,14 @@ export default function BlogPage() {
             {/* Featured Article */}
             <section onClick={() => navigate(`/blog/${featuredArticle.id}`)} className={`lg:col-span-8 group cursor-pointer lg:border-r lg:pr-12 transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-100'}`}>
               <div className={`relative overflow-hidden mb-8 aspect-[16/9] border transition-colors duration-700 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-stone-100 border-stone-200'}`}>
-                <SafeImage
-                  src={featuredArticle.image}
-                  isDark={isDark}
-                  className={`w-full h-full object-cover transition-all duration-[2000ms] ease-out group-hover:scale-105 ${isDark ? 'opacity-80 group-hover:opacity-100' : 'grayscale-[20%] group-hover:grayscale-0'}`}
-                  alt="Main Feature"
-                />
+                {featuredArticle.imageUrl && (
+                  <SafeImage
+                    src={featuredArticle.imageUrl}
+                    isDark={isDark}
+                    className={`w-full h-full object-cover transition-all duration-[2000ms] ease-out group-hover:scale-105 ${isDark ? 'opacity-80 group-hover:opacity-100' : 'grayscale-[20%] group-hover:grayscale-0'}`}
+                    alt="Main Feature"
+                  />
+                )}
               </div>
               <div className="max-w-2xl">
                 <div className={`text-[10px] font-extrabold uppercase tracking-widest mb-4 ${isDark ? 'text-blue-500' : 'text-blue-600'}`}>
@@ -290,14 +292,16 @@ export default function BlogPage() {
                             {art.author} <span className="mx-1">•</span> {art.date}
                           </div>
                         </div>
-                        <div className={`w-20 h-20 sm:w-24 sm:h-24 overflow-hidden shrink-0 border transition-colors duration-700 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-stone-100 border-stone-100'}`}>
-                          <SafeImage
-                            src={art.image}
-                            isDark={isDark}
-                            className={`w-full h-full object-cover transition-all duration-700 ${isDark ? 'opacity-80 group-hover:opacity-100' : 'grayscale group-hover:grayscale-0'}`}
-                            alt={art.title}
-                          />
-                        </div>
+                        {art.imageUrl && (
+                          <div className={`w-20 h-20 sm:w-24 sm:h-24 overflow-hidden shrink-0 border transition-colors duration-700 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-stone-100 border-stone-100'}`}>
+                            <SafeImage
+                              src={art.imageUrl}
+                              isDark={isDark}
+                              className={`w-full h-full object-cover transition-all duration-700 ${isDark ? 'opacity-80 group-hover:opacity-100' : 'grayscale group-hover:grayscale-0'}`}
+                              alt={art.title}
+                            />
+                          </div>
+                        )}
                       </div>
                     </article>
                   ))}
