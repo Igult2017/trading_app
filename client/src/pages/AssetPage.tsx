@@ -214,7 +214,7 @@ function LiveClock() {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function AssetPage() {
+export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const [selected, setSelected]   = useState("ETH/USDT");
   const [search,   setSearch]     = useState("");
   const [alertSet, setAlertSet]   = useState(false);
@@ -329,6 +329,23 @@ export default function AssetPage() {
     localStorage.setItem("asset-tf", label);
   }
 
+  // ── Theme palette ─────────────────────────────────────────────────────────
+  const C = darkMode ? {
+    bg:       '#080c10', bg2: '#0a0f16', bg3: '#0c1219',
+    probBg:   '#07090f', scoreBg: '#0b1120', activeBg: '#0e1620',
+    catHdr:   '#080c10',
+    border:   '#0f1923', border2: '#172233', border3: '#131d2b', border4: '#1e2d45',
+    text:     '#c8d8e8', textB: '#c8d8ec', heroText: '#ffffff',
+    muted:    '#4a6580', muted2: '#3a5470', dim: '#2d4a63', dim2: '#1e3045',
+  } : {
+    bg:       '#f0f4f8', bg2: '#ffffff', bg3: '#f1f5f9',
+    probBg:   '#f8fafc', scoreBg: '#eef2f7', activeBg: '#e8f0fb',
+    catHdr:   '#f1f5f9',
+    border:   '#e2e8f0', border2: '#cbd5e1', border3: '#dde4ed', border4: '#c8d3e0',
+    text:     '#1e293b', textB: '#1e293b', heroText: '#0f172a',
+    muted:    '#475569', muted2: '#64748b', dim: '#94a3b8', dim2: '#b0bec5',
+  };
+
   // Right sidebar resize
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const isDragging = useRef(false);
@@ -371,35 +388,35 @@ export default function AssetPage() {
     const parts = text.split(bold);
     return (
       <span>
-        {parts[0]}<strong style={{ color: "#fff" }}>{bold}</strong>{parts[1]}
+        {parts[0]}<strong style={{ color: C.heroText }}>{bold}</strong>{parts[1]}
       </span>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#080c10", fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: C.bg, fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
         * { box-sizing: border-box; }
         .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
         .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
-        .inst-card:hover { background: #0c1219 !important; cursor: pointer; }
-        .chart-btn { background: #0c1219; border: 1px solid #172233; color: #4a6580; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
-        .chart-btn:hover { border-color: #3b82f6; color: #c8d8e8; }
-        .chart-btn-alert { background: #0c1219; border: 1px solid #172233; color: #c8d8e8; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+        .inst-card:hover { background: ${C.bg3} !important; cursor: pointer; }
+        .chart-btn { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.muted}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
+        .chart-btn:hover { border-color: #3b82f6; color: ${C.text}; }
+        .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
         .chart-btn-alert:hover { border-color: #f59e0b; color: #f59e0b; }
-        .set-alert-btn { background: #100d04; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
         .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
         .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .share-btn:hover { background: #6c63d9; }
-        .ctx-row:hover { background: rgba(255,255,255,0.02); }
-        .news-btn { background: #1a0a0e; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .ctx-row:hover { background: ${darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)'}; }
+        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
         .mob-instruments-fab { display: none; }
         @media (max-width: 767px) {
           .entry-grid { grid-template-columns: 1fr 1fr !important; }
           .entry-grid > div:nth-child(2n) { border-right: none !important; }
-          .entry-grid > div:nth-child(-n+2) { border-bottom: 1px solid #0f1923; }
+          .entry-grid > div:nth-child(-n+2) { border-bottom: 1px solid ${C.border}; }
           .analysis-grid { grid-template-columns: 1fr !important; }
           .asset-main-pad { padding: 12px 12px 32px !important; }
           .asset-inner-pad { padding: 12px 12px !important; }
@@ -419,7 +436,7 @@ export default function AssetPage() {
         <div className="asset-inner-pad" style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* ── Entry / TP / SL / RR Panel ── */}
-          <div className="entry-grid" style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
+          <div className="entry-grid" style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
             {[
               {
                 label: "ENTRY",
@@ -442,15 +459,15 @@ export default function AssetPage() {
                   </div>
                 )
               },
-              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.tp}</span> },
-              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.sl}</span> },
-              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: "#c8d8e8" }}>{data.rr}</span> },
+              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data.tp}</span> },
+              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data.sl}</span> },
+              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data.rr}</span> },
             ].map((col, i) => (
               <div key={i} style={{
                 padding: "20px 16px", textAlign: "center",
-                borderRight: i < 3 ? "1px solid #0f1923" : undefined
+                borderRight: i < 3 ? `1px solid ${C.border}` : undefined
               }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "#3a5470", letterSpacing: "0.12em", marginBottom: 12 }}>{col.label}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.muted2, letterSpacing: "0.12em", marginBottom: 12 }}>{col.label}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{col.value}</div>
               </div>
             ))}
@@ -460,18 +477,18 @@ export default function AssetPage() {
           <div className="analysis-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
 
             {/* Context Alignment */}
-            <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, padding: "16px" }}>
+            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#3b82f6" }} />
-                <span style={{ fontSize: 9, fontWeight: 800, color: "#4a6580", letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
               </div>
               {data.context.map((row, i) => (
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {row.loading
                       ? <Loader2 size={10} color="#f59e0b" style={{ animation: "spin 1.5s linear infinite" }} />
-                      : <ChevronRight size={10} color="#2d4a63" />}
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.08em" }}>{row.label}</span>
+                      : <ChevronRight size={10} color={C.dim} />}
+                    <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
                   <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em" }}>{row.value}</span>
                 </div>
@@ -479,16 +496,16 @@ export default function AssetPage() {
             </div>
 
             {/* Technical Confluence */}
-            <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, padding: "16px" }}>
+            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#22d3a5" }} />
-                <span style={{ fontSize: 9, fontWeight: 800, color: "#4a6580", letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
               </div>
               {data.tech.map((row, i) => (
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <ChevronRight size={10} color="#2d4a63" />
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.08em" }}>{row.label}</span>
+                    <ChevronRight size={10} color={C.dim} />
+                    <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
                   <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em" }}>{row.value}</span>
                 </div>
@@ -496,10 +513,10 @@ export default function AssetPage() {
             </div>
 
             {/* Price Action */}
-            <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, padding: "16px" }}>
+            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#f59e0b" }} />
-                <span style={{ fontSize: 9, fontWeight: 800, color: "#4a6580", letterSpacing: "0.14em" }}>PRICE ACTION</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {data.priceAction.map((item, i) => (
@@ -509,7 +526,7 @@ export default function AssetPage() {
                         ? <ZoomIcon color="#f59e0b" />
                         : <LayersIcon color={item.icon === "layers" ? "#3b82f6" : "#3b82f6"} />}
                     </div>
-                    <p style={{ fontSize: 9, fontWeight: 600, color: "#4a6580", letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
+                    <p style={{ fontSize: 9, fontWeight: 600, color: C.muted, letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
                       {boldify(item.text, item.bold)}
                     </p>
                   </div>
@@ -520,8 +537,8 @@ export default function AssetPage() {
 
           {/* ── Probability Panel ── */}
           <div className="prob-panel" style={{
-            background: "#07090f",
-            border: "1px solid #131d2b",
+            background: C.probBg,
+            border: `1px solid ${C.border3}`,
             borderRadius: 4,
             padding: "22px 28px",
             display: "flex",
@@ -531,9 +548,9 @@ export default function AssetPage() {
             {/* Score Box */}
             <div style={{
               width: 68, height: 68, flexShrink: 0,
-              border: "1.5px solid #1e2d45",
+              border: `1.5px solid ${C.border4}`,
               borderRadius: 4,
-              background: "#0b1120",
+              background: C.scoreBg,
               display: "flex", alignItems: "center", justifyContent: "center",
               position: "relative", overflow: "hidden",
             }}>
@@ -542,7 +559,7 @@ export default function AssetPage() {
                 <line x1="14" y1="58" x2="54" y2="10" stroke="#5b4fcf" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
               </svg>
               <span style={{
-                fontSize: 8, fontWeight: 800, color: "#ffffff",
+                fontSize: 8, fontWeight: 800, color: C.heroText,
                 position: "relative", letterSpacing: "0.02em",
               }}>{data.probability}%</span>
             </div>
@@ -550,7 +567,7 @@ export default function AssetPage() {
             {/* Text */}
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: 10, fontWeight: 800, color: "#ffffff",
+                fontSize: 10, fontWeight: 800, color: C.heroText,
                 letterSpacing: "0.05em", marginBottom: 5,
               }}>
                 PROBABILITY: {data.probability}%
@@ -578,14 +595,14 @@ export default function AssetPage() {
           </div>
 
           {/* ── Live Visualizer Chart ── */}
-          <div style={{ background: "#0a0f16", border: "1px solid #0f1923", borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
             {/* Chart Header */}
             {/* ── Row 1: symbol + clock + alert ── */}
-            <div style={{ padding: "10px 16px 8px", borderBottom: "1px solid #0a1520", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 9, color: "#2d4a63", letterSpacing: "0.06em" }}>
+            <div style={{ padding: "10px 16px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>
                 <LiveClock />
               </div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#c8d8ec", fontFamily: "monospace" }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.textB, fontFamily: "monospace" }}>
                 {selected}
               </div>
               <button className="chart-btn-alert" style={{ flexShrink: 0 }}>
@@ -595,9 +612,9 @@ export default function AssetPage() {
             </div>
 
             {/* ── Row 2: chart controls toolbar ── */}
-            <div className="chart-row2" style={{ padding: "6px 16px", borderBottom: "1px solid #0f1923", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div className="chart-row2" style={{ padding: "6px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               {/* Left: chart type pills */}
-              <div className="chart-type-pills" style={{ display: "flex", gap: 2, background: "#080c10", border: "1px solid #0f1923", borderRadius: 4, padding: 2, flexShrink: 0 }}>
+              <div className="chart-type-pills" style={{ display: "flex", gap: 2, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: 2, flexShrink: 0 }}>
                 {CHART_TYPES.map(ct => {
                   const active = ct.id === chartType;
                   return (
@@ -607,12 +624,12 @@ export default function AssetPage() {
                       style={{
                         background: active ? "rgba(59,130,246,0.18)" : "transparent",
                         border: `1px solid ${active ? "#3b82f6" : "transparent"}`,
-                        borderRadius: 3, color: active ? "#60a5fa" : "#2d4a63",
+                        borderRadius: 3, color: active ? "#60a5fa" : C.dim,
                         fontSize: 9, fontWeight: 800, letterSpacing: "0.07em",
                         padding: "4px 8px", cursor: "pointer", transition: "all 0.12s",
                       }}
-                      onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#4a6580"; }}
-                      onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#2d4a63"; }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.color = C.muted; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.color = C.dim; }}
                     >
                       {ct.label}
                     </button>
@@ -634,10 +651,10 @@ export default function AssetPage() {
                     <div style={{
                       position: "absolute", top: "calc(100% + 6px)", left: "50%",
                       transform: "translateX(-50%)", zIndex: 100,
-                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 6,
                       padding: "6px", display: "grid", gridTemplateColumns: "1fr 1fr",
                       gap: 4, minWidth: 120,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                      boxShadow: darkMode ? "0 8px 24px rgba(0,0,0,0.5)" : "0 8px 24px rgba(0,0,0,0.15)",
                     }}>
                       {TIMEFRAMES.map(tf => {
                         const isActive = tf.label === activeTF;
@@ -647,14 +664,14 @@ export default function AssetPage() {
                             onClick={() => { setTF(tf.label); setShowTF(false); }}
                             style={{
                               background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
-                              border: `1px solid ${isActive ? "#22d3a5" : "#172233"}`,
-                              borderRadius: 4, color: isActive ? "#22d3a5" : "#4a6580",
+                              border: `1px solid ${isActive ? "#22d3a5" : C.border2}`,
+                              borderRadius: 4, color: isActive ? "#22d3a5" : C.muted,
                               fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
                               padding: "6px 0", cursor: "pointer",
                               transition: "all 0.1s",
                             }}
-                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = "#2d4a63"; }}
-                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = "#172233"; }}
+                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = C.dim; }}
+                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = C.border2; }}
                           >
                             {tf.label}
                           </button>
@@ -686,12 +703,12 @@ export default function AssetPage() {
                     return (
                     <div style={{
                       position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
-                      background: "#0c1219", border: "1px solid #172233", borderRadius: 6,
+                      background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 6,
                       minWidth: 220, maxHeight: 440, display: "flex", flexDirection: "column",
-                      boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                      boxShadow: darkMode ? "0 8px 32px rgba(0,0,0,0.6)" : "0 8px 32px rgba(0,0,0,0.15)",
                     }}>
                       {/* Header */}
-                      <div style={{ padding: "8px 14px", fontSize: 9, fontWeight: 800, color: "#2d4a63", letterSpacing: "0.12em", borderBottom: "1px solid #0f1923", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ padding: "8px 14px", fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.12em", borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>INDICATORS ({INDICATOR_DEFS.length})</span>
                         <span style={{ color: "#7c3aed" }}>{activeIndicators.size} ON</span>
                       </div>
@@ -701,7 +718,7 @@ export default function AssetPage() {
                           const catDefs = INDICATOR_DEFS.filter(d => d.category === cat);
                           return (
                             <div key={cat}>
-                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: "#1e3045", letterSpacing: "0.14em", background: "#080c10" }}>
+                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: C.dim2, letterSpacing: "0.14em", background: C.catHdr }}>
                                 {cat.toUpperCase()}
                               </div>
                               {catDefs.map(ind => {
@@ -715,16 +732,16 @@ export default function AssetPage() {
                                       padding: "6px 14px", cursor: "pointer",
                                       background: on ? "rgba(124,58,237,0.08)" : "transparent",
                                     }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                                    onMouseEnter={e => (e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)")}
                                     onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
                                   >
                                     <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
-                                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? "#c8d8e8" : "#4a6580", letterSpacing: "0.05em" }}>
+                                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? C.text : C.muted, letterSpacing: "0.05em" }}>
                                       {ind.label}
                                     </span>
                                     <span style={{
                                       width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
-                                      border: `2px solid ${on ? "#7c3aed" : "#1e3045"}`,
+                                      border: `2px solid ${on ? "#7c3aed" : C.dim2}`,
                                       background: on ? "#7c3aed" : "transparent",
                                       display: "flex", alignItems: "center", justifyContent: "center",
                                     }}>
@@ -764,8 +781,8 @@ export default function AssetPage() {
         width: isMobile ? 280 : sidebarWidth,
         minWidth: isMobile ? undefined : 140,
         maxWidth: isMobile ? undefined : 520,
-        background: "#0a0f16",
-        borderLeft: "1px solid #0f1923",
+        background: C.bg2,
+        borderLeft: `1px solid ${C.border}`,
         display: isMobile ? (mobileShowSidebar ? "flex" : "none") : "flex",
         flexDirection: "column",
         height: "100%",
@@ -788,22 +805,22 @@ export default function AssetPage() {
 
         {/* Mobile close button */}
         {isMobile && (
-          <div style={{ padding: "10px 14px", borderBottom: "1px solid #0f1923", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: "#4a6580", letterSpacing: "0.12em" }}>INSTRUMENTS</span>
-            <button onClick={() => setMobileShowSidebar(false)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.12em" }}>INSTRUMENTS</span>
+            <button onClick={() => setMobileShowSidebar(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
           </div>
         )}
 
         {/* Search */}
-        <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #0f1923" }}>
+        <div style={{ padding: "16px 14px 10px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ position: "relative" }}>
-            <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#2d4a63" }} />
+            <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="SEARCH INSTRUMENTS..."
               style={{
-                width: "100%", background: "#0c1219", border: "1px solid #172233", borderRadius: 4,
-                color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+                width: "100%", background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 4,
+                color: C.muted, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
                 padding: "8px 10px 8px 30px", outline: "none", fontFamily: "inherit"
               }}
             />
@@ -821,20 +838,20 @@ export default function AssetPage() {
                 onClick={() => setSelected(card.symbol)}
                 style={{
                   padding: "14px 16px",
-                  borderBottom: "1px solid #0f1923",
-                  background: isActive ? "#0e1620" : "transparent",
+                  borderBottom: `1px solid ${C.border}`,
+                  background: isActive ? C.activeBg : "transparent",
                   borderRight: isActive ? "3px solid #7c3aed" : "3px solid transparent",
                   transition: "all 0.15s",
                 }}
               >
                 {/* Row 1: Symbol + Category badge */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : "#8ba8c4", letterSpacing: "0.04em" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : C.muted, letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
                   {sidebarWidth >= 200 && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: "#2d4a63", letterSpacing: "0.08em",
-                      background: "#0c1219", border: "1px solid #172233", borderRadius: 3, padding: "2px 6px" }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
+                      background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 3, padding: "2px 6px" }}>
                       {card.category.toUpperCase()}
                     </span>
                   )}

@@ -1225,7 +1225,7 @@ export default function Journal() {
           ) : activeNav === 'addaccount' ? (
             <AccountsPage openModal={true} darkMode={T.dark} />
           ) : activeNav === 'assets' ? (
-            <AssetPage />
+            <AssetPage darkMode={T.dark} />
           ) : activeNav === 'leaderboard' ? (
             <div style={{ padding: isMobile ? '10px' : '14px 16px' }}>
               <Leaderboard />
