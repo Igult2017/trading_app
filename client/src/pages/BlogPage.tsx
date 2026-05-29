@@ -176,8 +176,8 @@ export default function BlogPage() {
       <main className="max-w-[1280px] mx-auto px-7 py-8">
 
         {/* Category nav */}
-        <nav className={`flex items-center border-y py-4 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
-          <div className="flex items-center justify-start gap-6 sm:gap-10">
+        <nav className={`border-y py-4 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide transition-colors duration-700 ${isDark ? 'border-[#1e293b]' : 'border-stone-200'}`}>
+          <div className="flex items-center justify-evenly">
             {categories.map(cat => (
               <button
                 key={cat}
