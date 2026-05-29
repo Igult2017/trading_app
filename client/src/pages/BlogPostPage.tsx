@@ -375,17 +375,20 @@ export default function BlogPostPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
+    setNotFound(false);
     setComments([]);
+    let postCategory = 'Analysis'; // captured in closure so third .then() can use it
     fetch(`/api/blog/${id}`)
       .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
       .then((data: any) => {
+        postCategory = data.category ?? 'Analysis';
         setPost({
           id:         data.id,
           title:      data.title       ?? '',
           excerpt:    data.excerpt     ?? '',
           content:    data.content     ?? '',
           videoUrl:   data.videoUrl    ?? data.video_url ?? '',
-          category:   data.category    ?? 'Analysis',
+          category:   postCategory,
           author:     data.author      ?? 'Admin',
           date:       data.date        ?? '',
           readTime:   data.readTime    ?? data.read_time ?? '5 min',
@@ -396,7 +399,6 @@ export default function BlogPostPage() {
           status:     data.status      ?? 'Published',
           authorData: data.authorData  ?? data.author_data ?? null,
         });
-        // load related posts
         return Promise.all([
           fetch('/api/blog'),
           fetch(`/api/blog/${id}/comments`),
@@ -421,8 +423,8 @@ export default function BlogPostPage() {
           };
         };
         const notCurrent = (p: any) => p.id !== id && (p.slug ?? p.id) !== id;
-        const sameCat  = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === data.category).slice(0, 5).map(mapRelated);
-        const fallback = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== data.category).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
+        const sameCat  = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === postCategory).slice(0, 5).map(mapRelated);
+        const fallback = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== postCategory).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
         setRelated([...sameCat, ...fallback]);
         setComments(Array.isArray(commentData) ? commentData : []);
       })
@@ -495,6 +497,46 @@ export default function BlogPostPage() {
           .bpp-content { grid-column: 1; grid-row: 2; }
         }
       `}</style>
+
+      {/* ── Category nav (same as blog index) ──────────────────────────────── */}
+      <nav style={{
+        borderTop: `1px solid ${border}`,
+        borderBottom: `1px solid ${border}`,
+        padding: '14px 0',
+        marginBottom: 0,
+        overflowX: 'auto',
+      }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-evenly' }}>
+          {['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'].map(cat => {
+            const active = post.category.toLowerCase() === cat.toLowerCase();
+            return (
+              <button
+                key={cat}
+                onClick={() => navigate('/blog')}
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.25em',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
+                  paddingBottom: 2,
+                  cursor: 'pointer',
+                  color: active ? accent : (isDark ? '#475569' : '#a8a29e'),
+                  transition: 'color 0.2s',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = isDark ? '#93c5fd' : '#57534e'; }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = isDark ? '#475569' : '#a8a29e'; }}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       <div className="bpp-outer">
         <div className="bpp-grid">
