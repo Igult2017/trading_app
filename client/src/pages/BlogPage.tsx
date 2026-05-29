@@ -15,7 +15,6 @@ type Article = {
   image: string;
 };
 
-const REFETCH_MS = 30 * 1000;
 const QUERY_KEY  = ['/api/blog'];
 
 
@@ -95,13 +94,12 @@ export default function BlogPage() {
           return data.map(mapPost);
         })
         .catch(() => []),
-    staleTime: 0,
-    gcTime:    60 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime:    24 * 60 * 60 * 1000,
     placeholderData: (prev) => prev,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchInterval: REFETCH_MS,
-    refetchIntervalInBackground: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 
   // Cross-tab: refetch immediately when admin publishes a post
