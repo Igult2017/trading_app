@@ -259,7 +259,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
         }
         .hh-mob-dropdown { display: none !important; }
         @media (max-width: 1080px) {
-          .hh-mob-dropdown { display: block !important; }
+          .hh-mob-dropdown { display: grid !important; }
         }
       `}</style>
     </div>
