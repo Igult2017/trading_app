@@ -17,7 +17,7 @@ export function titleFromPath(pathname: string): string {
   if (pathname.startsWith("/auth/callback"))       return "journal | authenticating";
   if (pathname.startsWith("/auth"))                return "journal | sign in";
   if (pathname.startsWith("/join"))                return "journal | join";
-  if (pathname.startsWith("/tsc"))                 return "journal | terms";
+  if (pathname.startsWith("/tsc"))                 return "journal | session";
   if (pathname.startsWith("/blog"))                return "journal | blog";
   if (pathname.startsWith("/calendar"))            return "journal | economic calendar";
   if (pathname.startsWith("/support"))             return "journal | support";
