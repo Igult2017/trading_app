@@ -489,12 +489,14 @@ export default function BlogPostPage() {
         .bpp-cover { grid-column: 1; grid-row: 1; }
         .bpp-sidebar { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; }
         .bpp-content { grid-column: 1; grid-row: 2; padding-top: 36px; min-width: 0; }
+        .bpp-nav-inner { display: flex; align-items: center; justify-content: space-evenly; max-width: 1280px; margin: 0 auto; padding: 0 28px; }
         @media (max-width: 860px) {
           .bpp-outer { padding: 20px 16px 60px; }
           .bpp-grid  { grid-template-columns: 1fr; gap: 0; }
           .bpp-cover   { grid-column: 1; grid-row: 1; }
           .bpp-sidebar { grid-column: 1; grid-row: 3; position: static; margin-top: 48px; }
           .bpp-content { grid-column: 1; grid-row: 2; }
+          .bpp-nav-inner { justify-content: flex-start; gap: 28px; min-width: max-content; }
         }
       `}</style>
 
@@ -506,7 +508,7 @@ export default function BlogPostPage() {
         marginBottom: 0,
         overflowX: 'auto',
       }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-evenly' }}>
+        <div className="bpp-nav-inner">
           {['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'].map(cat => {
             const active = post.category.toLowerCase() === cat.toLowerCase();
             return (
