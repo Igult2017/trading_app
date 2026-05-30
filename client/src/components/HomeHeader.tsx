@@ -208,7 +208,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
             </button>
             <button onClick={() => setMobileOpen(!mobileOpen)}
               style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: dm ? "#0c1219" : "#f1f5f9", border: `1px solid ${navBorder}`, borderRadius: 7, cursor: "pointer", color: logoClr, transition: "background 0.2s" }}>
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+              <Menu size={18} />
             </button>
           </div>
         </div>
