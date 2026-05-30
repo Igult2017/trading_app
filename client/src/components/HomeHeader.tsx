@@ -245,8 +245,6 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           .hh-nav-desktop { display: none !important; }
           .hh-mob-controls { display: flex !important; }
         }
-        .hh-mob-dropdown { display: none; }
-        .hh-mob-dropdown.open { display: block; }
       `}</style>
     </div>
   );
