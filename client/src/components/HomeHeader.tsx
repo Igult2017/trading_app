@@ -245,6 +245,10 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           .hh-nav-desktop { display: none !important; }
           .hh-mob-controls { display: flex !important; }
         }
+        .hh-mob-dropdown { display: none !important; }
+        @media (max-width: 1080px) {
+          .hh-mob-dropdown { display: block !important; }
+        }
       `}</style>
     </div>
   );
