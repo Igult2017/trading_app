@@ -198,12 +198,9 @@ const KPI_ICONS = {
 };
 
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
-  <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }} data-testid={`stat-${stat.id}`}>
-    <div style={{ background: stat.bg, padding: 6, borderRadius: 6, color: stat.color, display: 'flex' }}><stat.Icon /></div>
-    <div style={{ textAlign: 'center' }}>
-      <p style={{ fontSize: 9, color: 'var(--jr-muted,rgba(148,163,184,0.7))', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
-      <p style={{ fontSize: 13, fontWeight: 900, color: stat.color, margin: 0 }}>{stat.value}</p>
-    </div>
+  <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }} data-testid={`stat-${stat.id}`}>
+    <p style={{ fontSize: 8, color: 'var(--jr-muted,rgba(148,163,184,0.7))', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
+    <p style={{ fontSize: 11, fontWeight: 900, color: stat.color, margin: 0 }}>{stat.value}</p>
   </div>
 );
 
