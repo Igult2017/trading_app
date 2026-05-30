@@ -214,19 +214,31 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
         </div>
       </nav>
 
-      {/* Mobile dropdown */}
+      {/* Mobile dropdown — compact 3-column grid */}
       {mobileOpen && (
-        <div style={{ background: mobBg, borderBottom: `1px solid ${navBorder}` }} className="hh-mob-dropdown">
+        <div style={{
+          background: mobBg,
+          borderBottom: `1px solid ${navBorder}`,
+          padding: "12px 16px 16px",
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "2px",
+        }} className="hh-mob-dropdown">
           {NAV_LINKS.map(({ label, href, newTab, cta }) => {
             const isActive = !newTab && (activePath === href || (href !== "/" && activePath?.startsWith(href)));
             const s: React.CSSProperties = {
-              display: "flex", alignItems: "center",
-              padding: "14px 24px", borderBottom: `1px solid ${mobRow}`,
-              fontFamily: "'Barlow',sans-serif", fontWeight: 500,
-              fontSize: 14, letterSpacing: "0em",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: "10px 6px",
+              fontFamily: "'Barlow',sans-serif",
+              fontWeight: cta === "solid" ? 700 : 500,
+              fontSize: 12, letterSpacing: "0.01em",
+              textAlign: "center",
               color: isActive ? "#2563eb" : (cta === "solid" ? "#2563eb" : (dm ? "#94a3b8" : "#475569")),
               textDecoration: "none", cursor: "pointer",
-              background: isActive ? (dm ? "rgba(37,99,235,0.08)" : "rgba(37,99,235,0.05)") : "transparent",
+              background: isActive ? (dm ? "rgba(37,99,235,0.1)" : "rgba(37,99,235,0.06)") : "transparent",
+              border: `1px solid ${isActive ? "rgba(37,99,235,0.2)" : (dm ? "rgba(255,255,255,0.05)" : "#f1f5f9")}`,
+              borderRadius: 6,
+              transition: "all 0.15s",
             };
             const isHashAnchor = href.includes('#');
             return (newTab || isHashAnchor)
