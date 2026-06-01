@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { ArrowUpRight, Image as ImageIcon, Sparkles, Archive, Bell } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { useQuery } from '@tanstack/react-query';
+import SEOHead from '@/components/SEOHead';
 
 type Article = {
   id: string | number;
@@ -130,6 +131,13 @@ export default function BlogPage() {
   const archivedArticles  = filteredArticles.slice(4);
 
   return (
+    <>
+    <SEOHead
+      title="Trading Insights & Education Blog"
+      description="Expert articles on Forex, crypto, and commodities trading. Strategy breakdowns, SMC concepts, psychology, and market analysis from professional traders."
+      keywords="forex trading blog, trading strategies, SMC trading, smart money concepts, trading psychology, market analysis, forex education"
+      canonical="/blog"
+    />
     <div
       className={`min-h-screen transition-colors duration-700 selection:bg-blue-400 selection:text-white ${isDark ? 'bg-[#0f172a] text-[#f1f5f9]' : 'bg-[#FDFCFB] text-[#1a1a1a]'}`}
       style={{ fontFamily: '"Montserrat", sans-serif' }}
@@ -365,5 +373,6 @@ export default function BlogPage() {
         )}
       </main>
     </div>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { TradingCalendar, PerformanceInsights } from '@/components/LandingDemoComponents';
+import SEOHead from '@/components/SEOHead';
 
 
 export default function HomePage() {
@@ -119,7 +120,40 @@ export default function HomePage() {
 
   const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
 
+  const homeJsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'MyfmJournal',
+      url: 'https://myfmjournal.com',
+      description: 'Professional trading journal for Forex, Crypto and Commodities traders.',
+      potentialAction: { '@type': 'SearchAction', target: 'https://myfmjournal.com/blog?q={search_term_string}', 'query-input': 'required name=search_term_string' },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'MyfmJournal',
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Web',
+      offers: [
+        { '@type': 'Offer', price: '0', priceCurrency: 'USD', name: 'Free Plan' },
+        { '@type': 'Offer', price: '7', priceCurrency: 'USD', name: 'Weekly Plan' },
+        { '@type': 'Offer', price: '20', priceCurrency: 'USD', name: 'Monthly Plan' },
+        { '@type': 'Offer', price: '180', priceCurrency: 'USD', name: 'Yearly Plan' },
+      ],
+      description: 'A professional-grade trading journal and signal analysis platform with AI-powered analytics, drawdown analysis, and copy trading.',
+    },
+  ];
+
   return (
+    <>
+    <SEOHead
+      title="Professional Trading Journal for Forex, Crypto & Commodities"
+      description="Log trades, track psychology, analyze drawdown, and unlock your edge with AI-powered analytics. Free forever plan. Trusted by 10,000+ traders."
+      keywords="trading journal, forex trading journal, crypto journal, trade tracker, drawdown analysis, AI trading coach, strategy audit, MT4 journal, MT5 journal, copy trading"
+      canonical="/"
+      jsonLd={homeJsonLd}
+    />
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif",
       ['--hf-bg' as string]:              dm ? '#080c10' : '#f1f5f9',
       ['--hf-border' as string]:          dm ? '#0f1923' : '#e2e8f0',
@@ -505,5 +539,6 @@ export default function HomePage() {
 
       </div>
     </div>
+    </>
   );
 }

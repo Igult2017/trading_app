@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
+import SEOHead from '@/components/SEOHead';
 
 const F = "'DM Mono', 'Courier New', monospace";
 
@@ -56,6 +57,13 @@ export default function SupportPage() {
   ];
 
   return (
+    <>
+    <SEOHead
+      title="Support & Help Center"
+      description="Get help with MyfmJournal. Browse FAQs, contact our support team, and find answers to common questions about your trading journal."
+      canonical="/support"
+      noindex={false}
+    />
     <div style={{ minHeight: '100vh', background: pageBg, transition: 'background 0.3s' }}>
       <style>{`
         .sp-layout { display:flex; gap:32px; align-items:flex-start; }
@@ -254,5 +262,6 @@ export default function SupportPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

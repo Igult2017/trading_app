@@ -3,6 +3,7 @@ import { useRoute, useLocation } from 'wouter';
 import { ArrowLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { usePageTracking } from '@/hooks/usePageTracking';
+import SEOHead from '@/components/SEOHead';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -477,8 +478,30 @@ export default function BlogPostPage() {
   );
 
   const ad = post.authorData;
+  const postDesc = post.excerpt || post.content.replace(/<[^>]+>/g, '').slice(0, 160);
+  const postUrl = `/blog/${(post as any).slug || post.id}`;
 
   return (
+    <>
+    <SEOHead
+      title={post.title}
+      description={postDesc}
+      canonical={postUrl}
+      ogImage={post.imageUrl || undefined}
+      ogType="article"
+      author={post.author}
+      publishedTime={post.date}
+      jsonLd={{
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: post.title,
+        description: postDesc,
+        author: { '@type': 'Person', name: post.author },
+        datePublished: post.date,
+        image: post.imageUrl || undefined,
+        publisher: { '@type': 'Organization', name: 'MyfmJournal', url: 'https://myfmjournal.com' },
+      }}
+    />
     <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat",sans-serif', transition: 'background 0.5s,color 0.5s' }}>
       <ReadingProgress isDark={isDark} />
 
@@ -800,5 +823,6 @@ export default function BlogPostPage() {
       </div>
 
     </div>
+    </>
   );
 }

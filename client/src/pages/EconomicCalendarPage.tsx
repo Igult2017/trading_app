@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
+import SEOHead from '@/components/SEOHead';
 
 interface CalendarEvent {
   date: string;
@@ -161,6 +162,13 @@ export default function EconomicCalendarPage() {
   };
 
   return (
+    <>
+    <SEOHead
+      title="Economic Calendar – Live Forex & Crypto Events"
+      description="Track high-impact economic events, central bank decisions, and market-moving news in real time. Essential for Forex, crypto, and commodity traders."
+      keywords="economic calendar, forex calendar, central bank calendar, high impact news, NFP, FOMC, interest rates, forex events"
+      canonical="/calendar"
+    />
     <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'DM Mono',monospace", transition: 'background 0.3s' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
@@ -390,5 +398,6 @@ export default function EconomicCalendarPage() {
         </div>
       </main>
     </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
+import SEOHead from '@/components/SEOHead';
 
 const F = "'DM Mono', 'Courier New', monospace";
 
@@ -457,6 +458,13 @@ export default function LegalPage() {
   }
 
   return (
+    <>
+    <SEOHead
+      title="Privacy Policy & Terms of Service"
+      description="Read MyfmJournal's privacy policy, terms of service, and contact information. We are committed to protecting your data and your trading privacy."
+      canonical="/legal"
+      noindex={false}
+    />
     <div style={{ minHeight: '100vh', background: pageBg, transition: 'background 0.3s' }}>
       <style>{`
         .legal-layout { display:flex; gap:32px; align-items:flex-start; }
@@ -548,5 +556,6 @@ export default function LegalPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

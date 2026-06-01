@@ -295,6 +295,63 @@ async function backfillProfilesFromSupabase(userIds: string[]) {
 export async function registerRoutes(app: Express): Promise<Server> {
   addServerLog('info', 'Server', `API server started — Node ${process.version}`);
 
+  // ── robots.txt ────────────────────────────────────────────────────────────────
+  app.get('/robots.txt', (_req: Request, res: Response) => {
+    res.type('text/plain').send(
+      'User-agent: *\n' +
+      'Allow: /\n' +
+      'Disallow: /api/\n' +
+      'Disallow: /admin\n' +
+      'Disallow: /journal\n' +
+      'Disallow: /history\n' +
+      'Disallow: /analytics\n' +
+      'Disallow: /accounts\n' +
+      'Disallow: /assets\n' +
+      'Disallow: /auth/callback\n' +
+      'Disallow: /auth/reset-password\n' +
+      '\n' +
+      'Sitemap: https://myfmjournal.com/sitemap.xml\n'
+    );
+  });
+
+  // ── sitemap.xml ───────────────────────────────────────────────────────────────
+  app.get('/sitemap.xml', async (_req: Request, res: Response) => {
+    try {
+      const base = 'https://myfmjournal.com';
+      const now = new Date().toISOString().split('T')[0];
+
+      const staticUrls = [
+        { loc: '/',         priority: '1.0', changefreq: 'weekly' },
+        { loc: '/blog',     priority: '0.9', changefreq: 'daily'  },
+        { loc: '/calendar', priority: '0.8', changefreq: 'hourly' },
+        { loc: '/support',  priority: '0.5', changefreq: 'monthly'},
+        { loc: '/legal',    priority: '0.3', changefreq: 'yearly' },
+      ];
+
+      let blogRows: { slug: string; updated_at?: string }[] = [];
+      try {
+        const r = await pool.query<{ slug: string; updated_at: string }>(
+          `SELECT slug, updated_at FROM blog_posts WHERE status='Published' ORDER BY updated_at DESC LIMIT 200`
+        );
+        blogRows = r.rows;
+      } catch { /* blog table may not exist yet */ }
+
+      const urlsXml = [
+        ...staticUrls.map(u =>
+          `  <url>\n    <loc>${base}${u.loc}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+        ),
+        ...blogRows.map(p =>
+          `  <url>\n    <loc>${base}/blog/${p.slug}</loc>\n    <lastmod>${(p.updated_at ?? now).split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>`
+        ),
+      ].join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlsXml}\n</urlset>`;
+      res.type('application/xml').send(xml);
+    } catch (err: any) {
+      res.status(500).send('<!-- sitemap error -->');
+    }
+  });
+
   // Count every request for real req/sec metrics
   app.use((_req: Request, res: Response, next: NextFunction) => {
     const now = Date.now();
