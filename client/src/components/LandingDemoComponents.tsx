@@ -227,18 +227,18 @@ export function PerformanceInsights({ dm }: { dm: boolean }) {
   const rowText = dm ? '#7aa3c8' : '#334155';
 
   const instruments = [
-    { label: 'EURUSD · London Mid · Strong',      trades: 8,  pct: 100, win: true },
-    { label: 'EURUSD · London Open · Moderate',   trades: 1,  pct: 100, win: true },
-    { label: 'EURUSD · London Open · Strong',      trades: 5,  pct: 60,  win: true },
-    { label: 'EURUSD · New York Close · Strong',   trades: 6,  pct: 50,  win: false },
-    { label: 'EURUSD · New York Mid · Strong',     trades: 12, pct: 83,  win: true },
-    { label: 'EURUSD · Overlap Open · Strong',     trades: 10, pct: 80,  win: true },
-    { label: 'EURUSD · Sydney Open · Moderate',    trades: 1,  pct: 100, win: true },
-    { label: 'EURUSD · Sydney Open · Strong',      trades: 2,  pct: 50,  win: false },
-    { label: 'EURUSD · Tokyo Close · Strong',      trades: 3,  pct: 100, win: true },
-    { label: 'EURUSD · Tokyo Mid · Strong',        trades: 9,  pct: 89,  win: true },
-    { label: 'EURUSD · Tokyo Open · Strong',       trades: 2,  pct: 50,  win: false },
-    { label: 'Unknown · London Open · Strong',     trades: 1,  pct: 100, win: true },
+    { instr: 'EURUSD', session: 'London Mid',      mom: 'Strong',   trades: 8,  pct: 100, win: true  },
+    { instr: 'EURUSD', session: 'London Open',     mom: 'Moderate', trades: 1,  pct: 100, win: true  },
+    { instr: 'EURUSD', session: 'London Open',     mom: 'Strong',   trades: 5,  pct: 60,  win: true  },
+    { instr: 'EURUSD', session: 'New York Close',  mom: 'Strong',   trades: 6,  pct: 50,  win: false },
+    { instr: 'EURUSD', session: 'New York Mid',    mom: 'Strong',   trades: 12, pct: 83,  win: true  },
+    { instr: 'EURUSD', session: 'Overlap Open',    mom: 'Strong',   trades: 10, pct: 80,  win: true  },
+    { instr: 'EURUSD', session: 'Sydney Open',     mom: 'Moderate', trades: 1,  pct: 100, win: true  },
+    { instr: 'EURUSD', session: 'Sydney Open',     mom: 'Strong',   trades: 2,  pct: 50,  win: false },
+    { instr: 'EURUSD', session: 'Tokyo Close',     mom: 'Strong',   trades: 3,  pct: 100, win: true  },
+    { instr: 'EURUSD', session: 'Tokyo Mid',       mom: 'Strong',   trades: 9,  pct: 89,  win: true  },
+    { instr: 'EURUSD', session: 'Tokyo Open',      mom: 'Strong',   trades: 2,  pct: 50,  win: false },
+    { instr: 'Unknown', session: 'London Open',    mom: 'Strong',   trades: 1,  pct: 100, win: true  },
   ];
 
   const strategies = [
@@ -311,16 +311,30 @@ export function PerformanceInsights({ dm }: { dm: boolean }) {
 
       <div className="pi-grid">
         <div className="pi-col">
-          <ColHeader label="Instrument · Phase · Momentum" />
+          <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr 68px 52px', alignItems: 'center', padding: '7px 14px', borderBottom: `1px solid ${border}`, background: headerBg, fontFamily: "'Courier New',monospace" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Instr</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentum</span>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: badgeWinColor }}>W</span>
+              <span style={{ fontSize: 9, color: muted }}>/</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: badgeLossColor }}>L</span>
+            </div>
+          </div>
           <div className="pi-scroll">
             {instruments.map((r, i) => (
-              <Row key={i}>
-                <span style={{ color: rowText, fontSize: 11, letterSpacing: '0.02em' }}>{r.label}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+              <div key={i}
+                style={{ display: 'grid', gridTemplateColumns: '72px 1fr 68px 52px', alignItems: 'center', padding: '7px 14px', borderBottom: `1px solid ${border}`, fontFamily: "'Courier New',monospace", fontSize: 11, transition: 'background 0.1s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <span style={{ color: rowText, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.instr}</span>
+                <span style={{ color: rowText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 6 }}>{r.session}</span>
+                <span style={{ color: muted, fontSize: 10, whiteSpace: 'nowrap' }}>{r.mom}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                   <span style={{ fontSize: 10, color: muted }}>{r.trades}</span>
                   <Badge pct={r.pct} win={r.win} />
                 </div>
-              </Row>
+              </div>
             ))}
           </div>
         </div>
