@@ -296,8 +296,8 @@ export default function HomePage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                     {[{ value:'67.92%', label:'Winrate', w:'68%' },{ value:'97.46%', label:'Daily Winrate', w:'97%' }].map((s,i) => (
                       <div key={i} style={{ background: t.mobileCard, borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: t.mobileStatValue }}>{s.value}</div>
-                        <div style={{ fontSize: 10, color: t.mobileLabel, marginTop: 4 }}>{s.label}</div>
+                        <div style={{ fontSize: 16, fontWeight: 500, color: t.mobileStatValue, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
+                        <div style={{ fontSize: 9, color: t.mobileLabel, marginTop: 4, fontFamily: "'DM Mono', monospace" }}>{s.label}</div>
                         <div style={{ marginTop: 8, height: 3, background: t.mobileBarBg, borderRadius: 2, overflow: 'hidden' }}>
                           <div style={{ width: s.w, height: '100%', background: 'linear-gradient(to right,#2563eb,#60a5fa)' }} />
                         </div>
@@ -305,8 +305,8 @@ export default function HomePage() {
                     ))}
                   </div>
                   <div style={{ background: t.mobileCard, borderRadius: 14, padding: 16, border: `1px solid ${t.mobileCardBorder}`, marginBottom: 10 }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: t.mobileStatValue }}>€19,800.72</div>
-                    <div style={{ fontSize: 10, color: t.mobileLabel, marginTop: 4 }}>Total Profit</div>
+                    <div style={{ fontSize: 18, fontWeight: 500, color: t.mobileStatValue, fontFamily: "'DM Mono', monospace" }}>$19,800.72</div>
+                    <div style={{ fontSize: 9, color: t.mobileLabel, marginTop: 4, fontFamily: "'DM Mono', monospace" }}>Total Profit</div>
                     <svg viewBox="0 0 180 30" style={{ width: '100%', height: 30, marginTop: 10 }}>
                       <defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
                       <polyline points="0,25 20,20 40,22 60,15 80,17 100,12 120,10 140,13 160,9 180,6" fill="none" stroke="url(#cg)" strokeWidth="2" strokeLinecap="round"/>
@@ -315,8 +315,8 @@ export default function HomePage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {[{ value:'1,131', label:'Trades' },{ value:'0.89', label:'Avg Win/Loss' }].map((s,i) => (
                       <div key={i} style={{ background: t.mobileCard, borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: t.mobileStatValue }}>{s.value}</div>
-                        <div style={{ fontSize: 10, color: t.mobileLabel, marginTop: 4 }}>{s.label}</div>
+                        <div style={{ fontSize: 16, fontWeight: 500, color: t.mobileStatValue, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
+                        <div style={{ fontSize: 9, color: t.mobileLabel, marginTop: 4, fontFamily: "'DM Mono', monospace" }}>{s.label}</div>
                       </div>
                     ))}
                   </div>
