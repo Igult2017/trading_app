@@ -282,7 +282,7 @@ export default function HomePage() {
         {/* Mobile Section */}
         <section className="lp-section-sm">
           <div className="lp-mob-grid" style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
               <div style={{ width: 260, background: t.mobilePhoneBg, borderRadius: 40, border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden' }}>
                 <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ ...oswald, fontSize: 10, letterSpacing: '0.01em', color: t.text, fontWeight: 900 }}>
