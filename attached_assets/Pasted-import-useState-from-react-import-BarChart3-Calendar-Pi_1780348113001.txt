@@ -1,0 +1,717 @@
+import { useState } from "react";
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp, Activity } from 'lucide-react';
+
+const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function getTradeData(year, month) {
+  const seed = year * 100 + month;
+  const rand = seededRand(seed);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const data = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, month, d).getDay();
+    if (dow === 0 || dow === 6) continue;
+    if (rand() > 0.55) continue;
+    const trades = Math.floor(rand() * 8) + 1;
+    const isWin = rand() > 0.3;
+    const pnl = isWin ? (rand() * 1800 + 150) : -(rand() * 600 + 50);
+    const winPct = isWin ? Math.floor(rand() * 35) + 60 : Math.floor(rand() * 40) + 10;
+    data[d] = { trades, pnl: Math.round(pnl * 100) / 100, winPct };
+  }
+  return data;
+}
+
+function fmtPnl(n) {
+  const abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (n >= 0 ? '+$' : '-$') + abs;
+}
+
+function TradingCalendar({ dm }) {
+  const now = new Date();
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth());
+  const [jumpVal, setJumpVal] = useState('');
+
+  const data = getTradeData(currentYear, currentMonth);
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const isCurrentMonth = now.getFullYear() === currentYear && now.getMonth() === currentMonth;
+
+  let totalPnl = 0, winDays = 0, lossDays = 0, totalTrades = 0, activeDays = 0;
+  let totalWin = 0, winCount = 0, totalLoss = 0, lossCount = 0;
+  Object.values(data).forEach(v => {
+    totalPnl += v.pnl; totalTrades += v.trades; activeDays++;
+    if (v.pnl >= 0) { winDays++; totalWin += v.pnl; winCount++; }
+    else { lossDays++; totalLoss += Math.abs(v.pnl); lossCount++; }
+  });
+  const wr = activeDays > 0 ? Math.round(winDays / activeDays * 100) : null;
+  const ratio = winCount > 0 && lossCount > 0 ? (totalWin / winCount / (totalLoss / lossCount)).toFixed(2) : '—';
+
+  function prev() {
+    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
+    else setCurrentMonth(m => m - 1);
+  }
+  function next() {
+    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
+    else setCurrentMonth(m => m + 1);
+  }
+  function handleJump(e) {
+    if (e.key !== 'Enter') return;
+    const parts = jumpVal.trim().match(/([A-Za-z]+)\s*(\d{4})/);
+    if (!parts) return;
+    const mIdx = MONTHS_SHORT.findIndex(m => m.toLowerCase() === parts[1].toLowerCase().slice(0,3));
+    if (mIdx < 0) return;
+    setCurrentMonth(mIdx);
+    setCurrentYear(parseInt(parts[2]));
+    setJumpVal('');
+  }
+
+  const calCells = [];
+  for (let i = 0; i < firstDay; i++) calCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+
+  // Theme-aware colors
+  const tc = dm ? {
+    bg: '#0d1117',
+    border: '#1e2a38',
+    headerBg: '#0d1117',
+    titleLabel: '#3a5a7a',
+    titleText: '#c8d8e8',
+    btnBg: '#131b26',
+    btnBorder: '#1e2a38',
+    btnColor: '#6a8aaa',
+    btnHoverBg: '#1e2a38',
+    btnHoverColor: '#c8d8e8',
+    selBg: '#131b26',
+    selColor: '#c8d8e8',
+    searchBg: '#131b26',
+    searchColor: '#6a8aaa',
+    searchPlaceholder: '#2a3a4a',
+    badgeBg: '#131b26',
+    badgeBorder: '#1a5276',
+    badgeColor: '#3b82f6',
+    statLabelColor: '#3a5a7a',
+    statSubColor: '#3a5a7a',
+    dayHdrColor: '#3a5a7a',
+    cellDateColor: '#3a5a7a',
+    cellMetaColor: '#3a5a7a',
+    winCellBg: 'rgba(22,163,74,0.07)',
+    winCellHover: 'rgba(22,163,74,0.14)',
+    lossCellBg: 'rgba(220,38,38,0.07)',
+    lossCellHover: 'rgba(220,38,38,0.14)',
+    todayOutline: '#1a5276',
+    winPnlColor: '#22d3a5',
+    lossPnlColor: '#f4617f',
+    winBarColor: '#22d3a5',
+    lossBarColor: '#f4617f',
+    winStatColor: '#22d3a5',
+    tradeStatColor: '#3b82f6',
+    ratioStatColor: '#4a6580',
+  } : {
+    bg: '#ffffff',
+    border: '#e2e8f0',
+    headerBg: '#f8fafc',
+    titleLabel: '#94a3b8',
+    titleText: '#0f172a',
+    btnBg: '#f1f5f9',
+    btnBorder: '#e2e8f0',
+    btnColor: '#475569',
+    btnHoverBg: '#e2e8f0',
+    btnHoverColor: '#0f172a',
+    selBg: '#f1f5f9',
+    selColor: '#0f172a',
+    searchBg: '#f1f5f9',
+    searchColor: '#475569',
+    searchPlaceholder: '#cbd5e1',
+    badgeBg: '#eff6ff',
+    badgeBorder: '#93c5fd',
+    badgeColor: '#2563eb',
+    statLabelColor: '#94a3b8',
+    statSubColor: '#94a3b8',
+    dayHdrColor: '#94a3b8',
+    cellDateColor: '#94a3b8',
+    cellMetaColor: '#94a3b8',
+    winCellBg: 'rgba(22,163,74,0.06)',
+    winCellHover: 'rgba(22,163,74,0.12)',
+    lossCellBg: 'rgba(220,38,38,0.05)',
+    lossCellHover: 'rgba(220,38,38,0.1)',
+    todayOutline: '#93c5fd',
+    winPnlColor: '#16a34a',
+    lossPnlColor: '#dc2626',
+    winBarColor: '#16a34a',
+    lossBarColor: '#dc2626',
+    winStatColor: '#16a34a',
+    tradeStatColor: '#2563eb',
+    ratioStatColor: '#64748b',
+  };
+
+  return (
+    <div style={{ background: tc.bg, borderRadius: 12, overflow: 'hidden', fontFamily: "'Courier New', monospace", color: tc.titleText, border: `1px solid ${tc.border}`, transition: 'background 0.3s, border-color 0.3s' }}>
+      <style>{`
+        .tc-btn { background:${tc.btnBg}; border:1px solid ${tc.btnBorder}; border-radius:4px; color:${tc.btnColor}; cursor:pointer; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; transition:background 0.15s; flex-shrink:0; }
+        .tc-btn:hover { background:${tc.btnHoverBg}; color:${tc.btnHoverColor}; }
+        .tc-sel { background:${tc.selBg}; border:1px solid ${tc.border}; border-radius:4px; color:${tc.selColor}; font-size:11px; padding:4px 8px; font-family:inherit; cursor:pointer; height:28px; letter-spacing:0.06em; }
+        .tc-search { background:${tc.searchBg}; border:1px solid ${tc.border}; border-radius:4px; color:${tc.searchColor}; font-size:10px; padding:4px 10px; font-family:inherit; height:28px; width:90px; letter-spacing:0.04em; outline:none; }
+        .tc-search::placeholder { color:${tc.searchPlaceholder}; }
+        .tc-cell-base { min-height:80px; border-right:1px solid ${tc.border}; border-bottom:1px solid ${tc.border}; padding:6px 8px; position:relative; box-sizing:border-box; transition:background 0.12s; }
+        .tc-cell-win { background:${tc.winCellBg}; cursor:pointer; }
+        .tc-cell-win:hover { background:${tc.winCellHover}; }
+        .tc-cell-loss { background:${tc.lossCellBg}; cursor:pointer; }
+        .tc-cell-loss:hover { background:${tc.lossCellHover}; }
+        .tc-cell-empty { background:transparent; }
+        .tc-today { outline:1px solid ${tc.todayOutline}; outline-offset:-1px; }
+        @media (max-width: 640px) {
+          .tc-cell-base { min-height: 52px; padding: 4px 4px; }
+          .tc-controls-wrap { flex-direction: column; align-items: flex-start !important; }
+          .tc-jump-badge { display: none !important; }
+          .tc-stats-grid { grid-template-columns: 1fr 1fr !important; }
+          .tc-stat-item:nth-child(2) { border-right: none !important; }
+          .tc-stat-item:nth-child(3) { border-top: 1px solid ${tc.border}; }
+          .tc-stat-item:nth-child(4) { border-top: 1px solid ${tc.border}; border-right: none !important; }
+        }
+        @media (max-width: 400px) {
+          .tc-sel-year { display: none; }
+          .tc-cell-pnl-text { font-size: 11px !important; }
+          .tc-cell-meta-text { display: none; }
+        }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${tc.border}`, background: tc.headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 9, letterSpacing: '0.18em', color: tc.titleLabel, textTransform: 'uppercase', marginBottom: 2 }}>Performance Overview</div>
+          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.08em', color: tc.titleText, textTransform: 'uppercase' }}>Trading_Calendar</div>
+        </div>
+        <div className="tc-controls-wrap" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <button className="tc-btn" onClick={prev}>&#8592;</button>
+          <select className="tc-sel" value={currentMonth} onChange={e => setCurrentMonth(parseInt(e.target.value))}>
+            {MONTHS_FULL.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </select>
+          <select className="tc-sel tc-sel-year" value={currentYear} onChange={e => setCurrentYear(parseInt(e.target.value))}>
+            {Array.from({length:11},(_,i)=>2020+i).map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <button className="tc-btn" onClick={next}>&#8594;</button>
+          <input className="tc-search" type="text" placeholder="e.g. Mar 2025" value={jumpVal} onChange={e => setJumpVal(e.target.value)} onKeyDown={handleJump} />
+          <div className="tc-jump-badge" style={{ background: tc.badgeBg, border: `1px solid ${tc.badgeBorder}`, borderRadius: 4, color: tc.badgeColor, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 10px', whiteSpace: 'nowrap', height: 28, display: 'flex', alignItems: 'center' }}>
+            &#9632; {MONTHS_SHORT[currentMonth].toUpperCase()} {currentYear}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="tc-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderBottom: `1px solid ${tc.border}` }}>
+        {[
+          { label: 'Net P&L', value: activeDays > 0 ? fmtPnl(Math.round(totalPnl*100)/100) : '—', sub: activeDays > 0 ? `${winDays}W / ${lossDays}L` : 'No trades', color: tc.winStatColor },
+          { label: 'Win Rate', value: wr !== null ? `${wr}%` : '—', sub: activeDays > 0 ? `${winDays} profit day${winDays!==1?'s':''}` : 'No data', color: tc.winStatColor },
+          { label: 'Total Trades', value: activeDays > 0 ? totalTrades : '—', sub: 'All active days', color: tc.tradeStatColor },
+          { label: 'W/L Ratio', value: ratio, sub: 'Avg win ÷ avg loss', color: tc.ratioStatColor },
+        ].map((s, i) => (
+          <div className="tc-stat-item" key={i} style={{ padding: '12px 14px', borderRight: i < 3 ? `1px solid ${tc.border}` : 'none' }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.15em', color: tc.statLabelColor, textTransform: 'uppercase', marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 'clamp(14px,2.5vw,22px)', fontWeight: 700, color: s.color, letterSpacing: '0.02em' }}>{s.value}</div>
+            <div style={{ fontSize: 10, color: tc.statSubColor, marginTop: 2, letterSpacing: '0.04em' }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Day headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: `1px solid ${tc.border}`, background: tc.headerBg }}>
+        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+          <div key={d} style={{ padding: '8px 0', textAlign: 'center', fontSize: 10, letterSpacing: '0.1em', color: tc.dayHdrColor, textTransform: 'uppercase', borderRight: i < 6 ? `1px solid ${tc.border}` : 'none' }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+        {calCells.map((d, i) => {
+          const td = d ? data[d] : null;
+          const isToday = isCurrentMonth && d === now.getDate();
+          const colClass = !d ? 'tc-cell-empty' : td ? (td.pnl >= 0 ? 'tc-cell-win' : 'tc-cell-loss') : '';
+          const todayClass = isToday ? ' tc-today' : '';
+          const borderRight = (i + 1) % 7 === 0 ? 'none' : `1px solid ${tc.border}`;
+          return (
+            <div key={i} className={`tc-cell-base ${colClass}${todayClass}`} style={{ borderRight }}>
+              {d && <div style={{ fontSize: 11, color: tc.cellDateColor, letterSpacing: '0.04em' }}>{String(d).padStart(2,'0')}</div>}
+              {td && <>
+                <div className="tc-cell-pnl-text" style={{ fontSize: 'clamp(11px,1.3vw,15px)', fontWeight: 700, marginTop: 10, letterSpacing: '0.02em', color: td.pnl >= 0 ? tc.winPnlColor : tc.lossPnlColor }}>{fmtPnl(td.pnl)}</div>
+                <div className="tc-cell-meta-text" style={{ fontSize: 9, color: tc.cellMetaColor, marginTop: 2, letterSpacing: '0.04em' }}>{td.trades}T · {td.winPct}%W</div>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: td.pnl >= 0 ? tc.winBarColor : tc.lossBarColor }} />
+              </>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PerformanceInsights({ dm }) {
+  const border = dm ? '#1e2a38' : '#e2e8f0';
+  const bg = dm ? '#0d1117' : '#ffffff';
+  const headerBg = dm ? '#0b0f14' : '#f8fafc';
+  const text = dm ? '#c8d8e8' : '#0f172a';
+  const muted = dm ? '#3a5a7a' : '#94a3b8';
+  const labelColor = dm ? '#3a5a7a' : '#94a3b8';
+  const rowHover = dm ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
+  const colHdrBg = dm ? '#0b0f14' : '#f1f5f9';
+  const badgeWinBg = dm ? 'rgba(34,211,165,0.15)' : 'rgba(22,163,74,0.1)';
+  const badgeWinColor = dm ? '#22d3a5' : '#16a34a';
+  const badgeLossBg = dm ? 'rgba(244,97,127,0.12)' : 'rgba(220,38,38,0.08)';
+  const badgeLossColor = dm ? '#f4617f' : '#dc2626';
+  const dotGreen = '#22d3a5';
+  const dotRed = '#f4617f';
+  const pillBg = dm ? '#131b26' : '#eff6ff';
+  const pillColor = dm ? '#3b82f6' : '#2563eb';
+  const pillBorder = dm ? '#1a3a5c' : '#bfdbfe';
+
+  const instruments = [
+    { label: 'EURUSD · London Mid · Strong', trades: 8, pct: 100, win: true },
+    { label: 'EURUSD · London Open · Moderate', trades: 1, pct: 100, win: true },
+    { label: 'EURUSD · London Open · Strong', trades: 5, pct: 60, win: true },
+    { label: 'EURUSD · New York Close · Strong', trades: 6, pct: 50, win: false },
+    { label: 'EURUSD · New York Mid · Strong', trades: 12, pct: 83, win: true },
+    { label: 'EURUSD · Overlap Open · Strong', trades: 10, pct: 80, win: true },
+    { label: 'EURUSD · Sydney Open · Moderate', trades: 1, pct: 100, win: true },
+    { label: 'EURUSD · Sydney Open · Strong', trades: 2, pct: 50, win: false },
+    { label: 'EURUSD · Tokyo Close · Strong', trades: 3, pct: 100, win: true },
+    { label: 'EURUSD · Tokyo Mid · Strong', trades: 9, pct: 89, win: true },
+    { label: 'EURUSD · Tokyo Open · Strong', trades: 2, pct: 50, win: false },
+    { label: 'Unknown · London Open · Strong', trades: 1, pct: 100, win: true },
+  ];
+
+  const strategies = [
+    { label: 'Bearish', dot: dotRed, trades: 37, pct: 81, win: true },
+    { label: 'Bullish', dot: dotGreen, trades: 22, pct: 64, win: true },
+  ];
+
+  const timeframes = {
+    entry: [
+      { label: '1H', trades: 1, pct: 100 },
+      { label: '1M', trades: 2, pct: 60 },
+      { label: '1m', trades: 55, pct: 81 },
+      { label: '5M', trades: 1, pct: 100 },
+    ],
+    analysis: [
+      { label: '1HR', trades: 58, pct: 80 },
+      { label: '4HR', trades: 1, pct: 100 },
+    ],
+    context: [
+      { label: '1D', trades: 59, pct: 81 },
+    ],
+  };
+
+  const Badge = ({ pct, win }) => (
+    <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'Courier New',monospace", padding: '2px 7px', borderRadius: 4, background: win ? badgeWinBg : badgeLossBg, color: win ? badgeWinColor : badgeLossColor, letterSpacing: '0.04em' }}>
+      {pct}%
+    </span>
+  );
+
+  const ColHeader = ({ label, badge, sub }) => (
+    <div style={{ padding: '10px 14px', borderBottom: `1px solid ${border}`, background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>{label}</span>
+      {badge && <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "'Courier New',monospace", padding: '2px 8px', borderRadius: 4, background: pillBg, color: pillColor, border: `1px solid ${pillBorder}`, letterSpacing: '0.06em' }}>{badge}</span>}
+      {sub && <span style={{ fontSize: 9, color: muted, fontFamily: "'Courier New',monospace", letterSpacing: '0.06em' }}>{sub}</span>}
+    </div>
+  );
+
+  const Row = ({ children }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 14px', borderBottom: `1px solid ${border}`, fontFamily: "'Courier New',monospace", fontSize: 11, color: text, transition: 'background 0.1s' }}
+      onMouseEnter={e => e.currentTarget.style.background = rowHover}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ background: bg, borderRadius: 12, overflow: 'hidden', border: `1px solid ${border}`, transition: 'background 0.3s, border-color 0.3s' }}>
+      <style>{`
+        .pi-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; }
+        .pi-col { border-right: 1px solid ${border}; }
+        .pi-col:last-child { border-right: none; }
+        .pi-scroll { max-height: 320px; overflow-y: auto; }
+        .pi-scroll::-webkit-scrollbar { width: 4px; }
+        .pi-scroll::-webkit-scrollbar-track { background: transparent; }
+        .pi-scroll::-webkit-scrollbar-thumb { background: ${border}; border-radius: 2px; }
+        @media (max-width: 768px) {
+          .pi-grid { grid-template-columns: 1fr; }
+          .pi-col { border-right: none; border-bottom: 1px solid ${border}; }
+          .pi-col:last-child { border-bottom: none; }
+        }
+      `}</style>
+
+      {/* Top header bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', borderBottom: `1px solid ${border}`, background: colHdrBg }}>
+        <div style={{ padding: '10px 14px', borderRight: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>
+            Instrument · Session Phase · Momentum
+          </span>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: badgeWinColor, fontFamily: "'Courier New',monospace" }}>Win</span>
+            <span style={{ fontSize: 9, color: muted, fontFamily: "'Courier New',monospace" }}>/</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: badgeLossColor, fontFamily: "'Courier New',monospace" }}>Loss</span>
+          </div>
+        </div>
+        <div style={{ padding: '10px 14px', borderRight: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>Strategy × Market Regime</span>
+          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "'Courier New',monospace", padding: '2px 8px', borderRadius: 4, background: pillBg, color: pillColor, border: `1px solid ${pillBorder}` }}>Full Matrix</span>
+        </div>
+        <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>Timeframe</span>
+        </div>
+      </div>
+
+      <div className="pi-grid">
+        {/* Col 1 — Instruments */}
+        <div className="pi-col">
+          <ColHeader label="Instrument · Phase · Momentum" />
+          <div className="pi-scroll">
+            {instruments.map((r, i) => (
+              <Row key={i}>
+                <span style={{ color: dm ? '#7aa3c8' : '#334155', fontSize: 11, letterSpacing: '0.02em' }}>{r.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                  <span style={{ fontSize: 10, color: muted, fontFamily: "'Courier New',monospace" }}>{r.trades}</span>
+                  <Badge pct={r.pct} win={r.win} />
+                </div>
+              </Row>
+            ))}
+          </div>
+        </div>
+
+        {/* Col 2 — Strategy */}
+        <div className="pi-col">
+          <ColHeader label="MoMo" sub={`${strategies.reduce((a,s)=>a+s.trades,0)} TRADES`} />
+          <div>
+            {strategies.map((s, i) => (
+              <Row key={i}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
+                  <span style={{ color: dm ? '#7aa3c8' : '#334155' }}>{s.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: muted }}>{s.trades}</span>
+                  <Badge pct={s.pct} win={s.win} />
+                </div>
+              </Row>
+            ))}
+          </div>
+        </div>
+
+        {/* Col 3 — Timeframes */}
+        <div className="pi-col">
+          <div>
+            <ColHeader label="Entry TF" />
+            {timeframes.entry.map((tf, i) => (
+              <Row key={i}>
+                <span style={{ color: dm ? '#7aa3c8' : '#334155' }}>{tf.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: muted }}>{tf.trades}</span>
+                  <Badge pct={tf.pct} win={tf.pct >= 60} />
+                </div>
+              </Row>
+            ))}
+            <ColHeader label="Analysis TF" />
+            {timeframes.analysis.map((tf, i) => (
+              <Row key={i}>
+                <span style={{ color: dm ? '#7aa3c8' : '#334155' }}>{tf.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: muted }}>{tf.trades}</span>
+                  <Badge pct={tf.pct} win={tf.pct >= 60} />
+                </div>
+              </Row>
+            ))}
+            <ColHeader label="Context TF" />
+            {timeframes.context.map((tf, i) => (
+              <Row key={i}>
+                <span style={{ color: dm ? '#7aa3c8' : '#334155' }}>{tf.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: muted }}>{tf.trades}</span>
+                  <Badge pct={tf.pct} win={tf.pct >= 60} />
+                </div>
+              </Row>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function FreeTradingJournalLanding() {
+  const [darkMode, setDarkMode] = useState(true);
+
+  const dm = darkMode;
+
+  const t = dm ? {
+    pageBg: '#020817',
+    sectionAlt: 'rgba(15,23,42,0.6)',
+    cardBorder: '#1e293b',
+    text: '#ffffff',
+    textMuted: '#94a3b8',
+    textAccent: '#60a5fa',
+    featureCardBg: 'rgba(30,41,59,0.5)',
+    testimonialBg: 'rgba(30,41,59,0.5)',
+    mobilePhoneBg: 'linear-gradient(145deg,#0f172a,#1e293b)',
+    mobilePhoneBorder: '#334155',
+    mobilePhoneShadow: '0 0 60px rgba(59,130,246,0.15),0 25px 50px rgba(0,0,0,0.6)',
+    mobileTopBar: 'linear-gradient(to bottom,#0f172a,#1e293b)',
+    mobileTopBorder: '#1e293b',
+    mobileCard: 'linear-gradient(135deg,#0f172a,#1e3a5f)',
+    mobileCardBorder: 'rgba(30,64,175,0.3)',
+    mobileStatValue: '#60a5fa',
+    mobileLabel: '#94a3b8',
+    mobileBarBg: '#1e293b',
+    mobileHomebar: '#334155',
+  } : {
+    pageBg: '#f8fafc',
+    sectionAlt: 'rgba(241,245,249,0.8)',
+    cardBorder: '#e2e8f0',
+    text: '#0f172a',
+    textMuted: '#64748b',
+    textAccent: '#2563eb',
+    featureCardBg: 'rgba(248,250,252,0.9)',
+    testimonialBg: 'rgba(248,250,252,0.9)',
+    mobilePhoneBg: 'linear-gradient(145deg,#ffffff,#f1f5f9)',
+    mobilePhoneBorder: '#cbd5e1',
+    mobilePhoneShadow: '0 0 60px rgba(59,130,246,0.1),0 25px 50px rgba(0,0,0,0.12)',
+    mobileTopBar: 'linear-gradient(to bottom,#ffffff,#f8fafc)',
+    mobileTopBorder: '#e2e8f0',
+    mobileCard: 'linear-gradient(135deg,#eff6ff,#dbeafe)',
+    mobileCardBorder: 'rgba(147,197,253,0.5)',
+    mobileStatValue: '#1d4ed8',
+    mobileLabel: '#64748b',
+    mobileBarBg: '#e2e8f0',
+    mobileHomebar: '#cbd5e1',
+  };
+
+  const navFont = { fontFamily: "'Montserrat',sans-serif", fontWeight: 800 };
+  const oswald = { fontFamily: "'Oswald',sans-serif", fontWeight: 700 };
+
+  const features = [
+    { icon: <Calendar className="w-6 h-6" />, title: "Stay Organised", description: "Track your trades and review your performance by day, week, or month" },
+    { icon: <BarChart3 className="w-6 h-6" />, title: "Analyze Strategies", description: "Easily analyze and compare the success rates of different strategies" },
+    { icon: <Diamond className="w-6 h-6" />, title: "Spot Patterns", description: "Identify patterns in your wins and losses to refine your trading schedule" },
+    { icon: <PieChart className="w-6 h-6" />, title: "Professional Journaling", description: "Journal your trades and thoughts like a pro trader" },
+    { icon: <Activity className="w-6 h-6" />, title: "Performance Insights", description: "Break down your win rate by instrument, session, market regime, strategy, and timeframe to find exactly where your edge lives.", wide: true }
+  ];
+
+  const mobileFeatures = [
+    { icon: <Check className="w-5 h-5" />, title: "Fully automated process" },
+    { icon: <Check className="w-5 h-5" />, title: "Mobile friendly" },
+    { icon: <Check className="w-5 h-5" />, title: "Check your performance in realtime" },
+    { icon: <Check className="w-5 h-5" />, title: "Lightweight and optimised" }
+  ];
+
+  const testimonials = [
+    { name: "Alex M.", text: "The dashboard is incredibly customizable and very convenient to use.", rating: 5 },
+    { name: "Jordan K.", text: "I love how FSD Journal helps me track my performance and improve my strategies.", rating: 5 },
+    { name: "Sarah T.", text: "This tool is fantastic, the user interface could be even more intuitive.", rating: 5 },
+    { name: "Michael R.", text: "FSD Journal has changed the way I analyze my trading operations.", rating: 5 },
+    { name: "Emily W.", text: "An excellent tool for traders. Easy to use and very comprehensive.", rating: 5 },
+    { name: "David P.", text: "I've tried other journaling platforms, but FSD Journal is by far the best!", rating: 5 },
+    { name: "Jessica L.", text: "The stats dashboard is so detailed and customizable. It's made a huge difference to my trading.", rating: 5 },
+    { name: "Chris N.", text: "The community features have helped me connect with other traders and share strategies.", rating: 5 }
+  ];
+
+  const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
+
+  return (
+    <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Montserrat:wght@700;800;900&family=Poppins:wght@300;400;500;600&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        .features-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:24px; }
+        .mobile-section-grid { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center; }
+        .testimonials-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+        .brokers-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:24px; text-align:center; }
+        @media (max-width: 1024px) {
+          .testimonials-grid { grid-template-columns:repeat(2,1fr); }
+          .footer-grid { grid-template-columns:1fr 1fr; gap:36px; }
+          .brokers-grid { grid-template-columns:repeat(3,1fr); gap:20px; }
+        }
+        @media (max-width: 768px) {
+          .features-grid { grid-template-columns:1fr; }
+          .mobile-section-grid { grid-template-columns:1fr; }
+          .mobile-phone-col { display:none; }
+          .testimonials-grid { grid-template-columns:repeat(2,1fr); }
+          .brokers-grid { grid-template-columns:repeat(2,1fr); gap:16px; }
+        }
+        @media (max-width: 560px) {
+          .testimonials-grid { grid-template-columns:1fr; }
+          .brokers-grid { grid-template-columns:repeat(2,1fr); }
+          .hero-trust-row { flex-direction:column; gap:6px !important; text-align:center; }
+        }
+      `}</style>
+
+
+      <div>
+        {/* Hero */}
+        <section style={{ padding: '80px 24px', textAlign: 'center' }}>
+          <h1 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, fontSize: 'clamp(24px,4vw,48px)', marginBottom: 24, color: t.text, lineHeight: 1.2 }}>
+            A Premium Trade Journal,<br />
+            <span style={{ background: 'linear-gradient(to right,#3b82f6,#2563eb)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Without The Subscription.
+            </span>
+          </h1>
+          <p style={{ fontSize: 'clamp(15px,2vw,18px)', color: t.textMuted, maxWidth: 600, margin: '0 auto 12px', lineHeight: 1.7 }}>
+            A complete execution database and performance analysis system for serious traders.
+          </p>
+          <p style={{ fontSize: 'clamp(14px,1.8vw,16px)', color: t.textAccent, fontWeight: 500, maxWidth: 480, margin: '0 auto 40px', lineHeight: 1.8 }}>
+            Log trades. Capture decisions. Track psychology.<br />
+            Identify patterns. Refine execution. <strong style={{ color: t.text }}>Build your edge.</strong>
+          </p>
+          <div className="hero-trust-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 48, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex' }}>{[...Array(5)].map((_,i) => <Star key={i} size={18} style={{ fill: '#facc15', color: '#facc15' }} />)}</div>
+            <span style={{ color: t.textMuted, fontSize: 14 }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
+          </div>
+          <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
+            <button style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              Start Now - It's Free! <ArrowRight size={20} />
+            </button>
+          </div>
+        </section>
+
+        {/* Trading Calendar */}
+        <section style={{ padding: '60px 24px', background: t.sectionAlt }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <TradingCalendar dm={dm} />
+          </div>
+        </section>
+
+        {/* Brokers */}
+        <section style={{ padding: '48px 24px' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <h3 style={{ ...oswald, textAlign: 'center', fontSize: 'clamp(16px,2.5vw,22px)', color: t.textMuted, marginBottom: 40 }}>Compatible with Brokers</h3>
+            <div className="brokers-grid">
+              {brokers.map((b,i) => <div key={i} style={{ color: t.textMuted, fontWeight: 600, fontSize: 13 }}>{b}</div>)}
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" style={{ padding: '60px 24px', background: t.sectionAlt }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <h2 style={{ ...oswald, fontSize: 'clamp(24px,3vw,36px)', textAlign: 'center', color: t.text, marginBottom: 12 }}>Unlock Powerful Insights</h2>
+            <p style={{ textAlign: 'center', color: t.textMuted, fontSize: 'clamp(14px,2vw,18px)', maxWidth: 600, margin: '0 auto 48px' }}>The most comprehensive analytics dashboard that can be customised to your needs</p>
+            <div className="features-grid">
+              {features.filter(f => !f.wide).map((f,i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: 24, borderRadius: 12, background: t.featureCardBg, border: `1px solid ${t.cardBorder}` }}>
+                  <div style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', padding: 12, borderRadius: 10, flexShrink: 0, color: '#fff' }}>{f.icon}</div>
+                  <div>
+                    <h3 style={{ ...oswald, fontSize: 'clamp(16px,2vw,20px)', color: t.text, marginBottom: 6 }}>{f.title}</h3>
+                    <p style={{ color: t.textMuted, lineHeight: 1.6, margin: 0 }}>{f.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Performance Insights — full width */}
+            <div style={{ marginTop: 24, padding: 24, borderRadius: 12, background: t.featureCardBg, border: `1px solid ${t.cardBorder}` }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
+                <div style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', padding: 12, borderRadius: 10, flexShrink: 0, color: '#fff' }}><Activity className="w-6 h-6" /></div>
+                <div>
+                  <h3 style={{ ...oswald, fontSize: 'clamp(16px,2vw,20px)', color: t.text, marginBottom: 6 }}>Performance Insights</h3>
+                  <p style={{ color: t.textMuted, lineHeight: 1.6, margin: 0 }}>Break down your win rate by instrument, session, market regime, strategy, and timeframe to find exactly where your edge lives.</p>
+                </div>
+              </div>
+              <PerformanceInsights dm={dm} />
+            </div>
+          </div>
+        </section>
+
+        {/* Mobile Section */}
+        <section style={{ padding: '60px 24px' }}>
+          <div className="mobile-section-grid" style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div className="mobile-phone-col" style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: 260, background: t.mobilePhoneBg, borderRadius: 40, border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden' }}>
+                <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ ...oswald, fontSize: 10, letterSpacing: '0.05em' }}>
+                    <span style={{ color: t.text }}>FSD </span><span style={{ color: '#3b82f6' }}>Journal</span>
+                  </span>
+                  <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg,#2563eb,#60a5fa)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <TrendingUp size={13} color="white" />
+                  </div>
+                </div>
+                <div style={{ padding: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    {[{ value:'67.92%', label:'Winrate', w:'68%' },{ value:'97.46%', label:'Daily Winrate', w:'97%' }].map((s,i) => (
+                      <div key={i} style={{ background: t.mobileCard, borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: t.mobileStatValue }}>{s.value}</div>
+                        <div style={{ fontSize: 10, color: t.mobileLabel, marginTop: 4 }}>{s.label}</div>
+                        <div style={{ marginTop: 8, height: 3, background: t.mobileBarBg, borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ width: s.w, height: '100%', background: 'linear-gradient(to right,#2563eb,#60a5fa)' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ background: t.mobileCard, borderRadius: 14, padding: 16, border: `1px solid ${t.mobileCardBorder}`, marginBottom: 10 }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: t.mobileStatValue }}>€19,800.72</div>
+                    <div style={{ fontSize: 10, color: t.mobileLabel, marginTop: 4 }}>Total Profit</div>
+                    <svg viewBox="0 0 180 30" style={{ width: '100%', height: 30, marginTop: 10 }}>
+                      <defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
+                      <polyline points="0,25 20,20 40,22 60,15 80,17 100,12 120,10 140,13 160,9 180,6" fill="none" stroke="url(#cg)" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {[{ value:'1,131', label:'Trades' },{ value:'0.89', label:'Avg Win/Loss' }].map((s,i) => (
+                      <div key={i} style={{ background: t.mobileCard, borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: t.mobileStatValue }}>{s.value}</div>
+                        <div style={{ fontSize: 10, color: t.mobileLabel, marginTop: 4 }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ padding: '12px 20px 20px', display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: 40, height: 4, background: t.mobileHomebar, borderRadius: 2 }} />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h2 style={{ ...oswald, fontSize: 'clamp(22px,3vw,32px)', color: t.text, marginBottom: 16, lineHeight: 1.2 }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
+              <p style={{ fontSize: 'clamp(14px,2vw,18px)', color: t.textMuted, marginBottom: 32 }}>Automatic import from your MT5 account makes tracking your performance easier than ever</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {mobileFeatures.map((f,i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', padding: 8, borderRadius: 8, flexShrink: 0, color: '#fff' }}>{f.icon}</div>
+                    <span style={{ fontSize: 'clamp(14px,2vw,17px)', color: t.text }}>{f.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials */}
+        <section id="testimonials" style={{ padding: '60px 24px', background: t.sectionAlt }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <h2 style={{ ...oswald, fontSize: 'clamp(22px,3vw,36px)', textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose FSD Journal</h2>
+            <div className="testimonials-grid">
+              {testimonials.map((r,i) => (
+                <div key={i} style={{ background: t.testimonialBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 24 }}>
+                  <div style={{ display: 'flex', marginBottom: 10 }}>{[...Array(r.rating)].map((_,j) => <Star key={j} size={14} style={{ fill: '#facc15', color: '#facc15' }} />)}</div>
+                  <p style={{ color: t.textMuted, marginBottom: 12, fontSize: 13, fontStyle: 'italic' }}>"{r.text}"</p>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{r.name}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: 'center', marginTop: 48 }}>
+              <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
+                <button style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Join us now <ArrowRight size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  );
+}
