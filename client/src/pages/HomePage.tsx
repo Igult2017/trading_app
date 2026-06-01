@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp, DollarSign, Gauge, Activity, CalendarDays, CircleDot } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
 import HomeHeader from '@/components/HomeHeader';
 import HomeFooter from '@/components/HomeFooter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
+import { TradingCalendar, PerformanceInsights } from '@/components/LandingDemoComponents';
 
 
 export default function HomePage() {
@@ -117,7 +118,6 @@ export default function HomePage() {
   ];
 
   const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
-  const calData = Array.from({ length: 35 }, () => (Math.random() - 0.45) * 900);
 
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif",
@@ -227,51 +227,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Dashboard preview */}
+        {/* Trading Calendar */}
         <section className="lp-section-sm" style={{ background: t.sectionAlt }}>
-          <div className="lp-dash-card" style={{ maxWidth: 1100, margin: '0 auto', background: dm ? 'linear-gradient(135deg,#1e293b,#0f172a)' : '#fff', border: `1px solid ${t.cardBorder}`, boxShadow: dm ? '0 25px 50px rgba(0,0,0,0.4)' : '0 10px 40px rgba(0,0,0,0.06)' }}>
-
-            {/* 6-stat strip */}
-            <div className="lp-stats-strip" style={{ marginBottom: 24 }}>
-              {([
-                { icon: DollarSign,  label: 'TOTAL P&L',     value: '+$90,042.69', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-                { icon: Gauge,       label: 'WIN RATE',       value: '78.3%',       color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
-                { icon: Activity,    label: 'R EXPECTANCY',   value: '2.23R',       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-                { icon: CalendarDays,label: 'TRADES',         value: '118',         color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
-                { icon: CircleDot,   label: 'PROFIT FACTOR',  value: '11.22',       color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
-                { icon: DollarSign,  label: 'AVG TRADE',      value: '+$763.07',    color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-              ] as const).map(({ icon: Icon, label, value, color, bg }, i) => (
-                <div key={i} style={{
-                  background: dm ? 'rgba(255,255,255,0.04)' : '#fff',
-                  border: `1px solid ${dm ? 'rgba(255,255,255,0.07)' : '#e2e8f0'}`,
-                  borderRadius: 14,
-                  padding: '18px 16px 16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  boxShadow: dm ? 'none' : '0 2px 8px rgba(0,0,0,0.05)',
-                }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={18} color={color} strokeWidth={2} />
-                  </div>
-                  <div style={{ fontSize: 10, fontFamily: "'Montserrat',sans-serif", fontWeight: 700, letterSpacing: '0.08em', color: dm ? '#64748b' : '#94a3b8' }}>{label}</div>
-                  <div style={{ fontSize: 20, fontFamily: "'DM Mono',monospace", fontWeight: 500, color, lineHeight: 1 }}>{value}</div>
-                </div>
-              ))}
-            </div>
-            <div className="lp-cal-grid">
-              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-                <div key={d} style={{ textAlign: 'center', fontSize: 11, color: t.dayLabel, fontWeight: 500, paddingBottom: 4 }}>{d}</div>
-              ))}
-              {calData.map((profit, i) => {
-                const pos = profit > 0;
-                return (
-                  <div key={i} className="lp-cal-cell" style={{ aspectRatio: '1', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, background: pos ? t.calWin : t.calLoss, border: `1px solid ${pos ? t.calWinBorder : t.calLossBorder}` }}>
-                    <span style={{ color: pos ? t.calWinText : t.calLossText }}>{pos ? '+' : ''}{Math.round(profit)}</span>
-                  </div>
-                );
-              })}
-            </div>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <TradingCalendar dm={dm} />
           </div>
         </section>
 
@@ -301,6 +260,22 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Performance Insights */}
+        <section className="lp-section-sm">
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 32 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#2563eb,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <TrendingUp size={24} color="#fff" />
+              </div>
+              <div>
+                <h2 style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: 'clamp(22px,3vw,30px)', color: t.text, margin: '0 0 8px' }}>Performance Insights</h2>
+                <p style={{ color: t.textMuted, fontSize: 15, lineHeight: 1.6, margin: 0, maxWidth: 700 }}>Break down your win rate by instrument, session, market regime, strategy, and timeframe to find exactly where your edge lives.</p>
+              </div>
+            </div>
+            <PerformanceInsights dm={dm} />
           </div>
         </section>
 
