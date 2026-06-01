@@ -360,7 +360,7 @@ export default function HomePage() {
                 </div>
                 <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['Total P&L', 'Win Rate', 'R Expectancy', 'Trades count', 'Profit Factor', 'Avg Trade', 'Link MT4 & MT5'].map(f => (
+                  {['Total P&L & Win Rate', 'R Expectancy & Profit Factor', 'Avg Trade & Trade Count', 'Trade calendar view', 'Link MT4 & MT5'].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <Check size={13} color="#64748b" strokeWidth={3} />
                       <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
@@ -382,11 +382,11 @@ export default function HomePage() {
                     <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$7</span>
                     <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/week</span>
                   </div>
-                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>Try all features risk-free.</p>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>Try the full journal risk-free.</p>
                 </div>
                 <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['Everything in Free', 'Full journal access', 'Trade calendar', 'Detailed analytics', 'Edge building tools', 'Strategy audit'].map(f => (
+                  {['Everything in Free', 'Full journal access', 'Detailed analytics & drawdown', 'Strategy audit engine', 'Edge building tools', 'Psychology scoring', 'Trade vault & filtering'].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <Check size={13} color="#3b82f6" strokeWidth={3} />
                       <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
@@ -409,11 +409,24 @@ export default function HomePage() {
                     <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$20</span>
                     <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/month</span>
                   </div>
-                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>The sweet spot for active traders.</p>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>Full power for serious traders.</p>
+                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 7, background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.25)', fontSize: 11, color: '#3b82f6', fontWeight: 600 }}>
+                    + TradeSync Copier included → <strong>$27/mo</strong>
+                  </div>
                 </div>
                 <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['Everything in Weekly', 'Priority support', 'Export reports', 'Performance comparisons', 'Multi-account tracking'].map(f => (
+                  {[
+                    'Everything in Weekly',
+                    'AI Coach (Trader AI Chat)',
+                    'AI trade analysis & chart validation',
+                    'Behavior pattern breakdown',
+                    'Timeframe performance metrics',
+                    'Multi-account tracking',
+                    'Export reports',
+                    'Performance comparisons',
+                    'Priority support',
+                  ].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <Check size={13} color="#3b82f6" strokeWidth={3} />
                       <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
@@ -434,11 +447,20 @@ export default function HomePage() {
                     <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$180</span>
                     <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/year</span>
                   </div>
-                  <p style={{ fontSize: 12, color: '#22c55e', marginTop: 8, fontWeight: 600 }}>Save $60 vs monthly · $15/mo</p>
+                  <p style={{ fontSize: 12, color: '#22c55e', marginTop: 4, fontWeight: 600 }}>Save $60 vs monthly · $15/mo</p>
+                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 7, background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
+                    + TradeSync Copier included → <strong>$220/yr</strong>
+                  </div>
                 </div>
                 <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['Everything in Monthly', 'Early access to new features', 'Annual performance review', 'Dedicated onboarding'].map(f => (
+                  {[
+                    'Everything in Monthly',
+                    'Annual performance review',
+                    'Early access to new features',
+                    'Dedicated onboarding session',
+                    'SMC signal scanner access',
+                  ].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <Check size={13} color="#22c55e" strokeWidth={3} />
                       <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
