@@ -401,22 +401,22 @@ export default function HomePage() {
               </div>
 
               {/* Monthly — Most Popular */}
-              <div style={{ background: 'linear-gradient(145deg,#1e3a5f,#0f172a)', border: '2px solid #3b82f6', borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative', boxShadow: '0 0 40px rgba(59,130,246,0.18)' }}>
+              <div style={{ background: dm ? 'linear-gradient(145deg,#1e3a5f,#0f172a)' : t.cardBg, border: '2px solid #3b82f6', borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative', boxShadow: '0 0 40px rgba(59,130,246,0.18)' }}>
                 <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 99, padding: '4px 16px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Montserrat',sans-serif" }}>MOST POPULAR</div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#60a5fa', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>MONTHLY</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#3b82f6', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>MONTHLY</div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 44, fontWeight: 900, color: '#fff', lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$20</span>
-                    <span style={{ fontSize: 13, color: '#94a3b8', marginBottom: 7 }}>/month</span>
+                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$20</span>
+                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/month</span>
                   </div>
-                  <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>The sweet spot for active traders.</p>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>The sweet spot for active traders.</p>
                 </div>
-                <div style={{ width: '100%', height: 1, background: 'rgba(59,130,246,0.2)' }} />
+                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {['Everything in Weekly', 'Priority support', 'Export reports', 'Performance comparisons', 'Multi-account tracking'].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                      <Check size={13} color="#60a5fa" strokeWidth={3} />
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}>{f}</span>
+                      <Check size={13} color="#3b82f6" strokeWidth={3} />
+                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
                     </div>
                   ))}
                 </div>
