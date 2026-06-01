@@ -228,7 +228,7 @@ export default function HomePage() {
         </section>
 
         {/* Trading Calendar */}
-        <section className="lp-section-sm" style={{ background: t.sectionAlt }}>
+        <section id="features" className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             <TradingCalendar dm={dm} />
           </div>
@@ -245,7 +245,7 @@ export default function HomePage() {
         </section>
 
         {/* Features */}
-        <section id="features" className="lp-section-sm" style={{ background: t.sectionAlt }}>
+        <section className="lp-section-sm" style={{ background: t.sectionAlt }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 12 }}>Unlock Powerful Insights</h2>
             <p className="lp-section-sub" style={{ textAlign: 'center', color: t.textMuted, marginBottom: 48, maxWidth: 600, margin: '0 auto 48px' }}>The most comprehensive analytics dashboard that can be customised to your needs</p>
