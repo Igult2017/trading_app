@@ -291,40 +291,22 @@ export function PerformanceInsights({ dm }: { dm: boolean }) {
         }
       `}</style>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', borderBottom: `1px solid ${border}`, background: colHdrBg }}>
-        <div style={{ padding: '10px 14px', borderRight: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>Instrument · Session Phase · Momentum</span>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: badgeWinColor, fontFamily: "'Courier New',monospace" }}>Win</span>
-            <span style={{ fontSize: 9, color: muted, fontFamily: "'Courier New',monospace" }}>/</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: badgeLossColor, fontFamily: "'Courier New',monospace" }}>Loss</span>
-          </div>
-        </div>
-        <div style={{ padding: '10px 14px', borderRight: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>Strategy × Market Regime</span>
-          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "'Courier New',monospace", padding: '2px 8px', borderRadius: 4, background: pillBg, color: pillColor, border: `1px solid ${pillBorder}` }}>Full Matrix</span>
-        </div>
-        <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', color: labelColor, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>Timeframe</span>
-        </div>
-      </div>
-
       <div className="pi-grid">
         <div className="pi-col">
-          <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr 68px 52px', alignItems: 'center', padding: '7px 14px', borderBottom: `1px solid ${border}`, background: headerBg, fontFamily: "'Courier New',monospace" }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Instr</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentum</span>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: badgeWinColor }}>W</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr 78px 56px', alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${border}`, background: colHdrBg, fontFamily: "'Courier New',monospace" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Instr</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Phase</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Momentum</span>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 3 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: badgeWinColor }}>Win</span>
               <span style={{ fontSize: 9, color: muted }}>/</span>
-              <span style={{ fontSize: 9, fontWeight: 700, color: badgeLossColor }}>L</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: badgeLossColor }}>Loss</span>
             </div>
           </div>
           <div className="pi-scroll">
             {instruments.map((r, i) => (
               <div key={i}
-                style={{ display: 'grid', gridTemplateColumns: '72px 1fr 68px 52px', alignItems: 'center', padding: '7px 14px', borderBottom: `1px solid ${border}`, fontFamily: "'Courier New',monospace", fontSize: 11, transition: 'background 0.1s' }}
+                style={{ display: 'grid', gridTemplateColumns: '72px 1fr 78px 56px', alignItems: 'center', padding: '7px 14px', borderBottom: `1px solid ${border}`, fontFamily: "'Courier New',monospace", fontSize: 11, transition: 'background 0.1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <span style={{ color: rowText, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.instr}</span>
