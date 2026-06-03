@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 
 const SOCIAL_ICONS = [
   { label: "Twitter (X)", href: "#", path: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" },
@@ -50,11 +51,11 @@ export default function HomeFooter({ darkMode }: HomeFooterProps) {
 
           {/* Brand + newsletter */}
           <div>
-            <a href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
+            <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
               <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.5px" }}>
                 Myfm<span style={{ color: "#2563eb" }}>Journal</span>
               </span>
-            </a>
+            </Link>
             <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.75, marginBottom: 22, maxWidth: 240, margin: "0 0 22px" }}>
               A professional-grade trading journal and analytics platform built for serious traders.
             </p>
@@ -91,7 +92,7 @@ export default function HomeFooter({ darkMode }: HomeFooterProps) {
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Resources</div>
             {RESOURCES.map(({ label, href }) => (
-              <a key={label} href={href} className="hf2-lnk">{label}</a>
+              <Link key={label} href={href} className="hf2-lnk">{label}</Link>
             ))}
           </div>
 
@@ -99,7 +100,7 @@ export default function HomeFooter({ darkMode }: HomeFooterProps) {
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Legal</div>
             {LEGAL.map(({ label, href }) => (
-              <a key={label} href={href} className="hf2-lnk">{label}</a>
+              <Link key={label} href={href} className="hf2-lnk">{label}</Link>
             ))}
           </div>
         </div>
@@ -112,7 +113,7 @@ export default function HomeFooter({ darkMode }: HomeFooterProps) {
             </span>
             <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
               {LEGAL.map(({ label, href }) => (
-                <a key={label} href={href} className="hf2-copy-lnk">{label}</a>
+                <Link key={label} href={href} className="hf2-copy-lnk">{label}</Link>
               ))}
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
 
@@ -117,43 +117,51 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, gap: 16 }}>
 
           {/* Logo */}
-          <a href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
+          <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
             <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 20, fontWeight: 800, color: logoClr, letterSpacing: "-0.5px" }}>
               Myfm<span style={{ color: "#2563eb" }}>Journal</span>
             </span>
-          </a>
+          </Link>
 
           {/* Desktop nav links */}
           <div className="hh2-desktop" style={{ display: "flex", gap: 2, alignItems: "center", flex: 1, justifyContent: "center" }}>
             {NAV_LINKS.map(({ label, href }) => {
               const isHash = href.includes("#");
               const isActive = !isHash && !!activePath && (activePath === href || (href !== "/" && activePath.startsWith(href.split("?")[0])));
+              const sharedStyle: React.CSSProperties = { fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 500, color: isActive ? "#2563eb" : linkClr, textDecoration: "none", padding: "7px 12px", borderRadius: 6, transition: "color 0.15s", whiteSpace: "nowrap", background: "transparent" };
+              const hoverIn  = (e: React.MouseEvent) => { handleLinkHover(href); (e.currentTarget as HTMLElement).style.color = linkHov; (e.currentTarget as HTMLElement).style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc"; };
+              const hoverOut = (e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.color = isActive ? "#2563eb" : linkClr; (e.currentTarget as HTMLElement).style.background = "transparent"; };
+              if (isHash) {
+                return (
+                  <a key={label} href={href} onClick={(e) => handleHashClick(e as any, href)}
+                    onMouseEnter={hoverIn} onMouseLeave={hoverOut} style={sharedStyle}>
+                    {label}
+                  </a>
+                );
+              }
               return (
-                <a key={label} href={href}
-                  onClick={isHash ? (e) => handleHashClick(e as any, href) : undefined}
-                  onMouseEnter={(e) => { handleLinkHover(href); (e.currentTarget as HTMLElement).style.color = linkHov; (e.currentTarget as HTMLElement).style.background = dm ? "rgba(255,255,255,0.05)" : "#f8fafc"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActive ? "#2563eb" : linkClr; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                  style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 500, color: isActive ? "#2563eb" : linkClr, textDecoration: "none", padding: "7px 12px", borderRadius: 6, transition: "color 0.15s", whiteSpace: "nowrap", background: "transparent" }}>
+                <Link key={label} href={href}
+                  onMouseEnter={hoverIn} onMouseLeave={hoverOut} style={sharedStyle}>
                   {label}
-                </a>
+                </Link>
               );
             })}
           </div>
 
           {/* Desktop CTAs + toggle */}
           <div className="hh2-desktop" style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-            <a href="/auth" target="myfm_journal" rel="noopener noreferrer"
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#2563eb"; (e.currentTarget as HTMLElement).style.color = "#2563eb"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = secBorder; (e.currentTarget as HTMLElement).style.color = secClr; }}
+            <Link href="/auth"
+              onMouseEnter={(e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.borderColor = "#2563eb"; (e.currentTarget as HTMLElement).style.color = "#2563eb"; }}
+              onMouseLeave={(e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.borderColor = secBorder; (e.currentTarget as HTMLElement).style.color = secClr; }}
               style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, color: secClr, background: "transparent", border: `1.5px solid ${secBorder}`, padding: "8px 18px", borderRadius: 50, textDecoration: "none", transition: "all 0.2s", whiteSpace: "nowrap", cursor: "pointer" }}>
               Login
-            </a>
-            <a href="/auth?mode=signup" target="myfm_journal" rel="noopener noreferrer"
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#1d4ed8"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#2563eb"; }}
+            </Link>
+            <Link href="/auth?mode=signup"
+              onMouseEnter={(e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.background = "#1d4ed8"; }}
+              onMouseLeave={(e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.background = "#2563eb"; }}
               style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 700, color: "#fff", background: "#2563eb", border: "none", padding: "8px 20px", borderRadius: 50, textDecoration: "none", transition: "all 0.2s", whiteSpace: "nowrap", cursor: "pointer", boxShadow: "0 4px 14px rgba(37,99,235,0.3)" }}>
               Sign Up Free
-            </a>
+            </Link>
             <button onClick={() => setDarkMode(!dm)} title={dm ? "Light mode" : "Dark mode"}
               style={{ width: 40, height: 40, borderRadius: "50%", background: toggleBg, border: `1.5px solid ${navBorder}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, transition: "all 0.2s", flexShrink: 0 }}>
               {dm ? "☀️" : "🌙"}
@@ -178,23 +186,31 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           <div style={{ background: mobBg, borderTop: `1px solid ${navBorder}`, padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
             {NAV_LINKS.map(({ label, href }) => {
               const isHash = href.includes("#");
+              const mobLinkStyle: React.CSSProperties = { color: linkClr, textDecoration: "none", fontFamily: "'DM Sans',sans-serif", fontSize: 15, padding: "4px 0" };
+              if (isHash) {
+                return (
+                  <a key={label} href={href}
+                    onClick={e => { setMenuOpen(false); handleHashClick(e as any, href); }}
+                    style={mobLinkStyle}>
+                    {label}
+                  </a>
+                );
+              }
               return (
-                <a key={label} href={href}
-                  onClick={e => { setMenuOpen(false); if (isHash) handleHashClick(e as any, href); }}
-                  style={{ color: linkClr, textDecoration: "none", fontFamily: "'DM Sans',sans-serif", fontSize: 15, padding: "4px 0" }}>
+                <Link key={label} href={href} onClick={() => setMenuOpen(false)} style={mobLinkStyle}>
                   {label}
-                </a>
+                </Link>
               );
             })}
             <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
-              <a href="/auth" target="myfm_journal" rel="noopener noreferrer"
+              <Link href="/auth" onClick={() => setMenuOpen(false)}
                 style={{ flex: 1, textAlign: "center", padding: "10px", borderRadius: 50, border: `1.5px solid ${secBorder}`, color: secClr, fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
                 Login
-              </a>
-              <a href="/auth?mode=signup" target="myfm_journal" rel="noopener noreferrer"
+              </Link>
+              <Link href="/auth?mode=signup" onClick={() => setMenuOpen(false)}
                 style={{ flex: 1, textAlign: "center", padding: "10px", borderRadius: 50, background: "#2563eb", color: "#fff", fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 Sign Up Free
-              </a>
+              </Link>
             </div>
           </div>
         )}
