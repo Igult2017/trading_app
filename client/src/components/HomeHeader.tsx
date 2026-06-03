@@ -73,9 +73,10 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const scrollToHash = (hash: string) => {
     const el = document.getElementById(hash);
     if (!el) return false;
-    const headerH = (document.getElementById("site-header")?.offsetHeight ?? 100) + 8;
-    const top = el.getBoundingClientRect().top + window.scrollY - headerH;
-    window.scrollTo({ top, behavior: "smooth" });
+    const header = document.getElementById("site-header");
+    const headerH = header ? header.getBoundingClientRect().height : 100;
+    const top = el.getBoundingClientRect().top + window.scrollY - headerH - 20;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     return true;
   };
 
