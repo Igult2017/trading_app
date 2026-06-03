@@ -1,544 +1,778 @@
-import { useEffect, useState } from "react";
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
-import HomeHeader from '@/components/HomeHeader';
-import HomeFooter from '@/components/HomeFooter';
-import { usePublicTheme } from '@/context/PublicThemeContext';
-import { TradingCalendar, PerformanceInsights } from '@/components/LandingDemoComponents';
-import SEOHead from '@/components/SEOHead';
+import { useState } from "react";
+import { usePublicTheme } from "@/context/PublicThemeContext";
+import HomeHeader from "@/components/HomeHeader";
+import HomeFooter from "@/components/HomeFooter";
 
+// ─────────────────────────────────────────────
+//  Static data
+// ─────────────────────────────────────────────
+
+const FEATURES = [
+  { icon: "📓", title: "Trade Journal",         desc: "Log every trade in a structured multi-step form. Capture entry, exit, risk, psychology, and confluence factors." },
+  { icon: "📸", title: "Screenshot & OCR",      desc: "Upload a chart screenshot and let AI extract price, SL, TP, and symbol automatically." },
+  { icon: "📊", title: "Performance Analytics", desc: "Track P&L, win rate, profit factor, R-expectancy, drawdown, and more — across sessions, strategies, and timeframes." },
+  { icon: "📉", title: "Drawdown Analysis",     desc: "Visualise peak-to-valley declines, recovery time, and ulcer index to manage your risk precisely." },
+  { icon: "🔬", title: "Strategy Audit Engine", desc: "Grade your trading system based on edge persistence, risk entropy, and Monte Carlo simulation." },
+  { icon: "🤖", title: "Trader AI Coach",       desc: "Ask your AI coach to analyse your drawdown, identify your worst setups, or build a strategy from your own data." },
+];
+
+const AI_CHATS = [
+  {
+    prompt: "Analyse my drawdown from last month",
+    metrics: [
+      { label: "Max Drawdown", value: "-8.2%",    sub: "vs -12.5% limit", danger: true  },
+      { label: "Avg Drawdown", value: "-3.1%",    sub: "below threshold", danger: false },
+      { label: "Recovery Time",value: "4.2 days", sub: "within target",   danger: false },
+    ],
+    analysis: "Your worst drawdown occurred during the NY session on days with high-impact news. 6 of your 8 losing streaks started within 30 minutes of a red news event.",
+    recommendation: "Avoid trading 1 hour before and after high-impact USD/GBP news events. This single rule would have prevented 73% of your worst drawdowns.",
+    actions: ["View Drawdown Report", "Set News Filter Rule"],
+  },
+  {
+    prompt: "What are my worst-performing setups?",
+    metrics: [
+      { label: "Worst Setup", value: "FOMO Entry",  sub: "-42% win rate",      danger: true  },
+      { label: "Avg Loss",    value: "-$183",        sub: "on reactive trades", danger: true  },
+      { label: "Best Setup",  value: "Structure BO", sub: "+71% win rate",      danger: false },
+    ],
+    analysis: "Trades entered more than 5 minutes after your original signal fire at a 38% win rate vs 71% for on-plan entries. Late entries are costing you significantly.",
+    recommendation: "If you missed your original entry, skip the trade entirely. Late-entry trades have a negative expectancy of -0.4R vs +0.84R for on-time entries.",
+    actions: ["See Full Setup Report", "Compare Entry Timing"],
+  },
+  {
+    prompt: "Build a strategy from my best conditions",
+    metrics: [
+      { label: "Best Session", value: "London", sub: "+72% win rate",    danger: false },
+      { label: "Best TF",      value: "H1/H4",  sub: "confluence stack", danger: false },
+      { label: "Projected R",  value: "+1.2R",  sub: "per trade avg",    danger: false },
+    ],
+    analysis: "Your edge is concentrated in the London open (08:00–10:30 GMT) on H1 with H4 confirmation. Trend-following breakouts in this window achieve 72% win rate vs 51% at other times.",
+    recommendation: "Restrict your trading to the London open window only. With H1/H4 confluence, target 2:1 RR minimum. This would have produced your best 3 months on record.",
+    actions: ["Generate Strategy Blueprint", "Backtest Conditions"],
+  },
+];
+
+const BROKERS = ["InstaForex","LMAX Exchange","Pepperstone","TICKMILL","Admirals","AXITRADER","MetaTrader 4","MetaTrader 5","cTrader"];
+
+const PRICING_PLANS = [
+  { name:"Free",    price:"$0",   period:"forever",  badge: null,                  highlight:false, desc:"Start tracking your trades with no commitment.",            cta:"Get Started Free",   features:["Core trade stats","Trade calendar view","MT4/MT5 integration","Basic P&L tracking","Up to 50 trades/month"] },
+  { name:"Weekly",  price:"$7",   period:"/ week",   badge: null,                  highlight:false, desc:"Full access for traders testing the waters.",                cta:"Start Weekly",        features:["Everything in Free","Full trade journal","Detailed analytics","Strategy audit","Unlimited trades"] },
+  { name:"Monthly", price:"$20",  period:"/ month",  badge:"Most Popular",         highlight:true,  desc:"The complete platform for serious traders.",                 cta:"Start Monthly",       features:["Everything in Weekly","AI Coach (Trader AI)","Behaviour analysis","Export reports (PDF/CSV)","TradeSync Copier add-on"] },
+  { name:"Yearly",  price:"$180", period:"/ year",   badge:"Best Value — $15/mo",  highlight:false, desc:"Maximum value for committed traders.",                       cta:"Start Yearly",        features:["Everything in Monthly","SMC Signal Scanner","Priority support","Onboarding session","TradeSync Copier add-on"] },
+];
+
+const TESTIMONIALS = [
+  { name:"James O.",  flag:"🇬🇧", role:"Forex Trader · 3 yrs",   quote:"The drawdown analysis alone is worth the subscription. I cut my max DD from 14% to 6% in two months just by following the AI recommendations." },
+  { name:"Amara K.",  flag:"🇿🇦", role:"Crypto Trader · 1 yr",   quote:"Finally a journal that doesn't feel like a spreadsheet. The strategy audit gave me an A- grade after cleaning up my late entries." },
+  { name:"Lucas M.",  flag:"🇧🇷", role:"Swing Trader · 5 yrs",   quote:"The timeframe matrix showed me I was losing money trading M15 when 80% of my profitable trades were on H4. Game changer." },
+  { name:"Fatima R.", flag:"🇳🇬", role:"SMC Trader · 2 yrs",     quote:"TradeSync lets me share my trades with my students automatically. The signal provider mode is exactly what I needed to monetise my edge." },
+  { name:"Chen W.",   flag:"🇨🇳", role:"Day Trader · 4 yrs",     quote:"I was sceptical about the AI coach but it pinpointed a pattern I had missed for 2 years — I was overtrading on Friday afternoons consistently." },
+  { name:"Sophie D.", flag:"🇫🇷", role:"Options Trader · 2 yrs", quote:"The economic calendar integration means I never trade into a news event unaware. The sentiment overlay is a feature I didn't know I needed." },
+];
+
+// ─────────────────────────────────────────────
+//  Inline sub-components
+// ─────────────────────────────────────────────
+
+function HeroDashboard() {
+  return (
+    <div style={{ background:"#0f172a", border:"1px solid #1e293b", borderRadius:16, padding:18, fontFamily:"'DM Mono',monospace", fontSize:12, boxShadow:"0 32px 80px rgba(37,99,235,0.15)", position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:"linear-gradient(90deg,#2563eb,#3b82f6,transparent)" }}/>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+        <span style={{ color:"#94a3b8", fontSize:11 }}>PORTFOLIO OVERVIEW</span>
+        <span style={{ color:"#16a34a", fontSize:11 }}>● LIVE</span>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:14 }}>
+        {([["Net P&L","+$4,827","+12.4%"],["Win Rate","67.3%","142 trades"],["Profit Factor","2.41","R-Exp: 0.84"]] as [string,string,string][]).map(([label,val,sub],i)=>(
+          <div key={i} style={{ background:"rgba(15,23,42,0.6)", borderRadius:10, padding:10, border:"1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ color:"#64748b", fontSize:10, marginBottom:4 }}>{label}</div>
+            <div style={{ color:"#16a34a", fontSize:16, fontWeight:700, marginBottom:2 }}>{val}</div>
+            <div style={{ color:"#64748b", fontSize:10 }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:"rgba(37,99,235,0.03)", borderRadius:10, padding:12, border:"1px solid #1e293b", marginBottom:12 }}>
+        <div style={{ color:"#64748b", fontSize:10, marginBottom:8 }}>EQUITY CURVE (30D)</div>
+        <svg viewBox="0 0 300 56" style={{ width:"100%", height:56 }}>
+          <defs>
+            <linearGradient id="lp2cg" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%"   stopColor="#3b82f6" stopOpacity="0.3"/>
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,52 L20,46 L45,48 L65,38 L90,40 L115,28 L135,26 L155,17 L175,19 L195,11 L215,7 L240,9 L265,4 L300,1" fill="none" stroke="#3b82f6" strokeWidth="2"/>
+          <path d="M0,52 L20,46 L45,48 L65,38 L90,40 L115,28 L135,26 L155,17 L175,19 L195,11 L215,7 L240,9 L265,4 L300,1 L300,56 L0,56 Z" fill="url(#lp2cg)"/>
+        </svg>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        {([["EUR/USD","BUY","+2.3R","09:42"],["GOLD","SELL","+1.1R","11:15"],["GBP/USD","BUY","-0.8R","14:33"]] as [string,string,string,string][]).map(([pair,dir,r,time],i)=>(
+          <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:"rgba(37,99,235,0.04)", borderRadius:8, border:"1px solid #1e293b" }}>
+            <span style={{ color:"#f1f5f9", fontWeight:600, fontSize:11 }}>{pair}</span>
+            <span style={{ color:dir==="BUY"?"#16a34a":"#dc2626", fontSize:10 }}>{dir}</span>
+            <span style={{ color:r.startsWith("+")?"#16a34a":"#dc2626", fontSize:11 }}>{r}</span>
+            <span style={{ color:"#64748b", fontSize:10 }}>{time}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DemoContent({ tab, c }: { tab: string; c: Record<string,string> }) {
+  const bd      = c.border;
+  const cardBg  = `rgba(37,99,235,0.04)`;
+  const muted   = "#64748b";
+
+  if (tab === "Journal") return (
+    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:12 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+        {[["Symbol","EUR/USD"],["Direction","BUY"],["Entry","1.08420"],["Stop Loss","1.08120"],["Take Profit","1.08960"],["Risk %","1.0%"]].map(([l,v],i)=>(
+          <div key={i} style={{ background:cardBg, padding:10, borderRadius:8, border:`1px solid ${bd}` }}>
+            <div style={{ color:muted, fontSize:10, marginBottom:4 }}>{l}</div>
+            <div style={{ color:c.heading, fontWeight:600 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:cardBg, padding:12, borderRadius:8, border:`1px solid ${bd}`, marginBottom:12 }}>
+        <div style={{ color:muted, fontSize:10, marginBottom:6 }}>PSYCHOLOGY & NOTES</div>
+        <div style={{ color:c.text, fontSize:12, lineHeight:1.6 }}>London session breakout confirmed. Bullish structure on H4. Followed plan — no hesitation on entry. Mental state: confident.</div>
+      </div>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {["Breakout","Trend Follow","London Session","H4 Bias"].map((t,i)=>(
+          <span key={i} style={{ background:"rgba(59,130,246,0.15)", color:"#3b82f6", padding:"4px 10px", borderRadius:50, fontSize:10, border:"1px solid rgba(59,130,246,0.2)" }}>{t}</span>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (tab === "Analytics") return (
+    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:12 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, marginBottom:14 }}>
+        {([["P&L","+$4,827",true],["Win Rate","67.3%",true],["Max DD","-8.2%",false],["Profit F.","2.41",true]] as [string,string,boolean][]).map(([l,v,g],i)=>(
+          <div key={i} style={{ background:cardBg, padding:10, borderRadius:8, border:`1px solid ${bd}`, textAlign:"center" }}>
+            <div style={{ color:muted, fontSize:10, marginBottom:4 }}>{l}</div>
+            <div style={{ color:g?"#16a34a":"#dc2626", fontSize:15, fontWeight:700 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:cardBg, borderRadius:10, padding:12, border:`1px solid ${bd}` }}>
+        <div style={{ color:muted, fontSize:10, marginBottom:10 }}>WIN RATE BY SESSION</div>
+        {([["London",72],["New York",65],["Asian",48],["NY/LN Overlap",78]] as [string,number][]).map(([s,p],i)=>(
+          <div key={i} style={{ marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+              <span style={{ color:muted, fontSize:10 }}>{s}</span>
+              <span style={{ color:p>60?"#16a34a":"#d97706", fontSize:10 }}>{p}%</span>
+            </div>
+            <div style={{ background:"rgba(37,99,235,0.06)", borderRadius:4, height:6 }}>
+              <div style={{ background:p>60?"#16a34a":"#d97706", width:`${p}%`, height:"100%", borderRadius:4 }}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (tab === "Trade Vault") return (
+    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:12 }}>
+      <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+        {["All","Wins","Losses","BE"].map((f,i)=>(
+          <button key={i} style={{ background:i===0?"#2563eb":"rgba(37,99,235,0.06)", color:i===0?"white":c.heading, border:"none", padding:"5px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>{f}</button>
+        ))}
+      </div>
+      {[{pair:"EUR/USD",date:"Jun 03",r:"+2.3R",status:"WIN",tag:"Breakout"},{pair:"GOLD",date:"Jun 03",r:"+1.1R",status:"WIN",tag:"Trend"},{pair:"GBP/USD",date:"Jun 02",r:"-0.8R",status:"LOSS",tag:"Reversal"},{pair:"BTC/USD",date:"Jun 02",r:"+3.1R",status:"WIN",tag:"Momentum"}].map((t,i)=>(
+        <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:10, background:cardBg, borderRadius:8, border:`1px solid ${bd}`, marginBottom:6 }}>
+          <div>
+            <div style={{ color:c.heading, fontWeight:600, fontSize:12 }}>{t.pair}</div>
+            <div style={{ color:muted, fontSize:10 }}>{t.date}</div>
+          </div>
+          <span style={{ background:"rgba(59,130,246,0.1)", color:"#3b82f6", padding:"2px 8px", borderRadius:4, fontSize:10 }}>{t.tag}</span>
+          <span style={{ color:t.status==="WIN"?"#16a34a":"#dc2626", fontSize:13, fontWeight:700 }}>{t.r}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Strategy Audit
+  return (
+    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:12 }}>
+      <div style={{ textAlign:"center", marginBottom:16 }}>
+        <div style={{ color:muted, fontSize:10, marginBottom:6 }}>STRATEGY GRADE</div>
+        <div style={{ fontSize:48, fontWeight:900, color:"#16a34a", lineHeight:1 }}>A-</div>
+        <div style={{ color:muted, fontSize:11 }}>Breakout Momentum System</div>
+      </div>
+      {([["Edge Persistence",84,"#16a34a"],["Risk Entropy",72,"#d97706"],["Execution Quality",91,"#16a34a"],["Monte Carlo (95%)",68,"#d97706"]] as [string,number,string][]).map(([label,val,color],i)=>(
+        <div key={i} style={{ marginBottom:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+            <span style={{ color:muted, fontSize:10 }}>{label}</span>
+            <span style={{ color, fontSize:10 }}>{val}/100</span>
+          </div>
+          <div style={{ background:"rgba(37,99,235,0.06)", borderRadius:4, height:6 }}>
+            <div style={{ background:color, width:`${val}%`, height:"100%", borderRadius:4 }}/>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+//  Page
+// ─────────────────────────────────────────────
 
 export default function HomePage() {
   const { darkMode, setDarkMode } = usePublicTheme();
-  const [time, setTime] = useState(new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   const dm = darkMode;
 
-  const t = dm ? {
-    pageBg: '#020817',
-    navBg: 'rgba(8,12,16,0.97)',
-    navBorder: '#172233',
-    logoWhite: '#ffffff',
-    navLink: '#4a6580',
-    navLinkHover: '#c8d8e8',
-    sectionAlt: 'rgba(15,23,42,0.6)',
-    cardBg: '#0f172a',
-    cardBorder: '#1e293b',
-    text: '#ffffff',
-    textMuted: '#94a3b8',
-    textAccent: '#60a5fa',
-    statValue: '#60a5fa',
-    progressBg: '#1e293b',
-    calWin: 'rgba(30,58,138,0.3)',
-    calWinBorder: '#1d4ed8',
-    calLoss: 'rgba(127,29,29,0.3)',
-    calLossBorder: '#b91c1c',
-    calWinText: '#60a5fa',
-    calLossText: '#f87171',
-    dayLabel: '#475569',
-    featureCardBg: 'rgba(30,41,59,0.5)',
-    testimonialBg: 'rgba(30,41,59,0.5)',
-    mobilePhoneBg: 'linear-gradient(145deg,#0f172a,#1e293b)',
-    mobilePhoneBorder: '#334155',
-    mobilePhoneShadow: '0 0 60px rgba(59,130,246,0.15),0 25px 50px rgba(0,0,0,0.6)',
-    mobileTopBar: 'linear-gradient(to bottom,#0f172a,#1e293b)',
-    mobileTopBorder: '#1e293b',
-    mobileCard: 'linear-gradient(135deg,#0f172a,#1e3a5f)',
-    mobileCardBorder: 'rgba(30,64,175,0.3)',
-    mobileStatValue: '#60a5fa',
-    mobileLabel: '#94a3b8',
-    mobileBarBg: '#1e293b',
-    mobileHomebar: '#334155',
-  } : {
-    pageBg: '#f8fafc',
-    navBg: 'rgba(255,255,255,0.97)',
-    navBorder: '#e2e8f0',
-    logoWhite: '#0f172a',
-    navLink: '#475569',
-    navLinkHover: '#0f172a',
-    sectionAlt: 'rgba(241,245,249,0.8)',
-    cardBg: '#ffffff',
-    cardBorder: '#e2e8f0',
-    text: '#0f172a',
-    textMuted: '#64748b',
-    textAccent: '#2563eb',
-    statValue: '#2563eb',
-    progressBg: '#e2e8f0',
-    calWin: '#dbeafe',
-    calWinBorder: '#3b82f6',
-    calLoss: '#fee2e2',
-    calLossBorder: '#ef4444',
-    calWinText: '#1e40af',
-    calLossText: '#b91c1c',
-    dayLabel: '#475569',
-    featureCardBg: 'rgba(248,250,252,0.9)',
-    testimonialBg: 'rgba(248,250,252,0.9)',
-    mobilePhoneBg: 'linear-gradient(145deg,#ffffff,#f1f5f9)',
-    mobilePhoneBorder: '#cbd5e1',
-    mobilePhoneShadow: '0 0 60px rgba(59,130,246,0.1),0 25px 50px rgba(0,0,0,0.12)',
-    mobileTopBar: 'linear-gradient(to bottom,#ffffff,#f8fafc)',
-    mobileTopBorder: '#e2e8f0',
-    mobileCard: 'linear-gradient(135deg,#eff6ff,#dbeafe)',
-    mobileCardBorder: 'rgba(147,197,253,0.5)',
-    mobileStatValue: '#1d4ed8',
-    mobileLabel: '#64748b',
-    mobileBarBg: '#e2e8f0',
-    mobileHomebar: '#cbd5e1',
+  const [demoTab,    setDemoTab]    = useState("Journal");
+  const [activeChat, setActiveChat] = useState(0);
+
+  const chat = AI_CHATS[activeChat];
+
+  // Theme palette
+  const c: Record<string,string> = {
+    page:       dm ? "#020817" : "#ffffff",
+    soft:       dm ? "#0c1219" : "#f8fafc",
+    alt:        dm ? "#0f172a" : "#f1f5f9",
+    card:       dm ? "#0f172a" : "#ffffff",
+    border:     dm ? "#1e293b" : "#e2e8f0",
+    borderDark: dm ? "#334155" : "#cbd5e1",
+    muted:      "#64748b",
+    text:       dm ? "#94a3b8" : "#334155",
+    heading:    dm ? "#f1f5f9" : "#0f172a",
   };
 
-  const navFont = { fontFamily: "'Inter',sans-serif", fontWeight: 600 };
-  const oswald = { fontFamily: "'Oswald',sans-serif", fontWeight: 700 };
-
-  const features = [
-    { icon: <Calendar className="w-6 h-6" />, title: "Stay Organised", description: "Track your trades and review your performance by day, week, or month" },
-    { icon: <BarChart3 className="w-6 h-6" />, title: "Analyze Strategies", description: "Easily analyze and compare the success rates of different strategies" },
-    { icon: <Diamond className="w-6 h-6" />, title: "Spot Patterns", description: "Identify patterns in your wins and losses to refine your trading schedule" },
-    { icon: <PieChart className="w-6 h-6" />, title: "Professional Journaling", description: "Journal your trades and thoughts like a pro trader" }
-  ];
-
-  const mobileFeatures = [
-    { icon: <Check className="w-5 h-5" />, title: "Fully automated process" },
-    { icon: <Check className="w-5 h-5" />, title: "Mobile friendly" },
-    { icon: <Check className="w-5 h-5" />, title: "Check your performance in realtime" },
-    { icon: <Check className="w-5 h-5" />, title: "Lightweight and optimised" }
-  ];
-
-  const testimonials = [
-    { name: "Alex M.", text: "The dashboard is incredibly customizable and very convenient to use.", rating: 5 },
-    { name: "Jordan K.", text: "I love how Myfmjournal helps me track my performance and improve my strategies.", rating: 5 },
-    { name: "Sarah T.", text: "This tool is fantastic, the user interface could be even more intuitive.", rating: 5 },
-    { name: "Michael R.", text: "Myfmjournal has changed the way I analyze my trading operations.", rating: 5 },
-    { name: "Emily W.", text: "An excellent tool for traders. Easy to use and very comprehensive.", rating: 5 },
-    { name: "David P.", text: "I've tried other journaling platforms, but Myfmjournal is by far the best!", rating: 5 },
-    { name: "Jessica L.", text: "The stats dashboard is so detailed and customizable. It's made a huge difference to my trading.", rating: 5 },
-    { name: "Chris N.", text: "The community features have helped me connect with other traders and share strategies.", rating: 5 }
-  ];
-
-  const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
-
-  const homeJsonLd = [
-    {
-      '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      name: 'MyfmJournal',
-      url: 'https://myfmjournal.com',
-      description: 'Professional trading journal for Forex, Crypto and Commodities traders.',
-      potentialAction: { '@type': 'SearchAction', target: 'https://myfmjournal.com/blog?q={search_term_string}', 'query-input': 'required name=search_term_string' },
-    },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      name: 'MyfmJournal',
-      applicationCategory: 'FinanceApplication',
-      operatingSystem: 'Web',
-      offers: [
-        { '@type': 'Offer', price: '0', priceCurrency: 'USD', name: 'Free Plan' },
-        { '@type': 'Offer', price: '7', priceCurrency: 'USD', name: 'Weekly Plan' },
-        { '@type': 'Offer', price: '20', priceCurrency: 'USD', name: 'Monthly Plan' },
-        { '@type': 'Offer', price: '180', priceCurrency: 'USD', name: 'Yearly Plan' },
-      ],
-      description: 'A professional-grade trading journal and signal analysis platform with AI-powered analytics, drawdown analysis, and copy trading.',
-    },
-  ];
+  const sec = (bg: string): React.CSSProperties => ({ padding:"100px 0", background: bg });
+  const wrap: React.CSSProperties = { maxWidth:1200, margin:"0 auto", padding:"0 24px" };
+  const lbl: React.CSSProperties  = { fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:12, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:"#2563eb", marginBottom:16, display:"block" };
+  const ttl: React.CSSProperties  = { fontFamily:"'Sora',sans-serif", fontSize:"clamp(26px,4vw,48px)" as any, fontWeight:800, color:c.heading, lineHeight:1.12, marginBottom:16 };
+  const grad: React.CSSProperties = { background:"linear-gradient(135deg,#2563eb,#3b82f6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" };
+  const card: React.CSSProperties = { background:c.card, border:`1px solid ${c.border}`, borderRadius:16, transition:"all 0.3s ease" };
 
   return (
-    <>
-    <SEOHead
-      title="Professional Trading Journal for Forex, Crypto & Commodities"
-      description="Log trades, track psychology, analyze drawdown, and unlock your edge with AI-powered analytics. Free forever plan. Trusted by 10,000+ traders."
-      keywords="trading journal, forex trading journal, crypto journal, trade tracker, drawdown analysis, AI trading coach, strategy audit, MT4 journal, MT5 journal, copy trading"
-      canonical="/"
-      jsonLd={homeJsonLd}
-    />
-    <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'background 0.3s', fontFamily: "'Poppins',sans-serif",
-      ['--hf-bg' as string]:              dm ? '#080c10' : '#f1f5f9',
-      ['--hf-border' as string]:          dm ? '#0f1923' : '#e2e8f0',
-      ['--hf-heading' as string]:         dm ? '#c8d8e8' : '#334155',
-      ['--hf-logo' as string]:            dm ? '#ffffff' : '#0f172a',
-      ['--hf-link' as string]:            '#3b82f6',
-      ['--hf-link-hover' as string]:      dm ? '#60a5fa' : '#1d4ed8',
-      ['--hf-input-bg' as string]:        dm ? '#0c1219' : '#ffffff',
-      ['--hf-input-border' as string]:    dm ? '#172233' : '#cbd5e1',
-      ['--hf-input-text' as string]:      dm ? '#c8d8e8' : '#334155',
-      ['--hf-copyright' as string]:       dm ? '#4a6580' : '#64748b',
-      ['--hf-copyright-hover' as string]: dm ? '#c8d8e8' : '#0f172a',
-      ['--hf-risk' as string]:            dm ? '#2a3a4a' : '#94a3b8',
-    } as React.CSSProperties}>
+    <div style={{ background:c.page, color:c.text, fontFamily:"'DM Sans',sans-serif", overflowX:"hidden" }}>
       <style>{`
-        /* ── Responsive landing-page layout ───────────────────────── */
-        .lp-nav { padding: 0; }
-        .lp-section { padding: 80px 24px; }
-        .lp-section-sm { padding: 60px 24px; }
-        .lp-section-xs { padding: 48px 24px; }
-        .lp-hero-h1 { font-size: clamp(28px, 4vw, 48px); }
-        .lp-hero-p1 { font-size: 18px; }
-        .lp-hero-p2 { font-size: 16px; }
-        .lp-section-h2 { font-size: 36px; }
-        .lp-section-h2-md { font-size: 32px; }
-        .lp-section-sub { font-size: 18px; }
-        .lp-dash-card { padding: 32px; border-radius: 16px; }
-        .lp-dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-        .lp-stats-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
-        .lp-dash-cell { padding: 24px; }
-        .lp-dash-stat { font-size: 32px; }
-        .lp-brokers-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px; }
-        .lp-features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-        .lp-mob-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
-        .lp-pricing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-        .lp-testimonials-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-        .lp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        .lp-cal-cell { font-size: 10px; }
-        .lp-stars-row { gap: 8px; flex-wrap: wrap; padding: 0 12px; text-align: center; }
-
-        @media (max-width: 1024px) {
-          .lp-pricing-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-          .lp-testimonials-grid { grid-template-columns: repeat(2, 1fr); }
-          .lp-section-h2 { font-size: 30px; }
-          .lp-section-h2-md { font-size: 26px; }
+        @keyframes lp2-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+        @keyframes lp2-blink{0%,100%{opacity:1}50%{opacity:0}}
+        @keyframes lp2-fadeup{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+        .lp2-fi{animation:lp2-fadeup .7s ease forwards}
+        .lp2-fi1{animation:lp2-fadeup .7s .1s ease forwards;opacity:0}
+        .lp2-fi2{animation:lp2-fadeup .7s .2s ease forwards;opacity:0}
+        .lp2-fi3{animation:lp2-fadeup .7s .3s ease forwards;opacity:0}
+        .lp2-fi4{animation:lp2-fadeup .7s .4s ease forwards;opacity:0}
+        .lp2-fi5{animation:lp2-fadeup .7s .5s ease forwards;opacity:0}
+        .lp2-ch:hover{border-color:rgba(37,99,235,0.3)!important;box-shadow:0 8px 40px rgba(37,99,235,0.09)!important;transform:translateY(-4px)!important}
+        .lp2-bp{background:#2563eb;color:#fff;border:none;padding:14px 32px;border-radius:50px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .3s;box-shadow:0 4px 20px rgba(37,99,235,.25);text-decoration:none;display:inline-block}
+        .lp2-bp:hover{background:#1d4ed8;transform:translateY(-2px);box-shadow:0 8px 32px rgba(37,99,235,.4)}
+        .lp2-bs{background:transparent;border:1.5px solid #cbd5e1;padding:13px 28px;border-radius:50px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:all .3s;text-decoration:none;display:inline-block}
+        .lp2-bs:hover{border-color:#2563eb!important;color:#2563eb!important;background:rgba(37,99,235,.05)!important}
+        .lp2-gbg{background-image:linear-gradient(rgba(37,99,235,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.04) 1px,transparent 1px);background-size:40px 40px}
+        .lp2-aib{background:rgba(37,99,235,.05);border:1px solid #e2e8f0;border-radius:10px;padding:11px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;transition:all .2s;text-align:left;width:100%;display:flex;align-items:center;gap:8px}
+        .lp2-aib.act{background:rgba(37,99,235,.12);border-color:rgba(37,99,235,.4)}
+        .lp2-aib:hover:not(.act){background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.2)}
+        .lp2-hg{display:grid;grid-template-columns:90px repeat(6,1fr);gap:4px}
+        .lp2-er{display:grid;grid-template-columns:58px 44px 88px 1fr 60px 60px 60px;gap:6px;align-items:center;padding:13px 18px;border-bottom:1px solid ${c.border};font-size:12px;font-family:'DM Mono',monospace}
+        @media(max-width:768px){
+          .lp2-s{padding:56px 0!important}
+          .lp2-hi{flex-direction:column!important;gap:36px!important}
+          .lp2-hd{max-width:100%!important;min-width:unset!important;animation:none!important;opacity:1!important}
+          .lp2-tc{flex-direction:column!important;gap:32px!important}
+          .lp2-fg{grid-template-columns:1fr!important}
+          .lp2-pg{grid-template-columns:1fr!important}
+          .lp2-pf{transform:none!important}
+          .lp2-dt button{flex:1 1 45%!important;font-size:11px!important}
+          .lp2-tg{grid-template-columns:1fr!important}
+          .lp2-hs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+          .lp2-hg{min-width:480px}
+          .lp2-es{overflow-x:auto;-webkit-overflow-scrolling:touch}
+          .lp2-er{min-width:540px}
         }
-
-        @media (max-width: 768px) {
-          .lp-nav { padding: 0; }
-          .lp-section { padding: 56px 16px; }
-          .lp-section-sm { padding: 40px 16px; }
-          .lp-section-xs { padding: 32px 16px; }
-          .lp-hero-p1 { font-size: 15px; line-height: 1.6; }
-          .lp-hero-p2 { font-size: 13px; line-height: 1.7; }
-          .lp-section-h2 { font-size: 24px; }
-          .lp-section-h2-md { font-size: 22px; }
-          .lp-section-sub { font-size: 14px; }
-          .lp-dash-card { padding: 16px; border-radius: 12px; }
-          .lp-dash-grid { grid-template-columns: 1fr; gap: 10px; }
-          .lp-stats-strip { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-          .lp-dash-cell { padding: 16px; }
-          .lp-dash-stat { font-size: 24px; }
-          .lp-brokers-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
-          .lp-features-grid { grid-template-columns: 1fr; gap: 14px; }
-          .lp-mob-grid { grid-template-columns: 1fr; gap: 32px; }
-          .lp-pricing-grid { grid-template-columns: 1fr; gap: 14px; }
-          .lp-testimonials-grid { grid-template-columns: 1fr; gap: 14px; }
-          .lp-cal-grid { gap: 3px; }
-          .lp-cal-cell { font-size: 8px; }
-          .lp-stars-row { font-size: 12px; gap: 6px; }
-        }
-
-        @media (max-width: 420px) {
-          .lp-brokers-grid { grid-template-columns: repeat(2, 1fr); }
+        @media(max-width:480px){
+          .lp2-stat{flex-direction:column!important;gap:14px!important}
+          .lp2-dt button{flex:1 1 100%!important}
+          .lp2-aim{flex-wrap:wrap!important}
         }
       `}</style>
 
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath="/" />
+      <HomeHeader darkMode={dm} setDarkMode={setDarkMode} activePath="/" />
 
-      <div>
-
-        {/* Hero */}
-        <section className="lp-section" style={{ textAlign: 'center' }}>
-          <h1 className="lp-hero-h1" style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 900, marginBottom: 24, color: t.text, lineHeight: 1.2 }}>
-            A Premium Trade Journal,<br />
-            <span style={{ background: 'linear-gradient(to right,#3b82f6,#2563eb)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Without The Subscription.
-            </span>
-          </h1>
-          <p className="lp-hero-p1" style={{ color: t.textMuted, maxWidth: 600, margin: '0 auto 12px', lineHeight: 1.7 }}>
-            A complete execution database and performance analysis system for serious traders.
-          </p>
-          <p className="lp-hero-p2" style={{ color: t.textAccent, fontWeight: 500, maxWidth: 480, margin: '0 auto 40px', lineHeight: 1.8 }}>
-            Log trades. Capture decisions. Track psychology.<br />
-            Identify patterns. Refine execution. <strong style={{ color: t.text }}>Build your edge.</strong>
-          </p>
-          <div className="lp-stars-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 48 }}>
-            <div style={{ display: 'flex' }}>{[...Array(5)].map((_,i) => <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />)}</div>
-            <span style={{ color: t.textMuted, fontSize: 14 }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
-          </div>
-          <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
-            <a href="/auth" target="myfm_journal" rel="noopener noreferrer" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-              Start Now - It's Free! <ArrowRight className="w-5 h-5" />
-            </a>
-          </div>
-        </section>
-
-        {/* Trading Calendar */}
-        <section id="features" className="lp-section-sm" style={{ background: t.sectionAlt }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <TradingCalendar dm={dm} />
-          </div>
-        </section>
-
-        {/* Brokers */}
-        <section className="lp-section-xs">
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h3 style={{ ...oswald, textAlign: 'center', fontSize: 22, color: t.textMuted, marginBottom: 40 }}>Compatible with Brokers</h3>
-            <div className="lp-brokers-grid" style={{ textAlign: 'center' }}>
-              {brokers.map((b,i) => <div key={i} style={{ color: t.textMuted, fontWeight: 600, fontSize: 13 }}>{b}</div>)}
-            </div>
-          </div>
-        </section>
-
-        {/* Features */}
-        <section className="lp-section-sm" style={{ background: t.sectionAlt }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 12 }}>Unlock Powerful Insights</h2>
-            <p className="lp-section-sub" style={{ textAlign: 'center', color: t.textMuted, marginBottom: 48, maxWidth: 600, margin: '0 auto 48px' }}>The most comprehensive analytics dashboard that can be customised to your needs</p>
-            <div className="lp-features-grid">
-              {features.map((f,i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: 24, borderRadius: 12, background: t.featureCardBg, border: `1px solid ${t.cardBorder}` }}>
-                  <div style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', padding: 12, borderRadius: 10, flexShrink: 0, color: '#fff' }}>{f.icon}</div>
-                  <div>
-                    <h3 style={{ ...oswald, fontSize: 20, color: t.text, marginBottom: 6 }}>{f.title}</h3>
-                    <p style={{ color: t.textMuted, lineHeight: 1.6 }}>{f.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Performance Insights */}
-        <section className="lp-section-sm">
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 32 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#2563eb,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <TrendingUp size={24} color="#fff" />
+      {/* ── HERO ─────────────────────────────────────────────────── */}
+      <section className="lp2-s lp2-gbg" style={{ ...sec(c.soft), paddingTop:72, paddingBottom:100, position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:"10%", left:"5%", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(37,99,235,.07) 0%,transparent 70%)", pointerEvents:"none" }}/>
+        <div style={wrap}>
+          <div className="lp2-hi" style={{ display:"flex", alignItems:"center", gap:52, flexWrap:"wrap" }}>
+            <div style={{ flex:1, minWidth:280, position:"relative", zIndex:1 }}>
+              <div className="lp2-fi" style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(37,99,235,.08)", border:"1px solid rgba(37,99,235,.2)", borderRadius:50, padding:"6px 14px", marginBottom:22, fontSize:13, color:"#2563eb" }}>
+                <span style={{ color:"#d97706" }}>★★★★★</span>
+                <span>Trusted by 10,000+ traders</span>
               </div>
-              <div>
-                <h2 style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: 'clamp(22px,3vw,30px)', color: t.text, margin: '0 0 8px' }}>Performance Insights</h2>
-                <p style={{ color: t.textMuted, fontSize: 15, lineHeight: 1.6, margin: 0, maxWidth: 700 }}>Break down your win rate by instrument, session, market regime, strategy, and timeframe to find exactly where your edge lives.</p>
-              </div>
-            </div>
-            <PerformanceInsights dm={dm} />
-          </div>
-        </section>
-
-        {/* Mobile Section */}
-        <section className="lp-section-sm">
-          <div className="lp-mob-grid" style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <div style={{ width: 260, background: t.mobilePhoneBg, borderRadius: 40, border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden' }}>
-                <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ ...oswald, fontSize: 10, letterSpacing: '0.01em', color: t.text, fontWeight: 900 }}>
-                    Myfmjournal
+              <h1 className="lp2-fi1" style={{ ...ttl, fontSize:"clamp(32px,5vw,60px)" as any, letterSpacing:"-1.5px", marginBottom:18 }}>
+                The Trading Journal<br/>
+                <span style={grad}>That Works As Hard</span><br/>
+                As You Do
+              </h1>
+              <p className="lp2-fi2" style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, marginBottom:16, lineHeight:1.6 }}>
+                Execution database + performance analytics for Forex, Crypto & Commodities traders.
+              </p>
+              <div className="lp2-fi3" style={{ display:"flex", gap:14, marginBottom:30, flexWrap:"wrap" }}>
+                {["Log trades","Capture decisions","Track psychology","Build your edge"].map((item,i)=>(
+                  <span key={i} style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:"#2563eb", display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ color:"#16a34a" }}>◆</span>{item}
                   </span>
-                  <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg,#2563eb,#60a5fa)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <TrendingUp size={13} color="white" />
-                  </div>
-                </div>
-                <div style={{ padding: 16 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                    {[{ value:'67.92%', label:'Winrate', w:'68%' },{ value:'97.46%', label:'Daily Winrate', w:'97%' }].map((s,i) => (
-                      <div key={i} style={{ background: t.mobileCard, borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
-                        <div style={{ fontSize: 16, fontWeight: 500, color: t.mobileStatValue, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
-                        <div style={{ fontSize: 9, color: t.mobileLabel, marginTop: 4, fontFamily: "'DM Mono', monospace" }}>{s.label}</div>
-                        <div style={{ marginTop: 8, height: 3, background: t.mobileBarBg, borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{ width: s.w, height: '100%', background: 'linear-gradient(to right,#2563eb,#60a5fa)' }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ background: t.mobileCard, borderRadius: 14, padding: 16, border: `1px solid ${t.mobileCardBorder}`, marginBottom: 10 }}>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: t.mobileStatValue, fontFamily: "'DM Mono', monospace" }}>$19,800.72</div>
-                    <div style={{ fontSize: 9, color: t.mobileLabel, marginTop: 4, fontFamily: "'DM Mono', monospace" }}>Total Profit</div>
-                    <svg viewBox="0 0 180 30" style={{ width: '100%', height: 30, marginTop: 10 }}>
-                      <defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
-                      <polyline points="0,25 20,20 40,22 60,15 80,17 100,12 120,10 140,13 160,9 180,6" fill="none" stroke="url(#cg)" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    {[{ value:'1,131', label:'Trades' },{ value:'0.89', label:'Avg Win/Loss' }].map((s,i) => (
-                      <div key={i} style={{ background: t.mobileCard, borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
-                        <div style={{ fontSize: 16, fontWeight: 500, color: t.mobileStatValue, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
-                        <div style={{ fontSize: 9, color: t.mobileLabel, marginTop: 4, fontFamily: "'DM Mono', monospace" }}>{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ padding: '12px 20px 20px', display: 'flex', justifyContent: 'center' }}>
-                  <div style={{ width: 40, height: 4, background: t.mobileHomebar, borderRadius: 2 }} />
-                </div>
+                ))}
               </div>
-            </div>
-            <div>
-              <h2 className="lp-section-h2-md" style={{ ...oswald, color: t.text, marginBottom: 16, lineHeight: 1.2 }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
-              <p className="lp-section-sub" style={{ color: t.textMuted, marginBottom: 32 }}>Automatic import from your MT5 account makes tracking your performance easier than ever</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {mobileFeatures.map((f,i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', padding: 8, borderRadius: 8, flexShrink: 0, color: '#fff' }}>{f.icon}</div>
-                    <span style={{ fontSize: 17, color: t.text }}>{f.title}</span>
+              <div className="lp2-fi4" style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
+                <a href="/auth?mode=signup" target="myfm_journal" className="lp2-bp" style={{ fontSize:15, padding:"14px 32px" }}>Start Free — No Credit Card</a>
+                <button className="lp2-bs" style={{ color:dm?"#94a3b8":"#475569" }} onClick={() => document.getElementById("demo")?.scrollIntoView({ behavior:"smooth" })}>See How It Works ↓</button>
+              </div>
+              <div className="lp2-fi5 lp2-stat" style={{ marginTop:36, display:"flex", gap:28, flexWrap:"wrap" }}>
+                {[["$0","Free forever tier"],["67.3%","Avg user win rate"],["2.4x","Profit factor tracked"]].map(([val,label],i)=>(
+                  <div key={i}>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:22, fontWeight:700, color:c.heading }}>{val}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:c.muted }}>{label}</div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Pricing */}
-        <section id="pricing" className="lp-section">
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 12 }}>Simple, Transparent Pricing</h2>
-            <p className="lp-section-sub" style={{ textAlign: 'center', color: t.textMuted, marginBottom: 56 }}>Start free. Upgrade when you're ready.</p>
-            <div className="lp-pricing-grid" style={{ maxWidth: 1160, margin: '0 auto' }}>
-
-              {/* Free */}
-              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: t.textMuted, marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>FREE</div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$0</span>
-                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/forever</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>Core stats to get you started.</p>
-                </div>
-                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['Total P&L & Win Rate', 'R Expectancy & Profit Factor', 'Avg Trade & Trade Count', 'Trade calendar view', 'Link MT4 & MT5'].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                      <Check size={13} color="#64748b" strokeWidth={3} />
-                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <a href="/auth" target="myfm_journal" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid ${t.cardBorder}`, color: t.textMuted, fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#475569'; (e.currentTarget as HTMLElement).style.color = t.text; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.cardBorder; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}>
-                  START FREE
-                </a>
-              </div>
-
-              {/* Weekly */}
-              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#3b82f6', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>WEEKLY</div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$7</span>
-                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/week</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>Try the full journal risk-free.</p>
-                </div>
-                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['Everything in Free', 'Full journal access', 'Detailed analytics & drawdown', 'Strategy audit engine', 'Edge building tools', 'Psychology scoring', 'Trade vault & filtering'].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                      <Check size={13} color="#3b82f6" strokeWidth={3} />
-                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <a href="/auth" target="myfm_journal" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #3b82f6`, color: '#3b82f6', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.08)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                  GET STARTED
-                </a>
-              </div>
-
-              {/* Monthly — Most Popular */}
-              <div style={{ background: dm ? 'linear-gradient(145deg,#1e3a5f,#0f172a)' : t.cardBg, border: '2px solid #3b82f6', borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative', boxShadow: '0 0 40px rgba(59,130,246,0.18)' }}>
-                <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 99, padding: '4px 16px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Montserrat',sans-serif" }}>MOST POPULAR</div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#3b82f6', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>MONTHLY</div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$20</span>
-                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/month</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>Full power for serious traders.</p>
-                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 7, background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.25)', fontSize: 11, color: '#3b82f6', fontWeight: 600 }}>
-                    + TradeSync Copier included → <strong>$27/mo</strong>
-                  </div>
-                </div>
-                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {[
-                    'Everything in Weekly',
-                    'AI Coach (Trader AI Chat)',
-                    'AI trade analysis & chart validation',
-                    'Behavior pattern breakdown',
-                    'Timeframe performance metrics',
-                    'Multi-account tracking',
-                    'Export reports',
-                    'Performance comparisons',
-                    'Priority support',
-                  ].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                      <Check size={13} color="#3b82f6" strokeWidth={3} />
-                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <a href="/auth" target="myfm_journal" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, background: 'linear-gradient(to right,#2563eb,#3b82f6)', color: '#fff', fontWeight: 800, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', border: 'none' }}>
-                  GET STARTED
-                </a>
-              </div>
-
-              {/* Yearly */}
-              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
-                <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(to right,#16a34a,#22c55e)', borderRadius: 99, padding: '4px 16px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#fff', whiteSpace: 'nowrap', fontFamily: "'Montserrat',sans-serif" }}>BEST VALUE</div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#22c55e', marginBottom: 10, fontFamily: "'Montserrat',sans-serif" }}>YEARLY</div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-                    <span style={{ fontSize: 44, fontWeight: 900, color: t.text, lineHeight: 1, fontFamily: "'Montserrat',sans-serif" }}>$180</span>
-                    <span style={{ fontSize: 13, color: t.textMuted, marginBottom: 7 }}>/year</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: '#22c55e', marginTop: 4, fontWeight: 600 }}>Save $60 vs monthly · $15/mo</p>
-                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 7, background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
-                    + TradeSync Copier included → <strong>$220/yr</strong>
-                  </div>
-                </div>
-                <div style={{ width: '100%', height: 1, background: t.cardBorder }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {[
-                    'Everything in Monthly',
-                    'Annual performance review',
-                    'Early access to new features',
-                    'Dedicated onboarding session',
-                    'SMC signal scanner access',
-                  ].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                      <Check size={13} color="#22c55e" strokeWidth={3} />
-                      <span style={{ fontSize: 12, color: t.textMuted }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <a href="/auth" target="myfm_journal" rel="noopener noreferrer" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, border: `1px solid #22c55e`, color: '#22c55e', fontWeight: 700, fontSize: 12, fontFamily: "'Montserrat',sans-serif", letterSpacing: '0.06em', textDecoration: 'none', transition: 'all 0.15s', background: 'transparent' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(34,197,94,0.08)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                  GET STARTED
-                </a>
-              </div>
-
+            <div className="lp2-hd" style={{ flex:1, minWidth:300, maxWidth:460, animation:"lp2-fadeup .9s ease .4s forwards", opacity:0 }}>
+              <HeroDashboard/>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Testimonials */}
-        <section id="reviews" className="lp-section-sm" style={{ background: t.sectionAlt }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <h2 className="lp-section-h2" style={{ ...oswald, textAlign: 'center', color: t.text, marginBottom: 48 }}>Join 10,000+ Traders Who Chose Myfmjournal</h2>
-            <div className="lp-testimonials-grid">
-              {testimonials.map((r,i) => (
-                <div key={i} style={{ background: t.testimonialBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 24 }}>
-                  <div style={{ display: 'flex', marginBottom: 10 }}>{[...Array(r.rating)].map((_,j) => <Star key={j} className="w-4 h-4 fill-yellow-400 text-yellow-400" />)}</div>
-                  <p style={{ color: t.textMuted, marginBottom: 12, fontSize: 13, fontStyle: 'italic' }}>"{r.text}"</p>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{r.name}</div>
+      {/* ── FEATURES ──────────────────────────────────────────────── */}
+      <section className="lp2-s" id="features" style={sec(c.soft)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:52 }}>
+            <span style={lbl}>Platform Features</span>
+            <h2 style={ttl}>Everything You Need to <span style={grad}>Build Your Edge</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:560, margin:"0 auto" }}>A complete workspace built for serious traders who measure everything.</p>
+          </div>
+          <div className="lp2-fg" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:18 }}>
+            {FEATURES.map((f,i)=>(
+              <div key={i} className="lp2-ch" style={{ ...card, padding:26 }}>
+                <div style={{ fontSize:34, marginBottom:14 }}>{f.icon}</div>
+                <h3 style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:18, fontWeight:600, color:c.heading, marginBottom:10 }}>{f.title}</h3>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:c.muted, lineHeight:1.7 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── LIVE DEMO ─────────────────────────────────────────────── */}
+      <section className="lp2-s" id="demo" style={sec(c.page)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:44 }}>
+            <span style={lbl}>Live Preview</span>
+            <h2 style={ttl}>See The Platform <span style={grad}>In Action</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>A genuine look at the product. No marketing fluff.</p>
+          </div>
+          <div style={{ maxWidth:680, margin:"0 auto" }}>
+            <div className="lp2-dt" style={{ display:"flex", gap:4, background:c.card, borderRadius:"12px 12px 0 0", padding:8, border:`1px solid ${c.border}`, borderBottom:"none", flexWrap:"wrap" }}>
+              {["Journal","Analytics","Trade Vault","Strategy Audit"].map(t=>(
+                <button key={t} onClick={()=>setDemoTab(t)} style={{ flex:1, minWidth:80, padding:"8px 4px", borderRadius:8, border:"none", cursor:"pointer", fontSize:12, fontFamily:"'DM Sans',sans-serif", fontWeight:600, transition:"all .2s", background:demoTab===t?"#2563eb":"transparent", color:demoTab===t?"white":c.muted }}>{t}</button>
+              ))}
+            </div>
+            <div style={{ background:c.card, border:`1px solid ${c.border}`, borderTop:"none", borderRadius:"0 0 16px 16px", padding:20, position:"relative", minHeight:300 }}>
+              <div style={{ position:"absolute", top:10, right:12, display:"flex", gap:5, alignItems:"center" }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:"#16a34a", display:"inline-block", animation:"lp2-blink 2s ease infinite" }}/>
+                <span style={{ fontSize:10, color:c.muted, fontFamily:"'DM Mono',monospace" }}>REAL PLATFORM DATA</span>
+              </div>
+              <DemoContent tab={demoTab} c={c}/>
+            </div>
+            <div style={{ textAlign:"center", marginTop:22 }}>
+              <a href="/auth?mode=signup" target="myfm_journal" className="lp2-bp">Try it yourself — it's free</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── TIMEFRAME MATRIX ──────────────────────────────────────── */}
+      <section className="lp2-s" style={sec(c.alt)}>
+        <div style={wrap}>
+          <div className="lp2-tc" style={{ display:"flex", gap:60, alignItems:"flex-start", flexWrap:"wrap" }}>
+            <div style={{ flex:1, minWidth:280 }}>
+              <span style={lbl}>Intelligence Layer</span>
+              <h2 style={ttl}>Find Exactly Where <span style={grad}>Your Edge Lives</span></h2>
+              <div style={{ width:48, height:3, background:"#2563eb", borderRadius:2, marginBottom:32 }}/>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:15, color:c.muted, lineHeight:1.7, marginBottom:22 }}>
+                Stop guessing which timeframe performs best. The Timeframe Matrix shows win rates broken down by session and timeframe so you can trade your best conditions every time.
+              </p>
+              {["Timeframe Matrix — win rate by M1 through D1","Session Performance — London, NY, Asian & overlap","Strategy Audit — grading your entire system"].map((t,i)=>(
+                <div key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", marginBottom:13 }}>
+                  <span style={{ color:"#3b82f6", marginTop:2 }}>◆</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:c.text }}>{t}</span>
                 </div>
               ))}
             </div>
-            <div style={{ textAlign: 'center', marginTop: 48 }}>
-              <div style={{ display: 'inline-block', padding: 6, borderRadius: 9999, border: '2px dashed #3b82f6' }}>
-                <a href="/auth" target="myfm_journal" rel="noopener noreferrer" style={{ ...navFont, background: 'linear-gradient(to right,#2563eb,#3b82f6)', borderRadius: 9999, fontSize: 16, border: 'none', cursor: 'pointer', color: '#fff', padding: '12px 32px', display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-                  Join us now <ArrowRight className="w-5 h-5" />
-                </a>
+            <div style={{ flex:1.3, minWidth:280 }}>
+              <div className="lp2-hs">
+                <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:18, fontFamily:"'DM Mono',monospace", fontSize:11 }}>
+                  <div style={{ marginBottom:10, color:c.muted, fontSize:10 }}>WIN RATE HEATMAP (%)</div>
+                  <div className="lp2-hg">
+                    <div/>
+                    {["M1","M5","M15","H1","H4","D1"].map(tf=><div key={tf} style={{ textAlign:"center", color:"#3b82f6", padding:"5px 2px" }}>{tf}</div>)}
+                    {(["London","New York","Asian","Overlap"]).map((s,si)=>{
+                      const row = [[48,62,71,67,74,58],[52,58,64,72,69,55],[41,45,51,48,52,44],[61,71,78,82,77,65]][si];
+                      const gc = (v: number) => v>=75?"rgba(34,197,94,.6)":v>=65?"rgba(34,197,94,.3)":v>=55?"rgba(245,158,11,.3)":"rgba(239,68,68,.25)";
+                      return [
+                        <div key={`s${si}`} style={{ color:c.muted, display:"flex", alignItems:"center", fontSize:11 }}>{s}</div>,
+                        ...row.map((v,ti)=>(
+                          <div key={`${si}-${ti}`} style={{ background:gc(v), borderRadius:6, padding:"7px 2px", textAlign:"center", color:c.heading, fontWeight:600, border:`1px solid rgba(37,99,235,.06)`, fontSize:11 }}>{v}%</div>
+                        ))
+                      ];
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <HomeFooter darkMode={darkMode} />
+      {/* ── TRADER AI ────────────────────────────────────────────── */}
+      <section className="lp2-s" id="ai" style={sec(c.page)}>
+        <div style={wrap}>
+          <div className="lp2-tc" style={{ display:"flex", gap:60, alignItems:"flex-start", flexWrap:"wrap" }}>
+            <div style={{ flex:1, minWidth:280 }}>
+              <span style={lbl}>Trader AI</span>
+              <h2 style={ttl}>Your Personal Trading Coach, <span style={grad}>Powered by AI</span></h2>
+              <div style={{ width:48, height:3, background:"#2563eb", borderRadius:2, marginBottom:32 }}/>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:15, color:c.muted, lineHeight:1.7, marginBottom:22 }}>
+                Not a chatbot. A genuine AI coach that reads your actual trade data and gives specific, actionable feedback.
+              </p>
+              {["Google Gemini AI integration","Persistent chat history across sessions","Policy suggestions from your patterns","Custom strategy blueprints from your data"].map((t,i)=>(
+                <div key={i} style={{ display:"flex", gap:12, marginBottom:11 }}>
+                  <span style={{ color:"#16a34a", fontFamily:"'DM Mono',monospace", fontSize:14 }}>✓</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:c.text }}>{t}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex:1.3, minWidth:280 }}>
+              <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:20, overflow:"hidden", boxShadow:"0 8px 40px rgba(37,99,235,.06)" }}>
+                <div style={{ padding:"13px 16px", borderBottom:`1px solid ${c.border}`, background:c.soft, display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#2563eb,#3b82f6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><span style={{ fontSize:16 }}>🤖</span></div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:13, fontWeight:700, color:c.heading }}>Trader AI</div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:c.muted }}>Powered by Google Gemini</div>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <span style={{ width:7, height:7, borderRadius:"50%", background:"#16a34a", display:"inline-block", animation:"lp2-blink 2s ease infinite" }}/>
+                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#16a34a" }}>LIVE</span>
+                  </div>
+                </div>
+                <div style={{ padding:"12px 14px", borderBottom:`1px solid ${c.border}`, display:"flex", flexDirection:"column", gap:6, background:c.soft }}>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:c.muted, marginBottom:2, letterSpacing:1 }}>SELECT A QUESTION</div>
+                  {AI_CHATS.map((ch,i)=>(
+                    <button key={i} className={`lp2-aib${activeChat===i?" act":""}`} onClick={()=>setActiveChat(i)}>
+                      <span style={{ fontSize:13, flexShrink:0 }}>💬</span>
+                      <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:activeChat===i?c.heading:c.muted }}>"{ch.prompt}"</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ padding:16 }}>
+                  <div className="lp2-aim" style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
+                    {chat.metrics.map((m,i)=>(
+                      <div key={i} style={{ background:c.soft, border:`1px solid ${c.border}`, borderRadius:10, padding:"12px 14px", flex:1, minWidth:0, textAlign:"center" }}>
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:c.muted, marginBottom:4 }}>{m.label}</div>
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:17, fontWeight:700, color:m.danger?"#dc2626":"#16a34a", marginBottom:2 }}>{m.value}</div>
+                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:10, color:c.muted }}>{m.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderLeft:"3px solid rgba(37,99,235,.3)", paddingLeft:12, marginBottom:13 }}>
+                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:c.text, lineHeight:1.7, margin:0 }}>{chat.analysis}</p>
+                  </div>
+                  <div style={{ background:"rgba(22,163,74,.07)", border:"1px solid rgba(22,163,74,.2)", borderRadius:10, padding:"11px 13px", display:"flex", gap:10, alignItems:"flex-start", marginBottom:14 }}>
+                    <span style={{ fontSize:15, flexShrink:0, marginTop:1 }}>💡</span>
+                    <div>
+                      <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:11, fontWeight:700, color:"#16a34a", marginBottom:3, letterSpacing:.5 }}>RECOMMENDATION</div>
+                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:"#15803d", lineHeight:1.55 }}>{chat.recommendation}</div>
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    {chat.actions.map((action,i)=>(
+                      <button key={i} style={{ background:"transparent", border:`1px solid ${c.border}`, borderRadius:8, padding:"7px 14px", fontSize:12, fontFamily:"'DM Sans',sans-serif", fontWeight:500, color:c.muted, cursor:"pointer", display:"flex", alignItems:"center", gap:6, transition:"all .2s" }}
+                        onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor="#2563eb";(e.currentTarget as HTMLElement).style.color="#2563eb";}}
+                        onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=c.border;(e.currentTarget as HTMLElement).style.color=c.muted;}}>
+                        <span>{i===0?"🔍":"📋"}</span>{action} ↗
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      </div>
+      {/* ── TRADESYNC ─────────────────────────────────────────────── */}
+      <section className="lp2-s" style={sec(c.alt)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:52 }}>
+            <span style={lbl}>TradeSync</span>
+            <h2 style={ttl}>Copy Trades. Sell Signals. <span style={grad}>Scale Your Strategy.</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>Connect your account and let followers copy you in real time.</p>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:32, flexWrap:"wrap", justifyContent:"center", marginBottom:44 }}>
+            <div style={{ background:c.card, border:"1px solid rgba(59,130,246,.4)", borderRadius:16, padding:"22px 28px", textAlign:"center", minWidth:140 }}>
+              <div style={{ fontFamily:"'Sora',sans-serif", fontSize:17, color:c.heading }}>Master</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#16a34a", marginTop:6 }}>+$12,400 P&L</div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, alignItems:"center" }}>
+              <div style={{ height:2, width:70, background:"linear-gradient(90deg,#2563eb,#3b82f6)", position:"relative" }}>
+                <div style={{ position:"absolute", right:-6, top:-4, width:0, height:0, borderTop:"5px solid transparent", borderBottom:"5px solid transparent", borderLeft:"8px solid #3b82f6" }}/>
+              </div>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:c.muted }}>REAL-TIME SYNC</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {["Follower A","Follower B","Follower C"].map((f,i)=>(
+                <div key={i} style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:12, padding:"12px 18px", display:"flex", gap:12, alignItems:"center" }}>
+                  <div style={{ width:26, height:26, borderRadius:"50%", background:`hsl(${i*80+200},60%,50%)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:"white", fontWeight:700, flexShrink:0 }}>{f[0]}</div>
+                  <div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:c.heading }}>{f}</div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#16a34a" }}>Copying @ 0.5x lot</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:18 }}>
+            {[{ icon:"🔄", title:"Account Mirroring",    desc:"Sync trades from Master to multiple Slave accounts in real time with sub-second execution." },
+              { icon:"⚖️", title:"Risk Controls",        desc:"Flexible lot scaling: multiplier, fixed lot, and risk % modes. Full control over exposure." },
+              { icon:"📡", title:"Signal Provider Mode", desc:"Share your trades publicly or privately. Let followers copy you and monetise your edge." }].map((f,i)=>(
+              <div key={i} className="lp2-ch" style={{ ...card, padding:22 }}>
+                <div style={{ fontSize:30, marginBottom:12 }}>{f.icon}</div>
+                <h3 style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, color:c.heading, marginBottom:8 }}>{f.title}</h3>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:c.muted, lineHeight:1.6 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p style={{ textAlign:"center", marginTop:20, fontFamily:"'DM Mono',monospace", fontSize:12, color:c.muted }}>Platforms: MT4 · MT5 · MatchTrader · cTrader (roadmap)</p>
+        </div>
+      </section>
+
+      {/* ── SIGNAL SCANNER ────────────────────────────────────────── */}
+      <section className="lp2-s" style={sec(c.page)}>
+        <div style={wrap}>
+          <div className="lp2-tc" style={{ display:"flex", gap:60, alignItems:"flex-start", flexWrap:"wrap" }}>
+            <div style={{ flex:1, minWidth:280 }}>
+              <span style={lbl}>Signal Scanner</span>
+              <h2 style={ttl}>Never Miss <span style={grad}>a Setup</span></h2>
+              <div style={{ width:48, height:3, background:"#2563eb", borderRadius:2, marginBottom:32 }}/>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:15, color:c.muted, lineHeight:1.7, marginBottom:22 }}>
+                AI-powered market scanning for Smart Money Concepts, price channels, and institutional candles — with real-time alerts.
+              </p>
+              {["Automated SMC, price channel & institutional candle scanning","AI validation filters out low-probability setups","Real-time Telegram & web push notifications"].map((t,i)=>(
+                <div key={i} style={{ display:"flex", gap:12, marginBottom:13 }}>
+                  <span style={{ color:"#3b82f6" }}>◆</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:c.text }}>{t}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex:1.3, minWidth:280, display:"flex", flexDirection:"column", gap:12 }}>
+              {[{ sym:"EUR/USD", type:"SMC Break of Structure", tf:"H1",  conf:"HIGH",   dir:"▲ BUY",  time:"Just now" },
+                { sym:"GOLD",   type:"Institutional Candle",   tf:"H4",  conf:"MEDIUM", dir:"▼ SELL", time:"4m ago" },
+                { sym:"GBP/JPY",type:"Price Channel Break",    tf:"M15", conf:"HIGH",   dir:"▲ BUY",  time:"12m ago" }].map((s,i)=>(
+                <div key={i} className="lp2-ch" style={{ ...card, padding:"16px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                  <div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:14, fontWeight:700, color:c.heading, marginBottom:3 }}>{s.sym}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:c.muted }}>{s.type} · {s.tf}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <span style={{ background:s.conf==="HIGH"?"rgba(34,197,94,.15)":"rgba(245,158,11,.15)", color:s.conf==="HIGH"?"#16a34a":"#d97706", padding:"3px 8px", borderRadius:4, fontSize:10, fontFamily:"'DM Mono',monospace" }}>{s.conf}</span>
+                    <span style={{ color:s.dir.includes("BUY")?"#16a34a":"#dc2626", fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700 }}>{s.dir}</span>
+                  </div>
+                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:c.muted }}>{s.time}</span>
+                </div>
+              ))}
+              <div style={{ textAlign:"center", padding:10 }}>
+                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:c.muted }}>📱 Alerts via Telegram + Web Push</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── ECONOMIC CALENDAR PREVIEW ─────────────────────────────── */}
+      <section className="lp2-s" style={sec(c.alt)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:44 }}>
+            <span style={lbl}>Economic Calendar</span>
+            <h2 style={ttl}>Know What's <span style={grad}>Moving the Market</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>Real-time global economic events with currency sentiment overlay.</p>
+          </div>
+          <div style={{ maxWidth:780, margin:"0 auto", background:c.card, border:`1px solid ${c.border}`, borderRadius:16, overflow:"hidden" }}>
+            <div style={{ padding:"14px 18px", borderBottom:`1px solid ${c.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
+              <div style={{ display:"flex", gap:6 }}>
+                {["All","High","Medium","Low"].map((f,i)=>(
+                  <button key={i} style={{ padding:"5px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, fontFamily:"'DM Sans',sans-serif", background:i===1?"#dc2626":"rgba(37,99,235,.06)", color:i===1?"white":c.muted }}>{f}</button>
+                ))}
+              </div>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:c.muted }}>Jun 03, 2026 — GMT</span>
+            </div>
+            <div className="lp2-es">
+              {[{ time:"08:30", ccy:"GBP", impact:"HIGH",   event:"BOE Interest Rate Decision", actual:"5.25%", forecast:"5.25%", prev:"5.25%" },
+                { time:"12:30", ccy:"USD", impact:"HIGH",   event:"Non-Farm Payrolls",          actual:"—",     forecast:"185K",  prev:"175K"  },
+                { time:"14:00", ccy:"USD", impact:"MEDIUM", event:"ISM Manufacturing PMI",      actual:"—",     forecast:"49.8",  prev:"49.2"  },
+                { time:"15:30", ccy:"EUR", impact:"LOW",    event:"ECB Executive Board Speech", actual:"—",     forecast:"—",     prev:"—"     }].map((e,i)=>(
+                <div key={i} className="lp2-er">
+                  <span style={{ color:c.muted }}>{e.time}</span>
+                  <span style={{ color:"#3b82f6", fontWeight:700 }}>{e.ccy}</span>
+                  <span style={{ color:e.impact==="HIGH"?"#dc2626":e.impact==="MEDIUM"?"#d97706":c.muted }}>
+                    {e.impact==="HIGH"?"●●●":e.impact==="MEDIUM"?"●●○":"●○○"} {e.impact}
+                  </span>
+                  <span style={{ color:c.text, fontFamily:"'DM Sans',sans-serif", fontSize:13 }}>{e.event}</span>
+                  <span style={{ color:"#16a34a", textAlign:"right" }}>{e.actual}</span>
+                  <span style={{ color:c.muted, textAlign:"right" }}>{e.forecast}</span>
+                  <span style={{ color:c.muted, textAlign:"right" }}>{e.prev}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ textAlign:"center", marginTop:28 }}>
+            <a href="/calendar" className="lp2-bp">View Full Calendar</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── COMMUNITY LEADERBOARD ─────────────────────────────────── */}
+      <section className="lp2-s" style={sec(c.page)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:44 }}>
+            <span style={lbl}>Community</span>
+            <h2 style={ttl}>See How You <span style={grad}>Stack Up</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>Public ranking of traders by P&L, Win Rate, or longest win streak.</p>
+          </div>
+          <div style={{ maxWidth:700, margin:"0 auto" }}>
+            {[{ rank:1, name:"TraderKing_FX", flag:"🇬🇧", pl:"+$48,320", wr:"72%", streak:9,  avatar:"TK" },
+              { rank:2, name:"CryptoChief99", flag:"🇺🇸", pl:"+$31,700", wr:"68%", streak:6,  avatar:"CC" },
+              { rank:3, name:"PipHunterZA",   flag:"🇿🇦", pl:"+$28,440", wr:"75%", streak:11, avatar:"PH" },
+              { rank:4, name:"GoldTrader_EU", flag:"🇩🇪", pl:"+$21,880", wr:"64%", streak:4,  avatar:"GT" },
+              { rank:5, name:"FXWizard_NG",   flag:"🇳🇬", pl:"+$18,930", wr:"71%", streak:7,  avatar:"FW" }].map(t=>(
+              <div key={t.rank} className="lp2-ch" style={{ ...card, display:"flex", alignItems:"center", gap:14, padding:"14px 18px", marginBottom:10, flexWrap:"wrap" }}>
+                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:15, fontWeight:700, color:t.rank<=3?"#d97706":c.muted, minWidth:26 }}>#{t.rank}</span>
+                <div style={{ width:38, height:38, borderRadius:"50%", background:`hsl(${t.rank*60+180},55%,45%)`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700, color:"white", flexShrink:0 }}>{t.avatar}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600, color:c.heading, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name} {t.flag}</div>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:c.muted }}>Win streak: {t.streak} 🔥</div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:14, fontWeight:700, color:"#16a34a" }}>{t.pl}</div>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:c.muted }}>WR {t.wr}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ textAlign:"center", marginTop:28 }}>
+              <a href="/auth?mode=signup" target="myfm_journal" className="lp2-bp">Create your profile and get ranked</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── BROKERS ───────────────────────────────────────────────── */}
+      <section className="lp2-s" style={sec(c.alt)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:36 }}>
+            <h2 style={ttl}>Works With <span style={grad}>Your Broker</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>Automatic trade import — no manual logging required.</p>
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:10 }}>
+            {BROKERS.map((b,i)=>(
+              <div key={i}
+                style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:10, padding:"10px 18px", fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:500, color:c.muted, transition:"all .2s", cursor:"default" }}
+                onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor="rgba(59,130,246,.4)";(e.currentTarget as HTMLElement).style.color=c.heading;}}
+                onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=c.border;(e.currentTarget as HTMLElement).style.color=c.muted;}}>
+                {b}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ───────────────────────────────────────────────── */}
+      <section className="lp2-s" id="pricing" style={sec(c.page)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:52 }}>
+            <span style={lbl}>Pricing</span>
+            <h2 style={ttl}>Simple, <span style={grad}>Transparent Pricing</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>Free forever tier. Upgrade when you're ready. No credit card required to start.</p>
+          </div>
+          <div className="lp2-pg" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:18, alignItems:"start" }}>
+            {PRICING_PLANS.map((p,i)=>(
+              <div key={i} className={p.highlight?"lp2-pf":""} style={{ background:p.highlight?"linear-gradient(145deg,#1e40af,#1d4ed8)":c.card, border:p.highlight?"none":`1px solid ${c.border}`, borderRadius:16, padding:26, position:"relative", transform:p.highlight?"scale(1.03)":"none", boxShadow:p.highlight?"0 0 60px rgba(37,99,235,.2)":"none" }}>
+                {p.badge&&<div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg,#2563eb,#3b82f6)", color:"white", padding:"4px 14px", borderRadius:50, fontSize:11, fontFamily:"'Sora',sans-serif", fontWeight:700, whiteSpace:"nowrap" }}>{p.badge}</div>}
+                <h3 style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:19, fontWeight:700, color:p.highlight?"#fff":c.heading, marginBottom:4 }}>{p.name}</h3>
+                <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:8 }}>
+                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:34, fontWeight:700, color:p.highlight?"#fff":c.heading }}>{p.price}</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:p.highlight?"rgba(255,255,255,.7)":c.muted }}>{p.period}</span>
+                </div>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:p.highlight?"rgba(255,255,255,.75)":c.muted, marginBottom:18, lineHeight:1.5 }}>{p.desc}</p>
+                <div style={{ marginBottom:22 }}>
+                  {p.features.map((f,fi)=>(
+                    <div key={fi} style={{ display:"flex", gap:10, marginBottom:9 }}>
+                      <span style={{ color:"#16a34a", fontSize:13 }}>✓</span>
+                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:p.highlight?"rgba(255,255,255,.85)":c.text }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <a href="/auth?mode=signup" target="myfm_journal" className={p.highlight?"lp2-bp":"lp2-bs"} style={{ display:"block", textAlign:"center", width:"100%", ...(p.highlight ? {} : { color:dm?"#94a3b8":"#334155" }) }}>
+                  {p.cta}
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ─────────────────────────────────────────── */}
+      <section className="lp2-s" id="reviews" style={sec(c.soft)}>
+        <div style={wrap}>
+          <div style={{ textAlign:"center", marginBottom:52 }}>
+            <span style={lbl}>Testimonials</span>
+            <h2 style={ttl}>Traders Who <span style={grad}>Changed Their Game</span></h2>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto" }}>Don't take our word for it.</p>
+          </div>
+          <div className="lp2-tg" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:20 }}>
+            {TESTIMONIALS.map((t,i)=>(
+              <div key={i} className="lp2-ch" style={{ ...card, padding:26 }}>
+                <div style={{ display:"flex", gap:2, marginBottom:14 }}>
+                  {Array.from({ length:5 }).map((_,si)=>(
+                    <span key={si} style={{ color:"#d97706", fontSize:15 }}>★</span>
+                  ))}
+                </div>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:c.text, lineHeight:1.7, marginBottom:18 }}>"{t.quote}"</p>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ width:38, height:38, borderRadius:"50%", background:`hsl(${i*55+200},50%,50%)`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Sora',sans-serif", fontSize:14, fontWeight:700, color:"white", flexShrink:0 }}>
+                    {t.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:14, fontWeight:600, color:c.heading }}>{t.name} {t.flag}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:c.muted }}>{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FINAL CTA ─────────────────────────────────────────────── */}
+      <section className="lp2-s lp2-gbg" style={{ ...sec(dm ? "#0c1219" : "#f8fafc"), position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:600, height:600, borderRadius:"50%", background:"radial-gradient(circle,rgba(37,99,235,.08) 0%,transparent 70%)", pointerEvents:"none" }}/>
+        <div style={{ ...wrap, textAlign:"center", position:"relative", zIndex:1 }}>
+          <span style={lbl}>Get Started</span>
+          <h2 style={{ ...ttl, fontSize:"clamp(28px,4vw,52px)" as any }}>Start Building Your Edge <span style={grad}>Today</span></h2>
+          <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:17, color:c.muted, lineHeight:1.7, maxWidth:520, margin:"0 auto 36px" }}>Free forever tier. No credit card required. Cancel anytime.</p>
+          <div style={{ display:"flex", gap:14, justifyContent:"center", flexWrap:"wrap" }}>
+            <a href="/auth?mode=signup" target="myfm_journal" className="lp2-bp" style={{ fontSize:16, padding:"16px 36px" }}>Create Your Free Account</a>
+            <a href="/calendar" className="lp2-bs" style={{ fontSize:15, color:dm?"#94a3b8":"#334155" }}>Explore Calendar</a>
+          </div>
+        </div>
+      </section>
+
+      <HomeFooter darkMode={dm}/>
     </div>
-    </>
   );
 }

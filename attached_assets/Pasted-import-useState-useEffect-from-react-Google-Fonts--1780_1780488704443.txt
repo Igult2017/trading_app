@@ -1,0 +1,1132 @@
+import { useState, useEffect } from "react";
+
+// ─── Google Fonts ─────────────────────────────────────────────────────────────
+const FontLoader = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue: #2563eb;
+      --blue-light: #3b82f6;
+      --blue-glow: rgba(59,130,246,0.15);
+      --bg: #ffffff;
+      --bg-soft: #f8fafc;
+      --bg-alt: #f1f5f9;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --muted: #64748b;
+      --text: #334155;
+      --heading: #0f172a;
+      --white: #ffffff;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #d97706;
+      --font-head: 'Sora', sans-serif;
+      --font-section: 'Plus Jakarta Sans', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-data: 'DM Mono', monospace;
+      --font-logo: 'Sora', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; }
+    ::selection { background: var(--blue-glow); color: var(--blue); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-soft); }
+    ::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 3px; }
+
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    .fade-in { animation: fadeInUp 0.7s ease forwards; }
+    .fade-in-delay-1 { animation: fadeInUp 0.7s ease 0.1s forwards; opacity: 0; }
+    .fade-in-delay-2 { animation: fadeInUp 0.7s ease 0.2s forwards; opacity: 0; }
+    .fade-in-delay-3 { animation: fadeInUp 0.7s ease 0.3s forwards; opacity: 0; }
+    .fade-in-delay-4 { animation: fadeInUp 0.7s ease 0.4s forwards; opacity: 0; }
+    .fade-in-delay-5 { animation: fadeInUp 0.7s ease 0.5s forwards; opacity: 0; }
+
+    .btn-primary {
+      background: var(--blue); color: white; border: none;
+      padding: 14px 32px; border-radius: 50px;
+      font-family: var(--font-section); font-weight: 700; font-size: 15px;
+      cursor: pointer; transition: all 0.3s ease; letter-spacing: 0.3px;
+      box-shadow: 0 4px 20px rgba(37,99,235,0.25);
+    }
+    .btn-primary:hover { transform: translateY(-2px); background: #1d4ed8; box-shadow: 0 8px 32px rgba(37,99,235,0.4); }
+
+    .btn-secondary {
+      background: transparent; color: var(--heading);
+      border: 1.5px solid var(--border-dark); padding: 13px 28px; border-radius: 50px;
+      font-family: var(--font-section); font-weight: 600; font-size: 14px;
+      cursor: pointer; transition: all 0.3s ease;
+    }
+    .btn-secondary:hover { border-color: var(--blue); color: var(--blue); background: rgba(37,99,235,0.05); }
+
+    .btn-outline {
+      background: transparent; color: var(--blue); border: 1.5px solid var(--blue);
+      padding: 12px 28px; border-radius: 8px; font-family: var(--font-section);
+      font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.3s ease;
+    }
+    .btn-outline:hover { background: var(--blue); color: white; }
+
+    .section { padding: 100px 0; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+    .section-label {
+      font-family: var(--font-section); font-size: 12px; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase; color: var(--blue); margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: var(--font-head); font-size: clamp(26px, 4vw, 48px);
+      font-weight: 800; color: var(--heading); line-height: 1.12; margin-bottom: 16px;
+    }
+    .section-sub { font-family: var(--font-body); font-size: 17px; color: var(--muted); line-height: 1.7; max-width: 560px; }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 16px; transition: all 0.3s ease; }
+    .card:hover { border-color: rgba(37,99,235,0.25); box-shadow: 0 8px 40px rgba(37,99,235,0.08); transform: translateY(-4px); }
+
+    .divider { width: 48px; height: 3px; background: var(--blue); border-radius: 2px; margin-bottom: 32px; }
+
+    .grid-bg {
+      background-image: linear-gradient(rgba(37,99,235,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* Two-col flex layout used in multiple sections */
+    .two-col { display: flex; gap: 60px; align-items: flex-start; flex-wrap: wrap; }
+    .two-col-left { flex: 1; min-width: 280px; }
+    .two-col-right { flex: 1.3; min-width: 280px; }
+
+    /* AI panel */
+    .ai-chat-bubble {
+      background: rgba(37,99,235,0.05); border: 1px solid var(--border); border-radius: 10px;
+      padding: 11px 16px; cursor: pointer; font-family: var(--font-body); font-size: 13px;
+      color: var(--muted); transition: all 0.2s ease; text-align: left; width: 100%;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ai-chat-bubble.active { background: rgba(37,99,235,0.1); border-color: rgba(37,99,235,0.35); color: var(--heading); }
+    .ai-chat-bubble:hover:not(.active) { background: rgba(37,99,235,0.07); border-color: rgba(37,99,235,0.2); color: var(--text); }
+
+    .ai-metric-card { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; flex: 1; min-width: 0; }
+
+    .ai-action-btn {
+      background: transparent; border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 14px; font-size: 12px; font-family: var(--font-body); font-weight: 500;
+      color: var(--muted); cursor: pointer; transition: all 0.2s ease;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .ai-action-btn:hover { border-color: var(--blue); color: var(--blue); background: rgba(37,99,235,0.04); }
+
+    /* Heatmap grid */
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: 90px repeat(6, 1fr);
+      gap: 4px;
+    }
+
+    /* Econ calendar grid */
+    .econ-row {
+      display: grid;
+      grid-template-columns: 60px 44px 90px 1fr 64px 64px 64px;
+      gap: 6px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-family: var(--font-data);
+    }
+
+    /* ── MOBILE ─────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .section { padding: 56px 0; }
+      .container { padding: 0 16px; }
+
+      /* nav */
+      .nav-links { display: none !important; }
+      .nav-ctas  { display: none !important; }
+      .nav-hamburger { display: flex !important; }
+
+      /* hero */
+      .hero-inner { flex-direction: column !important; gap: 36px !important; }
+      .hero-text { min-width: unset !important; }
+      .hero-dashboard { max-width: 100% !important; min-width: unset !important; animation: none !important; opacity: 1 !important; }
+      .hero-ctas { flex-direction: column !important; gap: 10px !important; }
+      .hero-ctas .btn-primary, .hero-ctas .btn-secondary { width: 100%; text-align: center; }
+      .hero-stats { gap: 20px !important; }
+
+      /* two-col sections */
+      .two-col { flex-direction: column !important; gap: 32px !important; }
+      .two-col-left, .two-col-right { min-width: unset !important; width: 100% !important; }
+
+      /* feature cards */
+      .features-grid { grid-template-columns: 1fr !important; }
+
+      /* live demo tabs */
+      .demo-tabs { flex-wrap: wrap !important; }
+      .demo-tabs button { flex: 1 1 45% !important; font-size: 11px !important; }
+
+      /* hero dashboard inner grid */
+      .dash-stats-grid { grid-template-columns: 1fr 1fr !important; }
+
+      /* AI metrics row */
+      .ai-metrics-row { flex-wrap: wrap !important; }
+      .ai-metric-card { min-width: calc(50% - 4px) !important; flex: 1 1 calc(50% - 4px) !important; }
+
+      /* AI action buttons */
+      .ai-actions { flex-direction: column !important; }
+      .ai-action-btn { width: 100% !important; justify-content: center; }
+
+      /* heatmap — scroll horizontally */
+      .heatmap-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .heatmap-grid { min-width: 480px; }
+
+      /* Econ calendar — scroll horizontally */
+      .econ-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .econ-row { min-width: 560px; }
+
+      /* TradeSync flow */
+      .tradesync-flow { flex-direction: column !important; align-items: stretch !important; }
+      .tradesync-arrow { transform: rotate(90deg); margin: 0 auto; }
+
+      /* Leaderboard cards */
+      .lb-card { flex-wrap: wrap; gap: 10px !important; }
+      .lb-right { margin-left: auto; }
+
+      /* Pricing grid */
+      .pricing-grid { grid-template-columns: 1fr !important; }
+      .pricing-featured { transform: none !important; }
+
+      /* Testimonials */
+      .testimonials-grid { grid-template-columns: 1fr !important; }
+
+      /* Footer */
+      .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 28px !important; }
+      .footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+
+      /* Section sub centered on mobile */
+      .section-sub { font-size: 15px !important; }
+
+      /* Broker pills */
+      .brokers-wrap { justify-content: flex-start !important; }
+    }
+
+    @media (max-width: 480px) {
+      .footer-grid { grid-template-columns: 1fr !important; }
+      .hero-stats { flex-direction: column !important; gap: 14px !important; }
+      .ai-metric-card { min-width: 100% !important; flex: 1 1 100% !important; }
+      .demo-tabs button { flex: 1 1 100% !important; }
+      .section-title { font-size: clamp(22px, 7vw, 32px) !important; }
+    }
+  `}</style>
+);
+
+// ─── Ticker Tape ─────────────────────────────────────────────────────────────
+const tickers = [
+  { symbol: "EUR/USD", price: "1.0847", change: "+0.12%", up: true },
+  { symbol: "BTC/USD", price: "67,432", change: "+2.34%", up: true },
+  { symbol: "GOLD", price: "2,341.50", change: "-0.08%", up: false },
+  { symbol: "SPX500", price: "5,218.40", change: "+0.43%", up: true },
+  { symbol: "GBP/USD", price: "1.2698", change: "+0.07%", up: true },
+  { symbol: "ETH/USD", price: "3,124.80", change: "+1.87%", up: true },
+  { symbol: "OIL/WTI", price: "78.34", change: "-0.55%", up: false },
+  { symbol: "USD/JPY", price: "156.72", change: "+0.21%", up: true },
+];
+
+const TickerTape = () => {
+  const items = [...tickers, ...tickers];
+  return (
+    <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", overflow: "hidden", height: "36px", display: "flex", alignItems: "center" }}>
+      <div style={{ display: "flex", animation: "ticker 30s linear infinite", whiteSpace: "nowrap" }}>
+        {items.map((t, i) => (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "0 20px", borderRight: "1px solid rgba(255,255,255,0.08)", fontSize: "12px", fontFamily: "var(--font-data)" }}>
+            <span style={{ color: "#94a3b8" }}>{t.symbol}</span>
+            <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{t.price}</span>
+            <span style={{ color: t.up ? "#4ade80" : "#f87171" }}>{t.up ? "▲" : "▼"} {t.change}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── Navbar ───────────────────────────────────────────────────────────────────
+const Navbar = () => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  const navLinks = ["Features", "Pricing", "Reviews", "Economic Calendar", "Blog", "Leaderboard"];
+  return (
+    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: scrolled ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--border)", transition: "all 0.3s ease" }}>
+      <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px" }}>
+        <div style={{ fontFamily: "var(--font-logo)", fontSize: "20px", fontWeight: 800, color: "var(--heading)", letterSpacing: "-0.5px", flexShrink: 0 }}>
+          Myfm<span style={{ color: "var(--blue)" }}>Journal</span>
+        </div>
+        {/* Desktop links */}
+        <div className="nav-links" style={{ display: "flex", gap: "28px", alignItems: "center" }}>
+          {navLinks.map(l => (
+            <a key={l} href="#" style={{ fontFamily: "var(--font-body)", fontSize: "14px", fontWeight: 500, color: "var(--muted)", textDecoration: "none", transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "var(--heading)"}
+              onMouseLeave={e => e.target.style.color = "var(--muted)"}>{l}</a>
+          ))}
+        </div>
+        <div className="nav-ctas" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button className="btn-secondary" style={{ padding: "8px 18px", fontSize: "13px" }}>Login</button>
+          <button className="btn-primary" style={{ padding: "8px 20px", fontSize: "13px" }}>Sign Up Free</button>
+        </div>
+        {/* Hamburger */}
+        <button className="nav-hamburger" onClick={() => setMenuOpen(!menuOpen)}
+          style={{ display: "none", background: "none", border: "none", color: "var(--heading)", fontSize: "24px", cursor: "pointer", padding: "4px" }}>
+          {menuOpen ? "✕" : "☰"}
+        </button>
+      </div>
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div style={{ background: "var(--white)", borderTop: "1px solid var(--border)", padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+          {navLinks.map(l => (
+            <a key={l} href="#" style={{ color: "var(--text)", textDecoration: "none", fontFamily: "var(--font-body)", fontSize: "15px", padding: "4px 0" }}>{l}</a>
+          ))}
+          <div style={{ display: "flex", gap: "10px", paddingTop: "8px" }}>
+            <button className="btn-secondary" style={{ flex: 1, fontSize: "13px", padding: "10px" }}>Login</button>
+            <button className="btn-primary" style={{ flex: 1, fontSize: "13px", padding: "10px" }}>Sign Up Free</button>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+};
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+const HeroDashboard = () => (
+  <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: "16px", padding: "18px", fontFamily: "var(--font-data)", fontSize: "12px", animation: "float 6s ease-in-out infinite", boxShadow: "0 32px 80px rgba(37,99,235,0.15)", position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, var(--blue), var(--blue-light), transparent)" }} />
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+      <span style={{ color: "#94a3b8", fontSize: "11px" }}>PORTFOLIO OVERVIEW</span>
+      <span style={{ color: "var(--green)", fontSize: "11px" }}>● LIVE</span>
+    </div>
+    <div className="dash-stats-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+      {[
+        { label: "Net P&L", val: "+$4,827", sub: "+12.4%" },
+        { label: "Win Rate", val: "67.3%", sub: "142 trades" },
+        { label: "Profit Factor", val: "2.41", sub: "R-Exp: 0.84" },
+      ].map((s, i) => (
+        <div key={i} style={{ background: "rgba(15,23,42,0.6)", borderRadius: "10px", padding: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ color: "#64748b", fontSize: "10px", marginBottom: "4px" }}>{s.label}</div>
+          <div style={{ color: "var(--green)", fontSize: "16px", fontWeight: 700, marginBottom: "2px" }}>{s.val}</div>
+          <div style={{ color: "#64748b", fontSize: "10px" }}>{s.sub}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{ background: "rgba(37,99,235,0.03)", borderRadius: "10px", padding: "12px", border: "1px solid #1e293b", marginBottom: "12px" }}>
+      <div style={{ color: "#64748b", fontSize: "10px", marginBottom: "8px" }}>EQUITY CURVE (30D)</div>
+      <svg viewBox="0 0 300 56" style={{ width: "100%", height: "56px" }}>
+        <defs>
+          <linearGradient id="cg" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M0,52 L20,46 L45,48 L65,38 L90,40 L115,28 L135,26 L155,17 L175,19 L195,11 L215,7 L240,9 L265,4 L300,1" fill="none" stroke="#3b82f6" strokeWidth="2" />
+        <path d="M0,52 L20,46 L45,48 L65,38 L90,40 L115,28 L135,26 L155,17 L175,19 L195,11 L215,7 L240,9 L265,4 L300,1 L300,56 L0,56 Z" fill="url(#cg)" />
+      </svg>
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {[
+        { pair: "EUR/USD", dir: "BUY", r: "+2.3R", time: "09:42" },
+        { pair: "GOLD", dir: "SELL", r: "+1.1R", time: "11:15" },
+        { pair: "GBP/USD", dir: "BUY", r: "-0.8R", time: "14:33" },
+      ].map((t, i) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "rgba(37,99,235,0.04)", borderRadius: "8px", border: "1px solid #1e293b" }}>
+          <span style={{ color: "#f1f5f9", fontWeight: 600, fontSize: "11px" }}>{t.pair}</span>
+          <span style={{ color: t.dir === "BUY" ? "var(--green)" : "var(--red)", fontSize: "10px" }}>{t.dir}</span>
+          <span style={{ color: t.r.startsWith("+") ? "var(--green)" : "var(--red)", fontSize: "11px" }}>{t.r}</span>
+          <span style={{ color: "#64748b", fontSize: "10px" }}>{t.time}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const Hero = () => (
+  <section className="section grid-bg" style={{ paddingTop: "72px", paddingBottom: "100px", background: "var(--bg-soft)", position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: "10%", left: "5%", width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+    <div className="container">
+      <div className="hero-inner" style={{ display: "flex", alignItems: "center", gap: "52px", flexWrap: "wrap" }}>
+        {/* Text side */}
+        <div className="hero-text two-col-left" style={{ position: "relative", zIndex: 1 }}>
+          <div className="fade-in" style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: "50px", padding: "6px 14px", marginBottom: "22px", fontSize: "13px", fontFamily: "var(--font-body)", color: "var(--blue)", flexWrap: "wrap" }}>
+            <span style={{ color: "var(--amber)" }}>★★★★★</span>
+            <span>Trusted by 10,000+ traders</span>
+            <span style={{ color: "var(--blue)", textDecoration: "underline", cursor: "pointer" }}>Trustpilot ↗</span>
+          </div>
+          <h1 className="fade-in-delay-1 section-title" style={{ fontSize: "clamp(32px, 5vw, 60px)", letterSpacing: "-1.5px", marginBottom: "18px" }}>
+            The Trading Journal<br />
+            <span className="gradient-text">That Works As Hard</span><br />
+            As You Do
+          </h1>
+          <p className="fade-in-delay-2" style={{ fontFamily: "var(--font-body)", fontSize: "17px", color: "var(--muted)", marginBottom: "16px", lineHeight: 1.6 }}>
+            Execution database + performance analytics for Forex, Crypto & Commodities traders.
+          </p>
+          <div className="fade-in-delay-3" style={{ display: "flex", gap: "14px", marginBottom: "30px", flexWrap: "wrap" }}>
+            {["Log trades", "Capture decisions", "Track psychology", "Build your edge"].map((item, i) => (
+              <span key={i} style={{ fontFamily: "var(--font-data)", fontSize: "12px", color: "var(--blue)", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ color: "var(--green)" }}>◆</span> {item}
+              </span>
+            ))}
+          </div>
+          <div className="fade-in-delay-4 hero-ctas" style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+            <button className="btn-primary" style={{ fontSize: "15px", padding: "14px 32px" }}>Start Free — No Credit Card</button>
+            <button className="btn-secondary">See How It Works ↓</button>
+          </div>
+          <div className="fade-in-delay-5 hero-stats" style={{ marginTop: "36px", display: "flex", gap: "28px", flexWrap: "wrap" }}>
+            {[{ val: "$0", label: "Free forever tier" }, { val: "67.3%", label: "Avg user win rate" }, { val: "2.4x", label: "Profit factor tracked" }].map((s, i) => (
+              <div key={i}>
+                <div style={{ fontFamily: "var(--font-data)", fontSize: "22px", fontWeight: 700, color: "var(--heading)" }}>{s.val}</div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: "12px", color: "var(--muted)" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Dashboard */}
+        <div className="hero-dashboard" style={{ flex: "1", minWidth: "300px", maxWidth: "460px", animation: "fadeInUp 0.9s ease 0.4s forwards", opacity: 0 }}>
+          <HeroDashboard />
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+const features = [
+  { icon: "📓", title: "Trade Journal", desc: "Log every trade in a structured multi-step form. Capture entry, exit, risk, psychology, and confluence factors." },
+  { icon: "📸", title: "Screenshot & OCR", desc: "Upload a chart screenshot and let AI extract price, SL, TP, and symbol automatically." },
+  { icon: "📊", title: "Performance Analytics", desc: "Track P&L, win rate, profit factor, R-expectancy, drawdown, and more — across sessions, strategies, and timeframes." },
+  { icon: "📉", title: "Drawdown Analysis", desc: "Visualise peak-to-valley declines, recovery time, and ulcer index to manage your risk precisely." },
+  { icon: "🔬", title: "Strategy Audit Engine", desc: "Grade your trading system based on edge persistence, risk entropy, and Monte Carlo simulation." },
+  { icon: "🤖", title: "Trader AI Coach", desc: "Ask your AI coach to analyse your drawdown, identify your worst setups, or build a strategy from your own data." },
+];
+
+const Features = () => (
+  <section className="section" id="features" style={{ background: "var(--bg-soft)" }}>
+    <div className="container">
+      <div style={{ textAlign: "center", marginBottom: "52px" }}>
+        <div className="section-label" style={{ display: "block" }}>Platform Features</div>
+        <h2 className="section-title">Everything You Need to <span className="gradient-text">Build Your Edge</span></h2>
+        <p className="section-sub" style={{ margin: "0 auto", textAlign: "center" }}>A complete workspace built for serious traders who measure everything.</p>
+      </div>
+      <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "18px" }}>
+        {features.map((f, i) => (
+          <div key={i} className="card" style={{ padding: "26px" }}>
+            <div style={{ fontSize: "34px", marginBottom: "14px" }}>{f.icon}</div>
+            <h3 style={{ fontFamily: "var(--font-section)", fontSize: "18px", fontWeight: 600, color: "var(--heading)", marginBottom: "10px" }}>{f.title}</h3>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--muted)", lineHeight: 1.7 }}>{f.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Live Demo ────────────────────────────────────────────────────────────────
+const DemoContent = ({ tab }) => {
+  const content = {
+    Journal: (
+      <div style={{ fontFamily: "var(--font-data)", fontSize: "12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+          {[["Symbol","EUR/USD"],["Direction","BUY"],["Entry","1.08420"],["Stop Loss","1.08120"],["Take Profit","1.08960"],["Risk %","1.0%"]].map(([l,v],i)=>(
+            <div key={i} style={{ background:"rgba(37,99,235,0.04)", padding:"10px", borderRadius:"8px", border:"1px solid var(--border)" }}>
+              <div style={{ color:"var(--muted)", fontSize:"10px", marginBottom:"4px" }}>{l}</div>
+              <div style={{ color:"var(--heading)", fontWeight:600 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background:"rgba(37,99,235,0.04)", padding:"12px", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"12px" }}>
+          <div style={{ color:"var(--muted)", fontSize:"10px", marginBottom:"6px" }}>PSYCHOLOGY & NOTES</div>
+          <div style={{ color:"var(--text)", fontSize:"12px", lineHeight:1.6 }}>London session breakout confirmed. Bullish structure on H4. Followed plan — no hesitation on entry. Mental state: confident.</div>
+        </div>
+        <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+          {["Breakout","Trend Follow","London Session","H4 Bias"].map((t,i)=>(
+            <span key={i} style={{ background:"rgba(59,130,246,0.15)", color:"var(--blue-light)", padding:"4px 10px", borderRadius:"50px", fontSize:"10px", border:"1px solid rgba(59,130,246,0.2)" }}>{t}</span>
+          ))}
+        </div>
+      </div>
+    ),
+    Analytics: (
+      <div style={{ fontFamily:"var(--font-data)", fontSize:"12px" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"8px", marginBottom:"14px" }}>
+          {[["P&L","+$4,827",true],["Win Rate","67.3%",true],["Max DD","-8.2%",false],["Profit F.","2.41",true]].map(([l,v,green],i)=>(
+            <div key={i} style={{ background:"rgba(37,99,235,0.04)", padding:"10px", borderRadius:"8px", border:"1px solid var(--border)", textAlign:"center" }}>
+              <div style={{ color:"var(--muted)", fontSize:"10px", marginBottom:"4px" }}>{l}</div>
+              <div style={{ color:green?"var(--green)":"var(--red)", fontSize:"15px", fontWeight:700 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background:"rgba(37,99,235,0.03)", borderRadius:"10px", padding:"12px", border:"1px solid var(--border)" }}>
+          <div style={{ color:"var(--muted)", fontSize:"10px", marginBottom:"10px" }}>WIN RATE BY SESSION</div>
+          {[["London",72],["New York",65],["Asian",48],["NY/LN Overlap",78]].map(([s,pct],i)=>(
+            <div key={i} style={{ marginBottom:"8px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"3px" }}>
+                <span style={{ color:"var(--muted)", fontSize:"10px" }}>{s}</span>
+                <span style={{ color:pct>60?"var(--green)":"var(--amber)", fontSize:"10px" }}>{pct}%</span>
+              </div>
+              <div style={{ background:"rgba(37,99,235,0.06)", borderRadius:"4px", height:"6px" }}>
+                <div style={{ background:pct>60?"var(--green)":"var(--amber)", width:`${pct}%`, height:"100%", borderRadius:"4px" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    "Trade Vault": (
+      <div style={{ fontFamily:"var(--font-data)", fontSize:"12px" }}>
+        <div style={{ display:"flex", gap:"6px", marginBottom:"12px", flexWrap:"wrap" }}>
+          {["All","Wins","Losses","BE"].map((f,i)=>(
+            <button key={i} style={{ background:i===0?"var(--blue)":"rgba(37,99,235,0.06)", color:i===0?"white":"var(--heading)", border:"none", padding:"5px 12px", borderRadius:"6px", fontSize:"11px", cursor:"pointer" }}>{f}</button>
+          ))}
+        </div>
+        {[{pair:"EUR/USD",date:"Jun 03",r:"+2.3R",status:"WIN",tag:"Breakout"},{pair:"GOLD",date:"Jun 03",r:"+1.1R",status:"WIN",tag:"Trend"},{pair:"GBP/USD",date:"Jun 02",r:"-0.8R",status:"LOSS",tag:"Reversal"},{pair:"BTC/USD",date:"Jun 02",r:"+3.1R",status:"WIN",tag:"Momentum"}].map((t,i)=>(
+          <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px", background:"rgba(37,99,235,0.03)", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"6px" }}>
+            <div>
+              <div style={{ color:"var(--heading)", fontWeight:600, fontSize:"12px" }}>{t.pair}</div>
+              <div style={{ color:"var(--muted)", fontSize:"10px" }}>{t.date}</div>
+            </div>
+            <span style={{ background:"rgba(59,130,246,0.1)", color:"var(--blue-light)", padding:"2px 8px", borderRadius:"4px", fontSize:"10px" }}>{t.tag}</span>
+            <span style={{ color:t.status==="WIN"?"var(--green)":"var(--red)", fontSize:"13px", fontWeight:700 }}>{t.r}</span>
+          </div>
+        ))}
+      </div>
+    ),
+    "Strategy Audit": (
+      <div style={{ fontFamily:"var(--font-data)", fontSize:"12px" }}>
+        <div style={{ textAlign:"center", marginBottom:"16px" }}>
+          <div style={{ color:"var(--muted)", fontSize:"10px", marginBottom:"6px" }}>STRATEGY GRADE</div>
+          <div style={{ fontSize:"48px", fontWeight:900, color:"var(--green)", lineHeight:1 }}>A-</div>
+          <div style={{ color:"var(--muted)", fontSize:"11px" }}>Breakout Momentum System</div>
+        </div>
+        {[["Edge Persistence",84,"var(--green)"],["Risk Entropy",72,"var(--amber)"],["Execution Quality",91,"var(--green)"],["Monte Carlo (95%)",68,"var(--amber)"]].map(([label,val,color],i)=>(
+          <div key={i} style={{ marginBottom:"10px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"4px" }}>
+              <span style={{ color:"var(--muted)", fontSize:"10px" }}>{label}</span>
+              <span style={{ color, fontSize:"10px" }}>{val}/100</span>
+            </div>
+            <div style={{ background:"rgba(37,99,235,0.06)", borderRadius:"4px", height:"6px" }}>
+              <div style={{ background:color, width:`${val}%`, height:"100%", borderRadius:"4px" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  };
+  return content[tab] || null;
+};
+
+const LiveDemo = () => {
+  const [tab, setTab] = useState("Journal");
+  const tabs = ["Journal","Analytics","Trade Vault","Strategy Audit"];
+  return (
+    <section className="section" id="demo">
+      <div className="container">
+        <div style={{ textAlign:"center", marginBottom:"44px" }}>
+          <div className="section-label">Live Preview</div>
+          <h2 className="section-title">See The Platform <span className="gradient-text">In Action</span></h2>
+          <p className="section-sub" style={{ margin:"0 auto" }}>A genuine look at the product. No marketing fluff.</p>
+        </div>
+        <div style={{ maxWidth:"680px", margin:"0 auto" }}>
+          <div className="demo-tabs" style={{ display:"flex", gap:"4px", background:"var(--card)", borderRadius:"12px 12px 0 0", padding:"8px", border:"1px solid var(--border)", borderBottom:"none", flexWrap:"wrap" }}>
+            {tabs.map(t=>(
+              <button key={t} onClick={()=>setTab(t)} style={{ flex:1, minWidth:"80px", padding:"8px 4px", borderRadius:"8px", border:"none", cursor:"pointer", fontSize:"12px", fontFamily:"var(--font-body)", fontWeight:600, transition:"all 0.2s ease", background:tab===t?"var(--blue)":"transparent", color:tab===t?"white":"var(--muted)" }}>{t}</button>
+            ))}
+          </div>
+          <div style={{ background:"var(--white)", border:"1px solid var(--border)", borderTop:"none", borderRadius:"0 0 16px 16px", padding:"20px", position:"relative", minHeight:"300px" }}>
+            <div style={{ position:"absolute", top:"10px", right:"12px", display:"flex", gap:"5px", alignItems:"center" }}>
+              <span style={{ width:"6px", height:"6px", borderRadius:"50%", background:"var(--green)", display:"inline-block", animation:"blink 2s ease infinite" }} />
+              <span style={{ fontSize:"10px", color:"var(--muted)", fontFamily:"var(--font-data)" }}>REAL PLATFORM DATA</span>
+            </div>
+            <DemoContent tab={tab} />
+          </div>
+          <div style={{ textAlign:"center", marginTop:"22px" }}>
+            <button className="btn-primary">Try it yourself — it's free</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Timeframe Matrix ─────────────────────────────────────────────────────────
+const TimeframeMatrix = () => {
+  const tfs = ["M1","M5","M15","H1","H4","D1"];
+  const sessions = ["London","New York","Asian","Overlap"];
+  const data = [[48,62,71,67,74,58],[52,58,64,72,69,55],[41,45,51,48,52,44],[61,71,78,82,77,65]];
+  const getColor = v => v>=75?"rgba(34,197,94,0.6)":v>=65?"rgba(34,197,94,0.3)":v>=55?"rgba(245,158,11,0.3)":"rgba(239,68,68,0.25)";
+  return (
+    <section className="section" style={{ background:"var(--bg-alt)" }}>
+      <div className="container">
+        <div className="two-col">
+          <div className="two-col-left">
+            <div className="section-label">Intelligence Layer</div>
+            <h2 className="section-title">Find Exactly Where <span className="gradient-text">Your Edge Lives</span></h2>
+            <div className="divider" />
+            <p style={{ fontFamily:"var(--font-body)", fontSize:"15px", color:"var(--muted)", lineHeight:1.7, marginBottom:"22px" }}>
+              Stop guessing which timeframe performs best. The Timeframe Matrix shows win rates broken down by session and timeframe so you can trade your best conditions every time.
+            </p>
+            {["Timeframe Matrix — win rate by M1 through D1","Session Performance — London, NY, Asian & overlap","Strategy Audit — grading your entire system"].map((t,i)=>(
+              <div key={i} style={{ display:"flex", gap:"12px", alignItems:"flex-start", marginBottom:"13px" }}>
+                <span style={{ color:"var(--blue-light)", marginTop:"2px" }}>◆</span>
+                <span style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--text)" }}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div className="two-col-right heatmap-scroll">
+            <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:"16px", padding:"18px", fontFamily:"var(--font-data)", fontSize:"11px" }}>
+              <div style={{ marginBottom:"10px", color:"var(--muted)", fontSize:"10px" }}>WIN RATE HEATMAP (%)</div>
+              <div className="heatmap-grid">
+                <div />
+                {tfs.map(tf=><div key={tf} style={{ textAlign:"center", color:"var(--blue-light)", padding:"5px 2px" }}>{tf}</div>)}
+                {sessions.map((s,si)=>[
+                  <div key={`s${si}`} style={{ color:"var(--muted)", display:"flex", alignItems:"center", fontSize:"11px" }}>{s}</div>,
+                  ...data[si].map((v,ti)=>(
+                    <div key={`${si}-${ti}`} style={{ background:getColor(v), borderRadius:"6px", padding:"7px 2px", textAlign:"center", color:"var(--heading)", fontWeight:600, border:"1px solid rgba(37,99,235,0.06)", fontSize:"11px" }}>{v}%</div>
+                  ))
+                ])}
+              </div>
+              <div style={{ marginTop:"10px", display:"flex", gap:"10px", alignItems:"center", flexWrap:"wrap" }}>
+                <span style={{ color:"var(--muted)", fontSize:"10px" }}>Win Rate:</span>
+                {[["≥75%","rgba(34,197,94,0.6)"],["65-74%","rgba(34,197,94,0.3)"],["55-64%","rgba(245,158,11,0.3)"],["<55%","rgba(239,68,68,0.25)"]].map(([l,c],i)=>(
+                  <span key={i} style={{ display:"flex", alignItems:"center", gap:"4px", fontSize:"10px", color:"var(--muted)" }}>
+                    <span style={{ width:"10px", height:"10px", borderRadius:"2px", background:c, display:"inline-block" }} />{l}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── AI Section (REDESIGNED + MOBILE) ────────────────────────────────────────
+const aiChats = [
+  {
+    prompt: "Analyse my drawdown from last month",
+    metrics: [
+      { label: "Drawdown peak", value: "−8.2%", sub: "Jun 2–8", danger: true },
+      { label: "Losses in period", value: "4", sub: "all same pattern", danger: false },
+      { label: "Asian win rate", value: "48%", sub: "vs 67% avg", danger: true },
+    ],
+    analysis: "All 4 losses share one pattern — counter-trend entries on M15 during the Asian session. Your Asian win rate of 48% sits well below your 67% overall average.",
+    recommendation: "Avoid opening new positions between 00:00–06:00 GMT to protect your edge.",
+    actions: ["Show worst trades", "Suggest a schedule"],
+  },
+  {
+    prompt: "What are my worst-performing setups?",
+    metrics: [
+      { label: "Reversal WR", value: "32%", sub: "round numbers", danger: true },
+      { label: "News breakout WR", value: "41%", sub: "high variance", danger: true },
+      { label: "Loss contribution", value: "78%", sub: "from 3 setups", danger: true },
+    ],
+    analysis: "Three setups drive most of your losses: reversals at round numbers (32% WR, −1.2R avg), news-hour breakouts (41% WR, high variance), and late NY session scalps after 19:00 GMT (38% WR).",
+    recommendation: "Remove or paper-trade these 3 setups for 30 days — your P&L should improve immediately.",
+    actions: ["Show reversal trades", "Build a filter rule"],
+  },
+  {
+    prompt: "Build a strategy from my best conditions",
+    metrics: [
+      { label: "Best session WR", value: "78%", sub: "LN/NY overlap", danger: false },
+      { label: "Best timeframe", value: "H1", sub: "breakout setups", danger: false },
+      { label: "Expected R/trade", value: "+0.91R", sub: "projected edge", danger: false },
+    ],
+    analysis: "Your edge is strongest during the London/NY overlap on H1 using breakout setups. Enter on confirmed London breakout with H1 close above structure, SL below broken level, TP at 2.5R.",
+    recommendation: "Focus exclusively on this window. Avoid Asian session entirely. Estimated expectancy: +0.91R per trade.",
+    actions: ["Save this blueprint", "Run Monte Carlo"],
+  },
+];
+
+const AISection = () => {
+  const [activeChat, setActiveChat] = useState(0);
+  const chat = aiChats[activeChat];
+  return (
+    <section className="section" id="ai">
+      <div className="container">
+        <div className="two-col">
+          {/* Left */}
+          <div className="two-col-left">
+            <div className="section-label">Trader AI</div>
+            <h2 className="section-title">Your Personal Trading Coach, <span className="gradient-text">Powered by AI</span></h2>
+            <div className="divider" />
+            <p style={{ fontFamily:"var(--font-body)", fontSize:"15px", color:"var(--muted)", lineHeight:1.7, marginBottom:"22px" }}>
+              Not a chatbot. A genuine AI coach that reads your actual trade data and gives specific, actionable feedback.
+            </p>
+            {["Claude Code AI integration","Persistent chat history across sessions","Policy suggestions from your patterns","Custom strategy blueprints from your data"].map((t,i)=>(
+              <div key={i} style={{ display:"flex", gap:"12px", marginBottom:"11px" }}>
+                <span style={{ color:"var(--green)", fontFamily:"var(--font-data)", fontSize:"14px" }}>✓</span>
+                <span style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--text)" }}>{t}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Right — AI panel */}
+          <div className="two-col-right">
+            <div style={{ background:"var(--white)", border:"1px solid var(--border)", borderRadius:"20px", overflow:"hidden", boxShadow:"0 8px 40px rgba(37,99,235,0.06)" }}>
+
+              {/* Header */}
+              <div style={{ padding:"13px 16px", borderBottom:"1px solid var(--border)", background:"var(--bg-soft)", display:"flex", alignItems:"center", gap:"10px" }}>
+                <div style={{ width:"32px", height:"32px", borderRadius:"50%", background:"linear-gradient(135deg, #2563eb, #3b82f6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <span style={{ fontSize:"16px" }}>🤖</span>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontFamily:"var(--font-section)", fontSize:"13px", fontWeight:700, color:"var(--heading)" }}>Trader AI</div>
+                  <div style={{ fontFamily:"var(--font-data)", fontSize:"10px", color:"var(--muted)" }}>Powered by Claude Code</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:"5px", flexShrink:0 }}>
+                  <span style={{ width:"7px", height:"7px", borderRadius:"50%", background:"var(--green)", display:"inline-block", animation:"blink 2s ease infinite" }} />
+                  <span style={{ fontFamily:"var(--font-data)", fontSize:"10px", color:"var(--green)" }}>LIVE</span>
+                </div>
+              </div>
+
+              {/* Prompt selector */}
+              <div style={{ padding:"12px 14px", borderBottom:"1px solid var(--border)", display:"flex", flexDirection:"column", gap:"6px", background:"var(--bg-soft)" }}>
+                <div style={{ fontFamily:"var(--font-data)", fontSize:"10px", color:"var(--muted)", marginBottom:"2px", letterSpacing:"1px" }}>SELECT A QUESTION</div>
+                {aiChats.map((c,i)=>(
+                  <button key={i} className={`ai-chat-bubble${activeChat===i?" active":""}`} onClick={()=>setActiveChat(i)}>
+                    <span style={{ fontSize:"13px", flexShrink:0 }}>💬</span>
+                    <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>"{c.prompt}"</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Response */}
+              <div style={{ padding:"16px" }}>
+                {/* Metric cards */}
+                <div className="ai-metrics-row" style={{ display:"flex", gap:"8px", marginBottom:"14px", flexWrap:"wrap" }}>
+                  {chat.metrics.map((m,i)=>(
+                    <div key={i} className="ai-metric-card" style={{ textAlign:"center" }}>
+                      <div style={{ fontFamily:"var(--font-data)", fontSize:"10px", color:"var(--muted)", marginBottom:"4px" }}>{m.label}</div>
+                      <div style={{ fontFamily:"var(--font-data)", fontSize:"17px", fontWeight:700, color:m.danger?"var(--red)":"var(--green)", marginBottom:"2px" }}>{m.value}</div>
+                      <div style={{ fontFamily:"var(--font-body)", fontSize:"10px", color:"var(--muted)" }}>{m.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Analysis */}
+                <div style={{ borderLeft:"3px solid rgba(37,99,235,0.3)", paddingLeft:"12px", marginBottom:"13px", borderRadius:0 }}>
+                  <p style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:"var(--text)", lineHeight:1.7, margin:0 }}>{chat.analysis}</p>
+                </div>
+
+                {/* Recommendation */}
+                <div style={{ background:"rgba(22,163,74,0.07)", border:"1px solid rgba(22,163,74,0.2)", borderRadius:"10px", padding:"11px 13px", display:"flex", gap:"10px", alignItems:"flex-start", marginBottom:"14px" }}>
+                  <span style={{ fontSize:"15px", flexShrink:0, marginTop:"1px" }}>💡</span>
+                  <div>
+                    <div style={{ fontFamily:"var(--font-section)", fontSize:"11px", fontWeight:700, color:"var(--green)", marginBottom:"3px", letterSpacing:"0.5px" }}>RECOMMENDATION</div>
+                    <div style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:"#15803d", lineHeight:1.55 }}>{chat.recommendation}</div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="ai-actions" style={{ display:"flex", gap:"8px", flexWrap:"wrap" }}>
+                  {chat.actions.map((action,i)=>(
+                    <button key={i} className="ai-action-btn">
+                      <span style={{ fontSize:"12px" }}>{i===0?"🔍":"📋"}</span>
+                      {action} ↗
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── TradeSync ────────────────────────────────────────────────────────────────
+const TradeSync = () => (
+  <section className="section" style={{ background:"var(--bg-alt)" }}>
+    <div className="container">
+      <div style={{ textAlign:"center", marginBottom:"52px" }}>
+        <div className="section-label">TradeSync</div>
+        <h2 className="section-title">Copy Trades. Sell Signals. <span className="gradient-text">Scale Your Strategy.</span></h2>
+        <p className="section-sub" style={{ margin:"0 auto" }}>Connect your account and let followers copy you in real time.</p>
+      </div>
+      <div className="tradesync-flow" style={{ display:"flex", alignItems:"center", gap:"32px", flexWrap:"wrap", justifyContent:"center", marginBottom:"44px" }}>
+        <div style={{ background:"var(--card)", border:"1px solid rgba(59,130,246,0.4)", borderRadius:"16px", padding:"22px 28px", textAlign:"center", minWidth:"140px" }}>
+          <div style={{ fontFamily:"var(--font-logo)", fontSize:"17px", color:"var(--heading)" }}>Master</div>
+          <div style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--green)", marginTop:"6px" }}>+$12,400 P&L</div>
+        </div>
+        <div className="tradesync-arrow" style={{ display:"flex", flexDirection:"column", gap:"6px", alignItems:"center" }}>
+          <div style={{ height:"2px", width:"70px", background:"linear-gradient(90deg, var(--blue), var(--blue-light))", position:"relative" }}>
+            <div style={{ position:"absolute", right:"-6px", top:"-4px", width:0, height:0, borderTop:"5px solid transparent", borderBottom:"5px solid transparent", borderLeft:"8px solid var(--blue-light)" }} />
+          </div>
+          <span style={{ fontFamily:"var(--font-data)", fontSize:"10px", color:"var(--muted)" }}>REAL-TIME SYNC</span>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+          {["Follower A","Follower B","Follower C"].map((f,i)=>(
+            <div key={i} style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:"12px", padding:"12px 18px", display:"flex", gap:"12px", alignItems:"center" }}>
+              <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:`hsl(${i*80+200},60%,50%)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", color:"white", fontWeight:700, flexShrink:0 }}>{f[0]}</div>
+              <div>
+                <div style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:"var(--heading)" }}>{f}</div>
+                <div style={{ fontFamily:"var(--font-data)", fontSize:"10px", color:"var(--green)" }}>Copying @ 0.5x lot</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))", gap:"18px" }}>
+        {[
+          { icon:"🔄", title:"Account Mirroring", desc:"Sync trades from Master to multiple Slave accounts in real time with sub-second execution." },
+          { icon:"⚖️", title:"Risk Controls", desc:"Flexible lot scaling: multiplier, fixed lot, and risk % modes. Full control over exposure." },
+          { icon:"📡", title:"Signal Provider Mode", desc:"Share your trades publicly or privately. Let followers copy you and monetise your edge." },
+        ].map((f,i)=>(
+          <div key={i} className="card" style={{ padding:"22px" }}>
+            <div style={{ fontSize:"30px", marginBottom:"12px" }}>{f.icon}</div>
+            <h3 style={{ fontFamily:"var(--font-section)", fontSize:"17px", color:"var(--heading)", marginBottom:"8px" }}>{f.title}</h3>
+            <p style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--muted)", lineHeight:1.6 }}>{f.desc}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ textAlign:"center", marginTop:"20px" }}>
+        <p style={{ fontFamily:"var(--font-data)", fontSize:"12px", color:"var(--muted)" }}>Platforms: MT4 · MT5 · MatchTrader · cTrader (roadmap)</p>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Signal Scanner ───────────────────────────────────────────────────────────
+const SignalScanner = () => (
+  <section className="section">
+    <div className="container">
+      <div className="two-col">
+        <div className="two-col-left">
+          <div className="section-label">Signal Scanner</div>
+          <h2 className="section-title">Never Miss <span className="gradient-text">a Setup</span></h2>
+          <div className="divider" />
+          <p style={{ fontFamily:"var(--font-body)", fontSize:"15px", color:"var(--muted)", lineHeight:1.7, marginBottom:"22px" }}>
+            AI-powered market scanning for Smart Money Concepts, price channels, and institutional candles — with real-time alerts.
+          </p>
+          {["Automated SMC, price channel & institutional candle scanning","AI validation filters out low-probability setups","Real-time Telegram & web push notifications"].map((t,i)=>(
+            <div key={i} style={{ display:"flex", gap:"12px", marginBottom:"13px" }}>
+              <span style={{ color:"var(--blue-light)" }}>◆</span>
+              <span style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--text)" }}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <div className="two-col-right" style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+          {[
+            { sym:"EUR/USD", type:"SMC Break of Structure", tf:"H1", conf:"HIGH", dir:"▲ BUY", time:"Just now" },
+            { sym:"GOLD", type:"Institutional Candle", tf:"H4", conf:"MEDIUM", dir:"▼ SELL", time:"4m ago" },
+            { sym:"GBP/JPY", type:"Price Channel Break", tf:"M15", conf:"HIGH", dir:"▲ BUY", time:"12m ago" },
+          ].map((s,i)=>(
+            <div key={i} className="card" style={{ padding:"16px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:"10px", flexWrap:"wrap" }}>
+              <div>
+                <div style={{ fontFamily:"var(--font-data)", fontSize:"14px", fontWeight:700, color:"var(--heading)", marginBottom:"3px" }}>{s.sym}</div>
+                <div style={{ fontFamily:"var(--font-body)", fontSize:"12px", color:"var(--muted)" }}>{s.type} · {s.tf}</div>
+              </div>
+              <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                <span style={{ background:s.conf==="HIGH"?"rgba(34,197,94,0.15)":"rgba(245,158,11,0.15)", color:s.conf==="HIGH"?"var(--green)":"var(--amber)", padding:"3px 8px", borderRadius:"4px", fontSize:"10px", fontFamily:"var(--font-data)" }}>{s.conf}</span>
+                <span style={{ color:s.dir.includes("BUY")?"var(--green)":"var(--red)", fontFamily:"var(--font-data)", fontSize:"13px", fontWeight:700 }}>{s.dir}</span>
+              </div>
+              <span style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--muted)" }}>{s.time}</span>
+            </div>
+          ))}
+          <div style={{ textAlign:"center", padding:"10px" }}>
+            <span style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--muted)" }}>📱 Alerts via Telegram + Web Push</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Economic Calendar ────────────────────────────────────────────────────────
+const EconCalendar = () => (
+  <section className="section" style={{ background:"var(--bg-alt)" }}>
+    <div className="container">
+      <div style={{ textAlign:"center", marginBottom:"44px" }}>
+        <div className="section-label">Economic Calendar</div>
+        <h2 className="section-title">Know What's <span className="gradient-text">Moving the Market</span></h2>
+        <p className="section-sub" style={{ margin:"0 auto" }}>Real-time global economic events with currency sentiment overlay.</p>
+      </div>
+      <div style={{ maxWidth:"780px", margin:"0 auto", background:"var(--card)", border:"1px solid var(--border)", borderRadius:"16px", overflow:"hidden" }}>
+        <div style={{ padding:"14px 18px", borderBottom:"1px solid var(--border)", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"10px" }}>
+          <div style={{ display:"flex", gap:"6px" }}>
+            {["All","High","Medium","Low"].map((f,i)=>(
+              <button key={i} style={{ padding:"5px 10px", borderRadius:"6px", border:"none", cursor:"pointer", fontSize:"12px", fontFamily:"var(--font-body)", background:i===1?"var(--red)":"rgba(37,99,235,0.06)", color:i===1?"white":"var(--muted)" }}>{f}</button>
+            ))}
+          </div>
+          <span style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--muted)" }}>Jun 03, 2026 — GMT</span>
+        </div>
+        <div className="econ-scroll">
+          {[
+            { time:"08:30", ccy:"GBP", impact:"HIGH", event:"BOE Interest Rate Decision", actual:"5.25%", forecast:"5.25%", prev:"5.25%" },
+            { time:"12:30", ccy:"USD", impact:"HIGH", event:"Non-Farm Payrolls", actual:"—", forecast:"185K", prev:"175K" },
+            { time:"14:00", ccy:"USD", impact:"MEDIUM", event:"ISM Manufacturing PMI", actual:"—", forecast:"49.8", prev:"49.2" },
+            { time:"15:30", ccy:"EUR", impact:"LOW", event:"ECB Executive Board Speech", actual:"—", forecast:"—", prev:"—" },
+          ].map((e,i)=>(
+            <div key={i} className="econ-row">
+              <span style={{ color:"var(--muted)" }}>{e.time}</span>
+              <span style={{ color:"var(--blue-light)", fontWeight:700 }}>{e.ccy}</span>
+              <span style={{ color:e.impact==="HIGH"?"var(--red)":e.impact==="MEDIUM"?"var(--amber)":"var(--muted)" }}>
+                {e.impact==="HIGH"?"●●●":e.impact==="MEDIUM"?"●●○":"●○○"} {e.impact}
+              </span>
+              <span style={{ color:"var(--text)", fontFamily:"var(--font-body)", fontSize:"13px" }}>{e.event}</span>
+              <span style={{ color:"var(--green)", textAlign:"right" }}>{e.actual}</span>
+              <span style={{ color:"var(--muted)", textAlign:"right" }}>{e.forecast}</span>
+              <span style={{ color:"var(--muted)", textAlign:"right" }}>{e.prev}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+const Leaderboard = () => {
+  const traders = [
+    { rank:1, name:"TraderKing_FX", flag:"🇬🇧", pl:"+$48,320", wr:"72%", streak:9, avatar:"TK" },
+    { rank:2, name:"CryptoChief99", flag:"🇺🇸", pl:"+$31,700", wr:"68%", streak:6, avatar:"CC" },
+    { rank:3, name:"PipHunterZA", flag:"🇿🇦", pl:"+$28,440", wr:"75%", streak:11, avatar:"PH" },
+    { rank:4, name:"GoldTrader_EU", flag:"🇩🇪", pl:"+$21,880", wr:"64%", streak:4, avatar:"GT" },
+    { rank:5, name:"FXWizard_NG", flag:"🇳🇬", pl:"+$18,930", wr:"71%", streak:7, avatar:"FW" },
+  ];
+  return (
+    <section className="section">
+      <div className="container">
+        <div style={{ textAlign:"center", marginBottom:"44px" }}>
+          <div className="section-label">Community</div>
+          <h2 className="section-title">See How You <span className="gradient-text">Stack Up</span></h2>
+          <p className="section-sub" style={{ margin:"0 auto" }}>Public ranking of traders by P&L, Win Rate, or longest win streak.</p>
+        </div>
+        <div style={{ maxWidth:"700px", margin:"0 auto" }}>
+          {traders.map(t=>(
+            <div key={t.rank} className="card lb-card" style={{ display:"flex", alignItems:"center", gap:"14px", padding:"14px 18px", marginBottom:"10px" }}>
+              <span style={{ fontFamily:"var(--font-data)", fontSize:"15px", fontWeight:700, color:t.rank<=3?"var(--amber)":"var(--muted)", minWidth:"26px" }}>#{t.rank}</span>
+              <div style={{ width:"38px", height:"38px", borderRadius:"50%", background:`hsl(${t.rank*60+180},55%,45%)`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-head)", fontSize:"13px", fontWeight:700, color:"white", flexShrink:0 }}>{t.avatar}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:"var(--font-body)", fontSize:"14px", fontWeight:600, color:"var(--heading)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name} {t.flag}</div>
+                <div style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--muted)" }}>Win streak: {t.streak} 🔥</div>
+              </div>
+              <div className="lb-right" style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontFamily:"var(--font-data)", fontSize:"14px", fontWeight:700, color:"var(--green)" }}>{t.pl}</div>
+                <div style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--muted)" }}>WR {t.wr}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ textAlign:"center", marginTop:"28px" }}>
+            <button className="btn-primary">Create your profile and get ranked</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Brokers ──────────────────────────────────────────────────────────────────
+const Brokers = () => {
+  const brokers = ["InstaForex","LMAX Exchange","Pepperstone","TICKMILL","Admirals","AXITRADER","MetaTrader 4","MetaTrader 5","cTrader"];
+  return (
+    <section className="section" style={{ background:"var(--bg-alt)" }}>
+      <div className="container">
+        <div style={{ textAlign:"center", marginBottom:"36px" }}>
+          <h2 className="section-title">Works With <span className="gradient-text">Your Broker</span></h2>
+          <p className="section-sub" style={{ margin:"0 auto" }}>Automatic trade import — no manual logging required.</p>
+        </div>
+        <div className="brokers-wrap" style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:"10px" }}>
+          {brokers.map((b,i)=>(
+            <div key={i} style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:"10px", padding:"10px 18px", fontFamily:"var(--font-body)", fontSize:"14px", fontWeight:500, color:"var(--muted)", transition:"all 0.2s ease", cursor:"default" }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(59,130,246,0.4)";e.currentTarget.style.color="var(--heading)";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--muted)";}}>
+              {b}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Pricing ──────────────────────────────────────────────────────────────────
+const Pricing = () => {
+  const plans = [
+    { name:"Free", price:"$0", period:"forever", badge:null, desc:"Start tracking your trades with no commitment.", features:["Core trade stats","Trade calendar view","MT4/MT5 integration","Basic P&L tracking","Up to 50 trades/month"], cta:"Get Started Free", highlight:false },
+    { name:"Weekly", price:"$7", period:"/ week", badge:null, desc:"Full access for traders testing the waters.", features:["Everything in Free","Full trade journal","Detailed analytics","Strategy audit","Unlimited trades"], cta:"Start Weekly", highlight:false },
+    { name:"Monthly", price:"$20", period:"/ month", badge:"Most Popular", desc:"The complete platform for serious traders.", features:["Everything in Weekly","AI Coach (Claude Code)","Behavior analysis","Export reports (PDF/CSV)","TradeSync Copier add-on"], cta:"Start Monthly", highlight:true },
+    { name:"Yearly", price:"$180", period:"/ year", badge:"Best Value — $15/mo", desc:"Maximum value for committed traders.", features:["Everything in Monthly","SMC Signal Scanner","Priority support","Onboarding session","TradeSync Copier add-on"], cta:"Start Yearly", highlight:false },
+  ];
+  return (
+    <section className="section" id="pricing">
+      <div className="container">
+        <div style={{ textAlign:"center", marginBottom:"52px" }}>
+          <div className="section-label">Pricing</div>
+          <h2 className="section-title">Simple, <span className="gradient-text">Transparent Pricing</span></h2>
+          <p className="section-sub" style={{ margin:"0 auto" }}>Free forever tier. Upgrade when you're ready. No credit card required to start.</p>
+        </div>
+        <div className="pricing-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:"18px", alignItems:"start" }}>
+          {plans.map((p,i)=>(
+            <div key={i} className={p.highlight?"pricing-featured":""} style={{ background:p.highlight?"linear-gradient(145deg, #1e40af, #1d4ed8)":"var(--white)", border:p.highlight?"none":"1px solid var(--border)", borderRadius:"16px", padding:"26px", position:"relative", transform:p.highlight?"scale(1.03)":"none", boxShadow:p.highlight?"0 0 60px rgba(37,99,235,0.2)":"none" }}>
+              {p.badge&&<div style={{ position:"absolute", top:"-12px", left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg, var(--blue), var(--blue-light))", color:"white", padding:"4px 14px", borderRadius:"50px", fontSize:"11px", fontFamily:"var(--font-head)", fontWeight:700, whiteSpace:"nowrap" }}>{p.badge}</div>}
+              <h3 style={{ fontFamily:"var(--font-section)", fontSize:"19px", fontWeight:700, color:p.highlight?"#fff":"var(--heading)", marginBottom:"4px" }}>{p.name}</h3>
+              <div style={{ display:"flex", alignItems:"baseline", gap:"4px", marginBottom:"8px" }}>
+                <span style={{ fontFamily:"var(--font-data)", fontSize:"34px", fontWeight:700, color:p.highlight?"#fff":"var(--heading)" }}>{p.price}</span>
+                <span style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:p.highlight?"rgba(255,255,255,0.7)":"var(--muted)" }}>{p.period}</span>
+              </div>
+              <p style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:p.highlight?"rgba(255,255,255,0.75)":"var(--muted)", marginBottom:"18px", lineHeight:1.5 }}>{p.desc}</p>
+              <div style={{ marginBottom:"22px" }}>
+                {p.features.map((f,fi)=>(
+                  <div key={fi} style={{ display:"flex", gap:"10px", marginBottom:"9px" }}>
+                    <span style={{ color:"var(--green)", fontSize:"13px" }}>✓</span>
+                    <span style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:p.highlight?"rgba(255,255,255,0.85)":"var(--text)" }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+              <button className={p.highlight?"btn-primary":"btn-outline"} style={{ width:"100%", padding:"12px" }}>{p.cta}</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ maxWidth:"660px", margin:"52px auto 0" }}>
+          <h3 style={{ fontFamily:"var(--font-section)", fontSize:"21px", color:"var(--heading)", marginBottom:"22px", textAlign:"center" }}>Frequently Asked Questions</h3>
+          {[
+            { q:"Is the free plan really free forever?", a:"Yes. The free tier is permanently free with no time limit. You can track up to 50 trades per month with core analytics included." },
+            { q:"Can I import trades automatically from MT4/MT5?", a:"Absolutely. We support automatic trade import from MT4, MT5, and other supported platforms. No manual CSV uploads needed." },
+            { q:"What is TradeSync Copier?", a:"TradeSync is our copy trading add-on that lets you mirror trades from a master account to multiple follower accounts in real time, or become a signal provider." },
+            { q:"Is the AI Coach available on all plans?", a:"The AI Coach is available on Monthly and Yearly plans. It uses Claude Code AI to analyse your personal trade data and provide specific recommendations." },
+          ].map((faq,i)=>(
+            <details key={i} style={{ marginBottom:"10px", background:"var(--card)", border:"1px solid var(--border)", borderRadius:"10px", padding:"14px 18px" }}>
+              <summary style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--heading)", fontWeight:600, cursor:"pointer", listStyle:"none", display:"flex", justifyContent:"space-between", gap:"12px" }}>
+                <span>{faq.q}</span><span style={{ color:"var(--blue-light)", flexShrink:0 }}>+</span>
+              </summary>
+              <p style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--muted)", lineHeight:1.7, marginTop:"11px" }}>{faq.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+const reviews = [
+  { name:"James M.", location:"London, UK", text:"Finally a journal that tracks psychology alongside stats. My discipline score went from 58 to 82 in 6 weeks." },
+  { name:"Fatima A.", location:"Dubai, UAE", text:"The timeframe matrix showed me I was wasting 30% of my trades on M5 during Asian — completely changed my approach." },
+  { name:"Brandon K.", location:"New York, USA", text:"AI Coach told me my reversal setups had a 32% win rate. I had no idea. Removed them and my PF jumped to 2.4." },
+  { name:"Ravi S.", location:"Mumbai, India", text:"TradeSync lets me run my fund accounts in parallel. Was a nightmare before. Now it's one click." },
+  { name:"Amara N.", location:"Lagos, Nigeria", text:"The drawdown analysis is incredible. I can see exactly which weeks destroyed my account and why." },
+  { name:"Sophie R.", location:"Paris, France", text:"Best trading tool I've used. The strategy audit gave my system a B+ and told me exactly where I was leaking." },
+  { name:"Kai T.", location:"Singapore", text:"SMC signal scanner + economic calendar in one place. I used to have 6 tabs open. Now it's just MyfmJournal." },
+  { name:"Diego L.", location:"Buenos Aires, AR", text:"Free plan is genuinely useful. Upgraded after one week. The AI coach alone is worth the subscription." },
+];
+
+const Testimonials = () => (
+  <section className="section" style={{ background:"var(--bg-alt)" }}>
+    <div className="container">
+      <div style={{ textAlign:"center", marginBottom:"52px" }}>
+        <div className="section-label">Reviews</div>
+        <h2 className="section-title">Join 10,000+ Traders Who <span className="gradient-text">Chose MyfmJournal</span></h2>
+      </div>
+      <div className="testimonials-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))", gap:"14px", marginBottom:"44px" }}>
+        {reviews.map((r,i)=>(
+          <div key={i} className="card" style={{ padding:"20px" }}>
+            <div style={{ color:"var(--amber)", fontSize:"13px", marginBottom:"10px" }}>★★★★★</div>
+            <p style={{ fontFamily:"var(--font-body)", fontSize:"14px", color:"var(--text)", lineHeight:1.7, marginBottom:"14px", fontStyle:"italic" }}>"{r.text}"</p>
+            <div>
+              <div style={{ fontFamily:"var(--font-body)", fontSize:"13px", fontWeight:600, color:"var(--heading)" }}>{r.name}</div>
+              <div style={{ fontFamily:"var(--font-data)", fontSize:"11px", color:"var(--muted)" }}>{r.location}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ textAlign:"center" }}>
+        <button className="btn-primary" style={{ fontSize:"16px", padding:"15px 38px" }}>Join us now →</button>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+const Footer = () => (
+  <footer style={{ background:"#0f172a", borderTop:"1px solid #1e293b", padding:"56px 0 28px" }}>
+    <div className="container">
+      <div className="footer-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))", gap:"36px", marginBottom:"44px" }}>
+        <div>
+          <div style={{ fontFamily:"var(--font-logo)", fontSize:"20px", fontWeight:800, color:"#f1f5f9", marginBottom:"12px" }}>
+            Myfm<span style={{ color:"var(--blue-light)" }}>Journal</span>
+          </div>
+          <p style={{ fontFamily:"var(--font-body)", fontSize:"13px", color:"#94a3b8", lineHeight:1.6, marginBottom:"18px" }}>
+            The professional trading journal built for traders who take performance seriously.
+          </p>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <input placeholder="Your email" style={{ flex:1, minWidth:0, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:"8px", padding:"9px 10px", color:"#f1f5f9", fontFamily:"var(--font-body)", fontSize:"13px", outline:"none" }} />
+            <button className="btn-primary" style={{ padding:"9px 14px", fontSize:"13px", whiteSpace:"nowrap", flexShrink:0 }}>Subscribe</button>
+          </div>
+        </div>
+        <div>
+          <h4 style={{ fontFamily:"var(--font-section)", fontSize:"13px", fontWeight:600, color:"#f1f5f9", letterSpacing:"1px", marginBottom:"14px" }}>COMMUNITY</h4>
+          {[["𝕏 Twitter (X)","#"],["▶ YouTube","#"],["f Facebook","#"],["📷 Instagram","#"]].map(([l,h],i)=>(
+            <a key={i} href={h} style={{ display:"block", fontFamily:"var(--font-body)", fontSize:"13px", color:"#94a3b8", textDecoration:"none", marginBottom:"10px" }}
+              onMouseEnter={e=>e.target.style.color="#f1f5f9"} onMouseLeave={e=>e.target.style.color="#94a3b8"}>{l}</a>
+          ))}
+        </div>
+        <div>
+          <h4 style={{ fontFamily:"var(--font-section)", fontSize:"13px", fontWeight:600, color:"#f1f5f9", letterSpacing:"1px", marginBottom:"14px" }}>RESOURCES</h4>
+          {["Free Trading Journal","Sessions","Economic Calendar","Blog"].map((l,i)=>(
+            <a key={i} href="#" style={{ display:"block", fontFamily:"var(--font-body)", fontSize:"13px", color:"#94a3b8", textDecoration:"none", marginBottom:"10px" }}
+              onMouseEnter={e=>e.target.style.color="#f1f5f9"} onMouseLeave={e=>e.target.style.color="#94a3b8"}>{l}</a>
+          ))}
+        </div>
+        <div>
+          <h4 style={{ fontFamily:"var(--font-section)", fontSize:"13px", fontWeight:600, color:"#f1f5f9", letterSpacing:"1px", marginBottom:"14px" }}>LEGAL</h4>
+          {["Privacy Policy","Terms of Service","Support","Contact"].map((l,i)=>(
+            <a key={i} href="#" style={{ display:"block", fontFamily:"var(--font-body)", fontSize:"13px", color:"#94a3b8", textDecoration:"none", marginBottom:"10px" }}
+              onMouseEnter={e=>e.target.style.color="#f1f5f9"} onMouseLeave={e=>e.target.style.color="#94a3b8"}>{l}</a>
+          ))}
+        </div>
+      </div>
+      <div className="footer-bottom" style={{ borderTop:"1px solid rgba(255,255,255,0.08)", paddingTop:"22px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"12px" }}>
+        <span style={{ fontFamily:"var(--font-data)", fontSize:"12px", color:"#64748b" }}>© 2026 MyfmJournal. All rights reserved.</span>
+        <div style={{ display:"flex", gap:"18px" }}>
+          {["Privacy","Terms","Cookies"].map((l,i)=>(
+            <a key={i} href="#" style={{ fontFamily:"var(--font-data)", fontSize:"12px", color:"#64748b", textDecoration:"none" }}>{l}</a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </footer>
+);
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <>
+      <FontLoader />
+      <TickerTape />
+      <Navbar />
+      <Hero />
+      <Features />
+      <LiveDemo />
+      <TimeframeMatrix />
+      <AISection />
+      <TradeSync />
+      <SignalScanner />
+      <EconCalendar />
+      <Leaderboard />
+      <Brokers />
+      <Pricing />
+      <Testimonials />
+      <Footer />
+    </>
+  );
+}

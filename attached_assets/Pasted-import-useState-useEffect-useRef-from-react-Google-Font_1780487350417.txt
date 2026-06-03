@@ -1,0 +1,1093 @@
+import { useState, useEffect, useRef } from "react";
+
+// ─── Google Fonts ───────────────────────────────────────────────────────────
+const FontLoader = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue: #2563eb;
+      --blue-light: #3b82f6;
+      --blue-glow: rgba(59,130,246,0.15);
+      --bg: #ffffff;
+      --bg-soft: #f8fafc;
+      --bg-alt: #f1f5f9;
+      --card: #ffffff;
+      --card2: #f8fafc;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --muted: #64748b;
+      --text: #334155;
+      --heading: #0f172a;
+      --white: #ffffff;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #d97706;
+      --font-head: 'Sora', sans-serif;
+      --font-section: 'Plus Jakarta Sans', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-data: 'DM Mono', monospace;
+      --font-logo: 'Sora', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+    }
+
+    ::selection { background: var(--blue-glow); color: var(--blue); }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-soft); }
+    ::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 3px; }
+
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px var(--blue-glow); }
+      50% { box-shadow: 0 0 40px rgba(59,130,246,0.5); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes scan {
+      0% { top: 0; opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .fade-in { animation: fadeInUp 0.7s ease forwards; }
+    .fade-in-delay-1 { animation: fadeInUp 0.7s ease 0.1s forwards; opacity: 0; }
+    .fade-in-delay-2 { animation: fadeInUp 0.7s ease 0.2s forwards; opacity: 0; }
+    .fade-in-delay-3 { animation: fadeInUp 0.7s ease 0.3s forwards; opacity: 0; }
+    .fade-in-delay-4 { animation: fadeInUp 0.7s ease 0.4s forwards; opacity: 0; }
+    .fade-in-delay-5 { animation: fadeInUp 0.7s ease 0.5s forwards; opacity: 0; }
+
+    .btn-primary {
+      background: var(--blue);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 50px;
+      font-family: var(--font-section);
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 20px rgba(37,99,235,0.25);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      background: #1d4ed8;
+      box-shadow: 0 8px 32px rgba(37,99,235,0.4);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--heading);
+      border: 1.5px solid var(--border-dark);
+      padding: 13px 28px;
+      border-radius: 50px;
+      font-family: var(--font-section);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-secondary:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: rgba(37,99,235,0.05);
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--blue);
+      border: 1.5px solid var(--blue);
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-family: var(--font-section);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-outline:hover {
+      background: var(--blue);
+      color: white;
+      border-color: var(--blue);
+    }
+
+    .section {
+      padding: 100px 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    .section-label {
+      font-family: var(--font-section);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: var(--font-head);
+      font-size: clamp(30px, 4vw, 48px);
+      font-weight: 800;
+      color: var(--heading);
+      line-height: 1.12;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      font-family: var(--font-body);
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 560px;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      border-color: rgba(37,99,235,0.25);
+      box-shadow: 0 8px 40px rgba(37,99,235,0.08);
+      transform: translateY(-4px);
+    }
+    .stat-green { color: var(--green); font-family: var(--font-data); }
+    .stat-red { color: var(--red); font-family: var(--font-data); }
+    .stat-blue { color: var(--blue); font-family: var(--font-data); }
+    .divider {
+      width: 48px;
+      height: 3px;
+      background: var(--blue);
+      border-radius: 2px;
+      margin-bottom: 32px;
+    }
+    .grid-bg {
+      background-image: 
+        linear-gradient(rgba(37,99,235,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,99,235,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .noise {
+      position: relative;
+    }
+    .noise::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @media (max-width: 768px) {
+      .section { padding: 60px 0; }
+      .hide-mobile { display: none !important; }
+      .stack-mobile { flex-direction: column !important; }
+      .full-mobile { width: 100% !important; }
+    }
+  `}</style>
+);
+
+// ─── Ticker Tape ─────────────────────────────────────────────────────────────
+const tickers = [
+  { symbol: "EUR/USD", price: "1.0847", change: "+0.12%", up: true },
+  { symbol: "BTC/USD", price: "67,432", change: "+2.34%", up: true },
+  { symbol: "GOLD", price: "2,341.50", change: "-0.08%", up: false },
+  { symbol: "SPX500", price: "5,218.40", change: "+0.43%", up: true },
+  { symbol: "GBP/USD", price: "1.2698", change: "+0.07%", up: true },
+  { symbol: "ETH/USD", price: "3,124.80", change: "+1.87%", up: true },
+  { symbol: "OIL/WTI", price: "78.34", change: "-0.55%", up: false },
+  { symbol: "USD/JPY", price: "156.72", change: "+0.21%", up: true },
+];
+
+const TickerTape = () => {
+  const items = [...tickers, ...tickers];
+  return (
+    <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", overflow: "hidden", height: "36px", display: "flex", alignItems: "center" }}>
+      <div style={{ display: "flex", animation: "ticker 30s linear infinite", whiteSpace: "nowrap", gap: "0" }}>
+        {items.map((t, i) => (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "0 28px", borderRight: "1px solid rgba(255,255,255,0.08)", fontSize: "12px", fontFamily: "var(--font-data)" }}>
+            <span style={{ color: "#94a3b8" }}>{t.symbol}</span>
+            <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{t.price}</span>
+            <span style={{ color: t.up ? "#4ade80" : "#f87171" }}>{t.up ? "▲" : "▼"} {t.change}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── Navbar ───────────────────────────────────────────────────────────────────
+const Navbar = () => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return (
+    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: scrolled ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--border)", transition: "all 0.3s ease" }}>
+      <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "68px" }}>
+        <div style={{ fontFamily: "var(--font-logo)", fontSize: "22px", fontWeight: 800, color: "var(--heading)", letterSpacing: "-0.5px" }}>
+          Myfm<span style={{ color: "var(--blue)" }}>Journal</span>
+        </div>
+        <div className="hide-mobile" style={{ display: "flex", gap: "32px", alignItems: "center" }}>
+          {["Features", "Pricing", "Reviews", "Economic Calendar", "Blog", "Leaderboard"].map(l => (
+            <a key={l} href="#" style={{ fontFamily: "var(--font-body)", fontSize: "14px", fontWeight: 500, color: "var(--muted)", textDecoration: "none", transition: "color 0.2s ease" }}
+              onMouseEnter={e => e.target.style.color = "#f1f5f9"}
+              onMouseLeave={e => e.target.style.color = "#94a3b8"}
+            >{l}</a>
+          ))}
+        </div>
+        <div className="hide-mobile" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <button className="btn-secondary" style={{ padding: "9px 20px", fontSize: "13px" }}>Login</button>
+          <button className="btn-primary" style={{ padding: "9px 22px", fontSize: "13px" }}>Sign Up Free</button>
+        </div>
+        <button className="hide-desktop" onClick={() => setMenuOpen(!menuOpen)}
+          style={{ display: "none", background: "none", border: "none", color: "var(--heading)", fontSize: "22px", cursor: "pointer" }}>
+          ☰
+        </button>
+      </div>
+      <style>{`@media(max-width:768px){.hide-desktop{display:block !important}.hide-mobile{display:none !important}}`}</style>
+      {menuOpen && (
+        <div style={{ background: "var(--white)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          {["Features", "Pricing", "Reviews", "Economic Calendar", "Blog", "Leaderboard"].map(l => (
+            <a key={l} href="#" style={{ color: "var(--muted)", textDecoration: "none", fontFamily: "var(--font-body)", fontSize: "15px" }}>{l}</a>
+          ))}
+          <div style={{ display: "flex", gap: "12px", paddingTop: "8px" }}>
+            <button className="btn-secondary" style={{ flex: 1, fontSize: "13px", padding: "10px" }}>Login</button>
+            <button className="btn-primary" style={{ flex: 1, fontSize: "13px", padding: "10px" }}>Sign Up Free</button>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+};
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+const HeroDashboard = () => (
+  <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: "16px", padding: "20px", fontFamily: "var(--font-data)", fontSize: "12px", animation: "float 6s ease-in-out infinite", boxShadow: "0 32px 80px rgba(37,99,235,0.15)", position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, var(--blue), var(--blue-light), transparent)" }} />
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+      <span style={{ color: "var(--muted)", fontSize: "11px" }}>PORTFOLIO OVERVIEW</span>
+      <span style={{ color: "var(--green)", fontSize: "11px" }}>● LIVE</span>
+    </div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+      {[
+        { label: "Net P&L", val: "+$4,827", sub: "+12.4%", green: true },
+        { label: "Win Rate", val: "67.3%", sub: "142 trades", green: true },
+        { label: "Profit Factor", val: "2.41", sub: "R-Expectancy: 0.84", green: true },
+      ].map((s, i) => (
+        <div key={i} style={{ background: "rgba(15,23,42,0.6)", borderRadius: "10px", padding: "12px", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "6px" }}>{s.label}</div>
+          <div style={{ color: "var(--green)", fontSize: "18px", fontWeight: 700, marginBottom: "2px" }}>{s.val}</div>
+          <div style={{ color: "var(--muted)", fontSize: "10px" }}>{s.sub}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{ background: "rgba(37,99,235,0.03)", borderRadius: "10px", padding: "12px", border: "1px solid var(--border)", marginBottom: "12px" }}>
+      <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "10px" }}>EQUITY CURVE (30D)</div>
+      <svg viewBox="0 0 300 60" style={{ width: "100%", height: "60px" }}>
+        <defs>
+          <linearGradient id="curveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M0,55 L20,48 L45,50 L65,40 L90,42 L115,30 L135,28 L155,18 L175,20 L195,12 L215,8 L240,10 L265,5 L300,2" fill="none" stroke="#3b82f6" strokeWidth="2" />
+        <path d="M0,55 L20,48 L45,50 L65,40 L90,42 L115,30 L135,28 L155,18 L175,20 L195,12 L215,8 L240,10 L265,5 L300,2 L300,60 L0,60 Z" fill="url(#curveGrad)" />
+      </svg>
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {[
+        { pair: "EUR/USD", dir: "BUY", r: "+2.3R", time: "09:42" },
+        { pair: "GOLD", dir: "SELL", r: "+1.1R", time: "11:15" },
+        { pair: "GBP/USD", dir: "BUY", r: "-0.8R", time: "14:33" },
+      ].map((t, i) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "rgba(37,99,235,0.03)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+          <span style={{ color: "var(--heading)", fontWeight: 600, fontSize: "11px" }}>{t.pair}</span>
+          <span style={{ color: t.dir === "BUY" ? "var(--green)" : "var(--red)", fontSize: "10px" }}>{t.dir}</span>
+          <span style={{ color: t.r.startsWith("+") ? "var(--green)" : "var(--red)", fontSize: "11px" }}>{t.r}</span>
+          <span style={{ color: "var(--muted)", fontSize: "10px" }}>{t.time}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const Hero = () => (
+  <section className="section grid-bg noise" style={{ paddingTop: "80px", paddingBottom: "120px", background: "var(--bg-soft)", position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: "10%", left: "5%", width: "500px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+    <div style={{ position: "absolute", bottom: "0", right: "10%", width: "300px", height: "300px", borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
+    <div className="container" style={{ display: "flex", alignItems: "center", gap: "60px", flexWrap: "wrap" }}>
+      <div style={{ flex: "1", minWidth: "300px", position: "relative", zIndex: 1 }}>
+        <div className="fade-in" style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: "50px", padding: "6px 14px", marginBottom: "24px", fontSize: "13px", fontFamily: "var(--font-body)", color: "var(--blue)" }}>
+          <span style={{ color: "var(--amber)" }}>★★★★★</span>
+          <span>Trusted by 10,000+ traders</span>
+          <span style={{ color: "var(--blue)", textDecoration: "underline", cursor: "pointer" }}>Trustpilot ↗</span>
+        </div>
+        <h1 className="fade-in-delay-1" style={{ fontFamily: "var(--font-head)", fontSize: "clamp(36px, 4.5vw, 60px)", fontWeight: 800, lineHeight: 1.08, color: "var(--heading)", marginBottom: "20px", letterSpacing: "-1.5px" }}>
+          The Trading Journal<br />
+          <span className="gradient-text">That Works As Hard</span><br />
+          As You Do
+        </h1>
+        <p className="fade-in-delay-2" style={{ fontFamily: "var(--font-body)", fontSize: "18px", color: "var(--muted)", marginBottom: "12px", lineHeight: 1.6 }}>
+          Execution database + performance analytics for<br />Forex, Crypto & Commodities traders.
+        </p>
+        <div className="fade-in-delay-3" style={{ display: "flex", gap: "20px", marginBottom: "36px", flexWrap: "wrap" }}>
+          {["Log trades", "Capture decisions", "Track psychology", "Build your edge"].map((item, i) => (
+            <span key={i} style={{ fontFamily: "var(--font-data)", fontSize: "12px", color: "var(--blue)", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ color: "var(--green)" }}>◆</span> {item}
+            </span>
+          ))}
+        </div>
+        <div className="fade-in-delay-4" style={{ display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn-primary" style={{ fontSize: "16px", padding: "16px 36px" }}>Start Free — No Credit Card</button>
+          <button className="btn-secondary">See How It Works ↓</button>
+        </div>
+        <div className="fade-in-delay-5" style={{ marginTop: "40px", display: "flex", gap: "32px", flexWrap: "wrap" }}>
+          {[
+            { val: "$0", label: "Free forever tier" },
+            { val: "67.3%", label: "Avg user win rate" },
+            { val: "2.4x", label: "Profit factor tracked" },
+          ].map((s, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontFamily: "var(--font-data)", fontSize: "24px", fontWeight: 700, color: "var(--heading)" }}>{s.val}</span>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "12px", color: "var(--muted)" }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex: "1", minWidth: "320px", maxWidth: "480px", animation: "fadeInUp 0.9s ease 0.4s forwards", opacity: 0 }}>
+        <HeroDashboard />
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+const features = [
+  { icon: "📓", title: "Trade Journal", desc: "Log every trade in a structured multi-step form. Capture entry, exit, risk, psychology, and confluence factors." },
+  { icon: "📸", title: "Screenshot & OCR", desc: "Upload a chart screenshot and let AI extract price, SL, TP, and symbol automatically." },
+  { icon: "📊", title: "Performance Analytics", desc: "Track P&L, win rate, profit factor, R-expectancy, drawdown, and more — across sessions, strategies, and timeframes." },
+  { icon: "📉", title: "Drawdown Analysis", desc: "Visualise peak-to-valley declines, recovery time, and ulcer index to manage your risk precisely." },
+  { icon: "🔬", title: "Strategy Audit Engine", desc: "Grade your trading system based on edge persistence, risk entropy, and Monte Carlo simulation." },
+  { icon: "🤖", title: "Trader AI Coach", desc: "Ask your AI coach to analyse your drawdown, identify your worst setups, or build a strategy from your own data (powered by Claude Code AI)." },
+];
+
+const Features = () => (
+  <section className="section" id="features" style={{ background: "var(--bg-soft)" }}>
+    <div className="container">
+      <div style={{ textAlign: "center", marginBottom: "60px" }}>
+        <div className="section-label" style={{ display: "block", textAlign: "center" }}>Platform Features</div>
+        <h2 className="section-title" style={{ textAlign: "center" }}>Everything You Need to <span className="gradient-text">Build Your Edge</span></h2>
+        <p className="section-sub" style={{ margin: "0 auto", textAlign: "center" }}>A complete workspace built for serious traders who measure everything.</p>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
+        {features.map((f, i) => (
+          <div key={i} className="card" style={{ padding: "28px" }}>
+            <div style={{ fontSize: "36px", marginBottom: "16px" }}>{f.icon}</div>
+            <h3 style={{ fontFamily: "var(--font-section)", fontSize: "20px", fontWeight: 600, color: "var(--heading)", marginBottom: "10px", letterSpacing: "0.5px" }}>{f.title}</h3>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--muted)", lineHeight: 1.7 }}>{f.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Live Demo Tabs ───────────────────────────────────────────────────────────
+const DemoContent = ({ tab }) => {
+  const content = {
+    Journal: (
+      <div style={{ fontFamily: "var(--font-data)", fontSize: "12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+          {[["Symbol", "EUR/USD"], ["Direction", "BUY"], ["Entry", "1.08420"], ["Stop Loss", "1.08120"], ["Take Profit", "1.08960"], ["Risk %", "1.0%"]].map(([l, v], i) => (
+            <div key={i} style={{ background: "rgba(37,99,235,0.04)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "4px" }}>{l}</div>
+              <div style={{ color: "var(--heading)", fontWeight: 600 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: "rgba(37,99,235,0.04)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "12px" }}>
+          <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "6px" }}>PSYCHOLOGY & NOTES</div>
+          <div style={{ color: "var(--text)", fontSize: "12px", lineHeight: 1.6 }}>London session breakout confirmed. Bullish structure on H4. Followed plan — no hesitation on entry. Mental state: confident.</div>
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {["Breakout", "Trend Follow", "London Session", "H4 Bias"].map((t, i) => (
+            <span key={i} style={{ background: "rgba(59,130,246,0.15)", color: "var(--blue-light)", padding: "4px 10px", borderRadius: "50px", fontSize: "10px", border: "1px solid rgba(59,130,246,0.2)" }}>{t}</span>
+          ))}
+        </div>
+      </div>
+    ),
+    Analytics: (
+      <div style={{ fontFamily: "var(--font-data)", fontSize: "12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "10px", marginBottom: "14px" }}>
+          {[["P&L", "+$4,827", true], ["Win Rate", "67.3%", true], ["Max DD", "-8.2%", false], ["Profit F.", "2.41", true]].map(([l, v, green], i) => (
+            <div key={i} style={{ background: "rgba(37,99,235,0.04)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", textAlign: "center" }}>
+              <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "4px" }}>{l}</div>
+              <div style={{ color: green ? "var(--green)" : "var(--red)", fontSize: "16px", fontWeight: 700 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: "rgba(37,99,235,0.03)", borderRadius: "10px", padding: "12px", border: "1px solid var(--border)" }}>
+          <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "10px" }}>WIN RATE BY SESSION</div>
+          {[["London", 72], ["New York", 65], ["Asian", 48], ["NY/LN Overlap", 78]].map(([s, pct], i) => (
+            <div key={i} style={{ marginBottom: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+                <span style={{ color: "var(--muted)", fontSize: "10px" }}>{s}</span>
+                <span style={{ color: pct > 60 ? "var(--green)" : "var(--amber)", fontSize: "10px" }}>{pct}%</span>
+              </div>
+              <div style={{ background: "rgba(37,99,235,0.06)", borderRadius: "4px", height: "6px" }}>
+                <div style={{ background: pct > 60 ? "var(--green)" : "var(--amber)", width: `${pct}%`, height: "100%", borderRadius: "4px" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    "Trade Vault": (
+      <div style={{ fontFamily: "var(--font-data)", fontSize: "12px" }}>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+          {["All", "Wins", "Losses", "BE"].map((f, i) => (
+            <button key={i} style={{ background: i === 0 ? "var(--blue)" : "rgba(37,99,235,0.06)", color: "var(--heading)", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}>{f}</button>
+          ))}
+        </div>
+        {[
+          { pair: "EUR/USD", date: "Jun 03", r: "+2.3R", status: "WIN", tag: "Breakout" },
+          { pair: "GOLD", date: "Jun 03", r: "+1.1R", status: "WIN", tag: "Trend" },
+          { pair: "GBP/USD", date: "Jun 02", r: "-0.8R", status: "LOSS", tag: "Reversal" },
+          { pair: "BTC/USD", date: "Jun 02", r: "+3.1R", status: "WIN", tag: "Momentum" },
+        ].map((t, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", background: "rgba(37,99,235,0.03)", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "6px" }}>
+            <div>
+              <div style={{ color: "var(--heading)", fontWeight: 600, fontSize: "12px" }}>{t.pair}</div>
+              <div style={{ color: "var(--muted)", fontSize: "10px" }}>{t.date}</div>
+            </div>
+            <span style={{ background: "rgba(59,130,246,0.1)", color: "var(--blue-light)", padding: "2px 8px", borderRadius: "4px", fontSize: "10px" }}>{t.tag}</span>
+            <span style={{ color: t.status === "WIN" ? "var(--green)" : "var(--red)", fontSize: "13px", fontWeight: 700 }}>{t.r}</span>
+          </div>
+        ))}
+      </div>
+    ),
+    "Strategy Audit": (
+      <div style={{ fontFamily: "var(--font-data)", fontSize: "12px" }}>
+        <div style={{ textAlign: "center", marginBottom: "16px" }}>
+          <div style={{ color: "var(--muted)", fontSize: "10px", marginBottom: "6px" }}>STRATEGY GRADE</div>
+          <div style={{ fontSize: "52px", fontWeight: 900, color: "var(--green)", lineHeight: 1 }}>A-</div>
+          <div style={{ color: "var(--muted)", fontSize: "11px" }}>Breakout Momentum System</div>
+        </div>
+        {[
+          ["Edge Persistence", 84, "var(--green)"],
+          ["Risk Entropy", 72, "var(--amber)"],
+          ["Execution Quality", 91, "var(--green)"],
+          ["Monte Carlo (95%)", 68, "var(--amber)"],
+        ].map(([label, val, color], i) => (
+          <div key={i} style={{ marginBottom: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+              <span style={{ color: "var(--muted)", fontSize: "10px" }}>{label}</span>
+              <span style={{ color, fontSize: "10px" }}>{val}/100</span>
+            </div>
+            <div style={{ background: "rgba(37,99,235,0.06)", borderRadius: "4px", height: "6px" }}>
+              <div style={{ background: color, width: `${val}%`, height: "100%", borderRadius: "4px" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  };
+  return content[tab] || null;
+};
+
+const LiveDemo = () => {
+  const [tab, setTab] = useState("Journal");
+  const tabs = ["Journal", "Analytics", "Trade Vault", "Strategy Audit"];
+  return (
+    <section className="section" id="demo">
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div className="section-label">Live Preview</div>
+          <h2 className="section-title">See The Platform <span className="gradient-text">In Action</span></h2>
+          <p className="section-sub" style={{ margin: "0 auto" }}>A genuine look at the product. No marketing fluff.</p>
+        </div>
+        <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+          <div style={{ display: "flex", gap: "4px", marginBottom: "0", background: "var(--card)", borderRadius: "12px 12px 0 0", padding: "8px", border: "1px solid var(--border)", borderBottom: "none" }}>
+            {tabs.map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: "9px 4px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "12px", fontFamily: "var(--font-body)", fontWeight: 600, transition: "all 0.2s ease", background: tab === t ? "var(--blue)" : "transparent", color: tab === t ? "var(--white)" : "var(--muted)" }}>{t}</button>
+            ))}
+          </div>
+          <div style={{ background: "var(--white)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 16px 16px", padding: "24px", position: "relative", minHeight: "320px" }}>
+            <div style={{ position: "absolute", top: "12px", right: "12px", display: "flex", gap: "6px", alignItems: "center" }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "blink 2s ease infinite" }} />
+              <span style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "var(--font-data)" }}>REAL PLATFORM DATA</span>
+            </div>
+            <DemoContent tab={tab} />
+          </div>
+          <div style={{ textAlign: "center", marginTop: "24px" }}>
+            <button className="btn-primary">Try it yourself — it's free</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Timeframe Matrix ─────────────────────────────────────────────────────────
+const TimeframeMatrix = () => {
+  const tfs = ["M1", "M5", "M15", "H1", "H4", "D1"];
+  const sessions = ["London", "New York", "Asian", "Overlap"];
+  const data = [
+    [48, 62, 71, 67, 74, 58],
+    [52, 58, 64, 72, 69, 55],
+    [41, 45, 51, 48, 52, 44],
+    [61, 71, 78, 82, 77, 65],
+  ];
+  const getColor = v => v >= 75 ? "rgba(34,197,94,0.6)" : v >= 65 ? "rgba(34,197,94,0.3)" : v >= 55 ? "rgba(245,158,11,0.3)" : "rgba(239,68,68,0.25)";
+  return (
+    <section className="section" style={{ background: "var(--bg-alt)" }}>
+      <div className="container">
+        <div style={{ display: "flex", gap: "60px", alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div style={{ flex: "1", minWidth: "280px" }}>
+            <div className="section-label">Intelligence Layer</div>
+            <h2 className="section-title">Find Exactly Where <span className="gradient-text">Your Edge Lives</span></h2>
+            <div className="divider" />
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "15px", color: "var(--muted)", lineHeight: 1.7, marginBottom: "24px" }}>
+              Stop guessing which timeframe performs best. The Timeframe Matrix shows win rates broken down by session and timeframe so you can trade your best conditions every time.
+            </p>
+            {["Timeframe Matrix — win rate by M1 through D1", "Session Performance — London, NY, Asian & overlap", "Strategy Audit — grading your entire system"].map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginBottom: "14px" }}>
+                <span style={{ color: "var(--blue-light)", marginTop: "2px" }}>◆</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)" }}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ flex: "1.4", minWidth: "300px" }}>
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px", fontFamily: "var(--font-data)", fontSize: "11px", overflowX: "auto" }}>
+              <div style={{ marginBottom: "12px", color: "var(--muted)", fontSize: "10px" }}>WIN RATE HEATMAP (%)</div>
+              <div style={{ display: "grid", gridTemplateColumns: `100px repeat(${tfs.length}, 1fr)`, gap: "4px" }}>
+                <div />
+                {tfs.map(tf => <div key={tf} style={{ textAlign: "center", color: "var(--blue-light)", padding: "6px 2px" }}>{tf}</div>)}
+                {sessions.map((s, si) => (
+                  [<div key={`s${si}`} style={{ color: "var(--muted)", display: "flex", alignItems: "center", fontSize: "11px" }}>{s}</div>,
+                  ...data[si].map((v, ti) => (
+                    <div key={`${si}-${ti}`} style={{ background: getColor(v), borderRadius: "6px", padding: "8px 4px", textAlign: "center", color: "var(--heading)", fontWeight: 600, border: "1px solid rgba(37,99,235,0.06)" }}>{v}%</div>
+                  ))]
+                ))}
+              </div>
+              <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "center" }}>
+                <span style={{ color: "var(--muted)", fontSize: "10px" }}>Win Rate:</span>
+                {[["≥75%", "rgba(34,197,94,0.6)"], ["65-74%", "rgba(34,197,94,0.3)"], ["55-64%", "rgba(245,158,11,0.3)"], ["<55%", "rgba(239,68,68,0.25)"]].map(([l, c], i) => (
+                  <span key={i} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--muted)" }}>
+                    <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: c, display: "inline-block" }} />{l}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── AI Section ───────────────────────────────────────────────────────────────
+const aiChats = [
+  {
+    prompt: "Analyse my drawdown from last month",
+    response: "Your worst drawdown period ran June 2–8, peaking at -8.2%. All 4 losses shared one pattern: counter-trend entries on M15 during the Asian session. Your Asian win rate is 48% — significantly below your 67% average. Recommendation: avoid new positions from 00:00–06:00 GMT."
+  },
+  {
+    prompt: "What are my worst-performing setups?",
+    response: "Your 3 weakest setups: (1) Reversal trades at round numbers — 32% win rate, -1.2R avg. (2) News-hour breakouts — 41% win rate, high variance. (3) Late NY session scalps after 19:00 GMT — 38% win rate. These 3 setups account for 78% of your total losses."
+  },
+  {
+    prompt: "Build a strategy based on my best conditions",
+    response: "Based on your trade history: Your edge is strongest during London/NY overlap (78% WR) on H1 timeframe using breakout setups. Blueprint: Enter on confirmed London breakout, H1 close above structure. SL below broken level. TP at 2.5R. Avoid Asian session. Expected expectancy: +0.91R per trade."
+  }
+];
+
+const AISection = () => {
+  const [activeChat, setActiveChat] = useState(0);
+  return (
+    <section className="section" id="ai">
+      <div className="container">
+        <div style={{ display: "flex", gap: "60px", alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div style={{ flex: "1", minWidth: "280px" }}>
+            <div className="section-label">Trader AI</div>
+            <h2 className="section-title">Your Personal Trading Coach, <span className="gradient-text">Powered by AI</span></h2>
+            <div className="divider" />
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "15px", color: "var(--muted)", lineHeight: 1.7, marginBottom: "24px" }}>
+              Not a chatbot. A genuine AI coach that reads your actual trade data and gives specific, actionable feedback.
+            </p>
+            {["Claude Code AI integration", "Persistent chat history across sessions", "Policy suggestions from your patterns", "Custom strategy blueprints from your data"].map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+                <span style={{ color: "var(--green)" }}>✓</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)" }}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ flex: "1.3", minWidth: "300px" }}>
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "16px", overflow: "hidden" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--green)", animation: "blink 2s ease infinite" }} />
+                <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", color: "var(--muted)" }}>Trader AI — Powered by Claude Code</span>
+              </div>
+              <div style={{ padding: "16px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                  {aiChats.map((c, i) => (
+                    <button key={i} onClick={() => setActiveChat(i)} style={{ textAlign: "left", background: activeChat === i ? "rgba(59,130,246,0.15)" : "rgba(37,99,235,0.04)", border: activeChat === i ? "1px solid rgba(59,130,246,0.4)" : "1px solid var(--border)", borderRadius: "8px", padding: "10px 14px", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: "13px", color: activeChat === i ? "var(--white)" : "var(--muted)", transition: "all 0.2s ease" }}>
+                      💬 "{c.prompt}"
+                    </button>
+                  ))}
+                </div>
+                <div style={{ background: "rgba(37,99,235,0.04)", borderRadius: "12px", padding: "16px", border: "1px solid var(--border)", borderLeft: "3px solid var(--blue)" }}>
+                  <div style={{ fontFamily: "var(--data)", fontSize: "11px", color: "var(--blue-light)", marginBottom: "8px" }}>🤖 Trader AI</div>
+                  <p style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text)", lineHeight: 1.7 }}>{aiChats[activeChat].response}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── TradeSync ────────────────────────────────────────────────────────────────
+const TradeSync = () => (
+  <section className="section" style={{ background: "var(--bg-alt)" }}>
+    <div className="container">
+      <div style={{ textAlign: "center", marginBottom: "60px" }}>
+        <div className="section-label">TradeSync</div>
+        <h2 className="section-title">Copy Trades. Sell Signals. <span className="gradient-text">Scale Your Strategy.</span></h2>
+        <p className="section-sub" style={{ margin: "0 auto" }}>Connect your account and let followers copy you in real time.</p>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "40px", flexWrap: "wrap", justifyContent: "center", marginBottom: "48px" }}>
+        <div style={{ background: "var(--card)", border: "1px solid rgba(59,130,246,0.4)", borderRadius: "16px", padding: "24px 32px", textAlign: "center", minWidth: "160px" }}>
+          <div style={{ fontFamily: "var(--font-logo)", fontSize: "18px", color: "var(--heading)" }}>Master</div>
+          <div style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--green)", marginTop: "6px" }}>+$12,400 P&L</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
+          <div style={{ height: "2px", width: "80px", background: "linear-gradient(90deg, var(--blue), var(--blue-light))", position: "relative" }}>
+            <div style={{ position: "absolute", right: "-6px", top: "-4px", width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "8px solid var(--blue-light)" }} />
+          </div>
+          <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--muted)" }}>REAL-TIME SYNC</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {["Follower A", "Follower B", "Follower C"].map((f, i) => (
+            <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px 20px", display: "flex", gap: "12px", alignItems: "center" }}>
+              <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: `hsl(${i * 80 + 200},60%,50%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>
+                {f[0]}
+              </div>
+              <div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--heading)" }}>{f}</div>
+                <div style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--green)" }}>Copying @ 0.5x lot</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
+        {[
+          { icon: "🔄", title: "Account Mirroring", desc: "Sync trades from Master to multiple Slave accounts in real time with sub-second execution." },
+          { icon: "⚖️", title: "Risk Controls", desc: "Flexible lot scaling: multiplier, fixed lot, and risk % modes. Full control over exposure." },
+          { icon: "📡", title: "Signal Provider Mode", desc: "Share your trades publicly or privately. Let followers copy you and monetise your edge." },
+        ].map((f, i) => (
+          <div key={i} className="card" style={{ padding: "24px" }}>
+            <div style={{ fontSize: "32px", marginBottom: "12px" }}>{f.icon}</div>
+            <h3 style={{ fontFamily: "var(--font-section)", fontSize: "18px", color: "var(--heading)", marginBottom: "8px" }}>{f.title}</h3>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--muted)", lineHeight: 1.6 }}>{f.desc}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ textAlign: "center", marginTop: "24px" }}>
+        <p style={{ fontFamily: "var(--font-data)", fontSize: "12px", color: "var(--muted)" }}>Platforms: MT4 · MT5 · MatchTrader · cTrader (roadmap)</p>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Signal Scanner ───────────────────────────────────────────────────────────
+const SignalScanner = () => (
+  <section className="section">
+    <div className="container">
+      <div style={{ display: "flex", gap: "60px", alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ flex: "1", minWidth: "280px" }}>
+          <div className="section-label">Signal Scanner</div>
+          <h2 className="section-title">Never Miss <span className="gradient-text">a Setup</span></h2>
+          <div className="divider" />
+          <p style={{ fontFamily: "var(--font-body)", fontSize: "15px", color: "var(--muted)", lineHeight: 1.7, marginBottom: "24px" }}>
+            AI-powered market scanning for Smart Money Concepts, price channels, and institutional candles — with real-time alerts.
+          </p>
+          {["Automated SMC, price channel & institutional candle scanning", "AI validation filters out low-probability setups", "Real-time Telegram & web push notifications"].map((t, i) => (
+            <div key={i} style={{ display: "flex", gap: "12px", marginBottom: "14px" }}>
+              <span style={{ color: "var(--blue-light)" }}>◆</span>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)" }}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: "1.2", minWidth: "300px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          {[
+            { sym: "EUR/USD", type: "SMC Break of Structure", tf: "H1", conf: "HIGH", dir: "▲ BUY", time: "Just now" },
+            { sym: "GOLD", type: "Institutional Candle", tf: "H4", conf: "MEDIUM", dir: "▼ SELL", time: "4m ago" },
+            { sym: "GBP/JPY", type: "Price Channel Break", tf: "M15", conf: "HIGH", dir: "▲ BUY", time: "12m ago" },
+          ].map((s, i) => (
+            <div key={i} className="card" style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-data)", fontSize: "14px", fontWeight: 700, color: "var(--heading)", marginBottom: "3px" }}>{s.sym}</div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: "12px", color: "var(--muted)" }}>{s.type} · {s.tf}</div>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ background: s.conf === "HIGH" ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)", color: s.conf === "HIGH" ? "var(--green)" : "var(--amber)", padding: "3px 8px", borderRadius: "4px", fontSize: "10px", fontFamily: "var(--font-data)" }}>{s.conf}</span>
+                <span style={{ color: s.dir.includes("BUY") ? "var(--green)" : "var(--red)", fontFamily: "var(--font-data)", fontSize: "13px", fontWeight: 700 }}>{s.dir}</span>
+              </div>
+              <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--muted)" }}>{s.time}</span>
+            </div>
+          ))}
+          <div style={{ textAlign: "center", padding: "12px" }}>
+            <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--muted)" }}>📱 Alerts via Telegram + Web Push</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Economic Calendar ────────────────────────────────────────────────────────
+const EconCalendar = () => (
+  <section className="section" style={{ background: "var(--bg-alt)" }}>
+    <div className="container">
+      <div style={{ textAlign: "center", marginBottom: "48px" }}>
+        <div className="section-label">Economic Calendar</div>
+        <h2 className="section-title">Know What's <span className="gradient-text">Moving the Market</span></h2>
+        <p className="section-sub" style={{ margin: "0 auto" }}>Real-time global economic events with currency sentiment overlay.</p>
+      </div>
+      <div style={{ maxWidth: "780px", margin: "0 auto", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "16px", overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {["All", "High", "Medium", "Low"].map((f, i) => (
+              <button key={i} style={{ padding: "5px 12px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "12px", fontFamily: "var(--font-body)", background: i === 1 ? "var(--red)" : "rgba(37,99,235,0.06)", color: i === 1 ? "var(--white)" : "var(--muted)" }}>{f}</button>
+            ))}
+          </div>
+          <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--muted)" }}>Jun 03, 2026 — GMT</span>
+        </div>
+        {[
+          { time: "08:30", ccy: "GBP", impact: "HIGH", event: "BOE Interest Rate Decision", actual: "5.25%", forecast: "5.25%", prev: "5.25%" },
+          { time: "12:30", ccy: "USD", impact: "HIGH", event: "Non-Farm Payrolls", actual: "—", forecast: "185K", prev: "175K" },
+          { time: "14:00", ccy: "USD", impact: "MEDIUM", event: "ISM Manufacturing PMI", actual: "—", forecast: "49.8", prev: "49.2" },
+          { time: "15:30", ccy: "EUR", impact: "LOW", event: "ECB Executive Board Speech", actual: "—", forecast: "—", prev: "—" },
+        ].map((e, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "70px 50px 80px 1fr 80px 80px 80px", gap: "8px", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)", fontSize: "12px", fontFamily: "var(--font-data)" }}>
+            <span style={{ color: "var(--muted)" }}>{e.time}</span>
+            <span style={{ color: "var(--blue-light)", fontWeight: 700 }}>{e.ccy}</span>
+            <span style={{ color: e.impact === "HIGH" ? "var(--red)" : e.impact === "MEDIUM" ? "var(--amber)" : "var(--muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+              {e.impact === "HIGH" ? "●●●" : e.impact === "MEDIUM" ? "●●○" : "●○○"} {e.impact}
+            </span>
+            <span style={{ color: "var(--text)", fontFamily: "var(--font-body)", fontSize: "13px" }}>{e.event}</span>
+            <span style={{ color: "var(--green)", textAlign: "right" }}>{e.actual}</span>
+            <span style={{ color: "var(--muted)", textAlign: "right" }}>{e.forecast}</span>
+            <span style={{ color: "var(--muted)", textAlign: "right" }}>{e.prev}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+const Leaderboard = () => {
+  const traders = [
+    { rank: 1, name: "TraderKing_FX", flag: "🇬🇧", pl: "+$48,320", wr: "72%", streak: 9, avatar: "TK" },
+    { rank: 2, name: "CryptoChief99", flag: "🇺🇸", pl: "+$31,700", wr: "68%", streak: 6, avatar: "CC" },
+    { rank: 3, name: "PipHunterZA", flag: "🇿🇦", pl: "+$28,440", wr: "75%", streak: 11, avatar: "PH" },
+    { rank: 4, name: "GoldTrader_EU", flag: "🇩🇪", pl: "+$21,880", wr: "64%", streak: 4, avatar: "GT" },
+    { rank: 5, name: "FXWizard_NG", flag: "🇳🇬", pl: "+$18,930", wr: "71%", streak: 7, avatar: "FW" },
+  ];
+  return (
+    <section className="section">
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div className="section-label">Community</div>
+          <h2 className="section-title">See How You <span className="gradient-text">Stack Up</span></h2>
+          <p className="section-sub" style={{ margin: "0 auto" }}>Public ranking of traders by P&L, Win Rate, or longest win streak.</p>
+        </div>
+        <div style={{ maxWidth: "700px", margin: "0 auto" }}>
+          {traders.map((t) => (
+            <div key={t.rank} className="card" style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px 20px", marginBottom: "10px" }}>
+              <span style={{ fontFamily: "var(--font-data)", fontSize: "16px", fontWeight: 700, color: t.rank <= 3 ? "var(--amber)" : "var(--muted)", minWidth: "28px" }}>#{t.rank}</span>
+              <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: `hsl(${t.rank * 60 + 180},55%,45%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-head)", fontSize: "14px", fontWeight: 700, color: "var(--heading)", flexShrink: 0 }}>{t.avatar}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: "14px", fontWeight: 600, color: "var(--heading)" }}>{t.name} {t.flag}</div>
+                <div style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--muted)" }}>Win streak: {t.streak} 🔥</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "var(--font-data)", fontSize: "15px", fontWeight: 700, color: "var(--green)" }}>{t.pl}</div>
+                <div style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--muted)" }}>WR {t.wr}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ textAlign: "center", marginTop: "32px" }}>
+            <button className="btn-primary">Create your profile and get ranked</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Brokers ──────────────────────────────────────────────────────────────────
+const Brokers = () => {
+  const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER", "MetaTrader 4", "MetaTrader 5", "cTrader"];
+  return (
+    <section className="section" style={{ background: "var(--bg-alt)" }}>
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <h2 className="section-title">Works With <span className="gradient-text">Your Broker</span></h2>
+          <p className="section-sub" style={{ margin: "0 auto" }}>Automatic trade import — no manual logging required.</p>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "12px" }}>
+          {brokers.map((b, i) => (
+            <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "12px 20px", fontFamily: "var(--font-body)", fontSize: "14px", fontWeight: 500, color: "var(--muted)", transition: "all 0.2s ease", cursor: "default" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(59,130,246,0.4)"; e.currentTarget.style.color = "var(--white)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted)"; }}>
+              {b}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Pricing ──────────────────────────────────────────────────────────────────
+const Pricing = () => {
+  const plans = [
+    {
+      name: "Free", price: "$0", period: "forever", badge: null,
+      desc: "Start tracking your trades with no commitment.",
+      features: ["Core trade stats", "Trade calendar view", "MT4/MT5 integration", "Basic P&L tracking", "Up to 50 trades/month"],
+      cta: "Get Started Free", highlight: false
+    },
+    {
+      name: "Weekly", price: "$7", period: "/ week", badge: null,
+      desc: "Full access for traders testing the waters.",
+      features: ["Everything in Free", "Full trade journal", "Detailed analytics", "Strategy audit", "Unlimited trades"],
+      cta: "Start Weekly", highlight: false
+    },
+    {
+      name: "Monthly", price: "$20", period: "/ month", badge: "Most Popular",
+      desc: "The complete platform for serious traders.",
+      features: ["Everything in Weekly", "AI Coach (Claude Code)", "Behavior analysis", "Export reports (PDF/CSV)", "TradeSync Copier add-on"],
+      cta: "Start Monthly", highlight: true
+    },
+    {
+      name: "Yearly", price: "$180", period: "/ year", badge: "Best Value — $15/mo",
+      desc: "Maximum value for committed traders.",
+      features: ["Everything in Monthly", "SMC Signal Scanner", "Priority support", "Onboarding session", "TradeSync Copier add-on"],
+      cta: "Start Yearly", highlight: false
+    },
+  ];
+  return (
+    <section className="section" id="pricing">
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "60px" }}>
+          <div className="section-label">Pricing</div>
+          <h2 className="section-title">Simple, <span className="gradient-text">Transparent Pricing</span></h2>
+          <p className="section-sub" style={{ margin: "0 auto" }}>Free forever tier. Upgrade when you're ready. No credit card required to start.</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", alignItems: "start" }}>
+          {plans.map((p, i) => (
+            <div key={i} style={{ background: p.highlight ? "linear-gradient(145deg, #1e40af, #1d4ed8)" : "var(--white)", border: p.highlight ? "none" : "1px solid var(--border)", borderRadius: "16px", padding: "28px", position: "relative", transform: p.highlight ? "scale(1.03)" : "none", boxShadow: p.highlight ? "0 0 60px rgba(37,99,235,0.2)" : "none" }}>
+              {p.badge && <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg, var(--blue), var(--blue-light))", color: "white", padding: "4px 14px", borderRadius: "50px", fontSize: "11px", fontFamily: "var(--font-head)", fontWeight: 700, whiteSpace: "nowrap" }}>{p.badge}</div>}
+              <h3 style={{ fontFamily: "var(--font-section)", fontSize: "20px", fontWeight: 700, color: p.highlight ? "#ffffff" : "var(--heading)", marginBottom: "4px" }}>{p.name}</h3>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "8px" }}>
+                <span style={{ fontFamily: "var(--font-data)", fontSize: "36px", fontWeight: 700, color: p.highlight ? "#ffffff" : "var(--heading)" }}>{p.price}</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: p.highlight ? "rgba(255,255,255,0.7)" : "var(--muted)" }}>{p.period}</span>
+              </div>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: p.highlight ? "rgba(255,255,255,0.75)" : "var(--muted)", marginBottom: "20px", lineHeight: 1.5 }}>{p.desc}</p>
+              <div style={{ marginBottom: "24px" }}>
+                {p.features.map((f, fi) => (
+                  <div key={fi} style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+                    <span style={{ color: "var(--green)", fontSize: "13px" }}>✓</span>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text)" }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+              <button className={p.highlight ? "btn-primary" : "btn-outline"} style={{ width: "100%", padding: "13px" }}>{p.cta}</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ maxWidth: "680px", margin: "56px auto 0" }}>
+          <h3 style={{ fontFamily: "var(--font-section)", fontSize: "22px", color: "var(--heading)", marginBottom: "24px", textAlign: "center" }}>Frequently Asked Questions</h3>
+          {[
+            { q: "Is the free plan really free forever?", a: "Yes. The free tier is permanently free with no time limit. You can track up to 50 trades per month with core analytics included." },
+            { q: "Can I import trades automatically from MT4/MT5?", a: "Absolutely. We support automatic trade import from MT4, MT5, and other supported platforms. No manual CSV uploads needed." },
+            { q: "What is TradeSync Copier?", a: "TradeSync is our copy trading add-on that lets you mirror trades from a master account to multiple follower accounts in real time, or become a signal provider." },
+            { q: "Is the AI Coach available on all plans?", a: "The AI Coach is available on Monthly and Yearly plans. It uses Google Claude Code to analyse your personal trade data and provide specific recommendations." },
+          ].map((faq, i) => (
+            <details key={i} style={{ marginBottom: "12px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "16px 20px" }}>
+              <summary style={{ fontFamily: "var(--font-body)", fontSize: "15px", color: "var(--heading)", fontWeight: 600, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between" }}>
+                {faq.q} <span style={{ color: "var(--blue-light)" }}>+</span>
+              </summary>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--muted)", lineHeight: 1.7, marginTop: "12px" }}>{faq.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+const reviews = [
+  { name: "James M.", location: "London, UK", text: "Finally a journal that tracks psychology alongside stats. My discipline score went from 58 to 82 in 6 weeks." },
+  { name: "Fatima A.", location: "Dubai, UAE", text: "The timeframe matrix showed me I was wasting 30% of my trades on M5 during Asian — completely changed my approach." },
+  { name: "Brandon K.", location: "New York, USA", text: "AI Coach told me my reversal setups had a 32% win rate. I had no idea. Removed them and my PF jumped to 2.4." },
+  { name: "Ravi S.", location: "Mumbai, India", text: "TradeSync lets me run my fund accounts in parallel. Was a nightmare before. Now it's one click." },
+  { name: "Amara N.", location: "Lagos, Nigeria", text: "The drawdown analysis is incredible. I can see exactly which weeks destroyed my account and why." },
+  { name: "Sophie R.", location: "Paris, France", text: "Best trading tool I've used. The strategy audit gave my system a B+ and told me exactly where I was leaking." },
+  { name: "Kai T.", location: "Singapore", text: "SMC signal scanner + economic calendar in one place. I used to have 6 tabs open. Now it's just MyfmJournal." },
+  { name: "Diego L.", location: "Buenos Aires, AR", text: "Free plan is genuinely useful. Upgraded after one week. The AI coach alone is worth the subscription." },
+];
+
+const Testimonials = () => (
+  <section className="section" style={{ background: "var(--bg-alt)" }}>
+    <div className="container">
+      <div style={{ textAlign: "center", marginBottom: "60px" }}>
+        <div className="section-label">Reviews</div>
+        <h2 className="section-title">Join 10,000+ Traders Who <span className="gradient-text">Chose MyfmJournal</span></h2>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px", marginBottom: "48px" }}>
+        {reviews.map((r, i) => (
+          <div key={i} className="card" style={{ padding: "22px" }}>
+            <div style={{ color: "var(--amber)", fontSize: "14px", marginBottom: "10px" }}>★★★★★</div>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)", lineHeight: 1.7, marginBottom: "16px", fontStyle: "italic" }}>"{r.text}"</p>
+            <div>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: "13px", fontWeight: 600, color: "var(--heading)" }}>{r.name}</div>
+              <div style={{ fontFamily: "var(--font-data)", fontSize: "11px", color: "var(--muted)" }}>{r.location}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ textAlign: "center" }}>
+        <button className="btn-primary" style={{ fontSize: "16px", padding: "16px 40px" }}>Join us now →</button>
+      </div>
+    </div>
+  </section>
+);
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+const Footer = () => (
+  <footer style={{ background: "#0f172a", borderTop: "1px solid var(--border)", padding: "64px 0 32px" }}>
+    <div className="container">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "40px", marginBottom: "48px" }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-logo)", fontSize: "22px", fontWeight: 800, color: "#f1f5f9", marginBottom: "12px" }}>
+            Myfm<span style={{ color: "var(--blue-light)" }}>Journal</span>
+          </div>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "#94a3b8", lineHeight: 1.6, marginBottom: "20px" }}>
+            The professional trading journal built for traders who take performance seriously.
+          </p>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input placeholder="Your email" style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", padding: "9px 12px", color: "#f1f5f9", fontFamily: "var(--font-body)", fontSize: "13px", outline: "none" }} />
+            <button className="btn-primary" style={{ padding: "9px 16px", fontSize: "13px", whiteSpace: "nowrap" }}>Subscribe</button>
+          </div>
+        </div>
+        <div>
+          <h4 style={{ fontFamily: "var(--font-section)", fontSize: "14px", fontWeight: 600, color: "#f1f5f9", letterSpacing: "1px", marginBottom: "16px" }}>COMMUNITY</h4>
+          {[["𝕏 Twitter (X)", "#"], ["▶ YouTube", "#"], ["f Facebook", "#"], ["📷 Instagram", "#"]].map(([l, h], i) => (
+            <a key={i} href={h} style={{ display: "block", fontFamily: "var(--font-body)", fontSize: "13px", color: "#94a3b8", textDecoration: "none", marginBottom: "10px", transition: "color 0.2s ease" }}
+              onMouseEnter={e => e.target.style.color = "var(--white)"}
+              onMouseLeave={e => e.target.style.color = "#94a3b8"}>{l}</a>
+          ))}
+        </div>
+        <div>
+          <h4 style={{ fontFamily: "var(--font-section)", fontSize: "14px", fontWeight: 600, color: "#f1f5f9", letterSpacing: "1px", marginBottom: "16px" }}>RESOURCES</h4>
+          {["Free Trading Journal", "Sessions", "Economic Calendar", "Blog"].map((l, i) => (
+            <a key={i} href="#" style={{ display: "block", fontFamily: "var(--font-body)", fontSize: "13px", color: "#94a3b8", textDecoration: "none", marginBottom: "10px", transition: "color 0.2s ease" }}
+              onMouseEnter={e => e.target.style.color = "var(--white)"}
+              onMouseLeave={e => e.target.style.color = "#94a3b8"}>{l}</a>
+          ))}
+        </div>
+        <div>
+          <h4 style={{ fontFamily: "var(--font-section)", fontSize: "14px", fontWeight: 600, color: "#f1f5f9", letterSpacing: "1px", marginBottom: "16px" }}>LEGAL</h4>
+          {["Privacy Policy", "Terms of Service", "Support", "Contact"].map((l, i) => (
+            <a key={i} href="#" style={{ display: "block", fontFamily: "var(--font-body)", fontSize: "13px", color: "#94a3b8", textDecoration: "none", marginBottom: "10px", transition: "color 0.2s ease" }}
+              onMouseEnter={e => e.target.style.color = "var(--white)"}
+              onMouseLeave={e => e.target.style.color = "#94a3b8"}>{l}</a>
+          ))}
+        </div>
+      </div>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+        <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", color: "#64748b" }}>© 2026 MyfmJournal. All rights reserved.</span>
+        <div style={{ display: "flex", gap: "20px" }}>
+          {["Privacy", "Terms", "Cookies"].map((l, i) => (
+            <a key={i} href="#" style={{ fontFamily: "var(--font-data)", fontSize: "12px", color: "#64748b", textDecoration: "none" }}>{l}</a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </footer>
+);
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <>
+      <FontLoader />
+      <TickerTape />
+      <Navbar />
+      <Hero />
+      <Features />
+      <LiveDemo />
+      <TimeframeMatrix />
+      <AISection />
+      <TradeSync />
+      <SignalScanner />
+      <EconCalendar />
+      <Leaderboard />
+      <Brokers />
+      <Pricing />
+      <Testimonials />
+      <Footer />
+    </>
+  );
+}
