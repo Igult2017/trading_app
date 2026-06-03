@@ -75,7 +75,11 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     if (!el) return false;
     const header = document.getElementById("site-header");
     const headerH = header ? header.getBoundingClientRect().height : 100;
-    const top = el.getBoundingClientRect().top + window.scrollY - headerH - 20;
+    // Target the inner content div, not the section itself.
+    // Sections have 100px top padding so getBoundingClientRect on the section
+    // puts the heading 100px below the scroll landing point.
+    const inner = (el.firstElementChild as HTMLElement) ?? el;
+    const top = inner.getBoundingClientRect().top + window.scrollY - headerH - 16;
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     return true;
   };
