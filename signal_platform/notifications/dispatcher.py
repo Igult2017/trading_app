@@ -1,19 +1,16 @@
 """
 Notification dispatcher.
 
-Design:
-  • Subscribes to signal_confirmed and signal_closed on the event bus.
-  • Fires Telegram ONLY when those events are emitted — never polled, never scheduled.
-  • One Bot instance is created lazily and reused across all messages.
-  • If a chart PNG exists for the signal, it is sent as a photo with caption.
-  • If Telegram is not configured, all calls are no-ops (logged at DEBUG level).
-  • A failed send is logged but never re-raised — a notification failure must not
-    affect the scanner, storage, or any other platform layer.
+Fires Telegram on signal_confirmed and signal_closed — never polled.
+Retry: up to 3 attempts with 5s delay on transient Telegram errors.
+Event bus is in-process: if the process crashes between emit and send,
+the message is lost. This is acceptable for a single-process deployment;
+a message queue would be needed for crash-safety.
 """
 
+import asyncio
 import logging
 import os
-from pathlib import Path
 
 from config.settings import settings
 from core import event_bus
@@ -22,13 +19,12 @@ from notifications.telegram_formatter import format_signal_confirmed, format_sig
 
 log = logging.getLogger(__name__)
 
-# Single Bot instance — created on first use, reused for all subsequent sends.
-# None when Telegram is not configured.
 _bot = None
+_MAX_RETRIES = 3
+_RETRY_DELAY = 5   # seconds
 
 
 def _get_bot():
-    """Return the shared Bot instance, creating it if needed."""
     global _bot
     if _bot is not None:
         return _bot
@@ -39,32 +35,36 @@ def _get_bot():
         _bot = Bot(token=settings.telegram_bot_token)
         log.info("[dispatcher] Telegram Bot initialised")
     except Exception as exc:
-        log.warning(f"[dispatcher] Failed to create Bot: {exc}")
+        log.warning(f"[dispatcher] Bot init failed: {exc}")
     return _bot
 
 
 async def _send_text(message: str) -> None:
-    """Send a plain text message. No-op when Telegram is not configured."""
     bot = _get_bot()
     if not bot or not settings.telegram_chat_id:
         log.debug("[dispatcher] Telegram not configured — skipping")
         return
-    try:
-        await bot.send_message(
-            chat_id=settings.telegram_chat_id,
-            text=message,
-            parse_mode="MarkdownV2",
-        )
-        log.info("[dispatcher] message sent")
-    except Exception as exc:
-        log.warning(f"[dispatcher] send failed: {exc}")
+
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            await bot.send_message(
+                chat_id=settings.telegram_chat_id,
+                text=message,
+                parse_mode="MarkdownV2",
+            )
+            log.info("[dispatcher] message sent")
+            return
+        except Exception as exc:
+            log.warning(f"[dispatcher] send attempt {attempt}/{_MAX_RETRIES} failed: {exc}")
+            if attempt < _MAX_RETRIES:
+                await asyncio.sleep(_RETRY_DELAY)
+
+    log.error("[dispatcher] all Telegram retries exhausted — message lost")
 
 
 async def _send_photo(chart_path: str, caption: str) -> None:
-    """Send the chart image with caption. Falls back to text if image send fails."""
     bot = _get_bot()
     if not bot or not settings.telegram_chat_id:
-        log.debug("[dispatcher] Telegram not configured — skipping photo")
         return
     try:
         with open(chart_path, "rb") as f:
@@ -76,19 +76,12 @@ async def _send_photo(chart_path: str, caption: str) -> None:
             )
         log.info("[dispatcher] chart photo sent")
     except Exception as exc:
-        log.warning(f"[dispatcher] photo send failed ({exc}) — sending text only")
+        log.warning(f"[dispatcher] photo send failed ({exc}) — falling back to text")
         await _send_text(caption)
 
 
-# ── Event handlers ─────────────────────────────────────────────────────────────
-
 async def on_signal_confirmed(signal: Signal) -> None:
-    """
-    Fired by the event bus when a new signal passes all validation.
-    Sends a full signal card — with chart image if available.
-    """
     message = format_signal_confirmed(signal)
-
     chart = signal.chart_path
     if chart and os.path.isfile(chart):
         await _send_photo(chart, message)
@@ -97,14 +90,9 @@ async def on_signal_confirmed(signal: Signal) -> None:
 
 
 async def on_signal_closed(signal_id: str) -> None:
-    """
-    Fired by the signal monitor when a signal hits TP, SL, or expires.
-    Sends a compact result update.
-    """
     try:
-        from storage import signal_repo
-        from storage.models import SignalModel
         from storage.db import get_session
+        from storage.models import SignalModel
         with get_session() as s:
             row: SignalModel | None = s.get(SignalModel, signal_id)
             if not row:
@@ -120,14 +108,7 @@ async def on_signal_closed(signal_id: str) -> None:
         log.warning(f"[dispatcher] on_signal_closed error: {exc}")
 
 
-# ── Registration ───────────────────────────────────────────────────────────────
-
 def register() -> None:
-    """
-    Call once at boot. Wires both handlers into the event bus.
-    After this, Telegram fires only when the platform emits signal_confirmed
-    or signal_closed — never on a timer, never by polling.
-    """
     event_bus.subscribe(event_bus.SIGNAL_CONFIRMED, on_signal_confirmed)
     event_bus.subscribe(event_bus.SIGNAL_CLOSED,    on_signal_closed)
-    log.info("[dispatcher] registered — listening for signal_confirmed + signal_closed")
+    log.info("[dispatcher] registered — signal_confirmed + signal_closed")

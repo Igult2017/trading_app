@@ -1,19 +1,15 @@
 """
 scan_markets() — concurrent, cache-driven scanner.
 
-Architecture improvements over the naive sequential version:
-  1. PREFETCH — all candles needed this tick are fetched concurrently upfront.
-     The scan loop then reads purely from memory (no IO during scanning).
-  2. CONCURRENT INSTRUMENTS — instruments are scanned in parallel with gather().
-  3. CONCURRENT STRATEGIES — strategies for each instrument run in parallel.
-  4. SINGLE HTF FETCH — trend filter reuses the same candles as the main fetch
-     (count=100 covers the trend filter's 50-bar need automatically).
-  5. SHARED CACHES — candle, indicator, pattern caches are per-instrument and
-     shared across strategies, so work is never duplicated within a tick.
+Runtime pause: create signal_platform/.scan_paused to stop scanning
+without restarting the process. Delete the file to resume.
+chart_generator.generate_chart() is async — offloads to executor so
+matplotlib never blocks the event loop.
 """
 
 import asyncio
 import logging
+import os
 import traceback
 from datetime import datetime, timezone
 
@@ -30,22 +26,23 @@ from shared import trend_detector
 from shared.mtf_utils import to_minutes
 from storage import signal_repo
 from validation import signal_validator
-from validation.signal_validator import register_confirmed
 from validation.ai_validator import validate_chart
 from charting.chart_generator import generate_chart
+from config.settings import settings
 
 log = logging.getLogger(__name__)
-_tick_now: datetime = datetime.now(timezone.utc)   # set once per tick, shared across all calls
+_tick_now: datetime = datetime.now(timezone.utc)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+def _is_paused() -> bool:
+    """Check for the runtime pause file — no restart needed to pause/resume."""
+    paused = os.path.exists(settings.scan_pause_file)
+    if paused:
+        log.info("[scanner] paused — delete .scan_paused to resume")
+    return paused
 
-def _collect_needed_pairs(instruments: list[str],
-                          strategies: list) -> list[tuple[str, str]]:
-    """
-    Before any fetching, collect every (symbol, tf) this tick will need.
-    Deduplication happens inside prefetch_all via set().
-    """
+
+def _collect_needed_pairs(instruments: list[str], strategies: list) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
     for instrument in instruments:
         for strategy in strategies:
@@ -61,7 +58,6 @@ async def _run_strategy(strategy, instrument: str,
                         candle_cache: dict, indicator_cache: dict,
                         pattern_cache: dict, news_context,
                         current_sessions: list) -> None:
-    """Execute one strategy on one instrument. All reads from cache — no IO."""
 
     # Filter 1: instrument
     if (strategy.allowed_instruments is not None
@@ -73,7 +69,7 @@ async def _run_strategy(strategy, instrument: str,
         if not any(s in current_sessions for s in strategy.allowed_sessions):
             return
 
-    # Filter 3: trend — uses candles already in cache (count=100 covers n=50)
+    # Filter 3: trend
     if Trend.ANY not in strategy.allowed_trends:
         htf = max(strategy.required_timeframes, key=to_minutes)
         htf_candles = candle_cache.get(htf, [])
@@ -84,15 +80,13 @@ async def _run_strategy(strategy, instrument: str,
         if trend not in strategy.allowed_trends:
             return
 
-    # Filter 4: news (pass now so it's consistent across the entire tick)
+    # Filter 4: news
     if not news_filter.check(strategy, news_context, instrument, now=_tick_now):
         log.debug(f"[scanner] {instrument}/{strategy.id}: news filter — skip")
         return
 
-    # Build MTFCandles from cache
     candles = build_mtf(candle_cache, strategy.required_timeframes)
 
-    # Compute indicators (shared cache — computed once per instrument per tick)
     for ind_id in strategy.required_indicators:
         if ind_id not in indicator_cache:
             result = indicator_registry.compute(ind_id, candles)
@@ -101,7 +95,6 @@ async def _run_strategy(strategy, instrument: str,
 
     indicators = IndicatorBundle.from_cache(indicator_cache, strategy.required_indicators)
 
-    # Detect patterns (shared cache — detected once per instrument per tick)
     candles_by_tf = {tf: candle_cache[tf]
                      for tf in strategy.required_timeframes
                      if tf in candle_cache}
@@ -111,7 +104,6 @@ async def _run_strategy(strategy, instrument: str,
 
     patterns = PatternBundle.from_cache(pattern_cache, strategy.required_patterns)
 
-    # Run strategy
     try:
         result = await strategy.analyze(candles, indicators, patterns, news_context)
     except Exception:
@@ -119,12 +111,11 @@ async def _run_strategy(strategy, instrument: str,
                   + traceback.format_exc())
         return
 
-    # Validate + store + emit
     valid_signals = signal_validator.validate(result, instrument)
     if not valid_signals:
         return
 
-    htf       = max(strategy.required_timeframes, key=to_minutes)
+    htf = max(strategy.required_timeframes, key=to_minutes)
     pri_candles = candle_cache.get(htf, [])
 
     for signal in valid_signals:
@@ -132,7 +123,8 @@ async def _run_strategy(strategy, instrument: str,
         signal.strategy_name = strategy.name
         signal.symbol        = instrument
 
-        chart_path = generate_chart(pri_candles, signal)
+        # generate_chart is now async — runs in thread pool, never blocks loop
+        chart_path = await generate_chart(pri_candles, signal)
         signal.chart_path = chart_path
 
         if not await validate_chart(chart_path):
@@ -145,18 +137,12 @@ async def _run_strategy(strategy, instrument: str,
         log.info(
             f"[scanner] CONFIRMED — {instrument} "
             f"{signal.direction.value.upper()} "
-            f"confidence={signal.confidence:.0%} "
-            f"strategy={strategy.id}"
+            f"conf={signal.confidence:.0%} strategy={strategy.id}"
         )
 
 
 async def _scan_instrument(instrument: str, strategies: list,
                            news_context, current_sessions: list) -> None:
-    """
-    Scan one instrument against all strategies concurrently.
-    Each strategy shares the candle/indicator/pattern caches for this instrument.
-    """
-    # Build per-instrument cache from the global between-tick candle cache
     all_tfs = {tf for s in strategies for tf in s.required_timeframes
                if s.allowed_instruments is None
                or instrument in (s.allowed_instruments or [])}
@@ -165,12 +151,9 @@ async def _scan_instrument(instrument: str, strategies: list,
         tf: candle_fetcher.candle_cache.get(instrument, tf) or []
         for tf in all_tfs
     }
-
     indicator_cache: dict = {}
     pattern_cache:   dict = {}
 
-    # Run all strategies concurrently — they share the caches above but
-    # each strategy only reads from them, never writes (caches are pre-populated above)
     await asyncio.gather(
         *[_run_strategy(s, instrument, candle_cache, indicator_cache,
                         pattern_cache, news_context, current_sessions)
@@ -179,12 +162,18 @@ async def _scan_instrument(instrument: str, strategies: list,
     )
 
 
-# ── Main entry point ──────────────────────────────────────────────────────────
-
 async def scan_markets() -> None:
     global _tick_now
     _tick_now = datetime.now(timezone.utc)
     now = _tick_now
+
+    if _is_paused():
+        return
+
+    if not settings.scan_enabled:
+        log.debug("[scanner] SCAN_ENABLED=false — skipping tick")
+        return
+
     log.info(f"[scanner] tick at {now.strftime('%H:%M:%S UTC')}")
 
     news_context     = await news_fetcher.fetch(now)
@@ -197,20 +186,14 @@ async def scan_markets() -> None:
 
     strategies = strategy_registry.get_enabled()
     if not strategies:
-        log.debug("[scanner] no strategies registered")
+        log.debug("[scanner] no strategies registered — nothing to do")
         return
 
-    # STEP 1 — Concurrent prefetch: collect all needed (symbol, tf) pairs,
-    # then fetch everything that isn't in cache in one gather() call.
     needed_pairs = _collect_needed_pairs(instruments, strategies)
     await prefetch_all(needed_pairs, count=100)
 
-    log.info(
-        f"[scanner] scanning {len(instruments)} instruments "
-        f"x {len(strategies)} strategies (concurrent)"
-    )
+    log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 
-    # STEP 2 — Scan all instruments concurrently (reads from cache — no IO)
     await asyncio.gather(
         *[_scan_instrument(inst, strategies, news_context, current_sessions)
           for inst in instruments],

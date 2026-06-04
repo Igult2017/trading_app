@@ -1,8 +1,12 @@
 """
 Generates a candlestick chart PNG for a signal.
-Used by the AI validator and optionally attached to Telegram notifications.
+
+matplotlib/mplfinance is synchronous and CPU-bound.
+generate_chart() is async and offloads to a thread pool executor
+so it never blocks the asyncio event loop.
 """
 
+import asyncio
 import logging
 import tempfile
 from pathlib import Path
@@ -12,11 +16,29 @@ from core.types import Candle, Signal
 log = logging.getLogger(__name__)
 
 
-def generate_chart(candles: list[Candle], signal: Signal) -> str | None:
+async def generate_chart(candles: list[Candle], signal: Signal) -> str | None:
     """
-    Render a candlestick chart with entry/SL/TP levels marked.
-    Returns filesystem path to the saved PNG, or None on failure.
+    Async wrapper — renders chart in a thread pool so the event loop stays free.
+    Returns the filesystem path to the PNG, or None on failure.
     """
+    if not candles:
+        return None
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _render_sync, candles, signal),
+            timeout=30,   # chart gen should never take more than 30s
+        )
+    except asyncio.TimeoutError:
+        log.warning("[chart_generator] timed out after 30s")
+        return None
+    except Exception as exc:
+        log.warning(f"[chart_generator] error: {exc}")
+        return None
+
+
+def _render_sync(candles: list[Candle], signal: Signal) -> str | None:
+    """Blocking chart render — runs inside the thread pool executor."""
     try:
         import pandas as pd
         import mplfinance as mpf
@@ -52,11 +74,11 @@ def generate_chart(candles: list[Candle], signal: Signal) -> str | None:
             figsize=(12, 6),
         )
         plt.close("all")
-        log.info(f"[chart_generator] saved → {path}")
+        log.info(f"[chart_generator] saved {path}")
         return str(path)
 
     except Exception as exc:
-        log.warning(f"[chart_generator] failed: {exc}")
+        log.warning(f"[chart_generator] render failed: {exc}")
         return None
 
 
@@ -70,9 +92,8 @@ def _candles_to_df(candles: list[Candle]):
             "Low":    c.low,
             "Close":  c.close,
             "Volume": c.volume,
-        } for c in candles[-100:]]   # last 100 candles max
-        df = pd.DataFrame(data).set_index("Date")
-        return df
+        } for c in candles[-100:]]
+        return pd.DataFrame(data).set_index("Date")
     except Exception:
         import pandas as pd
         return pd.DataFrame()
