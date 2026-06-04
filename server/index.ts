@@ -60,20 +60,22 @@ function startPriceDaemon() {
 
 const app = express();
 
+// Must be first — ensures req.ip is the real client IP when behind nginx/load balancer
+app.set('trust proxy', 1);
+
 // Gzip all responses — cuts payload size 60-80%
 app.use(compression());
 
-// Rate limiting — 300 req/min per IP on API routes (generous for real users, blocks abuse)
+// Rate limiting — 200 req/min per IP on API routes
+// Note: each PM2 worker has its own counter, so effective limit = 200 × worker count.
+// Keeps individual worker safe; adjust down if Redis is added later.
 app.use('/api', rateLimit({
   windowMs: 60_000,
-  max: 300,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests, please try again in a minute.' },
 }));
-
-// Trust proxy headers (required when behind nginx/load balancer for correct IP detection)
-app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
@@ -113,16 +115,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// In PM2 cluster mode each worker gets NODE_APP_INSTANCE = '0', '1', '2'…
+// Background tasks that write to the DB or call external services must only
+// run in one worker — otherwise every restart multiplies scraper load by core count.
+const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
+
 (async () => {
-  try {
-    await initializeDatabase();
-  } catch (dbInitError) {
-    log('[Database] Warning: Database initialization had issues, proceeding anyway');
-    log(String(dbInitError));
+  if (isPrimaryWorker) {
+    try {
+      await initializeDatabase();
+    } catch (dbInitError) {
+      log('[Database] Warning: Database initialization had issues, proceeding anyway');
+      log(String(dbInitError));
+    }
   }
 
   // DISABLED — Assets panel coming soon; uncomment to re-enable price daemon
-  // startPriceDaemon();
+  // if (isPrimaryWorker) startPriceDaemon();
 
   const server = await registerRoutes(app);
 
@@ -157,7 +166,8 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     logServiceStatus();
-    scraperScheduler.start();
+    // Only worker 0 runs scrapers — prevents N-core duplicate DB writes + external API bans
+    if (isPrimaryWorker) scraperScheduler.start();
 
     // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests
     /*
