@@ -24,7 +24,7 @@ export default function TestimonialsSection({ darkMode }: Props) {
 
   return (
     <section
-      id="testimonials"
+      id="reviews"
       className={cn("py-20 overflow-hidden transition-colors duration-300",
         darkMode ? "bg-slate-900/60" : "bg-slate-50/80")}
     >
