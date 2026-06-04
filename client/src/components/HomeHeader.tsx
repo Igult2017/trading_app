@@ -77,7 +77,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       `}</style>
 
       <nav style={{ position: "fixed", top: 0, width: "100%", background: navBg, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${navBorder}`, zIndex: 50, transition: "all 0.4s ease" }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 64 }}>
 
             {/* Logo — identical to footer and homepage nav */}
@@ -163,7 +163,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
         {/* Mobile dropdown */}
         {menuOpen && (
           <div style={{ background: mobBg, borderTop: `1px solid ${navBorder}`, borderBottom: `1px solid ${navBorder}`, boxShadow: "0 16px 32px rgba(0,0,0,0.15)", transition: "all 0.4s ease" }}>
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 grid grid-cols-3 gap-x-4 gap-y-3">
+            <div style={{ maxWidth: 1280, margin: "0 auto", padding: "16px 28px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "12px 16px" }}>
               {[...NAV_LINKS, { label: "Login", href: "/auth" }, { label: "Signup", href: "/auth?mode=signup" }].map(({ label, href }) => {
                 const isHash = href.includes("#");
                 const style: React.CSSProperties = { ...navFont, fontSize: 13, color: linkClr, textDecoration: "none", display: "block" };

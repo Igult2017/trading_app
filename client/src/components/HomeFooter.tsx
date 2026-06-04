@@ -47,8 +47,8 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   return (
     <footer style={{ background: bg, borderTop: `1px solid ${border}`, transition: "all 0.4s ease", ...bodyFont }}>
 
-      {/* ── Main grid — same max-w-6xl / px-4 sm:px-6 lg:px-8 as the nav ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── Same maxWidth:1280 + padding:28px as all page content ── */}
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 py-14">
 
           {/* Brand + newsletter */}
