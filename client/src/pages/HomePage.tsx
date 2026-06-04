@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, Menu, TrendingUp, Sun, Moon } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
+import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 
 export default function HomePage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
@@ -102,73 +102,13 @@ export default function HomePage() {
 
   const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
 
-  const NAV_LINKS = [
-    { label: 'Features', href: '#features' },
-    { label: 'Pricing', href: '/auth?mode=signup' },
-    { label: 'Reviews', href: '#testimonials' },
-    { label: 'Economic Calendar', href: '/calendar' },
-    { label: 'Blog', href: '/blog' },
-    { label: 'Login', href: '/auth?mode=login' },
-    { label: 'Signup', href: '/auth?mode=signup' },
-  ];
-
   return (
     <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'all 0.4s ease', fontFamily: "'Poppins', sans-serif" }}>
 
-      {/* Navigation */}
-      <nav style={{ position: 'fixed', top: 0, width: '100%', background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, zIndex: 50, transition: 'all 0.4s ease' }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <a href="/" style={{ textDecoration: 'none' }}>
-              <span className="text-base tracking-wide" style={{ ...headerFont, color: t.logoWhite }}>
-                Myfm<span style={{ color: '#3b82f6' }}>Journal</span>
-              </span>
-            </a>
+      {/* Unified header — same component used on all pages */}
+      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath="/" />
 
-            <div className="hidden md:flex items-center space-x-6">
-              {NAV_LINKS.map(({ label, href }) => (
-                <a key={label} href={href}
-                  style={{ color: t.navLink, textDecoration: 'none', transition: 'color 0.2s', ...navFont, fontSize: '13px' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = t.navLinkHover)}
-                  onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
-                >{label}</a>
-              ))}
-
-              {/* Dark mode toggle */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '22px', borderRadius: '11px', background: darkMode ? '#1e40af' : '#e2e8f0', border: 'none', cursor: 'pointer', position: 'relative', transition: 'all 0.3s ease', padding: 0 }}
-                aria-label="Toggle dark mode"
-              >
-                <div style={{ position: 'absolute', left: darkMode ? '20px' : '2px', width: '18px', height: '18px', borderRadius: '50%', background: darkMode ? '#60a5fa' : '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {darkMode ? <Moon size={10} color="#0f172a" /> : <Sun size={10} color="#f59e0b" />}
-                </div>
-              </button>
-            </div>
-
-            <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ color: t.text, background: 'none', border: 'none', cursor: 'pointer' }}>
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-
-        {mobileMenuOpen && (
-          <div style={{ background: darkMode ? '#0f172a' : '#ffffff', borderTop: `1px solid ${t.navBorder}`, borderBottom: `1px solid ${t.navBorder}`, boxShadow: '0 16px 32px rgba(0,0,0,0.15)' }}>
-            <div className="px-4 py-4 grid grid-cols-3 gap-x-4 gap-y-3 items-center">
-              {NAV_LINKS.map(({ label, href }) => (
-                <a key={label} href={href} className="block" onClick={() => setMobileMenuOpen(false)}
-                  style={{ color: t.navLink, ...navFont, fontSize: '13px', textDecoration: 'none' }}>{label}</a>
-              ))}
-              <button onClick={() => setDarkMode(!darkMode)} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: t.navLink, background: 'none', border: 'none', cursor: 'pointer', ...navFont, fontSize: '13px' }}>
-                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-                {darkMode ? 'Light' : 'Dark'}
-              </button>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* Hero */}
+      {/* Hero — pt-16 offsets the fixed 64px header */}
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl mb-6 leading-tight" style={{ ...montserrat, color: t.text }}>
