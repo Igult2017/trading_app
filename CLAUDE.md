@@ -160,3 +160,25 @@ All vars live in `.env` at project root (loaded by `dotenv/config`). Signal plat
 - **Auto-push to GitHub** — a Stop hook is configured to push to `origin/main` after every session; do not disable it
 - **Schema changes** — edit `shared/schema.ts` then run `npm run db:push`; never write raw SQL migrations
 - **Server routes** — all API endpoints go in `server/routes.ts` via the `registerRoutes(app)` function; there is no `routes/` subdirectory
+
+---
+
+## UI Design Rules
+
+When doing ANY frontend, UI, or component work — automatically do both of these without being asked:
+
+1. **Always use context7** for live library documentation before writing code that touches:
+   - Tailwind CSS classes or config
+   - shadcn/ui components
+   - Radix UI primitives  
+   - React Query / TanStack
+   - Drizzle ORM
+   - Any npm package in this project
+   Add "use context7" internally before generating any component code.
+
+2. **Always use magic** to search the 21st.dev component library before building any UI element from scratch:
+   - Buttons, cards, modals, tables, forms, charts, navbars, sidebars
+   - Any visual component that could plausibly exist in a design system
+   Search magic first — install if found, build from scratch only if not found.
+
+These rules apply automatically. The user does not need to say "use context7" or "use magic" — Claude must trigger them on any UI task.
