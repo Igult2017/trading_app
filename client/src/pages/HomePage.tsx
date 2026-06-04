@@ -23,7 +23,14 @@ const mobileFeatures = [
   { icon: <Check className="w-5 h-5" />, title: "Lightweight and optimised" },
 ];
 
-const brokers = ["InstaForex", "LMAX Exchange", "Pepperstone", "TICKMILL", "Admirals", "AXITRADER"];
+const brokers = [
+  { name: "InstaForex",   domain: "instaforex.com" },
+  { name: "LMAX Exchange", domain: "lmax.com" },
+  { name: "Pepperstone",  domain: "pepperstone.com" },
+  { name: "TICKMILL",     domain: "tickmill.com" },
+  { name: "Admirals",     domain: "admiralsmarkets.com" },
+  { name: "AXITRADER",    domain: "axitrader.com" },
+];
 
 export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -94,7 +101,17 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <h3 className="text-center text-2xl mb-12" style={{ ...headerFont, color: t.textMuted }}>Compatible with Brokers</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center">
-            {brokers.map((b, i) => <div key={i} className="text-center" style={{ color: t.textMuted, fontWeight: 600, fontSize: '14px' }}>{b}</div>)}
+            {brokers.map((b, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 group">
+                <img
+                  src={`https://logo.clearbit.com/${b.domain}`}
+                  alt={b.name}
+                  className={`h-8 w-auto object-contain transition-all duration-300 group-hover:scale-110 ${darkMode ? 'brightness-0 invert opacity-60 group-hover:opacity-100' : 'opacity-50 group-hover:opacity-100'}`}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement).style.display = 'block'; }}
+                />
+                <span style={{ display: 'none', color: t.textMuted, fontWeight: 600, fontSize: '13px' }}>{b.name}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
