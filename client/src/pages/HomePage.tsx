@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight } from 'lucide-react';
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import { AuroraBackground } from "@/components/ui/aurora-background";
+import PhoneMockup from "@/components/PhoneMockup";
 
 const headerFont = { fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.02em' } as const;
 const navFont = { fontFamily: "'Montserrat', sans-serif", fontWeight: 800 } as const;
@@ -144,48 +145,7 @@ export default function HomePage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="flex justify-center lg:justify-start">
-            <div style={{ width: '300px', background: t.mobilePhoneBg, borderRadius: '40px', border: `2px solid ${t.mobilePhoneBorder}`, boxShadow: t.mobilePhoneShadow, overflow: 'hidden', transition: 'all 0.4s ease' }}>
-              <div style={{ background: t.mobileTopBar, padding: '16px 20px 12px', borderBottom: `1px solid ${t.mobileTopBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: '10px', letterSpacing: '0.05em' }}>
-                  <span style={{ color: t.text }}>Myfm</span><span style={{ color: '#3b82f6' }}>Journal</span>
-                </span>
-                <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #2563eb, #60a5fa)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <TrendingUp size={13} color="white" />
-                </div>
-              </div>
-              <div style={{ padding: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                  {[{ value: '67.92%', label: 'Winrate', w: '68%' }, { value: '97.46%', label: 'Daily Winrate', w: '97%' }].map((s, i) => (
-                    <div key={i} style={{ background: t.mobileCard, borderRadius: '14px', padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
-                      <div style={{ fontSize: '20px', fontWeight: 700, color: t.mobileStatValue }}>{s.value}</div>
-                      <div style={{ fontSize: '10px', color: t.mobileLabel, marginTop: '4px' }}>{s.label}</div>
-                      <div style={{ marginTop: '8px', height: '3px', background: t.mobileBarBg, borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ width: s.w, height: '100%', background: 'linear-gradient(to right, #2563eb, #60a5fa)' }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background: t.mobileCard, borderRadius: '14px', padding: '16px', border: `1px solid ${t.mobileCardBorder}`, marginBottom: '10px' }}>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: t.mobileStatValue }}>€19,800.72</div>
-                  <div style={{ fontSize: '10px', color: t.mobileLabel, marginTop: '4px' }}>Total Profit</div>
-                  <svg viewBox="0 0 180 30" style={{ width: '100%', height: '30px', marginTop: '10px' }}>
-                    <defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#2563eb" /><stop offset="100%" stopColor="#60a5fa" /></linearGradient></defs>
-                    <polyline points="0,25 20,20 40,22 60,15 80,17 100,12 120,10 140,13 160,9 180,6" fill="none" stroke="url(#cg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {[{ value: '1,131', label: 'Trades' }, { value: '0.89', label: 'Avg Win/Loss' }].map((s, i) => (
-                    <div key={i} style={{ background: t.mobileCard, borderRadius: '14px', padding: '14px 12px', border: `1px solid ${t.mobileCardBorder}` }}>
-                      <div style={{ fontSize: '20px', fontWeight: 700, color: t.mobileStatValue }}>{s.value}</div>
-                      <div style={{ fontSize: '10px', color: t.mobileLabel, marginTop: '4px' }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{ padding: '12px 20px 20px', display: 'flex', justifyContent: 'center' }}>
-                <div style={{ width: '40px', height: '4px', background: t.mobileHomebar, borderRadius: '2px' }} />
-              </div>
-            </div>
+            <PhoneMockup darkMode={darkMode} />
           </div>
           <div>
             <h2 className="text-4xl mb-4" style={{ ...headerFont, color: t.text }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
