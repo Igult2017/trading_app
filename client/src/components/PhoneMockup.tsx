@@ -28,7 +28,7 @@ export default function PhoneMockup({ darkMode: d }: Props) {
 
   const StatCard = ({ value, label, barW }: { value: string; label: string; barW?: string }) => (
     <div style={{ background: card, borderRadius: 16, padding: '11px 13px', border: `1px solid ${cardBdr}` }}>
-      <div style={{ ...DM_MONO, fontSize: 18, fontWeight: 500, color: val, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
+      <div style={{ ...DM_MONO, fontSize: 14, fontWeight: 500, color: val, letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 9, color: lbl, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
       {barW && (
         <div style={{ marginTop: 8, height: 2, background: bar, borderRadius: 2, overflow: 'hidden' }}>
@@ -88,7 +88,7 @@ export default function PhoneMockup({ darkMode: d }: Props) {
               </div>
 
               <div style={{ background: card, borderRadius: 16, padding: '12px 14px', border: `1px solid ${cardBdr}` }}>
-                <div style={{ ...DM_MONO, fontSize: 22, fontWeight: 500, color: val, letterSpacing: '-0.04em', lineHeight: 1 }}>€19,800.72</div>
+                <div style={{ ...DM_MONO, fontSize: 17, fontWeight: 500, color: val, letterSpacing: '-0.03em', lineHeight: 1 }}>$19,800.72</div>
                 <div style={{ fontSize: 9, color: lbl, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Profit</div>
                 <svg viewBox="0 0 210 28" style={{ width: '100%', height: 28, marginTop: 10 }}>
                   <defs>
