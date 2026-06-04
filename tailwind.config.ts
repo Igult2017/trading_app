@@ -103,8 +103,9 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Poppins',
-  				'var(--font-sans)'
+  				'Inter',
+  				'system-ui',
+  				'sans-serif'
   			],
   			serif: [
   				'var(--font-serif)'
@@ -112,19 +113,6 @@ export default {
   			mono: [
   				'JetBrains Mono',
   				'var(--font-mono)'
-  			],
-  			display: [
-  				'Montserrat',
-  				'sans-serif'
-  			],
-  			body: [
-  				'Montserrat',
-  				'Inter',
-  				'sans-serif'
-  			],
-  			data: [
-  				'JetBrains Mono',
-  				'monospace'
   			]
   		},
   		spacing: {

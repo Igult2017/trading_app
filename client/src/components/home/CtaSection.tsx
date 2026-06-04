@@ -3,47 +3,39 @@ import { BROKERS } from "./constants";
 export default function CtaSection() {
   return (
     <>
-      <section className="py-20 bg-[#060b14]">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-10">
-            <h2 className="font-display text-3xl font-extrabold text-white mb-3">
-              Works With <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Your Broker</span>
-            </h2>
-            <p className="font-body text-slate-400">Automatic trade import — no manual logging required.</p>
-          </div>
+      {/* Brokers */}
+      <section className="bg-[#090910] py-20 border-y border-white/[0.06]">
+        <div className="max-w-5xl mx-auto px-6">
+          <p className="text-center text-[13px] text-[#5a5a6a] mb-8">Works with your existing broker setup</p>
           <div className="flex flex-wrap justify-center gap-3">
             {BROKERS.map(b => (
-              <div key={b} className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 font-body text-sm text-slate-400 hover:border-blue-500/30 hover:text-slate-200 transition-all cursor-default">
-                {b}
-              </div>
+              <span key={b} className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-2 text-[13px] text-[#5a5a6a] hover:text-[#9898a8] hover:border-white/[0.12] transition-colors cursor-default">{b}</span>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="relative py-28 bg-[#020817] overflow-hidden">
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-[radial-gradient(ellipse,rgba(37,99,235,0.12),transparent_70%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(37,99,235,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(37,99,235,0.04)_1px,transparent_1px)] bg-[size:40px_40px]" />
-
-        <div className="relative max-w-3xl mx-auto px-6 text-center">
-          <span className="text-xs font-display font-bold tracking-[3px] uppercase text-blue-500 block mb-4">Get Started</span>
-          <h2 className="font-display text-5xl font-extrabold text-white mb-5 leading-tight">
-            Start Building Your Edge{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Today</span>
+      {/* Final CTA */}
+      <section className="relative bg-[#090910] py-32 overflow-hidden">
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[radial-gradient(ellipse,rgba(99,102,241,0.1),transparent_70%)]" />
+        <div className="relative max-w-2xl mx-auto px-6 text-center">
+          <h2 className="text-5xl font-bold text-[#f0f0f5] tracking-tight leading-[1.1] mb-5">
+            Ready to trade with clarity?
           </h2>
-          <p className="font-body text-slate-400 text-lg mb-10 leading-relaxed">
-            Free forever tier. No credit card required. Cancel anytime.
+          <p className="text-[#9898a8] text-[17px] mb-10 leading-relaxed">
+            Join 10,000+ traders who stopped guessing and started knowing. Free forever tier — no card required.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <a href="/auth?mode=signup" target="myfm_journal"
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 hover:bg-blue-500 px-10 py-4 text-base font-display font-bold text-white shadow-[0_4px_24px_rgba(37,99,235,0.45)] hover:shadow-[0_8px_40px_rgba(37,99,235,0.6)] transition-all duration-300">
-              Create Your Free Account
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[16px] px-8 py-4 transition-colors">
+              Start journaling free
             </a>
             <a href="/calendar"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-600 hover:border-blue-500/60 px-8 py-4 text-base font-display font-semibold text-slate-300 hover:text-blue-400 transition-all duration-300">
-              Explore Calendar
+              className="rounded-lg border border-white/[0.12] hover:border-white/[0.2] text-[#9898a8] hover:text-[#f0f0f5] font-semibold text-[16px] px-8 py-4 transition-colors">
+              View economic calendar
             </a>
           </div>
+          <p className="text-[13px] text-[#5a5a6a] mt-6">No credit card · Free forever tier · Cancel anytime</p>
         </div>
       </section>
     </>

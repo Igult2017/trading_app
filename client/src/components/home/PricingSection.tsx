@@ -1,60 +1,55 @@
-import { motion } from "framer-motion";
 import { PRICING_PLANS } from "./constants";
 
 export default function PricingSection() {
   return (
-    <section id="pricing" className="py-24 bg-[#060b14]">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="text-center mb-14">
-          <span className="text-xs font-display font-bold tracking-[3px] uppercase text-blue-500 block mb-3">Pricing</span>
-          <h2 className="font-display text-4xl font-extrabold text-white mb-4">
-            Simple,{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Transparent Pricing</span>
-          </h2>
-          <p className="font-body text-slate-400 text-lg max-w-lg mx-auto">Free forever tier. Upgrade when you&apos;re ready. No credit card required.</p>
+    <section id="pricing" className="bg-[#090910] py-28">
+      <div className="max-w-5xl mx-auto px-6">
+
+        <div className="text-center mb-16">
+          <p className="text-[13px] font-medium text-indigo-400 tracking-widest uppercase mb-4">Pricing</p>
+          <h2 className="text-4xl font-bold text-[#f0f0f5] tracking-tight mb-4">Start free. Upgrade when ready.</h2>
+          <p className="text-[#9898a8] text-[16px]">No credit card required. Cancel anytime.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {PRICING_PLANS.map((p, i) => (
-            <motion.div key={i}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
-              className={`relative rounded-2xl p-6 ${
+            <div key={i}
+              className={`relative rounded-xl p-6 ${
                 p.highlight
-                  ? "bg-gradient-to-b from-blue-800 to-blue-900 border border-blue-500/40 shadow-[0_0_60px_rgba(37,99,235,0.25)] scale-[1.03]"
-                  : "bg-white/[0.03] border border-white/[0.07]"
+                  ? "bg-indigo-600 border border-indigo-500"
+                  : "bg-white/[0.03] border border-white/[0.08]"
               }`}>
               {p.badge && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-1 text-[11px] font-display font-bold text-white whitespace-nowrap shadow-lg">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-white text-indigo-700 px-3 py-0.5 text-[11px] font-bold whitespace-nowrap">
                   {p.badge}
                 </div>
               )}
-              <h3 className={`font-display text-lg font-bold mb-1 ${p.highlight ? "text-white" : "text-slate-200"}`}>{p.name}</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className={`font-data text-4xl font-black ${p.highlight ? "text-white" : "text-white"}`}>{p.price}</span>
-                <span className={`font-body text-sm ${p.highlight ? "text-blue-200/70" : "text-slate-500"}`}>{p.period}</span>
+              <p className={`font-semibold text-[16px] mb-3 ${p.highlight ? "text-white" : "text-[#f0f0f5]"}`}>{p.name}</p>
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className={`text-[36px] font-bold font-mono ${p.highlight ? "text-white" : "text-[#f0f0f5]"}`}>{p.price}</span>
+                <span className={`text-[13px] ${p.highlight ? "text-indigo-200" : "text-[#5a5a6a]"}`}>{p.period}</span>
               </div>
-              <div className="space-y-2.5 mb-6">
+              <p className={`text-[13px] mb-6 leading-relaxed ${p.highlight ? "text-indigo-200" : "text-[#5a5a6a]"}`}>{p.desc}</p>
+              <div className="space-y-2 mb-6">
                 {p.features.map((f, fi) => (
-                  <div key={fi} className="flex items-start gap-2.5">
-                    <span className="text-emerald-400 text-sm mt-0.5 shrink-0">✓</span>
-                    <span className={`font-body text-[13px] ${p.highlight ? "text-blue-100/80" : "text-slate-400"}`}>{f}</span>
+                  <div key={fi} className="flex items-start gap-2">
+                    <span className={`text-sm mt-0.5 ${p.highlight ? "text-indigo-200" : "text-emerald-400"}`}>✓</span>
+                    <span className={`text-[13px] leading-snug ${p.highlight ? "text-indigo-100" : "text-[#9898a8]"}`}>{f}</span>
                   </div>
                 ))}
               </div>
               <a href="/auth?mode=signup" target="myfm_journal"
-                className={`block text-center rounded-full py-3 text-sm font-display font-bold transition-all ${
+                className={`block text-center rounded-lg py-2.5 text-[14px] font-semibold transition-colors ${
                   p.highlight
-                    ? "bg-white text-blue-700 hover:bg-blue-50"
-                    : "border border-white/[0.12] text-slate-300 hover:border-blue-500/50 hover:text-blue-400"
+                    ? "bg-white text-indigo-700 hover:bg-indigo-50"
+                    : "border border-white/[0.12] text-[#9898a8] hover:border-indigo-500/40 hover:text-indigo-400"
                 }`}>
                 {p.cta}
               </a>
-            </motion.div>
+            </div>
           ))}
         </div>
+
       </div>
     </section>
   );

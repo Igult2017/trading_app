@@ -1,55 +1,59 @@
 import { motion } from "framer-motion";
 
-const STATS = [
-  { value: "$0",    label: "Free forever tier" },
-  { value: "67.3%", label: "Avg user win rate" },
-  { value: "2.4x",  label: "Profit factor tracked" },
+const METRICS = [
+  { label: "Net P&L",       value: "+$4,827", color: "text-emerald-400" },
+  { label: "Win Rate",      value: "67.3%",   color: "text-indigo-400"  },
+  { label: "Profit Factor", value: "2.41",    color: "text-emerald-400" },
 ];
 
 const TRADES = [
-  { pair: "EUR/USD", dir: "BUY",  r: "+2.3R", time: "09:42", win: true },
-  { pair: "GOLD",    dir: "SELL", r: "+1.1R", time: "11:15", win: true },
-  { pair: "GBP/USD", dir: "BUY",  r: "-0.8R", time: "14:33", win: false },
+  { pair: "EUR/USD", dir: "BUY",  r: "+2.3R", win: true  },
+  { pair: "GOLD",    dir: "SELL", r: "+1.1R", win: true  },
+  { pair: "GBP/USD", dir: "BUY",  r: "-0.8R", win: false },
 ];
 
-function DashboardPreview() {
+function ProductPreview() {
   return (
-    <div className="relative rounded-2xl border border-white/10 bg-[#0f172a] p-4 shadow-[0_32px_80px_rgba(37,99,235,0.2)] overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-600 via-blue-400 to-transparent" />
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-[10px] text-slate-500 font-data tracking-widest">PORTFOLIO OVERVIEW</span>
-        <span className="text-[10px] text-emerald-400 font-data flex items-center gap-1">
-          <span className="animate-pulse">●</span> LIVE
-        </span>
+    <div className="rounded-xl border border-white/[0.08] bg-[#0f0f1a] overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.15)]">
+      {/* Window chrome */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+        <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+        <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+        <span className="ml-3 text-[11px] text-[#5a5a6a] font-mono">trade-journal — dashboard</span>
       </div>
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {[["Net P&L", "+$4,827", "text-emerald-400"], ["Win Rate", "67.3%", "text-blue-400"], ["Profit Factor", "2.41", "text-emerald-400"]].map(([l, v, c]) => (
-          <div key={l} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-2.5">
-            <div className="text-[9px] text-slate-500 font-body mb-1">{l}</div>
-            <div className={`text-sm font-bold font-data ${c}`}>{v}</div>
+      {/* Metrics */}
+      <div className="grid grid-cols-3 gap-px bg-white/[0.04] border-b border-white/[0.06]">
+        {METRICS.map(({ label, value, color }) => (
+          <div key={label} className="bg-[#0f0f1a] px-4 py-4">
+            <p className="text-[11px] text-[#5a5a6a] mb-1.5">{label}</p>
+            <p className={`text-xl font-bold font-mono ${color}`}>{value}</p>
           </div>
         ))}
       </div>
-      <div className="bg-blue-950/20 border border-white/[0.05] rounded-xl p-3 mb-3">
-        <div className="text-[9px] text-slate-500 mb-2 font-data tracking-widest">EQUITY CURVE (30D)</div>
-        <svg viewBox="0 0 300 44" className="w-full h-11">
+      {/* Equity curve */}
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-[10px] text-[#5a5a6a] font-mono tracking-widest mb-3">EQUITY CURVE — 30 DAYS</p>
+        <svg viewBox="0 0 400 60" className="w-full h-14">
           <defs>
-            <linearGradient id="hg" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+            <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
             </linearGradient>
           </defs>
-          <path d="M0,40 L30,34 L60,36 L90,24 L120,26 L150,14 L180,10 L210,4 L240,6 L270,2 L300,0" fill="none" stroke="#3b82f6" strokeWidth="1.5" />
-          <path d="M0,40 L30,34 L60,36 L90,24 L120,26 L150,14 L180,10 L210,4 L240,6 L270,2 L300,0 L300,44 L0,44 Z" fill="url(#hg)" />
+          <path d="M0,55 C30,50 50,48 80,40 C110,32 130,34 160,22 C190,10 210,14 240,8 C270,2 300,5 330,3 C360,1 380,2 400,0"
+            fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M0,55 C30,50 50,48 80,40 C110,32 130,34 160,22 C190,10 210,14 240,8 C270,2 300,5 330,3 C360,1 380,2 400,0 L400,60 L0,60 Z"
+            fill="url(#eq)" />
         </svg>
       </div>
-      <div className="space-y-1.5">
+      {/* Trades */}
+      <div className="px-4 pb-4 space-y-1.5">
         {TRADES.map((t) => (
-          <div key={t.pair} className="flex justify-between items-center px-2.5 py-1.5 rounded-lg bg-blue-950/20 border border-white/[0.04]">
-            <span className="text-[11px] font-semibold text-slate-200 font-data">{t.pair}</span>
-            <span className={`text-[9px] font-data ${t.dir === "BUY" ? "text-emerald-400" : "text-red-400"}`}>{t.dir}</span>
-            <span className={`text-[11px] font-bold font-data ${t.win ? "text-emerald-400" : "text-red-400"}`}>{t.r}</span>
-            <span className="text-[9px] text-slate-500 font-data">{t.time}</span>
+          <div key={t.pair} className="flex items-center justify-between rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2.5">
+            <span className="text-[13px] font-semibold text-[#f0f0f5] font-mono">{t.pair}</span>
+            <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${t.dir === "BUY" ? "text-emerald-400 bg-emerald-400/10" : "text-red-400 bg-red-400/10"}`}>{t.dir}</span>
+            <span className={`text-[13px] font-bold font-mono ${t.win ? "text-emerald-400" : "text-red-400"}`}>{t.r}</span>
           </div>
         ))}
       </div>
@@ -59,69 +63,52 @@ function DashboardPreview() {
 
 export default function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-[#020817] pt-20 pb-24">
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(37,99,235,0.12),transparent_70%)]" />
-      <div className="pointer-events-none absolute top-1/3 left-[5%] w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.06),transparent_70%)]" />
+    <section className="relative bg-[#090910] pt-24 pb-20 overflow-hidden">
+      {/* Single subtle glow — one only */}
+      <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.1),transparent_65%)]" />
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="flex flex-col lg:flex-row items-center gap-14">
+      <div className="relative max-w-6xl mx-auto px-6">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-          <div className="flex-1 min-w-0 z-10">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 mb-6">
-              <span className="text-amber-400 text-sm">★★★★★</span>
-              <span className="text-sm font-body text-blue-300">Trusted by 10,000+ traders</span>
-            </motion.div>
+          {/* Left — copy */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 mb-8">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+              <span className="text-[13px] text-indigo-300 font-medium">Trusted by 10,000+ traders</span>
+            </div>
 
-            <motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
-              className="font-display text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-5">
-              The Trading Journal<br />
-              <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                That Works As Hard
-              </span><br />
-              As You Do
-            </motion.h1>
+            {/* Headline */}
+            <h1 className="text-5xl lg:text-[58px] font-bold text-[#f0f0f5] leading-[1.1] tracking-[-0.02em] mb-6">
+              Stop trading blind.<br />
+              <span className="text-[#9898a8] font-normal">Start trading</span>{" "}
+              with proof.
+            </h1>
 
-            <motion.p initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
-              className="font-body text-slate-400 text-lg leading-relaxed mb-5 max-w-lg">
-              Execution database + performance analytics for Forex, Crypto & Commodities traders.
-            </motion.p>
+            {/* Sub */}
+            <p className="text-[#9898a8] text-lg leading-[1.7] mb-8 max-w-[480px]">
+              The trading journal that automatically surfaces your patterns, tracks your psychology, and shows you exactly where your edge breaks down.
+            </p>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-wrap gap-4 mb-8">
-              {["Log trades", "Capture decisions", "Track psychology", "Build your edge"].map((item) => (
-                <span key={item} className="flex items-center gap-1.5 text-xs font-data text-blue-400">
-                  <span className="text-emerald-400">◆</span>{item}
-                </span>
-              ))}
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex flex-wrap gap-3 mb-10">
+            {/* CTAs */}
+            <div className="flex flex-wrap items-center gap-4 mb-10">
               <a href="/auth?mode=signup" target="myfm_journal"
-                className="inline-flex items-center gap-2 rounded-full bg-blue-600 hover:bg-blue-500 px-8 py-3.5 text-sm font-display font-bold text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)] hover:shadow-[0_8px_32px_rgba(37,99,235,0.5)] transition-all duration-300">
-                Start Free — No Credit Card
+                className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[15px] px-6 py-3 transition-colors">
+                Start journaling free
               </a>
               <button onClick={() => document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-600 hover:border-blue-500 px-7 py-3.5 text-sm font-display font-semibold text-slate-300 hover:text-blue-400 transition-all duration-300">
-                See How It Works ↓
+                className="text-[#9898a8] hover:text-[#f0f0f5] font-medium text-[15px] transition-colors flex items-center gap-1.5">
+                See how it works <span className="text-lg">→</span>
               </button>
-            </motion.div>
+            </div>
 
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.6 }}
-              className="flex flex-wrap gap-8">
-              {STATS.map(({ value, label }) => (
-                <div key={label}>
-                  <div className="text-2xl font-bold font-data text-white">{value}</div>
-                  <div className="text-xs font-body text-slate-500">{label}</div>
-                </div>
-              ))}
-            </motion.div>
-          </div>
+            {/* Trust */}
+            <p className="text-[13px] text-[#5a5a6a]">No credit card required · Cancel anytime</p>
+          </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }}
-            className="flex-1 min-w-0 w-full max-w-md lg:max-w-[440px]">
-            <DashboardPreview />
+          {/* Right — product */}
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.15 }}>
+            <ProductPreview />
           </motion.div>
 
         </div>

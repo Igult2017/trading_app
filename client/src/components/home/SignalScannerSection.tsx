@@ -1,59 +1,56 @@
-import { motion } from "framer-motion";
-
 const SIGNALS = [
-  { sym: "EUR/USD", type: "SMC Break of Structure", tf: "H1",  conf: "HIGH",   dir: "▲ BUY",  time: "Just now", buy: true  },
-  { sym: "GOLD",   type: "Institutional Candle",   tf: "H4",  conf: "MEDIUM", dir: "▼ SELL", time: "4m ago",   buy: false },
-  { sym: "GBP/JPY",type: "Price Channel Break",    tf: "M15", conf: "HIGH",   dir: "▲ BUY",  time: "12m ago",  buy: true  },
+  { sym: "EUR/USD", type: "SMC Break of Structure", tf: "H1",  conf: "HIGH",   buy: true,  time: "Just now" },
+  { sym: "GOLD",   type: "Institutional Candle",   tf: "H4",  conf: "MEDIUM", buy: false, time: "4m ago"   },
+  { sym: "GBP/JPY",type: "Price Channel Break",    tf: "M15", conf: "HIGH",   buy: true,  time: "12m ago"  },
 ];
 
 export default function SignalScannerSection() {
   return (
-    <section className="py-24 bg-[#020817]">
+    <section className="bg-[#0d0d16] py-28">
       <div className="max-w-6xl mx-auto px-6">
-        <div className="flex flex-col lg:flex-row gap-16 items-start">
-          <div className="flex-1 min-w-0">
-            <span className="text-xs font-display font-bold tracking-[3px] uppercase text-blue-500 block mb-3">Signal Scanner</span>
-            <h2 className="font-display text-4xl font-extrabold text-white mb-2 leading-tight">
-              Never Miss <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">a Setup</span>
-            </h2>
-            <div className="w-12 h-[3px] rounded-full bg-blue-600 mt-4 mb-6" />
-            <p className="font-body text-slate-400 text-[15px] leading-relaxed mb-6">
-              AI-powered market scanning for Smart Money Concepts, price channels, and institutional candles — with real-time alerts.
-            </p>
-            {["Automated SMC, price channel & institutional candle scanning","AI validation filters out low-probability setups","Real-time Telegram & web push notifications"].map((t, i) => (
-              <div key={i} className="flex items-start gap-3 mb-3">
-                <span className="text-blue-400 mt-0.5">◆</span>
-                <span className="font-body text-slate-300 text-sm">{t}</span>
-              </div>
-            ))}
-          </div>
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-          <div className="flex-[1.3] min-w-0 w-full space-y-3">
-            {SIGNALS.map((s, i) => (
-              <motion.div key={i}
-                initial={{ opacity: 0, x: 24 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
-                whileHover={{ x: 4 }}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4 hover:border-blue-500/25 transition-all">
-                <div className="min-w-0">
-                  <div className="font-display text-white font-bold text-sm mb-0.5">{s.sym}</div>
-                  <div className="font-body text-slate-400 text-[11px]">{s.type} · {s.tf}</div>
+          <div>
+            <p className="text-[13px] font-medium text-indigo-400 tracking-widest uppercase mb-4">Signal Scanner</p>
+            <h2 className="text-4xl font-bold text-[#f0f0f5] tracking-tight leading-[1.15] mb-4">
+              Never miss a setup again.
+            </h2>
+            <p className="text-[#9898a8] text-[16px] leading-relaxed mb-8">
+              AI-powered scanning across Smart Money Concepts, institutional candles, and price channels — with alerts sent directly to your phone.
+            </p>
+            <div className="space-y-3">
+              {["Automated multi-timeframe scanning", "AI validation removes low-probability setups", "Telegram + web push notifications"].map((t, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                  <span className="text-[#9898a8] text-[15px]">{t}</span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`rounded-md px-2 py-0.5 text-[9px] font-data font-bold ${
-                    s.conf === "HIGH" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                  }`}>{s.conf}</span>
-                  <span className={`font-data font-bold text-sm ${s.buy ? "text-emerald-400" : "text-red-400"}`}>{s.dir}</span>
-                </div>
-                <span className="font-data text-slate-500 text-[11px] shrink-0">{s.time}</span>
-              </motion.div>
-            ))}
-            <div className="text-center pt-2">
-              <span className="font-body text-slate-500 text-xs">📱 Alerts via Telegram + Web Push</span>
+              ))}
             </div>
           </div>
+
+          <div className="space-y-3">
+            {SIGNALS.map((s, i) => (
+              <div key={i} className="rounded-xl border border-white/[0.08] bg-[#0f0f1a] px-5 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-mono font-bold text-[15px] text-[#f0f0f5] mb-0.5">{s.sym}</p>
+                  <p className="text-[12px] text-[#5a5a6a]">{s.type} · {s.tf}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`text-[11px] font-mono px-2 py-0.5 rounded border ${
+                    s.conf === "HIGH"
+                      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+                      : "border-amber-500/25 bg-amber-500/10 text-amber-400"
+                  }`}>{s.conf}</span>
+                  <span className={`font-mono font-bold text-[14px] ${s.buy ? "text-emerald-400" : "text-red-400"}`}>
+                    {s.buy ? "▲ BUY" : "▼ SELL"}
+                  </span>
+                </div>
+                <span className="text-[12px] text-[#5a5a6a] font-mono shrink-0 hidden sm:block">{s.time}</span>
+              </div>
+            ))}
+            <p className="text-center text-[12px] text-[#5a5a6a] pt-2">Alerts delivered via Telegram and web push</p>
+          </div>
+
         </div>
       </div>
     </section>
