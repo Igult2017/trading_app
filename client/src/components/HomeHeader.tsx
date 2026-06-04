@@ -78,7 +78,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     ...nFont, fontSize: 13,
     color: isActive ? "#3b82f6" : linkClr,
     textDecoration: "none",
-    padding: "5px 11px",
+    padding: "5px 4px",
     borderRadius: 9999,
     transition: "all 0.2s",
     whiteSpace: "nowrap",
@@ -102,7 +102,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center" style={{ gap: 4 }}>
+          <div className="hidden md:flex items-center" style={{ gap: 28 }}>
             {NAV_LINKS.map(({ label, href }) => {
               const isHash = href.includes("#");
               const isActive = !isHash && !!activePath && (activePath === href || (href !== "/" && activePath.startsWith(href.split("?")[0])));
