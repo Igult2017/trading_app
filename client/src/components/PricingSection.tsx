@@ -1,5 +1,7 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface Plan {
   name: string; price: string; period: string; tagline: string;
@@ -34,70 +36,95 @@ const plans: Plan[] = [
 ];
 
 export default function PricingSection({ darkMode }: { darkMode: boolean }) {
-  const cardBg   = darkMode ? '#0f172a' : '#ffffff';
-  const border   = darkMode ? '#1e293b' : '#e2e8f0';
-  const text     = darkMode ? '#ffffff' : '#0f172a';
-  const muted    = darkMode ? '#94a3b8' : '#64748b';
-  const sectionBg = darkMode ? 'rgba(15,23,42,0.6)' : 'rgba(241,245,249,0.8)';
-  const hFont = { fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.02em' } as const;
-  const bFont = { fontFamily: "'Montserrat', sans-serif", fontWeight: 800 } as const;
-
   return (
-    <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8" style={{ background: sectionBg, transition: 'all 0.4s ease' }}>
+    <section
+      id="pricing"
+      className={cn('py-20 px-4 sm:px-6 lg:px-8 transition-colors duration-300',
+        darkMode ? 'bg-slate-900/60' : 'bg-slate-50/80')}
+    >
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-4xl text-center mb-4" style={{ ...hFont, color: text }}>Simple, Transparent Pricing</h2>
-        <p className="text-xl text-center mb-16 max-w-3xl mx-auto" style={{ color: muted }}>
+        <h2
+          className={cn('text-4xl text-center mb-4 font-bold tracking-wide',
+            darkMode ? 'text-white' : 'text-slate-900')}
+          style={{ fontFamily: "'Oswald', sans-serif" }}
+        >
+          Simple, Transparent Pricing
+        </h2>
+        <p className={cn('text-xl text-center mb-16 max-w-3xl mx-auto', darkMode ? 'text-slate-400' : 'text-slate-500')}>
           Choose the plan that fits your trading journey. No hidden fees, cancel anytime.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-          {plans.map((plan) => {
-            const hot = plan.popular;
-            return (
-              <div key={plan.name} style={{
-                position: 'relative', borderRadius: '16px', padding: '28px 24px',
-                background: hot ? 'linear-gradient(135deg, #1d4ed8, #2563eb)' : cardBg,
-                border: hot ? 'none' : `1px solid ${border}`,
-                boxShadow: hot ? '0 20px 60px rgba(37,99,235,0.35)' : 'none',
-                transition: 'all 0.3s ease',
-              }}>
-                {plan.badge && (
-                  <div style={{
-                    position: 'absolute', top: '-14px',
-                    left: hot ? '50%' : 'auto', right: hot ? 'auto' : '16px',
-                    transform: hot ? 'translateX(-50%)' : 'none',
-                    background: hot ? 'linear-gradient(to right, #60a5fa, #3b82f6)' : 'linear-gradient(to right, #2563eb, #1d4ed8)',
-                    color: '#fff', padding: '4px 14px', borderRadius: '9999px',
-                    fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap',
-                  }}>{plan.badge}</div>
-                )}
-
-                <h3 style={{ ...hFont, fontSize: '22px', marginBottom: '8px', color: hot ? '#fff' : text }}>{plan.name}</h3>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '8px' }}>
-                  <span style={{ ...bFont, fontSize: '40px', color: hot ? '#fff' : text }}>{plan.price}</span>
-                  <span style={{ fontSize: '14px', color: hot ? 'rgba(255,255,255,0.75)' : muted }}>/ {plan.period}</span>
+          {plans.map((plan) => (
+            <div key={plan.name} className="relative pt-3">
+              {plan.badge && (
+                <div className={cn(
+                  'absolute top-0 z-10 px-3 py-1 rounded-full text-xs font-bold text-white whitespace-nowrap',
+                  plan.popular
+                    ? 'left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-400 to-blue-500'
+                    : 'right-4 bg-gradient-to-r from-blue-600 to-blue-700'
+                )}>
+                  {plan.badge}
                 </div>
-                <p style={{ fontSize: '13px', marginBottom: '20px', color: hot ? 'rgba(255,255,255,0.8)' : muted }}>{plan.tagline}</p>
+              )}
 
-                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {plan.features.map((f) => (
-                    <li key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: hot ? 'rgba(255,255,255,0.9)' : text }}>
-                      <Check size={15} style={{ color: hot ? '#93c5fd' : '#2563eb', flexShrink: 0 }} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+              <Card className={cn(
+                'flex flex-col h-full transition-all duration-300',
+                plan.popular
+                  ? 'bg-gradient-to-br from-blue-700 to-blue-600 border-none text-white shadow-[0_20px_60px_rgba(37,99,235,0.4)]'
+                  : darkMode
+                    ? 'bg-slate-900 border-slate-700 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+              )}>
+                <CardHeader className="pb-2">
+                  <div className={cn('text-xl font-bold tracking-wide', plan.popular ? 'text-white' : '')}
+                    style={{ fontFamily: "'Oswald', sans-serif" }}>
+                    {plan.name}
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-4xl font-extrabold" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                      {plan.price}
+                    </span>
+                    <span className={cn('text-sm', plan.popular ? 'text-blue-200' : darkMode ? 'text-slate-400' : 'text-slate-500')}>
+                      / {plan.period}
+                    </span>
+                  </div>
+                  <p className={cn('text-xs mt-1', plan.popular ? 'text-blue-100' : darkMode ? 'text-slate-400' : 'text-slate-500')}>
+                    {plan.tagline}
+                  </p>
+                </CardHeader>
 
-                <a href="/auth?mode=signup" target="myfm_journal" style={{
-                  display: 'block', textAlign: 'center', padding: '12px', borderRadius: '9999px',
-                  background: hot ? 'rgba(255,255,255,0.15)' : 'transparent',
-                  border: `2px solid ${hot ? 'rgba(255,255,255,0.5)' : border}`,
-                  color: hot ? '#fff' : text,
-                  ...bFont, fontSize: '14px', textDecoration: 'none', transition: 'all 0.2s ease',
-                }}>{plan.cta}</a>
-              </div>
-            );
-          })}
+                <CardContent className="flex-1 pt-2">
+                  <ul className="space-y-2.5">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2 text-sm">
+                        <Check size={14} className={cn('shrink-0', plan.popular ? 'text-blue-200' : 'text-blue-500')} />
+                        <span className={plan.popular ? 'text-blue-50' : darkMode ? 'text-slate-200' : 'text-slate-700'}>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+
+                <CardFooter className="pt-4">
+                  <a
+                    href="/auth?mode=signup"
+                    target="myfm_journal"
+                    className={cn(
+                      'w-full text-center py-3 rounded-full text-sm font-bold transition-all duration-200 hover:opacity-90',
+                      plan.popular
+                        ? 'bg-white/20 border-2 border-white/50 text-white hover:bg-white/30'
+                        : darkMode
+                          ? 'border-2 border-slate-600 text-white hover:border-blue-500'
+                          : 'border-2 border-slate-200 text-slate-800 hover:border-blue-400'
+                    )}
+                    style={{ fontFamily: "'Montserrat', sans-serif", display: 'block', textDecoration: 'none' }}
+                  >
+                    {plan.cta}
+                  </a>
+                </CardFooter>
+              </Card>
+            </div>
+          ))}
         </div>
       </div>
     </section>
