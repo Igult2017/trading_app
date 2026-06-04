@@ -41,9 +41,9 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const iconBorder  = darkMode ? "#334155"  : "#e2e8f0";
 
   // Same font stack as the header
-  const headerFont  = { fontFamily: "'Oswald', sans-serif",     fontWeight: 700, letterSpacing: "0.02em" } as const;
-  const navFont     = { fontFamily: "'Montserrat', sans-serif",  fontWeight: 700 } as const;
-  const bodyFont    = { fontFamily: "'Poppins', sans-serif" } as const;
+  const headerFont  = { fontFamily: "'Oswald', sans-serif",           fontWeight: 700, letterSpacing: "0.02em" } as const;
+  const navFont     = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 } as const;
+  const bodyFont    = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
 
   return (
     <footer style={{ background: bg, borderTop: `1px solid ${border}`, transition: "all 0.4s ease", ...bodyFont }}>

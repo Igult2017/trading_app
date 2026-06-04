@@ -36,8 +36,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const linkHov   = dm ? "#ffffff"                  : "#0f172a";
   const mobBg     = dm ? "#0f172a"                  : "#ffffff";
 
-  const headerFont = { fontFamily: "'Oswald', sans-serif",    fontWeight: 700, letterSpacing: "0.02em" } as const;
-  const navFont    = { fontFamily: "'Montserrat', sans-serif", fontWeight: 800 } as const;
+  const headerFont = { fontFamily: "'Oswald', sans-serif",           fontWeight: 700, letterSpacing: "0.02em" } as const;
+  const navFont    = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800 } as const;
 
   const handleLinkHover = useCallback((href: string) => {
     if (!PREFETCH_HREFS.has(href)) return;
