@@ -143,7 +143,6 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
                   {label}
                 </Link>
               </span>
-            </span>
             ))}
           </div>
         </div>
