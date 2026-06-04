@@ -2,8 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { db, pool } from "./db";
-import { userProfiles, adminAccessLogs } from "@shared/schema";
-import { eq, desc, sql as drizzleSql } from "drizzle-orm";
+import { userProfiles, adminAccessLogs, tradingSignals } from "@shared/schema";
+import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
@@ -1890,7 +1890,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/trading-signals", async (_req, res) => { res.json([]); });
+  app.get("/api/trading-signals", async (req, res) => {
+    try {
+      const { symbol, status = "active", limit = "50" } = req.query as Record<string, string>;
+
+      if (symbol) {
+        // AssetPage use case: latest signal for a specific instrument
+        const rows = await db.select().from(tradingSignals)
+          .where(and(
+            eq(tradingSignals.symbol, symbol),
+            eq(tradingSignals.status, status),
+          ))
+          .orderBy(desc(tradingSignals.createdAt))
+          .limit(1);
+        return res.json(rows);
+      }
+
+      // Default: all active signals ordered newest first
+      const rows = await db.select().from(tradingSignals)
+        .where(eq(tradingSignals.status, status))
+        .orderBy(desc(tradingSignals.createdAt))
+        .limit(Number(limit) || 50);
+      return res.json(rows);
+    } catch (err) {
+      console.error("[trading-signals]", err);
+      return res.status(500).json({ error: "Failed to fetch signals" });
+    }
+  });
   app.get("/api/trading-signals/:id", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
   app.post("/api/trading-signals/generate", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
   app.post("/api/trading-signals", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });

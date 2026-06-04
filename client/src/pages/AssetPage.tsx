@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
 import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId, type ChartType } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
@@ -13,6 +14,104 @@ interface Instrument {
 
 interface ContextItem { label: string; value: string; color: string; loading?: boolean }
 interface TechItem    { label: string; value: string; color: string }
+
+// ─── Signal → display data transformer ────────────────────────────────────────
+
+function trendColor(dir?: string | null): string {
+  if (!dir) return "#4a6580";
+  const d = dir.toLowerCase();
+  if (d === "bullish") return "#22d3a5";
+  if (d === "bearish") return "#f4617f";
+  return "#f59e0b";
+}
+
+function valueColor(val?: string | null): string {
+  if (!val) return "#4a6580";
+  const v = val.toUpperCase();
+  if (["BULLISH","CONFIRMED","HIGH","TAKEN","DISCOUNT","AVAILABLE"].some(k => v.includes(k))) return "#22d3a5";
+  if (["BEARISH","REJECTED","LOW","PREMIUM"].some(k => v.includes(k))) return "#f4617f";
+  if (["NEUTRAL","PENDING","MODERATE"].some(k => v.includes(k))) return "#f59e0b";
+  return "#c8d8e8";
+}
+
+function parseReason(reasons: string[] | null | undefined, keyword: string): string {
+  if (!reasons?.length) return "—";
+  const match = reasons.find(r => r.toLowerCase().includes(keyword.toLowerCase()));
+  if (!match) return "—";
+  const parts = match.split(/:\s*/);
+  return parts.length > 1 ? parts.slice(1).join(": ").trim().toUpperCase() : match.trim().toUpperCase();
+}
+
+function deriveOptimalRisk(confidence?: number | null): string {
+  if (!confidence) return "—";
+  if (confidence >= 85) return "1.5% - 2.0% CAPITAL";
+  if (confidence >= 70) return "1.0% - 1.5% CAPITAL";
+  return "0.5% - 1.0% CAPITAL";
+}
+
+function buildPriceAction(sig: any): { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] {
+  const items: { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] = [];
+
+  if (sig.bocChochDetected) {
+    items.push({ icon: "layers", text: `${sig.bocChochDetected.toUpperCase()} CONFIRMED.`, bold: sig.bocChochDetected.toUpperCase() });
+  } else if (sig.smcFactors?.length) {
+    items.push({ icon: "layers", text: sig.smcFactors[0].toUpperCase(), bold: undefined });
+  }
+
+  if (sig.orderBlockType) {
+    items.push({ icon: "layers2", text: `${sig.orderBlockType.toUpperCase()} ORDER BLOCK IN PLAY.`, bold: "ORDER BLOCK" });
+  } else if (sig.smcFactors?.length > 1) {
+    items.push({ icon: "layers2", text: sig.smcFactors[1].toUpperCase(), bold: undefined });
+  }
+
+  if (sig.fvgDetected) {
+    items.push({ icon: "zoom", text: "FAIR VALUE GAP IDENTIFIED — AWAITING MITIGATION.", bold: "FAIR VALUE GAP" });
+  } else if (sig.liquiditySweep) {
+    items.push({ icon: "zoom", text: "LIQUIDITY SWEEP DETECTED — ENTRY TRIGGER PENDING.", bold: "LIQUIDITY SWEEP" });
+  } else if (sig.marketContext) {
+    items.push({ icon: "zoom", text: sig.marketContext.toUpperCase(), bold: undefined });
+  }
+
+  // Fill to 3 items with placeholders if short
+  while (items.length < 3) {
+    items.push({ icon: "zoom", text: "AWAITING FURTHER CONFIRMATION.", bold: undefined });
+  }
+
+  return items.slice(0, 3);
+}
+
+function signalToDisplayData(sig: any | null) {
+  if (!sig) return null;
+
+  const context: ContextItem[] = [
+    { label: "1D TREND",      value: sig.trendDirection?.toUpperCase() || "—",        color: trendColor(sig.trendDirection) },
+    { label: "4H STRUCTURE",  value: parseReason(sig.technicalReasons, "4H"),         color: valueColor(parseReason(sig.technicalReasons, "4H")) },
+    { label: "1H MOMENTUM",   value: parseReason(sig.technicalReasons, "1H"),         color: valueColor(parseReason(sig.technicalReasons, "1H")) },
+    { label: "15M LIQUIDITY", value: sig.liquiditySweep ? "TAKEN" : "AVAILABLE",     color: sig.liquiditySweep ? "#f59e0b" : "#22d3a5" },
+    { label: "SMC PROFILE",   value: sig.orderBlockType?.toUpperCase() || "—",        color: "#22d3a5" },
+  ];
+
+  const tech: TechItem[] = [
+    { label: "ADX POWER",       value: parseReason(sig.technicalReasons, "ADX"),     color: valueColor(parseReason(sig.technicalReasons, "ADX")) },
+    { label: "MACD",            value: parseReason(sig.technicalReasons, "MACD"),    color: valueColor(parseReason(sig.technicalReasons, "MACD")) },
+    { label: "EMA 200",         value: parseReason(sig.technicalReasons, "EMA 200"), color: valueColor(parseReason(sig.technicalReasons, "EMA 200")) },
+    { label: "EMA (5,9,13,21)", value: parseReason(sig.technicalReasons, "EMA"),     color: valueColor(parseReason(sig.technicalReasons, "EMA")) },
+    { label: "VOLUME",          value: parseReason(sig.technicalReasons, "Volume"),  color: valueColor(parseReason(sig.technicalReasons, "Volume")) },
+  ];
+
+  return {
+    entry: sig.entryPrice ? String(sig.entryPrice) : null,
+    tp:    sig.takeProfit ? String(sig.takeProfit) : "—",
+    sl:    sig.stopLoss   ? String(sig.stopLoss)   : "—",
+    rr:    sig.riskRewardRatio ? `1:${sig.riskRewardRatio}` : "—",
+    direction: (sig.type === "buy" ? "up" : "down") as "up" | "down",
+    probability: sig.overallConfidence ?? 0,
+    optimalRisk: deriveOptimalRisk(sig.overallConfidence),
+    context,
+    tech,
+    priceAction: buildPriceAction(sig),
+  };
+}
 
 // ─── Full instrument list ──────────────────────────────────────────────────────
 const ALL_INSTRUMENTS: Instrument[] = [
@@ -81,105 +180,27 @@ const ALL_INSTRUMENTS: Instrument[] = [
   { symbol: "BABA",  assetClass: "stock", category: "Stock" },
 ];
 
-const ASSET_DATA: Record<string, {
-  entry: string; tp: string; sl: string; rr: string; direction: "up" | "down";
-  context: ContextItem[]; tech: TechItem[];
-  priceAction: { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[];
-  probability: number; optimalRisk: string;
-}> = {
-  "ETH/USDT": {
-    entry: "3452.57", tp: "3,200", sl: "3,550", rr: "1:3.1", direction: "down",
-    context: [
-      { label: "1D TREND",      value: "BULLISH",  color: "#22d3a5" },
-      { label: "4H STRUCTURE",  value: "BULLISH",  color: "#22d3a5" },
-      { label: "1H MOMENTUM",   value: "NEUTRAL",  color: "#f59e0b", loading: true },
-      { label: "15M LIQUIDITY", value: "TAKEN",    color: "#f59e0b" },
-      { label: "SMC PROFILE",   value: "DISCOUNT", color: "#22d3a5" },
-    ],
-    tech: [
-      { label: "ADX POWER",       value: "HIGH (> 32)", color: "#4ade80" },
-      { label: "MACD",            value: "CONFIRMED",   color: "#22d3a5" },
-      { label: "EMA 200",         value: "BULLISH",     color: "#22d3a5" },
-      { label: "EMA (5,9,13,21)", value: "CONFIRMED",   color: "#22d3a5" },
-      { label: "VOLUME",          value: "CONFIRMED",   color: "#22d3a5" },
-    ],
-    priceAction: [
-      { icon: "layers",  text: "MAJOR BREAK OF STRUCTURE (BOS) CONFIRMED ON HIGHER TIMEFRAME.", bold: "BOS" },
-      { icon: "layers2", text: "MITIGATION OF 4H ORDER BLOCK IN PROGRESS.", bold: "4H ORDER BLOCK" },
-      { icon: "zoom",    text: "AWAITING LOWER TIMEFRAME CHOCH FOR ENTRY TRIGGER.", bold: "LOWER TIMEFRAME" },
-    ],
-    probability: 82, optimalRisk: "1.5% - 2.0% CAPITAL",
-  },
-  "BTC/USDT": {
-    entry: "63997.28", tp: "61,000", sl: "65,500", rr: "1:2.8", direction: "up",
-    context: [
-      { label: "1D TREND",      value: "BULLISH",  color: "#22d3a5" },
-      { label: "4H STRUCTURE",  value: "BULLISH",  color: "#22d3a5" },
-      { label: "1H MOMENTUM",   value: "BULLISH",  color: "#22d3a5" },
-      { label: "15M LIQUIDITY", value: "TAKEN",    color: "#f59e0b" },
-      { label: "SMC PROFILE",   value: "PREMIUM",  color: "#f59e0b" },
-    ],
-    tech: [
-      { label: "ADX POWER",       value: "HIGH (> 32)", color: "#4ade80" },
-      { label: "MACD",            value: "CONFIRMED",   color: "#22d3a5" },
-      { label: "EMA 200",         value: "BULLISH",     color: "#22d3a5" },
-      { label: "EMA (5,9,13,21)", value: "CONFIRMED",   color: "#22d3a5" },
-      { label: "VOLUME",          value: "HIGH",        color: "#4ade80" },
-    ],
-    priceAction: [
-      { icon: "layers",  text: "MAJOR BREAK OF STRUCTURE (BOS) CONFIRMED ON HIGHER TIMEFRAME.", bold: "BOS" },
-      { icon: "layers2", text: "PRICE REACTING TO KEY DEMAND ZONE.", bold: "DEMAND ZONE" },
-      { icon: "zoom",    text: "AWAITING LOWER TIMEFRAME CHOCH FOR ENTRY TRIGGER.", bold: "LOWER TIMEFRAME" },
-    ],
-    probability: 94, optimalRisk: "1.0% - 1.5% CAPITAL",
-  },
-  "SOL/USDT": {
-    entry: "144.81", tp: "138.00", sl: "148.50", rr: "1:2.1", direction: "up",
-    context: [
-      { label: "1D TREND",      value: "NEUTRAL",  color: "#f59e0b" },
-      { label: "4H STRUCTURE",  value: "BULLISH",  color: "#22d3a5" },
-      { label: "1H MOMENTUM",   value: "NEUTRAL",  color: "#f59e0b", loading: true },
-      { label: "15M LIQUIDITY", value: "AVAILABLE",color: "#22d3a5" },
-      { label: "SMC PROFILE",   value: "DISCOUNT", color: "#22d3a5" },
-    ],
-    tech: [
-      { label: "ADX POWER",       value: "MODERATE",  color: "#f59e0b" },
-      { label: "MACD",            value: "PENDING",   color: "#f59e0b" },
-      { label: "EMA 200",         value: "BULLISH",   color: "#22d3a5" },
-      { label: "EMA (5,9,13,21)", value: "ALIGNED",   color: "#22d3a5" },
-      { label: "VOLUME",          value: "MODERATE",  color: "#f59e0b" },
-    ],
-    priceAction: [
-      { icon: "layers",  text: "STRUCTURE FORMING ON 4H TIMEFRAME.", bold: "4H TIMEFRAME" },
-      { icon: "layers2", text: "ORDER BLOCK IDENTIFIED AT KEY LEVEL.", bold: "ORDER BLOCK" },
-      { icon: "zoom",    text: "WAITING FOR CONFIRMATION SIGNAL.", bold: "CONFIRMATION SIGNAL" },
-    ],
-    probability: 45, optimalRisk: "0.5% - 1.0% CAPITAL",
-  },
-  "XRP/USDT": {
-    entry: "0.62", tp: "0.54", sl: "0.67", rr: "1:2.4", direction: "down",
-    context: [
-      { label: "1D TREND",      value: "BEARISH",  color: "#f4617f" },
-      { label: "4H STRUCTURE",  value: "BEARISH",  color: "#f4617f" },
-      { label: "1H MOMENTUM",   value: "BEARISH",  color: "#f4617f" },
-      { label: "15M LIQUIDITY", value: "TAKEN",    color: "#f59e0b" },
-      { label: "SMC PROFILE",   value: "PREMIUM",  color: "#f59e0b" },
-    ],
-    tech: [
-      { label: "ADX POWER",       value: "HIGH (> 32)", color: "#4ade80" },
-      { label: "MACD",            value: "CONFIRMED",   color: "#22d3a5" },
-      { label: "EMA 200",         value: "BEARISH",     color: "#f4617f" },
-      { label: "EMA (5,9,13,21)", value: "CONFIRMED",   color: "#22d3a5" },
-      { label: "VOLUME",          value: "CONFIRMED",   color: "#22d3a5" },
-    ],
-    priceAction: [
-      { icon: "layers",  text: "MAJOR BREAK OF STRUCTURE (BOS) CONFIRMED BEARISH.", bold: "BOS" },
-      { icon: "layers2", text: "SUPPLY ZONE HOLDING AS RESISTANCE.", bold: "SUPPLY ZONE" },
-      { icon: "zoom",    text: "AWAITING LOWER TIMEFRAME CHOCH FOR SHORT ENTRY.", bold: "LOWER TIMEFRAME" },
-    ],
-    probability: 92, optimalRisk: "1.5% - 2.0% CAPITAL",
-  },
-};
+// ASSET_DATA removed — data now fetched live from /api/trading-signals
+
+const _PLACEHOLDER_CONTEXT: ContextItem[] = [
+  { label: "1D TREND",      value: "—", color: "#2d4a63" },
+  { label: "4H STRUCTURE",  value: "—", color: "#2d4a63" },
+  { label: "1H MOMENTUM",   value: "—", color: "#2d4a63" },
+  { label: "15M LIQUIDITY", value: "—", color: "#2d4a63" },
+  { label: "SMC PROFILE",   value: "—", color: "#2d4a63" },
+];
+const _PLACEHOLDER_TECH: TechItem[] = [
+  { label: "ADX POWER",       value: "—", color: "#2d4a63" },
+  { label: "MACD",            value: "—", color: "#2d4a63" },
+  { label: "EMA 200",         value: "—", color: "#2d4a63" },
+  { label: "EMA (5,9,13,21)", value: "—", color: "#2d4a63" },
+  { label: "VOLUME",          value: "—", color: "#2d4a63" },
+];
+const _PLACEHOLDER_PRICE_ACTION = [
+  { icon: "layers"  as const, text: "NO ACTIVE SIGNAL FOR THIS INSTRUMENT.", bold: undefined },
+  { icon: "layers2" as const, text: "SIGNAL WILL APPEAR WHEN STRATEGY IDENTIFIES A SETUP.", bold: undefined },
+  { icon: "zoom"    as const, text: "MARKET SCANNING IN PROGRESS.", bold: undefined },
+];
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 function LayersIcon({ color }: { color: string }) {
@@ -377,11 +398,30 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
   const entryTick      = useFastPrice(selected, 8000);
 
+  // ── Live signal fetch — refetches every 60s, shows empty state when no signal ──
+  const { data: rawSignal, isLoading: signalLoading } = useQuery({
+    queryKey: ["asset-signal", selected],
+    queryFn: async () => {
+      const res = await fetch(`/api/trading-signals?symbol=${encodeURIComponent(selected)}&status=active`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return Array.isArray(json) ? (json[0] ?? null) : null;
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  // Transform DB signal into display-ready structure; null = no signal
+  const data = signalToDisplayData(rawSignal ?? null);
+
+  // Fallback display values used when data is null (no signal)
+  const displayContext    = data?.context     ?? _PLACEHOLDER_CONTEXT;
+  const displayTech       = data?.tech        ?? _PLACEHOLDER_TECH;
+  const displayPriceAction = data?.priceAction ?? _PLACEHOLDER_PRICE_ACTION;
+
   const filtered = ALL_INSTRUMENTS.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
   );
-
-  const data = ASSET_DATA[selected] || ASSET_DATA["ETH/USDT"];
 
   function boldify(text: string, bold?: string) {
     if (!bold) return <span>{text}</span>;
@@ -450,7 +490,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         : <polygon points="6,1 11,10 1,10" />}
                     </svg>
                     <TickingPrice
-                      price={entryTick.price ?? parseFloat(data.entry)}
+                      price={entryTick.price ?? parseFloat(data?.entry ?? "0")}
                       prevPrice={entryTick.prevPrice}
                       direction={entryTick.direction}
                       fontSize={9}
@@ -459,9 +499,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   </div>
                 )
               },
-              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data.tp}</span> },
-              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data.sl}</span> },
-              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data.rr}</span> },
+              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.tp ?? "—"}</span> },
+              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.sl ?? "—"}</span> },
+              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.rr ?? "—"}</span> },
             ].map((col, i) => (
               <div key={i} style={{
                 padding: "20px 16px", textAlign: "center",
@@ -482,7 +522,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div style={{ width: 10, height: 10, background: "#3b82f6" }} />
                 <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
               </div>
-              {data.context.map((row, i) => (
+              {displayContext.map((row, i) => (
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {row.loading
@@ -501,7 +541,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div style={{ width: 10, height: 10, background: "#22d3a5" }} />
                 <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
               </div>
-              {data.tech.map((row, i) => (
+              {displayTech.map((row, i) => (
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <ChevronRight size={10} color={C.dim} />
@@ -519,7 +559,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {data.priceAction.map((item, i) => (
+                {displayPriceAction.map((item, i) => (
                   <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <div style={{ flexShrink: 0, marginTop: 1 }}>
                       {item.icon === "zoom"
@@ -561,7 +601,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               <span style={{
                 fontSize: 8, fontWeight: 800, color: C.heroText,
                 position: "relative", letterSpacing: "0.02em",
-              }}>{data.probability}%</span>
+              }}>{data?.probability ?? 0}%</span>
             </div>
 
             {/* Text */}
@@ -570,14 +610,14 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 fontSize: 10, fontWeight: 800, color: C.heroText,
                 letterSpacing: "0.05em", marginBottom: 5,
               }}>
-                PROBABILITY: {data.probability}%
+                PROBABILITY: {data?.probability ?? 0}%
               </div>
               <div style={{
                 fontSize: 10, fontWeight: 600,
                 color: "#3d9fd3",
                 letterSpacing: "0.1em",
               }}>
-                OPTIMAL RISK: {data.optimalRisk}
+                OPTIMAL RISK: {data?.optimalRisk ?? "—"}
               </div>
             </div>
 
