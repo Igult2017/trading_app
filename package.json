@@ -120,8 +120,5 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
-  },
-  "optionalDependencies": {
-    "bufferutil": "^4.0.8"
   }
 }
