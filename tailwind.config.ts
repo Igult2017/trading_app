@@ -112,6 +112,19 @@ export default {
   			mono: [
   				'JetBrains Mono',
   				'var(--font-mono)'
+  			],
+  			display: [
+  				'Montserrat',
+  				'sans-serif'
+  			],
+  			body: [
+  				'Montserrat',
+  				'Inter',
+  				'sans-serif'
+  			],
+  			data: [
+  				'JetBrains Mono',
+  				'monospace'
   			]
   		},
   		spacing: {
