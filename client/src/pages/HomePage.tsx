@@ -265,6 +265,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <PricingSection darkMode={darkMode} />
+
       {/* Testimonials */}
       <section id="testimonials" className="py-20 px-4 sm:px-6 lg:px-8" style={{ background: t.sectionAlt, transition: 'all 0.4s ease' }}>
         <div className="max-w-6xl mx-auto">
@@ -295,8 +297,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <PricingSection darkMode={darkMode} />
 
       <HomeFooter darkMode={darkMode} />
     </div>
