@@ -1,0 +1,58 @@
+"""
+APScheduler setup — session-aware scan frequency.
+Two jobs:
+  1. scan_markets()    — dynamic interval driven by active sessions
+  2. monitor.check_all() — fixed every 30s
+"""
+
+import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+
+log = logging.getLogger(__name__)
+_scheduler: AsyncIOScheduler | None = None
+
+
+def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
+    """
+    Create and return a configured scheduler.
+    scan_fn and monitor_fn are coroutines injected by main.py
+    to avoid circular imports.
+    """
+    global _scheduler
+    _scheduler = AsyncIOScheduler(timezone="UTC")
+
+    # Scan job — starts at 60s; scanner adjusts dynamically each tick
+    _scheduler.add_job(
+        scan_fn,
+        trigger=IntervalTrigger(seconds=60),
+        id="scan_markets",
+        name="Market scanner",
+        max_instances=1,       # never overlap; skip tick if still running
+        coalesce=True,
+    )
+
+    # Signal monitor — fixed every 30s
+    _scheduler.add_job(
+        monitor_fn,
+        trigger=IntervalTrigger(seconds=30),
+        id="signal_monitor",
+        name="Signal monitor",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    log.info("[scheduler] built — scan every 60s, monitor every 30s")
+    return _scheduler
+
+
+def start() -> None:
+    if _scheduler:
+        _scheduler.start()
+        log.info("[scheduler] started")
+
+
+def shutdown() -> None:
+    if _scheduler and _scheduler.running:
+        _scheduler.shutdown(wait=False)
+        log.info("[scheduler] stopped")
