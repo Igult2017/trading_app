@@ -30,7 +30,7 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
  *    the tab after >10 min will trigger the deferred logout on first touch.
  */
 export function useInactivityLogout() {
-  const { session, signOut } = useAuth();
+  const { session, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
 
   const signOutRef  = useRef(signOut);
@@ -57,9 +57,14 @@ export function useInactivityLogout() {
 
   useEffect(() => {
     if (!session) {
-      clearTimers();
-      silentExpired.current = false;
-      localStorage.removeItem(LAST_ACTIVITY_KEY);
+      // While Supabase is still resolving the session (loading=true), do not
+      // clear the stored timestamp — that would erase the tab-close detection
+      // data before the session is even available to check against it.
+      if (!loading) {
+        clearTimers();
+        silentExpired.current = false;
+        localStorage.removeItem(LAST_ACTIVITY_KEY);
+      }
       return;
     }
 
@@ -115,5 +120,5 @@ export function useInactivityLogout() {
         window.removeEventListener(evt, handleActivity),
       );
     };
-  }, [session, scheduleExpiry, clearTimers]);
+  }, [session, loading, scheduleExpiry, clearTimers]);
 }

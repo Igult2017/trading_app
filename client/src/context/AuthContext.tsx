@@ -143,8 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error, emailConfirmationRequired: false };
 
     if (data.session) {
-      await runSetup(data.session.access_token);
-      await supabase.auth.refreshSession();
+      const assignedRole = await runSetup(data.session.access_token);
+      setRole(assignedRole ?? extractRole(data.session.user));
       return { error: null, emailConfirmationRequired: false };
     }
 
@@ -183,14 +183,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const assignedRole = await runSetup(data.session.access_token);
+    const role = assignedRole ?? extractRole(data.session.user);
 
-    if (assignedRole) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      const finalRole = extractRole(refreshed.session?.user ?? null);
-      return { error: null, role: finalRole };
-    }
-
-    return { error: null, role: extractRole(data.session.user) };
+    // Set role directly — avoids calling refreshSession() which can fire
+    // a SIGNED_OUT event on failure and silently kill the new session.
+    setRole(role);
+    return { error: null, role };
   }
 
   async function signOut() {
