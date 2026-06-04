@@ -89,7 +89,7 @@ function InnerPages() {
   return (
     <div className="flex flex-col min-h-screen w-full">
       <HomeHeader darkMode={true} setDarkMode={() => {}} activePath={undefined} />
-      <main className="flex-1 bg-background">
+      <main className="flex-1 bg-background pt-16">
         <Switch>
           <Route path="/history"     component={TradeHistoryPage} />
           <Route path="/analytics"   component={Analytics} />
@@ -149,6 +149,9 @@ function PublicPagesGroup() {
     <>
       <HomeHeader darkMode={darkMode} setDarkMode={handleSetDark} activePath={location} />
 
+      {/* pt-16 offsets the 64px fixed header so content is not hidden beneath it */}
+      <div className="pt-16">
+
       {/*
        * EconomicCalendarPage and BlogPage are ALWAYS mounted.
        * We hide the inactive one with the HTML `hidden` attribute (display:none)
@@ -177,6 +180,8 @@ function PublicPagesGroup() {
           <Route component={NotFound} />
         </Switch>
       )}
+
+      </div>{/* end pt-16 offset wrapper */}
 
       <HomeFooter darkMode={darkMode} />
     </>
