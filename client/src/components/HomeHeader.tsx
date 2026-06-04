@@ -40,7 +40,6 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const logoClr   = dm ? "#ffffff"                   : "#0f172a";
   const linkClr   = dm ? "#94a3b8"                   : "#64748b";
   const linkHov   = dm ? "#ffffff"                   : "#0f172a";
-  const pillBg    = dm ? "rgba(30,41,59,0.5)"        : "rgba(241,245,249,0.8)";
   const mobBg     = dm ? "#0c1322"                   : "#ffffff";
   const shadow    = scrolled
     ? dm ? "0 4px 24px rgba(0,0,0,0.5)" : "0 4px 24px rgba(0,0,0,0.08)"
@@ -102,56 +101,39 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
             </span>
           </Link>
 
-          {/* Desktop — nav links in a pill capsule */}
-          <div className="hidden md:flex items-center" style={{ gap: 12 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 2,
-              background: pillBg, border: `1px solid ${navBorder}`,
-              borderRadius: 9999, padding: "3px 4px",
-            }}>
-              {NAV_LINKS.map(({ label, href }) => {
-                const isHash = href.includes("#");
-                const isActive = !isHash && !!activePath && (activePath === href || (href !== "/" && activePath.startsWith(href.split("?")[0])));
-                const style = linkStyle(isActive);
-                if (isHash) return (
-                  <a key={label} href={href} style={style}
-                    onClick={e => handleHashClick(e as any, href)}
-                    onMouseEnter={e => { handleLinkHover(href); (e.currentTarget as HTMLElement).style.color = linkHov; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = isActive ? "#3b82f6" : linkClr; }}>
-                    {label}
-                  </a>
-                );
-                return (
-                  <Link key={label} href={href} style={style}
-                    onMouseEnter={e => { handleLinkHover(href); (e.currentTarget as HTMLElement).style.color = linkHov; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = isActive ? "#3b82f6" : linkClr; }}>
-                    {label}
-                  </Link>
-                );
-              })}
-            </div>
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center" style={{ gap: 4 }}>
+            {NAV_LINKS.map(({ label, href }) => {
+              const isHash = href.includes("#");
+              const isActive = !isHash && !!activePath && (activePath === href || (href !== "/" && activePath.startsWith(href.split("?")[0])));
+              const style = linkStyle(isActive);
+              if (isHash) return (
+                <a key={label} href={href} style={style}
+                  onClick={e => handleHashClick(e as any, href)}
+                  onMouseEnter={e => { handleLinkHover(href); (e.currentTarget as HTMLElement).style.color = linkHov; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = isActive ? "#3b82f6" : linkClr; }}>
+                  {label}
+                </a>
+              );
+              return (
+                <Link key={label} href={href} style={style}
+                  onMouseEnter={e => { handleLinkHover(href); (e.currentTarget as HTMLElement).style.color = linkHov; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = isActive ? "#3b82f6" : linkClr; }}>
+                  {label}
+                </Link>
+              );
+            })}
 
-            {/* Auth CTAs */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Link href="/auth" style={{
-                ...nFont, fontSize: 13, color: linkClr, textDecoration: "none",
-                padding: "6px 14px", borderRadius: 9999, border: `1px solid ${navBorder}`,
-                transition: "all 0.2s", whiteSpace: "nowrap",
-              }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; (e.currentTarget as HTMLElement).style.borderColor = dm ? "#475569" : "#cbd5e1"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; (e.currentTarget as HTMLElement).style.borderColor = navBorder; }}>
-                Login
-              </Link>
-              <Link href="/auth?mode=signup" style={{
-                ...nFont, fontSize: 13, color: "#ffffff", textDecoration: "none",
-                padding: "6px 16px", borderRadius: 9999, background: "#2563eb",
-                transition: "all 0.2s", whiteSpace: "nowrap",
-              }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#1d4ed8"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#2563eb"; }}>
-                Sign up free
-              </Link>
-            </div>
+            <Link href="/auth" style={{ ...nFont, fontSize: 13, color: linkClr, textDecoration: "none", padding: "6px 10px", transition: "color 0.2s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
+              Login
+            </Link>
+            <Link href="/auth?mode=signup" style={{ ...nFont, fontSize: 13, color: linkClr, textDecoration: "none", padding: "6px 10px", transition: "color 0.2s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
+              Signup
+            </Link>
 
             {/* Dark mode toggle */}
             <button onClick={() => setDarkMode(!dm)} aria-label="Toggle dark mode"
