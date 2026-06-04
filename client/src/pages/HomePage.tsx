@@ -14,7 +14,7 @@ export default function HomePage() {
   const { darkMode, setDarkMode } = usePublicTheme();
 
   return (
-    <div className="min-h-screen bg-[#020817] text-slate-300 overflow-x-hidden">
+    <div className="min-h-screen bg-white text-slate-900 overflow-x-hidden">
       <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath="/" />
       <HeroSection />
       <FeaturesSection />
