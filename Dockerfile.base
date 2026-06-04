@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender-dev \
     libgl1 \
     postgresql-client \
-    pgbouncer \
     && rm -rf /var/lib/apt/lists/*
 
 # ── uv (Python package manager used by npm run build) ────────────────────────
