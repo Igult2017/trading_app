@@ -39,6 +39,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const inputBg     = darkMode ? "#1e293b"  : "#ffffff";
   const iconFill    = darkMode ? "#94a3b8"  : "#64748b";
   const iconBorder  = darkMode ? "#334155"  : "#e2e8f0";
+  const linkHoverClr = "#3b82f6";
 
   // Same font stack as the header
   const headerFont  = { fontFamily: "'Oswald', sans-serif",           fontWeight: 700, letterSpacing: "0.02em" } as const;
@@ -46,7 +47,9 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const bodyFont    = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
 
   return (
-    <footer style={{ background: bg, borderTop: `1px solid ${border}`, transition: "all 0.4s ease", ...bodyFont }}>
+    <footer style={{ background: bg, transition: "all 0.4s ease", ...bodyFont }}>
+      {/* Gradient accent line */}
+      <div style={{ height: 1, background: "linear-gradient(to right, transparent, #3b82f6 30%, #6366f1 70%, transparent)" }} />
 
       {/* ── Same maxWidth:1280 + padding:28px as all page content ── */}
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
@@ -83,11 +86,11 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* Community */}
           <div>
-            <div style={{ ...navFont, fontSize: 13, color: text, marginBottom: 16 }}>Community</div>
+            <div style={{ ...navFont, fontSize: 11, color: text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Community</div>
             {SOCIAL_LINKS.map(({ label, href, Icon, color }) => (
               <a key={label} href={href}
                 style={{ display: "flex", alignItems: "center", gap: 10, color: textMuted, textDecoration: "none", fontSize: 13, marginBottom: 10, transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => (e.currentTarget.style.color = linkHover)}
+                onMouseEnter={e => (e.currentTarget.style.color = linkHoverClr)}
                 onMouseLeave={e => (e.currentTarget.style.color = textMuted)}>
                 <span style={{ width: 34, height: 34, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", border: `1.5px solid ${iconBorder}`, flexShrink: 0, transition: "all 0.4s ease" }}>
                   <Icon size={15} color={color} />
@@ -99,11 +102,11 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* Resources */}
           <div>
-            <div style={{ ...navFont, fontSize: 13, color: text, marginBottom: 16 }}>Resources</div>
+            <div style={{ ...navFont, fontSize: 11, color: text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Resources</div>
             {RESOURCES.map(({ label, href }) => (
               <Link key={label} href={href}
                 style={{ display: "block", fontSize: 13, color: textMuted, textDecoration: "none", marginBottom: 10, transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHover)}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHoverClr)}
                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
                 {label}
               </Link>
@@ -112,11 +115,11 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
           {/* Legal */}
           <div className="text-right">
-            <div style={{ ...navFont, fontSize: 13, color: text, marginBottom: 16 }}>Legal</div>
+            <div style={{ ...navFont, fontSize: 11, color: text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Legal</div>
             {LEGAL.map(({ label, href }) => (
               <Link key={label} href={href}
                 style={{ display: "block", fontSize: 13, color: textMuted, textDecoration: "none", marginBottom: 10, transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHover)}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHoverClr)}
                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
                 {label}
               </Link>
@@ -129,14 +132,18 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <span style={{ fontSize: 12, color: textMuted, ...bodyFont }}>
             © {new Date().getFullYear()} MyfmJournal. All rights reserved.
           </span>
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-            {LEGAL.map(({ label, href }) => (
-              <Link key={label} href={href}
-                style={{ fontSize: 12, color: textMuted, textDecoration: "none", transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHover)}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
-                {label}
-              </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {LEGAL.map(({ label, href }, i) => (
+              <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {i > 0 && <span style={{ color: textMuted, fontSize: 10 }}>·</span>}
+                <Link href={href}
+                  style={{ fontSize: 12, color: textMuted, textDecoration: "none", transition: "color 0.2s", ...bodyFont }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHoverClr)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
+                  {label}
+                </Link>
+              </span>
+            </span>
             ))}
           </div>
         </div>
