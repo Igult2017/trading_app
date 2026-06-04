@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight, TrendingUp } from 'lucide-react';
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
+import PricingSection from "@/components/PricingSection";
 
 export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -294,6 +295,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <PricingSection darkMode={darkMode} />
 
       <HomeFooter darkMode={darkMode} />
     </div>
