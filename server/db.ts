@@ -50,6 +50,9 @@ function resolveSSL(): false | { rejectUnauthorized: boolean } {
 export const pool = new Pool({
   connectionString,
   ssl: resolveSSL(),
+  max: 20,                  // 20 per process × PM2 workers = ~160 total connections
+  idleTimeoutMillis: 30_000, // release idle connections after 30s
+  connectionTimeoutMillis: 3_000, // fail fast if pool is exhausted
 });
 
 export const db = drizzle(pool, { schema });

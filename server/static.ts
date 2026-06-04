@@ -22,9 +22,22 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Immutable assets (hashed filenames) — cache for 1 year
+  app.use('/assets', express.static(path.join(distPath, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  }));
 
+  // Everything else — cache for 1 hour, must revalidate
+  app.use(express.static(distPath, {
+    maxAge: '1h',
+    etag: true,
+    lastModified: true,
+  }));
+
+  // SPA fallback — never cache the HTML shell
   app.use("*", (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

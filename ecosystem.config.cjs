@@ -3,7 +3,8 @@ module.exports = {
     {
       name: "myfmjournal",
       script: "dist/index.js",
-      instances: 1,
+      instances: "max",    // one worker per CPU core
+      exec_mode: "cluster", // PM2 cluster mode — shares port across workers
       autorestart: true,
       watch: false,
       max_memory_restart: "1G",

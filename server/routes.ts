@@ -239,9 +239,9 @@ async function requireAuth(
   return null;
 }
 
-// Cache of user IDs we've already upserted this process lifetime so we don't
-// hit the database on every authenticated request.
+// Cache of user IDs we've already upserted — cleared every hour to prevent unbounded growth
 const _profileEnsured = new Set<string>();
+setInterval(() => _profileEnsured.clear(), 60 * 60 * 1000).unref();
 
 function extractFullName(user: any): string {
   const meta = user?.user_metadata ?? {};

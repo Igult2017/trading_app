@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
 import fs from "fs";
@@ -57,6 +59,22 @@ function startPriceDaemon() {
 // ────────────────────────────────────────────────────────────────────────────
 
 const app = express();
+
+// Gzip all responses — cuts payload size 60-80%
+app.use(compression());
+
+// Rate limiting — 300 req/min per IP on API routes (generous for real users, blocks abuse)
+app.use('/api', rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests, please try again in a minute.' },
+}));
+
+// Trust proxy headers (required when behind nginx/load balancer for correct IP detection)
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
