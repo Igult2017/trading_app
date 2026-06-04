@@ -24,12 +24,12 @@ const mobileFeatures = [
 ];
 
 const brokers = [
-  { name: "InstaForex",   domain: "instaforex.com" },
-  { name: "LMAX Exchange", domain: "lmax.com" },
-  { name: "Pepperstone",  domain: "pepperstone.com" },
-  { name: "TICKMILL",     domain: "tickmill.com" },
-  { name: "Admirals",     domain: "admiralsmarkets.com" },
-  { name: "AXITRADER",    domain: "axitrader.com" },
+  { name: "InstaForex",    logo: "/broker-instaforex.svg" },
+  { name: "LMAX Exchange", logo: "/broker-lmax.png" },
+  { name: "Pepperstone",   logo: "/broker-pepperstone.png" },
+  { name: "TICKMILL",      logo: "/broker-tickmill.png" },
+  { name: "Admirals",      logo: "/broker-admirals.png" },
+  { name: "AXITRADER",     logo: "/broker-axitrader.png" },
 ];
 
 export default function HomePage() {
@@ -100,16 +100,15 @@ export default function HomePage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <h3 className="text-center text-2xl mb-12" style={{ ...headerFont, color: t.textMuted }}>Compatible with Brokers</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center justify-items-center">
             {brokers.map((b, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 group">
+              <div key={i} className="flex flex-col items-center gap-2 group cursor-default">
                 <img
-                  src={`https://logo.clearbit.com/${b.domain}`}
+                  src={b.logo}
                   alt={b.name}
-                  className={`h-8 w-auto object-contain transition-all duration-300 group-hover:scale-110 ${darkMode ? 'brightness-0 invert opacity-60 group-hover:opacity-100' : 'opacity-50 group-hover:opacity-100'}`}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement).style.display = 'block'; }}
+                  className={`h-10 w-10 object-contain rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-md ${darkMode ? 'opacity-70 group-hover:opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
                 />
-                <span style={{ display: 'none', color: t.textMuted, fontWeight: 600, fontSize: '13px' }}>{b.name}</span>
+                <span className="text-xs font-semibold" style={{ color: t.textMuted }}>{b.name}</span>
               </div>
             ))}
           </div>
