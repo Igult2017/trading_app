@@ -50,10 +50,10 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
       {/* ── Same maxWidth:1280 + padding:28px as all page content ── */}
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 py-14">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-10 py-14">
 
           {/* Brand + newsletter */}
-          <div>
+          <div className="shrink-0" style={{ width: 260 }}>
             <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
               {/* Identical logo to the nav: Oswald font, same colors */}
               <span style={{ ...headerFont, fontSize: 20, color: text }}>
