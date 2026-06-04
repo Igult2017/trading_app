@@ -111,7 +111,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           </div>
 
           {/* Legal */}
-          <div>
+          <div className="text-right">
             <div style={{ ...navFont, fontSize: 13, color: text, marginBottom: 16 }}>Legal</div>
             {LEGAL.map(({ label, href }) => (
               <Link key={label} href={href}
