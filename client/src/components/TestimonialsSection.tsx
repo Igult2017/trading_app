@@ -36,7 +36,7 @@ export default function TestimonialsSection({ darkMode }: Props) {
         Join 10,000+ Traders Who Chose MyfmJournal
       </h2>
 
-      <div className="space-y-4">
+      <div className="overflow-hidden px-4 sm:px-8 space-y-4">
         <InfiniteMovingCards items={row1} direction="left" speed="normal" darkMode={darkMode} />
         <InfiniteMovingCards items={row2} direction="right" speed="slow" darkMode={darkMode} />
       </div>
