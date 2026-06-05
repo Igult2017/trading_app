@@ -76,13 +76,17 @@ function computeMonthlyStats(allEntries: any[], _allSessions: any[], startingBal
   const _toKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-  // ── Group every entry directly by its own trade date ─────────────────────
-  // Priority: entryTime (user-set text) → exitTime → createdAt (DB timestamp).
-  // This handles entries with or without a sessionId, and is independent of
-  // whether the session list has loaded yet.
+  // ── Only count entries that were fully submitted (have outcome + profitLoss) ─
+  const VALID_OUTCOMES = new Set(["win", "loss", "be", "breakeven"]);
+  const completedEntries = allEntries.filter(e => {
+    const hasOutcome = VALID_OUTCOMES.has((e.outcome ?? "").toLowerCase());
+    const hasPnL     = e.profitLoss != null && !isNaN(parseFloat(e.profitLoss));
+    return hasOutcome && hasPnL;
+  });
+
+  // ── Group by trade date ───────────────────────────────────────────────────
   const monthEntriesMap: Map<string, any[]> = new Map();
-  for (const e of allEntries) {
-    // Fall back to current date so entries with no date still get counted
+  for (const e of completedEntries) {
     const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt) ?? new Date();
     const key = _toKey(d);
     if (!monthEntriesMap.has(key)) monthEntriesMap.set(key, []);
