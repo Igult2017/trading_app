@@ -22,11 +22,11 @@ export default function PhoneMockup({ darkMode: d }: Props) {
   const labelClr  = d ? '#64748b' : '#94a3b8';
 
   return (
-    <div style={{ position: 'relative', width: 260, userSelect: 'none' }}>
+    <div style={{ position: 'relative', width: 210, userSelect: 'none' }}>
       <svg
         viewBox="0 0 260 540"
-        width="260"
-        height="540"
+        width="210"
+        height="436"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         style={{ display: 'block', filter: d ? 'drop-shadow(0 32px 64px rgba(0,0,0,0.8)) drop-shadow(0 0 40px rgba(59,130,246,0.12))' : 'drop-shadow(0 32px 64px rgba(0,0,0,0.18))' }}
