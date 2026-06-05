@@ -76,17 +76,9 @@ function computeMonthlyStats(allEntries: any[], _allSessions: any[], startingBal
   const _toKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-  // ── Only count entries that were fully submitted (have outcome + profitLoss) ─
-  const VALID_OUTCOMES = new Set(["win", "loss", "be", "breakeven"]);
-  const completedEntries = allEntries.filter(e => {
-    const hasOutcome = VALID_OUTCOMES.has((e.outcome ?? "").toLowerCase());
-    const hasPnL     = e.profitLoss != null && !isNaN(parseFloat(e.profitLoss));
-    return hasOutcome && hasPnL;
-  });
-
   // ── Group by trade date ───────────────────────────────────────────────────
   const monthEntriesMap: Map<string, any[]> = new Map();
-  for (const e of completedEntries) {
+  for (const e of allEntries) {
     const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt) ?? new Date();
     const key = _toKey(d);
     if (!monthEntriesMap.has(key)) monthEntriesMap.set(key, []);
@@ -1052,11 +1044,25 @@ const StatBox = ({ label, value, colorCls }: any) => (
   </div>
 );
 
-function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]; startingBalance?: number; sessionId?: string | number | null }) {
+function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingBalance?: number; sessionId?: string | number | null }) {
   const sb = startingBalance && startingBalance > 0 ? startingBalance : 10000;
 
+  // Fetch entries directly from the API filtered by sessionId — DB is source of truth.
+  // This ensures only trades actually saved via the submit button are counted.
+  const { data: allEntries = [] } = useQuery<any[]>({
+    queryKey: ["/api/journal/entries", sessionId],
+    queryFn: async () => {
+      if (!sessionId) return [];
+      const res = await fetch(`/api/journal/entries?sessionId=${encodeURIComponent(String(sessionId))}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+    enabled: !!sessionId,
+    staleTime: 10_000,
+  });
+
   // Fetch all sessions — needed to determine each session's month
-  // (month = month of first trade in that session)
   const { data: allSessions = [] } = useQuery<any[]>({
     queryKey: ["/api/sessions"],
     select: (d: any) => (Array.isArray(d) ? d : d?.sessions ?? []),
@@ -1862,6 +1868,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       };
       await apiRequest("POST", "/api/journal/entries", payload);
       queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
+      if (sessionId) queryClient.invalidateQueries({ queryKey: ["/api/journal/entries", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["/api/metrics/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
@@ -2014,7 +2021,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className={`w-full lg:w-auto bg-[#09090b] flex flex-col overflow-hidden ${mobileTab === "form" ? "hidden lg:flex" : "flex"}`}
         style={{ height:"100%" }}>
-        <Sidebar allEntries={sessionEntries} startingBalance={startingBalance} sessionId={sessionId} />
+        <Sidebar startingBalance={startingBalance} sessionId={sessionId} />
       </aside>
 
       {/* ── Mobile tab bar ─────────────────────────────────────────────── */}
