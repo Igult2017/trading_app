@@ -5,7 +5,6 @@ import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import { AuroraBackground } from "@/components/ui/aurora-background";
-import PhoneMockup from "@/components/PhoneMockup";
 
 const headerFont = { fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.02em' } as const;
 const navFont = { fontFamily: "'Montserrat', sans-serif", fontWeight: 800 } as const;
@@ -145,7 +144,18 @@ export default function HomePage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="flex justify-center lg:justify-start">
-            <PhoneMockup darkMode={darkMode} />
+            <img
+              src="/src/assets/phone-hero.png"
+              alt="Myfmjournal on mobile"
+              style={{
+                width: 280,
+                borderRadius: 12,
+                boxShadow: darkMode
+                  ? '0 40px 80px rgba(0,0,0,0.7), 0 0 40px rgba(59,130,246,0.1)'
+                  : '0 40px 80px rgba(0,0,0,0.18)',
+                display: 'block',
+              }}
+            />
           </div>
           <div>
             <h2 className="text-4xl mb-4" style={{ ...headerFont, color: t.text }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
