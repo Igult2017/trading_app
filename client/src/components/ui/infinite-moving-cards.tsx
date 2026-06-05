@@ -29,7 +29,11 @@ export function InfiniteMovingCards({ items, direction = "left", speed = "normal
   return (
     <div
       ref={containerRef}
-      className={cn("relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,white_10%,white_90%,transparent)]", className)}
+      className={cn("relative overflow-hidden", className)}
+      style={{
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)",
+        maskImage:       "linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)",
+      }}
     >
       <ul
         ref={scrollerRef}
