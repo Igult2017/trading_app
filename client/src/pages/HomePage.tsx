@@ -148,12 +148,12 @@ export default function HomePage() {
               src="/src/assets/phone-hero.png"
               alt="Myfmjournal on mobile"
               style={{
-                height: 520,
+                height: 560,
                 width: 'auto',
                 display: 'block',
-                objectFit: 'cover',
-                mixBlendMode: darkMode ? 'normal' : 'multiply',
-                filter: darkMode ? 'none' : 'contrast(1.02)',
+                filter: darkMode
+                  ? 'drop-shadow(0 32px 64px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(59,130,246,0.15))'
+                  : 'drop-shadow(0 32px 64px rgba(0,0,0,0.22))',
               }}
             />
           </div>
