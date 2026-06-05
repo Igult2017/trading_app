@@ -82,8 +82,8 @@ function computeMonthlyStats(allEntries: any[], _allSessions: any[], startingBal
   // whether the session list has loaded yet.
   const monthEntriesMap: Map<string, any[]> = new Map();
   for (const e of allEntries) {
-    const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt);
-    if (!d) continue;
+    // Fall back to current date so entries with no date still get counted
+    const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt) ?? new Date();
     const key = _toKey(d);
     if (!monthEntriesMap.has(key)) monthEntriesMap.set(key, []);
     monthEntriesMap.get(key)!.push(e);
@@ -1032,17 +1032,19 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
 }
 
 // ─── Sidebar (monthly prop-firm stats) ────────────────────────────────────────
+const DM: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
+
 const StatItem = ({ label, value, colorCls }: any) => (
   <div className="flex justify-between items-center group py-1.5 border-b border-[#18181b] last:border-0">
     <span className="text-[10px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] group-hover:text-[#71717a] transition-colors">{label}</span>
-    <span className={`text-xs font-bold ${colorCls || "text-white"}`}>{value}</span>
+    <span className={`text-xs font-bold ${colorCls || "text-white"}`} style={DM}>{value}</span>
   </div>
 );
 
 const StatBox = ({ label, value, colorCls }: any) => (
   <div className="bg-[#0c0c0e] border border-[#18181b] p-3 rounded-sm space-y-1">
     <span className="text-[8px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] block">{label}</span>
-    <div className={`text-xs font-bold ${colorCls || "text-white"}`}>{value}</div>
+    <div className={`text-xs font-bold ${colorCls || "text-white"}`} style={DM}>{value}</div>
   </div>
 );
 
@@ -1139,7 +1141,7 @@ function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]
         {/* Net P&L */}
         <div className="space-y-3">
           <div className="text-[9px] font-bold text-[#3f3f46] uppercase tracking-[0.2em]">Net P&amp;L</div>
-          <div className={`text-sm font-bold tabular-nums ${has ? (stats!.netPnL > 0 ? "text-emerald-400" : stats!.netPnL < 0 ? "text-rose-400" : "text-white") : "text-white"}`}>
+          <div className={`text-sm font-bold tabular-nums ${has ? (stats!.netPnL > 0 ? "text-emerald-400" : stats!.netPnL < 0 ? "text-rose-400" : "text-white") : "text-white"}`} style={DM}>
             {has ? fmtUsd(stats!.netPnL) : "+$0.00"}
           </div>
 
@@ -1147,11 +1149,11 @@ function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]
           <div className="grid grid-cols-2 gap-2">
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm">
               <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">Start</div>
-              <div className="text-xs text-[#a1a1aa]">${has ? stats!.startBalance.toFixed(2) : sb.toFixed(2)}</div>
+              <div className="text-xs text-[#a1a1aa]" style={DM}>${has ? stats!.startBalance.toFixed(2) : sb.toFixed(2)}</div>
             </div>
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm text-right">
               <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">End</div>
-              <div className="text-xs text-white">${has ? stats!.endBalance.toFixed(2) : sb.toFixed(2)}</div>
+              <div className="text-xs text-white" style={DM}>${has ? stats!.endBalance.toFixed(2) : sb.toFixed(2)}</div>
             </div>
           </div>
 
@@ -1186,7 +1188,7 @@ function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]
           {has && stats!.withdrawn > 0 && (
             <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-emerald-900/30 rounded-sm">
               <span className="text-emerald-800 uppercase tracking-widest font-bold">Withdrawn</span>
-              <span className="text-emerald-400 font-bold">+${stats!.withdrawn.toFixed(2)}</span>
+              <span className="text-emerald-400 font-bold" style={DM}>+${stats!.withdrawn.toFixed(2)}</span>
             </div>
           )}
         </div>
@@ -1212,7 +1214,7 @@ function Sidebar({ allEntries, startingBalance, sessionId }: { allEntries: any[]
               <div className="w-[2px] h-3 bg-[#3f3f46] flex-shrink-0" />
               <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#3f3f46]">Win Rate</h3>
             </div>
-            <span className="text-xs font-bold text-white">{has ? Math.round(stats!.winRate) + "%" : "0%"}</span>
+            <span className="text-xs font-bold text-white" style={DM}>{has ? Math.round(stats!.winRate) + "%" : "0%"}</span>
           </div>
           <div className="h-[2px] w-full bg-[#18181b]">
             <div className="h-full bg-[#4e8cff] transition-all duration-500" style={{ width: has ? stats!.winRate + "%" : "0%" }} />
