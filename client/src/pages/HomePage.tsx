@@ -143,17 +143,17 @@ export default function HomePage() {
       {/* Stats / Mobile mockup */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="flex justify-center lg:justify-start">
+          <div className="flex justify-center lg:justify-end">
             <img
               src="/src/assets/phone-hero.png"
               alt="Myfmjournal on mobile"
               style={{
-                width: 280,
-                borderRadius: 12,
-                boxShadow: darkMode
-                  ? '0 40px 80px rgba(0,0,0,0.7), 0 0 40px rgba(59,130,246,0.1)'
-                  : '0 40px 80px rgba(0,0,0,0.18)',
+                height: 520,
+                width: 'auto',
                 display: 'block',
+                objectFit: 'cover',
+                mixBlendMode: darkMode ? 'normal' : 'multiply',
+                filter: darkMode ? 'none' : 'contrast(1.02)',
               }}
             />
           </div>
