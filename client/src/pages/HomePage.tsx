@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight } from 'lucide-react';
+import PhoneMockup from "@/components/PhoneMockup";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
@@ -143,19 +144,8 @@ export default function HomePage() {
       {/* Stats / Mobile mockup */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="flex justify-center lg:justify-end">
-            <img
-              src="/src/assets/phone-hero.png"
-              alt="Myfmjournal on mobile"
-              style={{
-                height: 560,
-                width: 'auto',
-                display: 'block',
-                filter: darkMode
-                  ? 'drop-shadow(0 32px 64px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(59,130,246,0.15))'
-                  : 'drop-shadow(0 32px 64px rgba(0,0,0,0.22))',
-              }}
-            />
+          <div className="flex justify-center lg:justify-start">
+            <PhoneMockup darkMode={darkMode} />
           </div>
           <div>
             <h2 className="text-4xl mb-4" style={{ ...headerFont, color: t.text }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
