@@ -561,13 +561,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             {/* Text */}
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: 10, fontWeight: 800, color: C.heroText,
+                fontSize: 13, fontWeight: 800, color: C.heroText,
                 letterSpacing: "0.05em", marginBottom: 5,
               }}>
                 PROBABILITY: {data?.probability ?? 0}%
               </div>
               <div style={{
-                fontSize: 10, fontWeight: 600,
+                fontSize: 13, fontWeight: 600,
                 color: "#3d9fd3",
                 letterSpacing: "0.1em",
               }}>
