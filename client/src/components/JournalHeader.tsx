@@ -449,7 +449,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     <div>
       <style>{`
         @keyframes mfj-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        .nav-a { text-decoration:none; font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'DM Mono',monospace; }
+        .nav-a { text-decoration:none; font-size:10px; font-weight:500; letter-spacing:0.12em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'DM Mono',monospace; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
         .jh-icon-btn:hover { background: ${dm ? '#0c1219' : '#f1f5f9'} !important; }
