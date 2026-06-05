@@ -88,7 +88,7 @@ function signalToDisplayData(sig: any | null) {
     { label: "4H STRUCTURE",  value: parseReason(sig.technicalReasons, "4H"),         color: valueColor(parseReason(sig.technicalReasons, "4H")) },
     { label: "1H MOMENTUM",   value: parseReason(sig.technicalReasons, "1H"),         color: valueColor(parseReason(sig.technicalReasons, "1H")) },
     { label: "15M LIQUIDITY", value: sig.liquiditySweep ? "TAKEN" : "AVAILABLE",     color: sig.liquiditySweep ? "#f59e0b" : "#22d3a5" },
-    { label: "SMC PROFILE",   value: sig.orderBlockType?.toUpperCase() || "—",        color: "#22d3a5" },
+    { label: (sig.strategy?.toUpperCase() || "STRATEGY"), value: sig.orderBlockType?.toUpperCase() || "—", color: "#22d3a5" },
   ];
 
   const tech: TechItem[] = [
@@ -113,72 +113,13 @@ function signalToDisplayData(sig: any | null) {
   };
 }
 
-// ─── Full instrument list ──────────────────────────────────────────────────────
-const ALL_INSTRUMENTS: Instrument[] = [
-  // ── Crypto ─────────────────────────────────────────────────────────────────
-  { symbol: "BTC/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "ETH/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "SOL/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "XRP/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "BNB/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "ADA/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "DOGE/USDT",  assetClass: "crypto", category: "Crypto" },
-  { symbol: "AVAX/USDT",  assetClass: "crypto", category: "Crypto" },
-  { symbol: "MATIC/USDT", assetClass: "crypto", category: "Crypto" },
-  { symbol: "LTC/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "LINK/USDT",  assetClass: "crypto", category: "Crypto" },
-  { symbol: "DOT/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "UNI/USDT",   assetClass: "crypto", category: "Crypto" },
-  { symbol: "ATOM/USDT",  assetClass: "crypto", category: "Crypto" },
-  // ── Major Forex ────────────────────────────────────────────────────────────
-  { symbol: "EUR/USD", assetClass: "forex", category: "Forex" },
-  { symbol: "GBP/USD", assetClass: "forex", category: "Forex" },
-  { symbol: "USD/JPY", assetClass: "forex", category: "Forex" },
-  { symbol: "USD/CHF", assetClass: "forex", category: "Forex" },
-  { symbol: "AUD/USD", assetClass: "forex", category: "Forex" },
-  { symbol: "NZD/USD", assetClass: "forex", category: "Forex" },
-  { symbol: "USD/CAD", assetClass: "forex", category: "Forex" },
-  // ── Cross Forex ────────────────────────────────────────────────────────────
-  { symbol: "EUR/GBP", assetClass: "forex", category: "Forex" },
-  { symbol: "EUR/JPY", assetClass: "forex", category: "Forex" },
-  { symbol: "GBP/JPY", assetClass: "forex", category: "Forex" },
-  { symbol: "EUR/AUD", assetClass: "forex", category: "Forex" },
-  { symbol: "EUR/CAD", assetClass: "forex", category: "Forex" },
-  { symbol: "GBP/AUD", assetClass: "forex", category: "Forex" },
-  { symbol: "GBP/CAD", assetClass: "forex", category: "Forex" },
-  { symbol: "AUD/JPY", assetClass: "forex", category: "Forex" },
-  { symbol: "EUR/CHF", assetClass: "forex", category: "Forex" },
-  { symbol: "GBP/CHF", assetClass: "forex", category: "Forex" },
-  { symbol: "AUD/CAD", assetClass: "forex", category: "Forex" },
-  { symbol: "AUD/CHF", assetClass: "forex", category: "Forex" },
-  { symbol: "NZD/JPY", assetClass: "forex", category: "Forex" },
-  // ── Commodities ────────────────────────────────────────────────────────────
-  { symbol: "XAU/USD", assetClass: "commodity", category: "Commodity" },
-  { symbol: "XAG/USD", assetClass: "commodity", category: "Commodity" },
-  { symbol: "WTI",     assetClass: "commodity", category: "Commodity" },
-  // ── US Indices ─────────────────────────────────────────────────────────────
-  { symbol: "US100",       assetClass: "stock", category: "Index" },
-  { symbol: "US500",       assetClass: "stock", category: "Index" },
-  { symbol: "US30",        assetClass: "stock", category: "Index" },
-  { symbol: "RUSSELL2000", assetClass: "stock", category: "Index" },
-  { symbol: "VIX",         assetClass: "stock", category: "Index" },
-  // ── US Stocks ──────────────────────────────────────────────────────────────
-  { symbol: "AAPL",  assetClass: "stock", category: "Stock" },
-  { symbol: "MSFT",  assetClass: "stock", category: "Stock" },
-  { symbol: "GOOGL", assetClass: "stock", category: "Stock" },
-  { symbol: "AMZN",  assetClass: "stock", category: "Stock" },
-  { symbol: "TSLA",  assetClass: "stock", category: "Stock" },
-  { symbol: "NVDA",  assetClass: "stock", category: "Stock" },
-  { symbol: "META",  assetClass: "stock", category: "Stock" },
-  { symbol: "NFLX",  assetClass: "stock", category: "Stock" },
-  { symbol: "JPM",   assetClass: "stock", category: "Stock" },
-  { symbol: "BAC",   assetClass: "stock", category: "Stock" },
-  { symbol: "GS",    assetClass: "stock", category: "Stock" },
-  { symbol: "AMD",   assetClass: "stock", category: "Stock" },
-  { symbol: "INTC",  assetClass: "stock", category: "Stock" },
-  { symbol: "DIS",   assetClass: "stock", category: "Stock" },
-  { symbol: "BABA",  assetClass: "stock", category: "Stock" },
-];
+function assetClassToCategory(ac: string): Instrument["category"] {
+  if (ac === "crypto")    return "Crypto";
+  if (ac === "forex")     return "Forex";
+  if (ac === "commodity") return "Commodity";
+  if (ac === "index")     return "Index";
+  return "Stock";
+}
 
 // ASSET_DATA removed — data now fetched live from /api/trading-signals
 
@@ -187,7 +128,7 @@ const _PLACEHOLDER_CONTEXT: ContextItem[] = [
   { label: "4H STRUCTURE",  value: "—", color: "#2d4a63" },
   { label: "1H MOMENTUM",   value: "—", color: "#2d4a63" },
   { label: "15M LIQUIDITY", value: "—", color: "#2d4a63" },
-  { label: "SMC PROFILE",   value: "—", color: "#2d4a63" },
+  { label: "STRATEGY",      value: "—", color: "#2d4a63" },
 ];
 const _PLACEHOLDER_TECH: TechItem[] = [
   { label: "ADX POWER",       value: "—", color: "#2d4a63" },
@@ -313,23 +254,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ── Background prefetch: warm server + client cache for top crypto symbols ───
+  // When user switches symbol, prefetch the next few in the sidebar list ───────
   useEffect(() => {
-    const TOP_CRYPTO = ["BTC/USDT","ETH/USDT","SOL/USDT","XRP/USDT","BNB/USDT","DOGE/USDT"];
-    const tf = currentTF;
-    // Stagger requests so we don't hammer the server simultaneously
-    TOP_CRYPTO.forEach((sym, i) => {
-      setTimeout(() => prefetchCandles(sym, tf.interval, tf.period), i * 800);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount
-
-  // When user switches symbol, prefetch the next few in the list ──────────────
-  useEffect(() => {
-    const allCrypto = ALL_INSTRUMENTS.filter(i => i.assetClass === "crypto").map(i => i.symbol);
-    const idx = allCrypto.indexOf(selected);
+    const idx = sidebarInstruments.findIndex(i => i.symbol === selected);
     if (idx === -1) return;
-    const next = allCrypto.slice(idx + 1, idx + 4);
+    const next = sidebarInstruments.slice(idx + 1, idx + 4).map(i => i.symbol);
     next.forEach((sym, i) => {
       setTimeout(() => prefetchCandles(sym, currentTF.interval, currentTF.period), i * 600);
     });
@@ -393,8 +322,33 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     document.addEventListener('mouseup', onUp);
   }
 
-  // Live prices — sidebar batch every 15s, selected instrument every 8s for near-real-time feel
-  const sidebarSymbols = ALL_INSTRUMENTS.map(i => i.symbol);
+  // ── All active signals → sidebar instrument list ─────────────────────────
+  const { data: allSignals = [] } = useQuery<{ symbol: string; assetClass: string }[]>({
+    queryKey: ["all-active-signals"],
+    queryFn: async () => {
+      const res = await fetch("/api/trading-signals?status=active");
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const sidebarInstruments: Instrument[] = (() => {
+    const seen = new Set<string>();
+    const list: Instrument[] = [];
+    for (const s of allSignals) {
+      if (!seen.has(s.symbol)) {
+        seen.add(s.symbol);
+        list.push({ symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"], category: assetClassToCategory(s.assetClass) });
+      }
+    }
+    return list;
+  })();
+
+  // Live prices — sidebar batch every 35s, selected instrument every 8s
+  const sidebarSymbols = sidebarInstruments.map(i => i.symbol);
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
   const entryTick      = useFastPrice(selected, 8000);
 
@@ -419,7 +373,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const displayTech       = data?.tech        ?? _PLACEHOLDER_TECH;
   const displayPriceAction = data?.priceAction ?? _PLACEHOLDER_PRICE_ACTION;
 
-  const filtered = ALL_INSTRUMENTS.filter(i =>
+  const filtered = sidebarInstruments.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -869,6 +823,12 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
 
         {/* Instrument List */}
         <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: "32px 16px", textAlign: "center", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.8 }}>
+              {search ? "NO MATCH" : "NO ACTIVE SIGNALS"}
+              {!search && <div style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>Instruments appear here when the scanner identifies a setup</div>}
+            </div>
+          )}
           {filtered.map(card => {
             const isActive = card.symbol === selected;
             return (
