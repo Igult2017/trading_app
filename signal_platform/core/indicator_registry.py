@@ -15,6 +15,12 @@ def register(indicator: BaseIndicator) -> None:
     log.info(f"[indicator_registry] registered '{indicator.name}' (id={indicator.id})")
 
 
+def get_timeframes(indicator_id: str) -> list[str]:
+    """Return the required_timeframes for a registered indicator, or [] if unknown."""
+    ind = _indicators.get(indicator_id)
+    return list(ind.required_timeframes) if ind else []
+
+
 def compute(indicator_id: str, candles: MTFCandles) -> IndicatorResult | None:
     ind = _indicators.get(indicator_id)
     if not ind:

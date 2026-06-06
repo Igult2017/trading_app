@@ -18,7 +18,7 @@ from core.types import Session, Trend
 from core.indicator_types import IndicatorBundle
 from core.pattern_types import PatternBundle
 from data import candle_fetcher, instrument_filter
-from data.candle_fetcher import prefetch_all
+from data.candle_prefetch import prefetch_all
 from data.mtf_aligner import build as build_mtf
 from news import news_fetcher, news_filter
 from scheduler.session_windows import get_current_sessions
@@ -43,15 +43,22 @@ def _is_paused() -> bool:
 
 
 def _collect_needed_pairs(instruments: list[str], strategies: list) -> list[tuple[str, str]]:
-    pairs: list[tuple[str, str]] = []
+    """Collect every (symbol, tf) pair needed this tick across strategies, indicators, and patterns."""
+    pairs: set[tuple[str, str]] = set()
     for instrument in instruments:
         for strategy in strategies:
             if (strategy.allowed_instruments is not None
                     and instrument not in strategy.allowed_instruments):
                 continue
             for tf in strategy.required_timeframes:
-                pairs.append((instrument, tf))
-    return pairs
+                pairs.add((instrument, tf))
+            for ind_id in strategy.required_indicators:
+                for tf in indicator_registry.get_timeframes(ind_id):
+                    pairs.add((instrument, tf))
+            for pat_id in strategy.required_patterns:
+                for tf in pattern_registry.get_timeframes(pat_id):
+                    pairs.add((instrument, tf))
+    return list(pairs)
 
 
 async def _run_strategy(strategy, instrument: str,
@@ -85,19 +92,24 @@ async def _run_strategy(strategy, instrument: str,
         log.debug(f"[scanner] {instrument}/{strategy.id}: news filter — skip")
         return
 
+    # Strategy sees only its declared TFs
     candles = build_mtf(candle_cache, strategy.required_timeframes)
 
+    # Indicators may declare TFs beyond the strategy's own — pass everything available
+    full_candles = build_mtf(candle_cache, list(candle_cache.keys()))
     for ind_id in strategy.required_indicators:
         if ind_id not in indicator_cache:
-            result = indicator_registry.compute(ind_id, candles)
+            result = indicator_registry.compute(ind_id, full_candles)
             if result:
                 indicator_cache[ind_id] = result
 
     indicators = IndicatorBundle.from_cache(indicator_cache, strategy.required_indicators)
 
-    candles_by_tf = {tf: candle_cache[tf]
-                     for tf in strategy.required_timeframes
-                     if tf in candle_cache}
+    # Patterns get strategy TFs plus any explicit TFs the pattern itself declared
+    pattern_tfs = set(strategy.required_timeframes)
+    for pat_id in strategy.required_patterns:
+        pattern_tfs.update(pattern_registry.get_timeframes(pat_id))
+    candles_by_tf = {tf: candle_cache[tf] for tf in pattern_tfs if tf in candle_cache}
     for pat_id in strategy.required_patterns:
         if pat_id not in pattern_cache:
             pattern_cache[pat_id] = pattern_registry.detect(pat_id, candles_by_tf)
@@ -143,9 +155,15 @@ async def _run_strategy(strategy, instrument: str,
 
 async def _scan_instrument(instrument: str, strategies: list,
                            news_context, current_sessions: list) -> None:
-    all_tfs = {tf for s in strategies for tf in s.required_timeframes
-               if s.allowed_instruments is None
-               or instrument in (s.allowed_instruments or [])}
+    # Collect every TF needed: strategy + indicator + pattern TFs
+    all_tfs: set[str] = set()
+    for s in strategies:
+        if s.allowed_instruments is None or instrument in (s.allowed_instruments or []):
+            all_tfs.update(s.required_timeframes)
+            for ind_id in s.required_indicators:
+                all_tfs.update(indicator_registry.get_timeframes(ind_id))
+            for pat_id in s.required_patterns:
+                all_tfs.update(pattern_registry.get_timeframes(pat_id))
 
     candle_cache: dict = {
         tf: candle_fetcher.candle_cache.get(instrument, tf) or []

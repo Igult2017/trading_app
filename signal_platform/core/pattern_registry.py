@@ -26,6 +26,12 @@ def register(pattern: BasePattern) -> None:
     log.info(f"[pattern_registry] registered '{pattern.name}' (id={pattern.id})")
 
 
+def get_timeframes(pattern_id: str) -> list[str]:
+    """Return required_timeframes for a registered pattern, or [] if TF-agnostic/unknown."""
+    pat = _patterns.get(pattern_id)
+    return list(pat.required_timeframes) if pat else []
+
+
 def detect(pattern_id: str,
            candles_by_tf: dict[str, list[Candle]]) -> list[PatternMatch]:
     pat = _patterns.get(pattern_id)
