@@ -1,170 +1,153 @@
-import React, { useState } from 'react';
-import { BarChart3, Calendar, PieChart, Diamond, Star, Check, ArrowRight } from 'lucide-react';
-import PhoneMockup from "@/components/PhoneMockup";
+import { useState } from 'react';
+import { BarChart3, Calendar, PieChart, Diamond, Check, ArrowRight, Search, BookOpen, Brain } from 'lucide-react';
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
-import { AuroraBackground } from "@/components/ui/aurora-background";
+import HomeStatsSection from "@/components/HomeStatsSection";
 
-const headerFont = { fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.02em' } as const;
-const navFont = { fontFamily: "'Montserrat', sans-serif", fontWeight: 800 } as const;
+const serif = { fontFamily: "'Playfair Display', serif" } as const;
+const sans  = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
 
 const features = [
-  { icon: <Calendar className="w-6 h-6" />, title: "Stay Organised", description: "Track your trades and review your performance by day, week, or month" },
-  { icon: <BarChart3 className="w-6 h-6" />, title: "Analyze Strategies", description: "Easily analyze and compare the success rates of different strategies" },
-  { icon: <Diamond className="w-6 h-6" />, title: "Spot Patterns", description: "Identify patterns in your wins and losses to refine your trading schedule" },
-  { icon: <PieChart className="w-6 h-6" />, title: "Professional Journaling", description: "Journal your trades and thoughts like a pro trader" },
+  { icon: <BookOpen size={18} />,  title: "Trade Journal",    sub: "Free forever" },
+  { icon: <BarChart3 size={18} />, title: "Analytics",        sub: "Premium" },
+  { icon: <Brain size={18} />,     title: "AI Coach",         sub: "From $20/mo" },
+  { icon: <Calendar size={18} />,  title: "Econ. Calendar",   sub: "Free" },
+  { icon: <Diamond size={18} />,   title: "Signals",          sub: "Included" },
+  { icon: <PieChart size={18} />,  title: "Broker Sync",      sub: "50+ brokers" },
 ];
 
-const mobileFeatures = [
-  { icon: <Check className="w-5 h-5" />, title: "Fully automated process" },
-  { icon: <Check className="w-5 h-5" />, title: "Mobile friendly" },
-  { icon: <Check className="w-5 h-5" />, title: "Check your performance in realtime" },
-  { icon: <Check className="w-5 h-5" />, title: "Lightweight and optimised" },
+const steps = [
+  { n: "01", icon: <Search size={20} />,    title: "Connect your broker",       desc: "Link your MT4/MT5 account in seconds. Trades import automatically — no manual entry needed." },
+  { n: "02", icon: <Calendar size={20} />,  title: "Log & journal trades",      desc: "Capture context, screenshots, and psychology for every trade. Build a searchable decision database." },
+  { n: "03", icon: <BarChart3 size={20} />, title: "Analyse & build your edge", desc: "Spot patterns in wins and losses. Refine strategy, timing, and execution habits with AI insights." },
 ];
 
-const brokers = [
-  { name: "InstaForex",    logo: "/broker-instaforex.svg" },
-  { name: "LMAX Exchange", logo: "/broker-lmax.png" },
-  { name: "Pepperstone",   logo: "/broker-pepperstone.png" },
-  { name: "TICKMILL",      logo: "/broker-tickmill.png" },
-  { name: "Admirals",      logo: "/broker-admirals.png" },
-  { name: "AXITRADER",     logo: "/broker-axitrader.png" },
-];
+const trustItems = ["MT5 Auto-Import", "No Subscription Required", "AI-Powered Analytics", "GDPR Compliant", "Real-time Sync", "50+ Brokers Supported"];
 
 export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false);
-
-  const t = darkMode ? {
-    pageBg: 'linear-gradient(to bottom, #020817, #0f172a, #020817)',
-    sectionAlt: 'rgba(15,23,42,0.6)', cardBg: '#0f172a', cardBorder: '#1e293b',
-    text: '#ffffff', textMuted: '#94a3b8', textAccent: '#60a5fa',
-    featureCardBg: 'rgba(30,41,59,0.5)',
-    mobilePhoneBg: 'linear-gradient(145deg, #0f172a, #1e293b)', mobilePhoneBorder: '#334155',
-    mobilePhoneShadow: '0 0 60px rgba(59,130,246,0.15), 0 25px 50px rgba(0,0,0,0.6)',
-    mobileTopBar: 'linear-gradient(to bottom, #0f172a, #1e293b)', mobileTopBorder: '#1e293b',
-    mobileCard: 'linear-gradient(135deg, #0f172a, #1e3a5f)', mobileCardBorder: 'rgba(30,64,175,0.3)',
-    mobileStatValue: '#60a5fa', mobileLabel: '#94a3b8', mobileBarBg: '#1e293b', mobileHomebar: '#334155',
-  } : {
-    pageBg: '#ffffff',
-    sectionAlt: 'rgba(241,245,249,0.8)', cardBg: '#ffffff', cardBorder: '#e2e8f0',
-    text: '#0f172a', textMuted: '#64748b', textAccent: '#2563eb',
-    featureCardBg: 'rgba(248,250,252,0.9)',
-    mobilePhoneBg: 'linear-gradient(145deg, #ffffff, #f1f5f9)', mobilePhoneBorder: '#cbd5e1',
-    mobilePhoneShadow: '0 0 60px rgba(59,130,246,0.1), 0 25px 50px rgba(0,0,0,0.12)',
-    mobileTopBar: 'linear-gradient(to bottom, #ffffff, #f8fafc)', mobileTopBorder: '#e2e8f0',
-    mobileCard: 'linear-gradient(135deg, #eff6ff, #dbeafe)', mobileCardBorder: 'rgba(147,197,253,0.5)',
-    mobileStatValue: '#1d4ed8', mobileLabel: '#64748b', mobileBarBg: '#e2e8f0', mobileHomebar: '#cbd5e1',
-  };
+  const dm     = darkMode;
+  const bg     = dm ? '#020817' : '#ffffff';
+  const bg2    = dm ? 'rgba(15,23,42,0.6)' : '#f8fafc';
+  const text   = dm ? '#f1f5f9' : '#0f172a';
+  const muted  = dm ? '#94a3b8' : '#64748b';
+  const card   = dm ? '#0f172a' : '#ffffff';
+  const border = dm ? '#1e293b' : '#e2e8f0';
 
   return (
-    <div style={{ minHeight: '100vh', background: t.pageBg, color: t.text, transition: 'all 0.4s ease', fontFamily: "'Poppins', sans-serif" }}>
-      <HomeHeader darkMode={darkMode} setDarkMode={setDarkMode} activePath="/" />
+    <div style={{ minHeight: '100vh', background: bg, color: text, transition: 'all 0.4s ease', ...sans }}>
+      <style>{`@keyframes hp-mq{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}.hp-mq{display:inline-flex;animation:hp-mq 40s linear infinite}`}</style>
+      <HomeHeader darkMode={dm} setDarkMode={setDarkMode} activePath="/" />
 
-      {/* Hero with Aurora */}
-      <AuroraBackground darkMode={darkMode} className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto text-center relative z-10">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl mb-6 leading-tight" style={{ ...navFont, color: t.text }}>
-            A Premium Trade Journal,
-            <br />
-            <span style={{ background: 'linear-gradient(to right, #3b82f6, #2563eb)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Without The Subscription.
-            </span>
-          </h1>
-          <p className="text-lg mb-3 max-w-2xl mx-auto" style={{ color: t.textMuted, lineHeight: '1.7' }}>
-            A complete execution database and performance analysis system for serious traders.
-          </p>
-          <p className="text-base mb-8 max-w-xl mx-auto" style={{ color: t.textAccent, fontWeight: 500, lineHeight: '1.8' }}>
-            Log trades. Capture decisions. Track psychology.<br />
-            Identify patterns. Refine execution.{' '}
-            <span style={{ color: t.text, fontWeight: 700 }}>Build your edge.</span>
-          </p>
-          <div className="flex items-center justify-center space-x-2 mb-12">
-            <div className="flex">{[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />)}</div>
-            <span style={{ color: t.textMuted }}>Trusted by thousands of traders · See our reviews on Trustpilot</span>
-          </div>
-          <div className="flex justify-center">
-            <div style={{ padding: '6px', borderRadius: '9999px', border: '2px dashed #3b82f6', display: 'inline-block' }}>
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
+      <section className="pt-36 pb-20 px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 14px', borderRadius:999, border:`1px solid ${border}`, fontSize:12, color:muted, marginBottom:28, fontWeight:600 }}>
+              <span style={{ color:'#f59e0b' }}>★</span> The #1 Trade Journal for Retail Traders
+            </div>
+            <h1 style={{ ...serif, fontSize:'clamp(2.6rem,4.5vw,4rem)', fontWeight:900, lineHeight:1.1, marginBottom:20, color:text }}>
+              Your trades,<br />
+              <em style={{ fontStyle:'italic', color:'#2563eb' }}>analyzed smart.</em>
+            </h1>
+            <p style={{ fontSize:17, color:muted, lineHeight:1.8, marginBottom:32, maxWidth:440 }}>
+              A complete execution database and performance analytics system. Log trades, capture decisions, and build your edge — for free.
+            </p>
+            <div style={{ display:'flex', gap:8, marginBottom:20, maxWidth:420 }}>
+              <input type="email" placeholder="Enter your email address"
+                style={{ flex:1, padding:'12px 16px', borderRadius:10, border:`1.5px solid ${border}`, fontSize:14, background:card, color:text, outline:'none' }} />
               <a href="/auth?mode=signup" target="myfm_journal"
-                className="flex items-center gap-2 px-8 py-3 text-white font-semibold transition-all hover:scale-105"
-                style={{ ...navFont, background: 'linear-gradient(to right, #2563eb, #3b82f6)', borderRadius: '9999px', fontSize: '1rem', textDecoration: 'none' }}>
-                <span>Start Now - It&apos;s Free!</span>
-                <ArrowRight className="w-5 h-5" />
+                style={{ padding:'12px 20px', borderRadius:10, background:'#2563eb', color:'#fff', fontSize:14, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap' }}>
+                Start free <ArrowRight size={15} />
               </a>
             </div>
-          </div>
-        </div>
-      </AuroraBackground>
-
-      {/* Brokers */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          <h3 className="text-center text-2xl mb-12" style={{ ...headerFont, color: t.textMuted }}>Compatible with Brokers</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center justify-items-center">
-            {brokers.map((b, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 group cursor-default">
-                <img
-                  src={b.logo}
-                  alt={b.name}
-                  className={`h-10 w-10 object-contain rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-md ${darkMode ? 'opacity-70 group-hover:opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
-                />
-                <span className="text-xs font-semibold" style={{ color: t.textMuted }}>{b.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8" style={{ background: t.sectionAlt, transition: 'all 0.4s ease' }}>
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl text-center mb-4" style={{ ...headerFont, color: t.text }}>Unlock Powerful Insights</h2>
-          <p className="text-xl text-center mb-16 max-w-3xl mx-auto" style={{ color: t.textMuted }}>
-            The most comprehensive analytics dashboard that can be customised to your needs
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {features.map((f, i) => (
-              <div key={i} className="group flex items-start gap-4 p-6 rounded-xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
-                style={{ background: t.featureCardBg, borderColor: t.cardBorder }}>
-                <div className="p-3 rounded-xl shrink-0 text-white transition-transform duration-300 group-hover:scale-110"
-                  style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
-                  {f.icon}
-                </div>
-                <div>
-                  <h3 className="text-xl mb-2" style={{ ...headerFont, color: t.text }}>{f.title}</h3>
-                  <p style={{ color: t.textMuted }}>{f.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats / Mobile mockup */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="flex justify-center lg:justify-start">
-            <PhoneMockup darkMode={darkMode} />
-          </div>
-          <div>
-            <h2 className="text-4xl mb-4" style={{ ...headerFont, color: t.text }}>Realtime Statistics Keep You Updated Anywhere In The World</h2>
-            <p className="text-xl mb-8" style={{ color: t.textMuted }}>Automatic import from your MT5 account makes tracking your performance easier than ever</p>
-            <div className="space-y-4">
-              {mobileFeatures.map((f, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg shrink-0 text-white" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>{f.icon}</div>
-                  <span style={{ fontSize: '18px', color: t.text }}>{f.title}</span>
-                </div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:'6px 20px' }}>
+              {["MT5 Auto-Import", "No subscription", "Real-time sync"].map(t => (
+                <span key={t} style={{ display:'flex', alignItems:'center', gap:5, fontSize:13, color:muted }}>
+                  <Check size={13} color="#10b981" strokeWidth={3} /> {t}
+                </span>
               ))}
             </div>
           </div>
+
+          {/* Feature cards grid */}
+          <div>
+            <div style={{ fontSize:10, fontWeight:800, letterSpacing:'0.2em', textTransform:'uppercase', color:muted, marginBottom:10 }}>OUR FEATURES</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              {features.map((f, i) => (
+                <div key={i} style={{ padding:'16px 14px', borderRadius:14, border:`1px solid ${border}`, background:card, cursor:'default', transition:'box-shadow 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
+                  <div style={{ marginBottom:8, color:'#2563eb' }}>{f.icon}</div>
+                  <div style={{ fontWeight:700, fontSize:13, marginBottom:2, color:text }}>{f.title}</div>
+                  <div style={{ fontSize:11, color:muted }}>{f.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize:12, color:muted, textAlign:'right', marginTop:8 }}>
+              Or <a href="/auth" style={{ color:'#2563eb', textDecoration:'none', fontWeight:600 }}>sign in to your account →</a>
+            </div>
+          </div>
         </div>
       </section>
 
-      <PricingSection darkMode={darkMode} />
-      <TestimonialsSection darkMode={darkMode} />
-      <HomeFooter darkMode={darkMode} />
+      {/* ── Trust marquee ────────────────────────────────────────────── */}
+      <div style={{ background:'#0f172a', borderTop:'1px solid #1e293b', borderBottom:'1px solid #1e293b', padding:'13px 0', overflow:'hidden', whiteSpace:'nowrap' }}>
+        <div className="hp-mq" style={{ gap:48, fontWeight:700, fontSize:10, letterSpacing:'0.15em', textTransform:'uppercase', color:'#4b5563' }}>
+          {[...trustItems, ...trustItems].map((t, i) => (
+            <span key={i} style={{ display:'inline-flex', alignItems:'center', gap:10, flexShrink:0, paddingRight:48 }}>
+              <span style={{ width:4, height:4, borderRadius:'50%', background:'#3b82f6', display:'inline-block', flexShrink:0 }} />
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── How it works ─────────────────────────────────────────────── */}
+      <section className="py-24 px-6 lg:px-8" style={{ background:bg2, transition:'all 0.4s ease' }}>
+        <div className="max-w-6xl mx-auto">
+          <p style={{ textAlign:'center', fontSize:10, fontWeight:800, letterSpacing:'0.22em', textTransform:'uppercase', color:'#2563eb', marginBottom:14 }}>HOW IT WORKS</p>
+          <h2 style={{ ...serif, fontSize:'clamp(1.9rem,3vw,2.8rem)', fontWeight:900, textAlign:'center', marginBottom:12, color:text }}>
+            How MyfmJournal works
+          </h2>
+          <p style={{ textAlign:'center', fontSize:16, color:muted, marginBottom:60, maxWidth:520, margin:'0 auto 60px' }}>
+            From broker connection to edge-building in three steps — no manual entry, no hassle.
+          </p>
+          <div className="grid md:grid-cols-3 gap-12">
+            {steps.map((s, i) => (
+              <div key={i}>
+                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
+                  <span style={{ ...serif, fontSize:'3.5rem', fontWeight:900, lineHeight:1, color:dm?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)', letterSpacing:'-0.02em' }}>{s.n}</span>
+                  <div style={{ width:44, height:44, borderRadius:12, border:`1.5px solid ${border}`, display:'flex', alignItems:'center', justifyContent:'center', color:'#2563eb', flexShrink:0, background:card }}>
+                    {s.icon}
+                  </div>
+                </div>
+                <h3 style={{ ...serif, fontSize:'1.2rem', fontWeight:700, marginBottom:10, color:text }}>{s.title}</h3>
+                <p style={{ fontSize:14, color:muted, lineHeight:1.8 }}>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Brokers ──────────────────────────────────────────────────── */}
+      <section className="py-14 px-6" style={{ borderTop:`1px solid ${border}`, borderBottom:`1px solid ${border}` }}>
+        <div className="max-w-5xl mx-auto">
+          <p style={{ textAlign:'center', fontSize:12, color:muted, marginBottom:22, fontWeight:600 }}>Compatible with 50+ brokers including</p>
+          <div className="flex flex-wrap justify-center gap-8 items-center" style={{ opacity:0.5 }}>
+            {["/broker-instaforex.svg","/broker-lmax.png","/broker-pepperstone.png","/broker-tickmill.png","/broker-admirals.png","/broker-axitrader.png"].map((l, i) => (
+              <img key={i} src={l} alt="" className="h-8 object-contain grayscale hover:grayscale-0 transition-all" />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <HomeStatsSection darkMode={dm} />
+      <PricingSection darkMode={dm} />
+      <TestimonialsSection darkMode={dm} />
+      <HomeFooter darkMode={dm} />
     </div>
   );
 }

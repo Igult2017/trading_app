@@ -140,7 +140,7 @@ export default function BlogPage() {
     />
     <div
       className={`min-h-screen transition-colors duration-700 selection:bg-blue-400 selection:text-white ${isDark ? 'bg-[#0f172a] text-[#f1f5f9]' : 'bg-[#FDFCFB] text-[#1a1a1a]'}`}
-      style={{ fontFamily: '"Montserrat", sans-serif' }}
+      style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}
     >
       <style>{`
         @keyframes marquee     { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }

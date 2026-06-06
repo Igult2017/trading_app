@@ -44,9 +44,9 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
     >
       <div className="max-w-6xl mx-auto">
         <h2
-          className={cn('text-4xl text-center mb-4 font-bold tracking-wide',
+          className={cn('text-4xl text-center mb-4 font-bold tracking-tight',
             darkMode ? 'text-white' : 'text-slate-900')}
-          style={{ fontFamily: "'Oswald', sans-serif" }}
+          style={{ fontFamily: "'Playfair Display', serif" }}
         >
           Simple, Transparent Pricing
         </h2>
@@ -77,8 +77,8 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                     : 'bg-white border-slate-200 text-slate-900'
               )}>
                 <CardHeader className="pb-2">
-                  <div className={cn('text-xl font-bold tracking-wide', plan.popular ? 'text-white' : '')}
-                    style={{ fontFamily: "'Oswald', sans-serif" }}>
+                  <div className={cn('text-xl font-bold tracking-tight', plan.popular ? 'text-white' : '')}
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
                     {plan.name}
                   </div>
                   <div className="flex items-baseline gap-1 mt-1">

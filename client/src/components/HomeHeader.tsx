@@ -127,13 +127,14 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
             <Link href="/auth" style={{ ...nFont, fontSize: 13, color: linkClr, textDecoration: "none", padding: "6px 10px", transition: "color 0.2s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
-              Login
+              Sign in
             </Link>
-            <Link href="/auth?mode=signup" style={{ ...nFont, fontSize: 13, color: linkClr, textDecoration: "none", padding: "6px 10px", transition: "color 0.2s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
-              Signup
-            </Link>
+            <a href="/auth?mode=signup" target="myfm_journal"
+              style={{ ...nFont, fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, background: "#2563eb", color: "#ffffff", textDecoration: "none", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.88"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}>
+              Start free →
+            </a>
 
             {/* Dark mode toggle */}
             <button onClick={() => setDarkMode(!dm)} aria-label="Toggle dark mode"
@@ -164,7 +165,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       {menuOpen && (
         <div style={{ background: mobBg, borderTop: `1px solid ${navBorder}`, boxShadow: "0 16px 40px rgba(0,0,0,0.15)" }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 28px 24px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px 16px" }}>
-            {[...NAV_LINKS, { label: "Login", href: "/auth" }, { label: "Sign up free", href: "/auth?mode=signup" }].map(({ label, href }) => {
+            {[...NAV_LINKS, { label: "Sign in", href: "/auth" }, { label: "Start free", href: "/auth?mode=signup" }].map(({ label, href }) => {
               const isHash = href.includes("#");
               const style: React.CSSProperties = { ...nFont, fontSize: 13, color: linkClr, textDecoration: "none", display: "block" };
               if (isHash) return (

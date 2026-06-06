@@ -1,57 +1,64 @@
-import React from "react";
-import { ArrowRight } from "lucide-react";
-import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
-import { cn } from "@/lib/utils";
+import { Star } from 'lucide-react';
 
-const row1 = [
-  { name: "Alex M.", quote: "The dashboard is incredibly customizable and very convenient to use." },
-  { name: "Jordan K.", quote: "I love how MyfmJournal helps me track my performance and improve my strategies." },
-  { name: "Sarah T.", quote: "This tool is fantastic — it's made a huge difference to my consistency." },
-  { name: "Michael R.", quote: "MyfmJournal has completely changed the way I analyze my trading operations." },
+const serif = { fontFamily: "'Playfair Display', serif" } as const;
+const sans  = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
+
+const reviews = [
+  {
+    quote: "My trading has never been this consistent. The journal used MT5 auto-import and AI analysis that improved my edge immediately. Booking confirmation came in under 2 minutes of signup.",
+    name: "Alex M.", city: "London", service: "Trade Journal",
+  },
+  {
+    quote: "Used MyfmJournal for our trading desk monthly review. The analytics team is professional, the export dashboard is a dream. Our whole firm switched after the first month.",
+    name: "Jordan K.", city: "New York", service: "Analytics",
+  },
+  {
+    quote: "Post-session deep review was flawless. I used the AI Coach and had 4 competitive insights on my strategy within an hour. The stats transparency is a genuinely nice touch.",
+    name: "Sarah T.", city: "Berlin", service: "AI Coach",
+  },
 ];
 
-const row2 = [
-  { name: "Emily W.", quote: "An excellent tool for traders. Easy to use and very comprehensive." },
-  { name: "David P.", quote: "I've tried other journaling platforms, but MyfmJournal is by far the best. The automatic MT5 import is a total game changer!" },
-  { name: "Jessica L.", quote: "Wasn't expecting much at first but WOW. The stats dashboard is so detailed and customizable." },
-  { name: "Chris N.", quote: "The community features have helped me connect with other traders and share strategies." },
-];
-
-interface Props { darkMode: boolean; }
-
-export default function TestimonialsSection({ darkMode }: Props) {
-  const navFont = { fontFamily: "'Montserrat', sans-serif", fontWeight: 800 };
+export default function TestimonialsSection({ darkMode }: { darkMode: boolean }) {
+  const dm     = darkMode;
+  const bg     = dm ? 'rgba(15,23,42,0.6)' : '#f8fafc';
+  const card   = dm ? '#0f172a' : '#ffffff';
+  const border = dm ? '#1e293b' : '#e2e8f0';
+  const text   = dm ? '#f1f5f9' : '#0f172a';
+  const muted  = dm ? '#94a3b8' : '#64748b';
 
   return (
-    <section
-      id="reviews"
-      className={cn("py-20 overflow-hidden transition-colors duration-300",
-        darkMode ? "bg-slate-900/60" : "bg-slate-50/80")}
-    >
-      <h2
-        className={cn("text-4xl text-center mb-12 font-bold tracking-wide px-4",
-          darkMode ? "text-white" : "text-slate-900")}
-        style={{ fontFamily: "'Oswald', sans-serif" }}
-      >
-        Join 10,000+ Traders Who Chose MyfmJournal
-      </h2>
+    <section id="reviews" style={{ background: bg, padding: '80px 24px', transition: 'all 0.4s ease' }}>
+      <div className="max-w-6xl mx-auto">
+        <p style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: '#2563eb', marginBottom: 14, ...sans }}>
+          TESTIMONIALS
+        </p>
+        <h2 style={{ ...serif, fontSize: 'clamp(1.8rem,3vw,2.6rem)', fontWeight: 900, textAlign: 'center', color: text, marginBottom: 10 }}>
+          Loved by thousands across the globe
+        </h2>
+        <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 56, ...sans }}>
+          Real reviews from verified MyfmJournal traders
+        </p>
 
-      <div className="overflow-hidden px-4 sm:px-8 space-y-4">
-        <InfiniteMovingCards items={row1} direction="left" speed="normal" darkMode={darkMode} />
-        <InfiniteMovingCards items={row2} direction="right" speed="slow" darkMode={darkMode} />
-      </div>
-
-      <div className="text-center mt-12 px-4">
-        <div style={{ padding: '6px', borderRadius: '9999px', border: '2px dashed #3b82f6', display: 'inline-block' }}>
-          <a
-            href="/auth?mode=signup"
-            target="myfm_journal"
-            className="flex items-center gap-2 px-8 py-3 text-white font-semibold transition-all hover:scale-105"
-            style={{ ...navFont, background: 'linear-gradient(to right, #2563eb, #3b82f6)', borderRadius: '9999px', fontSize: '1rem', textDecoration: 'none' }}
-          >
-            <span>Join us now</span>
-            <ArrowRight className="w-5 h-5" />
-          </a>
+        <div className="grid md:grid-cols-3 gap-6">
+          {reviews.map((r, i) => (
+            <div key={i} style={{ padding: '28px 24px', borderRadius: 16, border: `1px solid ${border}`, background: card, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {[...Array(5)].map((_, j) => (
+                  <Star key={j} size={16} className="fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
+              <p style={{ fontSize: 14, color: muted, lineHeight: 1.75, flex: 1, ...sans }}>"{r.quote}"</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: text, ...sans }}>{r.name}</div>
+                  <div style={{ fontSize: 12, color: muted, ...sans }}>{r.city}</div>
+                </div>
+                <span style={{ padding: '3px 10px', borderRadius: 999, border: `1px solid ${border}`, fontSize: 11, color: muted, ...sans }}>
+                  {r.service}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
