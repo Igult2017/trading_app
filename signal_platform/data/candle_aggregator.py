@@ -1,6 +1,6 @@
 """
 Aggregates fine-grained candles into coarser timeframes.
-Used for non-native yfinance intervals: H2, H3, H6, H8, H12, M3, M10, etc.
+Used for non-native cTrader periods: H2, H3, H6, H8, M6, etc.
 Strategy authors never call this — candle_fetcher uses it transparently.
 """
 

@@ -8,7 +8,7 @@ Tenant/house model:
 
   When two strategies share a TF, the first fetch fills the TTL cache; the
   second gets a cache hit at zero network cost. The in-flight dedup in
-  candle_fetcher prevents duplicate yfinance calls even under full concurrency.
+  candle_fetcher prevents duplicate cTrader calls even under full concurrency.
 
 Runtime pause: create signal_platform/.scan_paused to stop scanning.
 """
@@ -69,7 +69,7 @@ async def _run_strategy(strategy, instrument: str,
 
     # Filter 3: trend — fetches only the HTF this check needs, on demand.
     # If the cache is warm (another strategy already fetched this pair) this
-    # is a zero-cost read; otherwise one yfinance call fires and is cached.
+    # is a zero-cost read; otherwise one cTrader call fires and is cached.
     if Trend.ANY not in strategy.allowed_trends:
         htf = max(strategy.required_timeframes, key=to_minutes)
         htf_candles = await fetch_candles(instrument, htf)

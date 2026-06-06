@@ -37,10 +37,13 @@ class Settings(BaseSettings):
     # Failure policy: Gemini errors → signal approved (non-blocking).
     gemini_api_key: str = ""
 
-    # ── Broker / data source ──────────────────────────────────────────────────
-    # OANDA: set these + swap candle_fetcher._fetch_sync() to replace yfinance.
-    broker_api_key: str = ""
-    broker_api_secret: str = ""
+    # ── Broker / data source — Pepperstone cTrader ───────────────────────────
+    # Credentials from: https://ctrader.com/your-app-portal → Applications
+    # Account ID: open cTrader platform → Settings → Account Info
+    ctrader_client_id:     str = ""
+    ctrader_client_secret: str = ""
+    ctrader_account_id:    int = 0      # numeric ID — MUST be set
+    ctrader_env:           str = "demo" # "demo" or "live"
 
 
 settings = Settings()

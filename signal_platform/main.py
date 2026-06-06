@@ -19,12 +19,28 @@ log = logging.getLogger("signal_platform")
 
 
 async def _startup() -> None:
+    from config.settings import settings
+
     # 1. Database — create tables if not present
     from storage.db import create_tables
     create_tables()
     log.info("[boot] database ready")
 
-    # 2. Register plugins (strategies, indicators, patterns)
+    # 2. Configure cTrader data source
+    from data import ctrader_session
+    if not settings.ctrader_client_id or not settings.ctrader_account_id:
+        log.error(
+            "[boot] CTRADER_CLIENT_ID or CTRADER_ACCOUNT_ID not set — "
+            "candle fetching will fail. Set them in signal_platform/.env"
+        )
+    ctrader_session.configure(
+        client_id=settings.ctrader_client_id,
+        client_secret=settings.ctrader_client_secret,
+        account_id=settings.ctrader_account_id,
+        env=settings.ctrader_env,
+    )
+
+    # 3. Register plugins (strategies, indicators, patterns)
     import strategies    # noqa: F401 — side-effect: registers strategies
     import indicators    # noqa: F401
     import patterns      # noqa: F401

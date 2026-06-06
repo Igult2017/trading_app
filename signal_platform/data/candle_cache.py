@@ -2,7 +2,7 @@
 Between-tick candle cache.
 
 Problem solved: without this, every 60s scan re-fetches H4 bars that only
-close every 4 hours — wasting ~1,440 yfinance calls/day per instrument.
+close every 4 hours — wasting ~1,440 network calls/day per instrument.
 
 Design:
   - Keyed by (symbol, timeframe)
