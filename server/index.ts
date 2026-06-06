@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
@@ -65,10 +66,27 @@ const app = express();
 // Must be first — ensures req.ip is the real client IP when behind nginx/load balancer
 app.set('trust proxy', 1);
 
+// Security headers — X-Frame-Options, X-Content-Type-Options, HSTS, etc.
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP managed separately (app uses inline styles)
+  crossOriginEmbedderPolicy: false,
+}));
+
 // Gzip all responses — cuts payload size 60-80%
 app.use(compression());
 
-// Rate limiting — 200 req/min per IP, shared across all PM2 workers via Redis
+// Strict rate limit on auth endpoints — 10 attempts per 15 min per IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts, please try again later.' },
+  ...(redis ? { store: new RedisStore({ sendCommand: (...args: string[]) => redis.call(...args) }) } : {}),
+});
+app.use('/api/auth', authLimiter);
+
+// General API rate limiting — 200 req/min per IP
 app.use('/api', rateLimit({
   windowMs: 60_000,
   max: 200,
