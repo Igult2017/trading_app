@@ -11,11 +11,11 @@ def body_size(c: Candle) -> float:
 
 
 def upper_wick(c: Candle) -> float:
-    return c.high - max(c.open, c.close)
+    return max(0.0, c.high - max(c.open, c.close))
 
 
 def lower_wick(c: Candle) -> float:
-    return min(c.open, c.close) - c.low
+    return max(0.0, min(c.open, c.close) - c.low)
 
 
 def full_range(c: Candle) -> float:
@@ -43,6 +43,8 @@ def avg_body(candles: list[Candle], n: int = 14) -> float:
 
 
 def wick_to_body_ratio(c: Candle, which: str = "upper") -> float:
+    if which not in ("upper", "lower"):
+        raise ValueError(f"which must be 'upper' or 'lower', got {which!r}")
     b = body_size(c)
     if b == 0:
         return 0.0

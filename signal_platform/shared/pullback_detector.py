@@ -87,16 +87,18 @@ class Pullback:
     impulse_end_idx:   int
     pullback_end_idx:  int
 
-    def is_at_fib(self, ratio: float, tolerance: float = 0.002) -> bool:
+    def is_at_fib(self, ratio: float, tolerance_pct: float = 0.001) -> bool:
         """
-        True if the pullback extreme is within `tolerance` (in price units)
-        of the specified Fibonacci level.
-        Default tolerance: 2 pips (0.002 for most forex pairs).
+        True if the pullback extreme is within tolerance_pct of the leg size
+        from the specified Fibonacci level. Scales with instrument price, so
+        it works equally for EURUSD, XAUUSD, BTCUSD, etc.
+        Default: 0.1% of the impulse leg.
         """
         price = self.fib_levels.at(ratio)
         if price is None:
             return False
-        return abs(self.pullback_extreme - price) <= tolerance
+        leg = abs(self.fib_levels.impulse_end - self.fib_levels.impulse_start)
+        return abs(self.pullback_extreme - price) <= leg * tolerance_pct
 
     def price_at(self, ratio: float) -> float | None:
         """Return the exact price at a Fibonacci ratio."""
@@ -182,13 +184,24 @@ def detect_pullbacks(candles: list[Candle],
         if leg_size <= 0:
             continue
 
-        # Find the deepest low AFTER the HH (that's the pullback extreme)
-        post_highs_lows = [sp for _, sp in lows if sp.index > curr_high.index]
-        if not post_highs_lows:
-            # Pullback hasn't started yet — not enough data
+        # Bound the pullback to lows before the NEXT higher high.
+        # Taking the global minimum of all subsequent lows would incorrectly
+        # assign lows from a later trend reversal to this specific HH.
+        next_hh_index = next(
+            (sp.index for _, sp in highs
+             if sp.index > curr_high.index and sp.price > curr_high.price),
+            None,
+        )
+        if next_hh_index is not None:
+            bounded_lows = [sp for _, sp in lows
+                            if curr_high.index < sp.index < next_hh_index]
+        else:
+            bounded_lows = [sp for _, sp in lows if sp.index > curr_high.index]
+
+        if not bounded_lows:
             continue
 
-        pb_extreme = min(post_highs_lows, key=lambda s: s.price)
+        pb_extreme = min(bounded_lows, key=lambda s: s.price)
         retracement = (end_price - pb_extreme.price) / leg_size
 
         # Has it resumed? Check if a new high was made after the pullback low
@@ -241,11 +254,22 @@ def detect_pullbacks(candles: list[Candle],
         if leg_size <= 0:
             continue
 
-        post_lows_highs = [sp for _, sp in highs if sp.index > curr_low.index]
-        if not post_lows_highs:
+        # Bound the pullback to highs before the NEXT lower low.
+        next_ll_index = next(
+            (sp.index for _, sp in lows
+             if sp.index > curr_low.index and sp.price < curr_low.price),
+            None,
+        )
+        if next_ll_index is not None:
+            bounded_highs = [sp for _, sp in highs
+                             if curr_low.index < sp.index < next_ll_index]
+        else:
+            bounded_highs = [sp for _, sp in highs if sp.index > curr_low.index]
+
+        if not bounded_highs:
             continue
 
-        pb_extreme  = max(post_lows_highs, key=lambda s: s.price)
+        pb_extreme = max(bounded_highs, key=lambda s: s.price)
         retracement = (pb_extreme.price - end_price) / leg_size
 
         new_lows_after_pb = [sp for _, sp in lows

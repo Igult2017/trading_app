@@ -20,8 +20,10 @@ def detect_sweeps(candles: list[Candle],
     if not swings:
         return []
 
-    swing_highs = [s for s in swings if s.is_high]
-    swing_lows  = [s for s in swings if not s.is_high]
+    # Sort descending so the first match is always the nearest prior swing,
+    # not the oldest one — closest liquidity pool is the relevant target.
+    swing_highs = sorted([s for s in swings if s.is_high], key=lambda s: s.index, reverse=True)
+    swing_lows  = sorted([s for s in swings if not s.is_high], key=lambda s: s.index, reverse=True)
 
     for i in range(n_swing + 1, len(candles)):
         c = candles[i]

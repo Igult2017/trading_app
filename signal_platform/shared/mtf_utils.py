@@ -76,13 +76,13 @@ def to_yf(tf: str) -> tuple[str, str]:
     if mins <= 60:
         return "60m", "730d"
     if mins <= 120:
-        return "60m", "730d"   # aggregate 2× after fetch
+        return "60m", "730d"   # H2: no native 2h interval; returns 60m bars
     if mins <= 240:
         return "4h",  "730d"
     if mins <= 480:
-        return "4h",  "730d"   # aggregate 2× after fetch
+        return "4h",  "730d"   # H6/H8: no native interval; returns 4h bars
     if mins <= 720:
-        return "4h",  "730d"   # aggregate 3× after fetch
+        return "4h",  "730d"   # H12: no native interval; returns 4h bars
 
     # ── Daily and above ───────────────────────────────────────────────────────
     if mins <= 1_440:
