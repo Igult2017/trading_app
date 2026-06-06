@@ -1,12 +1,13 @@
-import { Link } from "wouter";
+import { useCallback } from "react";
+import { Link, useLocation } from "wouter";
 import { FaXTwitter, FaYoutube, FaInstagram, FaTelegram, FaLinkedinIn } from "react-icons/fa6";
 
 const PLATFORM = [
-  { label: "Trade Journal", href: "/journal"  },
-  { label: "Analytics",     href: "/journal"  },
-  { label: "Blog",          href: "/blog"     },
-  { label: "Calendar",      href: "/calendar" },
-  { label: "Sessions",      href: "/tsc"      },
+  { label: "Trade Journal", href: "/journal"   },
+  { label: "Analytics",     href: "/analytics" },
+  { label: "Blog",          href: "/blog"      },
+  { label: "Calendar",      href: "/calendar"  },
+  { label: "Sessions",      href: "/tsc"       },
 ];
 const COMPANY = [
   { label: "Pricing",  href: "/#pricing"  },
@@ -26,16 +27,17 @@ const LINK_COLS = [
   { heading: "Legal",    links: LEGAL    },
 ];
 const SOCIALS = [
-  { Icon: FaXTwitter,   href: "#", label: "Twitter / X"  },
-  { Icon: FaYoutube,    href: "#", label: "YouTube"       },
-  { Icon: FaInstagram,  href: "#", label: "Instagram"     },
-  { Icon: FaTelegram,   href: "#", label: "Telegram"      },
-  { Icon: FaLinkedinIn, href: "#", label: "LinkedIn"      },
+  { Icon: FaXTwitter,   href: "#", label: "Twitter / X", brand: "#000000"  },
+  { Icon: FaYoutube,    href: "#", label: "YouTube",      brand: "#FF0000"  },
+  { Icon: FaInstagram,  href: "#", label: "Instagram",    brand: "#E1306C"  },
+  { Icon: FaTelegram,   href: "#", label: "Telegram",     brand: "#0088CC"  },
+  { Icon: FaLinkedinIn, href: "#", label: "LinkedIn",     brand: "#0A66C2"  },
 ];
 
 export interface HomeFooterProps { darkMode?: boolean; }
 
 export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
+  const [, navigate] = useLocation();
   const divider = "#e2e8f0";
   const linkClr = "#64748b";
   const hover   = "#0f172a";
@@ -44,6 +46,26 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Inter', sans-serif" } as const;
   const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 20, display: "block" };
+
+  const scrollToHash = (hash: string) => {
+    const el = document.getElementById(hash);
+    if (!el) return false;
+    const nav = document.querySelector("nav") as HTMLElement | null;
+    const offset = nav ? nav.getBoundingClientRect().height : 68;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset - 16, behavior: "smooth" });
+    return true;
+  };
+
+  const handleHashClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    const hash = href.split("#")[1];
+    if (!hash) return;
+    if (scrollToHash(hash)) return;
+    navigate("/");
+    let tries = 0;
+    const retry = () => { if (!scrollToHash(hash) && tries++ < 25) setTimeout(retry, 60); };
+    setTimeout(retry, 80);
+  }, [navigate]);
 
   return (
     <footer style={{ background: "#f8fafc", borderTop: `1px solid ${divider}`, ...bFont }}>
@@ -66,12 +88,12 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           {/* Col 2 — Social vertical */}
           <div>
             <span style={cap}>Follow Us</span>
-            {SOCIALS.map(({ Icon, href, label }) => (
+            {SOCIALS.map(({ Icon, href, label, brand }) => (
               <a key={label} href={href} aria-label={label}
                 style={{ display: "flex", alignItems: "center", gap: 10, color: linkClr, textDecoration: "none", fontSize: 13, marginBottom: 12, ...bFont, transition: "color 0.18s" }}
-                onMouseEnter={e => (e.currentTarget.style.color = hover)}
+                onMouseEnter={e => (e.currentTarget.style.color = brand)}
                 onMouseLeave={e => (e.currentTarget.style.color = linkClr)}>
-                <Icon size={14} style={{ flexShrink: 0 }} />
+                <Icon size={15} style={{ flexShrink: 0 }} />
                 {label}
               </a>
             ))}
@@ -85,6 +107,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
                 const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 11, ...bFont, transition: "color 0.18s" };
                 if (href.includes("#")) return (
                   <a key={label} href={href} style={base}
+                    onClick={e => handleHashClick(e, href)}
                     onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
                     {label}
