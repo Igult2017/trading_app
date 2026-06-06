@@ -115,25 +115,24 @@ export default function HomePage() {
       </div>
 
       {/* ── How it works ─────────────────────────────────────────────── */}
-      <section style={{ padding: '96px 24px', background: bg2, transition: 'all 0.4s ease' }}>
+      <section style={{ padding: '96px 24px', background: bg, transition: 'all 0.4s ease' }}>
         <div className="max-w-6xl mx-auto">
-          <p style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: '#2563eb', marginBottom: 16, ...sans }}>HOW IT WORKS</p>
-          <h2 style={{ ...display, fontSize: 'clamp(2rem,3.5vw,3rem)', textAlign: 'center', marginBottom: 14, color: text, fontWeight: 400 }}>
+          <h2 style={{ ...display, fontSize: 'clamp(2rem,3.5vw,3rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 400 }}>
             How MyfmJournal works
           </h2>
-          <p style={{ textAlign: 'center', fontSize: 16, color: muted, marginBottom: 64, maxWidth: 500, margin: '0 auto 64px', lineHeight: 1.75, ...sans }}>
+          <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 72, maxWidth: 480, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
             From broker connection to edge-building in three steps — no manual entry, no hassle.
           </p>
           <div className="grid md:grid-cols-3 gap-12">
             {steps.map((s, i) => (
               <div key={i}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-                  <span style={{ ...display, fontSize: '3.8rem', lineHeight: 1, color: dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', letterSpacing: '-0.01em', fontWeight: 400 }}>{s.n}</span>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0, background: card }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                  <span style={{ ...display, fontSize: '3.2rem', lineHeight: 1, color: 'rgba(37,99,235,0.18)', fontWeight: 400 }}>{s.n}</span>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
                     {s.icon}
                   </div>
                 </div>
-                <h3 style={{ ...serif, fontSize: '1.15rem', fontWeight: 700, marginBottom: 10, color: text }}>{s.title}</h3>
+                <h3 style={{ ...sans, fontSize: '1rem', fontWeight: 700, marginBottom: 10, color: text }}>{s.title}</h3>
                 <p style={{ fontSize: 14, color: muted, lineHeight: 1.8, ...sans }}>{s.desc}</p>
               </div>
             ))}
