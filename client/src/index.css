@@ -79,7 +79,7 @@
   --font-sans: Inter, sans-serif;
   --font-serif: 'Playfair Display', serif;
   --font-mono: JetBrains Mono, Menlo, monospace;
-  --radius: .5rem; /* 8px */
+  --radius: .25rem; /* 4px */
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);

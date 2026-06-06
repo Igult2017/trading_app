@@ -60,7 +60,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
                 style={{
                   background: cardBg,
                   border: `1px solid ${cardBorder}`,
-                  borderRadius: 18,
+                  borderRadius: 6,
                   padding: '28px 26px',
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -115,11 +115,11 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="/auth?mode=signup" target="myfm_journal"
-              style={{ ...sans, padding: '13px 28px', borderRadius: 10, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+              style={{ ...sans, padding: '13px 28px', borderRadius: 4, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
               Start free <ArrowRight size={16} />
             </a>
             <a href="/#pricing"
-              style={{ ...sans, padding: '13px 28px', borderRadius: 10, border: `1.5px solid ${border}`, color: text, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+              style={{ ...sans, padding: '13px 28px', borderRadius: 4, border: `1.5px solid ${border}`, color: text, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
               View pricing
             </a>
           </div>
