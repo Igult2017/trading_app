@@ -1,10 +1,14 @@
 """
-scan_markets() — concurrent, cache-driven scanner.
+scan_markets() — concurrent, isolated-strategy scanner.
 
-Runtime pause: create signal_platform/.scan_paused to stop scanning
-without restarting the process. Delete the file to resume.
-chart_generator.generate_chart() is async — offloads to executor so
-matplotlib never blocks the event loop.
+Architecture — tenant/house model:
+  The platform (house) fetches candles once per tick and provides shared
+  infrastructure (news, sessions, DB, event bus). Each strategy (tenant)
+  is fully isolated: it reads only its declared TFs from the global cache,
+  manages its own indicator and pattern state, and produces signals without
+  touching any other strategy's data or caches.
+
+Runtime pause: create signal_platform/.scan_paused to stop scanning.
 """
 
 import asyncio
@@ -35,7 +39,6 @@ _tick_now: datetime = datetime.now(timezone.utc)
 
 
 def _is_paused() -> bool:
-    """Check for the runtime pause file — no restart needed to pause/resume."""
     paused = os.path.exists(settings.scan_pause_file)
     if paused:
         log.info("[scanner] paused — delete .scan_paused to resume")
@@ -43,7 +46,11 @@ def _is_paused() -> bool:
 
 
 def _collect_needed_pairs(instruments: list[str], strategies: list) -> list[tuple[str, str]]:
-    """Collect every (symbol, tf) pair needed this tick across strategies, indicators, and patterns."""
+    """
+    Collect every (symbol, tf) pair to prefetch this tick.
+    Each strategy contributes only its own declared TFs — no cross-strategy merging.
+    Indicator and pattern TFs are also included so prefetch covers everything.
+    """
     pairs: set[tuple[str, str]] = set()
     for instrument in instruments:
         for strategy in strategies:
@@ -62,11 +69,15 @@ def _collect_needed_pairs(instruments: list[str], strategies: list) -> list[tupl
 
 
 async def _run_strategy(strategy, instrument: str,
-                        candle_cache: dict, indicator_cache: dict,
-                        pattern_cache: dict, news_context,
-                        current_sessions: list) -> None:
+                        news_context, current_sessions: list) -> None:
+    """
+    Run one strategy on one instrument — fully isolated.
 
-    # Filter 1: instrument
+    Reads only this strategy's declared TFs from the global candle cache.
+    Indicator and pattern caches are local to this call — no shared state
+    with other strategies running concurrently on the same instrument.
+    """
+    # Filter 1: instrument whitelist
     if (strategy.allowed_instruments is not None
             and instrument not in strategy.allowed_instruments):
         return
@@ -76,15 +87,14 @@ async def _run_strategy(strategy, instrument: str,
         if not any(s in current_sessions for s in strategy.allowed_sessions):
             return
 
-    # Filter 3: trend
+    # Filter 3: trend — reads from global cache, no I/O
     if Trend.ANY not in strategy.allowed_trends:
         htf = max(strategy.required_timeframes, key=to_minutes)
-        htf_candles = candle_cache.get(htf, [])
+        htf_candles = candle_fetcher.candle_cache.get(instrument, htf) or []
         if not htf_candles:
             log.debug(f"[scanner] {instrument}/{strategy.id}: no HTF candles — skip")
             return
-        trend = trend_detector.detect(htf_candles)
-        if trend not in strategy.allowed_trends:
+        if trend_detector.detect(htf_candles) not in strategy.allowed_trends:
             return
 
     # Filter 4: news
@@ -92,27 +102,43 @@ async def _run_strategy(strategy, instrument: str,
         log.debug(f"[scanner] {instrument}/{strategy.id}: news filter — skip")
         return
 
-    # Strategy sees only its declared TFs
-    candles = build_mtf(candle_cache, strategy.required_timeframes)
-
-    # Indicators may declare TFs beyond the strategy's own — pass everything available
-    full_candles = build_mtf(candle_cache, list(candle_cache.keys()))
+    # Build this strategy's isolated candle view from the global cache.
+    # Only TFs this strategy (and its indicators/patterns) actually declared.
+    owned_tfs: set[str] = set(strategy.required_timeframes)
     for ind_id in strategy.required_indicators:
-        if ind_id not in indicator_cache:
-            result = indicator_registry.compute(ind_id, full_candles)
-            if result:
-                indicator_cache[ind_id] = result
+        owned_tfs.update(indicator_registry.get_timeframes(ind_id))
+    for pat_id in strategy.required_patterns:
+        owned_tfs.update(pattern_registry.get_timeframes(pat_id))
+
+    candle_view: dict = {
+        tf: candle_fetcher.candle_cache.get(instrument, tf) or []
+        for tf in owned_tfs
+    }
+
+    # Strategy receives exactly and only its declared TFs — nothing from other strategies
+    candles = build_mtf(candle_view, strategy.required_timeframes)
+
+    # Each indicator is computed with strategy TFs ∪ its own declared TFs.
+    # indicator_cache is local — not shared with any other strategy.
+    indicator_cache: dict = {}
+    for ind_id in strategy.required_indicators:
+        ind_tfs = set(strategy.required_timeframes) | set(indicator_registry.get_timeframes(ind_id))
+        ind_candles = build_mtf(candle_view, list(ind_tfs))
+        result = indicator_registry.compute(ind_id, ind_candles)
+        if result:
+            indicator_cache[ind_id] = result
 
     indicators = IndicatorBundle.from_cache(indicator_cache, strategy.required_indicators)
 
-    # Patterns get strategy TFs plus any explicit TFs the pattern itself declared
+    # Patterns receive strategy TFs + any TFs the pattern itself declared.
+    # pattern_cache is local — not shared with any other strategy.
     pattern_tfs = set(strategy.required_timeframes)
     for pat_id in strategy.required_patterns:
         pattern_tfs.update(pattern_registry.get_timeframes(pat_id))
-    candles_by_tf = {tf: candle_cache[tf] for tf in pattern_tfs if tf in candle_cache}
+    candles_by_tf = {tf: candle_view[tf] for tf in pattern_tfs if tf in candle_view}
+    pattern_cache: dict = {}
     for pat_id in strategy.required_patterns:
-        if pat_id not in pattern_cache:
-            pattern_cache[pat_id] = pattern_registry.detect(pat_id, candles_by_tf)
+        pattern_cache[pat_id] = pattern_registry.detect(pat_id, candles_by_tf)
 
     patterns = PatternBundle.from_cache(pattern_cache, strategy.required_patterns)
 
@@ -128,14 +154,13 @@ async def _run_strategy(strategy, instrument: str,
         return
 
     htf = max(strategy.required_timeframes, key=to_minutes)
-    pri_candles = candle_cache.get(htf, [])
+    pri_candles = candle_fetcher.candle_cache.get(instrument, htf) or []
 
     for signal in valid_signals:
         signal.strategy_id   = strategy.id
         signal.strategy_name = strategy.name
         signal.symbol        = instrument
 
-        # generate_chart is now async — runs in thread pool, never blocks loop
         chart_path = await generate_chart(pri_candles, signal)
         signal.chart_path = chart_path
 
@@ -155,26 +180,9 @@ async def _run_strategy(strategy, instrument: str,
 
 async def _scan_instrument(instrument: str, strategies: list,
                            news_context, current_sessions: list) -> None:
-    # Collect every TF needed: strategy + indicator + pattern TFs
-    all_tfs: set[str] = set()
-    for s in strategies:
-        if s.allowed_instruments is None or instrument in (s.allowed_instruments or []):
-            all_tfs.update(s.required_timeframes)
-            for ind_id in s.required_indicators:
-                all_tfs.update(indicator_registry.get_timeframes(ind_id))
-            for pat_id in s.required_patterns:
-                all_tfs.update(pattern_registry.get_timeframes(pat_id))
-
-    candle_cache: dict = {
-        tf: candle_fetcher.candle_cache.get(instrument, tf) or []
-        for tf in all_tfs
-    }
-    indicator_cache: dict = {}
-    pattern_cache:   dict = {}
-
+    """Fan each strategy out independently — no shared state between tenants."""
     await asyncio.gather(
-        *[_run_strategy(s, instrument, candle_cache, indicator_cache,
-                        pattern_cache, news_context, current_sessions)
+        *[_run_strategy(s, instrument, news_context, current_sessions)
           for s in strategies],
         return_exceptions=True,
     )
