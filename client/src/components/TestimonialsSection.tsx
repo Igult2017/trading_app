@@ -41,7 +41,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
 
         <div className="grid md:grid-cols-3 gap-6">
           {reviews.map((r, i) => (
-            <div key={i} style={{ padding: '28px 24px', borderRadius: 16, border: `1px solid ${border}`, background: card, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div key={i} style={{ padding: '28px 24px', borderRadius: 6, border: `1px solid ${border}`, background: card, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', gap: 3 }}>
                 {[...Array(5)].map((_, j) => (
                   <Star key={j} size={16} className="fill-yellow-400 text-yellow-400" />
@@ -53,7 +53,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
                   <div style={{ fontWeight: 700, fontSize: 14, color: text, ...sans }}>{r.name}</div>
                   <div style={{ fontSize: 12, color: muted, ...sans }}>{r.city}</div>
                 </div>
-                <span style={{ padding: '3px 10px', borderRadius: 999, border: `1px solid ${border}`, fontSize: 11, color: muted, ...sans }}>
+                <span style={{ padding: '3px 10px', borderRadius: 4, border: `1px solid ${border}`, fontSize: 11, color: muted, ...sans }}>
                   {r.service}
                 </span>
               </div>
