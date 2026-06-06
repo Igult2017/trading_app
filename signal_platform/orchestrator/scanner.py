@@ -1,12 +1,14 @@
 """
-scan_markets() — concurrent, isolated-strategy scanner.
+scan_markets() — concurrent, on-demand scanner.
 
-Architecture — tenant/house model:
-  The platform (house) fetches candles once per tick and provides shared
-  infrastructure (news, sessions, DB, event bus). Each strategy (tenant)
-  is fully isolated: it reads only its declared TFs from the global cache,
-  manages its own indicator and pattern state, and produces signals without
-  touching any other strategy's data or caches.
+Tenant/house model:
+  The platform (house) provides shared infrastructure: news, sessions, DB,
+  event bus, Telegram. Each strategy (tenant) runs independently, fetching
+  only the TFs it declared — on demand, only after passing all pre-filters.
+
+  When two strategies share a TF, the first fetch fills the TTL cache; the
+  second gets a cache hit at zero network cost. The in-flight dedup in
+  candle_fetcher prevents duplicate yfinance calls even under full concurrency.
 
 Runtime pause: create signal_platform/.scan_paused to stop scanning.
 """
@@ -22,7 +24,7 @@ from core.types import Session, Trend
 from core.indicator_types import IndicatorBundle
 from core.pattern_types import PatternBundle
 from data import candle_fetcher, instrument_filter
-from data.candle_prefetch import prefetch_all
+from data.candle_fetcher import fetch_candles
 from data.mtf_aligner import build as build_mtf
 from news import news_fetcher, news_filter
 from scheduler.session_windows import get_current_sessions
@@ -45,37 +47,15 @@ def _is_paused() -> bool:
     return paused
 
 
-def _collect_needed_pairs(instruments: list[str], strategies: list) -> list[tuple[str, str]]:
-    """
-    Collect every (symbol, tf) pair to prefetch this tick.
-    Each strategy contributes only its own declared TFs — no cross-strategy merging.
-    Indicator and pattern TFs are also included so prefetch covers everything.
-    """
-    pairs: set[tuple[str, str]] = set()
-    for instrument in instruments:
-        for strategy in strategies:
-            if (strategy.allowed_instruments is not None
-                    and instrument not in strategy.allowed_instruments):
-                continue
-            for tf in strategy.required_timeframes:
-                pairs.add((instrument, tf))
-            for ind_id in strategy.required_indicators:
-                for tf in indicator_registry.get_timeframes(ind_id):
-                    pairs.add((instrument, tf))
-            for pat_id in strategy.required_patterns:
-                for tf in pattern_registry.get_timeframes(pat_id):
-                    pairs.add((instrument, tf))
-    return list(pairs)
-
-
 async def _run_strategy(strategy, instrument: str,
                         news_context, current_sessions: list) -> None:
     """
-    Run one strategy on one instrument — fully isolated.
+    Run one strategy on one instrument — isolated, on-demand.
 
-    Reads only this strategy's declared TFs from the global candle cache.
-    Indicator and pattern caches are local to this call — no shared state
-    with other strategies running concurrently on the same instrument.
+    Candles are fetched only after passing all pre-filters, and only for the
+    TFs this strategy (and its indicators/patterns) declared. Shared TFs with
+    other strategies are served from the TTL cache — one network call, zero
+    duplication even when strategies run concurrently on the same instrument.
     """
     # Filter 1: instrument whitelist
     if (strategy.allowed_instruments is not None
@@ -87,10 +67,12 @@ async def _run_strategy(strategy, instrument: str,
         if not any(s in current_sessions for s in strategy.allowed_sessions):
             return
 
-    # Filter 3: trend — reads from global cache, no I/O
+    # Filter 3: trend — fetches only the HTF this check needs, on demand.
+    # If the cache is warm (another strategy already fetched this pair) this
+    # is a zero-cost read; otherwise one yfinance call fires and is cached.
     if Trend.ANY not in strategy.allowed_trends:
         htf = max(strategy.required_timeframes, key=to_minutes)
-        htf_candles = candle_fetcher.candle_cache.get(instrument, htf) or []
+        htf_candles = await fetch_candles(instrument, htf)
         if not htf_candles:
             log.debug(f"[scanner] {instrument}/{strategy.id}: no HTF candles — skip")
             return
@@ -102,17 +84,24 @@ async def _run_strategy(strategy, instrument: str,
         log.debug(f"[scanner] {instrument}/{strategy.id}: news filter — skip")
         return
 
-    # Build this strategy's isolated candle view from the global cache.
-    # Only TFs this strategy (and its indicators/patterns) actually declared.
-    owned_tfs: set[str] = set(strategy.required_timeframes)
-    for ind_id in strategy.required_indicators:
-        owned_tfs.update(indicator_registry.get_timeframes(ind_id))
-    for pat_id in strategy.required_patterns:
-        owned_tfs.update(pattern_registry.get_timeframes(pat_id))
+    # Fetch every TF this strategy (and its indicators/patterns) declared.
+    # Concurrent gather: unique TFs fire in parallel; TFs shared with another
+    # strategy that already fetched them are instant cache hits.
+    owned_tfs: list[str] = list(
+        set(strategy.required_timeframes)
+        | {tf for ind_id in strategy.required_indicators
+           for tf in indicator_registry.get_timeframes(ind_id)}
+        | {tf for pat_id in strategy.required_patterns
+           for tf in pattern_registry.get_timeframes(pat_id)}
+    )
 
+    fetched = await asyncio.gather(
+        *[fetch_candles(instrument, tf) for tf in owned_tfs],
+        return_exceptions=True,
+    )
     candle_view: dict = {
-        tf: candle_fetcher.candle_cache.get(instrument, tf) or []
-        for tf in owned_tfs
+        tf: (r if isinstance(r, list) else [])
+        for tf, r in zip(owned_tfs, fetched)
     }
 
     # Strategy receives exactly and only its declared TFs — nothing from other strategies
@@ -154,7 +143,7 @@ async def _run_strategy(strategy, instrument: str,
         return
 
     htf = max(strategy.required_timeframes, key=to_minutes)
-    pri_candles = candle_fetcher.candle_cache.get(instrument, htf) or []
+    pri_candles = candle_view.get(htf, [])
 
     for signal in valid_signals:
         signal.strategy_id   = strategy.id
@@ -214,9 +203,6 @@ async def scan_markets() -> None:
     if not strategies:
         log.debug("[scanner] no strategies registered — nothing to do")
         return
-
-    needed_pairs = _collect_needed_pairs(instruments, strategies)
-    await prefetch_all(needed_pairs, count=100)
 
     log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 

@@ -1,11 +1,15 @@
 """
-Candle fetcher — yfinance adapter with cache, validation, and timeout.
+Candle fetcher — yfinance adapter with cache, in-flight dedup, and timeout.
 
 Non-native TFs (H2, H3, H6, H8, H12, M3, M10, …) are handled transparently:
 _fetch_sync detects them, fetches the native base TF, and aggregates up.
 
+In-flight deduplication: when two strategies concurrently need the same
+(symbol, tf) and the cache is cold, only ONE yfinance call fires. The second
+coroutine awaits the first's future then reads from cache — zero wasted
+network calls even under full concurrency.
+
 To swap the broker: replace _fetch_sync. Same signature, nothing else changes.
-Batch prefetch lives in data/candle_prefetch.py.
 """
 
 import asyncio
@@ -24,6 +28,12 @@ from shared.mtf_utils import to_yf, to_minutes, is_native_yf, native_base_for
 
 log = logging.getLogger(__name__)
 _FETCH_TIMEOUT = 15   # seconds before a yfinance call is abandoned
+
+# In-flight registry: (symbol, tf) → asyncio.Future for the pending fetch.
+# When two coroutines need the same pair simultaneously, the second awaits the
+# first's future instead of spawning a duplicate yfinance call. After the fetch
+# completes the future is resolved and removed so the next tick fetches fresh.
+_in_flight: dict[tuple[str, str], asyncio.Future] = {}
 
 
 def _is_valid_row(o: float, h: float, l: float, c: float) -> bool:
@@ -90,24 +100,52 @@ def _fetch_sync(symbol: str, tf: str, count: int) -> list[Candle]:
 
 async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
     """
-    Fetch candles for one symbol/timeframe, using the between-tick cache.
-    Handles native and non-native TFs transparently via _fetch_sync.
+    Fetch candles for one (symbol, tf) pair — cache-first, in-flight dedup.
+
+    Fast path: TTL cache hit → return slice, no I/O.
+    Shared path: another coroutine is already fetching this pair → await its
+      future, then read from cache. ONE network call regardless of how many
+      strategies concurrently request the same pair.
+    Fetch path: this coroutine starts the fetch, registers a future so others
+      can wait, stores the result in cache, resolves the future, and removes it.
     """
+    # Fast path: cache hit
     cached = candle_cache.get(symbol, tf)
     if cached is not None:
         return cached[-count:]
 
+    key = (symbol, tf)
+
+    # Shared path: await a fetch that another coroutine already started.
+    # No yield between the dict check and fut capture — asyncio guarantees
+    # no other coroutine runs between these two lines.
+    if key in _in_flight:
+        try:
+            await _in_flight[key]
+        except Exception:
+            pass  # fetch failed — try cache anyway (may have partial results)
+        cached = candle_cache.get(symbol, tf)
+        return (cached or [])[-count:]
+
+    # Fetch path: this coroutine wins the race, registers the future first.
     loop = asyncio.get_event_loop()
+    fut: asyncio.Future = loop.create_future()
+    _in_flight[key] = fut
+    candles: list[Candle] = []
+
     try:
-        future  = loop.run_in_executor(None, partial(_fetch_sync, symbol, tf, count))
-        candles = await asyncio.wait_for(future, timeout=_FETCH_TIMEOUT)
+        raw     = loop.run_in_executor(None, partial(_fetch_sync, symbol, tf, count))
+        candles = await asyncio.wait_for(raw, timeout=_FETCH_TIMEOUT)
+        if candles:
+            candle_cache.put(symbol, tf, candles)
+        fut.set_result(None)
     except asyncio.TimeoutError:
         log.error(f"[candle_fetcher] {symbol} {tf}: timed out after {_FETCH_TIMEOUT}s")
-        return []
+        fut.set_result(None)
     except Exception as exc:
         log.error(f"[candle_fetcher] {symbol} {tf}: {exc}")
-        return []
+        fut.set_result(None)
+    finally:
+        _in_flight.pop(key, None)
 
-    if candles:
-        candle_cache.put(symbol, tf, candles)
-    return candles
+    return candles[-count:] if candles else []
