@@ -95,10 +95,10 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
             <span style={cap}>Follow Us</span>
             {SOCIALS.map(({ Icon, href, label, brand }) => (
               <a key={label} href={href} aria-label={label}
-                style={{ display: "flex", alignItems: "center", gap: 10, color: linkClr, textDecoration: "none", fontSize: 13, marginBottom: 12, ...bFont, transition: "color 0.18s" }}
-                onMouseEnter={e => (e.currentTarget.style.color = brand)}
-                onMouseLeave={e => (e.currentTarget.style.color = linkClr)}>
-                <Icon size={15} style={{ flexShrink: 0 }} />
+                style={{ display: "flex", alignItems: "center", gap: 10, color: linkClr, textDecoration: "none", fontSize: 13, marginBottom: 12, ...bFont, transition: "color 0.18s, opacity 0.18s" }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
+                <Icon size={16} color={brand} style={{ flexShrink: 0 }} />
                 {label}
               </a>
             ))}
