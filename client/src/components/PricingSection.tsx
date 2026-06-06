@@ -46,7 +46,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
         <h2
           className={cn('text-4xl text-center mb-4 font-bold tracking-tight',
             darkMode ? 'text-white' : 'text-slate-900')}
-          style={{ fontFamily: "'Playfair Display', serif" }}
+          style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400 }}
         >
           Simple, Transparent Pricing
         </h2>
