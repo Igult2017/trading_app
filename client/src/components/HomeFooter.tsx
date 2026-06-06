@@ -38,14 +38,19 @@ export interface HomeFooterProps { darkMode?: boolean; }
 
 export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const [, navigate] = useLocation();
-  const divider = "#e2e8f0";
-  const linkClr = "#64748b";
-  const hover   = "#0f172a";
-  const muted   = "#94a3b8";
+  const dm      = darkMode;
+  const footBg  = dm ? '#0a0f1e' : '#f8fafc';
+  const divider = dm ? '#1e293b' : '#e2e8f0';
+  const logoClr = dm ? '#f1f5f9' : '#0f172a';
+  const linkClr = dm ? '#64748b' : '#64748b';
+  const hover   = dm ? '#f1f5f9' : '#0f172a';
+  const muted   = dm ? '#475569' : '#94a3b8';
+  const capClr  = dm ? '#334155' : '#94a3b8';
+  const descClr = dm ? '#475569' : '#64748b';
 
   const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Inter', sans-serif" } as const;
-  const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 20, display: "block" };
+  const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
 
   const scrollToHash = (hash: string) => {
     const el = document.getElementById(hash);
@@ -68,7 +73,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   }, [navigate]);
 
   return (
-    <footer style={{ background: "#f8fafc", borderTop: `1px solid ${divider}`, ...bFont }}>
+    <footer style={{ background: footBg, borderTop: `1px solid ${divider}`, transition: 'background 0.4s', ...bFont }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
 
         <div style={{ display: "grid", gridTemplateColumns: "220px 160px 1fr 1fr 1fr", gap: "0 48px", padding: "60px 0 48px", alignItems: "flex-start" }}>
@@ -76,11 +81,11 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           {/* Col 1 — Brand */}
           <div>
             <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
-              <span style={{ ...hFont, fontSize: 20, color: "#0f172a" }}>
+              <span style={{ ...hFont, fontSize: 20, color: logoClr }}>
                 Myfm<span style={{ color: "#3b82f6" }}>Journal</span>
               </span>
             </Link>
-            <p style={{ fontSize: 13, color: linkClr, lineHeight: 1.8, margin: 0, ...bFont }}>
+            <p style={{ fontSize: 13, color: descClr, lineHeight: 1.8, margin: 0, ...bFont }}>
               Professional trading journal<br />for serious traders.
             </p>
           </div>
