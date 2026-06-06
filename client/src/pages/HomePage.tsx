@@ -53,7 +53,7 @@ export default function HomePage() {
               Trusted by 10,000+ retail traders
             </div>
 
-            <h1 style={{ ...display, fontSize: 'clamp(3rem,5vw,5rem)', lineHeight: 1.05, marginBottom: 20, color: text, fontWeight: 400 }}>
+            <h1 style={{ ...serif, fontSize: 'clamp(3rem,5vw,5rem)', lineHeight: 1.05, marginBottom: 20, color: text, fontWeight: 900 }}>
               Your trades,<br />
               <span style={{ color: '#2563eb' }}>analyzed smart.</span>
             </h1>
