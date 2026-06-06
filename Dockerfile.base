@@ -64,11 +64,13 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     "websockets>=12.0" \
     "yfinance>=0.2.66"
 
-# ── Signal platform — cTrader data sources ────────────────────────────────────
-# ctrader_open_api: official Spotware Protobuf SDK (primary data source)
-# httpx: async HTTP for OAuth token exchange in ctrader_session.py
-# ejtraderCT: FIX-based fallback while cTrader Open API approval is pending
+# ── Signal platform — data sources ────────────────────────────────────────────
+# mt5linux:         RPyC client → MT5 terminal in Wine/Docker (primary fallback)
+# ctrader_open_api: Spotware Protobuf SDK (when cTrader app is approved)
+# httpx:            async HTTP for cTrader OAuth token exchange
+# ejtraderCT:       FIX tick stream for live price overlay on yfinance bars
 RUN pip3 install --no-cache-dir --break-system-packages \
+    "mt5linux" \
     "ctrader_open_api" \
     "httpx>=0.27.0" \
     "ejtraderCT"

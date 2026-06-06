@@ -15,11 +15,14 @@ matplotlib>=3.7.0
 mplfinance>=0.12.10b0
 pandas>=2.0.0
 
-# Data source 1: cTrader Open API (primary)
+# Data source 1: cTrader Open API (when Spotware approves your app)
 ctrader_open_api
 httpx>=0.27.0
 
-# Data source 2: ejtraderCT FIX (fallback — verify OHLCV support with your broker)
+# Data source 2: MT5 via Wine/Docker — Pepperstone-accurate OHLCV
+mt5linux
+
+# Data source 3: ejtraderCT FIX — live price overlay on yfinance bars
 ejtraderCT
 
 # Notifications (optional)

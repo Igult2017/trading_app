@@ -91,7 +91,33 @@ services:
       # start_period covers the full first-boot installation time.
       start_period: 600s
 
-  # ── 4. Node.js App (trading dashboard + API) ─────────────────────────────────
+  # ── 4. Signal Platform (strategy scanner + Telegram alerts) ─────────────────
+  # Connects to the mt5 container via mt5linux (RPyC) for Pepperstone OHLCV data.
+  # Falls back to yfinance + ejtraderCT overlay if MT5_LOGIN is not set.
+  signal_platform:
+    build:
+      context: .
+      dockerfile: signal_platform/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL:  "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
+      MT5_HOST:      mt5
+      MT5_PORT:      "8812"
+      MT5_LOGIN:     ${MT5_LOGIN:-0}
+      MT5_PASSWORD:  ${MT5_PASSWORD:-}
+      MT5_SERVER:    ${MT5_SERVER:-Pepperstone-Demo}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mt5:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── 5. Node.js App (trading dashboard + API) ─────────────────────────────────
   app:
     build:
       context: .

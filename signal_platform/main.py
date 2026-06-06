@@ -37,15 +37,14 @@ async def _startup() -> None:
         account_id=settings.ctrader_account_id,
         env=settings.ctrader_env,
     )
-    if ctrader_session.is_configured():
-        log.info("[boot] data source: cTrader Open API (primary)")
-    else:
-        # 2b. ejtraderCT FIX tick stream (live overlay on yfinance history)
+    from data.data_source import active_source
+    log.info(f"[boot] data source: {active_source()}")
+
+    # 2b. ejtraderCT tick feed — live price overlay on yfinance bars
+    if not ctrader_session.is_configured() and not mt5_client.is_configured():
         if ejtrader_ct_client.is_configured():
             ejtrader_ct_client.subscribe(INSTRUMENTS)
-            log.info("[boot] data source: yfinance history + ejtraderCT live overlay")
-        else:
-            log.info("[boot] data source: yfinance only (set CTRADER_FIX_* for live overlay)")
+            log.info("[boot] ejtraderCT live overlay: active")
 
     # 3. Register plugins (strategies, indicators, patterns)
     import strategies    # noqa: F401 — side-effect: registers strategies
