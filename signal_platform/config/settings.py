@@ -37,13 +37,22 @@ class Settings(BaseSettings):
     # Failure policy: Gemini errors → signal approved (non-blocking).
     gemini_api_key: str = ""
 
-    # ── Broker / data source — Pepperstone cTrader ───────────────────────────
-    # Credentials from: https://ctrader.com/your-app-portal → Applications
-    # Account ID: open cTrader platform → Settings → Account Info
+    # ── Data source 1: cTrader Open API (primary, run auth_setup.py once) ────
+    # Credentials: https://ctrader.com/your-app-portal → Applications
+    # Account ID: cTrader platform → Settings → Account Info
     ctrader_client_id:     str = ""
     ctrader_client_secret: str = ""
     ctrader_account_id:    int = 0      # numeric ID — MUST be set
     ctrader_env:           str = "demo" # "demo" or "live"
+
+    # ── Data source 2: ejtraderCT FIX (fallback, no OAuth approval needed) ──
+    # FIX server + credentials: cTrader platform → Settings → FIX API
+    # Password is a numeric PIN set there — NOT your trading password.
+    ctrader_fix_server:   str = ""          # e.g. h21.p.ctrader.com:5211
+    ctrader_fix_login:    str = ""          # account number
+    ctrader_fix_password: str = ""          # numeric FIX API PIN
+    ctrader_fix_broker:   str = "pepperstone"
+    ctrader_fix_currency: str = "USD"
 
 
 settings = Settings()
