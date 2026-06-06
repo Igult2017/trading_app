@@ -36,17 +36,17 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
         </div>
       </section>
 
-      {/* ── Dark CTA ────────────────────────────────────────────────── */}
-      <section style={{ background: '#1e293b', padding: '80px 24px', textAlign: 'center' }}>
+      {/* ── CTA ─────────────────────────────────────────────────────── */}
+      <section style={{ background: '#f0f5ff', padding: '80px 24px', textAlign: 'center' }}>
         <div className="max-w-xl mx-auto">
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.12)', fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 24, ...sans, fontWeight: 600 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, border: '1px solid #d1daf5', fontSize: 12, color: '#64748b', marginBottom: 24, ...sans, fontWeight: 600 }}>
             ✦ Join 10,000+ traders across the globe
           </div>
-          <h2 style={{ ...serif, fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 900, color: '#ffffff', marginBottom: 16, lineHeight: 1.15 }}>
+          <h2 style={{ ...serif, fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 400, color: '#0f172a', marginBottom: 16, lineHeight: 1.15 }}>
             Start journaling free.<br />
-            <em style={{ color: '#60a5fa', fontStyle: 'italic' }}>Build your edge today.</em>
+            <span style={{ color: '#2563eb' }}>Build your edge today.</span>
           </h2>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.42)', marginBottom: 36, lineHeight: 1.75, ...sans }}>
+          <p style={{ fontSize: 15, color: '#64748b', marginBottom: 36, lineHeight: 1.75, ...sans }}>
             Connect your broker in under a minute and let the platform track, analyse, and sharpen your trading — no credit card required.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -55,7 +55,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
               Start free <ArrowRight size={16} />
             </a>
             <a href="/#pricing"
-              style={{ padding: '13px 28px', borderRadius: 10, border: '1.5px solid rgba(255,255,255,0.18)', color: '#fff', fontSize: 14, fontWeight: 600, textDecoration: 'none', ...sans }}>
+              style={{ padding: '13px 28px', borderRadius: 10, border: '1.5px solid #cbd5e1', color: '#0f172a', fontSize: 14, fontWeight: 600, textDecoration: 'none', ...sans }}>
               View pricing
             </a>
           </div>
