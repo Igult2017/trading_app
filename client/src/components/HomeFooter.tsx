@@ -31,14 +31,14 @@ const COLS = [
 export interface HomeFooterProps { darkMode?: boolean; }
 
 export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
-  const bg      = darkMode ? "#0b1120" : "#0f172a";
-  const text    = "#ffffff";
-  const muted   = "#64748b";
-  const linkClr = "#94a3b8";
-  const hover   = "#ffffff";
-  const divider = "#1e293b";
+  const bg      = "#f8fafc";
+  const text    = "#0f172a";
+  const muted   = "#94a3b8";
+  const linkClr = "#64748b";
+  const hover   = "#0f172a";
+  const divider = "#e2e8f0";
 
-  const hFont = { fontFamily: "'DM Serif Display', serif",      fontWeight: 400, letterSpacing: "0.01em" } as const;
+  const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Inter', sans-serif" } as const;
   const capStyle: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 18, display: "block" };
 
@@ -98,7 +98,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (
               <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {i > 0 && <span style={{ color: divider, fontSize: 12 }}>·</span>}
+                {i > 0 && <span style={{ color: muted, fontSize: 12 }}>·</span>}
                 <Link href={href}
                   style={{ fontSize: 12, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}
