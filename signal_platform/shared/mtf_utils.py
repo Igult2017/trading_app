@@ -1,16 +1,14 @@
 """
 Timeframe string utilities — fully dynamic, broker-agnostic.
 
-cTrader native periods: M1 M2 M3 M4 M5 M10 M15 M30 H1 H4 H12 D1 W1 MN
-Non-native (H2 H3 H6 H8 …) are built by aggregating from the largest native
-base that divides evenly into the target duration.
+Current broker: MetaTrader 5 (Pepperstone).
+MT5 native periods: M1-M30 (all steps), H1 H2 H3 H4 H6 H8 H12, D1 W1 MN
+ALL standard timeframes are native in MT5 — aggregation path rarely triggers.
 
-ProtoOATrendbarPeriod enum values equal the TF duration in minutes — so
-to_minutes(tf) IS the cTrader period integer. No separate mapping needed.
+When switching to cTrader (pending Spotware approval):
+  Remove M6 M12 M20 H2 H3 H6 H8 from _NATIVE_MINUTES — those will aggregate.
 
-Supported input formats: M1, M3, M5, M10, M15, M30,
-                         H1, H2, H3, H4, H6, H8, H12,
-                         D1, W1, MN
+Supported input formats: M1, M5, M15, M30, H1, H2, H4, H6, H8, D1, W1, MN
 """
 
 import re
@@ -48,22 +46,25 @@ def seconds(tf: str) -> int:
 
 # ── Native TF helpers ────────────────────────────────────────────────────────
 
-# Durations (minutes) that cTrader serves natively without aggregation.
-# ProtoOATrendbarPeriod enum values equal these minute counts.
-_NATIVE_MINUTES: frozenset[int] = frozenset(
-    {1, 2, 3, 4, 5, 10, 15, 30, 60, 240, 720, 1440, 10080, 43200}
-)
+# Durations (minutes) that MT5 serves natively without aggregation.
+# MT5 has every standard timeframe built-in — no gaps.
+_NATIVE_MINUTES: frozenset[int] = frozenset({
+    1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30,          # minute bars
+    60, 120, 180, 240, 360, 480, 720,                # hour bars
+    1440, 10080, 43200,                              # D1 W1 MN
+})
 
 _NATIVE_TF: dict[int, str] = {
-    1: "M1", 2: "M2", 3: "M3", 4: "M4", 5: "M5",
-    10: "M10", 15: "M15", 30: "M30",
-    60: "H1", 240: "H4", 720: "H12",
+    1: "M1",  2: "M2",  3: "M3",  4: "M4",  5: "M5",
+    6: "M6",  10: "M10", 12: "M12", 15: "M15", 20: "M20", 30: "M30",
+    60: "H1",  120: "H2",  180: "H3",  240: "H4",
+    360: "H6", 480: "H8",  720: "H12",
     1440: "D1", 10080: "W1", 43200: "MN",
 }
 
 
 def is_native(tf: str) -> bool:
-    """True if cTrader serves this TF natively (no aggregation needed)."""
+    """True if MT5 serves this TF natively (no aggregation needed)."""
     return to_minutes(tf) in _NATIVE_MINUTES
 
 

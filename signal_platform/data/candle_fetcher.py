@@ -1,30 +1,34 @@
 """
-Candle fetcher — cTrader adapter with TTL cache and in-flight deduplication.
+Candle fetcher — MT5 adapter with TTL cache and in-flight deduplication.
 
-Non-native TFs (H2, H3, H6, H8 …) are handled transparently: _do_fetch
-recursively calls fetch_candles for the native base TF (which is also cached),
-then aggregates up. Two concurrent requests for the same (symbol, tf) share
-one network call via the in-flight future registry.
+Current broker backend: MetaTrader 5 (Pepperstone).
+  MT5 terminal must be open and logged in on the same machine.
+  Switch to cTrader: replace `mt5_client` import with `ctrader_client`
+  (ctrader_session.py + ctrader_client.py are ready; pending Spotware approval).
 
-To swap the broker: replace ctrader_client.fetch_bars(). Same dict schema,
-nothing else changes.
+All MT5 timeframes are native — the aggregation path in _do_fetch is kept
+for completeness but will rarely trigger with MT5.
+
+Two concurrent requests for the same (symbol, tf) share one MT5 call via
+the in-flight future registry.
 """
 
 import asyncio
 import logging
 import math
 import time
+from functools import partial
 
 from core.types import Candle
-from data import candle_cache, ctrader_client
+from data import candle_cache, mt5_client
 from data.candle_aggregator import aggregate
 from shared.mtf_utils import to_minutes, is_native, native_base_for
 
 log = logging.getLogger(__name__)
-_FETCH_TIMEOUT = 25   # seconds — cTrader round trip can be slow on cold start
+_FETCH_TIMEOUT = 15   # seconds — MT5 local call should be fast
 
 # In-flight registry: (symbol, tf) → Future.
-# Prevents duplicate cTrader requests when strategies run concurrently.
+# Prevents duplicate MT5 calls when strategies run concurrently.
 _in_flight: dict[tuple[str, str], asyncio.Future] = {}
 
 
@@ -62,10 +66,12 @@ async def _do_fetch(symbol: str, tf: str, count: int) -> list[Candle]:
         base_bars = await fetch_candles(symbol, base, count * ratio + ratio)
         return aggregate(base_bars, tf)[-count:]
 
-    # Native TF — call cTrader; strip slash if symbol is "EUR/USD" format
-    ct_symbol = symbol.replace("/", "")
+    # Native TF — call MT5 in executor (synchronous API).
+    # Strip slash: "EUR/USD" → "EURUSD" (MT5 format)
+    mt5_symbol = symbol.replace("/", "")
+    loop = asyncio.get_event_loop()
     raw = await asyncio.wait_for(
-        ctrader_client.fetch_bars(ct_symbol, tf, count),
+        loop.run_in_executor(None, partial(mt5_client.fetch_bars, mt5_symbol, tf, count)),
         timeout=_FETCH_TIMEOUT,
     )
     if not raw:
