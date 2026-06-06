@@ -1,21 +1,17 @@
 """
 cTrader Open API — wire protocol + OAuth2 + authenticated TCP session.
-
-Message format: [4-byte big-endian length][ProtoMessage bytes]
-Auth flow:
-  1. POST https://openapi.ctrader.com/apps/token (client_credentials) → access_token
-  2. TCP connect → ProtoOAApplicationAuthReq → ProtoOAApplicationAuthRes
-  3. ProtoOAAccountAuthReq(ctidTraderAccountId, accessToken) → ProtoOAAccountAuthRes
-
-Dependencies: ctrader-open-api  httpx
-  pip install ctrader-open-api httpx
+Run auth_setup.py once to write .ctrader_token.json. Connects directly to
+Spotware servers — no desktop terminal required.
+Requires: app status = "Active" in the cTrader Portal.
 """
 
 import asyncio
+import json
 import logging
 import ssl
 import struct
 import time
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -27,24 +23,18 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 
 log = logging.getLogger(__name__)
 
-_TOKEN_URL = "https://openapi.ctrader.com/apps/token"
-_HOSTS     = {"demo": "demo.ctraderapi.com", "live": "live.ctraderapi.com"}
-_PORT      = 5035
-_MAX_BYTES = 20 * 1024 * 1024  # 20 MB safety cap
+_TOKEN_URL  = "https://openapi.ctrader.com/apps/token"
+_HOSTS      = {"demo": "demo.ctraderapi.com", "live": "live.ctraderapi.com"}
+_PORT       = 5035
+_MAX_BYTES  = 20 * 1024 * 1024
+_TOKEN_FILE = Path(__file__).parent.parent / ".ctrader_token.json"
 
-# Payload type IDs (ProtoOAPayloadType enum values)
-TYPE_APP_AUTH_RES     = 2101
-TYPE_ACCOUNT_AUTH_RES = 2103
-TYPE_ERROR            = 5   # ProtoErrorRes
+TYPE_APP_AUTH_RES, TYPE_ACCOUNT_AUTH_RES, TYPE_ERROR = 2101, 2103, 5
 
-# Module state — populated via configure()
-_client_id:     str = ""
-_client_secret: str = ""
+_client_id = _client_secret = _env = ""
 _account_id:    int = 0
-_env:           str = "demo"
-
-_access_token: str   = ""
-_token_expiry: float = 0.0
+_access_token:  str   = ""
+_token_expiry:  float = 0.0
 _reader: Optional[asyncio.StreamReader] = None
 _writer: Optional[asyncio.StreamWriter] = None
 _conn_lock = asyncio.Lock()
@@ -53,29 +43,56 @@ _conn_lock = asyncio.Lock()
 def configure(client_id: str, client_secret: str,
               account_id: int, env: str = "demo") -> None:
     global _client_id, _client_secret, _account_id, _env
-    _client_id     = client_id
-    _client_secret = client_secret
-    _account_id    = account_id
-    _env           = env
+    _client_id, _client_secret, _account_id, _env = client_id, client_secret, account_id, env
     log.info(f"[ctrader] configured — account {account_id} ({env})")
 
 
+def is_configured() -> bool:
+    return bool(_client_id and _client_secret and _TOKEN_FILE.exists())
+
+
+def _read_tokens() -> dict:
+    try:
+        return json.loads(_TOKEN_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _write_tokens(data: dict) -> None:
+    _TOKEN_FILE.write_text(json.dumps(data, indent=2))
+
+
 async def get_access_token() -> str:
-    """OAuth2 client_credentials → access token, cached until near expiry."""
+    """Exchange refresh_token for access_token; persist any rotated refresh_token."""
     global _access_token, _token_expiry
     if _access_token and time.monotonic() < _token_expiry:
         return _access_token
+
+    tokens = _read_tokens()
+    rt = tokens.get("refresh_token", "")
+    if not rt:
+        raise ValueError("No refresh token — run: python auth_setup.py")
+
     async with httpx.AsyncClient(timeout=10) as http:
         r = await http.post(_TOKEN_URL, data={
-            "grant_type":    "client_credentials",
+            "grant_type":    "refresh_token",
+            "refresh_token": rt,
             "client_id":     _client_id,
             "client_secret": _client_secret,
         })
-        r.raise_for_status()
         j = r.json()
+
+    if "access_token" not in j:
+        raise ValueError(f"cTrader token refresh failed: {j}")
+
     _access_token = j["access_token"]
-    _token_expiry = time.monotonic() + j.get("expires_in", 2_592_000) - 60
-    log.debug("[ctrader] OAuth2 token refreshed")
+    _token_expiry = time.monotonic() + j.get("expires_in", 86_400) - 60
+
+    new_rt = j.get("refresh_token", "")
+    if new_rt and new_rt != rt:
+        _write_tokens({**tokens, "refresh_token": new_rt})
+        log.debug("[ctrader] refresh token rotated and saved")
+
     return _access_token
 
 
@@ -99,50 +116,34 @@ async def recv(reader: asyncio.StreamReader) -> ProtoMessage:
 
 
 async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
-    """Return an authenticated (app + account) TCP connection, connecting if needed."""
+    """Return an authenticated TCP connection, reconnecting if needed."""
     global _reader, _writer
     async with _conn_lock:
         if _writer is not None and not _writer.is_closing():
             return _reader, _writer
 
-        host = _HOSTS[_env]
+        host = _HOSTS.get(_env, _HOSTS["demo"])
         ctx  = ssl.create_default_context()
         _reader, _writer = await asyncio.wait_for(
             asyncio.open_connection(host, _PORT, ssl=ctx), timeout=15
         )
-        log.debug(f"[ctrader] TCP connected → {host}:{_PORT}")
-
-        # App authentication
-        req = ProtoOAApplicationAuthReq(
-            clientId=_client_id, clientSecret=_client_secret
-        )
+        req = ProtoOAApplicationAuthReq(clientId=_client_id, clientSecret=_client_secret)
         await send(_writer, req.payloadType, req.SerializeToString())
         resp = await asyncio.wait_for(recv(_reader), timeout=10)
         if resp.payloadType != TYPE_APP_AUTH_RES:
-            raise RuntimeError(
-                f"[ctrader] app auth failed (type={resp.payloadType}). "
-                "Check CLIENT_ID and CLIENT_SECRET."
-            )
-        log.debug("[ctrader] app authenticated")
+            raise RuntimeError(f"[ctrader] app auth failed (type={resp.payloadType})")
 
-        # Account authentication
         tok  = await get_access_token()
-        req2 = ProtoOAAccountAuthReq(
-            ctidTraderAccountId=_account_id, accessToken=tok
-        )
+        req2 = ProtoOAAccountAuthReq(ctidTraderAccountId=_account_id, accessToken=tok)
         await send(_writer, req2.payloadType, req2.SerializeToString())
         resp2 = await asyncio.wait_for(recv(_reader), timeout=10)
         if resp2.payloadType != TYPE_ACCOUNT_AUTH_RES:
-            raise RuntimeError(
-                f"[ctrader] account auth failed (type={resp2.payloadType}). "
-                "Check CTRADER_ACCOUNT_ID."
-            )
-        log.debug(f"[ctrader] account {_account_id} authenticated")
+            raise RuntimeError(f"[ctrader] account auth failed (type={resp2.payloadType})")
+        log.info(f"[ctrader] account {_account_id} authenticated")
 
     return _reader, _writer
 
 
 def reset_connection() -> None:
-    """Force reconnect on next get_connection() call (called after TCP errors)."""
     global _writer
     _writer = None

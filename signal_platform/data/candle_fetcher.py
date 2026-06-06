@@ -1,16 +1,14 @@
 """
-Candle fetcher — MT5 adapter with TTL cache and in-flight deduplication.
+Candle fetcher — on-demand fetch with TTL cache and in-flight deduplication.
 
-Current broker backend: MetaTrader 5 (Pepperstone).
-  MT5 terminal must be open and logged in on the same machine.
-  Switch to cTrader: replace `mt5_client` import with `ctrader_client`
-  (ctrader_session.py + ctrader_client.py are ready; pending Spotware approval).
+Data source priority:
+  1. cTrader Open API — if .ctrader_token.json exists (run auth_setup.py once)
+       Connects directly to Spotware servers. No desktop terminal required.
+  2. MetaTrader 5   — fallback when token file is absent.
+       Requires MT5 terminal open and logged in on the same machine.
 
-All MT5 timeframes are native — the aggregation path in _do_fetch is kept
-for completeness but will rarely trigger with MT5.
-
-Two concurrent requests for the same (symbol, tf) share one MT5 call via
-the in-flight future registry.
+Two concurrent requests for the same (symbol, tf) share one network call
+via the in-flight future registry.
 """
 
 import asyncio
@@ -20,7 +18,7 @@ import time
 from functools import partial
 
 from core.types import Candle
-from data import candle_cache, mt5_client
+from data import candle_cache, ctrader_client, ctrader_session, mt5_client
 from data.candle_aggregator import aggregate
 from shared.mtf_utils import to_minutes, is_native, native_base_for
 
@@ -55,34 +53,36 @@ def _validate(candles: list[Candle], symbol: str, tf: str) -> list[Candle]:
 
 async def _do_fetch(symbol: str, tf: str, count: int) -> list[Candle]:
     """
-    Actual fetch — bypasses cache. Called only by fetch_candles after a cache miss
-    and in-flight check. Non-native TFs recurse through fetch_candles so the base
-    TF is also cached (other strategies sharing it get a cache hit).
+    Actual fetch — bypasses cache. Non-native TFs recurse through fetch_candles
+    so the base TF is cached for other strategies sharing it.
     """
     if not is_native(tf):
         base  = native_base_for(tf)
         ratio = to_minutes(tf) // to_minutes(base)
-        # Go through fetch_candles so the base TF enters the cache
         base_bars = await fetch_candles(symbol, base, count * ratio + ratio)
         return aggregate(base_bars, tf)[-count:]
 
-    # Native TF — call MT5 in executor (synchronous API).
-    # Strip slash: "EUR/USD" → "EURUSD" (MT5 format)
-    mt5_symbol = symbol.replace("/", "")
-    loop = asyncio.get_event_loop()
-    raw = await asyncio.wait_for(
-        loop.run_in_executor(None, partial(mt5_client.fetch_bars, mt5_symbol, tf, count)),
-        timeout=_FETCH_TIMEOUT,
-    )
+    # Strip slash: "EUR/USD" → "EURUSD"
+    broker_symbol = symbol.replace("/", "")
+
+    if ctrader_session.is_configured():
+        # cTrader: async, no terminal required
+        raw = await asyncio.wait_for(
+            ctrader_client.fetch_bars(broker_symbol, tf, count),
+            timeout=_FETCH_TIMEOUT,
+        )
+    else:
+        # MT5 fallback: sync API, must run in executor
+        loop = asyncio.get_event_loop()
+        raw = await asyncio.wait_for(
+            loop.run_in_executor(None, partial(mt5_client.fetch_bars, broker_symbol, tf, count)),
+            timeout=_FETCH_TIMEOUT,
+        )
     if not raw:
         return []
     candles = [
-        Candle(
-            time=int(b["time"]),
-            open=b["open"], high=b["high"],
-            low=b["low"],   close=b["close"],
-            volume=b["volume"], timeframe=tf,
-        )
+        Candle(time=int(b["time"]), open=b["open"], high=b["high"],
+               low=b["low"], close=b["close"], volume=b["volume"], timeframe=tf)
         for b in raw
     ]
     return _validate(candles, symbol, tf)
