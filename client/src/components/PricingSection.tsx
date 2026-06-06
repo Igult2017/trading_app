@@ -71,13 +71,13 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
               <Card className={cn(
                 'flex flex-col h-full transition-all duration-300',
                 plan.popular
-                  ? 'bg-gradient-to-br from-blue-700 to-blue-600 border-none text-white shadow-[0_20px_60px_rgba(37,99,235,0.4)]'
+                  ? 'bg-white border-2 border-blue-500 text-slate-900 shadow-[0_20px_60px_rgba(37,99,235,0.12)]'
                   : darkMode
                     ? 'bg-slate-900 border-slate-700 text-white'
                     : 'bg-white border-slate-200 text-slate-900'
               )}>
                 <CardHeader className="pb-2">
-                  <div className={cn('text-xl font-bold tracking-tight', plan.popular ? 'text-white' : '')}
+                  <div className="text-xl font-bold tracking-tight"
                     style={{ fontFamily: "'Playfair Display', serif" }}>
                     {plan.name}
                   </div>
@@ -85,11 +85,11 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                     <span className="text-4xl font-extrabold" style={{ fontFamily: "'Inter', sans-serif" }}>
                       {plan.price}
                     </span>
-                    <span className={cn('text-sm', plan.popular ? 'text-blue-200' : darkMode ? 'text-slate-400' : 'text-slate-500')}>
+                    <span className={cn('text-sm', darkMode && !plan.popular ? 'text-slate-400' : 'text-slate-500')}>
                       / {plan.period}
                     </span>
                   </div>
-                  <p className={cn('text-xs mt-1', plan.popular ? 'text-blue-100' : darkMode ? 'text-slate-400' : 'text-slate-500')}>
+                  <p className={cn('text-xs mt-1', darkMode && !plan.popular ? 'text-slate-400' : 'text-slate-500')}>
                     {plan.tagline}
                   </p>
                 </CardHeader>
@@ -98,8 +98,8 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                   <ul className="space-y-2.5">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-center gap-2 text-sm">
-                        <Check size={14} className={cn('shrink-0', plan.popular ? 'text-blue-200' : 'text-blue-500')} />
-                        <span className={plan.popular ? 'text-blue-50' : darkMode ? 'text-slate-200' : 'text-slate-700'}>{f}</span>
+                        <Check size={14} className="shrink-0 text-blue-500" />
+                        <span className={darkMode && !plan.popular ? 'text-slate-200' : 'text-slate-700'}>{f}</span>
                       </li>
                     ))}
                   </ul>
@@ -110,9 +110,9 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                     href="/auth?mode=signup"
                     target="myfm_journal"
                     className={cn(
-                      'w-full text-center py-3 rounded-full text-sm font-bold transition-all duration-200 hover:opacity-90',
+                      'w-full text-center py-3 rounded-full text-sm font-bold transition-all duration-200',
                       plan.popular
-                        ? 'bg-white/20 border-2 border-white/50 text-white hover:bg-white/30'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : darkMode
                           ? 'border-2 border-slate-600 text-white hover:border-blue-500'
                           : 'border-2 border-slate-200 text-slate-800 hover:border-blue-400'
