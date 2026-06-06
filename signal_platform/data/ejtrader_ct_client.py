@@ -1,32 +1,38 @@
 """
-ejtraderCT FIX adapter — OHLCV bars via cTrader FIX API.
+ejtraderCT live price feed — real-time Pepperstone bid/ask overlay.
 
-Fallback data source when cTrader Open API keys are pending Spotware approval.
-Connects directly to the broker's FIX server — no desktop terminal required.
+What this does:
+  Subscribes to the broker's FIX tick stream. Each tick updates the
+  current mid-price for a symbol: mid = (bid + ask) / 2.
+  candle_fetcher uses this to patch the CURRENT (last) candle's
+  close/high/low with live Pepperstone pricing on top of yfinance history.
 
-Setup (one-time, in signal_platform/.env):
-  CTRADER_FIX_SERVER   = h21.p.ctrader.com:5211
-  CTRADER_FIX_LOGIN    = 12345678          (your account number)
-  CTRADER_FIX_PASSWORD = 12345678          (numeric PIN set in cTrader → Settings → FIX API)
+What this does NOT do:
+  Provide historical bars — that is yfinance_client's job.
+
+No desktop terminal required. Connects directly to broker FIX server.
+pip install ejtraderCT
+
+Setup (signal_platform/.env):
+  CTRADER_FIX_SERVER   = h21.p.ctrader.com:5211   ← cTrader → Settings → FIX API
+  CTRADER_FIX_LOGIN    = 12345678                  ← your account number
+  CTRADER_FIX_PASSWORD = 12345678                  ← numeric PIN set in FIX API settings
   CTRADER_FIX_BROKER   = pepperstone
   CTRADER_FIX_CURRENCY = USD
-
-Find your FIX server: open cTrader → Settings → FIX API → Connection Details.
-pip install ejtraderCT
 """
 
 import logging
 import threading
-import time
 
 from config.settings import settings
-from shared.mtf_utils import to_minutes
 
 log = logging.getLogger(__name__)
 
-_client      = None
-_client_lock = threading.Lock()
-_init_failed = False
+_client:      object | None  = None
+_lock         = threading.Lock()
+_init_failed  = False
+_subscribed:  set[str]       = set()   # cTrader symbol names e.g. "EURUSD"
+_prices:      dict[str, float] = {}    # latest mid-price per symbol
 
 
 def is_configured() -> bool:
@@ -43,7 +49,7 @@ def _ensure_init() -> bool:
         return True
     if _init_failed:
         return False
-    with _client_lock:
+    with _lock:
         if _client is not None:
             return True
         if _init_failed:
@@ -57,7 +63,7 @@ def _ensure_init() -> bool:
                 password=settings.ctrader_fix_password,
                 currency=settings.ctrader_fix_currency or "USD",
             )
-            log.info(f"[ejtrader] connected to {settings.ctrader_fix_server}")
+            log.info(f"[ejtrader] connected → {settings.ctrader_fix_server}")
             return True
         except Exception as exc:
             log.error(f"[ejtrader] init failed: {exc}")
@@ -65,48 +71,37 @@ def _ensure_init() -> bool:
             return False
 
 
-def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:
-    """
-    Fetch OHLCV bars via cTrader FIX API — synchronous, call via executor.
-
-    symbol — cTrader symbol name without slash, e.g. 'EURUSD'
-    tf     — timeframe string: M1 M5 M15 M30 H1 H4 D1 W1 MN
-    Returns [{time (unix s), open, high, low, close, volume}] oldest→newest.
-    """
+def subscribe(symbols: list[str]) -> None:
+    """Subscribe to live tick stream for all given symbols."""
     if not _ensure_init():
-        return []
-
-    from_ts = int(time.time()) - (count + 10) * to_minutes(tf) * 60
-
+        return
+    ct_syms = [s.replace("/", "") for s in symbols]
     try:
-        df = _client.history(symbol, tf, from_ts)
+        _client.subscribe(*ct_syms)
+        _subscribed.update(ct_syms)
+        log.info(f"[ejtrader] subscribed {len(ct_syms)} symbols")
     except Exception as exc:
-        log.error(f"[ejtrader] history({symbol}, {tf}): {exc}")
-        return []
+        log.error(f"[ejtrader] subscribe failed: {exc}")
 
-    if df is None or len(df) == 0:
-        log.warning(f"[ejtrader] {symbol} {tf}: empty response")
-        return []
 
+def _refresh(symbol: str) -> None:
+    """Pull the latest quote from ejtraderCT and update _prices cache."""
+    if _client is None or symbol not in _subscribed:
+        return
     try:
-        df.columns = [c.lower() for c in df.columns]
+        q = _client.quote(symbol)
+        if isinstance(q, dict) and "bid" in q and "ask" in q:
+            _prices[symbol] = (float(q["bid"]) + float(q["ask"])) / 2
     except Exception:
         pass
 
-    rows: list[dict] = []
-    for _, row in df.iterrows():
-        ts = row.get("time") or row.get("date") or row.get("timestamp")
-        if ts is None:
-            continue
-        if hasattr(ts, "timestamp"):
-            ts = int(ts.timestamp())
-        rows.append({
-            "time":   int(ts),
-            "open":   float(row.get("open", 0)),
-            "high":   float(row.get("high", 0)),
-            "low":    float(row.get("low", 0)),
-            "close":  float(row.get("close", 0)),
-            "volume": float(row.get("volume", 0)),
-        })
 
-    return rows[-count:]
+def get_price(symbol: str) -> float | None:
+    """Return live Pepperstone mid-price, or None if unavailable."""
+    ct_sym = symbol.replace("/", "")
+    _refresh(ct_sym)
+    return _prices.get(ct_sym)
+
+
+def is_subscribed(symbol: str) -> bool:
+    return symbol.replace("/", "") in _subscribed

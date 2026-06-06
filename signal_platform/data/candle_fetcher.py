@@ -1,14 +1,20 @@
 """
 Candle fetcher — on-demand fetch with TTL cache and in-flight deduplication.
 
-Data source priority (both connect directly to servers — no terminal needed):
-  1. cTrader Open API — primary. Active once .ctrader_token.json exists.
-       Run auth_setup.py after your app is approved in the cTrader Portal.
-  2. ejtraderCT FIX  — fallback while API approval is pending.
-       Set CTRADER_FIX_* vars in .env from cTrader → Settings → FIX API.
+Data source pipeline (no desktop terminal required for any layer):
 
-Two concurrent requests for the same (symbol, tf) share one network call
-via the in-flight future registry.
+  PRIMARY  — cTrader Open API
+               Full OHLCV, all TFs, live Pepperstone data.
+               Active once .ctrader_token.json exists (run auth_setup.py).
+
+  FALLBACK — yfinance  +  ejtraderCT live overlay
+               yfinance_client  : historical OHLCV bars for all TFs
+               ejtrader_ct_client: real-time Pepperstone bid/ask tick stream
+               Combined: yfinance bars are accurate for historical structure;
+               the last (current) bar's close/high/low is patched with the
+               live Pepperstone mid-price from the ejtraderCT feed.
+               → Set CTRADER_FIX_* in .env to enable the live overlay.
+               → yfinance runs alone if FIX credentials are absent.
 """
 
 import asyncio
@@ -18,15 +24,16 @@ import time
 from functools import partial
 
 from core.types import Candle
-from data import candle_cache, ctrader_client, ctrader_session, ejtrader_ct_client
+from data import candle_cache, ctrader_client, ctrader_session
+from data import ejtrader_ct_client, yfinance_client
 from data.candle_aggregator import aggregate
 from shared.mtf_utils import to_minutes, is_native, native_base_for
 
 log = logging.getLogger(__name__)
-_FETCH_TIMEOUT = 15   # seconds — MT5 local call should be fast
+_FETCH_TIMEOUT = 20  # seconds
 
 # In-flight registry: (symbol, tf) → Future.
-# Prevents duplicate MT5 calls when strategies run concurrently.
+# Prevents duplicate network calls when strategies run concurrently.
 _in_flight: dict[tuple[str, str], asyncio.Future] = {}
 
 
@@ -66,26 +73,29 @@ async def _do_fetch(symbol: str, tf: str, count: int) -> list[Candle]:
     broker_symbol = symbol.replace("/", "")
 
     if ctrader_session.is_configured():
-        # Primary: cTrader Open API — async, no terminal required
+        # Primary: cTrader Open API — full live OHLCV from Pepperstone
         raw = await asyncio.wait_for(
             ctrader_client.fetch_bars(broker_symbol, tf, count),
             timeout=_FETCH_TIMEOUT,
         )
-    elif ejtrader_ct_client.is_configured():
-        # Fallback: ejtraderCT FIX — sync, run in executor, no terminal required
+    else:
+        # Fallback: yfinance historical bars + ejtraderCT live price overlay
         loop = asyncio.get_event_loop()
         raw = await asyncio.wait_for(
             loop.run_in_executor(
-                None, partial(ejtrader_ct_client.fetch_bars, broker_symbol, tf, count)
+                None, partial(yfinance_client.fetch_bars, symbol, tf, count)
             ),
             timeout=_FETCH_TIMEOUT,
         )
-    else:
-        log.error(
-            "[candle_fetcher] no data source configured. "
-            "Set CTRADER_FIX_* in .env or run auth_setup.py for cTrader Open API."
-        )
-        return []
+        # Patch the last bar's close/H/L with live Pepperstone mid-price
+        # from the ejtraderCT tick stream — broker-accurate current bar.
+        if raw and ejtrader_ct_client.is_subscribed(symbol):
+            live = ejtrader_ct_client.get_price(symbol)
+            if live and live > 0:
+                last = raw[-1]
+                raw[-1] = {**last, "close": live,
+                           "high": max(last["high"], live),
+                           "low":  min(last["low"],  live)}
     if not raw:
         return []
     candles = [

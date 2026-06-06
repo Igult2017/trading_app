@@ -26,19 +26,26 @@ async def _startup() -> None:
     create_tables()
     log.info("[boot] database ready")
 
-    # 2. Configure cTrader data source
-    from data import ctrader_session
-    if not settings.ctrader_client_id or not settings.ctrader_account_id:
-        log.error(
-            "[boot] CTRADER_CLIENT_ID or CTRADER_ACCOUNT_ID not set — "
-            "candle fetching will fail. Set them in signal_platform/.env"
-        )
+    # 2. Configure data sources
+    from data import ctrader_session, ejtrader_ct_client
+    from config.instruments import INSTRUMENTS
+
+    # 2a. cTrader Open API (primary — requires approved app + auth_setup.py)
     ctrader_session.configure(
         client_id=settings.ctrader_client_id,
         client_secret=settings.ctrader_client_secret,
         account_id=settings.ctrader_account_id,
         env=settings.ctrader_env,
     )
+    if ctrader_session.is_configured():
+        log.info("[boot] data source: cTrader Open API (primary)")
+    else:
+        # 2b. ejtraderCT FIX tick stream (live overlay on yfinance history)
+        if ejtrader_ct_client.is_configured():
+            ejtrader_ct_client.subscribe(INSTRUMENTS)
+            log.info("[boot] data source: yfinance history + ejtraderCT live overlay")
+        else:
+            log.info("[boot] data source: yfinance only (set CTRADER_FIX_* for live overlay)")
 
     # 3. Register plugins (strategies, indicators, patterns)
     import strategies    # noqa: F401 — side-effect: registers strategies
