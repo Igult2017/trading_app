@@ -1,98 +1,52 @@
 import { db } from '../db';
 import { notifications, InsertNotification } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 export class NotificationService {
   async createNotification(data: InsertNotification) {
-    try {
-      const [notification] = await db
-        .insert(notifications)
-        .values(data)
-        .returning();
-      
-      console.log(`Created notification: ${data.type} - ${data.title}`);
-      return notification;
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
-    }
+    const [notification] = await db.insert(notifications).values(data).returning();
+    return notification;
   }
 
-  async getNotifications(limit: number = 50) {
-    try {
-      return await db
-        .select()
-        .from(notifications)
-        .orderBy(desc(notifications.createdAt))
-        .limit(limit);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      throw error;
-    }
+  async getNotifications(userId: string, limit = 50) {
+    return db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
   }
 
-  async getUnreadNotifications() {
-    try {
-      return await db
-        .select()
-        .from(notifications)
-        .where(eq(notifications.isRead, false))
-        .orderBy(desc(notifications.createdAt));
-    } catch (error) {
-      console.error('Error fetching unread notifications:', error);
-      throw error;
-    }
+  async getUnreadNotifications(userId: string) {
+    return db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
+      .orderBy(desc(notifications.createdAt));
   }
 
-  async markAsRead(notificationId: string) {
-    try {
-      await db
-        .update(notifications)
-        .set({ isRead: true })
-        .where(eq(notifications.id, notificationId));
-      
-      console.log(`Marked notification ${notificationId} as read`);
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      throw error;
-    }
+  async markAsRead(notificationId: string, userId: string) {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
   }
 
-  async markAllAsRead() {
-    try {
-      await db
-        .update(notifications)
-        .set({ isRead: true })
-        .where(eq(notifications.isRead, false));
-      
-      console.log('Marked all notifications as read');
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-      throw error;
-    }
+  async markAllAsRead(userId: string) {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
   }
 
-  async deleteNotification(notificationId: string) {
-    try {
-      await db
-        .delete(notifications)
-        .where(eq(notifications.id, notificationId));
-      
-      console.log(`Deleted notification ${notificationId}`);
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      throw error;
-    }
+  async deleteNotification(notificationId: string, userId: string) {
+    await db
+      .delete(notifications)
+      .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
   }
 
-  async clearAllNotifications() {
-    try {
-      await db.delete(notifications);
-      console.log('Cleared all notifications');
-    } catch (error) {
-      console.error('Error clearing all notifications:', error);
-      throw error;
-    }
+  async clearAllNotifications(userId: string) {
+    await db.delete(notifications).where(eq(notifications.userId, userId));
   }
 }
 

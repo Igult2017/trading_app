@@ -23,7 +23,19 @@ if (!process.env.DATABASE_URL) {
 
 console.log('[Database] Connecting to PostgreSQL...');
 
-const connectionString = process.env.DATABASE_URL!;
+// Ensure PgBouncer transaction-mode pooling is active.
+// Neon hosted DBs: append ?pgbouncer=true to the pooler endpoint URL.
+// Self-hosted: set DATABASE_URL to point at your PgBouncer port directly.
+const rawUrl = process.env.DATABASE_URL!;
+const connectionString = (() => {
+  try {
+    const u = new URL(rawUrl);
+    if (!u.searchParams.has('pgbouncer')) u.searchParams.set('pgbouncer', 'true');
+    return u.toString();
+  } catch {
+    return rawUrl; // non-URL format — leave as-is
+  }
+})();
 
 function resolveSSL(): false | { rejectUnauthorized: boolean } {
   // Explicitly disabled — never use SSL

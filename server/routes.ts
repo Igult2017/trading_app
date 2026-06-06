@@ -1839,8 +1839,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/notifications", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      res.json(await notificationService.getNotifications(limit));
+      res.json(await notificationService.getNotifications(auth.id, limit));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
@@ -1848,7 +1850,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/notifications/unread", async (req, res) => {
     try {
-      res.json(await notificationService.getUnreadNotifications());
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      res.json(await notificationService.getUnreadNotifications(auth.id));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch unread notifications" });
     }
@@ -1856,7 +1860,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/notifications/:id/read", async (req, res) => {
     try {
-      await notificationService.markAsRead(req.params.id);
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      await notificationService.markAsRead(req.params.id, auth.id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark notification as read" });
@@ -1865,7 +1871,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/notifications/read-all", async (req, res) => {
     try {
-      await notificationService.markAllAsRead();
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      await notificationService.markAllAsRead(auth.id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark all notifications as read" });
@@ -1874,7 +1882,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/notifications/:id", async (req, res) => {
     try {
-      await notificationService.deleteNotification(req.params.id);
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      await notificationService.deleteNotification(req.params.id, auth.id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete notification" });
@@ -1883,7 +1893,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/notifications/clear-all", async (req, res) => {
     try {
-      await notificationService.clearAllNotifications();
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      await notificationService.clearAllNotifications(auth.id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to clear all notifications" });
@@ -2220,17 +2232,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Accounts ─────────────────────────────────────────────────────────────────
   app.get("/api/copy/accounts", async (req, res) => {
     try {
-      const userId = req.query.userId as string | undefined;
-      const accounts = await storage.getCopyAccounts(userId);
-      const safe = accounts.map(({ passwordEnc: _, ...a }) => a);
-      return res.json(safe);
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const accounts = await storage.getCopyAccounts(auth.id);
+      return res.json(accounts.map(({ passwordEnc: _, ...a }) => a));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.get("/api/copy/accounts/:id", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
       const account = await storage.getCopyAccountById(req.params.id);
       if (!account) return res.status(404).json({ error: "Account not found" });
+      if (account.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       const { passwordEnc: _, ...safe } = account;
       return res.json(safe);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
@@ -2238,10 +2253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/copy/accounts", async (req, res) => {
     try {
-      const { nickname, platform, brokerServer, loginId, password, role, symbolPrefix, symbolSuffix, userId } = req.body;
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const { nickname, platform, brokerServer, loginId, password, role, symbolPrefix, symbolSuffix } = req.body;
       if (!loginId || !password || !role || !platform) return res.status(400).json({ error: "Missing required fields: loginId, password, role, platform" });
-      const passwordEnc = safeEncrypt(password);
-      const account = await storage.createCopyAccount({ nickname: nickname || loginId, platform, brokerServer, loginId, passwordEnc, role, symbolPrefix, symbolSuffix, userId, isActive: true });
+      const account = await storage.createCopyAccount({ nickname: nickname || loginId, platform, brokerServer, loginId, passwordEnc: safeEncrypt(password), role, symbolPrefix, symbolSuffix, userId: auth.id, isActive: true });
       const { passwordEnc: _, ...safe } = account;
       return res.status(201).json(safe);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
@@ -2249,18 +2265,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/copy/accounts/:id", async (req, res) => {
     try {
-      const { password, ...rest } = req.body;
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const existing = await storage.getCopyAccountById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Account not found" });
+      if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
+      const { password, userId: _uid, ...rest } = req.body;
       const updates: any = { ...rest };
       if (password) updates.passwordEnc = safeEncrypt(password);
       const updated = await storage.updateCopyAccount(req.params.id, updates);
-      if (!updated) return res.status(404).json({ error: "Account not found" });
-      const { passwordEnc: _, ...safe } = updated;
+      const { passwordEnc: _, ...safe } = updated!;
       return res.json(safe);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.delete("/api/copy/accounts/:id", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const existing = await storage.getCopyAccountById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Account not found" });
+      if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       return res.json({ success: await storage.deleteCopyAccount(req.params.id) });
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
@@ -2274,8 +2299,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/copy/masters", async (req, res) => {
     try {
-      const userId = req.query.userId as string | undefined;
-      return res.json(await storage.getCopyMasters(userId));
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      return res.json(await storage.getCopyMasters(auth.id));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
@@ -2289,20 +2315,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/copy/masters", async (req, res) => {
     try {
-      return res.status(201).json(await storage.createCopyMaster(req.body));
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const { userId: _uid, ...rest } = req.body;
+      return res.status(201).json(await storage.createCopyMaster({ ...rest, userId: auth.id }));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.put("/api/copy/masters/:id", async (req, res) => {
     try {
-      const updated = await storage.updateCopyMaster(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: "Master not found" });
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const existing = await storage.getCopyMasterById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Master not found" });
+      if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
+      const { userId: _uid, ...rest } = req.body;
+      const updated = await storage.updateCopyMaster(req.params.id, rest);
       return res.json(updated);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.delete("/api/copy/masters/:id", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const existing = await storage.getCopyMasterById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Master not found" });
+      if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       return res.json({ success: await storage.deleteCopyMaster(req.params.id) });
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
@@ -2310,6 +2349,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Telegram source ───────────────────────────────────────────────────────────
   app.get("/api/copy/masters/:masterId/telegram", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
       const src = await storage.getTelegramSource(req.params.masterId);
       if (!src) return res.status(404).json({ error: "No Telegram source configured" });
       const { apiHashEnc: _, ...safe } = src as any;
@@ -2319,8 +2360,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/copy/masters/:masterId/telegram", async (req, res) => {
     try {
-      const src = await storage.upsertTelegramSource({ ...req.body, masterId: req.params.masterId });
-      const { apiHashEnc: _, ...safe } = src as any;
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const { apiHashEnc: _, ...safe } = await storage.upsertTelegramSource({ ...req.body, masterId: req.params.masterId }) as any;
       return res.json(safe);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
@@ -2380,35 +2422,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Followers ─────────────────────────────────────────────────────────────────
   app.get("/api/copy/followers", async (req, res) => {
     try {
-      const { userId, masterId } = req.query as { userId?: string; masterId?: string };
-      return res.json(await storage.getCopyFollowers(userId, masterId));
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const { masterId } = req.query as { masterId?: string };
+      return res.json(await storage.getCopyFollowers(auth.id, masterId));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.get("/api/copy/followers/:id", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
       const follower = await storage.getCopyFollowerById(req.params.id);
       if (!follower) return res.status(404).json({ error: "Follower not found" });
+      if (follower.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       return res.json(follower);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.post("/api/copy/followers", async (req, res) => {
     try {
-      return res.status(201).json(await storage.createCopyFollower(req.body));
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const { userId: _uid, ...rest } = req.body;
+      return res.status(201).json(await storage.createCopyFollower({ ...rest, userId: auth.id }));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.put("/api/copy/followers/:id", async (req, res) => {
     try {
-      const updated = await storage.updateCopyFollower(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: "Follower not found" });
-      return res.json(updated);
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const existing = await storage.getCopyFollowerById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Follower not found" });
+      if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
+      const { userId: _uid, ...rest } = req.body;
+      return res.json(await storage.updateCopyFollower(req.params.id, rest));
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   app.delete("/api/copy/followers/:id", async (req, res) => {
     try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const existing = await storage.getCopyFollowerById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Follower not found" });
+      if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       return res.json({ success: await storage.deleteCopyFollower(req.params.id) });
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
@@ -2416,7 +2475,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Deploy — persists full wizard config and queues the bridge start ──────────
   app.post("/api/copy/deploy", async (req, res) => {
     try {
-      const { role, accountConfig, masterConfig, followerConfig, telegramConfig, userId } = req.body;
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const userId = auth.id;
+      const { role, accountConfig, masterConfig, followerConfig, telegramConfig } = req.body;
       if (!role) return res.status(400).json({ error: "role is required" });
 
       // 1. Save broker account
@@ -2527,39 +2589,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Telegram journal: executed Telegram trades with manual outcome ────────────
   app.get("/api/copy/telegram-journal", async (req: Request, res: Response) => {
     try {
-      const { userId, limit = '200' } = req.query as Record<string, string>;
-      const rows = await pool.query(`
-        SELECT
-          ctf.id,
-          ctf.follower_id,
-          ctf.master_trade_id,
-          ctf.external_id,
-          ctf.symbol,
-          ctf.action,
-          ctf.event_type,
-          ctf.volume,
-          ctf.entry_price,
-          ctf.stop_loss,
-          ctf.take_profit,
-          ctf.closed_price,
-          ctf.status,
-          ctf.error_message,
-          ctf.executed_at,
-          ctf.created_at,
-          ctf.manual_outcome,
-          ctm.source,
-          ctm.raw_payload,
-          cf.user_id
-        FROM copy_trades_follower ctf
-        JOIN copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
-        JOIN copy_followers       cf  ON cf.id  = ctf.follower_id
-        WHERE ctm.source = 'telegram'
-          AND ctf.status = 'executed'
-          ${userId ? `AND cf.user_id = '${userId.replace(/'/g, "''")}'` : ''}
-        ORDER BY ctf.created_at DESC
-        LIMIT ${parseInt(limit) || 200}
-      `);
-      return res.json(rows.rows);
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const limit = Math.min(parseInt(req.query.limit as string) || 200, 500);
+      const { rows } = await pool.query(
+        `SELECT ctf.id, ctf.follower_id, ctf.master_trade_id, ctf.external_id,
+                ctf.symbol, ctf.action, ctf.event_type, ctf.volume,
+                ctf.entry_price, ctf.stop_loss, ctf.take_profit, ctf.closed_price,
+                ctf.status, ctf.error_message, ctf.executed_at, ctf.created_at,
+                ctf.manual_outcome, ctm.source, ctm.raw_payload, cf.user_id
+         FROM copy_trades_follower ctf
+         JOIN copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
+         JOIN copy_followers       cf  ON cf.id  = ctf.follower_id
+         WHERE ctm.source = 'telegram'
+           AND ctf.status = 'executed'
+           AND cf.user_id = $1
+         ORDER BY ctf.created_at DESC
+         LIMIT $2`,
+        [auth.id, limit],
+      );
+      return res.json(rows);
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
@@ -2582,21 +2631,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Telegram win-rate stats for a user
   app.get("/api/copy/telegram-journal/stats", async (req: Request, res: Response) => {
     try {
-      const { userId } = req.query as { userId?: string };
-      const rows = await pool.query(`
-        SELECT
-          COUNT(*)                                              AS total,
-          COUNT(*) FILTER (WHERE ctf.manual_outcome = 'win')   AS wins,
-          COUNT(*) FILTER (WHERE ctf.manual_outcome = 'loss')  AS losses,
-          COUNT(*) FILTER (WHERE ctf.manual_outcome IS NULL)   AS unmarked
-        FROM copy_trades_follower ctf
-        JOIN copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
-        JOIN copy_followers       cf  ON cf.id  = ctf.follower_id
-        WHERE ctm.source = 'telegram'
-          AND ctf.status = 'executed'
-          ${userId ? `AND cf.user_id = '${userId.replace(/'/g, "''")}'` : ''}
-      `);
-      const r = rows.rows[0];
+      const auth = await requireAuth(req, res);
+      if (!auth) return res.status(401).json({ error: "Unauthorized" });
+      const { rows } = await pool.query(
+        `SELECT
+           COUNT(*)                                              AS total,
+           COUNT(*) FILTER (WHERE ctf.manual_outcome = 'win')   AS wins,
+           COUNT(*) FILTER (WHERE ctf.manual_outcome = 'loss')  AS losses,
+           COUNT(*) FILTER (WHERE ctf.manual_outcome IS NULL)   AS unmarked
+         FROM copy_trades_follower ctf
+         JOIN copy_trades_master   ctm ON ctm.id = ctf.master_trade_id
+         JOIN copy_followers       cf  ON cf.id  = ctf.follower_id
+         WHERE ctm.source = 'telegram'
+           AND ctf.status = 'executed'
+           AND cf.user_id = $1`,
+        [auth.id],
+      );
+      const r = rows[0];
       const marked = Number(r.wins) + Number(r.losses);
       return res.json({
         total:    Number(r.total),

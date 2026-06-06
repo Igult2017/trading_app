@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,7 +23,9 @@ export const copyAccounts = pgTable("copy_accounts", {
   symbolSuffix: text("symbol_suffix"),
   createdAt:    timestamp("created_at").defaultNow(),
   updatedAt:    timestamp("updated_at").defaultNow(),
-});
+}, (t) => [
+  index("copy_accounts_user_id_idx").on(t.userId),
+]);
 
 export const insertCopyAccountSchema = createInsertSchema(copyAccounts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCopyAccount = z.infer<typeof insertCopyAccountSchema>;
@@ -112,7 +114,10 @@ export const copyFollowers = pgTable("copy_followers", {
   deployedAt:      timestamp("deployed_at"),
   createdAt:       timestamp("created_at").defaultNow(),
   updatedAt:       timestamp("updated_at").defaultNow(),
-});
+}, (t) => [
+  index("copy_followers_user_id_idx").on(t.userId),
+  index("copy_followers_master_id_idx").on(t.masterId),
+]);
 
 export const insertCopyFollowerSchema = createInsertSchema(copyFollowers).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCopyFollower = z.infer<typeof insertCopyFollowerSchema>;
@@ -244,7 +249,10 @@ export const trades = pgTable("trades", {
   duration: text("duration").notNull(),
   assetClass: text("asset_class"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (t) => [
+  index("trades_user_id_idx").on(t.userId),
+  index("trades_user_created_idx").on(t.userId, t.createdAt),
+]);
 
 export const insertTradeSchema = createInsertSchema(trades).omit({
   id: true,
@@ -285,7 +293,10 @@ export const economicEvents = pgTable("economic_events", {
   sourceUrl: text("source_url"),
   lastScraped: timestamp("last_scraped").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (t) => [
+  index("economic_events_event_time_idx").on(t.eventTime),
+  index("economic_events_currency_idx").on(t.currency),
+]);
 
 export const insertEconomicEventSchema = createInsertSchema(economicEvents).omit({
   id: true,
@@ -326,7 +337,10 @@ export const notifications = pgTable("notifications", {
   metadata: text("metadata"),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (t) => [
+  index("notifications_user_id_idx").on(t.userId),
+  index("notifications_user_read_idx").on(t.userId, t.isRead),
+]);
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
@@ -394,7 +408,10 @@ export const tradingSignals = pgTable("trading_signals", {
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (t) => [
+  index("trading_signals_status_created_idx").on(t.status, t.createdAt),
+  index("trading_signals_symbol_idx").on(t.symbol),
+]);
 
 export const insertTradingSignalSchema = createInsertSchema(tradingSignals).omit({
   id: true,
@@ -487,7 +504,9 @@ export const tradingSessions = pgTable("trading_sessions", {
   status: text("status").default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   brokerTimezone: integer("broker_timezone").default(2),
-});
+}, (t) => [
+  index("trading_sessions_user_id_idx").on(t.userId),
+]);
 
 // ✅ FIX: Override drizzle-zod's auto-generated decimal validator for startingBalance.
 // drizzle-zod generates inconsistent Zod types for decimal columns across versions —
@@ -569,7 +588,12 @@ export const journalEntries = pgTable("journal_entries", {
   manualFields: jsonb("manual_fields"),
 
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (t) => [
+  index("journal_entries_user_id_idx").on(t.userId),
+  index("journal_entries_session_id_idx").on(t.sessionId),
+  index("journal_entries_user_session_idx").on(t.userId, t.sessionId),
+  index("journal_entries_created_at_idx").on(t.createdAt),
+]);
 
 export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
   id: true,
@@ -610,7 +634,9 @@ export const brokerAccounts = pgTable("broker_accounts", {
   tradeCount:        integer("trade_count").default(0),
   createdAt:         timestamp("created_at").defaultNow(),
   updatedAt:      timestamp("updated_at").defaultNow(),
-});
+}, (t) => [
+  index("broker_accounts_user_id_idx").on(t.userId),
+]);
 
 export const insertBrokerAccountSchema = createInsertSchema(brokerAccounts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertBrokerAccount = z.infer<typeof insertBrokerAccountSchema>;
@@ -644,7 +670,10 @@ export const syncedTrades = pgTable("synced_trades", {
   journaledAt:     timestamp("journaled_at"),
   rawData:         jsonb("raw_data"),
   createdAt:       timestamp("created_at").defaultNow(),
-});
+}, (t) => [
+  index("synced_trades_broker_account_id_idx").on(t.brokerAccountId),
+  index("synced_trades_user_id_idx").on(t.userId),
+]);
 
 export const insertSyncedTradeSchema = createInsertSchema(syncedTrades).omit({ id: true, createdAt: true });
 export type InsertSyncedTrade = z.infer<typeof insertSyncedTradeSchema>;
