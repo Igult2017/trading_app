@@ -458,9 +458,9 @@ const S: Record<string, React.CSSProperties> = {
   },
   logoText: {
     fontSize: 22,
-    fontWeight: 900,
-    fontFamily: "'Playfair Display',serif",
-    letterSpacing: '-0.01em',
+    fontWeight: 400,
+    fontFamily: "'DM Serif Display', serif",
+    letterSpacing: '0.01em',
   },
   title: {
     color: '#3b82f6',

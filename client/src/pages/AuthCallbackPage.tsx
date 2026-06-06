@@ -143,9 +143,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   brandName: {
     fontSize: 18,
-    fontWeight: 900,
-    letterSpacing: '-0.01em',
-    fontFamily: "'Montserrat', sans-serif",
+    fontWeight: 400,
+    letterSpacing: '0.01em',
+    fontFamily: "'DM Serif Display', serif",
   },
   spinner: {
     width: 44,

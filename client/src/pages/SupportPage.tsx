@@ -90,7 +90,7 @@ export default function SupportPage() {
           <aside className="sp-sidebar">
             <div className="sp-sidebar-inner" style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
               <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontFamily: "'Inter','Segoe UI',sans-serif", fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, fontWeight: 400, letterSpacing: '0.01em', lineHeight: 1 }}>
                   <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
                 </span>
                 <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: textMut, whiteSpace: 'nowrap' }}>Support</span>

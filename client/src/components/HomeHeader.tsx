@@ -45,7 +45,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     ? dm ? "0 4px 24px rgba(0,0,0,0.5)" : "0 4px 24px rgba(0,0,0,0.08)"
     : "none";
 
-  const hFont = { fontFamily: "'Oswald', sans-serif",           fontWeight: 700, letterSpacing: "0.02em" } as const;
+  const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const nFont = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 } as const;
 
   const handleLinkHover = useCallback((href: string) => {

@@ -42,7 +42,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const linkHoverClr = "#3b82f6";
 
   // Same font stack as the header
-  const headerFont  = { fontFamily: "'Oswald', sans-serif",           fontWeight: 700, letterSpacing: "0.02em" } as const;
+  const headerFont  = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const navFont     = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 } as const;
   const bodyFont    = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
 
