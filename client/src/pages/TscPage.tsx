@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { usePublicTheme } from "@/context/PublicThemeContext";
 
-/* ── Font import ─────────────────────────────────────────────────────────── */
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap');`;
+const serif = { fontFamily: "'Playfair Display', serif" } as const;
+const sans  = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
 
 /* ── DST helpers ──────────────────────────────────────────────────────────── */
 function lastSunday(year: number, monthIndex: number) {
@@ -380,7 +380,7 @@ function StatsStrip({ sessions, decimal, weekday, liveCount, darkMode }: { sessi
             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#374151", marginBottom: 6 }}>
               {label}
             </p>
-            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 18, fontWeight: 800, color, letterSpacing: "-0.02em", lineHeight: 1.1, marginBottom: 4 }}>
+            <p style={{ ...sans, fontSize: 18, fontWeight: 800, color, letterSpacing: "-0.01em", lineHeight: 1.1, marginBottom: 4 }}>
               {value}
             </p>
             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4b5563" }}>
@@ -422,9 +422,7 @@ export default function TscPage() {
 
   return (
     <>
-      <style>{FONT_IMPORT}</style>
-
-      <div style={{ minHeight: "100vh", background: pageBg, fontFamily: "'Montserrat', sans-serif", transition: "background 0.3s" }}>
+      <div style={{ minHeight: "100vh", background: pageBg, ...sans, transition: "background 0.3s" }}>
 
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <section style={{ borderBottom: `1px solid ${border}`, padding: "52px 0 48px" }}>
@@ -442,8 +440,8 @@ export default function TscPage() {
                   {weekday ? `${liveCount} Sessions Live` : "Weekend — Markets Closed"}
                 </span>
               </div>
-              <h1 style={{ margin: "0 0 10px", fontFamily: "'DM Mono', monospace", fontWeight: 500, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", lineHeight: 1.05, color: textPrim }}>
-                Trading Session<br /><span style={{ color: "#2563eb" }}>Clock</span>
+              <h1 style={{ margin: "0 0 10px", ...serif, fontWeight: 900, fontSize: "clamp(1.6rem,2.5vw,2.2rem)", lineHeight: 1.1, color: textPrim }}>
+                Trading Session <em style={{ fontStyle: "italic", color: "#2563eb" }}>Clock</em>
               </h1>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: textMuted, lineHeight: 1.7, maxWidth: 440 }}>
                 Track all four major forex market sessions in real time. See which markets are live, how much time remains, and when the next session opens.
@@ -488,7 +486,7 @@ export default function TscPage() {
                 <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#374151", marginBottom: 4 }}>
                   Session Map
                 </p>
-                <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 18, fontWeight: 700, color: textPrim, margin: 0 }}>
+                <h2 style={{ ...serif, fontSize: 20, fontWeight: 700, color: textPrim, margin: 0 }}>
                   24-Hour Market Timeline
                 </h2>
               </div>
@@ -523,7 +521,7 @@ export default function TscPage() {
             ].map(({ title, body, color }) => (
               <div key={title} style={{ background: darkMode ? "#111827" : "#ffffff", padding: "20px 24px" }}>
                 <div style={{ width: 24, height: 3, background: color, marginBottom: 14 }} />
-                <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, fontWeight: 800, color: darkMode ? "#e5e7eb" : "#0f172a", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
+                <h3 style={{ ...serif, fontSize: 14, fontWeight: 700, color: darkMode ? "#e5e7eb" : "#0f172a", margin: "0 0 8px" }}>
                   {title}
                 </h3>
                 <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: darkMode ? "#4b5563" : "#64748b", lineHeight: 1.8, margin: 0 }}>
