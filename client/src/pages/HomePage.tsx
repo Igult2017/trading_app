@@ -28,20 +28,10 @@ const steps = [
 const trustItems = ["MT5 Auto-Import", "No Subscription Required", "AI-Powered Analytics", "GDPR Compliant", "Real-time Sync", "50+ Brokers Supported"];
 
 const BROKERS = [
-  { name: "Pepperstone",  src: "/broker-pepperstone.png" },
-  { name: "Tickmill",     src: "/broker-tickmill.png" },
-  { name: "Admirals",     src: "/broker-admirals.png" },
-  { name: "AxiTrader",    src: "/broker-axitrader.png" },
-  { name: "InstaForex",   src: "/broker-instaforex.svg" },
-  { name: "LMAX",         src: "/broker-lmax.png" },
-  { name: "IC Markets",   src: "https://logo.clearbit.com/icmarkets.com" },
-  { name: "XM",           src: "https://logo.clearbit.com/xm.com" },
-  { name: "FXCM",         src: "https://logo.clearbit.com/fxcm.com" },
-  { name: "OANDA",        src: "https://logo.clearbit.com/oanda.com" },
-  { name: "Exness",       src: "https://logo.clearbit.com/exness.com" },
-  { name: "AvaTrade",     src: "https://logo.clearbit.com/avatrade.com" },
-  { name: "FxPro",        src: "https://logo.clearbit.com/fxpro.com" },
-  { name: "HFM",          src: "https://logo.clearbit.com/hfm.com" },
+  "Pepperstone", "IC Markets", "OANDA", "XM", "Exness",
+  "FXCM", "AvaTrade", "Tickmill", "Admirals", "AxiTrader",
+  "FxPro", "LMAX", "InstaForex", "HFM", "ThinkMarkets",
+  "Vantage", "FP Markets", "EasyMarkets",
 ];
 
 export default function HomePage() {
@@ -159,18 +149,18 @@ export default function HomePage() {
 
       {/* ── Brokers ──────────────────────────────────────────────────── */}
       <section style={{ padding: '48px 0', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}` }}>
-        <p style={{ textAlign: 'center', fontSize: 12, color: muted, marginBottom: 28, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', ...sans }}>
-          Compatible with 50+ brokers including
+        <p style={{ textAlign: 'center', fontSize: 11, color: muted, marginBottom: 28, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', ...sans }}>
+          Compatible with 50+ brokers
         </p>
         <div style={{ maxWidth: 1280, margin: '0 auto', overflow: 'hidden' }}>
-          <div className="hp-mq" style={{ gap: 56, alignItems: 'center', animationDuration: '32s' }}>
-            {[...BROKERS, ...BROKERS].map((b, i) => (
-              <img
-                key={i} src={b.src} alt={b.name}
-                style={{ height: 26, objectFit: 'contain', filter: 'grayscale(1)', opacity: 0.5, flexShrink: 0, transition: 'filter 0.25s, opacity 0.25s', cursor: 'default' }}
-                onMouseEnter={e => { const t = e.currentTarget; t.style.filter = 'grayscale(0)'; t.style.opacity = '1'; }}
-                onMouseLeave={e => { const t = e.currentTarget; t.style.filter = 'grayscale(1)'; t.style.opacity = '0.5'; }}
-              />
+          <div className="hp-mq" style={{ gap: 10, alignItems: 'center', animationDuration: '36s' }}>
+            {[...BROKERS, ...BROKERS].map((name, i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 16px', borderRadius: 999, border: `1px solid ${border}`, background: card, fontSize: 12.5, fontWeight: 600, color: muted, whiteSpace: 'nowrap', flexShrink: 0, ...sans, transition: 'color 0.2s, border-color 0.2s' }}
+                onMouseEnter={e => { const t = e.currentTarget; t.style.color = '#2563eb'; t.style.borderColor = '#93c5fd'; }}
+                onMouseLeave={e => { const t = e.currentTarget; t.style.color = dm ? '#94a3b8' : '#64748b'; t.style.borderColor = dm ? '#1e293b' : '#e2e8f0'; }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
+                {name}
+              </span>
             ))}
           </div>
         </div>
