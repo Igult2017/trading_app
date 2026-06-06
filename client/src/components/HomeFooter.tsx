@@ -1,145 +1,108 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import { FaXTwitter, FaYoutube, FaFacebook, FaInstagram } from "react-icons/fa6";
 
-const SOCIAL_LINKS = [
-  { label: "Twitter (X)", href: "#", Icon: FaXTwitter,  color: "#000000" },
-  { label: "YouTube",     href: "#", Icon: FaYoutube,   color: "#FF0000" },
-  { label: "Facebook",    href: "#", Icon: FaFacebook,  color: "#1877F2" },
-  { label: "Instagram",   href: "#", Icon: FaInstagram, color: "#E1306C" },
+const PLATFORM = [
+  { label: "Trade Journal", href: "/journal"  },
+  { label: "Analytics",     href: "/journal"  },
+  { label: "Blog",          href: "/blog"     },
+  { label: "Calendar",      href: "/calendar" },
+  { label: "Sessions",      href: "/tsc"      },
 ];
 
-const RESOURCES = [
-  { label: "Free Trading Journal", href: "/journal" },
-  { label: "Sessions",             href: "/tsc" },
-  { label: "Economic Calendar",    href: "/calendar" },
-  { label: "Blog",                 href: "/blog" },
+const COMPANY = [
+  { label: "Pricing",  href: "/#pricing"  },
+  { label: "Features", href: "/#features" },
+  { label: "Reviews",  href: "/#reviews"  },
+  { label: "Support",  href: "/support"   },
 ];
 
 const LEGAL = [
   { label: "Privacy Policy",   href: "/legal?tab=privacy" },
-  { label: "Terms of Service", href: "/legal?tab=terms" },
-  { label: "Support",          href: "/support" },
+  { label: "Terms of Service", href: "/legal?tab=terms"   },
+  { label: "Cookie Policy",    href: "/legal?tab=privacy" },
   { label: "Contact",          href: "/legal?tab=contact" },
 ];
 
-export interface HomeFooterProps {
-  darkMode?: boolean;
-}
+const COLS = [
+  { heading: "Platform", links: PLATFORM },
+  { heading: "Company",  links: COMPANY  },
+  { heading: "Legal",    links: LEGAL    },
+];
+
+export interface HomeFooterProps { darkMode?: boolean; }
 
 export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
-  const [email, setEmail] = useState("");
+  const bg      = darkMode ? "#0b1120" : "#0f172a";
+  const text    = "#ffffff";
+  const muted   = "#64748b";
+  const linkClr = "#94a3b8";
+  const hover   = "#ffffff";
+  const divider = "#1e293b";
 
-  // Same theme tokens used by the landing page header
-  const bg          = darkMode ? "#0f172a"  : "#ffffff";
-  const border      = darkMode ? "#1e293b"  : "#e2e8f0";
-  const text        = darkMode ? "#ffffff"  : "#0f172a";
-  const textMuted   = darkMode ? "#94a3b8"  : "#64748b";
-  const linkHover   = darkMode ? "#ffffff"  : "#0f172a";
-  const inputBg     = darkMode ? "#1e293b"  : "#ffffff";
-  const iconFill    = darkMode ? "#94a3b8"  : "#64748b";
-  const iconBorder  = darkMode ? "#334155"  : "#e2e8f0";
-  const linkHoverClr = "#3b82f6";
-
-  // Same font stack as the header
-  const headerFont  = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
-  const navFont     = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 } as const;
-  const bodyFont    = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
+  const hFont = { fontFamily: "'DM Serif Display', serif",      fontWeight: 400, letterSpacing: "0.01em" } as const;
+  const bFont = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
+  const capStyle: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 18, display: "block" };
 
   return (
-    <footer style={{ background: bg, transition: "all 0.4s ease", ...bodyFont }}>
-      {/* Gradient accent line */}
-      <div style={{ height: 1, background: "linear-gradient(to right, transparent, #3b82f6 30%, #6366f1 70%, transparent)" }} />
-
-      {/* ── Same maxWidth:1280 + padding:28px as all page content ── */}
+    <footer style={{ background: bg, ...bFont }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
-        <div className="flex flex-col sm:flex-row sm:justify-between gap-10 py-14">
 
-          {/* Brand + newsletter */}
-          <div className="shrink-0" style={{ width: 260 }}>
-            <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
-              {/* Identical logo to the nav: Oswald font, same colors */}
-              <span style={{ ...headerFont, fontSize: 20, color: text }}>
+        {/* Main columns */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "48px 64px", padding: "64px 0 52px", alignItems: "flex-start" }}>
+
+          {/* Brand */}
+          <div style={{ flex: "0 0 220px" }}>
+            <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 16 }}>
+              <span style={{ ...hFont, fontSize: 20, color: text }}>
                 Myfm<span style={{ color: "#3b82f6" }}>Journal</span>
               </span>
             </Link>
-
-            <p style={{ fontSize: 13, color: textMuted, lineHeight: 1.75, marginBottom: 20, maxWidth: 240 }}>
-              A professional-grade trading journal and analytics platform built for serious traders.
+            <p style={{ fontSize: 13, color: linkClr, lineHeight: 1.8, margin: 0, maxWidth: 200 }}>
+              Professional trading journal<br />
+              for serious traders.
             </p>
-
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                type="email"
-                placeholder="Your email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${border}`, fontSize: 13, ...bodyFont, background: inputBg, color: text, outline: "none", minWidth: 0, transition: "all 0.4s ease" }}
-              />
-              <button
-                onClick={() => setEmail("")}
-                style={{ padding: "8px 14px", borderRadius: 8, background: "#2563eb", color: "#fff", border: "none", fontSize: 12, cursor: "pointer", ...navFont, whiteSpace: "nowrap", flexShrink: 0 }}>
-                Subscribe
-              </button>
-            </div>
           </div>
 
-          {/* Community */}
-          <div>
-            <div style={{ ...navFont, fontSize: 11, color: text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Community</div>
-            {SOCIAL_LINKS.map(({ label, href, Icon, color }) => (
-              <a key={label} href={href}
-                style={{ display: "flex", alignItems: "center", gap: 10, color: textMuted, textDecoration: "none", fontSize: 13, marginBottom: 10, transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => (e.currentTarget.style.color = linkHoverClr)}
-                onMouseLeave={e => (e.currentTarget.style.color = textMuted)}>
-                <span style={{ width: 34, height: 34, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", border: `1.5px solid ${iconBorder}`, flexShrink: 0, transition: "all 0.4s ease" }}>
-                  <Icon size={15} color={color} />
-                </span>
-                {label}
-              </a>
-            ))}
-          </div>
-
-          {/* Resources */}
-          <div>
-            <div style={{ ...navFont, fontSize: 11, color: text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Resources</div>
-            {RESOURCES.map(({ label, href }) => (
-              <Link key={label} href={href}
-                style={{ display: "block", fontSize: 13, color: textMuted, textDecoration: "none", marginBottom: 10, transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHoverClr)}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
-                {label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Legal */}
-          <div className="text-right">
-            <div style={{ ...navFont, fontSize: 11, color: text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Legal</div>
-            {LEGAL.map(({ label, href }) => (
-              <Link key={label} href={href}
-                style={{ display: "block", fontSize: 13, color: textMuted, textDecoration: "none", marginBottom: 10, transition: "color 0.2s", ...bodyFont }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHoverClr)}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
-                {label}
-              </Link>
+          {/* Link columns */}
+          <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: "40px 64px", justifyContent: "flex-end" }}>
+            {COLS.map(({ heading, links }) => (
+              <div key={heading} style={{ minWidth: 130 }}>
+                <span style={capStyle}>{heading}</span>
+                {links.map(({ label, href }) => {
+                  const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 12, ...bFont, transition: "color 0.18s" };
+                  const isHash = href.includes("#");
+                  if (isHash) return (
+                    <a key={label} href={href} style={base}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
+                      {label}
+                    </a>
+                  );
+                  return (
+                    <Link key={label} href={href} style={base}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
             ))}
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div style={{ borderTop: `1px solid ${border}`, padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, transition: "all 0.4s ease" }}>
-          <span style={{ fontSize: 12, color: textMuted, ...bodyFont }}>
+        <div style={{ borderTop: `1px solid ${divider}`, padding: "20px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <span style={{ fontSize: 12, color: muted, ...bFont }}>
             © {new Date().getFullYear()} MyfmJournal. All rights reserved.
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (
               <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {i > 0 && <span style={{ color: textMuted, fontSize: 10 }}>·</span>}
+                {i > 0 && <span style={{ color: divider, fontSize: 12 }}>·</span>}
                 <Link href={href}
-                  style={{ fontSize: 12, color: textMuted, textDecoration: "none", transition: "color 0.2s", ...bodyFont }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkHoverClr)}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = textMuted)}>
+                  style={{ fontSize: 12, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = muted)}>
                   {label}
                 </Link>
               </span>
