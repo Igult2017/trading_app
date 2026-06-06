@@ -625,7 +625,7 @@ export default function CopyManagementDashboard({ onBack, initialTab = 'provider
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: tone.bg, color: tone.text, fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: tone.bg, color: tone.text, fontFamily: "'Inter', sans-serif" }}>
       {/* Header */}
       <div style={{ borderBottom: `1px solid ${tone.border}`, background: tone.panel, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>

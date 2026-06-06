@@ -6,9 +6,9 @@ import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import HomeStatsSection from "@/components/HomeStatsSection";
 
-const display = { fontFamily: "'DM Serif Display', serif" } as const;
+const display = { fontFamily: "'Playfair Display', serif" } as const;
 const serif   = { fontFamily: "'Playfair Display', serif" } as const;
-const sans    = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
+const sans    = { fontFamily: "'Inter', sans-serif" } as const;
 
 const features = [
   { icon: <BookOpen size={18} />,  title: "Trade Journal",   sub: "Free forever" },

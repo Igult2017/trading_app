@@ -46,7 +46,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
         <h2
           className={cn('text-4xl text-center mb-4 font-bold tracking-tight',
             darkMode ? 'text-white' : 'text-slate-900')}
-          style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400 }}
+          style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700 }}
         >
           Simple, Transparent Pricing
         </h2>
@@ -82,7 +82,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                     {plan.name}
                   </div>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-4xl font-extrabold" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                    <span className="text-4xl font-extrabold" style={{ fontFamily: "'Inter', sans-serif" }}>
                       {plan.price}
                     </span>
                     <span className={cn('text-sm', plan.popular ? 'text-blue-200' : darkMode ? 'text-slate-400' : 'text-slate-500')}>
@@ -117,7 +117,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                           ? 'border-2 border-slate-600 text-white hover:border-blue-500'
                           : 'border-2 border-slate-200 text-slate-800 hover:border-blue-400'
                     )}
-                    style={{ fontFamily: "'Montserrat', sans-serif", display: 'block', textDecoration: 'none' }}
+                    style={{ fontFamily: "'Inter', sans-serif", display: 'block', textDecoration: 'none' }}
                   >
                     {plan.cta}
                   </a>

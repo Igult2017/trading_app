@@ -149,7 +149,7 @@ export default function EconomicCalendarPage() {
   const selectStyle: React.CSSProperties = {
     appearance: 'none', background: inputBg, border: `1px solid ${border}`,
     borderRadius: 8, padding: '10px 36px 10px 14px',
-    color: textPrim, fontSize: 12, fontFamily: "'Plus Jakarta Sans',sans-serif",
+    color: textPrim, fontSize: 12, fontFamily: "'Inter',sans-serif",
     fontWeight: 500, outline: 'none', cursor: 'pointer',
     transition: 'border-color 0.2s',
   };
@@ -169,12 +169,12 @@ export default function EconomicCalendarPage() {
       keywords="economic calendar, forex calendar, central bank calendar, high impact news, NFP, FOMC, interest rates, forex events"
       canonical="/calendar"
     />
-    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Plus Jakarta Sans',sans-serif", transition: 'background 0.3s' }}>
+    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Inter',sans-serif", transition: 'background 0.3s' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
-        .ec-filter-btn { font-family:'Plus Jakarta Sans',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
+        .ec-filter-btn { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
         .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
-        .ec-input { font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
+        .ec-input { font-family:'Inter',sans-serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
         .ec-input::placeholder { color:${dm ? '#334155' : '#94a3b8'}; }
         .ec-input:focus { border-color:#2563eb; }
         .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
@@ -242,7 +242,7 @@ export default function EconomicCalendarPage() {
 
               {(ccyFilter !== 'All' || impactFilter !== 'All' || searchQuery) && (
                 <button onClick={() => { setCcyFilter('All'); setImpactFilter('All'); setSearchQuery(''); }}
-                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: textMut, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: textMut, cursor: 'pointer', fontFamily: "'Inter',sans-serif" }}>
                   Clear
                 </button>
               )}

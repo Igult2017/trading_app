@@ -31,7 +31,7 @@ const C = {
 const wrC  = (w: number) => w >= 80 ? C.win  : w >= 62 ? C.warn : C.loss;
 
 const MONO    = "'JetBrains Mono', 'Fira Code', monospace";
-const SANS    = "'Inter', 'Plus Jakarta Sans', sans-serif";
+const SANS    = "'Inter', sans-serif";
 const DISPLAY = "'Montserrat', sans-serif";
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────

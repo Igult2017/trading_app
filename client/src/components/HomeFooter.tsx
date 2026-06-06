@@ -39,7 +39,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const divider = "#1e293b";
 
   const hFont = { fontFamily: "'DM Serif Display', serif",      fontWeight: 400, letterSpacing: "0.01em" } as const;
-  const bFont = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
+  const bFont = { fontFamily: "'Inter', sans-serif" } as const;
   const capStyle: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 18, display: "block" };
 
   return (

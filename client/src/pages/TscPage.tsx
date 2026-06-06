@@ -3,7 +3,7 @@ import { usePageTracking } from '@/hooks/usePageTracking';
 import { usePublicTheme } from "@/context/PublicThemeContext";
 
 const serif = { fontFamily: "'Playfair Display', serif" } as const;
-const sans  = { fontFamily: "'Plus Jakarta Sans', sans-serif" } as const;
+const sans  = { fontFamily: "'Inter', sans-serif" } as const;
 
 /* ── DST helpers ──────────────────────────────────────────────────────────── */
 function lastSunday(year: number, monthIndex: number) {
