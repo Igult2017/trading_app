@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
@@ -48,19 +48,21 @@ function impactStyle(imp: string): React.CSSProperties {
   }
 }
 
-function useNow() {
+function formatAgo(ms: number): string {
+  if (ms < 5000)  return 'just now';
+  if (ms < 60000) return `${Math.floor(ms / 1000)}s ago`;
+  return `${Math.floor(ms / 60000)}m ago`;
+}
+
+// Isolated clock — only this re-renders every second, not the whole page.
+function LiveClock({ lastUpdate, textMut }: { lastUpdate: number; textMut: string }) {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  return now;
-}
-
-function formatAgo(ms: number): string {
-  if (ms < 5000)  return 'just now';
-  if (ms < 60000) return `${Math.floor(ms / 1000)}s ago`;
-  return `${Math.floor(ms / 60000)}m ago`;
+  if (lastUpdate <= 0) return null;
+  return <span style={{ color: textMut }}>· {formatAgo(now - lastUpdate)}</span>;
 }
 
 
@@ -71,8 +73,6 @@ export default function EconomicCalendarPage() {
   const [impactFilter, setImpactFilter] = useState('All');
   const { darkMode } = usePublicTheme();
   const dm = darkMode;
-  const now = useNow();
-
   const pageBg   = dm ? 'rgba(8,12,16,0.97)'  : '#f8fafc';
   const cardBg   = dm ? '#0c1219'              : '#ffffff';
   const border   = dm ? '#172233'              : '#e2e8f0';
@@ -92,11 +92,11 @@ export default function EconomicCalendarPage() {
     queryFn: () =>
       fetch('/api/homepage/calendar').then(r => r.json())
         .then(d => Array.isArray(d) ? d : []).catch(() => []),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     gcTime:    2 * 60 * 60 * 1000,
     placeholderData: (prev) => prev ?? [],
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     refetchInterval: (query) => {
       const d = query.state.data as CalendarEvent[] | undefined;
       if (!d || d.length === 0) {
@@ -118,11 +118,11 @@ export default function EconomicCalendarPage() {
     queryFn: () =>
       fetch('/api/homepage/rates').then(r => r.json())
         .then(d => (d && typeof d === 'object' ? d : {})).catch(() => ({})),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     gcTime:    2 * 60 * 60 * 1000,
     placeholderData: (prev) => prev ?? {},
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     refetchInterval: REFETCH_MS,
     refetchIntervalInBackground: false,
     retry: false,
@@ -132,10 +132,24 @@ export default function EconomicCalendarPage() {
   const bankData = bankDataRaw ?? {};
   const fetching = fetchingEvents || fetchingRates;
 
-  const lastUpdate    = Math.max(calUpdatedAt, ratesUpdatedAt);
-  const updatedAgo    = lastUpdate > 0 ? now - lastUpdate : null;
+  const lastUpdate = Math.max(calUpdatedAt, ratesUpdatedAt);
 
   const availableCurrencies = ['All', ...Array.from(new Set(events.map(e => e.currency))).filter(Boolean).sort()];
+
+  // Memoized so the browser only re-parses CSS when dark mode actually changes.
+  const pageStyles = useMemo(() => `
+    .ec-filter-btn { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
+    .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
+    .ec-input { font-family:'Inter',sans-serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
+    .ec-input::placeholder { color:${dm ? '#334155' : '#94a3b8'}; }
+    .ec-input:focus { border-color:#2563eb; }
+    .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
+    .ec-select-wrap { position:relative; display:inline-block; }
+    .ec-select-wrap::after { content:''; position:absolute; right:12px; top:50%; transform:translateY(-50%); border:4px solid transparent; border-top-color:${textMut}; pointer-events:none; margin-top:2px; }
+    @keyframes ec-spin  { to { transform: rotate(360deg); } }
+    @keyframes ec-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    @keyframes ec-live  { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  `, [dm, inputBg, border, textPrim, textMut, cardBg]);
 
   const filteredEvents = events.filter(event => {
     if (filter === 'Rate Differentials') return false;
@@ -170,20 +184,7 @@ export default function EconomicCalendarPage() {
       canonical="/calendar"
     />
     <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Inter',sans-serif", transition: 'background 0.3s' }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
-        .ec-filter-btn { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
-        .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
-        .ec-input { font-family:'Inter',sans-serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
-        .ec-input::placeholder { color:${dm ? '#334155' : '#94a3b8'}; }
-        .ec-input:focus { border-color:#2563eb; }
-        .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
-        .ec-select-wrap { position:relative; display:inline-block; }
-        .ec-select-wrap::after { content:''; position:absolute; right:12px; top:50%; transform:translateY(-50%); border:4px solid transparent; border-top-color:${textMut}; pointer-events:none; margin-top:2px; }
-        @keyframes ec-spin   { to { transform: rotate(360deg); } }
-        @keyframes ec-pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes ec-live   { 0%,100%{opacity:1} 50%{opacity:0.35} }
-      `}</style>
+      <style>{pageStyles}</style>
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 64px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -207,11 +208,7 @@ export default function EconomicCalendarPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ec-live 2s infinite' }} />
                 LIVE
-                {updatedAgo !== null && (
-                  <span style={{ color: textMut }}>
-                    · {formatAgo(updatedAgo)}
-                  </span>
-                )}
+                <LiveClock lastUpdate={lastUpdate} textMut={textMut} />
               </div>
 
               {/* UTC badge */}
