@@ -15,7 +15,7 @@ const features = [
   { icon: <BarChart3 size={18} />, title: "Analytics",       sub: "Premium" },
   { icon: <Brain size={18} />,     title: "AI Coach",        sub: "From $20/mo" },
   { icon: <Calendar size={18} />,  title: "Econ. Calendar",  sub: "Free" },
-  { icon: <Diamond size={18} />,   title: "Signals",         sub: "Included" },
+  { icon: <Diamond size={18} />,   title: "Edge Builder",    sub: "Included" },
   { icon: <PieChart size={18} />,  title: "Broker Sync",     sub: "50+ brokers" },
 ];
 
