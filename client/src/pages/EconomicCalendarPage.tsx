@@ -190,7 +190,7 @@ export default function EconomicCalendarPage() {
 
           {/* Filter tabs + status bar */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', background: cardBg, border: `1px solid ${border}`, borderRadius: 10, overflow: 'hidden', flexWrap: 'nowrap', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', background: cardBg, border: `1px solid ${border}`, borderRadius: 0, overflow: 'hidden', flexWrap: 'nowrap', overflowX: 'auto' }}>
               {filterCategories.map(cat => (
                 <button key={cat} className="ec-filter-btn"
                   style={{ background: filter === cat ? '#2563eb' : 'transparent', color: filter === cat ? '#ffffff' : textMut, borderRight: `1px solid ${border}` }}
