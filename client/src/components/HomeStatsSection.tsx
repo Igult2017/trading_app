@@ -14,23 +14,23 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
   return (
     <>
       {/* ── Stats bar ───────────────────────────────────────────────── */}
-      <section style={{ background: '#0f172a', padding: '72px 24px' }}>
+      <section style={{ background: '#f8fafc', padding: '72px 24px' }}>
         <div className="max-w-5xl mx-auto">
-          <h2 style={{ ...serif, fontSize: 'clamp(1.8rem,3vw,2.5rem)', fontWeight: 900, color: '#ffffff', textAlign: 'center', marginBottom: 8 }}>
+          <h2 style={{ ...serif, fontSize: 'clamp(1.8rem,3vw,2.5rem)', fontWeight: 700, color: '#0f172a', textAlign: 'center', marginBottom: 8 }}>
             Our trading impact
           </h2>
-          <p style={{ textAlign: 'center', fontSize: 14, color: 'rgba(255,255,255,0.45)', marginBottom: 56, ...sans }}>
+          <p style={{ textAlign: 'center', fontSize: 14, color: '#64748b', marginBottom: 56, ...sans }}>
             Every MyfmJournal session makes you a sharper trader
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
             {stats.map((s, i) => (
               <div key={i} style={{ textAlign: 'center' }}>
-                <div style={{ ...serif, fontSize: 'clamp(2rem,4vw,3rem)', fontWeight: 900, color: '#ffffff', lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginTop: 8, ...sans }}>{s.label}</div>
+                <div style={{ ...serif, fontSize: 'clamp(2rem,4vw,3rem)', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 8, ...sans }}>{s.label}</div>
               </div>
             ))}
           </div>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: 56, paddingTop: 20, textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.25)', ...sans }}>
+          <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 56, paddingTop: 20, textAlign: 'center', fontSize: 12, color: '#94a3b8', ...sans }}>
             MyfmJournal offers free journal access · Funded by premium analytics subscriptions
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, border: '1px solid #d1daf5', fontSize: 12, color: '#64748b', marginBottom: 24, ...sans, fontWeight: 600 }}>
             ✦ Join 10,000+ traders across the globe
           </div>
-          <h2 style={{ ...serif, fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 400, color: '#0f172a', marginBottom: 16, lineHeight: 1.15 }}>
+          <h2 style={{ ...serif, fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 700, color: '#0f172a', marginBottom: 16, lineHeight: 1.15 }}>
             Start journaling free.<br />
             <span style={{ color: '#2563eb' }}>Build your edge today.</span>
           </h2>

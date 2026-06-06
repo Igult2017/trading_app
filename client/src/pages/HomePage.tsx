@@ -117,7 +117,7 @@ export default function HomePage() {
       {/* ── How it works ─────────────────────────────────────────────── */}
       <section style={{ padding: '96px 24px', background: bg, transition: 'all 0.4s ease' }}>
         <div className="max-w-6xl mx-auto">
-          <h2 style={{ ...display, fontSize: 'clamp(2rem,3.5vw,3rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 400 }}>
+          <h2 style={{ ...display, fontSize: 'clamp(2rem,3.5vw,3rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 700 }}>
             How MyfmJournal works
           </h2>
           <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 72, maxWidth: 480, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
