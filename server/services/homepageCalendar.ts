@@ -14,6 +14,7 @@
 import { spawn } from "child_process";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
+import { cacheGet, cacheSet } from "../lib/cache";
 
 const SCRIPT = path.join(process.cwd(), "server", "python", "news_calendar.py");
 
@@ -37,24 +38,21 @@ export interface RateEntry {
   live: boolean;
 }
 
-// ── Cache ─────────────────────────────────────────────────────────────────────
-// Calendar: never expires for serving — only replaced on successful MyFXBook fetch.
-let _calendarCache: CalendarEvent[] | null = null;
-let _calendarFetchedAt = 0;           // timestamp of last SUCCESSFUL fetch
-let _calendarLastAttemptAt = 0;       // timestamp of last fetch ATTEMPT
-const CALENDAR_RETRY_INTERVAL = 15 * 60 * 1000; // retry every 15 min
+// ── Cache keys & TTLs ────────────────────────────────────────────────────────
+const CAL_KEY   = "homepage:calendar";
+const RATES_KEY = "homepage:rates";
+const CAL_TTL_SECS   = 24 * 60 * 60; // 24h — updated on successful fetch; stale is fine
+const RATES_TTL_SECS = 60 * 60;       // 1h
 
-// Rates: refreshed hourly.
-let _ratesCache: Record<string, RateEntry> | null = null;
-let _ratesFetchedAt = 0;
-const RATES_TTL = 60 * 60 * 1000;
+let _calendarLastAttemptAt = 0;
+const CALENDAR_RETRY_INTERVAL = 15 * 60 * 1000;
 
-// In-flight deduplication.
+// In-flight deduplication (process-local).
 let _calendarInFlight: Promise<CalendarEvent[]> | null = null;
 let _ratesInFlight: Promise<Record<string, RateEntry>> | null = null;
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Status ────────────────────────────────────────────────────────────────────
+// ── In-process status (not shared across workers — informational only) ────────
 let _calendarSource: 'myfxbook' | 'unknown' = 'unknown';
 let _calendarEventCount = 0;
 let _calendarLastError: string | null = null;
@@ -65,7 +63,6 @@ let _ratesLastError: string | null = null;
 export function getCalendarServiceStatus() {
   return {
     calendar: {
-      fetchedAt:     _calendarFetchedAt || null,
       lastAttemptAt: _calendarLastAttemptAt || null,
       eventCount:    _calendarEventCount,
       source:        _calendarSource,
@@ -73,7 +70,6 @@ export function getCalendarServiceStatus() {
       lastError:     _calendarLastError,
     },
     rates: {
-      fetchedAt:     _ratesFetchedAt || null,
       liveCount:     _ratesLiveCount,
       fallbackCount: _ratesFallbackCount,
       inFlight:      _ratesInFlight !== null,
@@ -120,11 +116,6 @@ function runPython(mode: "calendar" | "rates"): Promise<string> {
   });
 }
 
-/**
- * Attempt one MyFXBook scrape.
- * - Updates _calendarCache only if MyFXBook returned actual events.
- * - Always returns whatever is in _calendarCache (stale or fresh).
- */
 async function _attemptCalendarRefresh(): Promise<CalendarEvent[]> {
   _calendarLastAttemptAt = Date.now();
   try {
@@ -133,16 +124,12 @@ async function _attemptCalendarRefresh(): Promise<CalendarEvent[]> {
     const data = JSON.parse(stdout) as CalendarEvent[];
 
     if (data.length > 0) {
-      // MyFXBook succeeded — update the cache.
-      _calendarCache    = data;
-      _calendarFetchedAt = Date.now();
+      await cacheSet(CAL_KEY, data, CAL_TTL_SECS);
       _calendarEventCount = data.length;
-      _calendarSource   = 'myfxbook';
-      _calendarLastError = null;
+      _calendarSource     = 'myfxbook';
+      _calendarLastError  = null;
       console.log(`[homepageCalendar] MyFXBook: ${data.length} events cached`);
     } else {
-      // MyFXBook returned 0 events (blocked / challenge page).
-      // Log the reason but DO NOT touch the cache — stale data keeps serving.
       const reason = stderr.includes('Cloudflare') ? 'Cloudflare challenge'
                    : stderr.includes('0 rows')     ? '0 rows scraped'
                    : 'no data';
@@ -152,50 +139,48 @@ async function _attemptCalendarRefresh(): Promise<CalendarEvent[]> {
   } catch (err: any) {
     _calendarLastError = err.message;
     console.error("[homepageCalendar] calendar fetch failed:", err.message);
-    // Cache remains untouched — stale data keeps serving.
   }
 
-  return _calendarCache ?? [];
+  return (await cacheGet<CalendarEvent[]>(CAL_KEY)) ?? [];
 }
 
-export function getHomepageCalendar(): Promise<CalendarEvent[]> {
+export async function getHomepageCalendar(): Promise<CalendarEvent[]> {
   const now = Date.now();
   const due = now - _calendarLastAttemptAt >= CALENDAR_RETRY_INTERVAL;
 
-  // Always fire a background refresh when due — never block the caller.
   if (due && !_calendarInFlight) {
     _calendarInFlight = _attemptCalendarRefresh()
       .finally(() => { _calendarInFlight = null; });
   }
 
-  // Return whatever is in cache right now (may be empty on very first startup).
-  return Promise.resolve(_calendarCache ?? []);
+  const cached = await cacheGet<CalendarEvent[]>(CAL_KEY);
+  if (cached) return cached;
+  if (_calendarInFlight) return _calendarInFlight;
+  return [];
 }
 
 export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
-  if (_ratesCache && Object.keys(_ratesCache).length > 0 && Date.now() - _ratesFetchedAt < RATES_TTL) {
-    return _ratesCache;
-  }
+  const cached = await cacheGet<Record<string, RateEntry>>(RATES_KEY);
+  if (cached && Object.keys(cached).length > 0) return cached;
 
   if (_ratesInFlight) return _ratesInFlight;
 
   _ratesInFlight = runPython("rates")
-    .then((envelope) => {
+    .then(async (envelope) => {
       const { stdout } = JSON.parse(envelope);
       const data = JSON.parse(stdout) as Record<string, RateEntry>;
       if (Object.keys(data).length > 0) {
-        _ratesCache         = data;
-        _ratesFetchedAt     = Date.now();
+        await cacheSet(RATES_KEY, data, RATES_TTL_SECS);
         _ratesLiveCount     = Object.values(data).filter(r => r.live).length;
         _ratesFallbackCount = Object.values(data).filter(r => !r.live).length;
         _ratesLastError     = null;
       }
-      return Object.keys(data).length > 0 ? data : (_ratesCache ?? {});
+      return Object.keys(data).length > 0 ? data : ((await cacheGet<Record<string, RateEntry>>(RATES_KEY)) ?? {});
     })
-    .catch((err) => {
+    .catch(async (err) => {
       _ratesLastError = err.message;
       console.error("[homepageCalendar] rates fetch failed:", err);
-      return _ratesCache ?? {};
+      return (await cacheGet<Record<string, RateEntry>>(RATES_KEY)) ?? {};
     })
     .finally(() => { _ratesInFlight = null; });
 

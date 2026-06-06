@@ -2,6 +2,8 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
+import { redis } from "./lib/redis";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
 import fs from "fs";
@@ -66,15 +68,14 @@ app.set('trust proxy', 1);
 // Gzip all responses — cuts payload size 60-80%
 app.use(compression());
 
-// Rate limiting — 200 req/min per IP on API routes
-// Note: each PM2 worker has its own counter, so effective limit = 200 × worker count.
-// Keeps individual worker safe; adjust down if Redis is added later.
+// Rate limiting — 200 req/min per IP, shared across all PM2 workers via Redis
 app.use('/api', rateLimit({
   windowMs: 60_000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests, please try again in a minute.' },
+  ...(redis ? { store: new RedisStore({ sendCommand: (...args: string[]) => redis.call(...args) }) } : {}),
 }));
 
 app.use(express.json({ limit: '50mb' }));

@@ -6,6 +6,7 @@
 import { spawn } from "child_process";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
+import { cacheGet, cacheSet } from "../lib/cache";
 
 const SCRIPT = path.join(process.cwd(), "server", "python", "crypto_data.py");
 
@@ -70,12 +71,9 @@ export interface CryptoAllData {
   trending: TrendingCoin[];
 }
 
-// ── In-memory cache ───────────────────────────────────────────────────────────
-let _cache: CryptoAllData | null = null;
-let _fetchedAt = 0;
-const TTL = 5 * 60 * 1000; // 5 minutes — respects CoinGecko free-tier limits
+const CRYPTO_CACHE_KEY = "crypto:all";
+const CRYPTO_TTL_SECS = 5 * 60;
 let _fetchPromise: Promise<CryptoAllData> | null = null;
-// ─────────────────────────────────────────────────────────────────────────────
 
 function runPython(mode: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -108,20 +106,15 @@ function runPython(mode: string): Promise<string> {
 async function _doFetch(): Promise<CryptoAllData> {
   const raw = await runPython("all");
   const data = JSON.parse(raw) as CryptoAllData;
-  _cache = data;
-  _fetchedAt = Date.now();
+  await cacheSet(CRYPTO_CACHE_KEY, data, CRYPTO_TTL_SECS);
   return data;
 }
 
 export async function getCryptoData(): Promise<CryptoAllData> {
-  if (_cache && Date.now() - _fetchedAt < TTL) {
-    return _cache;
-  }
+  const cached = await cacheGet<CryptoAllData>(CRYPTO_CACHE_KEY);
+  if (cached) return cached;
 
-  // Deduplicate concurrent fetches — only one Python process at a time
-  if (_fetchPromise) {
-    return _fetchPromise;
-  }
+  if (_fetchPromise) return _fetchPromise;
 
   _fetchPromise = _doFetch().finally(() => { _fetchPromise = null; });
 
@@ -129,7 +122,8 @@ export async function getCryptoData(): Promise<CryptoAllData> {
     return await _fetchPromise;
   } catch (err) {
     console.error("[crypto] fetch failed:", err);
-    if (_cache) return _cache; // return stale data on error
+    const stale = await cacheGet<CryptoAllData>(CRYPTO_CACHE_KEY);
+    if (stale) return stale;
     return { market: [], global: {} as GlobalData, fearGreed: {} as FearGreedData, trending: [] };
   }
 }
