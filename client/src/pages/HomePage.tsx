@@ -43,38 +43,38 @@ export default function HomePage() {
       <HomeHeader darkMode={dm} setDarkMode={setDarkMode} activePath="/" />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section style={{ paddingTop: '9rem', paddingBottom: '6rem', padding: '9rem 2rem 6rem' }}>
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
+      <section style={{ padding: '9rem 2rem 5rem', background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
+        <div className="max-w-6xl mx-auto" style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '4rem', alignItems: 'center' }}>
 
           {/* Left — copy */}
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 999, border: `1px solid ${border}`, fontSize: 12, color: muted, marginBottom: 36, ...sans, fontWeight: 500, letterSpacing: '0.01em' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', borderRadius: 999, border: `1px solid ${border}`, fontSize: 12, color: muted, marginBottom: 28, ...sans, fontWeight: 500 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
               Trusted by 10,000+ retail traders
             </div>
 
-            <h1 style={{ ...display, fontSize: 'clamp(3rem,5.5vw,5.2rem)', lineHeight: 1.05, marginBottom: 24, color: text, fontWeight: 400 }}>
+            <h1 style={{ ...display, fontSize: 'clamp(3rem,5vw,5rem)', lineHeight: 1.05, marginBottom: 20, color: text, fontWeight: 400 }}>
               Your trades,<br />
               <span style={{ color: '#2563eb' }}>analyzed smart.</span>
             </h1>
 
-            <p style={{ fontSize: 17, color: muted, lineHeight: 1.8, marginBottom: 36, maxWidth: 460, ...sans, fontWeight: 400 }}>
-              A complete execution database and performance analytics system. Log trades, capture decisions, and build your edge — for free.
+            <p style={{ fontSize: 16, color: muted, lineHeight: 1.8, marginBottom: 32, ...sans }}>
+              Log trades, capture decisions, and build your edge — for free.
             </p>
 
-            <div style={{ display: 'flex', gap: 8, marginBottom: 22, maxWidth: 430 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <input type="email" placeholder="Enter your email address"
-                style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: `1.5px solid ${border}`, fontSize: 14, background: card, color: text, outline: 'none', ...sans }} />
+                style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: dm ? card : '#ffffff', color: text, outline: 'none', ...sans, boxShadow: dm ? `0 0 0 1.5px ${border}` : '0 1px 6px rgba(0,0,0,0.09)', minWidth: 0 }} />
               <a href="/auth?mode=signup" target="myfm_journal"
                 style={{ padding: '13px 22px', borderRadius: 10, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...sans }}>
                 Start free <ArrowRight size={15} />
               </a>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>
               {["MT5 Auto-Import", "No subscription", "Real-time sync"].map(t => (
-                <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: muted, ...sans }}>
-                  <Check size={13} color="#10b981" strokeWidth={2.5} /> {t}
+                <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: muted, ...sans }}>
+                  <Check size={12} color="#10b981" strokeWidth={2.5} /> {t}
                 </span>
               ))}
             </div>
@@ -83,20 +83,20 @@ export default function HomePage() {
           {/* Right — feature cards */}
           <div>
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: muted, marginBottom: 14, ...sans }}>OUR FEATURES</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {features.map((f, i) => (
                 <div key={i}
-                  style={{ padding: '18px 16px', borderRadius: 14, border: `1px solid ${border}`, background: card, cursor: 'default', transition: 'box-shadow 0.25s, border-color 0.25s' }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.07)'; e.currentTarget.style.borderColor = '#2563eb40'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = border; }}>
-                  <div style={{ marginBottom: 10, color: '#2563eb' }}>{f.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3, color: text, ...sans }}>{f.title}</div>
-                  <div style={{ fontSize: 11, color: muted, ...sans }}>{f.sub}</div>
+                  style={{ padding: '20px', borderRadius: 18, background: dm ? card : '#ffffff', border: dm ? `1px solid ${border}` : 'none', boxShadow: dm ? 'none' : '0 2px 14px rgba(0,0,0,0.07)', cursor: 'default', transition: 'box-shadow 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = dm ? 'none' : '0 6px 28px rgba(37,99,235,0.13)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = dm ? 'none' : '0 2px 14px rgba(0,0,0,0.07)'; }}>
+                  <div style={{ marginBottom: 12, color: '#2563eb' }}>{f.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: text, ...sans }}>{f.title}</div>
+                  <div style={{ fontSize: 12, color: muted, ...sans }}>{f.sub}</div>
                 </div>
               ))}
             </div>
             <div style={{ fontSize: 12, color: muted, textAlign: 'right', marginTop: 10, ...sans }}>
-              Or <a href="/auth" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in to your account →</a>
+              Or <a href="/auth" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in →</a>
             </div>
           </div>
         </div>
