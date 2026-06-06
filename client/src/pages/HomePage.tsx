@@ -110,14 +110,16 @@ export default function HomePage() {
       </section>
 
       {/* ── Trust marquee ────────────────────────────────────────────── */}
-      <div style={{ background: '#0f172a', borderTop: '1px solid #1e293b', borderBottom: '1px solid #1e293b', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-        <div className="hp-mq" style={{ gap: 56, fontWeight: 600, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#475569', ...sans }}>
-          {[...trustItems, ...trustItems].map((t, i) => (
-            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexShrink: 0, paddingRight: 56 }}>
-              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#2563eb', display: 'inline-block', flexShrink: 0 }} />
-              {t}
-            </span>
-          ))}
+      <div style={{ background: bg2, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: '14px 0' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', overflow: 'hidden' }}>
+          <div className="hp-mq" style={{ gap: 56, fontWeight: 600, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: muted, ...sans }}>
+            {[...trustItems, ...trustItems].map((t, i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexShrink: 0, paddingRight: 56 }}>
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#2563eb', display: 'inline-block', flexShrink: 0 }} />
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
