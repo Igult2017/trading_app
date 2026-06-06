@@ -86,7 +86,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
 
   const DarkToggle = () => (
     <button onClick={() => setDarkMode(!dm)} aria-label="Toggle dark mode"
-      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 20, borderRadius: 10, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "all 0.3s", padding: 0, flexShrink: 0 }}>
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 20, borderRadius: 0, background: dm ? "#1e40af" : "#e2e8f0", border: "none", cursor: "pointer", position: "relative", transition: "all 0.3s", padding: 0, flexShrink: 0 }}>
       <div style={{ position: "absolute", left: dm ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: dm ? "#60a5fa" : "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", transition: "all 0.3s", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {dm ? <Moon size={9} color="#0f172a" /> : <Sun size={9} color="#f59e0b" />}
       </div>
@@ -143,7 +143,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
               Sign in
             </Link>
             <a href="/auth?mode=signup" target="myfm_journal"
-              style={{ ...nFont, fontSize: 13, fontWeight: 600, padding: "9px 18px", borderRadius: 8, background: "#2563eb", color: "#ffffff", textDecoration: "none", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
+              style={{ ...nFont, fontSize: 13, fontWeight: 600, padding: "9px 18px", borderRadius: 0, background: "#2563eb", color: "#ffffff", textDecoration: "none", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.88"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}>
               Start free →
