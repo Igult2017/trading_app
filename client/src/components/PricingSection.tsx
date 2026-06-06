@@ -59,7 +59,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
             <div key={plan.name} className="relative pt-3">
               {plan.badge && (
                 <div className={cn(
-                  'absolute top-0 z-10 px-3 py-1 rounded-full text-xs font-bold text-white whitespace-nowrap',
+                  'absolute top-0 z-10 px-3 py-1 rounded text-xs font-bold text-white whitespace-nowrap',
                   plan.popular
                     ? 'left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-400 to-blue-500'
                     : 'right-4 bg-gradient-to-r from-blue-600 to-blue-700'
@@ -110,7 +110,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                     href="/auth?mode=signup"
                     target="myfm_journal"
                     className={cn(
-                      'w-full text-center py-3 rounded-full text-sm font-bold transition-all duration-200',
+                      'w-full text-center py-3 rounded text-sm font-bold transition-all duration-200',
                       plan.popular
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : darkMode
