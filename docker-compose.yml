@@ -63,32 +63,42 @@ services:
       retries: 5
 
   # ── 3. MT5 Terminal (Wine + MT5 + mt5linux RPyC) ──────────────────────────────
-  # First boot installs MT5 under Wine — can take 5–10 minutes.
-  # After that, subsequent starts are fast (<30 s).
-  # VNC browser UI available at http://localhost:3010 for admin access only.
+  # TWO-PHASE SETUP:
+  #   Phase 1 (one time): use image gmag11/metatrader5_vnc and VNC at
+  #     http://localhost:3010 to log in to Pepperstone. The mt5_data volume
+  #     persists the login.
+  #   Phase 2 (production): switch to the lightweight custom image:
+  #     build: { context: ., dockerfile: Dockerfile.mt5 }
+  #     Remove the `image:` line and the `ports:` block — no VNC needed.
+  #     Both images use the same mt5_data volume, so login is preserved.
+  #
+  # Resource limits cap worst-case RAM. MT5 config (MaxBars=500) cuts
+  # in-memory bar data from ~200 MB (default 65k bars) to ~10 MB.
   mt5:
     image: gmag11/metatrader5_vnc:latest
     restart: unless-stopped
     ports:
-      # VNC browser — bind to localhost so it is NOT reachable from the internet.
+      # VNC browser — bound to localhost, NOT reachable from the internet.
       # SSH tunnel to access:  ssh -L 3010:localhost:3010 user@your-vps
       - "127.0.0.1:3010:3000"
     environment:
       CUSTOM_USER: admin
       PASSWORD:    ${VNC_PASSWORD:-tradesync_vnc_2025}
     volumes:
-      # Persist the Wine prefix and MT5 installation across container restarts.
-      # Without this volume, MT5 reinstalls on every container start.
       - mt5_data:/config
+      # Inject optimised MT5 config — overrides the default 65k-bar setting.
+      # MaxBars=500 is the single biggest RAM saving (~150–200 MB).
+      - ./mt5_common.ini:/config/.wine/drive_c/Program Files/MetaTrader 5/config/common.ini:ro
+    mem_limit: 700m
+    memswap_limit: 700m
+    cpus: "1.0"
     networks:
       - internal
     healthcheck:
-      # Port 8812 is the mt5linux RPyC server inside the container.
       test: ["CMD-SHELL", "nc -z localhost 8812 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 20
-      # start_period covers the full first-boot installation time.
       start_period: 600s
 
   # ── 4. Signal Platform (strategy scanner + Telegram alerts) ─────────────────

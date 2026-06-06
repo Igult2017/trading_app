@@ -1,0 +1,64 @@
+# Lightweight MT5-in-Wine image — no VNC, no desktop environment.
+#
+# USAGE:
+#   Phase 1 (one-time):  use gmag11/metatrader5_vnc to log in to Pepperstone
+#                        via VNC at http://localhost:3010. Populates mt5_data volume.
+#   Phase 2 (permanent): switch docker-compose mt5 service to this image.
+#                        Reuses the same mt5_data volume — login is preserved.
+#
+# Resource profile vs gmag11/metatrader5_vnc:
+#   Image size : ~1.8 GB  vs ~4 GB
+#   RAM at idle: ~220-320 MB vs ~400-700 MB
+#   No VNC server, no desktop environment, Xvfb at 800x600 (minimum MT5 needs)
+#
+# Port 8812: mt5linux RPyC server (signal_platform connects here)
+
+FROM tobix/pywine:3.9
+
+ENV DISPLAY=:99 \
+    WINEDEBUG=-all \
+    WINEPREFIX=/root/.wine
+
+# ── System: Xvfb + supervisor only (no VNC, no desktop) ──────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        supervisor \
+        wget \
+        netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Linux-side Python: RPyC client library ────────────────────────────────────
+RUN pip3 install --no-cache-dir rpyc mt5linux
+
+# ── Wine-side Python: MetaTrader5 + RPyC server ───────────────────────────────
+# tobix/pywine installs Windows Python at C:\Python39\python.exe inside Wine.
+RUN wine pip install MetaTrader5 rpyc
+
+# ── Install MetaTrader 5 inside Wine (silent) ─────────────────────────────────
+RUN wget -q "https://download.mt5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe" \
+        -O /tmp/mt5setup.exe && \
+    Xvfb :99 -screen 0 800x600x16 -ac & sleep 3 && \
+    DISPLAY=:99 wine /tmp/mt5setup.exe /auto && \
+    sleep 40 && \
+    rm /tmp/mt5setup.exe
+
+# ── MT5 config: minimal resource profile ─────────────────────────────────────
+# MaxBars=500   — load only 500 bars per symbol (default 65536 uses ~200 MB RAM)
+# News=0        — disable news feed (saves network + CPU)
+# SendReports=0 — disable MQL5 community usage reports
+RUN mkdir -p "$WINEPREFIX/drive_c/Program Files/MetaTrader 5/config" && \
+    printf '[Common]\nMaxBars=500\nNews=0\nSendReports=0\n' \
+        > "$WINEPREFIX/drive_c/Program Files/MetaTrader 5/config/common.ini"
+
+# ── Supervisord: manages Xvfb → MT5 → RPyC in correct order ──────────────────
+COPY mt5_supervisor.conf /etc/supervisor/conf.d/mt5.conf
+
+# Persist Wine prefix and MT5 installation (same volume as gmag11 image)
+VOLUME ["/root/.wine"]
+
+EXPOSE 8812
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=20 --start-period=60s \
+    CMD nc -z localhost 8812 || exit 1
+
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
