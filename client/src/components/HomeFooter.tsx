@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { FaXTwitter, FaYoutube, FaInstagram, FaTelegram, FaLinkedinIn } from "react-icons/fa6";
 
 const PLATFORM = [
   { label: "Trade Journal", href: "/journal"  },
@@ -28,38 +29,54 @@ const COLS = [
   { heading: "Legal",    links: LEGAL    },
 ];
 
+const SOCIALS = [
+  { Icon: FaXTwitter,    href: "#", label: "Twitter" },
+  { Icon: FaYoutube,     href: "#", label: "YouTube" },
+  { Icon: FaInstagram,   href: "#", label: "Instagram" },
+  { Icon: FaTelegram,    href: "#", label: "Telegram" },
+  { Icon: FaLinkedinIn,  href: "#", label: "LinkedIn" },
+];
+
 export interface HomeFooterProps { darkMode?: boolean; }
 
 export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
-  const bg      = "#f8fafc";
-  const text    = "#0f172a";
-  const muted   = "#94a3b8";
+  const divider = "#e2e8f0";
   const linkClr = "#64748b";
   const hover   = "#0f172a";
-  const divider = "#e2e8f0";
+  const muted   = "#94a3b8";
 
   const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Inter', sans-serif" } as const;
   const capStyle: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 18, display: "block" };
 
   return (
-    <footer style={{ background: bg, ...bFont }}>
+    <footer style={{ background: "#f8fafc", borderTop: `1px solid ${divider}`, ...bFont }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
 
         {/* Main columns */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "48px 64px", padding: "64px 0 52px", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "48px 64px", padding: "60px 0 48px", alignItems: "flex-start" }}>
 
-          {/* Brand */}
+          {/* Brand + social */}
           <div style={{ flex: "0 0 220px" }}>
-            <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 16 }}>
-              <span style={{ ...hFont, fontSize: 20, color: text }}>
+            <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
+              <span style={{ ...hFont, fontSize: 20, color: "#0f172a" }}>
                 Myfm<span style={{ color: "#3b82f6" }}>Journal</span>
               </span>
             </Link>
-            <p style={{ fontSize: 13, color: linkClr, lineHeight: 1.8, margin: 0, maxWidth: 200 }}>
-              Professional trading journal<br />
-              for serious traders.
+            <p style={{ fontSize: 13, color: linkClr, lineHeight: 1.8, margin: "0 0 24px", maxWidth: 200, ...bFont }}>
+              Professional trading journal<br />for serious traders.
             </p>
+            {/* Social icons */}
+            <div style={{ display: "flex", gap: 12 }}>
+              {SOCIALS.map(({ Icon, href, label }) => (
+                <a key={label} href={href} aria-label={label}
+                  style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${divider}`, display: "flex", alignItems: "center", justifyContent: "center", color: muted, textDecoration: "none", transition: "all 0.18s", background: "#fff" }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = "#0f172a"; el.style.borderColor = "#94a3b8"; el.style.background = "#f1f5f9"; }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = muted; el.style.borderColor = divider; el.style.background = "#fff"; }}>
+                  <Icon size={14} />
+                </a>
+              ))}
+            </div>
           </div>
 
           {/* Link columns */}
@@ -68,7 +85,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
               <div key={heading} style={{ minWidth: 130 }}>
                 <span style={capStyle}>{heading}</span>
                 {links.map(({ label, href }) => {
-                  const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 12, ...bFont, transition: "color 0.18s" };
+                  const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 11, ...bFont, transition: "color 0.18s" };
                   const isHash = href.includes("#");
                   if (isHash) return (
                     <a key={label} href={href} style={base}
@@ -91,14 +108,14 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         </div>
 
         {/* Bottom bar */}
-        <div style={{ borderTop: `1px solid ${divider}`, padding: "20px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ borderTop: `1px solid ${divider}`, padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 12, color: muted, ...bFont }}>
             © {new Date().getFullYear()} MyfmJournal. All rights reserved.
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (
               <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {i > 0 && <span style={{ color: muted, fontSize: 12 }}>·</span>}
+                {i > 0 && <span style={{ color: divider, fontSize: 12 }}>·</span>}
                 <Link href={href}
                   style={{ fontSize: 12, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}
