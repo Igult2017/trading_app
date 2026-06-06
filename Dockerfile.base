@@ -64,6 +64,11 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     "websockets>=12.0" \
     "yfinance>=0.2.66"
 
-# mt5-remote is optional — may fail on Linux (Windows-only terminal).
-# Code catches ImportError at runtime so a failed install is non-fatal.
-RUN pip3 install --no-cache-dir --break-system-packages "mt5-remote>=1.0.5" || true
+# ── Signal platform — cTrader data sources ────────────────────────────────────
+# ctrader_open_api: official Spotware Protobuf SDK (primary data source)
+# httpx: async HTTP for OAuth token exchange in ctrader_session.py
+# ejtraderCT: FIX-based fallback while cTrader Open API approval is pending
+RUN pip3 install --no-cache-dir --break-system-packages \
+    "ctrader_open_api" \
+    "httpx>=0.27.0" \
+    "ejtraderCT"

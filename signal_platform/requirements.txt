@@ -1,5 +1,4 @@
 # Signal Platform dependencies
-# Most are already installed in the parent trading_app project.
 
 # Settings
 pydantic-settings>=2.0.0
@@ -9,16 +8,19 @@ APScheduler>=3.10.0
 
 # Database
 SQLAlchemy>=2.0.0
-# Uncomment for PostgreSQL:
-# psycopg2-binary>=2.9.0
-
-# Data
-yfinance>=0.2.66
-pandas>=2.0.0
+psycopg2-binary>=2.9.0
 
 # Chart generation
 matplotlib>=3.7.0
 mplfinance>=0.12.10b0
+pandas>=2.0.0
+
+# Data source 1: cTrader Open API (primary)
+ctrader_open_api
+httpx>=0.27.0
+
+# Data source 2: ejtraderCT FIX (fallback — verify OHLCV support with your broker)
+ejtraderCT
 
 # Notifications (optional)
 python-telegram-bot>=20.0
