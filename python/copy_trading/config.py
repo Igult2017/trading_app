@@ -33,7 +33,7 @@ MT5_RECONNECT_DELAY_SEC: float = float(os.getenv("MT5_RECONNECT_DELAY", "5.0"))
 # Host/port of the mt5-remote bridge server started inside Wine.
 # Default matches the supervisor config in python/copy_trading/supervisor/.
 MT5_BRIDGE_HOST: str = os.getenv("MT5_BRIDGE_HOST", "127.0.0.1")
-MT5_BRIDGE_PORT: int = int(os.getenv("MT5_BRIDGE_PORT", "18812"))
+MT5_BRIDGE_PORT: int = int(os.getenv("MT5_BRIDGE_PORT", "8812"))
 
 # ── Worker ────────────────────────────────────────────────────────────────────
 WORKER_CONCURRENCY:    int   = int(os.getenv("WORKER_CONCURRENCY", "4"))
