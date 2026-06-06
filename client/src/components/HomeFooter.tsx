@@ -8,33 +8,29 @@ const PLATFORM = [
   { label: "Calendar",      href: "/calendar" },
   { label: "Sessions",      href: "/tsc"      },
 ];
-
 const COMPANY = [
   { label: "Pricing",  href: "/#pricing"  },
   { label: "Features", href: "/#features" },
   { label: "Reviews",  href: "/#reviews"  },
   { label: "Support",  href: "/support"   },
 ];
-
 const LEGAL = [
   { label: "Privacy Policy",   href: "/legal?tab=privacy" },
   { label: "Terms of Service", href: "/legal?tab=terms"   },
   { label: "Cookie Policy",    href: "/legal?tab=privacy" },
   { label: "Contact",          href: "/legal?tab=contact" },
 ];
-
-const COLS = [
+const LINK_COLS = [
   { heading: "Platform", links: PLATFORM },
   { heading: "Company",  links: COMPANY  },
   { heading: "Legal",    links: LEGAL    },
 ];
-
 const SOCIALS = [
-  { Icon: FaXTwitter,    href: "#", label: "Twitter" },
-  { Icon: FaYoutube,     href: "#", label: "YouTube" },
-  { Icon: FaInstagram,   href: "#", label: "Instagram" },
-  { Icon: FaTelegram,    href: "#", label: "Telegram" },
-  { Icon: FaLinkedinIn,  href: "#", label: "LinkedIn" },
+  { Icon: FaXTwitter,   href: "#", label: "Twitter / X"  },
+  { Icon: FaYoutube,    href: "#", label: "YouTube"       },
+  { Icon: FaInstagram,  href: "#", label: "Instagram"     },
+  { Icon: FaTelegram,   href: "#", label: "Telegram"      },
+  { Icon: FaLinkedinIn, href: "#", label: "LinkedIn"      },
 ];
 
 export interface HomeFooterProps { darkMode?: boolean; }
@@ -47,64 +43,63 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
   const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Inter', sans-serif" } as const;
-  const capStyle: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 18, display: "block" };
+  const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 20, display: "block" };
 
   return (
     <footer style={{ background: "#f8fafc", borderTop: `1px solid ${divider}`, ...bFont }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
 
-        {/* Main columns */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "48px 64px", padding: "60px 0 48px", alignItems: "flex-start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "220px 160px 1fr 1fr 1fr", gap: "0 48px", padding: "60px 0 48px", alignItems: "flex-start" }}>
 
-          {/* Brand + social */}
-          <div style={{ flex: "0 0 220px" }}>
+          {/* Col 1 — Brand */}
+          <div>
             <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
               <span style={{ ...hFont, fontSize: 20, color: "#0f172a" }}>
                 Myfm<span style={{ color: "#3b82f6" }}>Journal</span>
               </span>
             </Link>
-            <p style={{ fontSize: 13, color: linkClr, lineHeight: 1.8, margin: "0 0 24px", maxWidth: 200, ...bFont }}>
+            <p style={{ fontSize: 13, color: linkClr, lineHeight: 1.8, margin: 0, ...bFont }}>
               Professional trading journal<br />for serious traders.
             </p>
-            {/* Social icons */}
-            <div style={{ display: "flex", gap: 12 }}>
-              {SOCIALS.map(({ Icon, href, label }) => (
-                <a key={label} href={href} aria-label={label}
-                  style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${divider}`, display: "flex", alignItems: "center", justifyContent: "center", color: muted, textDecoration: "none", transition: "all 0.18s", background: "#fff" }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = "#0f172a"; el.style.borderColor = "#94a3b8"; el.style.background = "#f1f5f9"; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = muted; el.style.borderColor = divider; el.style.background = "#fff"; }}>
-                  <Icon size={14} />
-                </a>
-              ))}
-            </div>
           </div>
 
-          {/* Link columns */}
-          <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: "40px 64px", justifyContent: "flex-end" }}>
-            {COLS.map(({ heading, links }) => (
-              <div key={heading} style={{ minWidth: 130 }}>
-                <span style={capStyle}>{heading}</span>
-                {links.map(({ label, href }) => {
-                  const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 11, ...bFont, transition: "color 0.18s" };
-                  const isHash = href.includes("#");
-                  if (isHash) return (
-                    <a key={label} href={href} style={base}
-                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
-                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
-                      {label}
-                    </a>
-                  );
-                  return (
-                    <Link key={label} href={href} style={base}
-                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
-                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
-                      {label}
-                    </Link>
-                  );
-                })}
-              </div>
+          {/* Col 2 — Social vertical */}
+          <div>
+            <span style={cap}>Follow Us</span>
+            {SOCIALS.map(({ Icon, href, label }) => (
+              <a key={label} href={href} aria-label={label}
+                style={{ display: "flex", alignItems: "center", gap: 10, color: linkClr, textDecoration: "none", fontSize: 13, marginBottom: 12, ...bFont, transition: "color 0.18s" }}
+                onMouseEnter={e => (e.currentTarget.style.color = hover)}
+                onMouseLeave={e => (e.currentTarget.style.color = linkClr)}>
+                <Icon size={14} style={{ flexShrink: 0 }} />
+                {label}
+              </a>
             ))}
           </div>
+
+          {/* Cols 3-5 — Link columns */}
+          {LINK_COLS.map(({ heading, links }) => (
+            <div key={heading}>
+              <span style={cap}>{heading}</span>
+              {links.map(({ label, href }) => {
+                const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 11, ...bFont, transition: "color 0.18s" };
+                if (href.includes("#")) return (
+                  <a key={label} href={href} style={base}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
+                    {label}
+                  </a>
+                );
+                return (
+                  <Link key={label} href={href} style={base}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = hover)}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}>
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         {/* Bottom bar */}
@@ -115,7 +110,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (
               <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {i > 0 && <span style={{ color: divider, fontSize: 12 }}>·</span>}
+                {i > 0 && <span style={{ color: divider }}>·</span>}
                 <Link href={href}
                   style={{ fontSize: 12, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}
