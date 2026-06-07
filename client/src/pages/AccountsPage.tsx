@@ -1,6 +1,6 @@
 import { useState, useEffect, CSSProperties } from "react";
 import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2 } from "lucide-react";
-import { SiBinance, SiBybit, SiBitget, SiCoinbase } from "react-icons/si";
+import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
@@ -81,8 +81,8 @@ const PLATFORM_ICON_META: Record<string, { icon?: React.ReactNode; color: string
   tradelocker:   { color: '#7C3AED', letters: 'TL'  },
   dxtrade:       { color: '#3B82F6', letters: 'DX'  },
   binance:       { icon: <SiBinance />,  color: '#F3BA2F', letters: 'BN' },
-  bybit:         { icon: <SiBybit />,    color: '#F7A600', letters: 'BB' },
-  bitget:        { icon: <SiBitget />,   color: '#00CDD1', letters: 'BG' },
+  bybit:         { icon: <SiBuiltbybit />, color: '#F7A600', letters: 'BB' },
+  bitget:        { color: '#00CDD1', letters: 'BG' },
   bitunix:       { color: '#FF6B35', letters: 'BU'  },
   coinbase:      { icon: <SiCoinbase />, color: '#0052FF', letters: 'CB' },
   charlesschwab: { color: '#00A0DF', letters: 'CS'  },
