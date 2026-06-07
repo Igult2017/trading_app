@@ -11,7 +11,14 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
 
-// Fire before any React component mounts — eliminates loading flash on /calendar
+// Populate cache from server-injected data before any component renders.
+// window.__PREFETCH__ is written into the HTML shell by the server (injectPrefetch.ts)
+// so this data is available synchronously — no network request needed.
+const _pf = (window as any).__PREFETCH__;
+if (_pf?.calendar?.length > 0)           queryClient.setQueryData(["/api/homepage/calendar"], _pf.calendar);
+if (_pf?.rates && Object.keys(_pf.rates).length > 0) queryClient.setQueryData(["/api/homepage/rates"], _pf.rates);
+
+// Background refresh loop — keeps cache fresh every 3 min
 startCalendarBackgroundRefresh(queryClient);
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";

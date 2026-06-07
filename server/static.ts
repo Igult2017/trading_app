@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { injectPrefetch } from "./lib/injectPrefetch";
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -35,9 +36,12 @@ export function serveStatic(app: Express) {
     lastModified: true,
   }));
 
-  // SPA fallback — never cache the HTML shell
-  app.use("*", (_req, res) => {
+  // SPA fallback — inject prefetch data then serve; never cache the HTML shell
+  app.use("*", async (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const raw = await fs.promises.readFile(path.resolve(distPath, "index.html"), "utf-8");
+    const html = await injectPrefetch(raw);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   });
 }
