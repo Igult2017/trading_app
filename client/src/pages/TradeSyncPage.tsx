@@ -1702,12 +1702,12 @@ const platformsRow1 = [
   { name:"MT4",         icon:"4️⃣", status:"available", votes:419,  voted:true  },
   { name:"MatchTrader", icon:"🔗", status:"available", votes:182,  voted:false },
   { name:"Bitunix",     icon:"🟢", status:"soon",      votes:19,   voted:false },
-  { name:"DXTrade",     icon:"DX", status:"soon",      votes:85,   voted:false },
-  { name:"cTrader",     icon:"🔴", status:"soon",      votes:370,  voted:false },
+  { name:"DXTrade",     icon:"DX", status:"available",  votes:85,   voted:false },
+  { name:"cTrader",     icon:"🔴", status:"available",  votes:370,  voted:false },
 ];
 const platformsRow2 = [
-  { name:"TradeLocker", icon:"🔒", status:"soon", votes:289, voted:false },
-  { name:"Binance",     icon:"🔶", status:"soon", votes:170, voted:false },
+  { name:"TradeLocker", icon:"🔒", status:"available", votes:289, voted:false },
+  { name:"Binance",     icon:"🔶", status:"available", votes:170, voted:false },
   { name:"Tradovate",   icon:"💎", status:"soon", votes:231, voted:false },
   { name:"NinjaTrader", icon:"🥷", status:"soon", votes:124, voted:false },
   { name:"ProjectX",    icon:"✖",  status:"soon", votes:88,  voted:false },
@@ -1722,7 +1722,7 @@ const features = [
 const faqs = [
   { q:"Does Sync Trade trade for me?",        a:"No. Sync Trade is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
   { q:"Is this for accounts I own?",          a:"Yes. Trade Sync is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
-  { q:"Which platforms are supported?",       a:"Currently MT4 and MT5 are fully supported. MatchTrader is also available. More platforms including cTrader, Binance, TradeLocker, and others are coming soon — you can vote for your favorites." },
+  { q:"Which platforms are supported?",       a:"MT4, MT5, MatchTrader, cTrader, DXTrade, TradeLocker, and Binance (USDM Futures) are fully supported — all via API, no desktop terminal needed. More platforms are coming soon — vote for your favorites." },
   { q:"Do you provide signals or advice?",    a:"No. Trade Sync does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
   { q:"How are my credentials handled?",      a:"Your account credentials are encrypted and stored securely. We use industry-standard encryption and never share your data with third parties." },
   { q:"Are alerts available?",               a:"Yes! You can receive real-time alerts via Telegram or email whenever a trade is copied, modified, or closed across your accounts." },
