@@ -596,7 +596,8 @@
 ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
 
 /* ── Focus Ring ──────────────────────────────────────────────── */
-:focus-visible {
+/* Inputs/textareas/selects use shadcn's ring-2 — skip the outline there */
+:focus-visible:not(input):not(textarea):not(select):not([role="combobox"]):not([role="listbox"]):not([role="option"]) {
   outline: 2px solid var(--color-blue);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
