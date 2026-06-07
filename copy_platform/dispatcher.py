@@ -11,15 +11,11 @@ from uuid import uuid4
 from sqlalchemy.orm import Session as DBSession
 from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
     CopyTradeMaster, CopyTradeFollower, CopyExecutionLog
-from token_manager import get_ctrader_creds
+from cred_manager import get_creds
 from lot_calc import calc_lots, apply_direction, is_symbol_allowed
 from providers.ctrader import PositionSnapshot
 
 log = logging.getLogger("dispatcher")
-
-API_EXECUTOR_MAP = {
-    "ctrader": "executors.ctrader.CTraderExecutor",
-}
 
 
 async def dispatch(event: dict, master_id: str) -> None:
@@ -94,7 +90,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         _log(fid, master_trade_id, "ERROR", "FAIL", "No broker account linked")
         return
 
-    creds = await get_ctrader_creds(broker_account)
+    creds = await get_creds(broker_account)
     if not creds:
         _log(fid, master_trade_id, "ERROR", "FAIL", "Could not get credentials")
         return
@@ -141,11 +137,21 @@ def _get_broker_account(follower: CopyFollower) -> BrokerAccount | None:
 
 
 def _get_executor(broker_account: BrokerAccount, creds: dict):
-    from executors.ctrader import CTraderExecutor
-    return CTraderExecutor(
-        creds        = creds,
-        account_type = broker_account.account_type or "demo",
-    )
+    platform = (broker_account.platform or "").lower()
+    acc_type = broker_account.account_type or "demo"
+    if platform in ("ctrader", "ct"):
+        from executors.ctrader import CTraderExecutor
+        return CTraderExecutor(creds=creds, account_type=acc_type)
+    if platform == "binance":
+        from executors.binance import BinanceExecutor
+        return BinanceExecutor(creds=creds, account_type=acc_type)
+    if platform == "dxtrade":
+        from executors.dxtrade import DXTradeExecutor
+        return DXTradeExecutor(creds=creds, account_type=acc_type)
+    if platform == "tradelocker":
+        from executors.tradelocker import TradeLockerExecutor
+        return TradeLockerExecutor(creds=creds, account_type=acc_type)
+    raise ValueError(f"No executor for platform: {platform}")
 
 
 def _find_follower_position_id(follower_id: str, master_ext_id: str) -> str | None:

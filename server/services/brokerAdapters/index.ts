@@ -7,24 +7,28 @@ import { safeDecrypt } from '../../lib/crypto';
 import type { BrokerAccount } from '../../../shared/schema';
 import type { RawBrokerTrade } from '../brokerSyncService';
 
-import { fetchCTraderTrades } from './ctrader';
-import { fetchBinanceTrades  } from './binance';
-import { fetchBybitTrades    } from './bybit';
-import { fetchBitgetTrades   } from './bitget';
-import { fetchCoinbaseTrades } from './coinbase';
-import { fetchBitunixTrades  } from './bitunix';
+import { fetchCTraderTrades      } from './ctrader';
+import { fetchBinanceTrades       } from './binance';
+import { fetchBybitTrades         } from './bybit';
+import { fetchBitgetTrades        } from './bitget';
+import { fetchCoinbaseTrades      } from './coinbase';
+import { fetchBitunixTrades       } from './bitunix';
+import { fetchDXTradeTrades       } from './dxtrade';
+import { fetchTradeLockerTrades   } from './tradelocker';
 
 /** Platforms that support API sync (not webhook). */
 export const API_PLATFORMS = new Set([
   'ctrader', 'binance', 'bybit', 'bitget', 'coinbase', 'bitunix',
+  'dxtrade', 'tradelocker',
 ]);
 
 interface Creds {
-  secret?:      string;
-  passphrase?:  string;
-  accessToken?: string;
+  secret?:       string;
+  passphrase?:   string;
+  password?:     string;
+  accessToken?:  string;
   refreshToken?: string;
-  ctraderId?:   string;
+  ctraderId?:    string;
 }
 
 function parseCreds(enc: string | null | undefined): Creds {
@@ -78,6 +82,19 @@ export async function fetchTradesForAccount(
     case 'bitunix': {
       if (!creds.secret) throw new Error('Bitunix: API secret missing.');
       return fetchBitunixTrades(apiKey, creds.secret, fromMs, toMs);
+    }
+
+    case 'dxtrade': {
+      if (!creds.password) throw new Error('DXTrade: password missing.');
+      const serverUrl = account.server;
+      if (!serverUrl) throw new Error('DXTrade: broker API URL (server field) missing.');
+      return fetchDXTradeTrades(serverUrl, apiKey, creds.password, fromMs, toMs);
+    }
+
+    case 'tradelocker': {
+      if (!creds.password) throw new Error('TradeLocker: password missing.');
+      const tlServer = account.server ?? '';
+      return fetchTradeLockerTrades(apiKey, creds.password, tlServer, account.accountType ?? 'demo', fromMs, toMs);
     }
 
     default:

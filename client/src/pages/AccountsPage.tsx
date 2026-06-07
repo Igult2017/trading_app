@@ -98,8 +98,9 @@ function PlatformIcon({ id, size = 36 }: { id: string; size?: number }) {
 }
 
 // ── Platform credential config ────────────────────────────────────────────────
-const WEBHOOK_PLATFORMS  = new Set(['mt4', 'mt5', 'matchtrader', 'dxtrade', 'tradelocker', 'charlesschwab']);
+const WEBHOOK_PLATFORMS  = new Set(['mt4', 'mt5', 'matchtrader', 'charlesschwab']);
 const CRYPTO_PLATFORMS   = new Set(['binance', 'bybit', 'bitget', 'bitunix', 'coinbase']);
+const BROKER_API_PLATFORMS = new Set(['dxtrade', 'tradelocker']);   // REST API, no OAuth
 const CTRADER_PLATFORM   = 'ctrader';
 
 function platformConnType(pid: string): 'webhook' | 'api' {
@@ -123,15 +124,18 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   const [busy,        setBusy]        = useState(false);
   const [error,       setError]       = useState("");
 
-  const isMT    = WEBHOOK_PLATFORMS.has(platform);
-  const isCT    = platform === CTRADER_PLATFORM;
-  const isCrypto = CRYPTO_PLATFORMS.has(platform);
-  const connType = platformConnType(platform);
+  const isMT        = WEBHOOK_PLATFORMS.has(platform);
+  const isCT        = platform === CTRADER_PLATFORM;
+  const isCrypto    = CRYPTO_PLATFORMS.has(platform);
+  const isBrokerApi = BROKER_API_PLATFORMS.has(platform);
+  const connType    = platformConnType(platform);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name)    { setError("Display name is required."); return; }
-    if (!isCT && !loginId) { setError(isCrypto ? "API Key is required." : "Account Number is required."); return; }
+    if (!isCT && !loginId) { setError(isCrypto ? "API Key is required." : isBrokerApi ? "Username / Email is required." : "Account Number is required."); return; }
+    if (isBrokerApi && !secret) { setError("Password is required."); return; }
+    if (isBrokerApi && platform === 'dxtrade' && !server) { setError("Broker API URL is required."); return; }
 
     setBusy(true); setError("");
     try {
@@ -141,6 +145,8 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         const creds: Record<string, string> = { secret };
         if (passphrase) creds.passphrase = passphrase;
         passwordPayload = JSON.stringify(creds);
+      } else if (isBrokerApi) {
+        passwordPayload = JSON.stringify({ password: secret });
       } else if (isMT) {
         passwordPayload = secret || undefined;
       }
@@ -224,6 +230,29 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         )}
         <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
           Use a <strong style={{ color: "#38bdf8" }}>read-only API key</strong> — Myfmjournal only reads your trade history, never places orders.
+        </div>
+      </>)}
+
+      {/* DXTrade / TradeLocker — username + password + server */}
+      {isBrokerApi && (<>
+        <div><label style={lbl}>{platform === 'tradelocker' ? 'Email *' : 'Username *'}</label>
+          <input style={inp} placeholder={platform === 'tradelocker' ? 'your@email.com' : 'Your login username'} value={loginId} onChange={e => setLoginId(e.target.value)} required />
+        </div>
+        <div><label style={lbl}>Password *</label>
+          <input style={inp} type="password" placeholder="Your account password" value={secret} onChange={e => setSecret(e.target.value)} required />
+        </div>
+        {platform === 'dxtrade' && (
+          <div><label style={lbl}>Broker API URL *</label>
+            <input style={inp} placeholder="https://trade.yourbroker.com" value={server} onChange={e => setServer(e.target.value)} required />
+          </div>
+        )}
+        {platform === 'tradelocker' && (
+          <div><label style={lbl}>Broker Server</label>
+            <input style={inp} placeholder="e.g. ICMarkets-Live01" value={server} onChange={e => setServer(e.target.value)} />
+          </div>
+        )}
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+          Connects via REST API — no EA or desktop terminal needed. Trade history syncs automatically every 15 min.
         </div>
       </>)}
 
