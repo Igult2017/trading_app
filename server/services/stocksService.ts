@@ -114,9 +114,11 @@ export function getStocksServiceStatus() {
   };
 }
 
-// ── Startup: warm cache in background ────────────────────────────────────────
+// ── Startup: initial scrape, then scheduled every 15 min ─────────────────────
 (async function warmup() {
-  getStocksData()
-    .then(d => console.log(`[stocksService] ready: ${d.indices.length} indices, ${d.stocks.length} stocks`))
+  _refresh()
+    .then(d => console.log(`[stocksService] ready: ${d.indices.length} indices, ${d.stocks.length} stocks, ${d.commodities.length} commodities`))
     .catch(() => {});
+
+  setInterval(() => { _refresh().catch(() => {}); }, RETRY_MS);
 })();

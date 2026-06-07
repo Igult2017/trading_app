@@ -101,7 +101,7 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
   return _ratesInFlight;
 }
 
-// ── Startup: seed cache from DB first (instant), then refresh in background ──
+// ── Startup: seed cache from DB, then kick off scheduled scraping ─────────────
 (async function warmup() {
   try {
     const events = await loadCalendarFromDb();
@@ -115,11 +115,18 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
   } catch (e: any) {
     console.warn("[homepageCalendar] DB seed failed:", e.message);
   }
-  // Fresh scrape runs in background — updates cache + DB when done
-  getHomepageCalendar()
-    .then(d => console.log(`[homepageCalendar] background scrape: ${d.length} events`))
+
+  // Initial scrape immediately on startup
+  _refreshCalendar()
+    .then(d => console.log(`[homepageCalendar] initial scrape: ${d.length} events`))
     .catch(() => {});
   getHomepageRates()
     .then(d => console.log(`[homepageCalendar] rates ready: ${Object.keys(d).length} currencies`))
     .catch(() => {});
+
+  // Guaranteed 15-min scrape regardless of request traffic
+  setInterval(() => {
+    _refreshCalendar().catch(() => {});
+    getHomepageRates().catch(() => {});
+  }, RETRY_MS);
 })();
