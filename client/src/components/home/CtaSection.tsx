@@ -26,7 +26,7 @@ export default function CtaSection() {
             Join 10,000+ traders who stopped guessing and started knowing. Free forever tier — no card required.
           </p>
           <div className="flex flex-wrap gap-4 justify-center mb-6">
-            <a href="/auth?mode=signup" target="myfm_journal"
+            <a href="/auth?mode=signup" target="Smart_Journal"
               className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[16px] px-8 py-4 transition-colors">
               Start journaling free
             </a>

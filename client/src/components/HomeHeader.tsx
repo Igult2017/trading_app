@@ -170,13 +170,13 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
 
           {/* Right: Sign in + CTA + toggle */}
           <div className="hidden md:flex items-center" style={{ gap: 20 }}>
-            <a href="/auth" target="myfm_journal"
+            <a href="/auth" target="Smart_Journal"
               style={{ ...nFont, fontSize: 14, color: linkClr, textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
               Sign in
             </a>
-            <a href="/auth?mode=signup" target="myfm_journal"
+            <a href="/auth?mode=signup" target="Smart_Journal"
               style={{ ...nFont, fontSize: 13, fontWeight: 600, padding: "9px 18px", borderRadius: 4, background: "#2563eb", color: "#ffffff", textDecoration: "none", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.88"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}>
@@ -208,7 +208,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
                   onClick={e => { setMenuOpen(false); handleHashClick(e as any, href); }}>{label}</a>
               );
               if (newTab) return (
-                <a key={label} href={href} target="myfm_journal" style={style} onClick={() => setMenuOpen(false)}>{label}</a>
+                <a key={label} href={href} target="Smart_Journal" style={style} onClick={() => setMenuOpen(false)}>{label}</a>
               );
               return <Link key={label} href={href} style={style} onClick={() => setMenuOpen(false)}>{label}</Link>;
             })}

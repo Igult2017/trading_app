@@ -114,7 +114,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
             Connect your broker in under a minute and let the platform track, analyse, and sharpen your trading — no credit card required.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="/auth?mode=signup" target="myfm_journal"
+            <a href="/auth?mode=signup" target="Smart_Journal"
               style={{ ...sans, padding: '13px 28px', borderRadius: 4, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
               Start free <ArrowRight size={16} />
             </a>

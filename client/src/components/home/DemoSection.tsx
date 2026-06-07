@@ -129,7 +129,7 @@ export default function DemoSection() {
         </div>
 
         <div className="text-center mt-8">
-          <a href="/auth?mode=signup" target="myfm_journal"
+          <a href="/auth?mode=signup" target="Smart_Journal"
             className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[15px] px-7 py-3.5 transition-colors inline-block">
             Try it free — no card required
           </a>

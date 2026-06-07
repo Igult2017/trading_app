@@ -108,7 +108,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                 <CardFooter className="pt-4">
                   <a
                     href="/auth?mode=signup"
-                    target="myfm_journal"
+                    target="Smart_Journal"
                     className={cn(
                       'w-full text-center py-3 rounded text-sm font-bold transition-all duration-200',
                       plan.popular

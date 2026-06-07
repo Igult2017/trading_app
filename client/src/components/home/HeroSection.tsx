@@ -99,7 +99,7 @@ export default function HeroSection() {
 
             {/* CTAs */}
             <div className="flex flex-wrap items-center gap-4 mb-8">
-              <a href="/auth?mode=signup" target="myfm_journal"
+              <a href="/auth?mode=signup" target="Smart_Journal"
                 className="rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-[15px] px-7 py-3.5 transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                 Start journaling free
               </a>

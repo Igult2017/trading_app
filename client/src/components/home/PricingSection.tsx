@@ -39,7 +39,7 @@ export default function PricingSection() {
                 ))}
               </div>
 
-              <a href="/auth?mode=signup" target="myfm_journal"
+              <a href="/auth?mode=signup" target="Smart_Journal"
                 className={`block text-center rounded-xl py-2.5 text-[14px] font-semibold transition-all ${
                   p.highlight
                     ? "bg-white text-indigo-700 hover:bg-indigo-50"

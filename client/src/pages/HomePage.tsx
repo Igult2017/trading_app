@@ -72,7 +72,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <input type="email" placeholder="Enter your email address"
                 style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: dm ? card : '#ffffff', color: text, outline: 'none', ...sans, boxShadow: dm ? `0 0 0 1.5px ${border}` : '0 1px 6px rgba(0,0,0,0.09)', minWidth: 0 }} />
-              <a href="/auth?mode=signup" target="myfm_journal"
+              <a href="/auth?mode=signup" target="Smart_Journal"
                 style={{ padding: '13px 22px', borderRadius: 10, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...sans }}>
                 Start free <ArrowRight size={15} />
               </a>
@@ -103,7 +103,7 @@ export default function HomePage() {
               ))}
             </div>
             <div style={{ fontSize: 12, color: muted, textAlign: 'right', marginTop: 10, ...sans }}>
-              Or <a href="/auth" target="myfm_journal" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in →</a>
+              Or <a href="/auth" target="Smart_Journal" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in →</a>
             </div>
           </div>
         </div>
