@@ -441,7 +441,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     return () => document.removeEventListener('mousedown', handler);
   }, [langOpen]);
 
-  const t = dm ? {
+  const theme = dm ? {
     navBg: 'rgba(8,12,16,0.97)',
     navBorder: '#172233',
     logoWhite: '#ffffff',
@@ -471,7 +471,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     borderRadius: '50%',
     border: 'none',
     background: 'transparent',
-    color: t.iconColor,
+    color: theme.iconColor,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -500,7 +500,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           background: ${dm ? '#1a2535' : '#e2e8f0'};
           display:flex; align-items:center; justify-content:center;
           cursor:pointer; transition: background 0.15s; flex-shrink:0;
-          color: ${t.iconColor};
+          color: ${theme.iconColor};
         }
         .settings-btn-unused:hover { background: ${dm ? '#0c1219' : '#cbd5e1'} !important; }
         .jh-sidebar-mobile { display: none; }
@@ -527,12 +527,12 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
       <div style={{ position: 'sticky', top: 0, zIndex: 500 }}>
         <div className="jh-ticker"><TickerTape /></div>
-        <nav className="jh-nav" style={{ background: t.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${t.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
+        <nav className="jh-nav" style={{ background: theme.navBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${theme.navBorder}`, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
 
           {/* Left: Logo + Sidebar Toggle */}
           <div className="jh-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span className="jh-logo" style={{ fontSize: 17, fontWeight: 400, letterSpacing: '0.01em', fontFamily: "'DM Serif Display', serif", cursor: 'pointer' }}>
-              <span style={{ color: t.logoWhite }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+              <span style={{ color: theme.logoWhite }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
             </span>
             <button
               className="jh-sidebar-desktop"
@@ -549,13 +549,13 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           {/* Desktop Nav Links + Icons */}
           <div className="nav-links">
             {NAV_ITEMS.map(item => (
-              <a key={item} href={NAV_LINKS[item]} className="nav-a" style={{ color: t.navLink }}
-                onMouseEnter={e => { e.currentTarget.style.color = t.navLinkHover; e.currentTarget.style.borderColor = t.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = t.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
+              <a key={item} href={NAV_LINKS[item]} className="nav-a" style={{ color: theme.navLink }}
+                onMouseEnter={e => { e.currentTarget.style.color = theme.navLinkHover; e.currentTarget.style.borderColor = theme.navBorder; e.currentTarget.style.background = dm ? '#0c1219' : '#f1f5f9'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = theme.navLink; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none'; }}
               >{item}</a>
             ))}
 
-            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
+            <div style={{ width: 1, height: 24, background: theme.navBorder, margin: '0 6px' }} />
 
             <div ref={langRef} style={{ position: 'relative' }}>
               <button className="jh-icon-btn" style={{ ...iconButtonStyle, position: 'relative' }} title={t('language')} onClick={() => setLangOpen(o => !o)}>
@@ -591,7 +591,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             </button>
             <button className="jh-icon-btn" style={iconButtonStyle} title="Brightness" onClick={() => onToggleDarkMode()}><SunMedium size={16} /></button>
 
-            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
+            <div style={{ width: 1, height: 24, background: theme.navBorder, margin: '0 6px' }} />
 
             <div ref={profileRef} style={{ position: 'relative' }}>
               <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)} style={{ padding: 0, overflow: 'hidden' }}>
@@ -616,7 +616,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                 />
               )}
             </div>
-            <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
+            <div style={{ width: 1, height: 24, background: theme.navBorder, margin: '0 6px' }} />
 
             <button
               onClick={() => onToggleDarkMode()}
@@ -697,13 +697,13 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
-        <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${t.navBorder}`, position: 'relative', zIndex: 99 }}>
+        <div style={{ background: dm ? '#0c1219' : '#ffffff', borderBottom: `1px solid ${theme.navBorder}`, position: 'relative', zIndex: 99 }}>
           {NAV_ITEMS.map(item => (
             <a key={item} href={NAV_LINKS[item]}
               onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${t.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: t.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
-              onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-              onMouseLeave={e => (e.currentTarget.style.color = t.navLink)}
+              style={{ display: 'block', padding: '13px 24px', borderBottom: `1px solid ${theme.navBorder}`, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: theme.navLink, fontFamily: "'Montserrat',sans-serif", textDecoration: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.color = theme.text)}
+              onMouseLeave={e => (e.currentTarget.style.color = theme.navLink)}
             >{item}</a>
           ))}
         </div>
