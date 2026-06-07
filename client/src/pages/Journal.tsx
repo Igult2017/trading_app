@@ -171,7 +171,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
                 {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels} darkMode={dm}
-                    label={t(item.id as any)}
+                    label={t(item.id as any) !== item.id ? t(item.id as any) : item.label}
                     onClick={() => { setActiveNav(item.id); if (isMobile) onClose(); }} />
                 ))}
               </div>

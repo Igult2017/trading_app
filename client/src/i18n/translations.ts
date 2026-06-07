@@ -43,6 +43,7 @@ export const TRANSLATION_KEYS: TranslationKeys[] = [
   'dashboard','journal','tradeHistory','analytics','assets','accounts',
   'leaderboard','settings','accountSettings','logout','loginStreak',
   'days','free','language','newTrade','save','cancel','edit','close',
+  'sessions','vault','calendar','drawdown','metrics','strategy','fsdai','sync',
 ];
 
 // Separator used to batch all strings in a single MyMemory API call
@@ -56,6 +57,9 @@ export const STATIC_T = {
     logout:'Logout', loginStreak:'Login Streak', days:'days', free:'Free',
     language:'Language', newTrade:'New Trade', save:'Save', cancel:'Cancel',
     edit:'Edit', close:'Close',
+    sessions:'Sessions', vault:'Trade Vault', calendar:'Calendar',
+    drawdown:'Drawdown', metrics:'Metrics', strategy:'Audit',
+    fsdai:'Trader AI', sync:'Sync Trade',
   },
   es: {
     dashboard:'Panel', journal:'Diario', tradeHistory:'Historial',
@@ -64,6 +68,9 @@ export const STATIC_T = {
     logout:'Cerrar sesión', loginStreak:'Racha', days:'días', free:'Gratis',
     language:'Idioma', newTrade:'Nueva operación', save:'Guardar', cancel:'Cancelar',
     edit:'Editar', close:'Cerrar',
+    sessions:'Sesiones', vault:'Bóveda', calendar:'Calendario',
+    drawdown:'Reducción', metrics:'Métricas', strategy:'Auditoría',
+    fsdai:'IA del trader', sync:'Sincronizar',
   },
   fr: {
     dashboard:'Tableau de bord', journal:'Journal', tradeHistory:'Historique',
@@ -72,6 +79,9 @@ export const STATIC_T = {
     logout:'Déconnexion', loginStreak:'Série', days:'jours', free:'Gratuit',
     language:'Langue', newTrade:'Nouveau trade', save:'Enregistrer', cancel:'Annuler',
     edit:'Modifier', close:'Fermer',
+    sessions:'Sessions', vault:'Coffre', calendar:'Calendrier',
+    drawdown:'Drawdown', metrics:'Métriques', strategy:'Audit',
+    fsdai:'IA du trader', sync:'Synchroniser',
   },
   pt: {
     dashboard:'Painel', journal:'Diário', tradeHistory:'Histórico',
@@ -80,6 +90,9 @@ export const STATIC_T = {
     logout:'Sair', loginStreak:'Sequência', days:'dias', free:'Grátis',
     language:'Idioma', newTrade:'Nova operação', save:'Salvar', cancel:'Cancelar',
     edit:'Editar', close:'Fechar',
+    sessions:'Sessões', vault:'Cofre', calendar:'Calendário',
+    drawdown:'Drawdown', metrics:'Métricas', strategy:'Auditoria',
+    fsdai:'IA do trader', sync:'Sincronizar',
   },
   de: {
     dashboard:'Dashboard', journal:'Journal', tradeHistory:'Handelshistorie',
@@ -88,6 +101,9 @@ export const STATIC_T = {
     logout:'Abmelden', loginStreak:'Anmeldeserie', days:'Tage', free:'Kostenlos',
     language:'Sprache', newTrade:'Neuer Trade', save:'Speichern', cancel:'Abbrechen',
     edit:'Bearbeiten', close:'Schließen',
+    sessions:'Sitzungen', vault:'Tresor', calendar:'Kalender',
+    drawdown:'Drawdown', metrics:'Metriken', strategy:'Prüfung',
+    fsdai:'Trader KI', sync:'Synchronisieren',
   },
   ar: {
     dashboard:'لوحة القيادة', journal:'مجلة', tradeHistory:'سجل الصفقات',
@@ -96,6 +112,9 @@ export const STATIC_T = {
     logout:'تسجيل الخروج', loginStreak:'تواصل الدخول', days:'أيام', free:'مجاني',
     language:'اللغة', newTrade:'صفقة جديدة', save:'حفظ', cancel:'إلغاء',
     edit:'تعديل', close:'إغلاق',
+    sessions:'الجلسات', vault:'الخزنة', calendar:'التقويم',
+    drawdown:'الانخفاض', metrics:'المقاييس', strategy:'تدقيق',
+    fsdai:'ذكاء تاجر', sync:'مزامنة',
   },
   zh: {
     dashboard:'仪表板', journal:'交易日志', tradeHistory:'交易历史',
@@ -104,6 +123,9 @@ export const STATIC_T = {
     logout:'退出登录', loginStreak:'登录连续', days:'天', free:'免费',
     language:'语言', newTrade:'新交易', save:'保存', cancel:'取消',
     edit:'编辑', close:'关闭',
+    sessions:'会话', vault:'交易库', calendar:'日历',
+    drawdown:'回撤', metrics:'指标', strategy:'审计',
+    fsdai:'交易AI', sync:'同步',
   },
   sw: {
     dashboard:'Dashibodi', journal:'Jarida', tradeHistory:'Historia ya Biashara',
@@ -112,5 +134,8 @@ export const STATIC_T = {
     logout:'Toka', loginStreak:'Mfululizo', days:'siku', free:'Bure',
     language:'Lugha', newTrade:'Biashara Mpya', save:'Hifadhi', cancel:'Ghairi',
     edit:'Hariri', close:'Funga',
+    sessions:'Vikao', vault:'Hazina', calendar:'Kalenda',
+    drawdown:'Kupungua', metrics:'Vipimo', strategy:'Ukaguzi',
+    fsdai:'AI ya Mfanyabiashara', sync:'Oanisha',
   },
 } as const;
