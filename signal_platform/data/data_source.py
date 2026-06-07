@@ -6,17 +6,17 @@ Priority chain (first configured wins):
                           Active when .ctrader_token.json exists.
                           Run: python auth_setup.py (after Spotware approves app).
 
-  2. MT5 via Wine/Docker — Pepperstone-accurate. All TFs native.
-                          Connects to the gmag11/metatrader5_vnc container
-                          on MT5_HOST:MT5_PORT via mt5linux (RPyC).
-                          Set MT5_LOGIN + MT5_PASSWORD + MT5_SERVER in .env.
-
-  3. yfinance + ejtraderCT — always-available fallback.
+  2. yfinance + ejtraderCT — always-available fallback.
                           yfinance supplies historical OHLCV bars.
                           ejtraderCT overlays the live Pepperstone mid-price
                           (bid+ask)/2 on the current open bar's close/H/L.
                           Set CTRADER_FIX_* in .env for the live overlay;
                           yfinance works alone without it.
+
+NOTE: MT5 via Wine/Docker is temporarily disabled.
+      Re-enable by restoring the mt5_client import + block below,
+      un-commenting the mt5 service in docker-compose.yml,
+      and adding mt5linux back to requirements.txt.
 """
 
 import asyncio
@@ -24,7 +24,7 @@ import logging
 from functools import partial
 
 from data import ctrader_client, ctrader_session
-from data import ejtrader_ct_client, mt5_client, yfinance_client
+from data import ejtrader_ct_client, yfinance_client
 
 log = logging.getLogger(__name__)
 _TIMEOUT = 20  # seconds per fetch
@@ -42,15 +42,7 @@ async def fetch_raw(symbol: str, tf: str, count: int) -> list[dict]:
         return await asyncio.wait_for(
             ctrader_client.fetch_bars(broker_sym, tf, count), _TIMEOUT)
 
-    # ── 2. MT5 via Wine/Docker ────────────────────────────────────────────────
-    if mt5_client.is_configured():
-        loop = asyncio.get_event_loop()
-        return await asyncio.wait_for(
-            loop.run_in_executor(
-                None, partial(mt5_client.fetch_bars, broker_sym, tf, count)),
-            _TIMEOUT)
-
-    # ── 3. yfinance history + ejtraderCT live overlay ────────────────────────
+    # ── 2. yfinance history + ejtraderCT live overlay ────────────────────────
     loop = asyncio.get_event_loop()
     raw: list[dict] = await asyncio.wait_for(
         loop.run_in_executor(
@@ -70,8 +62,6 @@ async def fetch_raw(symbol: str, tf: str, count: int) -> list[dict]:
 def active_source() -> str:
     if ctrader_session.is_configured():
         return "cTrader Open API"
-    if mt5_client.is_configured():
-        return "MT5 via Wine/Docker"
     if ejtrader_ct_client.is_configured():
         return "yfinance + ejtraderCT live overlay"
     return "yfinance only"

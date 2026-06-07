@@ -65,12 +65,12 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     "yfinance>=0.2.66"
 
 # ── Signal platform — data sources ────────────────────────────────────────────
-# mt5linux:         RPyC client → MT5 terminal in Wine/Docker (primary fallback)
+# mt5linux disabled — to re-enable add "mt5linux" \ back to this RUN block and
+# un-comment the mt5 service in docker-compose.yml.
 # ctrader_open_api: Spotware Protobuf SDK (when cTrader app is approved)
 # httpx:            async HTTP for cTrader OAuth token exchange
 # ejtraderCT:       FIX tick stream for live price overlay on yfinance bars
 RUN pip3 install --no-cache-dir --break-system-packages \
-    "mt5linux" \
     "ctrader_open_api" \
     "httpx>=0.27.0" \
     "ejtraderCT"

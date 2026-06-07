@@ -41,7 +41,7 @@ async def _startup() -> None:
     log.info(f"[boot] data source: {active_source()}")
 
     # 2b. ejtraderCT tick feed — live price overlay on yfinance bars
-    if not ctrader_session.is_configured() and not mt5_client.is_configured():
+    if not ctrader_session.is_configured():
         if ejtrader_ct_client.is_configured():
             ejtrader_ct_client.subscribe(INSTRUMENTS)
             log.info("[boot] ejtraderCT live overlay: active")

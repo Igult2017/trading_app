@@ -7,20 +7,17 @@
 #   #              DB_PASSWORD, SUPABASE_*, GOOGLE_API_KEY
 #   docker compose up -d
 #
-# FIRST BOOT NOTE:
-#   The mt5 container installs MetaTrader 5 under Wine on first start.
-#   This takes 5–10 minutes. The bridge containers wait automatically
-#   via their entrypoint — no manual steps required.
+# NOTE: MT5 Wine/Docker is currently disabled.
+#   Data source chain: cTrader Open API → yfinance + ejtraderCT overlay.
+#   To re-enable MT5: un-comment the mt5 service block below, restore
+#   signal_platform/requirements.txt mt5linux, restore the depends_on mt5
+#   entries in signal_platform and bridge.
 #
 # LOGS:
-#   docker compose logs -f mt5          # watch MT5 installation progress
 #   docker compose logs -f bridge
 #
 # UPDATE (run this on Hostinger after every git pull):
 #   git pull && docker compose up -d --build
-#
-# VNC (optional — visual access to the MT5 terminal):
-#   Browse to http://<your-vps-ip>:3010  (localhost only by default)
 
 version: "3.9"
 
@@ -62,48 +59,36 @@ services:
       interval: 10s
       retries: 5
 
-  # ── 3. MT5 Terminal (Wine + MT5 + mt5linux RPyC) ──────────────────────────────
-  # TWO-PHASE SETUP:
-  #   Phase 1 (one time): use image gmag11/metatrader5_vnc and VNC at
-  #     http://localhost:3010 to log in to Pepperstone. The mt5_data volume
-  #     persists the login.
-  #   Phase 2 (production): switch to the lightweight custom image:
-  #     build: { context: ., dockerfile: Dockerfile.mt5 }
-  #     Remove the `image:` line and the `ports:` block — no VNC needed.
-  #     Both images use the same mt5_data volume, so login is preserved.
+  # ── 3. MT5 Terminal (Wine + MT5 + mt5linux RPyC) — DISABLED ──────────────────
+  # To re-enable: un-comment this entire block, restore mt5linux in
+  # signal_platform/requirements.txt, and restore the depends_on mt5
+  # entries in signal_platform and bridge below.
   #
-  # Resource limits cap worst-case RAM. MT5 config (MaxBars=500) cuts
-  # in-memory bar data from ~200 MB (default 65k bars) to ~10 MB.
-  mt5:
-    image: gmag11/metatrader5_vnc:latest
-    restart: unless-stopped
-    ports:
-      # VNC browser — bound to localhost, NOT reachable from the internet.
-      # SSH tunnel to access:  ssh -L 3010:localhost:3010 user@your-vps
-      - "127.0.0.1:3010:3000"
-    environment:
-      CUSTOM_USER: admin
-      PASSWORD:    ${VNC_PASSWORD:-tradesync_vnc_2025}
-    volumes:
-      - mt5_data:/config
-      # Inject optimised MT5 config — overrides the default 65k-bar setting.
-      # MaxBars=500 is the single biggest RAM saving (~150–200 MB).
-      - ./mt5_common.ini:/config/.wine/drive_c/Program Files/MetaTrader 5/config/common.ini:ro
-    mem_limit: 700m
-    memswap_limit: 700m
-    cpus: "1.0"
-    networks:
-      - internal
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8812 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 20
-      start_period: 600s
+  # mt5:
+  #   image: gmag11/metatrader5_vnc:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:3010:3000"
+  #   environment:
+  #     CUSTOM_USER: admin
+  #     PASSWORD:    ${VNC_PASSWORD:-tradesync_vnc_2025}
+  #   volumes:
+  #     - mt5_data:/config
+  #     - ./mt5_common.ini:/config/.wine/drive_c/Program Files/MetaTrader 5/config/common.ini:ro
+  #   mem_limit: 700m
+  #   memswap_limit: 700m
+  #   cpus: "1.0"
+  #   networks:
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "nc -z localhost 8812 || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 20
+  #     start_period: 600s
 
   # ── 4. Signal Platform (strategy scanner + Telegram alerts) ─────────────────
-  # Connects to the mt5 container via mt5linux (RPyC) for Pepperstone OHLCV data.
-  # Falls back to yfinance + ejtraderCT overlay if MT5_LOGIN is not set.
+  # Data source: cTrader Open API (primary) → yfinance + ejtraderCT (fallback).
   signal_platform:
     build:
       context: .
@@ -114,15 +99,8 @@ services:
         required: false
     environment:
       DATABASE_URL:  "postgresql://${DB_USER:-tradesync}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-tradesync}"
-      MT5_HOST:      mt5
-      MT5_PORT:      "8812"
-      MT5_LOGIN:     ${MT5_LOGIN:-0}
-      MT5_PASSWORD:  ${MT5_PASSWORD:-}
-      MT5_SERVER:    ${MT5_SERVER:-Pepperstone-Demo}
     depends_on:
       postgres:
-        condition: service_healthy
-      mt5:
         condition: service_healthy
     networks:
       - internal
@@ -194,8 +172,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      mt5:
-        condition: service_healthy
     volumes:
       - tg_sessions:/var/lib/tradesync/tg_sessions
     networks:
@@ -217,5 +193,5 @@ networks:
 volumes:
   pg_data:       # PostgreSQL data
   redis_data:    # Redis AOF persistence
-  mt5_data:      # MT5 Wine prefix — avoids reinstall on every container start
+  # mt5_data:   # MT5 Wine prefix — un-comment when re-enabling the mt5 service
   tg_sessions:   # Telegram session files for signal listener

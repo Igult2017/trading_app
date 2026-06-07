@@ -19,10 +19,10 @@ pandas>=2.0.0
 ctrader_open_api
 httpx>=0.27.0
 
-# Data source 2: MT5 via Wine/Docker — Pepperstone-accurate OHLCV
-mt5linux
+# Data source 2 (disabled): MT5 via Wine/Docker — re-enable by uncommenting:
+# mt5linux
 
-# Data source 3: ejtraderCT FIX — live price overlay on yfinance bars
+# Data source 2 (active fallback): ejtraderCT FIX — live price overlay on yfinance bars
 ejtraderCT
 
 # Notifications (optional)
