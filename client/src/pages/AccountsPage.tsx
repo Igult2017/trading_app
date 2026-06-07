@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, Info } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2 } from "lucide-react";
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -461,7 +461,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Top Banner */}
       <div style={s.banner as CSSProperties}>
-        <Info size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 10, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
         <span>Issues syncing? Try an account history repair</span>
         <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
       </div>
@@ -487,7 +487,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
               <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
             </button>
             <button style={s.syncBtn as CSSProperties} onClick={fetchAccounts}>
-              <span style={{ fontSize: 14 }}>↻</span> {isMobile ? "Sync" : "Sync All"}
+              <RefreshCw size={13} /> {isMobile ? "Sync" : "Sync All"}
             </button>
           </div>
         </div>
