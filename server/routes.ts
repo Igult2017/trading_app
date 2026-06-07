@@ -4,7 +4,7 @@ import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts } from "@shared/schema";
-import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
+import { eq, desc, and, lt, isNotNull, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
@@ -4006,6 +4006,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: delete user account ────────────────────────────────────────────────
+  app.delete("/api/admin/users/:userId", requireAdmin, async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { mode } = req.body as { mode?: 'immediate' | 'soft' };
+    try {
+      if (mode === 'soft') {
+        const deleteAfter = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await db.update(userProfiles).set({ status: 'Pending Deletion', deleteAfter }).where(eq(userProfiles.id, userId));
+        return res.json({ ok: true, deleteAfter });
+      }
+      if (supabaseAdmin) await supabaseAdmin.auth.admin.deleteUser(userId);
+      await db.delete(userProfiles).where(eq(userProfiles.id, userId));
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Ensure blog_posts table exists ───────────────────────────────────────────
   try {
     await pool.query(`
@@ -4455,6 +4473,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: err.message });
     }
   });
+
+  // ── Background: process soft-deletion queue ───────────────────────────────────
+  const runScheduledDeletions = async () => {
+    try {
+      const due = await db.select({ id: userProfiles.id }).from(userProfiles)
+        .where(and(isNotNull(userProfiles.deleteAfter), lt(userProfiles.deleteAfter, new Date())));
+      for (const { id } of due) {
+        try {
+          if (supabaseAdmin) await supabaseAdmin.auth.admin.deleteUser(id);
+          await db.delete(userProfiles).where(eq(userProfiles.id, id));
+          console.log(`[Scheduled Delete] removed user ${id}`);
+        } catch (e: any) {
+          console.error(`[Scheduled Delete] failed for ${id}:`, e.message);
+        }
+      }
+    } catch (e: any) {
+      console.error('[Scheduled Delete] query error:', e.message);
+    }
+  };
+  runScheduledDeletions();
+  setInterval(runScheduledDeletions, 30 * 60 * 1000);
 
   const httpServer = createServer(app);
   return httpServer;

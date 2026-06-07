@@ -222,6 +222,7 @@ export const userProfiles = pgTable("user_profiles", {
   status:    text("status").default('Active'),
   winRate:   text("win_rate").default(''),
   avatarUrl: text("avatar_url"),
+  deleteAfter: timestamp("delete_after"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

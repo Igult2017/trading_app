@@ -424,12 +424,14 @@ const PLAN_STYLE: Record<string, { bg: string; color: string; border: string }> 
   Pro:        { bg: 'rgba(0,200,224,0.12)',    color: C.indigoL,  border: 'rgba(0,200,224,0.3)' },
   Enterprise: { bg: 'rgba(245,158,11,0.12)',    color: C.amberL,   border: 'rgba(245,158,11,0.3)' },
 };
-const STATUS_COLOR: Record<string, string> = { Active: C.greenL, Inactive: '#3d5878', Banned: C.redL };
+const STATUS_COLOR: Record<string, string> = { Active: C.greenL, Inactive: '#3d5878', Banned: C.redL, 'Pending Deletion': C.amberL };
 
 const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; apiUsers: any[]; setApiUsers: (fn: any) => void; getAdminToken: () => Promise<string | null> }) => {
   const [search, setSearch] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [editUser, setEditUser] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'immediate' | 'soft'>('immediate');
+  const [deleting, setDeleting] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -481,6 +483,28 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
       body: JSON.stringify({ role: newRole }),
     });
     setApiUsers((prev: any[]) => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const token = await getAdminToken();
+    if (token) {
+      const r = await fetch(`/api/admin/users/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mode: deleteMode }),
+      });
+      if (r.ok) {
+        if (deleteMode === 'immediate') {
+          setApiUsers((prev: any[]) => prev.filter(u => u.id !== deleteTarget.id));
+        } else {
+          setApiUsers((prev: any[]) => prev.map(u => u.id === deleteTarget.id ? { ...u, status: 'Pending Deletion' } : u));
+        }
+      }
+    }
+    setDeleting(false);
+    setDeleteTarget(null);
   };
 
   const handleInvite = async () => {
@@ -578,8 +602,9 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                         </button>
                         <button onClick={() => { setGrantAccessUserId(u.id); setGrantAccessDays('30'); setMenuOpenId(null); }}
                           style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.greenL, border: 'none', fontSize: '12px' }}>Grant Journal Access</button>
-                        <button onClick={() => { setEditUser(u); setMenuOpenId(null); }}
-                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: '#607898', border: 'none', fontSize: '12px' }}>Edit Profile</button>
+                        <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
+                        <button onClick={() => { setDeleteTarget({ id: u.id, name: u.full_name ? toTitleCase(u.full_name) : u.email }); setDeleteMode('immediate'); setMenuOpenId(null); }}
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.redL, border: 'none', fontSize: '12px' }}>Delete Account</button>
                       </div>
                     )}
                   </td>
@@ -625,38 +650,39 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
         </div>
       )}
 
-      {/* Edit Profile modal */}
-      {editUser && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div style={{ ...cs, width: '100%', maxWidth: '400px', padding: '24px', border: `1px solid ${C.border2}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Edit Trader Profile</h3>
-              <button onClick={() => setEditUser(null)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
+      {/* Delete Account modal */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '28px', border: `1px solid rgba(244,63,94,0.35)` }}>
+            <div style={{ width: '44px', height: '44px', background: 'rgba(244,63,94,0.1)', border: `1px solid rgba(244,63,94,0.3)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Trash2 size={20} style={{ color: C.redL }} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div><label style={{ ...lbl }}>Country Code (e.g. US, SG)</label>
-                <input defaultValue={editUser.country || ''} id="ep-country" placeholder="US" style={{ ...inp }} /></div>
-              <div><label style={{ ...lbl }}>Win Rate (e.g. 68%)</label>
-                <input defaultValue={editUser.win_rate || ''} id="ep-winrate" placeholder="68%" style={{ ...inp }} /></div>
-              <div><label style={{ ...lbl }}>Plan</label>
-                <select id="ep-plan" defaultValue={editUser.plan || 'Free'} style={{ ...inp, cursor: 'pointer' }}>
-                  {['Free', 'Pro', 'Enterprise'].map(p => <option key={p} value={p}>{p}</option>)}
-                </select></div>
-              <div><label style={{ ...lbl }}>Status</label>
-                <select id="ep-status" defaultValue={editUser.status || 'Active'} style={{ ...inp, cursor: 'pointer' }}>
-                  {['Active', 'Inactive', 'Banned'].map(s => <option key={s} value={s}>{s}</option>)}
-                </select></div>
+            <p style={{ color: 'white', fontWeight: 700, fontFamily: HFONT, fontSize: '15px', textAlign: 'center', margin: '0 0 6px' }}>Delete Account</p>
+            <p style={{ color: '#607898', fontSize: '12px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.5 }}>
+              You are about to delete <strong style={{ color: 'white' }}>{deleteTarget.name}</strong>.<br />This cannot be undone.
+            </p>
+
+            {/* Mode toggle */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+              {(['immediate', 'soft'] as const).map(m => (
+                <button key={m} onClick={() => setDeleteMode(m)}
+                  style={{ ...btn, padding: '10px 8px', fontSize: '11px', textAlign: 'center', border: `1px solid ${deleteMode === m ? C.red : C.border2}`, background: deleteMode === m ? 'rgba(244,63,94,0.12)' : 'transparent', color: deleteMode === m ? C.redL : '#607898' }}>
+                  {m === 'immediate' ? 'Delete Now' : 'Delete in 24h'}
+                </button>
+              ))}
             </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button onClick={() => setEditUser(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={() => {
-                const country = (document.getElementById('ep-country') as HTMLInputElement)?.value || '';
-                const win_rate = (document.getElementById('ep-winrate') as HTMLInputElement)?.value || '';
-                const plan = (document.getElementById('ep-plan') as HTMLSelectElement)?.value || 'Free';
-                const status = (document.getElementById('ep-status') as HTMLSelectElement)?.value || 'Active';
-                updateProfile(editUser.id, { country, win_rate, plan, status });
-                setEditUser(null);
-              }} style={{ ...btn, flex: 1, padding: '10px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>Save</button>
+            <p style={{ color: '#3d5878', fontSize: '10px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.6 }}>
+              {deleteMode === 'immediate'
+                ? 'Account and all data will be permanently removed immediately.'
+                : 'Account is marked for deletion and disappears automatically after 24 hours.'}
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleDeleteUser} disabled={deleting}
+                style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '13px', opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? 'Deleting…' : deleteMode === 'immediate' ? 'Delete Now' : 'Schedule Delete'}
+              </button>
             </div>
           </div>
         </div>
