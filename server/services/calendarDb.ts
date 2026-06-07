@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { economicEvents } from "@shared/schema";
-import { and, gte, lte } from "drizzle-orm";
+import { and, gte, lt, lte } from "drizzle-orm";
 
 export interface CalendarEvent {
   date: string; time: string; currency: string; event: string;
@@ -66,10 +66,13 @@ function fromRow(row: typeof economicEvents.$inferSelect): CalendarEvent {
   };
 }
 
-/** Replace the ±14-day window in DB with fresh scraped events. */
+/** Replace the ±14-day window in DB with fresh scraped events.
+ *  Also purges events older than 30 days so the table never grows unbounded. */
 export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<void> {
   if (!events.length) return;
   const { from, to } = dbWindow();
+
+  // Replace the active window
   await db.delete(economicEvents).where(
     and(gte(economicEvents.eventTime, from), lte(economicEvents.eventTime, to))
   );
@@ -78,6 +81,11 @@ export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<voi
     await db.insert(economicEvents).values(rows.slice(i, i + 100));
   }
   console.log(`[calendarDb] saved ${rows.length} events`);
+
+  // Purge events older than 30 days
+  const cutoff = new Date(Date.now() - 30 * 86_400_000);
+  const { rowCount } = await db.delete(economicEvents).where(lt(economicEvents.eventTime, cutoff));
+  if (rowCount) console.log(`[calendarDb] purged ${rowCount} expired events`);
 }
 
 /** Load the ±14-day window from DB — used to warm the cache on server startup. */
