@@ -146,9 +146,10 @@ export default function EconomicCalendarPage() {
 
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
-  const indices  = stocksData?.indices ?? [];
-  const stocks   = stocksData?.stocks  ?? [];
-  const fetching = fetchingEvents || fetchingRates || (filter === 'Stocks' && fetchingStocks);
+  const indices     = stocksData?.indices     ?? [];
+  const stocks      = stocksData?.stocks      ?? [];
+  const commodities = stocksData?.commodities ?? [];
+  const fetching    = fetchingEvents || fetchingRates || (['Stocks', 'Commodities'].includes(filter) && fetchingStocks);
 
   const lastUpdate = Math.max(calUpdatedAt, ratesUpdatedAt);
 
@@ -171,7 +172,8 @@ export default function EconomicCalendarPage() {
 
   const filteredEvents = events.filter(event => {
     if (filter === 'Rate Differentials') return false;
-    if (filter === 'Stocks') return false;         // Stocks uses investing.com scraper rows below
+    if (filter === 'Stocks') return false;
+    if (filter === 'Commodities') return false;
     const matchesCategory = filter === 'All' || event.category === filter;
     const matchesSearch   = event.event.toLowerCase().includes(searchQuery.toLowerCase()) || event.currency.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCcy      = ccyFilter === 'All' || event.currency === ccyFilter;
@@ -240,7 +242,7 @@ export default function EconomicCalendarPage() {
           </div>
 
           {/* Search + filters row */}
-          {filter !== 'Rate Differentials' && (
+          {filter !== 'Rate Differentials' && filter !== 'Stocks' && filter !== 'Commodities' && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <input className="ec-input" type="text" placeholder="Search events or currency…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
 
@@ -368,6 +370,54 @@ export default function EconomicCalendarPage() {
             </div>
           )}
 
+          {/* Commodities — powered by investing.com scraper */}
+          {filter === 'Commodities' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {fetchingStocks && commodities.length === 0 && (
+                <div className="ec-card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 16 }}>
+                      {[200, 80, 80, 80].map((w, j) => (
+                        <div key={j} style={{ width: w, height: 14, borderRadius: 4, background: dm ? 'rgba(255,255,255,0.05)' : '#e2e8f0', animation: `ec-pulse 1.4s ${i * 0.07}s ease-in-out infinite` }} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {commodities.length > 0 && (
+                <div className="ec-card" style={{ overflowX: 'auto' }}>
+                  <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Commodities</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: "'DM Mono',monospace", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        {['Name', 'Price', 'Change', '%'].map((h, i) => (
+                          <th key={h} style={{ ...thStyle, textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commodities.map((c: any, i: number) => {
+                        const isUp = c.pctChange && !String(c.pctChange).startsWith('-');
+                        const chgColor = c.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
+                        return (
+                          <tr key={i} className="ec-tr">
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: chgColor }}>{c.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: chgColor }}>{c.pctChange}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Rate Differentials */}
           {filter === 'Rate Differentials' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -440,7 +490,7 @@ export default function EconomicCalendarPage() {
           )}
 
           {/* Calendar table */}
-          {filter !== 'Rate Differentials' && filter !== 'Stocks' && events.length > 0 && (
+          {filter !== 'Rate Differentials' && filter !== 'Stocks' && filter !== 'Commodities' && events.length > 0 && (
             <div className="ec-card" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>

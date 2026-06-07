@@ -22,13 +22,23 @@ export interface IndexQuote {
   type:      "index";
 }
 
-export interface StocksData {
-  indices: IndexQuote[];
-  stocks:  StockQuote[];
+export interface CommodityQuote {
+  name:      string;
+  price:     string;
+  change:    string;
+  pctChange: string;
+  type:      "commodity";
 }
 
-const INDICES_KEY = "homepage:stocks:indices";
-const STOCKS_KEY  = "homepage:stocks:stocks";
+export interface StocksData {
+  indices:     IndexQuote[];
+  stocks:      StockQuote[];
+  commodities: CommodityQuote[];
+}
+
+const INDICES_KEY     = "homepage:stocks:indices";
+const STOCKS_KEY      = "homepage:stocks:stocks";
+const COMMODITIES_KEY = "homepage:stocks:commodities";
 const TTL         = 5 * 60;              // 5 min — markets move fast
 const RETRY_MS    = 4 * 60 * 1000;      // minimum interval between scraper runs
 const SCRIPT      = path.join(process.cwd(), "server", "python", "stocks_scraper.py");
@@ -37,7 +47,7 @@ let _lastAttemptAt = 0;
 let _inFlight: Promise<StocksData> | null = null;
 let _lastError: string | null = null;
 
-function runScraper(mode: "indices" | "stocks" | "all"): Promise<string> {
+function runScraper(mode: "indices" | "stocks" | "commodities" | "all"): Promise<string> {
   return new Promise((resolve, reject) => {
     let out = "", err = "", done = false;
     const child = spawn(PYTHON_BIN, [SCRIPT, mode], { cwd: process.cwd(), env: process.env });
@@ -62,11 +72,13 @@ async function _refresh(): Promise<StocksData> {
   try {
     const raw = await runScraper("all");
     const data: StocksData = JSON.parse(raw);
-    if (data.indices.length > 0 || data.stocks.length > 0) {
-      await cacheSet(INDICES_KEY, data.indices, TTL);
-      await cacheSet(STOCKS_KEY,  data.stocks,  TTL);
+    const got = data.indices.length + data.stocks.length + data.commodities.length;
+    if (got > 0) {
+      await cacheSet(INDICES_KEY,     data.indices,     TTL);
+      await cacheSet(STOCKS_KEY,      data.stocks,      TTL);
+      await cacheSet(COMMODITIES_KEY, data.commodities, TTL);
       _lastError = null;
-      console.log(`[stocksService] scraped ${data.indices.length} indices, ${data.stocks.length} stocks`);
+      console.log(`[stocksService] scraped ${data.indices.length} indices, ${data.stocks.length} stocks, ${data.commodities.length} commodities`);
     } else {
       _lastError = "0 results returned — serving cache";
       console.warn("[stocksService]", _lastError);
@@ -75,9 +87,10 @@ async function _refresh(): Promise<StocksData> {
     _lastError = e.message;
     console.error("[stocksService] scrape failed:", e.message);
   }
-  const indices = (await cacheGet<IndexQuote[]>(INDICES_KEY)) ?? [];
-  const stocks  = (await cacheGet<StockQuote[]>(STOCKS_KEY))  ?? [];
-  return { indices, stocks };
+  const indices     = (await cacheGet<IndexQuote[]>(INDICES_KEY))         ?? [];
+  const stocks      = (await cacheGet<StockQuote[]>(STOCKS_KEY))          ?? [];
+  const commodities = (await cacheGet<CommodityQuote[]>(COMMODITIES_KEY)) ?? [];
+  return { indices, stocks, commodities };
 }
 
 export async function getStocksData(): Promise<StocksData> {
@@ -85,11 +98,12 @@ export async function getStocksData(): Promise<StocksData> {
   if (due && !_inFlight) {
     _inFlight = _refresh().finally(() => { _inFlight = null; });
   }
-  const indices = await cacheGet<IndexQuote[]>(INDICES_KEY);
-  const stocks  = await cacheGet<StockQuote[]>(STOCKS_KEY);
-  if (indices && stocks) return { indices, stocks };
+  const indices     = await cacheGet<IndexQuote[]>(INDICES_KEY);
+  const stocks      = await cacheGet<StockQuote[]>(STOCKS_KEY);
+  const commodities = await cacheGet<CommodityQuote[]>(COMMODITIES_KEY);
+  if (indices && stocks && commodities) return { indices, stocks, commodities };
   if (_inFlight) return _inFlight;
-  return { indices: [], stocks: [] };
+  return { indices: [], stocks: [], commodities: [] };
 }
 
 export function getStocksServiceStatus() {

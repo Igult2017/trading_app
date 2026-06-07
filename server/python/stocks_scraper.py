@@ -99,6 +99,60 @@ def _scrape_indices(s) -> list:
     return results
 
 
+# ── Commodities ──────────────────────────────────────────────────────────────
+
+def _scrape_commodities(s) -> list:
+    url = f"{BASE}/commodities/real-time-futures"
+    resp = s.get(url, timeout=25)
+    print(f"[stocks_scraper] commodities HTTP {resp.status_code} ({len(resp.text)} bytes)", file=sys.stderr)
+
+    if resp.status_code != 200:
+        return []
+    if "Just a moment" in resp.text or "cf-browser-verification" in resp.text:
+        print("[stocks_scraper] commodities: Cloudflare not bypassed", file=sys.stderr)
+        return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    table = (
+        soup.find("table", class_=lambda c: c and "datatable-v2_table" in str(c)) or
+        soup.find("table", {"id": "commodityFuturesTable"}) or
+        soup.find("table", class_=lambda c: c and "genTbl" in str(c))
+    )
+
+    if not table:
+        print("[stocks_scraper] commodities: table not found", file=sys.stderr)
+        return []
+
+    results = []
+    for row in table.find("tbody").find_all("tr"):
+        try:
+            tds = row.find_all("td")
+            if len(tds) < 2:
+                continue
+
+            name_div = tds[0].find("div", class_=lambda c: c and "mb-1.5" in str(c))
+            name = name_div.get_text(strip=True) if name_div else (tds[0].find("a") or tds[0]).get_text(strip=True)
+
+            spans = tds[1].find_all("span")
+            price      = spans[0].get_text(strip=True) if len(spans) > 0 else "-"
+            change     = spans[1].get_text(strip=True) if len(spans) > 1 else "-"
+            pct_change = spans[2].get_text(strip=True) if len(spans) > 2 else "-"
+
+            if not name or not price:
+                continue
+            results.append({
+                "name": name, "price": price,
+                "change": change, "pctChange": pct_change,
+                "type": "commodity",
+            })
+        except Exception:
+            continue
+
+    print(f"[stocks_scraper] commodities: {len(results)} rows", file=sys.stderr)
+    return results
+
+
 # ── Stocks (search API) ───────────────────────────────────────────────────────
 
 def _search(s, symbol: str) -> dict | None:
@@ -163,10 +217,13 @@ def main():
         print(json.dumps(_scrape_indices(s)))
     elif mode == "stocks":
         print(json.dumps(_scrape_stocks(s, WATCHLIST)))
+    elif mode == "commodities":
+        print(json.dumps(_scrape_commodities(s)))
     else:
-        indices = _scrape_indices(s)
-        stocks  = _scrape_stocks(s, WATCHLIST)
-        print(json.dumps({"indices": indices, "stocks": stocks}))
+        indices     = _scrape_indices(s)
+        stocks      = _scrape_stocks(s, WATCHLIST)
+        commodities = _scrape_commodities(s)
+        print(json.dumps({"indices": indices, "stocks": stocks, "commodities": commodities}))
 
 
 if __name__ == "__main__":
