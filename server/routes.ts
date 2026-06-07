@@ -2892,6 +2892,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── cTrader OAuth2 flow ───────────────────────────────────────────────────────
 
+  /** Returns whether cTrader OAuth env vars are configured. */
+  app.get("/api/broker/ctrader/configured", (_req: Request, res: Response) => {
+    return res.json({ configured: !!(process.env.CTRADER_CLIENT_ID && process.env.CTRADER_CLIENT_SECRET) });
+  });
+
   /** Step 1: redirect user to cTrader authorization page. */
   app.get("/api/broker/ctrader/connect", async (req: Request, res: Response) => {
     const user = await verifyToken(req.headers.authorization);

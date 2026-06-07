@@ -123,6 +123,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   const [accountType, setAccountType] = useState<"demo"|"live"|"funded">("demo");
   const [busy,        setBusy]        = useState(false);
   const [error,       setError]       = useState("");
+  const [ctConfigured, setCtConfigured] = useState<boolean | null>(null);
 
   const isMT        = WEBHOOK_PLATFORMS.has(platform);
   const isCT        = platform === CTRADER_PLATFORM;
@@ -130,11 +131,16 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   const isBrokerApi = BROKER_API_PLATFORMS.has(platform);
   const connType    = platformConnType(platform);
 
+  // Check cTrader OAuth configuration once on mount
+  useState(() => {
+    if (isCT) fetch("/api/broker/ctrader/configured").then(r => r.json()).then(d => setCtConfigured(d.configured)).catch(() => setCtConfigured(false));
+  });
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name) { setError("Display name is required."); return; }
-    if (!loginId) { setError(isCrypto ? "API Key is required." : isCT ? "Account number is required." : isBrokerApi ? "Username / Email is required." : "Account Number is required."); return; }
-    if ((isBrokerApi || isCT) && !secret) { setError("Password is required."); return; }
+    if (!isCT && !loginId) { setError(isCrypto ? "API Key is required." : isBrokerApi ? "Username / Email is required." : "Account Number is required."); return; }
+    if (isBrokerApi && !secret) { setError("Password is required."); return; }
     if (isBrokerApi && platform === 'dxtrade' && !server) { setError("Broker API URL is required."); return; }
 
     setBusy(true); setError("");
@@ -144,7 +150,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         const creds: Record<string, string> = { secret };
         if (passphrase) creds.passphrase = passphrase;
         passwordPayload = JSON.stringify(creds);
-      } else if (isBrokerApi || isCT) {
+      } else if (isBrokerApi) {
         passwordPayload = JSON.stringify({ password: secret });
       } else if (isMT) {
         passwordPayload = secret || undefined;
@@ -152,7 +158,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
       const body: Record<string, any> = {
         name,
-        loginId,
+        loginId:        isCT ? `pending_${Date.now()}` : loginId,
         password:       passwordPayload,
         server:         server || undefined,
         platform,
@@ -165,13 +171,12 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to add account"); return; }
 
-      // For cTrader, attempt OAuth redirect — falls back to webhook instructions if env vars not set
       if (isCT && data.id) {
-        try {
-          const connectRes = await fetch(`/api/broker/ctrader/connect?accountId=${data.id}`, { headers });
-          const connectData = await connectRes.json();
-          if (connectData.url) { window.location.href = connectData.url; return; }
-        } catch {}
+        const connectRes = await fetch(`/api/broker/ctrader/connect?accountId=${data.id}`, { headers });
+        const connectData = await connectRes.json();
+        if (connectData.url) { window.location.href = connectData.url; return; }
+        setError(connectData.error || "cTrader OAuth is not configured on the server.");
+        return;
       }
 
       onCreated(data as BrokerAccount);
@@ -262,21 +267,35 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         </div>
       </>)}
 
-      {/* cTrader — credentials + optional OAuth */}
-      {isCT && (<>
-        <div><label style={lbl}>Account Number *</label>
-          <input style={inp} placeholder="e.g. 12345678" value={loginId} onChange={e => setLoginId(e.target.value)} required />
-        </div>
-        <div><label style={lbl}>cTrader Password *</label>
-          <input style={inp} type="password" placeholder="Your cTrader login password" value={secret} onChange={e => setSecret(e.target.value)} required />
-        </div>
-        <div><label style={lbl}>Broker Server (optional)</label>
-          <input style={inp} placeholder="e.g. ICMarkets-Live" value={server} onChange={e => setServer(e.target.value)} />
-        </div>
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
-          If your broker supports cTrader OAuth, you'll be redirected to authorize after connecting. Otherwise trades sync via REST API automatically.
-        </div>
-      </>)}
+      {/* cTrader — OAuth only (cTrader ID supports Google login) */}
+      {isCT && (
+        ctConfigured === false ? (
+          <div style={{ background: "#120a04", border: "1px solid #7c2d12", padding: "14px 16px", fontSize: 12, color: "#fca5a5", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#f87171" }}>cTrader OAuth is not configured</div>
+            <div>To connect Pepperstone (or any cTrader broker) you need free API credentials from Spotware:</div>
+            <ol style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 5 }}>
+              <li>Go to <strong>connect.ctrader.com</strong> and sign in with your broker account</li>
+              <li>Navigate to <strong>Developer → My Apps → New Application</strong></li>
+              <li>Set Redirect URI to: <code style={{ background: "#1c0a04", padding: "1px 5px" }}>{window.location.origin}/api/broker/ctrader/callback</code></li>
+              <li>Copy your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+              <li>Add these to your <code style={{ background: "#1c0a04", padding: "1px 5px" }}>.env</code> file:<br />
+                <code style={{ background: "#1c0a04", padding: "4px 6px", display: "block", marginTop: 4 }}>
+                  CTRADER_CLIENT_ID=...<br />
+                  CTRADER_CLIENT_SECRET=...<br />
+                  CTRADER_REDIRECT_URI={window.location.origin}/api/broker/ctrader/callback
+                </code>
+              </li>
+              <li>Restart the server</li>
+            </ol>
+          </div>
+        ) : (
+          <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px 16px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ color: "#38bdf8", fontWeight: 600 }}>cTrader uses OAuth — no password needed here</div>
+            <div>After clicking Connect, you'll be taken to cTrader's login page where you can sign in with <strong>Google</strong>, email, or your broker account. Your trades sync automatically once authorized.</div>
+            <div style={{ fontSize: 11, color: "#475569" }}>Works with Pepperstone, IC Markets, Exness, FP Markets, and all cTrader-powered brokers.</div>
+          </div>
+        )
+      )}
 
       <div>
         <label style={lbl}>Account Type</label>
@@ -291,8 +310,8 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button type="button" onClick={onCancel} style={{ background: "none", border: "1px solid #1e3050", color: "#94a3b8", padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
-        <button type="submit" disabled={busy} style={{ background: "linear-gradient(to right,#1d4ed8,#3b82f6)", border: "none", color: "white", padding: "9px 20px", cursor: busy ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
-          {busy ? "Connecting…" : "Add Account"}
+        <button type="submit" disabled={busy || (isCT && ctConfigured === false)} style={{ background: "linear-gradient(to right,#1d4ed8,#3b82f6)", border: "none", color: "white", padding: "9px 20px", cursor: (busy || (isCT && ctConfigured === false)) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: (busy || (isCT && ctConfigured === false)) ? 0.5 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+          {busy ? (isCT ? "Redirecting…" : "Adding…") : isCT ? (<>Connect with cTrader <ExternalLink size={13} /></>) : "Add Account"}
         </button>
       </div>
     </form>
