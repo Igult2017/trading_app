@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, Globe, Maximize2, SunMedium, UserCircle2, Settings } from 'lucide-react';
+import { Menu, Globe, Maximize2, SunMedium, UserCircle2 } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext";
 import { authFetch } from "@/lib/queryClient";
 import { Notifications } from "@/components/Notifications";
@@ -465,14 +465,14 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           cursor:pointer; transition: background 0.15s; flex-shrink:0;
         }
         .avatar-btn:hover { background: linear-gradient(135deg,#2563eb,#3b82f6) !important; }
-        .settings-btn {
+        .settings-btn-unused {
           width:32px; height:32px; border-radius:50%; border:none;
           background: ${dm ? '#1a2535' : '#e2e8f0'};
           display:flex; align-items:center; justify-content:center;
           cursor:pointer; transition: background 0.15s; flex-shrink:0;
           color: ${t.iconColor};
         }
-        .settings-btn:hover { background: ${dm ? '#0c1219' : '#cbd5e1'} !important; }
+        .settings-btn-unused:hover { background: ${dm ? '#0c1219' : '#cbd5e1'} !important; }
         .jh-sidebar-mobile { display: none; }
         @media (max-width: 1024px) {
           .nav-links { display:none !important; }
@@ -557,10 +557,6 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                 />
               )}
             </div>
-            <button className="settings-btn" title="Settings">
-              <Settings size={15} />
-            </button>
-
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
 
             <button
