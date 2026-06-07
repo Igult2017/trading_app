@@ -9,6 +9,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
+import { syncAccount } from "./services/autoSyncService";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
@@ -2752,6 +2753,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const { passwordEnc: _, ...safe } = account;
+
+      // For API-connected accounts (non-webhook), kick off a background full-history sync immediately.
+      if (API_PLATFORMS.has(platform.toLowerCase()) && platform.toLowerCase() !== 'ctrader') {
+        syncAccount(account).catch(() => {});
+      }
+
       return res.status(201).json({ ...safe, webhookUrl: `/api/broker/webhook/${webhookToken}`, sessionId: session.id });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -2874,17 +2881,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      // Default: sync last 30 days; caller can override with ?days=N
-      const days  = Math.min(parseInt(String(req.query.days ?? '30')), 365);
-      const toMs  = Date.now();
-      const fromMs = toMs - days * 86_400_000;
-
-      await storage.updateBrokerAccountSyncStatus(account.id, 'syncing', 0);
-
-      const rawTrades = await fetchTradesForAccount(account, fromMs, toMs);
-      const result    = await processIncomingTrades(account.id, account.userId, rawTrades);
-
-      return res.json({ ...result, platform: account.platform, daysScanned: days });
+      // Delegate to autoSyncService — handles full history, incremental, token refresh
+      syncAccount(account).catch(() => {});
+      return res.json({ message: 'Sync started in background', platform: account.platform });
     } catch (err: any) {
       await storage.updateBrokerAccountSyncStatus(account.id, 'error', 0);
       return res.status(500).json({ error: err.message ?? 'Sync failed' });
@@ -2938,8 +2937,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateBrokerAccount(accountId, {
         loginId:     ctraderId || accountId,
         passwordEnc: encrypt(credJson),
-        syncStatus:  'ok',
+        syncStatus:  'pending',
       });
+
+      // Kick off a full 2-year history sync in background — user lands on /accounts while it runs
+      const freshAccount = await storage.getBrokerAccountById(accountId);
+      if (freshAccount) syncAccount(freshAccount).catch(() => {});
 
       return res.redirect('/accounts?ctrader_connected=1');
     } catch (err: any) {

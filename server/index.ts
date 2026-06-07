@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
+import { startAutoSync } from "./services/autoSyncService";
 import { initializeDatabase } from "./db-init";
 import { getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 import { PYTHON_BIN } from "./lib/pythonBin";
@@ -187,6 +188,7 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
     logServiceStatus();
     // Only worker 0 runs scrapers — prevents N-core duplicate DB writes + external API bans
     if (isPrimaryWorker) scraperScheduler.start();
+    if (isPrimaryWorker) startAutoSync();
 
     // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests
     /*
