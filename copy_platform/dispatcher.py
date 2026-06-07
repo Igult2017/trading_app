@@ -102,7 +102,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
     lots   = calc_lots(follower, snap.volume_lots)
     action = apply_direction(snap.action, follower.direction or "same")
 
-    executor = _get_executor(broker_account)
+    executor = _get_executor(broker_account, creds)
     result   = None
 
     for attempt in range(1, 4):   # up to 3 retries
@@ -140,10 +140,10 @@ def _get_broker_account(follower: CopyFollower) -> BrokerAccount | None:
         return db.get(BrokerAccount, follower.broker_account_id)
 
 
-def _get_executor(broker_account: BrokerAccount):
+def _get_executor(broker_account: BrokerAccount, creds: dict):
     from executors.ctrader import CTraderExecutor
     return CTraderExecutor(
-        creds        = {},   # filled in by caller via get_ctrader_creds
+        creds        = creds,
         account_type = broker_account.account_type or "demo",
     )
 

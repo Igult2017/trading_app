@@ -63,10 +63,7 @@ async def _refresh_ctrader_token(refresh_token: str) -> dict | None:
 
 
 def _save_creds(account_id: str, creds: dict) -> None:
-    from crypto import decrypt  # local import to avoid circular
-    from server_bridge import encrypt_for_db  # see note below
-    # We can't call Node crypto from Python; write the refreshed token back
-    # using the same AES-256-GCM format. Re-encrypt and save.
+    # Re-encrypt using AES-256-GCM (same format as TypeScript server/lib/crypto.ts)
     try:
         from _encrypt import encrypt_str
         enc = encrypt_str(json.dumps(creds))

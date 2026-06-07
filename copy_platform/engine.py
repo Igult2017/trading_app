@@ -33,12 +33,14 @@ class CopyEngine:
         with Session() as db:
             masters = db.query(CopyMaster).filter_by(is_active=True).all()
             broker_ids = [m.broker_account_id for m in masters if m.broker_account_id]
-            accounts = {
-                a.id: a
-                for a in db.query(BrokerAccount).filter(
-                    BrokerAccount.id.in_(broker_ids)
-                ).all()
-            }
+            accounts = {}
+            if broker_ids:
+                accounts = {
+                    a.id: a
+                    for a in db.query(BrokerAccount).filter(
+                        BrokerAccount.id.in_(broker_ids)
+                    ).all()
+                }
 
         for master in masters:
             if master.id in self._providers:

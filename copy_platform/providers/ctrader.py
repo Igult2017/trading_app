@@ -7,11 +7,10 @@ Auth flow: ApplicationAuth → AccountAuth → subscribe → receive ProtoOAExec
 """
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Awaitable
 
-from twisted.internet import defer
-from ctrader_open_api import Client, Protobuf, EndPoints, TcpProtocol
+from ctrader_open_api import Client, Protobuf, TcpProtocol
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (
     ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
 )
@@ -51,7 +50,7 @@ class CTraderProvider:
         self.on_event     = on_event
         self._positions: dict[int, PositionSnapshot] = {}
         self._authed      = False
-        self._loop        = asyncio.get_event_loop()
+        self._loop        = asyncio.get_running_loop()
 
         host = CT_LIVE_HOST if account_type == "live" else CT_DEMO_HOST
         self.client = Client(host, CT_PORT, TcpProtocol)

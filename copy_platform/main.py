@@ -37,8 +37,10 @@ async def _startup() -> None:
 
 
 def main() -> None:
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(_startup())
+    # Schedule startup inside the reactor's asyncio loop — do NOT call
+    # run_until_complete() here because that stops the loop after startup
+    # and breaks all ensure_future tasks (watch_loop, provider reconnects).
+    reactor.callWhenRunning(lambda: asyncio.ensure_future(_startup()))
 
     try:
         reactor.run()
