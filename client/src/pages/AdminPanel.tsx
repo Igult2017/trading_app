@@ -97,6 +97,9 @@ applyAdminFont(localStorage.getItem('admin_font') ?? 'mono');
 
 const FONT = 'var(--admin-font)';
 const HFONT = 'var(--admin-header-font)';
+
+const toTitleCase = (s: string): string =>
+  s.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 const C = {
   bg: 'var(--admin-bg)', sidebar: 'var(--admin-sidebar)', card: 'var(--admin-card)',
   border: 'var(--admin-border)', border2: 'var(--admin-border2)', dim: 'var(--admin-dim)',
@@ -531,7 +534,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
               return (
                 <tr key={u.id} style={{ borderTop: `1px solid ${C.bg}`, position: 'relative' }} onClick={() => setMenuOpenId(null)}>
                   <td style={{ padding: '13px 16px' }}>
-                    <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name || '—'}</p>
+                    <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name ? toTitleCase(u.full_name) : '—'}</p>
                     <p style={{ color: '#3d5878', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
                   </td>
                   <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
@@ -692,7 +695,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
   const [sendingReply, setSendingReply] = useState(false);
   const [careError, setCareError] = useState<string | null>(null);
 
-  const safeTicketUser = (ticket: any) => (typeof ticket?.user === 'string' && ticket.user.trim() ? ticket.user : 'Unknown User');
+  const safeTicketUser = (ticket: any) => toTitleCase(typeof ticket?.user === 'string' && ticket.user.trim() ? ticket.user : 'Unknown User');
   const safeTicketEmail = (ticket: any) => (typeof ticket?.email === 'string' ? ticket.email : '');
   const safeTicketId = (ticket: any) => (typeof ticket?.id === 'string' && ticket.id.trim() ? ticket.id : 'TK-UNKNOWN');
 
@@ -982,7 +985,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               </div>
             ) : apiUsers.slice(0, 5).map((u, idx) => {
               const isAdmin = u.role === 'admin';
-              const displayName = (u.full_name || u.email?.split('@')[0] || 'User') as string;
+              const displayName = toTitleCase((u.full_name || u.email?.split('@')[0] || 'User') as string);
               const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
               const statusColor = isAdmin ? C.amberL : C.green;
               return (
@@ -1018,7 +1021,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
               <Ban size={20} style={{ color: C.redL }} />
             </div>
             <p style={{ color: 'white', fontWeight: 700, fontSize: '17px', textAlign: 'center', margin: '0 0 8px' }}>Confirm Ban</p>
-            <p style={{ color: '#3d5878', fontSize: '13px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{actionUser}</strong></p>
+            <p style={{ color: '#3d5878', fontSize: '13px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{(actionUser as any)?.name}</strong></p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
               <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '13px' }}>Ban Account</button>
@@ -2641,7 +2644,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
                     {user.name.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{user.name}</p>
+                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{toTitleCase(user.name)}</p>
                     <p style={{ color: C.muted, fontSize: '11px', margin: '2px 0 0' }}>{user.id} · {user.email}</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -2656,7 +2659,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
               <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>
-                {selectedAgent ? `Permissions — ${selectedAgent.name}` : 'Select an agent to edit permissions'}
+                {selectedAgent ? `Permissions — ${toTitleCase(selectedAgent.name)}` : 'Select an agent to edit permissions'}
               </h3>
             </div>
             {selectedAgent ? (
@@ -2781,7 +2784,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
                 <label style={{ ...lbl }}>Assign To</label>
                 <select value={newTask.assignee} onChange={e => setNewTask(p => ({ ...p, assignee: e.target.value }))} style={{ ...inp, cursor: 'pointer' }}>
                   <option value="">Select agent...</option>
-                  {ccUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                  {ccUsers.map(u => <option key={u.id} value={u.name}>{toTitleCase(u.name)}</option>)}
                 </select>
               </div>
               <div><label style={{ ...lbl }}>Due Date</label><input type="date" value={newTask.due} onChange={e => setNewTask(p => ({ ...p, due: e.target.value }))} style={{ ...inp, colorScheme: 'dark' }} /></div>
@@ -2950,7 +2953,7 @@ export default function AdminPanel() {
   if (loading) return <TradingLoader fullScreen message="Loading admin panel…" />;
 
   const adminEmail = user?.email ?? '';
-  const adminName = (user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string;
+  const adminName = toTitleCase((user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string);
   const adminInitial = (adminName[0] ?? 'A').toUpperCase();
 
   const SIDEBAR_GROUPS = [
