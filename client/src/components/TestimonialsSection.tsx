@@ -27,8 +27,8 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
   const muted  = dm ? '#94a3b8' : '#64748b';
 
   return (
-    <section id="reviews" style={{ background: bg, padding: '80px 24px', transition: 'all 0.4s ease' }}>
-      <div className="max-w-6xl mx-auto">
+    <section id="reviews" style={{ background: bg, padding: '80px 0', transition: 'all 0.4s ease' }}>
+      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '0 24px' }}>
         <p style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: '#2563eb', marginBottom: 14, ...sans }}>
           TESTIMONIALS
         </p>
@@ -39,7 +39,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
           Real reviews from verified MyfmJournal traders
         </p>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-8">
           {reviews.map((r, i) => (
             <div key={i} style={{ padding: '28px 24px', borderRadius: 6, border: `1px solid ${border}`, background: card, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', gap: 3 }}>
