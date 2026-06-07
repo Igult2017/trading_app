@@ -39,8 +39,8 @@ export interface StocksData {
 const INDICES_KEY     = "homepage:stocks:indices";
 const STOCKS_KEY      = "homepage:stocks:stocks";
 const COMMODITIES_KEY = "homepage:stocks:commodities";
-const TTL         = 5 * 60;              // 5 min — markets move fast
-const RETRY_MS    = 4 * 60 * 1000;      // minimum interval between scraper runs
+const TTL         = 15 * 60;             // 15 min — aligned with scrape interval
+const RETRY_MS    = 15 * 60 * 1000;     // scrape every 15 min
 const SCRIPT      = path.join(process.cwd(), "server", "python", "stocks_scraper.py");
 
 let _lastAttemptAt = 0;
