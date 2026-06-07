@@ -1,199 +1,125 @@
-/**
- * Homepage economic calendar service — MyFXBook only.
- *
- * Strategy:
- *  - The Python scraper targets MyFXBook exclusively (no TradingView fallback).
- *  - We keep a "last good" in-memory cache that is NEVER expired on its own.
- *    If MyFXBook is blocked or unreachable, every API request gets the stale
- *    cache until a successful scrape comes in.
- *  - A background refresh runs every CALENDAR_RETRY_INTERVAL ms.  It only
- *    updates the cache when MyFXBook actually returns data.
- *  - In-flight deduplication prevents multiple Python processes running at once.
- */
-
 import { spawn } from "child_process";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
 import { cacheGet, cacheSet } from "../lib/cache";
+import { upsertCalendarEvents, loadCalendarFromDb } from "./calendarDb";
+export type { CalendarEvent, RateEntry } from "./calendarDb";
+import type { CalendarEvent, RateEntry } from "./calendarDb";
 
-const SCRIPT = path.join(process.cwd(), "server", "python", "news_calendar.py");
-
-export interface CalendarEvent {
-  date: string;
-  time: string;
-  currency: string;
-  event: string;
-  importance: "High" | "Medium" | "Low";
-  actual: string;
-  forecast: string;
-  previous: string;
-  eventTime: string;
-  category: string;
-}
-
-export interface RateEntry {
-  nominal: number;
-  inflation: number;
-  bank: string;
-  live: boolean;
-}
-
-// ── Cache keys & TTLs ────────────────────────────────────────────────────────
 const CAL_KEY   = "homepage:calendar";
 const RATES_KEY = "homepage:rates";
-const CAL_TTL_SECS   = 24 * 60 * 60; // 24h — updated on successful fetch; stale is fine
-const RATES_TTL_SECS = 60 * 60;       // 1h
+const CAL_TTL   = 24 * 60 * 60;       // 24h — scraper keeps it fresh
+const RATES_TTL = 60 * 60;            // 1h
+const RETRY_MS  = 15 * 60 * 1000;     // minimum interval between scraper runs
+const SCRIPT    = path.join(process.cwd(), "server", "python", "news_calendar.py");
 
-let _calendarLastAttemptAt = 0;
-const CALENDAR_RETRY_INTERVAL = 15 * 60 * 1000;
-
-// In-flight deduplication (process-local).
-let _calendarInFlight: Promise<CalendarEvent[]> | null = null;
+let _lastAttemptAt  = 0;
+let _calInFlight:   Promise<CalendarEvent[]>           | null = null;
 let _ratesInFlight: Promise<Record<string, RateEntry>> | null = null;
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── In-process status (not shared across workers — informational only) ────────
-let _calendarSource: 'myfxbook' | 'unknown' = 'unknown';
-let _calendarEventCount = 0;
-let _calendarLastError: string | null = null;
-let _ratesLiveCount     = 0;
-let _ratesFallbackCount = 0;
-let _ratesLastError: string | null = null;
+let _source = "unknown";
+let _count  = 0;
+let _calErr: string | null = null;
 
 export function getCalendarServiceStatus() {
   return {
-    calendar: {
-      lastAttemptAt: _calendarLastAttemptAt || null,
-      eventCount:    _calendarEventCount,
-      source:        _calendarSource,
-      inFlight:      _calendarInFlight !== null,
-      lastError:     _calendarLastError,
-    },
-    rates: {
-      liveCount:     _ratesLiveCount,
-      fallbackCount: _ratesFallbackCount,
-      inFlight:      _ratesInFlight !== null,
-      lastError:     _ratesLastError,
-    },
+    lastAttemptAt: _lastAttemptAt || null,
+    eventCount:    _count,
+    source:        _source,
+    inFlight:      _calInFlight !== null,
+    lastError:     _calErr,
   };
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 function runPython(mode: "calendar" | "rates"): Promise<string> {
   return new Promise((resolve, reject) => {
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-
-    const child = spawn(PYTHON_BIN, [SCRIPT, mode], {
-      cwd: process.cwd(),
-      env: process.env,
-    });
-
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill();
-        reject(new Error("Python timeout (60s)"));
-      }
+    let out = "", err = "", done = false;
+    const child = spawn(PYTHON_BIN, [SCRIPT, mode], { cwd: process.cwd(), env: process.env });
+    const t = setTimeout(() => {
+      if (!done) { done = true; child.kill(); reject(new Error("Python timeout (60s)")); }
     }, 60_000);
-
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
-
-    child.on("error", (err) => {
-      if (!settled) { settled = true; clearTimeout(timer); reject(err); }
-    });
-
-    child.on("close", (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (stderr) console.log(`[homepageCalendar/${mode}]`, stderr.trim());
+    child.stdout.on("data", d => { out += d; });
+    child.stderr.on("data", d => { err += d; });
+    child.on("error", e => { if (!done) { done = true; clearTimeout(t); reject(e); } });
+    child.on("close", code => {
+      if (done) return;
+      done = true; clearTimeout(t);
+      if (err) console.log(`[homepageCalendar/${mode}]`, err.trim());
       if (code !== 0) return reject(new Error(`Python exited ${code}`));
-      resolve(JSON.stringify({ stdout, stderr }));
+      resolve(JSON.stringify({ stdout: out, stderr: err }));
     });
   });
 }
 
-async function _attemptCalendarRefresh(): Promise<CalendarEvent[]> {
-  _calendarLastAttemptAt = Date.now();
+async function _refreshCalendar(): Promise<CalendarEvent[]> {
+  _lastAttemptAt = Date.now();
   try {
-    const envelope = await runPython("calendar");
-    const { stdout, stderr } = JSON.parse(envelope);
-    const data = JSON.parse(stdout) as CalendarEvent[];
-
+    const { stdout } = JSON.parse(await runPython("calendar"));
+    const data: CalendarEvent[] = JSON.parse(stdout);
     if (data.length > 0) {
-      await cacheSet(CAL_KEY, data, CAL_TTL_SECS);
-      _calendarEventCount = data.length;
-      _calendarSource     = 'myfxbook';
-      _calendarLastError  = null;
-      console.log(`[homepageCalendar] MyFXBook: ${data.length} events cached`);
+      await cacheSet(CAL_KEY, data, CAL_TTL);
+      // Persist to DB fire-and-forget — never blocks the cache update
+      upsertCalendarEvents(data).catch(e => console.error("[calendarDb] upsert failed:", e.message));
+      _count = data.length; _source = "myfxbook"; _calErr = null;
+      console.log(`[homepageCalendar] scraped ${data.length} events`);
     } else {
-      const reason = stderr.includes('Cloudflare') ? 'Cloudflare challenge'
-                   : stderr.includes('0 rows')     ? '0 rows scraped'
-                   : 'no data';
-      _calendarLastError = `MyFXBook unavailable (${reason}) — serving stale cache`;
-      console.warn(`[homepageCalendar] ${_calendarLastError}`);
+      _calErr = "0 events returned — serving cache";
+      console.warn("[homepageCalendar]", _calErr);
     }
-  } catch (err: any) {
-    _calendarLastError = err.message;
-    console.error("[homepageCalendar] calendar fetch failed:", err.message);
+  } catch (e: any) {
+    _calErr = e.message;
+    console.error("[homepageCalendar] scrape failed:", e.message);
   }
-
   return (await cacheGet<CalendarEvent[]>(CAL_KEY)) ?? [];
 }
 
 export async function getHomepageCalendar(): Promise<CalendarEvent[]> {
-  const now = Date.now();
-  const due = now - _calendarLastAttemptAt >= CALENDAR_RETRY_INTERVAL;
-
-  if (due && !_calendarInFlight) {
-    _calendarInFlight = _attemptCalendarRefresh()
-      .finally(() => { _calendarInFlight = null; });
+  const due = Date.now() - _lastAttemptAt >= RETRY_MS;
+  if (due && !_calInFlight) {
+    _calInFlight = _refreshCalendar().finally(() => { _calInFlight = null; });
   }
-
   const cached = await cacheGet<CalendarEvent[]>(CAL_KEY);
   if (cached) return cached;
-  if (_calendarInFlight) return _calendarInFlight;
+  if (_calInFlight) return _calInFlight;
   return [];
 }
 
 export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
   const cached = await cacheGet<Record<string, RateEntry>>(RATES_KEY);
   if (cached && Object.keys(cached).length > 0) return cached;
-
   if (_ratesInFlight) return _ratesInFlight;
-
   _ratesInFlight = runPython("rates")
-    .then(async (envelope) => {
-      const { stdout } = JSON.parse(envelope);
-      const data = JSON.parse(stdout) as Record<string, RateEntry>;
-      if (Object.keys(data).length > 0) {
-        await cacheSet(RATES_KEY, data, RATES_TTL_SECS);
-        _ratesLiveCount     = Object.values(data).filter(r => r.live).length;
-        _ratesFallbackCount = Object.values(data).filter(r => !r.live).length;
-        _ratesLastError     = null;
-      }
-      return Object.keys(data).length > 0 ? data : ((await cacheGet<Record<string, RateEntry>>(RATES_KEY)) ?? {});
+    .then(async env => {
+      const data: Record<string, RateEntry> = JSON.parse(JSON.parse(env).stdout);
+      if (Object.keys(data).length > 0) await cacheSet(RATES_KEY, data, RATES_TTL);
+      return Object.keys(data).length > 0 ? data : (await cacheGet<Record<string, RateEntry>>(RATES_KEY)) ?? {};
     })
-    .catch(async (err) => {
-      _ratesLastError = err.message;
-      console.error("[homepageCalendar] rates fetch failed:", err);
+    .catch(async e => {
+      console.error("[homepageCalendar/rates]", e.message);
       return (await cacheGet<Record<string, RateEntry>>(RATES_KEY)) ?? {};
     })
     .finally(() => { _ratesInFlight = null; });
-
   return _ratesInFlight;
 }
 
-// ── Startup warm-up ───────────────────────────────────────────────────────────
-(function warmupOnStartup() {
-  console.log("[homepageCalendar] Warming up calendar + rates cache in background…");
+// ── Startup: seed cache from DB first (instant), then refresh in background ──
+(async function warmup() {
+  try {
+    const events = await loadCalendarFromDb();
+    if (events.length > 0) {
+      await cacheSet(CAL_KEY, events, CAL_TTL);
+      _count = events.length; _source = "database";
+      console.log(`[homepageCalendar] DB seed: ${events.length} events → cache warm before first request`);
+    } else {
+      console.log("[homepageCalendar] DB empty — scraper will populate on first request");
+    }
+  } catch (e: any) {
+    console.warn("[homepageCalendar] DB seed failed:", e.message);
+  }
+  // Fresh scrape runs in background — updates cache + DB when done
   getHomepageCalendar()
-    .then(d  => console.log(`[homepageCalendar] Calendar cache ready (${d.length} events)`))
+    .then(d => console.log(`[homepageCalendar] background scrape: ${d.length} events`))
     .catch(() => {});
   getHomepageRates()
-    .then(d  => console.log(`[homepageCalendar] Rates cache ready (${Object.keys(d).length} currencies)`))
+    .then(d => console.log(`[homepageCalendar] rates ready: ${Object.keys(d).length} currencies`))
     .catch(() => {});
 })();
