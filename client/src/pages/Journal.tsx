@@ -1222,9 +1222,9 @@ export default function Journal() {
           ) : activeNav === 'sync' ? (
             <TradeSyncPage />
           ) : activeNav === 'accounts' ? (
-            <AccountsPage darkMode={T.dark} />
+            <AccountsPage darkMode={T.dark} onViewSession={handleSelectSession} />
           ) : activeNav === 'addaccount' ? (
-            <AccountsPage openModal={true} darkMode={T.dark} />
+            <AccountsPage openModal={true} darkMode={T.dark} onViewSession={handleSelectSession} />
           ) : activeNav === 'assets' ? (
             <AssetPage darkMode={T.dark} />
           ) : activeNav === 'leaderboard' ? (

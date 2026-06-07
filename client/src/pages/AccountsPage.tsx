@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,6 +18,7 @@ interface BrokerAccount {
   lastSyncAt: string | null;
   tradeCount: number;
   webhookToken: string | null;
+  defaultSessionId: string | null;
   isActive: boolean;
 }
 
@@ -301,7 +302,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 }
 
 // ── Main AccountsPage ─────────────────────────────────────────────────────────
-export default function AccountsPage({ openModal = false, darkMode = true }: { openModal?: boolean; darkMode?: boolean }) {
+export default function AccountsPage({ openModal = false, darkMode = true, onViewSession }: { openModal?: boolean; darkMode?: boolean; onViewSession?: (sessionId: string) => void }) {
   const { session } = useAuth();
   const [accounts,    setAccounts]    = useState<BrokerAccount[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -327,7 +328,7 @@ export default function AccountsPage({ openModal = false, darkMode = true }: { o
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (p.get('ctrader_connected')) {
-      setInfo('cTrader connected! Click Sync on the account to import your trades.');
+      setInfo('cTrader connected! Your full trade history is syncing in the background — this may take a minute.');
       window.history.replaceState({}, '', '/accounts');
       fetchAccounts();
     } else if (p.get('ctrader_error')) {
@@ -436,7 +437,11 @@ export default function AccountsPage({ openModal = false, darkMode = true }: { o
                 </td></tr>
               ) : paged.map(a => (
                 <tr key={a.id} style={s.tr as CSSProperties}>
-                  <td style={s.td as CSSProperties}>{a.name}</td>
+                  <td
+                    style={{ ...s.td, cursor: a.defaultSessionId && onViewSession ? "pointer" : "default", color: a.defaultSessionId && onViewSession ? "#38bdf8" : undefined } as CSSProperties}
+                    onClick={() => a.defaultSessionId && onViewSession && onViewSession(a.defaultSessionId)}
+                    title={a.defaultSessionId && onViewSession ? "Click to view performance dashboard" : undefined}
+                  >{a.name}</td>
                   <td style={{ ...s.td, color: "#38bdf8", fontWeight: 700 } as CSSProperties}>{a.loginId}</td>
                   <td style={{ ...s.td, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis" } as CSSProperties}>{a.server ?? "—"}</td>
                   <td style={{ ...s.td, color: a.accountType === "live" ? "#4ade80" : a.accountType === "funded" ? "#a78bfa" : "#ef4444", fontWeight: 700 } as CSSProperties}>
@@ -453,6 +458,11 @@ export default function AccountsPage({ openModal = false, darkMode = true }: { o
                   <td style={s.td as CSSProperties}><SyncBadge status={a.syncStatus} lastSyncAt={a.lastSyncAt} /></td>
                   <td style={s.td as CSSProperties}>
                     <div style={{ display: "flex", gap: isMobile ? 2 : 5, alignItems: "center" }}>
+                      {a.defaultSessionId && onViewSession && (
+                        <button style={s.actionBtn as CSSProperties} title="View Performance Dashboard" onClick={() => onViewSession(a.defaultSessionId!)}>
+                          <BarChart2 size={14} color="#4ade80" />
+                        </button>
+                      )}
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Sync" onClick={() => handleSync(a)}><RefreshCw size={14} color="#94a3b8" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Edit"><Pencil size={14} color="#38bdf8" /></button>
