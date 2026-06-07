@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
-  Rocket, Info, AlertTriangle, Filter, Hash, Send, Zap,
+  Rocket, AlertTriangle, Filter, Hash, Send, Zap,
   MessageSquare, GitMerge, Menu, X,
 } from 'lucide-react';
+import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ const InfoBox = ({ children, color = 'blue' }: any) => {
   };
   return (
     <div className={`flex items-start gap-3 p-3 md:p-4 border rounded-sm ${styles[color]}`}>
-      <Info size={14} className="mt-0.5 flex-shrink-0" />
+      <PiInfoFill size={15} className="mt-0.5 flex-shrink-0" />
       <p className="text-[11px] leading-relaxed">{children}</p>
     </div>
   );
@@ -298,7 +299,7 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
         </div>
       </div>
       <div className="flex items-start gap-3 p-3 md:p-4 border border-blue-500/20 bg-blue-500/5 rounded-sm">
-        <Info size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
+        <PiInfoFill size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
         <p className="text-[11px] text-blue-300 leading-relaxed">Use your <span className="text-blue-200 font-semibold">investor (read-only) password</span> — never your master password.</p>
       </div>
     </div>
@@ -1772,7 +1773,7 @@ export default function TradeSyncPage() {
 
         {/* ── Overview Banner ── */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: '12px 16px', marginBottom: 0, fontSize: 11, color: '#64748b', lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>
-          <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <PiInfoFill style={{ flexShrink: 0, marginTop: 2 }} size={16} color="#38bdf8" />
           <span><strong style={{ color: '#94a3b8', fontWeight: 700 }}>What is Trade Sync?</strong> — Trade Sync is an automated copy-trading engine that links multiple brokerage accounts and replicates positions in real time. You can operate as a <strong style={{ color: '#94a3b8' }}>Provider</strong> (broadcasting your trades to followers), a <strong style={{ color: '#94a3b8' }}>Follower</strong> (mirroring a master account with configurable lot sizing and risk controls), perform <strong style={{ color: '#94a3b8' }}>Self-Copy</strong> between your own accounts, or route signals directly from a <strong style={{ color: '#94a3b8' }}>Telegram</strong> channel. All copying happens through an isolated bridge — no withdrawal permissions or sensitive credentials are ever required.</span>
         </div>
 
