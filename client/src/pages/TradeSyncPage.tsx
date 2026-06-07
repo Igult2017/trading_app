@@ -226,15 +226,15 @@ const StatusDot = ({ status }: any) => {
 };
 
 // ─── STEPS ────────────────────────────────────────────────────────────────────
-const StepRole = ({ data, setData, resetStep }: any) => (
+const StepRole = ({ data, setData, onNext }: any) => (
   <div className="border border-white/5">
     <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5 border-b border-white/5">
-      <FeatureCard icon={Radio}         title="Signal Provider"  active={data.role==='provider'} onClick={() => { setData({...data,role:'provider'}); resetStep(); }} sub="Master account. Broadcast your trades to followers in real-time." />
-      <FeatureCard icon={Users}         title="Copy Follower"    active={data.role==='follower'} onClick={() => { setData({...data,role:'follower'}); resetStep(); }} sub="Follow a verified provider. Trades mirror automatically." />
+      <FeatureCard icon={Radio}         title="Signal Provider"  active={data.role==='provider'} onClick={() => { setData({...data,role:'provider'}); onNext(); }} sub="Master account. Broadcast your trades to followers in real-time." />
+      <FeatureCard icon={Users}         title="Copy Follower"    active={data.role==='follower'} onClick={() => { setData({...data,role:'follower'}); onNext(); }} sub="Follow a verified provider. Trades mirror automatically." />
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5">
-      <FeatureCard icon={GitFork}       title="Self-Copy"         active={data.role==='self'}     onClick={() => { setData({...data,role:'self'}); resetStep(); }}     sub="Duplicate trades between your own accounts on any broker." />
-      <FeatureCard icon={MessageSquare} title="Telegram Signals"  active={data.role==='telegram'} onClick={() => { setData({...data,role:'telegram'}); resetStep(); }} sub="Parse and auto-execute signals from a Telegram channel." accent="text-sky-400" />
+      <FeatureCard icon={GitFork}       title="Self-Copy"         active={data.role==='self'}     onClick={() => { setData({...data,role:'self'}); onNext(); }}     sub="Duplicate trades between your own accounts on any broker." />
+      <FeatureCard icon={MessageSquare} title="Telegram Signals"  active={data.role==='telegram'} onClick={() => { setData({...data,role:'telegram'}); onNext(); }} sub="Parse and auto-execute signals from a Telegram channel." accent="text-sky-400" />
     </div>
   </div>
 );
@@ -1373,7 +1373,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
   const renderStep = () => {
     switch (cur.id) {
-      case 'role':       return <StepRole          data={data} setData={setData} resetStep={() => setStep(0)} />;
+      case 'role':       return <StepRole          data={data} setData={setData} onNext={handleNext} />;
       case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':'Trading Account'} />;
       case 'connect2':   return <StepConnect2      data={data} setData={setData} />;
       case 'link':       return <StepLink          data={data} setData={setData} providers={providers} providersLoading={providersLoading} />;
