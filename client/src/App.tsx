@@ -10,6 +10,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
+
+// Fire before any React component mounts — eliminates loading flash on /calendar
+startCalendarBackgroundRefresh(queryClient);
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
@@ -231,16 +234,6 @@ function AppRoutes() {
   );
 }
 
-function PrefetchCalendar() {
-  useEffect(() => {
-    // Start the background loop — fires immediately, then every 12 min.
-    // Returns cleanup so the interval is cleared if this component ever unmounts.
-    const stop = startCalendarBackgroundRefresh(queryClient);
-    return stop;
-  }, []);
-  return null;
-}
-
 /**
  * Silently warms the journal panel cache the moment a session is confirmed —
  * even before the user navigates to /journal.
@@ -324,7 +317,6 @@ export default function App() {
       persistOptions={{ persister: localStoragePersister, maxAge: 24 * 60 * 60 * 1000 }}
     >
       <PublicThemeContext.Provider value={{ darkMode, setDarkMode }}>
-        <PrefetchCalendar />
         <TooltipProvider>
           <AuthProvider>
             <JournalPrefetcher />
