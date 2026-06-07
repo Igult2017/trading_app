@@ -270,23 +270,9 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
       {/* cTrader — OAuth only (cTrader ID supports Google login) */}
       {isCT && (
         ctConfigured === false ? (
-          <div style={{ background: "#120a04", border: "1px solid #7c2d12", padding: "14px 16px", fontSize: 12, color: "#fca5a5", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#f87171" }}>cTrader OAuth is not configured</div>
-            <div>To connect Pepperstone (or any cTrader broker) you need free API credentials from Spotware:</div>
-            <ol style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 5 }}>
-              <li>Go to <strong>connect.ctrader.com</strong> and sign in with your broker account</li>
-              <li>Navigate to <strong>Developer → My Apps → New Application</strong></li>
-              <li>Set Redirect URI to: <code style={{ background: "#1c0a04", padding: "1px 5px" }}>{window.location.origin}/api/broker/ctrader/callback</code></li>
-              <li>Copy your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
-              <li>Add these to your <code style={{ background: "#1c0a04", padding: "1px 5px" }}>.env</code> file:<br />
-                <code style={{ background: "#1c0a04", padding: "4px 6px", display: "block", marginTop: 4 }}>
-                  CTRADER_CLIENT_ID=...<br />
-                  CTRADER_CLIENT_SECRET=...<br />
-                  CTRADER_REDIRECT_URI={window.location.origin}/api/broker/ctrader/callback
-                </code>
-              </li>
-              <li>Restart the server</li>
-            </ol>
+          <div style={{ background: "#120a04", border: "1px solid #7c2d12", padding: "14px 16px", fontSize: 12, color: "#fca5a5", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#f87171" }}>cTrader connection pending Spotware approval</div>
+            <div>The app has been submitted to Spotware for review. KYC approval takes up to 3 business days. Once the status changes to <strong>Active</strong>, cTrader accounts can be connected here automatically — no further setup needed.</div>
           </div>
         ) : (
           <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px 16px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
