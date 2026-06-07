@@ -132,20 +132,19 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name)    { setError("Display name is required."); return; }
-    if (!isCT && !loginId) { setError(isCrypto ? "API Key is required." : isBrokerApi ? "Username / Email is required." : "Account Number is required."); return; }
-    if (isBrokerApi && !secret) { setError("Password is required."); return; }
+    if (!name) { setError("Display name is required."); return; }
+    if (!loginId) { setError(isCrypto ? "API Key is required." : isCT ? "Account number is required." : isBrokerApi ? "Username / Email is required." : "Account Number is required."); return; }
+    if ((isBrokerApi || isCT) && !secret) { setError("Password is required."); return; }
     if (isBrokerApi && platform === 'dxtrade' && !server) { setError("Broker API URL is required."); return; }
 
     setBusy(true); setError("");
     try {
-      // Build password payload: for crypto, encrypt as JSON
       let passwordPayload: string | undefined;
       if (isCrypto) {
         const creds: Record<string, string> = { secret };
         if (passphrase) creds.passphrase = passphrase;
         passwordPayload = JSON.stringify(creds);
-      } else if (isBrokerApi) {
+      } else if (isBrokerApi || isCT) {
         passwordPayload = JSON.stringify({ password: secret });
       } else if (isMT) {
         passwordPayload = secret || undefined;
@@ -153,21 +152,28 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
       const body: Record<string, any> = {
         name,
-        loginId:         isCT ? `pending_${Date.now()}` : loginId,
-        password:        passwordPayload,
-        server:          server || undefined,
+        loginId,
+        password:       passwordPayload,
+        server:         server || undefined,
         platform,
         accountType,
-        connectionType:  connType,
+        connectionType: connType,
       };
 
-      const res  = await fetch("/api/broker-accounts", {
-        method: "POST",
-        headers: await authHeaders(),
-        body: JSON.stringify(body),
-      });
+      const headers = await authHeaders();
+      const res  = await fetch("/api/broker-accounts", { method: "POST", headers, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to add account"); return; }
+
+      // For cTrader, attempt OAuth redirect — falls back to webhook instructions if env vars not set
+      if (isCT && data.id) {
+        try {
+          const connectRes = await fetch(`/api/broker/ctrader/connect?accountId=${data.id}`, { headers });
+          const connectData = await connectRes.json();
+          if (connectData.url) { window.location.href = connectData.url; return; }
+        } catch {}
+      }
+
       onCreated(data as BrokerAccount);
     } catch (err: any) {
       setError(err.message);
@@ -256,13 +262,21 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         </div>
       </>)}
 
-      {/* cTrader — OAuth flow */}
-      {isCT && (
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div>cTrader uses OAuth — after adding the account you'll be redirected to cTrader to authorize access.</div>
-          <div style={{ fontSize: 12, color: "#64748b" }}>No passwords are stored. Myfmjournal receives a read-only access token.</div>
+      {/* cTrader — credentials + optional OAuth */}
+      {isCT && (<>
+        <div><label style={lbl}>Account Number *</label>
+          <input style={inp} placeholder="e.g. 12345678" value={loginId} onChange={e => setLoginId(e.target.value)} required />
         </div>
-      )}
+        <div><label style={lbl}>cTrader Password *</label>
+          <input style={inp} type="password" placeholder="Your cTrader login password" value={secret} onChange={e => setSecret(e.target.value)} required />
+        </div>
+        <div><label style={lbl}>Broker Server (optional)</label>
+          <input style={inp} placeholder="e.g. ICMarkets-Live" value={server} onChange={e => setServer(e.target.value)} />
+        </div>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+          If your broker supports cTrader OAuth, you'll be redirected to authorize after connecting. Otherwise trades sync via REST API automatically.
+        </div>
+      </>)}
 
       <div>
         <label style={lbl}>Account Type</label>
@@ -278,7 +292,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button type="button" onClick={onCancel} style={{ background: "none", border: "1px solid #1e3050", color: "#94a3b8", padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
         <button type="submit" disabled={busy} style={{ background: "linear-gradient(to right,#1d4ed8,#3b82f6)", border: "none", color: "white", padding: "9px 20px", cursor: busy ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
-          {busy ? "Adding…" : isCT ? (<>Authorize with cTrader <ExternalLink size={13} /></>) : "Add Account"}
+          {busy ? "Connecting…" : "Add Account"}
         </button>
       </div>
     </form>

@@ -2723,7 +2723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "name, loginId, and platform are required" });
     }
 
-    const passwordEnc = password ? encrypt(password) : undefined;
+    const passwordEnc = password ? encrypt(password) : null;
     const webhookToken = randomBytes(24).toString('hex');
 
     try {
