@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, Globe, Maximize2, SunMedium, UserCircle2 } from 'lucide-react';
+import { Menu, Globe, Maximize2, Minimize2, SunMedium, UserCircle2 } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext";
 import { authFetch } from "@/lib/queryClient";
 import { Notifications } from "@/components/Notifications";
@@ -334,6 +334,21 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
   const profileRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -529,7 +544,9 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
             <button className="jh-icon-btn" style={iconButtonStyle} title="Language"><Globe size={16} /></button>
             <Notifications dm={dm} />
-            <button className="jh-icon-btn" style={iconButtonStyle} title="Fullscreen"><Maximize2 size={16} /></button>
+            <button className="jh-icon-btn" style={iconButtonStyle} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
             <button className="jh-icon-btn" style={iconButtonStyle} title="Brightness" onClick={() => onToggleDarkMode()}><SunMedium size={16} /></button>
 
             <div style={{ width: 1, height: 24, background: t.navBorder, margin: '0 6px' }} />
