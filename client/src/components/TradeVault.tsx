@@ -610,10 +610,14 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         }
       `}</style>
 
-      {vaultHeader(`Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
+      {vaultHeader(isLoading ? "Loading…" : `Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
 
       <div style={{ padding: 0 }}>
-      {trades.length === 0 ? (
+      {!sessionId ? (
+        <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
+          <div style={{ color: "var(--jr-muted)", fontSize: 13 }}>Select a session to view your trades.</div>
+        </div>
+      ) : isLoading ? null : trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
           <div style={{ color: "var(--jr-muted)", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
         </div>
