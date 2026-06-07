@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2 } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, Info } from "lucide-react";
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -461,9 +461,9 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Top Banner */}
       <div style={s.banner as CSSProperties}>
-        <span style={{ color: "#38bdf8" }}>ⓘ</span>
+        <Info size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
         <span>Issues syncing? Try an account history repair</span>
-        <span>🔧</span>
+        <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
       </div>
 
       {/* OAuth / info message */}
