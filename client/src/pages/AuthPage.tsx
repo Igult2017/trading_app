@@ -5,27 +5,63 @@ import { supabase } from '@/lib/supabase';
 
 type Mode = 'login' | 'signup' | 'forgot';
 
-const COUNTRIES = [
-  'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia','Austria',
-  'Azerbaijan','Bahamas','Bahrain','Bangladesh','Belarus','Belgium','Belize','Benin','Bhutan',
-  'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso',
-  'Burundi','Cambodia','Cameroon','Canada','Cape Verde','Central African Republic','Chad','Chile',
-  'China','Colombia','Comoros','Congo','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic',
-  'Denmark','Djibouti','Dominican Republic','DR Congo','Ecuador','Egypt','El Salvador','Estonia',
-  'Eswatini','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana',
-  'Greece','Guatemala','Guinea','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran',
-  'Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kuwait',
-  'Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania',
-  'Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Mauritania','Mauritius',
-  'Mexico','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia',
-  'Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia',
-  'Norway','Oman','Pakistan','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines',
-  'Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Senegal','Serbia',
-  'Sierra Leone','Singapore','Slovakia','Slovenia','Somalia','South Africa','South Korea',
-  'South Sudan','Spain','Sri Lanka','Sudan','Sweden','Switzerland','Syria','Taiwan','Tajikistan',
-  'Tanzania','Thailand','Togo','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Uganda',
-  'Ukraine','United Arab Emirates','United Kingdom','United States','Uruguay','Uzbekistan',
-  'Venezuela','Vietnam','Yemen','Zambia','Zimbabwe',
+const COUNTRY_OPTIONS: { code: string; name: string }[] = [
+  {code:'AF',name:'Afghanistan'},{code:'AL',name:'Albania'},{code:'DZ',name:'Algeria'},
+  {code:'AD',name:'Andorra'},{code:'AO',name:'Angola'},{code:'AR',name:'Argentina'},
+  {code:'AM',name:'Armenia'},{code:'AU',name:'Australia'},{code:'AT',name:'Austria'},
+  {code:'AZ',name:'Azerbaijan'},{code:'BS',name:'Bahamas'},{code:'BH',name:'Bahrain'},
+  {code:'BD',name:'Bangladesh'},{code:'BY',name:'Belarus'},{code:'BE',name:'Belgium'},
+  {code:'BZ',name:'Belize'},{code:'BJ',name:'Benin'},{code:'BT',name:'Bhutan'},
+  {code:'BO',name:'Bolivia'},{code:'BA',name:'Bosnia and Herzegovina'},{code:'BW',name:'Botswana'},
+  {code:'BR',name:'Brazil'},{code:'BN',name:'Brunei'},{code:'BG',name:'Bulgaria'},
+  {code:'BF',name:'Burkina Faso'},{code:'BI',name:'Burundi'},{code:'KH',name:'Cambodia'},
+  {code:'CM',name:'Cameroon'},{code:'CA',name:'Canada'},{code:'CV',name:'Cape Verde'},
+  {code:'CF',name:'Central African Republic'},{code:'TD',name:'Chad'},{code:'CL',name:'Chile'},
+  {code:'CN',name:'China'},{code:'CO',name:'Colombia'},{code:'KM',name:'Comoros'},
+  {code:'CG',name:'Congo'},{code:'CR',name:'Costa Rica'},{code:'HR',name:'Croatia'},
+  {code:'CU',name:'Cuba'},{code:'CY',name:'Cyprus'},{code:'CZ',name:'Czech Republic'},
+  {code:'DK',name:'Denmark'},{code:'DJ',name:'Djibouti'},{code:'DO',name:'Dominican Republic'},
+  {code:'CD',name:'DR Congo'},{code:'EC',name:'Ecuador'},{code:'EG',name:'Egypt'},
+  {code:'SV',name:'El Salvador'},{code:'EE',name:'Estonia'},{code:'SZ',name:'Eswatini'},
+  {code:'ET',name:'Ethiopia'},{code:'FJ',name:'Fiji'},{code:'FI',name:'Finland'},
+  {code:'FR',name:'France'},{code:'GA',name:'Gabon'},{code:'GM',name:'Gambia'},
+  {code:'GE',name:'Georgia'},{code:'DE',name:'Germany'},{code:'GH',name:'Ghana'},
+  {code:'GR',name:'Greece'},{code:'GT',name:'Guatemala'},{code:'GN',name:'Guinea'},
+  {code:'HT',name:'Haiti'},{code:'HN',name:'Honduras'},{code:'HU',name:'Hungary'},
+  {code:'IS',name:'Iceland'},{code:'IN',name:'India'},{code:'ID',name:'Indonesia'},
+  {code:'IR',name:'Iran'},{code:'IQ',name:'Iraq'},{code:'IE',name:'Ireland'},
+  {code:'IL',name:'Israel'},{code:'IT',name:'Italy'},{code:'JM',name:'Jamaica'},
+  {code:'JP',name:'Japan'},{code:'JO',name:'Jordan'},{code:'KZ',name:'Kazakhstan'},
+  {code:'KE',name:'Kenya'},{code:'KW',name:'Kuwait'},{code:'KG',name:'Kyrgyzstan'},
+  {code:'LA',name:'Laos'},{code:'LV',name:'Latvia'},{code:'LB',name:'Lebanon'},
+  {code:'LS',name:'Lesotho'},{code:'LR',name:'Liberia'},{code:'LY',name:'Libya'},
+  {code:'LI',name:'Liechtenstein'},{code:'LT',name:'Lithuania'},{code:'LU',name:'Luxembourg'},
+  {code:'MG',name:'Madagascar'},{code:'MW',name:'Malawi'},{code:'MY',name:'Malaysia'},
+  {code:'MV',name:'Maldives'},{code:'ML',name:'Mali'},{code:'MT',name:'Malta'},
+  {code:'MR',name:'Mauritania'},{code:'MU',name:'Mauritius'},{code:'MX',name:'Mexico'},
+  {code:'MD',name:'Moldova'},{code:'MC',name:'Monaco'},{code:'MN',name:'Mongolia'},
+  {code:'ME',name:'Montenegro'},{code:'MA',name:'Morocco'},{code:'MZ',name:'Mozambique'},
+  {code:'MM',name:'Myanmar'},{code:'NA',name:'Namibia'},{code:'NP',name:'Nepal'},
+  {code:'NL',name:'Netherlands'},{code:'NZ',name:'New Zealand'},{code:'NI',name:'Nicaragua'},
+  {code:'NE',name:'Niger'},{code:'NG',name:'Nigeria'},{code:'KP',name:'North Korea'},
+  {code:'MK',name:'North Macedonia'},{code:'NO',name:'Norway'},{code:'OM',name:'Oman'},
+  {code:'PK',name:'Pakistan'},{code:'PS',name:'Palestine'},{code:'PA',name:'Panama'},
+  {code:'PG',name:'Papua New Guinea'},{code:'PY',name:'Paraguay'},{code:'PE',name:'Peru'},
+  {code:'PH',name:'Philippines'},{code:'PL',name:'Poland'},{code:'PT',name:'Portugal'},
+  {code:'QA',name:'Qatar'},{code:'RO',name:'Romania'},{code:'RU',name:'Russia'},
+  {code:'RW',name:'Rwanda'},{code:'SA',name:'Saudi Arabia'},{code:'SN',name:'Senegal'},
+  {code:'RS',name:'Serbia'},{code:'SL',name:'Sierra Leone'},{code:'SG',name:'Singapore'},
+  {code:'SK',name:'Slovakia'},{code:'SI',name:'Slovenia'},{code:'SO',name:'Somalia'},
+  {code:'ZA',name:'South Africa'},{code:'KR',name:'South Korea'},{code:'SS',name:'South Sudan'},
+  {code:'ES',name:'Spain'},{code:'LK',name:'Sri Lanka'},{code:'SD',name:'Sudan'},
+  {code:'SE',name:'Sweden'},{code:'CH',name:'Switzerland'},{code:'SY',name:'Syria'},
+  {code:'TW',name:'Taiwan'},{code:'TJ',name:'Tajikistan'},{code:'TZ',name:'Tanzania'},
+  {code:'TH',name:'Thailand'},{code:'TG',name:'Togo'},{code:'TT',name:'Trinidad and Tobago'},
+  {code:'TN',name:'Tunisia'},{code:'TR',name:'Turkey'},{code:'TM',name:'Turkmenistan'},
+  {code:'UG',name:'Uganda'},{code:'UA',name:'Ukraine'},{code:'AE',name:'United Arab Emirates'},
+  {code:'GB',name:'United Kingdom'},{code:'US',name:'United States'},{code:'UY',name:'Uruguay'},
+  {code:'UZ',name:'Uzbekistan'},{code:'VE',name:'Venezuela'},{code:'VN',name:'Vietnam'},
+  {code:'YE',name:'Yemen'},{code:'ZM',name:'Zambia'},{code:'ZW',name:'Zimbabwe'},
 ];
 
 async function handleGoogleSignIn() {
@@ -54,6 +90,20 @@ export default function AuthPage() {
   const [info, setInfo]                       = useState('');
   const [busy, setBusy]                       = useState(false);
   const [googleBusy, setGoogleBusy]           = useState(false);
+  const [geoLoading, setGeoLoading]           = useState(false);
+
+  useEffect(() => {
+    if (mode !== 'signup' || country) return;
+    setGeoLoading(true);
+    fetch('https://ipapi.co/json/')
+      .then(r => r.json())
+      .then((d: any) => {
+        const code = d?.country_code?.toUpperCase();
+        if (code && COUNTRY_OPTIONS.some(c => c.code === code)) setCountry(code);
+      })
+      .catch(() => {})
+      .finally(() => setGeoLoading(false));
+  }, [mode]);
 
   // True only if this browser has successfully signed in before
   const [isReturning] = useState(() => {
@@ -130,7 +180,7 @@ export default function AuthPage() {
         try { localStorage.setItem('fmj_returning', '1'); } catch {}
         navigate(assignedRole === 'admin' ? '/admin' : '/journal', { replace: true });
       } else {
-        const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName);
+        const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName, country);
         if (err) { setError(err.message); return; }
         if (emailConfirmationRequired) {
           setInfo('Account created! Please check your email to confirm, then sign in.');
@@ -368,19 +418,31 @@ export default function AuthPage() {
                 </button>
               </div>
 
-              <select
-                className="auth-input"
-                value={country}
-                onChange={e => setCountry(e.target.value)}
-                required
-                disabled={disabled}
-                style={{ appearance: 'none', cursor: 'pointer', color: country ? '#e2e8f0' : '#3d5070' }}
-              >
-                <option value="" disabled>Country</option>
-                {COUNTRIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                {country && (
+                  <img
+                    src={`https://flagcdn.com/w40/${country.toLowerCase()}.png`}
+                    alt={country}
+                    style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 24, height: 16, objectFit: 'cover', borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.5)', pointerEvents: 'none', zIndex: 1 }}
+                  />
+                )}
+                {geoLoading && !country && (
+                  <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)', borderTopColor: '#3b82f6', animation: 'auth-spin 0.7s linear infinite', pointerEvents: 'none', zIndex: 1 }} />
+                )}
+                <select
+                  className="auth-input"
+                  value={country}
+                  onChange={e => setCountry(e.target.value)}
+                  required
+                  disabled={disabled}
+                  style={{ appearance: 'none', cursor: 'pointer', color: country ? '#e2e8f0' : '#3d5070', paddingLeft: country ? '46px' : geoLoading ? '38px' : '16px' }}
+                >
+                  <option value="" disabled>{geoLoading ? 'Detecting location…' : 'Country'}</option>
+                  {COUNTRY_OPTIONS.map(c => (
+                    <option key={c.code} value={c.code}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </>
           )}
 

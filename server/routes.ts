@@ -195,16 +195,21 @@ async function ensureUserProfile(user: { id: string; email?: string | null; user
   if (!user?.id || _profileEnsured.has(user.id)) return;
   const email    = (user.email ?? '').toString();
   const fullName = extractFullName(user);
+  const country  = (user.user_metadata?.country ?? '').toString().slice(0, 2).toUpperCase();
   await pool.query(
     `INSERT INTO user_profiles (id, email, full_name, role, status, plan, country)
-     VALUES ($1, $2, $3, 'user', 'Active', 'Free', '')
+     VALUES ($1, $2, $3, 'user', 'Active', 'Free', $4)
      ON CONFLICT (id) DO UPDATE SET
        email     = COALESCE(NULLIF(EXCLUDED.email, ''), user_profiles.email),
        full_name = CASE
          WHEN COALESCE(user_profiles.full_name, '') = '' THEN EXCLUDED.full_name
          ELSE user_profiles.full_name
+       END,
+       country = CASE
+         WHEN COALESCE(user_profiles.country, '') = '' AND EXCLUDED.country <> '' THEN EXCLUDED.country
+         ELSE user_profiles.country
        END`,
-    [user.id, email, fullName],
+    [user.id, email, fullName, country],
   );
   _profileEnsured.add(user.id);
 }

@@ -18,9 +18,19 @@ interface Trader {
   growth: number[];
 }
 
-const flagEmoji = (code?: string) => {
-  if (!code || code.length !== 2) return '';
-  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0)));
+const FlagCdn = ({ code, size = 28 }: { code?: string; size?: number }) => {
+  if (!code || code.length !== 2) return null;
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+      alt={code.toUpperCase()}
+      title={code.toUpperCase()}
+      width={size}
+      height={Math.round(size * 0.67)}
+      style={{ objectFit: 'cover', borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)', display: 'block', flexShrink: 0 }}
+      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
 };
 
 const truncateName = (name: string, maxWords = 2) => {
@@ -249,8 +259,8 @@ export default function Leaderboard() {
                     </div>
                     {/* Top-right country flag */}
                     {trader.country && (
-                      <div title={trader.country.toUpperCase()} style={{ position: 'absolute', top: 10, right: 12, fontSize: 22, lineHeight: 1, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }}>
-                        {flagEmoji(trader.country)}
+                      <div style={{ position: 'absolute', top: 10, right: 12 }}>
+                        <FlagCdn code={trader.country} size={30} />
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
@@ -332,9 +342,7 @@ export default function Leaderboard() {
                           {trader.avatar}
                         </div>
                         {trader.country && (
-                          <span title={trader.country.toUpperCase()} style={{ fontSize: isMobile ? 14 : 16, lineHeight: 1, flexShrink: 0 }}>
-                            {flagEmoji(trader.country)}
-                          </span>
+                          <FlagCdn code={trader.country} size={isMobile ? 20 : 24} />
                         )}
                         <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--jr-text)' }}>{truncateName(trader.name)}</span>
                       </div>

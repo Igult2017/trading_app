@@ -31,7 +31,7 @@ interface AuthContextValue {
   user: User | null;
   role: 'admin' | 'user' | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{
+  signUp: (email: string, password: string, fullName: string, country?: string) => Promise<{
     error: Error | null;
     emailConfirmationRequired: boolean;
   }>;
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signUp(email: string, password: string, fullName: string) {
+  async function signUp(email: string, password: string, fullName: string, country = '') {
     if (!supabase) return { error: new Error('Auth not configured'), emailConfirmationRequired: false };
 
     const redirectTo = `${window.location.origin}/auth/callback`;
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, country },
         emailRedirectTo: redirectTo,
       },
     });
