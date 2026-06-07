@@ -558,6 +558,27 @@ export async function initializeDatabase() {
       console.warn('[Database] Could not ensure blog_posts table:', e.message);
     }
 
+    // ── price_alerts ─────────────────────────────────────────────────────────
+    try {
+      await db.execute(sql.raw(`
+        CREATE TABLE IF NOT EXISTS price_alerts (
+          id            VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id       VARCHAR NOT NULL,
+          symbol        TEXT NOT NULL,
+          asset_class   TEXT NOT NULL DEFAULT 'forex',
+          target_price  DECIMAL(15, 8) NOT NULL,
+          direction     TEXT NOT NULL,
+          proximity_pct DECIMAL(5, 3) DEFAULT 0,
+          is_triggered  BOOLEAN DEFAULT false,
+          triggered_at  TIMESTAMP,
+          created_at    TIMESTAMP DEFAULT NOW()
+        )
+      `));
+      console.log('[Database] price_alerts table ready');
+    } catch (e: any) {
+      console.warn('[Database] Could not ensure price_alerts table:', e.message);
+    }
+
     // ── blog_comments (depends on blog_posts existing first) ─────────────────
     try {
       await db.execute(sql.raw(`

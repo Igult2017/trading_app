@@ -875,10 +875,22 @@ export class DbStorage implements IStorage {
 
   // ── Blog ─────────────────────────────────────────────────────────────────
   async getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]> {
-    let q = db.select().from(blogPosts).$dynamic();
-    if (filters?.status)  q = q.where(eq(blogPosts.status, filters.status));
-    if (filters?.section) q = q.where(eq(blogPosts.section, filters.section));
-    return (await q.orderBy(desc(blogPosts.createdAt)));
+    const conditions: string[] = [];
+    const values: any[] = [];
+    if (filters?.status)  { values.push(filters.status);  conditions.push(`status = $${values.length}`); }
+    if (filters?.section) { values.push(filters.section); conditions.push(`section = $${values.length}`); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await pool.query<any>(
+      `SELECT id, slug, title, excerpt, content, category, author,
+              author_id AS "authorId", date, read_time AS "readTime",
+              image_url AS "imageUrl", status, section,
+              signal_data AS "signalData", author_data AS "authorData",
+              summary, video_url AS "videoUrl",
+              created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM blog_posts ${where} ORDER BY created_at DESC`,
+      values,
+    );
+    return rows;
   }
 
   async getBlogPostById(id: string): Promise<BlogPost | undefined> {

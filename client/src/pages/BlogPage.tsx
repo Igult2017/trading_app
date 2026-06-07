@@ -83,23 +83,28 @@ export default function BlogPage() {
   const {
     data: rawPosts,
     isLoading: loading,
+    isError,
+    error: queryError,
     dataUpdatedAt,
     refetch,
   } = useQuery<Article[]>({
     queryKey: QUERY_KEY,
-    queryFn: () =>
-      fetch('/api/blog')
-        .then(r => r.ok ? r.json() : [])
-        .then((data: any[] | null) => {
-          if (!data || !Array.isArray(data)) return [];
-          return data.map(mapPost);
-        })
-        .catch(() => []),
+    queryFn: async () => {
+      const r = await fetch('/api/blog');
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.error ?? `Server error ${r.status}`);
+      }
+      const data: any[] = await r.json();
+      if (!Array.isArray(data)) return [];
+      return data.map(mapPost);
+    },
     staleTime: 2 * 60 * 1000,
     gcTime:    10 * 60 * 1000,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
     refetchInterval: false,
+    retry: 2,
   });
 
   // Cross-tab: refetch immediately when admin publishes a post
@@ -224,7 +229,16 @@ export default function BlogPage() {
           </div>
         )}
 
-        {!loading && allPosts.length === 0 && (
+        {isError && (
+          <div className={`text-center py-24 border ${isDark ? 'border-red-900/40 text-red-400' : 'border-red-200 text-red-500'}`}>
+            <Archive size={28} className="mx-auto mb-4 opacity-50" />
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.25em] mb-2">Failed to load posts</div>
+            <div className="text-[10px] font-medium opacity-70">{(queryError as Error)?.message ?? 'Unknown error'}</div>
+            <button onClick={() => refetch()} className="mt-4 text-[9px] font-bold uppercase tracking-widest underline opacity-60 hover:opacity-100">Retry</button>
+          </div>
+        )}
+
+        {!loading && !isError && allPosts.length === 0 && (
           <div className={`text-center py-24 border ${isDark ? 'border-[#1e293b] text-slate-500' : 'border-stone-200 text-stone-400'}`}>
             <Archive size={28} className="mx-auto mb-4 opacity-50" />
             <div className="text-[11px] font-extrabold uppercase tracking-[0.25em] mb-2">No posts yet</div>
@@ -232,14 +246,14 @@ export default function BlogPage() {
           </div>
         )}
 
-        {!loading && allPosts.length > 0 && filteredArticles.length === 0 && (
+        {!loading && !isError && allPosts.length > 0 && filteredArticles.length === 0 && (
           <div className={`text-center py-24 text-[11px] font-bold uppercase tracking-[0.25em] ${isDark ? 'text-slate-500' : 'text-stone-400'}`}>
             No posts in "{activeCategory}".
           </div>
         )}
 
         {/* ── Layout Grid ───────────────────────────────────────────────── */}
-        {!loading && featuredArticle && (
+        {!loading && !isError && featuredArticle && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
             {/* Featured Article */}
