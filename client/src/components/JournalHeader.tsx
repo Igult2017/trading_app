@@ -560,7 +560,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <div ref={langRef} style={{ position: 'relative' }}>
               <button className="jh-icon-btn" style={{ ...iconButtonStyle, position: 'relative' }} title={t('language')} onClick={() => setLangOpen(o => !o)}>
                 <Globe size={16} />
-                <span style={{ position: 'absolute', bottom: -2, right: -2, fontSize: 8, lineHeight: 1 }}>{LANGUAGES[lang].flag}</span>
+                <span style={{ position: 'absolute', bottom: -2, right: -2, fontSize: 8, lineHeight: 1 }}>{ALL_LANGUAGES[lang]?.flag}</span>
               </button>
               {langOpen && (
                 <div style={{ position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: dm ? '#0c1219' : '#fff', border: `1px solid ${dm ? '#1e2d3d' : '#e2e8f0'}`, borderRadius: 10, padding: '6px 0', minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
