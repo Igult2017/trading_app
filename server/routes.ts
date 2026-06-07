@@ -80,6 +80,7 @@ import { signalMonitor } from "./services/signalMonitor";
 import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTracker";
 import { getHomepageCalendar, getHomepageRates, getCalendarServiceStatus } from "./services/homepageCalendar";
 import { getCryptoData } from "./services/cryptoService";
+import { getStocksData } from "./services/stocksService";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
 // Avoids spawning a Python process on every request when data hasn't changed.
@@ -1599,6 +1600,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Stocks & indices (investing.com scraper) ─────────────────────────────
+  app.get("/api/homepage/stocks", async (_req, res) => {
+    try {
+      const data = await getStocksData();
+      res.json(data);
+    } catch (error) {
+      console.error("[homepage/stocks]", error);
+      res.json({ indices: [], stocks: [] });
+    }
+  });
+
+  app.get("/api/homepage/stocks/indices", async (_req, res) => {
+    try {
+      const data = await getStocksData();
+      res.json(data.indices);
+    } catch (error) {
+      console.error("[homepage/stocks/indices]", error);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/homepage/stocks/quotes", async (_req, res) => {
+    try {
+      const data = await getStocksData();
+      res.json(data.stocks);
+    } catch (error) {
+      console.error("[homepage/stocks/quotes]", error);
+      res.json([]);
+    }
+  });
 
   // ── Crypto market data ────────────────────────────────────────────────────
   app.get("/api/crypto/market", async (_req, res) => {
