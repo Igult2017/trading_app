@@ -1179,6 +1179,7 @@ export default function Journal() {
         onToggleDarkMode={toggleDarkMode}
         themeLabel={T.label}
         themeAccent={T.accent}
+        onNavigateToSettings={() => setActiveNav('settings')}
       />
 
       <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
