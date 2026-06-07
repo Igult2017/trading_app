@@ -55,6 +55,11 @@ export default function AuthPage() {
   const [busy, setBusy]                       = useState(false);
   const [googleBusy, setGoogleBusy]           = useState(false);
 
+  // True only if this browser has successfully signed in before
+  const [isReturning] = useState(() => {
+    try { return localStorage.getItem('fmj_returning') === '1'; } catch { return false; }
+  });
+
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
 
@@ -122,6 +127,7 @@ export default function AuthPage() {
       if (mode === 'login') {
         const { error: err, role: assignedRole } = await signIn(email, password);
         if (err) { setError(err.message); return; }
+        try { localStorage.setItem('fmj_returning', '1'); } catch {}
         navigate(assignedRole === 'admin' ? '/admin' : '/journal', { replace: true });
       } else {
         const { error: err, emailConfirmationRequired } = await signUp(email, password, fullName);
@@ -154,10 +160,10 @@ export default function AuthPage() {
         <div style={S.logoRow}>
           <span style={S.logoText}>
             <span style={{ color: '#ffffff' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+            <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 5px' }}>.</span>
+            <span style={{ color: '#94a3b8', fontFamily: "'Poppins','Inter',sans-serif", fontWeight: 500, fontSize: 15 }}>Reset password</span>
           </span>
         </div>
-        <h1 style={S.title}>Reset Password</h1>
-        <p style={S.sub}>Enter your email and we'll send you a reset link.</p>
 
         <div style={S.form}>
           <style>{`
@@ -256,18 +262,23 @@ export default function AuthPage() {
         .auth-check { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; }
       `}</style>
 
-      {/* Logo */}
+      {/* One-line header */}
       <div style={S.logoRow}>
         <span style={S.logoText}>
           <span style={{ color: '#ffffff' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+          {mode === 'login' && isReturning ? (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 5px' }}>.</span>
+              <span style={{ color: '#3b82f6', fontFamily: "'Poppins','Inter',sans-serif", fontWeight: 600, fontSize: 15 }}>Welcome back</span>
+            </>
+          ) : mode === 'signup' ? (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 5px' }}>.</span>
+              <span style={{ color: '#94a3b8', fontFamily: "'Poppins','Inter',sans-serif", fontWeight: 500, fontSize: 15 }}>Create account</span>
+            </>
+          ) : null}
         </span>
       </div>
-
-      {/* Heading */}
-      <h1 style={S.title}>{mode === 'login' ? 'Welcome back' : 'Create account'}</h1>
-      <p style={S.sub}>
-        {mode === 'login' ? 'Sign in to continue.' : 'Join My FM | Journal and start tracking your trades.'}
-      </p>
 
       <div style={S.form}>
 
@@ -454,27 +465,16 @@ const S: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 28,
+    marginBottom: 32,
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: 400,
     fontFamily: "'DM Serif Display', serif",
     letterSpacing: '0.01em',
-  },
-  title: {
-    color: '#3b82f6',
-    fontSize: 28,
-    fontWeight: 800,
-    margin: '0 0 8px',
-    textAlign: 'center',
-    fontFamily: "'Poppins','Inter',sans-serif",
-  },
-  sub: {
-    color: '#94a3b8',
-    fontSize: 14,
-    margin: '0 0 28px',
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 0,
   },
   form: {
     display: 'flex',

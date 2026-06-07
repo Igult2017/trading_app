@@ -47,6 +47,8 @@ export default function AuthCallbackPage() {
       const { data: refreshed } = await supabase.auth.getSession();
       const role = refreshed.session?.user?.app_metadata?.role ?? refreshed.session?.user?.user_metadata?.role;
 
+      try { localStorage.setItem('fmj_returning', '1'); } catch {}
+
       if (role === 'admin') {
         navigate('/admin');
       } else {
