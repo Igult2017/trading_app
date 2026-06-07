@@ -4,6 +4,39 @@ import { useQueryClient } from "@tanstack/react-query";
 import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
 import { Menu, Sun, Moon, X } from "lucide-react";
 
+const TICKER_ITEMS = [
+  { symbol: "BTC/USD",  price: "67,204",  change: "-1.34%", up: false },
+  { symbol: "GOLD",     price: "2,318.4", change: "+0.45%", up: true  },
+  { symbol: "SPX500",   price: "5,236.1", change: "+0.28%", up: true  },
+  { symbol: "GBP/USD",  price: "1.2691",  change: "-0.08%", up: false },
+  { symbol: "ETH/USD",  price: "3,512.7", change: "+2.11%", up: true  },
+  { symbol: "OIL/WTI",  price: "78.34",   change: "-0.67%", up: false },
+  { symbol: "USD/JPY",  price: "156.72",  change: "+0.19%", up: true  },
+  { symbol: "EUR/USD",  price: "1.0842",  change: "+0.12%", up: true  },
+];
+
+function TickerBand() {
+  const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
+  return (
+    <div style={{ background: "#080c10", borderBottom: "1px solid #0f1923", height: 32, overflow: "hidden", display: "flex", alignItems: "center" }}>
+      <style>{`
+        @keyframes hh-ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        .hh-ticker-wrap { display:flex; animation: hh-ticker 40s linear infinite; will-change:transform; }
+        .hh-ticker-wrap:hover { animation-play-state: paused; }
+      `}</style>
+      <div className="hh-ticker-wrap">
+        {items.map((t, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
+            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
+            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600 }}>{t.price}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const NAV_LINKS = [
   { label: "Features",  href: "/#features" },
   { label: "Pricing",   href: "/#pricing"  },
@@ -100,6 +133,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       borderBottom: `1px solid ${scrolled ? navBorder : "transparent"}`,
       boxShadow: shadow, transition: "all 0.3s ease",
     }}>
+      <TickerBand />
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 68 }}>
 
