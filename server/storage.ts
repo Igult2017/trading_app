@@ -78,6 +78,7 @@ export interface IStorage {
 
   getCopyMasters(userId?: string): Promise<CopyMaster[]>;
   getCopyMasterById(id: string): Promise<CopyMaster | undefined>;
+  getCopyMasterByBrokerAccountId(brokerAccountId: string): Promise<CopyMaster | undefined>;
   createCopyMaster(master: InsertCopyMaster): Promise<CopyMaster>;
   updateCopyMaster(id: string, master: Partial<InsertCopyMaster>): Promise<CopyMaster | undefined>;
   deleteCopyMaster(id: string): Promise<boolean>;
@@ -691,6 +692,12 @@ export class DbStorage implements IStorage {
 
   async getCopyMasterById(id: string): Promise<CopyMaster | undefined> {
     const r = await db.select().from(copyMasters).where(eq(copyMasters.id, id)).limit(1);
+    return r[0];
+  }
+
+  async getCopyMasterByBrokerAccountId(brokerAccountId: string): Promise<CopyMaster | undefined> {
+    const r = await db.select().from(copyMasters)
+      .where(eq((copyMasters as any).brokerAccountId, brokerAccountId)).limit(1);
     return r[0];
   }
 

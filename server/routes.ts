@@ -2965,6 +2965,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  /**
+   * Register a connected broker account as a copy-trading signal provider.
+   * Creates (or returns existing) copy_masters row linked to the broker account.
+   * The Python copy engine picks it up within 60 s and starts the cTrader listener.
+   */
+  app.post("/api/broker-accounts/:id/register-as-provider", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: "Only API-connected accounts can be signal providers" });
+    }
+
+    // Return existing master if already registered
+    const existing = await storage.getCopyMasterByBrokerAccountId(account.id);
+    if (existing) return res.json({ master: existing, created: false });
+
+    const { strategyName, description, tradingStyle, primaryMarket, isPublic } = req.body as Record<string, any>;
+
+    const master = await storage.createCopyMaster({
+      userId:           user.id,
+      brokerAccountId:  account.id,
+      sourceType:       account.platform.toLowerCase(),
+      strategyName:     strategyName ?? account.name,
+      description:      description  ?? '',
+      tradingStyle:     tradingStyle ?? 'intraday',
+      primaryMarket:    primaryMarket ?? 'fx',
+      isPublic:         isPublic !== false,
+      requireApproval:  false,
+      showOpenTrades:   true,
+      isActive:         true,
+    });
+
+    return res.status(201).json({ master, created: true });
+  });
+
   // ── Auth: registration setup (idempotent) ────────────────────────────────────
   // Called by the client after every sign-in/sign-up.
   // On the FIRST call for a given user, a profile is created with a role assigned

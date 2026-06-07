@@ -33,20 +33,21 @@ export type CopyAccount = typeof copyAccounts.$inferSelect;
 
 /** Signal providers / master accounts registered on the platform. */
 export const copyMasters = pgTable("copy_masters", {
-  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:          varchar("user_id").references(() => users.id),
-  accountId:       varchar("account_id").references(() => copyAccounts.id),
-  sourceType:      text("source_type").notNull(),    // mt5 | telegram
-  strategyName:    text("strategy_name"),
-  description:     text("description"),
-  tradingStyle:    text("trading_style"),            // scalp | intraday | swing | position | hft
-  primaryMarket:   text("primary_market"),           // fx | crypto | stocks | commodities | mixed
-  isPublic:        boolean("is_public").default(true),
-  requireApproval: boolean("require_approval").default(false),
-  showOpenTrades:  boolean("show_open_trades").default(true),
-  isActive:        boolean("is_active").default(false),
-  createdAt:       timestamp("created_at").defaultNow(),
-  updatedAt:       timestamp("updated_at").defaultNow(),
+  id:               varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:           varchar("user_id").references(() => users.id),
+  accountId:        varchar("account_id").references(() => copyAccounts.id),
+  brokerAccountId:  varchar("broker_account_id"),   // FK → broker_accounts.id (plain varchar — defined later in schema)
+  sourceType:       text("source_type").notNull(),   // mt5 | telegram | ctrader | binance | bybit | bitget | coinbase
+  strategyName:     text("strategy_name"),
+  description:      text("description"),
+  tradingStyle:     text("trading_style"),           // scalp | intraday | swing | position | hft
+  primaryMarket:    text("primary_market"),          // fx | crypto | stocks | commodities | mixed
+  isPublic:         boolean("is_public").default(true),
+  requireApproval:  boolean("require_approval").default(false),
+  showOpenTrades:   boolean("show_open_trades").default(true),
+  isActive:         boolean("is_active").default(false),
+  createdAt:        timestamp("created_at").defaultNow(),
+  updatedAt:        timestamp("updated_at").defaultNow(),
 });
 
 export const insertCopyMasterSchema = createInsertSchema(copyMasters).omit({ id: true, createdAt: true, updatedAt: true });
@@ -88,6 +89,7 @@ export const copyFollowers = pgTable("copy_followers", {
   id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId:          varchar("user_id").references(() => users.id),
   accountId:       varchar("account_id").references(() => copyAccounts.id),
+  brokerAccountId: varchar("broker_account_id"),    // FK → broker_accounts.id — used instead of accountId for API-connected accounts
   masterId:        varchar("master_id").references(() => copyMasters.id),
   lotMode:         text("lot_mode").notNull().default("mult"),  // mult | fixed | risk
   lotMultiplier:   decimal("lot_multiplier",  { precision: 6, scale: 2 }).default("1.0"),
