@@ -223,6 +223,7 @@ export const userProfiles = pgTable("user_profiles", {
   winRate:   text("win_rate").default(''),
   avatarUrl: text("avatar_url"),
   deleteAfter: timestamp("delete_after"),
+  leaderboardHidden: boolean("leaderboard_hidden").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

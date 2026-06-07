@@ -498,6 +498,7 @@ export async function initializeDatabase() {
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'Active'`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate    TEXT DEFAULT ''`,
       `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS delete_after TIMESTAMP`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false`,
       `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS candle_pattern TEXT`,
       `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS primary_signals TEXT`,
       `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS secondary_signals TEXT`,

@@ -692,6 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         JOIN journal_entries je ON je.session_id = ts.id
         LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
         WHERE je.profit_loss IS NOT NULL
+          AND (up.leaderboard_hidden IS NULL OR up.leaderboard_hidden = false)
           ${dateFilter}
           ${nameFilter}
         GROUP BY ts.id, ts.session_name, COALESCE(je.user_id, ts.user_id)
@@ -764,6 +765,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Leaderboard/by-session] Error:', error);
       res.status(500).json({ error: 'Failed to fetch session leaderboard' });
+    }
+  });
+
+  // ── Admin: leaderboard entries (all users incl. hidden) ───────────────────────
+  app.get("/api/admin/leaderboard/entries", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { rows } = await pool.query(`
+        SELECT
+          COALESCE(je.user_id, ts.user_id)                                                   AS user_id,
+          MAX(up.full_name)                                                                   AS full_name,
+          MAX(up.email)                                                                       AS email,
+          MAX(up.country)                                                                     AS country,
+          COALESCE(MAX(up.leaderboard_hidden::int)::boolean, false)                           AS hidden,
+          COUNT(DISTINCT ts.id)                                                               AS session_count,
+          COUNT(*)                                                                            AS total_trades,
+          COUNT(*) FILTER (WHERE je.profit_loss > 0)                                          AS wins,
+          ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                         AS total_pnl
+        FROM trading_sessions ts
+        JOIN journal_entries je ON je.session_id = ts.id
+        LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
+        WHERE je.profit_loss IS NOT NULL
+        GROUP BY COALESCE(je.user_id, ts.user_id)
+        ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
+        LIMIT 500
+      `);
+      const mapped = rows.map((r: any) => {
+        const trades  = parseInt(r.total_trades) || 0;
+        const wins    = parseInt(r.wins) || 0;
+        const name    = r.full_name?.trim() || r.email?.split('@')[0] || `Trader #${(r.user_id || '').slice(-4).toUpperCase()}`;
+        return {
+          userId: r.user_id, name, email: r.email || '', country: r.country || '',
+          hidden: r.hidden === true || r.hidden === 't',
+          sessions: parseInt(r.session_count) || 0, trades,
+          winRate: trades > 0 ? Math.round((wins / trades) * 100) : 0,
+          pnl: parseFloat(r.total_pnl) || 0,
+        };
+      });
+      res.json({ entries: mapped });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin: hide/restore user from leaderboard ─────────────────────────────────
+  app.patch("/api/admin/leaderboard/:userId", requireAdmin, async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { hidden } = req.body as { hidden: boolean };
+    try {
+      await db.update(userProfiles).set({ leaderboardHidden: hidden }).where(eq(userProfiles.id, userId));
+      res.json({ ok: true, userId, hidden });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

@@ -1069,7 +1069,7 @@ const SERVICE_GROUPS = {
 
 // ─── SYNC PERFORMANCE SECTION ────────────────────────────────────────────────
 const SyncPerformanceSection = ({ bp }: { bp: any }) => {
-  type TabId = 'overview' | 'providers' | 'telegram' | 'followers' | 'trades';
+  type TabId = 'overview' | 'providers' | 'telegram' | 'followers' | 'trades' | 'leaderboard';
   const [tab, setTab] = useState<TabId>('overview');
 
   // ── Shared overview data (providers + followers + tg stats in one call) ────
@@ -1086,6 +1086,13 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const [allTrades, setAllTrades]   = useState<any[]>([]);
   const [atLoading, setAtLoading]   = useState(false);
   const [atLoaded, setAtLoaded]     = useState(false);
+
+  // ── Leaderboard management ─────────────────────────────────────────────────
+  const [lbEntries, setLbEntries]   = useState<any[]>([]);
+  const [lbLoading, setLbLoading]   = useState(false);
+  const [lbLoaded, setLbLoaded]     = useState(false);
+  const [lbConfirm, setLbConfirm]   = useState<{ userId: string; name: string; hide: boolean } | null>(null);
+  const [lbBusy, setLbBusy]         = useState(false);
 
   const loadOverview = async () => {
     setOvLoading(true);
@@ -1114,9 +1121,153 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     setAtLoading(false);
   };
 
+  const loadLbEntries = async () => {
+    setLbLoading(true);
+    try {
+      const r = await fetch('/api/admin/leaderboard/entries');
+      if (r.ok) { setLbEntries((await r.json()).entries ?? []); setLbLoaded(true); }
+    } catch {}
+    setLbLoading(false);
+  };
+
+  const handleLbToggle = async () => {
+    if (!lbConfirm) return;
+    setLbBusy(true);
+    try {
+      const r = await fetch(`/api/admin/leaderboard/${lbConfirm.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden: lbConfirm.hide }),
+      });
+      if (r.ok) {
+        setLbEntries(prev => prev.map(e =>
+          e.userId === lbConfirm.userId ? { ...e, hidden: lbConfirm.hide } : e
+        ));
+      }
+    } catch {}
+    setLbBusy(false);
+    setLbConfirm(null);
+  };
+
+  const renderLeaderboard = () => {
+    const active = lbEntries.filter(e => !e.hidden);
+    const hidden = lbEntries.filter(e => e.hidden);
+    const row = (e: any, rank: number, isHidden: boolean) => (
+      <tr key={e.userId} style={{ borderBottom: `1px solid ${C.border}` }}>
+        <td style={{ padding: '8px 10px', color: C.muted, fontSize: '12px', width: 36, textAlign: 'center' }}>
+          {isHidden ? '—' : rank}
+        </td>
+        <td style={{ padding: '8px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FlagImg country={e.country} size={20} />
+            <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>
+              {toTitleCase(e.name || 'Unknown')}
+            </span>
+          </div>
+        </td>
+        <td style={{ padding: '8px 10px', color: C.text, fontSize: '12px', textAlign: 'right' }}>{e.sessions ?? 0}</td>
+        <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right',
+          color: (e.pnl ?? 0) >= 0 ? C.green : C.red }}>
+          {(e.pnl ?? 0) >= 0 ? '+' : ''}{Number(e.pnl ?? 0).toFixed(2)}
+        </td>
+        <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right',
+          color: (e.winRate ?? 0) >= 50 ? C.green : C.muted }}>
+          {Number(e.winRate ?? 0).toFixed(1)}%
+        </td>
+        <td style={{ padding: '8px 10px', color: C.muted, fontSize: '12px', textAlign: 'right' }}>{e.trades ?? 0}</td>
+        <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+          <button
+            onClick={() => setLbConfirm({ userId: e.userId, name: toTitleCase(e.name || 'Unknown'), hide: !isHidden })}
+            style={{ ...btn, fontSize: '11px', padding: '4px 10px',
+              background: isHidden ? C.green + '22' : C.red + '22',
+              color: isHidden ? C.green : C.red,
+              border: `1px solid ${isHidden ? C.green : C.red}40` }}>
+            {isHidden ? 'Restore' : 'Remove'}
+          </button>
+        </td>
+      </tr>
+    );
+    const thead = (
+      <thead>
+        <tr style={{ borderBottom: `1px solid ${C.border2}` }}>
+          {['#', 'User', 'Sessions', 'PnL', 'Win %', 'Trades', ''].map((h, i) => (
+            <th key={i} style={{ padding: '6px 10px', fontSize: '10px', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted,
+              textAlign: i === 0 ? 'center' : i < 2 ? 'left' : i === 6 ? 'right' : 'right' }}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+    );
+    return (
+      <div style={{ fontFamily: FONT }}>
+        {lbLoading && <div style={{ color: C.muted, fontSize: '13px', padding: '24px 0', textAlign: 'center' }}>Loading…</div>}
+        {!lbLoading && (
+          <>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
+                Active on Leaderboard ({active.length})
+              </div>
+              {active.length === 0
+                ? <div style={{ color: C.muted, fontSize: '12px', padding: '12px 0' }}>No active entries.</div>
+                : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg }}>
+                    {thead}
+                    <tbody>{active.map((e, i) => row(e, i + 1, false))}</tbody>
+                  </table>
+                )}
+            </div>
+            {hidden.length > 0 && (
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
+                  Hidden from Leaderboard ({hidden.length})
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg, opacity: 0.65 }}>
+                  {thead}
+                  <tbody>{hidden.map((e, i) => row(e, i + 1, true))}</tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+        {/* Confirm modal */}
+        {lbConfirm && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '28px 32px',
+              minWidth: 340, fontFamily: FONT }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: C.text, marginBottom: 10 }}>
+                {lbConfirm.hide ? 'Remove from Leaderboard' : 'Restore to Leaderboard'}
+              </div>
+              <div style={{ fontSize: '13px', color: C.muted, marginBottom: 24 }}>
+                {lbConfirm.hide
+                  ? <>Remove <strong style={{ color: C.text }}>{lbConfirm.name}</strong> from the public leaderboard? Their account and trade data are not affected.</>
+                  : <>Restore <strong style={{ color: C.text }}>{lbConfirm.name}</strong> to the public leaderboard?</>}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setLbConfirm(null)}
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                    background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
+                  Cancel
+                </button>
+                <button onClick={handleLbToggle} disabled={lbBusy}
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                    background: lbConfirm.hide ? C.red : C.green, color: '#fff', opacity: lbBusy ? 0.6 : 1 }}>
+                  {lbBusy ? '…' : lbConfirm.hide ? 'Remove' : 'Restore'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   useEffect(() => { loadOverview(); }, []);
-  useEffect(() => { if (tab === 'telegram' && !tgLoaded) loadTgTrades(); }, [tab]);
-  useEffect(() => { if (tab === 'trades'   && !atLoaded) loadAllTrades(); }, [tab]);
+  useEffect(() => { if (tab === 'telegram'    && !tgLoaded) loadTgTrades();  }, [tab]);
+  useEffect(() => { if (tab === 'trades'      && !atLoaded) loadAllTrades(); }, [tab]);
+  useEffect(() => { if (tab === 'leaderboard' && !lbLoaded) loadLbEntries(); }, [tab]);
 
   async function markOutcome(id: string, current: string | null, which: 'win' | 'loss') {
     const next = current === which ? null : which;
@@ -1152,11 +1303,12 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
   // ── Shared UI helpers ──────────────────────────────────────────────────────
   const TAB_ITEMS: { id: TabId; label: string }[] = [
-    { id: 'overview',   label: 'Overview'     },
-    { id: 'providers',  label: 'Providers'    },
-    { id: 'telegram',   label: 'Telegram'     },
-    { id: 'followers',  label: 'Followers'    },
-    { id: 'trades',     label: 'All Trades'   },
+    { id: 'overview',     label: 'Overview'     },
+    { id: 'providers',    label: 'Providers'    },
+    { id: 'telegram',     label: 'Telegram'     },
+    { id: 'followers',    label: 'Followers'    },
+    { id: 'trades',       label: 'All Trades'   },
+    { id: 'leaderboard',  label: 'Leaderboard'  },
   ];
 
   const tabBar = (
@@ -1444,6 +1596,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     loadOverview();
     if (tgLoaded) { setTgLoaded(false); loadTgTrades(); }
     if (atLoaded) { setAtLoaded(false); loadAllTrades(); }
+    if (lbLoaded) { setLbLoaded(false); loadLbEntries(); }
   };
 
   return (
@@ -1465,11 +1618,12 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
       {/* Content */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '16px', overflow: 'auto', flex: 1 }}>
-        {tab === 'overview'  && renderOverview()}
-        {tab === 'providers' && renderProviders()}
-        {tab === 'telegram'  && renderTelegram()}
-        {tab === 'followers' && renderFollowers()}
-        {tab === 'trades'    && renderAllTrades()}
+        {tab === 'overview'     && renderOverview()}
+        {tab === 'providers'    && renderProviders()}
+        {tab === 'telegram'     && renderTelegram()}
+        {tab === 'followers'    && renderFollowers()}
+        {tab === 'trades'       && renderAllTrades()}
+        {tab === 'leaderboard'  && renderLeaderboard()}
       </div>
     </div>
   );
