@@ -52,10 +52,17 @@ async function runCheck(): Promise<void> {
 
       for (const alert of alerts) {
         const target = parseFloat(alert.targetPrice);
+        const proximity = parseFloat(alert.proximityPct ?? "0") / 100; // e.g. 0.005 = 0.5%
+        // For "above": trigger when price >= target * (1 - proximity)
+        // For "below": trigger when price <= target * (1 + proximity)
+        const triggerLevel =
+          alert.direction === "above"
+            ? target * (1 - proximity)
+            : target * (1 + proximity);
         const hit =
           alert.direction === "above"
-            ? currentPrice >= target
-            : currentPrice <= target;
+            ? currentPrice >= triggerLevel
+            : currentPrice <= triggerLevel;
 
         if (!hit) continue;
 
@@ -64,7 +71,12 @@ async function runCheck(): Promise<void> {
           .set({ isTriggered: true, triggeredAt: new Date() })
           .where(eq(priceAlerts.id, alert.id));
 
-        const dir = alert.direction === "above" ? "▲ rose above" : "▼ fell below";
+        const isNear = proximity > 0 && (
+          alert.direction === "above" ? currentPrice < target : currentPrice > target
+        );
+        const dir = isNear
+          ? (alert.direction === "above" ? "🔜 approaching" : "🔜 approaching")
+          : (alert.direction === "above" ? "▲ rose above" : "▼ fell below");
         const msg =
           `🔔 *Price Alert Triggered*\n\n` +
           `*${symbol}* ${dir} *${target}*\n` +

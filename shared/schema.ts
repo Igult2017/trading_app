@@ -755,15 +755,16 @@ export type AdminAccessLog = typeof adminAccessLogs.$inferSelect;
 
 // ── Price Alerts ───────────────────────────────────────────────────────────────
 export const priceAlerts = pgTable("price_alerts", {
-  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:      varchar("user_id").notNull(),
-  symbol:      text("symbol").notNull(),
-  assetClass:  text("asset_class").notNull().default("forex"),
-  targetPrice: decimal("target_price", { precision: 15, scale: 8 }).notNull(),
-  direction:   text("direction").notNull(), // 'above' | 'below'
-  isTriggered: boolean("is_triggered").default(false),
-  triggeredAt: timestamp("triggered_at"),
-  createdAt:   timestamp("created_at").defaultNow(),
+  id:           varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:       varchar("user_id").notNull(),
+  symbol:       text("symbol").notNull(),
+  assetClass:   text("asset_class").notNull().default("forex"),
+  targetPrice:  decimal("target_price", { precision: 15, scale: 8 }).notNull(),
+  direction:    text("direction").notNull(),      // 'above' | 'below'
+  proximityPct: decimal("proximity_pct", { precision: 5, scale: 3 }).default("0"), // 0=exact, 0.5=within 0.5%
+  isTriggered:  boolean("is_triggered").default(false),
+  triggeredAt:  timestamp("triggered_at"),
+  createdAt:    timestamp("created_at").defaultNow(),
 });
 
 export type PriceAlert = typeof priceAlerts.$inferSelect;

@@ -1901,14 +1901,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/price-alerts", async (req: Request, res: Response) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;
-    const { symbol, assetClass = "forex", targetPrice, direction } = req.body as Record<string, string>;
+    const { symbol, assetClass = "forex", targetPrice, direction, proximityPct = "0" } = req.body as Record<string, string>;
     if (!symbol || !targetPrice || !direction) return res.status(400).json({ error: "symbol, targetPrice and direction are required" });
     if (!["above", "below"].includes(direction)) return res.status(400).json({ error: "direction must be 'above' or 'below'" });
     const parsed = parseFloat(targetPrice);
     if (isNaN(parsed) || parsed <= 0) return res.status(400).json({ error: "targetPrice must be a positive number" });
+    const parsedProx = Math.max(0, Math.min(5, parseFloat(proximityPct) || 0));
     try {
       const [created] = await db.insert(priceAlerts).values({
-        userId: auth.id, symbol, assetClass, targetPrice: String(parsed), direction,
+        userId: auth.id, symbol, assetClass, targetPrice: String(parsed), direction, proximityPct: String(parsedProx),
       }).returning();
       return res.json(created);
     } catch (err: any) {
