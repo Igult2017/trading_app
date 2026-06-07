@@ -103,7 +103,7 @@ export default function HomePage() {
               ))}
             </div>
             <div style={{ fontSize: 12, color: muted, textAlign: 'right', marginTop: 10, ...sans }}>
-              Or <a href="/auth" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in →</a>
+              Or <a href="/auth" target="myfm_journal" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in →</a>
             </div>
           </div>
         </div>

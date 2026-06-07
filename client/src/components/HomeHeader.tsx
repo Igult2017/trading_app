@@ -170,12 +170,12 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
 
           {/* Right: Sign in + CTA + toggle */}
           <div className="hidden md:flex items-center" style={{ gap: 20 }}>
-            <Link href="/auth"
+            <a href="/auth" target="myfm_journal"
               style={{ ...nFont, fontSize: 14, color: linkClr, textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = linkHov; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
               Sign in
-            </Link>
+            </a>
             <a href="/auth?mode=signup" target="myfm_journal"
               style={{ ...nFont, fontSize: 13, fontWeight: 600, padding: "9px 18px", borderRadius: 4, background: "#2563eb", color: "#ffffff", textDecoration: "none", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.88"; }}
@@ -200,12 +200,15 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       {menuOpen && (
         <div style={{ background: mobBg, borderTop: `1px solid ${navBorder}`, boxShadow: "0 16px 40px rgba(0,0,0,0.12)" }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 32px 24px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px 16px" }}>
-            {[...NAV_LINKS, { label: "Sign in", href: "/auth" }, { label: "Start free", href: "/auth?mode=signup" }].map(({ label, href }) => {
+            {[...NAV_LINKS, { label: "Sign in", href: "/auth", newTab: true }, { label: "Start free", href: "/auth?mode=signup", newTab: true }].map(({ label, href, newTab }) => {
               const isHash = href.includes("#");
               const style: React.CSSProperties = { ...nFont, fontSize: 14, color: linkClr, textDecoration: "none", display: "block" };
               if (isHash) return (
                 <a key={label} href={href} style={style}
                   onClick={e => { setMenuOpen(false); handleHashClick(e as any, href); }}>{label}</a>
+              );
+              if (newTab) return (
+                <a key={label} href={href} target="myfm_journal" style={style} onClick={() => setMenuOpen(false)}>{label}</a>
               );
               return <Link key={label} href={href} style={style} onClick={() => setMenuOpen(false)}>{label}</Link>;
             })}
