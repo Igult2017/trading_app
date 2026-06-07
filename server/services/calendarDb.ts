@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { economicEvents } from "@shared/schema";
-import { and, gte, lt, lte } from "drizzle-orm";
+import { and, gte, inArray, lt, lte, or } from "drizzle-orm";
 
 export interface CalendarEvent {
   date: string; time: string; currency: string; event: string;
@@ -82,9 +82,17 @@ export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<voi
   }
   console.log(`[calendarDb] saved ${rows.length} events`);
 
-  // Purge events older than 30 days
-  const cutoff = new Date(Date.now() - 30 * 86_400_000);
-  const { rowCount } = await db.delete(economicEvents).where(lt(economicEvents.eventTime, cutoff));
+  // Purge expired events:
+  //   Low / Medium impact → deleted after 24 h (market has priced them in)
+  //   High impact         → deleted after 48 h (NFP, FOMC, CPI have multi-day ripple effects)
+  const h24 = new Date(Date.now() - 24 * 3_600_000);
+  const h48 = new Date(Date.now() - 48 * 3_600_000);
+  const { rowCount } = await db.delete(economicEvents).where(
+    or(
+      and(lt(economicEvents.eventTime, h24), inArray(economicEvents.impactLevel, ["Low", "Medium"])),
+      and(lt(economicEvents.eventTime, h48), inArray(economicEvents.impactLevel, ["High"]))
+    )
+  );
   if (rowCount) console.log(`[calendarDb] purged ${rowCount} expired events`);
 }
 
