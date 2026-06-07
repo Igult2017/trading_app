@@ -752,3 +752,19 @@ export const adminAccessLogs = pgTable("admin_access_logs", {
 });
 
 export type AdminAccessLog = typeof adminAccessLogs.$inferSelect;
+
+// ── Price Alerts ───────────────────────────────────────────────────────────────
+export const priceAlerts = pgTable("price_alerts", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:      varchar("user_id").notNull(),
+  symbol:      text("symbol").notNull(),
+  assetClass:  text("asset_class").notNull().default("forex"),
+  targetPrice: decimal("target_price", { precision: 15, scale: 8 }).notNull(),
+  direction:   text("direction").notNull(), // 'above' | 'below'
+  isTriggered: boolean("is_triggered").default(false),
+  triggeredAt: timestamp("triggered_at"),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+
+export type PriceAlert = typeof priceAlerts.$inferSelect;
+export type InsertPriceAlert = typeof priceAlerts.$inferInsert;

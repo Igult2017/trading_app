@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Bell, Share2, ChevronRight, Loader2, ZoomIn } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/queryClient";
+import { Search, Bell, BellOff, Share2, ChevronRight, Loader2, ZoomIn, X } from "lucide-react";
 import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId, type ChartType } from "@/components/TradingChart";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
@@ -179,7 +180,10 @@ function LiveClock() {
 export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const [selected, setSelected]   = useState("ETH/USDT");
   const [search,   setSearch]     = useState("");
-  const [alertSet, setAlertSet]   = useState(false);
+  const [alertModal, setAlertModal] = useState(false);
+  const [alertTarget, setAlertTarget] = useState("");
+  const [alertDir, setAlertDir]   = useState<"above"|"below">("above");
+  const qc = useQueryClient();
   const [showIndicators, setShowIndicators] = useState(false);
   const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(() => {
     try {
@@ -351,6 +355,35 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const sidebarSymbols = sidebarInstruments.map(i => i.symbol);
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
   const entryTick      = useFastPrice(selected, 8000);
+
+  // Price alerts for the selected symbol
+  const { data: myAlerts = [] } = useQuery<any[]>({
+    queryKey: ["/api/price-alerts", selected],
+    queryFn: () => authFetch(`/api/price-alerts?symbol=${encodeURIComponent(selected)}`).then(r => r.ok ? r.json() : []),
+    staleTime: 30_000,
+  });
+  const activeAlert = myAlerts.find((a: any) => !a.isTriggered) ?? null;
+
+  const createAlertMutation = useMutation({
+    mutationFn: async ({ targetPrice, direction }: { targetPrice: string; direction: string }) => {
+      const ac = sidebarInstruments.find(i => i.symbol === selected)?.assetClass ?? "forex";
+      const r = await authFetch("/api/price-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: selected, assetClass: ac, targetPrice, direction }),
+      });
+      if (!r.ok) throw new Error("Failed to create alert");
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-alerts", selected] }); setAlertModal(false); },
+  });
+
+  const deleteAlertMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await authFetch(`/api/price-alerts/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/price-alerts", selected] }),
+  });
 
   // ── Live signal fetch — refetches every 60s, shows empty state when no signal ──
   const { data: rawSignal, isLoading: signalLoading } = useQuery({
@@ -577,16 +610,63 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
 
             {/* Buttons */}
             <div className="prob-btns" style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-              <button className={`set-alert-btn${alertSet ? " active" : ""}`} onClick={() => setAlertSet(!alertSet)}>
-                <Bell size={13} />
-                {alertSet ? "ALERT SET" : "SET ALERT"}
-              </button>
+              {activeAlert ? (
+                <button className="set-alert-btn active" onClick={() => deleteAlertMutation.mutate(activeAlert.id)} title="Cancel alert">
+                  <BellOff size={13} />
+                  ALERT SET · {activeAlert.direction === "above" ? "▲" : "▼"} {parseFloat(activeAlert.targetPrice).toPrecision(6)}
+                </button>
+              ) : (
+                <button className="set-alert-btn" onClick={() => {
+                  setAlertTarget(entryTick.price ? String(entryTick.price.toPrecision(6)) : "");
+                  setAlertModal(true);
+                }}>
+                  <Bell size={13} />
+                  SET ALERT
+                </button>
+              )}
               <button className="share-btn">
                 <Share2 size={13} />
                 SHARE
               </button>
             </div>
           </div>
+
+          {/* ── Alert Modal ── */}
+          {alertModal && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setAlertModal(false)}>
+              <div style={{ background: "#0a0f16", border: "1px solid #1e2d45", borderRadius: 8, padding: 24, width: 320, display: "flex", flexDirection: "column", gap: 16 }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c8d8e8", letterSpacing: "0.08em" }}>SET PRICE ALERT · {selected}</span>
+                  <button onClick={() => setAlertModal(false)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer" }}><X size={16} /></button>
+                </div>
+                <div style={{ fontSize: 11, color: "#4a6580" }}>You'll receive a Telegram notification when the price reaches your target.</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["above","below"] as const).map(d => (
+                    <button key={d} onClick={() => setAlertDir(d)} style={{ flex: 1, padding: "8px 0", background: alertDir === d ? "rgba(59,130,246,0.2)" : "transparent", border: `1px solid ${alertDir === d ? "#3b82f6" : "#1e2d45"}`, borderRadius: 6, color: alertDir === d ? "#93c5fd" : "#4a6580", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em" }}>
+                      {d === "above" ? "▲ ABOVE" : "▼ BELOW"}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>TARGET PRICE</label>
+                  <input
+                    type="number" step="any" value={alertTarget}
+                    onChange={e => setAlertTarget(e.target.value)}
+                    style={{ background: "#070d1a", border: "1px solid #1e2d45", borderRadius: 6, padding: "10px 12px", color: "#c8d8e8", fontSize: 13, outline: "none", width: "100%" }}
+                    placeholder={entryTick.price ? String(entryTick.price) : "Enter price…"}
+                    autoFocus
+                  />
+                </div>
+                <button
+                  disabled={!alertTarget || createAlertMutation.isPending}
+                  onClick={() => createAlertMutation.mutate({ targetPrice: alertTarget, direction: alertDir })}
+                  style={{ padding: "10px 0", background: "#1e4db7", border: "none", borderRadius: 6, color: "#fff", fontSize: 12, fontWeight: 700, cursor: !alertTarget ? "not-allowed" : "pointer", opacity: !alertTarget ? 0.5 : 1, letterSpacing: "0.08em" }}
+                >
+                  {createAlertMutation.isPending ? "SAVING…" : "CONFIRM ALERT"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Live Visualizer Chart ── */}
           <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>

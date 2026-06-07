@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
 import { db, pool } from "./db";
-import { userProfiles, adminAccessLogs, tradingSignals } from "@shared/schema";
+import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts } from "@shared/schema";
 import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
@@ -40,6 +40,7 @@ import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
 import { interestRateScraper } from "./scrapers/interestRateScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
+import { startPriceAlertChecker } from "./services/priceAlertChecker";
 import { notificationService } from "./services/notificationService";
 import {
   createAdminNotification,
@@ -227,6 +228,7 @@ async function backfillProfilesFromSupabase(userIds: string[]) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   addServerLog('info', 'Server', `API server started — Node ${process.version}`);
+  startPriceAlertChecker();
 
   // ── robots.txt ────────────────────────────────────────────────────────────────
   app.get('/robots.txt', (_req: Request, res: Response) => {
@@ -1892,6 +1894,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(setup);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch pending setup" });
+    }
+  });
+
+  // ── Price Alerts ──────────────────────────────────────────────────────────────
+  app.post("/api/price-alerts", async (req: Request, res: Response) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const { symbol, assetClass = "forex", targetPrice, direction } = req.body as Record<string, string>;
+    if (!symbol || !targetPrice || !direction) return res.status(400).json({ error: "symbol, targetPrice and direction are required" });
+    if (!["above", "below"].includes(direction)) return res.status(400).json({ error: "direction must be 'above' or 'below'" });
+    const parsed = parseFloat(targetPrice);
+    if (isNaN(parsed) || parsed <= 0) return res.status(400).json({ error: "targetPrice must be a positive number" });
+    try {
+      const [created] = await db.insert(priceAlerts).values({
+        userId: auth.id, symbol, assetClass, targetPrice: String(parsed), direction,
+      }).returning();
+      return res.json(created);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/price-alerts", async (req: Request, res: Response) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const symbol = req.query.symbol as string | undefined;
+      let query = db.select().from(priceAlerts).where(
+        symbol
+          ? and(eq(priceAlerts.userId, auth.id), eq(priceAlerts.symbol, symbol))
+          : eq(priceAlerts.userId, auth.id)
+      );
+      const results = await query;
+      return res.json(results);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/price-alerts/:id", async (req: Request, res: Response) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      await db.delete(priceAlerts).where(
+        and(eq(priceAlerts.id, req.params.id), eq(priceAlerts.userId, auth.id))
+      );
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   });
 
