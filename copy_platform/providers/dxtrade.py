@@ -83,8 +83,8 @@ class DXTradeProvider:
                     token_age = 0
                     log.info(f"[{self.master_id}] DXTrade polling account {acc_id}")
                     while self._running:
-                        # Re-auth every 30 min
-                        if token_age >= 900:
+                        # Re-auth every 30 min (tokens typically valid for hours, but re-auth proactively)
+                        if token_age >= 1800:
                             token = await self._auth(session)
                             token_age = 0
                         positions = await self._get_positions(session, token, acc_id)

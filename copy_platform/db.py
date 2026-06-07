@@ -9,7 +9,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from config import DATABASE_URL
 
 engine  = create_engine(DATABASE_URL, pool_pre_ping=True)
-Session = sessionmaker(bind=engine)
+# expire_on_commit=False keeps attributes accessible after the session closes
+# (prevents DetachedInstanceError when objects are used outside the with-block)
+Session = sessionmaker(engine, expire_on_commit=False)
 Base    = declarative_base()
 
 
@@ -23,6 +25,7 @@ class BrokerAccount(Base):
     platform       = Column(Text)
     account_type   = Column(Text)   # demo | live | funded
     connection_type= Column(Text)   # api | webhook
+    server         = Column(Text)   # broker API URL (DXTrade) or server name (TradeLocker/MT4/5)
     is_active      = Column(Boolean)
     sync_status    = Column(Text)
 

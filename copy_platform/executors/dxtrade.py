@@ -2,7 +2,7 @@
 DXTrade executor — places / closes market orders via REST API.
 Credentials: { loginId (username), password, server (broker API base URL) }
 """
-import asyncio, logging
+import logging
 import aiohttp
 from dataclasses import dataclass
 
@@ -23,7 +23,7 @@ class DXTradeExecutor:
         self.password = creds.get("password", "")
         self.server   = (creds.get("server") or "").rstrip("/")
 
-    async def _auth(self, session: aiohttp.ClientSession) -> tuple[str, str]:
+    async def _auth(self, session: aiohttp.ClientSession) -> str:
         async with session.post(f"{self.server}/auth/token",
                                 json={"username": self.username, "password": self.password}) as r:
             if r.status != 200:

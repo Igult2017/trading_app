@@ -2,7 +2,7 @@
 TradeLocker executor — places / closes market orders via REST API.
 Credentials: { loginId (email), password, server (broker server string), accountType }
 """
-import asyncio, logging
+import logging
 import aiohttp
 from dataclasses import dataclass
 
@@ -45,7 +45,7 @@ class TradeLockerExecutor:
             return token, acc["id"], acc.get("accNum", acc["id"])
 
     def _headers(self, token: str) -> dict:
-        return {"Authorization": f"Bearer {token}", "env-id": "tradelocked"}
+        return {"Authorization": f"Bearer {token}", "env-id": "tradelocker"}
 
     async def open_position(self, symbol: str, action: str,
                             volume_lots: float, sl: float | None,

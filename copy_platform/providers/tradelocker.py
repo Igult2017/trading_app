@@ -54,7 +54,7 @@ class TradeLockerProvider:
 
     async def _get_positions(self, session: aiohttp.ClientSession,
                              token: str, acc_id: int) -> list[dict]:
-        headers = {"Authorization": f"Bearer {token}", "env-id": "tradelocked"}
+        headers = {"Authorization": f"Bearer {token}", "env-id": "tradelocker"}
         async with session.get(f"{self.base}/trade/accounts/{acc_id}/positions",
                                headers=headers) as r:
             if r.status != 200:

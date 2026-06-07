@@ -33,11 +33,12 @@ def _make_provider(platform: str, master_id: str, creds: dict,
 class CopyEngine:
     def __init__(self):
         self._providers: dict[str, object] = {}   # master_id → provider
+        self._watch_task = None
 
     async def start(self) -> None:
         log.info("[engine] starting copy engine")
         await self._load_masters()
-        asyncio.ensure_future(self._watch_loop())
+        self._watch_task = asyncio.ensure_future(self._watch_loop())
 
     async def _watch_loop(self) -> None:
         while True:

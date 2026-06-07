@@ -32,7 +32,11 @@ async function authenticate(
   return {
     accessToken:  data.accessToken,
     refreshToken: data.refreshToken,
-    accounts:     data.accounts ?? [],
+    accounts:     (data.accounts ?? []).map((acc: any) => ({
+      id:       acc.id,
+      accNum:   acc.accNum ?? acc.accountId ?? acc.number ?? acc.id,
+      currency: acc.currency ?? 'USD',
+    })),
   };
 }
 
@@ -45,7 +49,7 @@ async function fetchOrderHistory(
   const endDate   = new Date(toMs).toISOString().slice(0, 10);
   const url = `${base}/trade/accounts/${accId}/${accNum}/ordersHistory`
     + `?startDate=${startDate}&endDate=${endDate}&limit=500&status=Filled`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'env-id': 'tradelocked' } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'env-id': 'tradelocker' } });
   if (!res.ok) throw new Error(`TradeLocker ordersHistory: ${res.status}`);
   const data = await res.json() as any;
   return Array.isArray(data) ? data : (data.d?.orders ?? data.orders ?? []);

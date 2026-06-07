@@ -54,7 +54,7 @@ export async function fetchDXTradeTrades(
     externalId:  String(p.positionId ?? p.id),
     symbol:      String(p.instrument ?? p.symbol ?? p.code),
     direction:   (p.side ?? p.orderSide ?? '').toUpperCase() === 'BUY' ? 'Long' : 'Short',
-    lots:        parseFloat(p.qty ?? p.volume ?? p.quantity ?? 0) / 100_000,
+    lots:        (parseFloat(p.qty ?? p.volume ?? p.quantity ?? '0') || 0) / 100_000,
     openPrice:   parseFloat(p.openPrice ?? p.entryPrice ?? 0),
     closePrice:  parseFloat(p.closePrice ?? p.exitPrice ?? 0),
     openTime:    p.openTime  ? new Date(p.openTime).getTime()  : fromMs,

@@ -27,9 +27,11 @@ async def dispatch(event: dict, master_id: str) -> None:
         master = db.get(CopyMaster, master_id)
         if not master:
             return
-
-        master_trade = _save_master_trade(db, master_id, snap, etype)
-        followers    = _active_followers(db, master_id)
+        source    = master.source_type or "unknown"
+        master_trade = _save_master_trade(db, master_id, snap, etype, source)
+        followers    = db.query(CopyFollower).filter_by(
+            master_id=master_id, is_active=True, risk_accepted=True
+        ).all()
 
     await asyncio.gather(*[
         _exec_follower(master_trade.id, f, snap, etype)
@@ -40,7 +42,8 @@ async def dispatch(event: dict, master_id: str) -> None:
 # ── Master trade record ───────────────────────────────────────────────────────
 
 def _save_master_trade(db: DBSession, master_id: str,
-                       snap: PositionSnapshot, etype: str) -> CopyTradeMaster:
+                       snap: PositionSnapshot, etype: str,
+                       source: str) -> CopyTradeMaster:
     existing = db.query(CopyTradeMaster).filter_by(
         master_id=master_id,
         external_id=str(snap.position_id),
@@ -53,7 +56,7 @@ def _save_master_trade(db: DBSession, master_id: str,
         id          = str(uuid4()),
         master_id   = master_id,
         external_id = str(snap.position_id),
-        source      = "ctrader",
+        source      = source,
         symbol      = snap.symbol,
         action      = snap.action,
         event_type  = etype,
@@ -67,12 +70,6 @@ def _save_master_trade(db: DBSession, master_id: str,
     db.add(record)
     db.commit()
     return record
-
-
-def _active_followers(db: DBSession, master_id: str) -> list[CopyFollower]:
-    return db.query(CopyFollower).filter_by(
-        master_id=master_id, is_active=True, risk_accepted=True
-    ).all()
 
 
 # ── Per-follower execution ────────────────────────────────────────────────────
@@ -95,33 +92,47 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         _log(fid, master_trade_id, "ERROR", "FAIL", "Could not get credentials")
         return
 
-    lots   = calc_lots(follower, snap.volume_lots)
-    action = apply_direction(snap.action, follower.direction or "same")
+    lots     = calc_lots(follower, snap.volume_lots)
+    action   = apply_direction(snap.action, follower.direction or "same")
+    platform = (broker_account.platform or "").lower()
+
+    # Resolve follower position ID once outside the retry loop (avoids repeated DB hits)
+    follower_pos_id: str | None = None
+    if etype in ("CLOSE", "MODIFY"):
+        follower_pos_id = _find_follower_position_id(fid, str(snap.position_id))
+        if follower_pos_id is None:
+            _log(fid, master_trade_id, "INFO", "SKIP",
+                 f"No open follower position for master pos {snap.position_id}")
+            return
 
     executor = _get_executor(broker_account, creds)
     result   = None
 
-    for attempt in range(1, 4):   # up to 3 retries
+    for attempt in range(1, 4):
         try:
             if etype == "OPEN":
                 result = await executor.open_position(
                     snap.symbol, action, lots, snap.stop_loss, snap.take_profit
                 )
             elif etype == "CLOSE":
-                pos_id = _find_follower_position_id(fid, str(snap.position_id))
-                if pos_id:
-                    result = await executor.close_position(int(pos_id), lots)
+                if platform == "binance":
+                    # Binance encodes pos_id as "SYMBOL:SIDE" — use close_by_symbol
+                    parts = follower_pos_id.split(":") if follower_pos_id else []
+                    if len(parts) == 2:
+                        result = await executor.close_by_symbol(parts[0], parts[1], lots)
+                else:
+                    result = await executor.close_position(int(follower_pos_id), lots)
             elif etype == "MODIFY":
-                pos_id = _find_follower_position_id(fid, str(snap.position_id))
-                if pos_id:
+                if platform != "binance":   # Binance modify not supported
                     result = await executor.modify_position(
-                        int(pos_id), snap.stop_loss, snap.take_profit
+                        int(follower_pos_id), snap.stop_loss, snap.take_profit
                     )
+                else:
+                    result = None   # skip modify silently for Binance
             if result and result.ok:
                 break
         except Exception as e:
-            _log(fid, master_trade_id, "WARN", "RETRY",
-                 f"Attempt {attempt} failed: {e}")
+            _log(fid, master_trade_id, "WARN", "RETRY", f"Attempt {attempt} failed: {e}")
             await asyncio.sleep(2 ** attempt)
 
     _record_follower_trade(master_trade_id, follower, snap, etype, lots, result)
@@ -169,9 +180,10 @@ def _find_follower_position_id(follower_id: str, master_ext_id: str) -> str | No
 def _record_follower_trade(master_trade_id: str, follower: CopyFollower,
                            snap: PositionSnapshot, etype: str,
                            lots: float, result) -> None:
+    ok  = result is not None and result.ok
+    err = result.error if result is not None else "No result"
     with Session() as db:
-        ok = result and result.ok
-        record = CopyTradeFollower(
+        db.add(CopyTradeFollower(
             id              = str(uuid4()),
             master_trade_id = master_trade_id,
             follower_id     = follower.id,
@@ -184,15 +196,14 @@ def _record_follower_trade(master_trade_id: str, follower: CopyFollower,
             stop_loss       = snap.stop_loss,
             take_profit     = snap.take_profit,
             status          = "executed" if ok else "failed",
-            error_message   = result.error if result else "No result",
+            error_message   = None if ok else err,
             executed_at     = datetime.utcnow() if ok else None,
-        )
-        db.add(record)
+        ))
         db.commit()
     level = "INFO" if ok else "ERROR"
-    event = etype if ok else "FAIL"
-    _log(follower.id, master_trade_id, level, event,
-         f"{etype} {snap.symbol} {lots} lots — {'ok' if ok else result.error}")
+    evnt  = etype if ok else "FAIL"
+    _log(follower.id, master_trade_id, level, evnt,
+         f"{etype} {snap.symbol} {lots} lots — {'ok' if ok else err}")
 
 
 def _log(follower_id: str, trade_id: str, level: str, event: str, msg: str):
