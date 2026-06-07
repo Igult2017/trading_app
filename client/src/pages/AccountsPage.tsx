@@ -1,5 +1,6 @@
 import { useState, useEffect, CSSProperties } from "react";
 import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2 } from "lucide-react";
+import { SiBinance, SiBybit, SiBitget, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
@@ -68,6 +69,31 @@ function CopyBtn({ text }: { text: string }) {
     >
       {copied ? <Check size={13} color="#4ade80" /> : <Copy size={13} color="#94a3b8" />}
     </button>
+  );
+}
+
+// ── Platform icons ────────────────────────────────────────────────────────────
+const PLATFORM_ICON_META: Record<string, { icon?: React.ReactNode; color: string; letters: string }> = {
+  mt5:           { color: '#1BA262', letters: 'MT5' },
+  mt4:           { color: '#1BA262', letters: 'MT4' },
+  matchtrader:   { color: '#4F9CF9', letters: 'MTR' },
+  ctrader:       { color: '#F05A22', letters: 'CT'  },
+  tradelocker:   { color: '#7C3AED', letters: 'TL'  },
+  dxtrade:       { color: '#3B82F6', letters: 'DX'  },
+  binance:       { icon: <SiBinance />,  color: '#F3BA2F', letters: 'BN' },
+  bybit:         { icon: <SiBybit />,    color: '#F7A600', letters: 'BB' },
+  bitget:        { icon: <SiBitget />,   color: '#00CDD1', letters: 'BG' },
+  bitunix:       { color: '#FF6B35', letters: 'BU'  },
+  coinbase:      { icon: <SiCoinbase />, color: '#0052FF', letters: 'CB' },
+  charlesschwab: { color: '#00A0DF', letters: 'CS'  },
+};
+
+function PlatformIcon({ id, size = 36 }: { id: string; size?: number }) {
+  const meta = PLATFORM_ICON_META[id] ?? { color: '#64748b', letters: '?' };
+  return (
+    <div style={{ width: size, height: size, background: `${meta.color}22`, border: `1.5px solid ${meta.color}55`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: meta.color, fontSize: meta.icon ? size * 0.58 : size * 0.3, fontWeight: 800, flexShrink: 0 }}>
+      {meta.icon ?? meta.letters}
+    </div>
   );
 }
 
@@ -448,8 +474,8 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                     {a.accountType.toUpperCase()}
                   </td>
                   <td style={s.td as CSSProperties}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 22, height: 22, background: "#1a3a5c", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>⚙</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <PlatformIcon id={a.platform.toLowerCase()} size={24} />
                       {a.platform.toUpperCase()}
                     </div>
                   </td>
@@ -510,7 +536,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       style={{ ...s.platformCard, ...(selectedPlatform === p.id ? s.platformCardSelected : {}) } as CSSProperties}
                       onClick={() => setSelectedPlatform(p.id)}
                     >
-                      <span style={{ fontSize: 22 }}>⚙</span>
+                      <PlatformIcon id={p.id} size={38} />
                       <span style={{ fontSize: 11, fontWeight: 600, textAlign: "center" }}>{p.name}</span>
                     </button>
                   ))}
