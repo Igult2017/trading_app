@@ -59,13 +59,7 @@ const MOCK_TICKETS = [
 
 const generateMetric = (base, variance) => +(base + (Math.random() - 0.5) * variance).toFixed(1);
 const INITIAL_METRICS = { cpu: 34, memory: 61, latency: 42, uptime: 99.97, requestsPerSec: 847, errorRate: 0.12, dbQueryTime: 18, activeConnections: 1243 };
-const INITIAL_LOGS = [
-  { id: 1, time: '14:32:01', level: 'error', service: 'Binance-API', message: 'Connection timeout after 5000ms - retrying (3/5)', resolved: false },
-  { id: 2, time: '14:31:44', level: 'warn', service: 'Auth-Service', message: 'Elevated failed login attempts from IP 185.220.x.x', resolved: false },
-  { id: 3, time: '14:30:12', level: 'info', service: 'Trade-Engine', message: 'Successfully processed 1,240 trade signals in batch', resolved: true },
-  { id: 4, time: '14:29:55', level: 'error', service: 'DB-Cluster', message: 'Replica lag exceeded threshold: 340ms', resolved: true },
-  { id: 5, time: '14:27:11', level: 'warn', service: 'Payment-SVC', message: 'Stripe webhook delivery delayed by 12s', resolved: false },
-];
+const INITIAL_LOGS: any[] = [];
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
 const ADMIN_THEMES: Record<string, Record<string, string>> = {
@@ -96,8 +90,10 @@ function applyAdminFont(id: string) {
 }
 
 // Apply saved preferences immediately on module load
-applyAdminTheme(localStorage.getItem('admin_theme') ?? 'dark');
-applyAdminFont(localStorage.getItem('admin_font') ?? 'inter');
+try {
+  applyAdminTheme(localStorage.getItem('admin_theme') ?? 'dark');
+  applyAdminFont(localStorage.getItem('admin_font') ?? 'inter');
+} catch {}
 
 const FONT = 'var(--admin-font)';
 const HFONT = 'var(--admin-header-font)';
@@ -765,23 +761,6 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
     load();
   }, []);
 
-  useEffect(() => {
-    const onError = (event: ErrorEvent) => {
-      if (event?.error?.stack || event?.message) {
-        setRenderError(event.error?.message || event.message || 'Customer Care crashed');
-      }
-    };
-    const onRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason;
-      setRenderError(reason?.message || String(reason) || 'Customer Care crashed');
-    };
-    window.addEventListener('error', onError);
-    window.addEventListener('unhandledrejection', onRejection);
-    return () => {
-      window.removeEventListener('error', onError);
-      window.removeEventListener('unhandledrejection', onRejection);
-    };
-  }, []);
 
   const openCount = tickets.filter(t => t.status === 'Open').length;
   const resolvedCount = tickets.filter(t => t.status === 'Resolved').length;
@@ -976,10 +955,10 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                     <p style={{ ...lbl }}>Quick Actions</p>
                     <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '6px' }}>
                       {[
-                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(safeTicketId(selectedTicket), selectedTicket?._id) },
-                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(safeTicketId(selectedTicket), selectedTicket?._id) },
+                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(safeTicketId(selectedTicket), selectedTicket?.id) },
+                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(safeTicketId(selectedTicket), selectedTicket?.id) },
                         { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => selectedTicket?.userId ? setActionUser({ name: safeTicketUser(selectedTicket), userId: selectedTicket.userId }) : setCareError('This ticket has no user id to ban') },
-                        { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket?._id) await fetch(`/api/admin/tickets/${selectedTicket._id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket?.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
+                        { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket?.id) await fetch(`/api/admin/tickets/${selectedTicket.id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket?.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
                       ].map((b, i) => (
                         <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           <b.icon size={13} />{b.label}
@@ -1127,7 +1106,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const loadOverview = async () => {
     setOvLoading(true);
     try {
-      const r = await fetch('/api/admin/copy/overview');
+      const h = await getSyncAuthHeaders();
+      const r = await fetch('/api/admin/copy/overview', { headers: h });
       if (r.ok) setOverview(await r.json());
     } catch {}
     setOvLoading(false);
@@ -1136,7 +1116,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const loadTgTrades = async () => {
     setTgLoading(true);
     try {
-      const r = await fetch('/api/copy/telegram-journal?limit=500');
+      const h = await getSyncAuthHeaders();
+      const r = await fetch('/api/copy/telegram-journal?limit=500', { headers: h });
       if (r.ok) { setTgTrades(await r.json()); setTgLoaded(true); }
     } catch {}
     setTgLoading(false);
@@ -1145,7 +1126,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const loadAllTrades = async () => {
     setAtLoading(true);
     try {
-      const r = await fetch('/api/admin/copy/all-trades');
+      const h = await getSyncAuthHeaders();
+      const r = await fetch('/api/admin/copy/all-trades', { headers: h });
       if (r.ok) { setAllTrades(await r.json()); setAtLoaded(true); }
     } catch {}
     setAtLoading(false);
@@ -2805,7 +2787,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
   const handleCreateAgent = async () => {
     if (!newAgent.name || !newAgent.email) return;
     const h = await getHdrs();
-    const r = await fetch('/api/admin/cc-agents', { method: 'POST', headers: h, body: JSON.stringify({ name: newAgent.name, email: newAgent.email, functions: newAgent.functions }) }).catch(() => null);
+    const r = await fetch('/api/admin/cc-agents', { method: 'POST', headers: h, body: JSON.stringify({ name: newAgent.name, email: newAgent.email, password: newAgent.password, functions: newAgent.functions }) }).catch(() => null);
     if (r?.ok) {
       const created = await r.json();
       setCcUsers(p => [...p, { ...created, functions: created.functions ?? [] }]);
@@ -2903,7 +2885,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
         </div>
       )}
 
-      {showNewAgent && (
+      {settingsTab === 'agents' && showNewAgent && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '480px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3263,8 +3245,8 @@ export default function AdminPanel() {
             <StatCard
               title="MRR"
               value={overviewStats?.mrr != null ? `$${Number(overviewStats.mrr).toLocaleString()}` : '—'}
-              change={overviewStats?.mrrChange != null ? `+${overviewStats.mrrChange}%` : 'No billing data'}
-              trend="up"
+              change={overviewStats?.mrrChange != null ? `+${overviewStats.mrrChange}%` : undefined}
+              trend={overviewStats?.mrrChange != null ? 'up' : undefined}
               icon={Globe}
             />
           </div>
