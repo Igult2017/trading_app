@@ -2501,7 +2501,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
             </div>
             {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
             {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
-            {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Email requires SMTP_HOST, SMTP_USER, SMTP_PASS env vars</p>}
+            {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Requires RESEND_API_KEY in .env</p>}
             {activeChannels.includes('Push') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Push notifications require Web Push VAPID key setup</p>}
           </div>
           <div>
@@ -2543,7 +2543,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
             { label: 'In-App Sent', value: Number(stats.inAppSent ?? 0).toLocaleString(), change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(Number(stats.sentChangePct ?? 0), 100) },
             { label: 'Read Rate',   value: `${Number(stats.readRate ?? 0).toFixed(1)}%`, change: stats.readChange ?? '—', up: (stats.readRate ?? 0) > 0, icon: TrendingUp, pct: Math.min(Number(stats.readRate ?? 0), 100) },
             { label: 'Campaigns',   value: String(stats.campaignCount ?? 0), change: '30d', up: (stats.campaignCount ?? 0) > 0, icon: Megaphone, pct: Math.min(Number(stats.campaignCount ?? 0) * 10, 100) },
-            { label: 'Email / Push', value: stats.emailNote ? 'Ready' : 'N/A', change: stats.emailNote ?? 'config needed', up: Boolean(stats.emailNote), icon: AlertTriangle, pct: stats.emailNote ? 100 : 0 },
+            { label: 'Email Open Rate', value: stats.emailConfigured ? `${Number(stats.emailOpenRate ?? 0).toFixed(1)}%` : 'N/A', change: stats.emailConfigured ? `${stats.emailSent ?? 0} sent` : 'config needed', up: stats.emailConfigured && (stats.emailOpenRate ?? 0) > 0, icon: Mail, pct: stats.emailConfigured ? Math.min(Number(stats.emailOpenRate ?? 0), 100) : 0 },
           ].map((s, i, arr) => (
             <div key={i} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {/* Top row */}

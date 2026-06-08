@@ -355,6 +355,17 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 
+export const emailTracking = pgTable("email_tracking", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:      varchar("user_id").notNull(),
+  campaignRef: text("campaign_ref").notNull(),
+  token:       varchar("token").notNull().unique(),
+  openedAt:    timestamp("opened_at"),
+  sentAt:      timestamp("sent_at").defaultNow(),
+});
+
+export type EmailTracking = typeof emailTracking.$inferSelect;
+
 export const tradingSignals = pgTable("trading_signals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   symbol: text("symbol").notNull(),

@@ -3,14 +3,15 @@ import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
 import { db, pool } from "./db";
-import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts } from "@shared/schema";
+import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking } from "@shared/schema";
 import { eq, desc, and, lt, isNotNull, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
 import { syncAccount } from "./services/autoSyncService";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
+import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
@@ -3687,21 +3688,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Admin: send campaign (In-App notifications) ───────────────────────────────
+  // ── Admin: send campaign ──────────────────────────────────────────────────────
   app.post("/api/admin/campaigns", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { subject, message, channels = [], audience = 'all' } = req.body as { subject?: string; message: string; channels: string[]; audience?: string };
       if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
 
-      // Fetch target users — from Supabase if available, else from local user_profiles
-      let targets: Array<{ id: string; last_sign_in_at?: string | null }> = [];
+      // Fetch target users — include email for email channel
+      let targets: Array<{ id: string; email?: string | null; last_sign_in_at?: string | null }> = [];
       if (supabaseAdmin) {
         const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
         if (error) return res.status(500).json({ error: error.message });
         targets = usersData.users;
       } else {
         const profiles = await db.select().from(userProfiles);
-        targets = profiles.map(p => ({ id: p.id, last_sign_in_at: null }));
+        targets = profiles.map(p => ({ id: p.id, email: p.email, last_sign_in_at: null }));
       }
       if (audience === 'inactive') {
         const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -3719,6 +3720,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      let emailCount = 0;
+      if (channels.includes('Email')) {
+        if (!isEmailConfigured()) {
+          return res.status(400).json({ error: 'Email not configured — add RESEND_API_KEY to .env' });
+        }
+        const baseUrl = process.env.APP_URL ?? `${req.protocol}://${req.get('host')}`;
+        const campaignRef = subject?.trim() || 'Broadcast';
+        const results = await Promise.allSettled(
+          targets
+            .filter(u => u.email)
+            .map(async (u) => {
+              const token = randomUUID();
+              await db.insert(emailTracking).values({ userId: u.id, campaignRef, token });
+              await sendCampaignEmail({ to: u.email!, subject: campaignRef, message: message.trim(), trackingToken: token, baseUrl });
+              emailCount++;
+            })
+        );
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed > 0) console.warn(`[campaigns] ${failed} emails failed to send`);
+      }
+
       await db.execute(drizzleSql`
         INSERT INTO support_tickets (user_name, user_email, subject, message, priority, channel, status)
         VALUES ('Admin', 'admin@system', ${`Campaign: ${subject || 'Broadcast'}`}, ${`Sent to ${targets.length} users via ${channels.join(', ')}`}, 'Low', 'email', 'Resolved')
@@ -3727,13 +3749,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       createAdminNotification({
         category: 'campaign',
         title: `Campaign sent: ${subject || 'Broadcast'}`,
-        body: `Sent to ${targets.length} users via ${channels.join(', ')}. In-app: ${notifCount} notifications created.`,
+        body: `Sent to ${targets.length} users via ${channels.join(', ')}. In-app: ${notifCount}, Email: ${emailCount}.`,
         meta: { targets: targets.length, channels, audience },
       }).catch(() => {});
-      return res.json({ ok: true, sent: targets.length, notificationsCreated: notifCount, emailNote: channels.includes('Email') ? 'Email delivery requires SMTP configuration (SMTP_HOST, SMTP_USER, SMTP_PASS env vars)' : undefined });
+      return res.json({ ok: true, sent: targets.length, notificationsCreated: notifCount, emailsSent: emailCount });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
+  });
+
+  // ── Email open tracking pixel ─────────────────────────────────────────────────
+  app.get("/api/track/email-open/:token", async (req: Request, res: Response) => {
+    const { token } = req.params;
+    await db.execute(drizzleSql`
+      UPDATE email_tracking SET opened_at = NOW() WHERE token = ${token} AND opened_at IS NULL
+    `).catch(() => {});
+    const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, no-cache' });
+    res.send(gif);
   });
 
   // ── Admin: campaign statistics (real DB data) ─────────────────────────────────
@@ -3777,6 +3810,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sentChange = prevTotal > 0 ? `${totalSent >= prevTotal ? '+' : ''}${totalSent - prevTotal}` : totalSent > 0 ? `+${totalSent}` : '—';
       const readChange = prevReadRate > 0 ? `${readRate >= prevReadRate ? '+' : ''}${(readRate - prevReadRate).toFixed(1)}%` : readRate > 0 ? `+${readRate}%` : '—';
 
+      // Email tracking stats
+      const emailRes = await db.execute(drizzleSql`
+        SELECT COUNT(*)::int AS total,
+               COUNT(*) FILTER (WHERE opened_at IS NOT NULL)::int AS opened
+        FROM email_tracking WHERE sent_at >= ${since30}
+      `);
+      const emailRow = (emailRes.rows ?? [])[0] as any;
+      const emailSent: number  = +(emailRow?.total  ?? 0);
+      const emailOpened: number = +(emailRow?.opened ?? 0);
+      const emailOpenRate: number = emailSent > 0 ? Math.round((emailOpened / emailSent) * 1000) / 10 : 0;
+
       return res.json({
         inAppSent: totalSent,
         readRate,
@@ -3785,6 +3829,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         readChange,
         sentChangePct: totalSent > 0 ? Math.min(totalSent, 100) : 0,
         readChangePct: readRate,
+        emailSent,
+        emailOpened,
+        emailOpenRate,
+        emailConfigured: isEmailConfigured(),
       });
     } catch (err: any) {
       console.error("[Admin/campaign-stats] Failed to load stats", {
