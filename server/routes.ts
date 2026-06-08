@@ -6,6 +6,7 @@ import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking } from "@shared/schema";
 import { eq, desc, and, lt, isNotNull, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
+import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
@@ -147,7 +148,7 @@ async function requireAuth(
   // Try Supabase JWT verification first
   const user = await verifyToken(req.headers.authorization);
   if (user) {
-    ensureUserProfile(user).catch((err) =>
+    ensureUserProfile(user, req.ip).catch((err) =>
       console.warn('[ensureUserProfile] failed:', err?.message),
     );
     return { id: user.id };
@@ -178,6 +179,23 @@ async function requireAuth(
 const _profileEnsured = new Set<string>();
 setInterval(() => _profileEnsured.clear(), 60 * 60 * 1000).unref();
 
+// Tracks users for whom we've already attempted a geo lookup this process lifetime
+const _geoAttempted = new Set<string>();
+
+/** Fire-and-forget: if the user has no country, look it up from their IP and save it. */
+async function backfillCountryFromIp(userId: string, ip: string): Promise<void> {
+  if (_geoAttempted.has(userId)) return;
+  _geoAttempted.add(userId);
+  const { rows } = await pool.query(`SELECT country FROM user_profiles WHERE id = $1`, [userId]);
+  if (rows[0]?.country) return;          // already has a country — nothing to do
+  const geo = await geolocateIp(ip);
+  if (!geo?.countryCode) return;
+  await pool.query(
+    `UPDATE user_profiles SET country = $1 WHERE id = $2 AND (country IS NULL OR country = '')`,
+    [geo.countryCode, userId],
+  );
+}
+
 function extractFullName(user: any): string {
   const meta = user?.user_metadata ?? {};
   const candidates = [
@@ -192,27 +210,34 @@ function extractFullName(user: any): string {
   return '';
 }
 
-async function ensureUserProfile(user: { id: string; email?: string | null; user_metadata?: any }) {
-  if (!user?.id || _profileEnsured.has(user.id)) return;
-  const email    = (user.email ?? '').toString();
-  const fullName = extractFullName(user);
-  const country  = (user.user_metadata?.country ?? '').toString().slice(0, 2).toUpperCase();
-  await pool.query(
-    `INSERT INTO user_profiles (id, email, full_name, role, status, plan, country)
-     VALUES ($1, $2, $3, 'user', 'Active', 'Free', $4)
-     ON CONFLICT (id) DO UPDATE SET
-       email     = COALESCE(NULLIF(EXCLUDED.email, ''), user_profiles.email),
-       full_name = CASE
-         WHEN COALESCE(user_profiles.full_name, '') = '' THEN EXCLUDED.full_name
-         ELSE user_profiles.full_name
-       END,
-       country = CASE
-         WHEN COALESCE(user_profiles.country, '') = '' AND EXCLUDED.country <> '' THEN EXCLUDED.country
-         ELSE user_profiles.country
-       END`,
-    [user.id, email, fullName, country],
-  );
-  _profileEnsured.add(user.id);
+async function ensureUserProfile(
+  user: { id: string; email?: string | null; user_metadata?: any },
+  ip?: string,
+) {
+  if (!user?.id) return;
+  if (!_profileEnsured.has(user.id)) {
+    const email    = (user.email ?? '').toString();
+    const fullName = extractFullName(user);
+    const country  = (user.user_metadata?.country ?? '').toString().slice(0, 2).toUpperCase();
+    await pool.query(
+      `INSERT INTO user_profiles (id, email, full_name, role, status, plan, country)
+       VALUES ($1, $2, $3, 'user', 'Active', 'Free', $4)
+       ON CONFLICT (id) DO UPDATE SET
+         email     = COALESCE(NULLIF(EXCLUDED.email, ''), user_profiles.email),
+         full_name = CASE
+           WHEN COALESCE(user_profiles.full_name, '') = '' THEN EXCLUDED.full_name
+           ELSE user_profiles.full_name
+         END,
+         country = CASE
+           WHEN COALESCE(user_profiles.country, '') = '' AND EXCLUDED.country <> '' THEN EXCLUDED.country
+           ELSE user_profiles.country
+         END`,
+      [user.id, email, fullName, country],
+    );
+    _profileEnsured.add(user.id);
+  }
+  // Non-blocking geo backfill — runs after profile is guaranteed to exist
+  if (ip) backfillCountryFromIp(user.id, ip).catch(() => {});
 }
 
 // Backfill user_profiles rows for any user IDs missing a profile by looking
@@ -3263,25 +3288,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin middleware ──────────────────────────────────────────────────────────
   // Reads role from the DB — never from the JWT — so stale or manipulated tokens
   // cannot escalate privileges.
-  // ── IP geolocation (ip-api.com — free, no key required) ────────────────────
-  async function geolocateIp(ip: string): Promise<{
-    country: string; countryCode: string; region: string; city: string; isp: string;
-  } | null> {
-    if (!ip || ip === 'unknown' || ip.startsWith('127.') || ip.startsWith('::')) return null;
-    try {
-      const res = await fetch(
-        `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp`,
-        { signal: AbortSignal.timeout(5000) }
-      );
-      if (!res.ok) return null;
-      const d = await res.json() as any;
-      if (d.status !== 'success') return null;
-      return { country: d.country, countryCode: d.countryCode, region: d.regionName, city: d.city, isp: d.isp };
-    } catch {
-      return null;
-    }
-  }
-
   // ── Log admin access (fire-and-forget) ───────────────────────────────────────
   function logAdminAccess(userId: string, email: string, ip: string) {
     geolocateIp(ip).then(geo => {
