@@ -219,7 +219,7 @@ function AppRoutes() {
 
       {/* Admin */}
       <Route path="/admin">
-        {() => <RequireAdmin><AdminPanel /></RequireAdmin>}
+        {() => <RequireAdmin><InactivityWatcher /><AdminPanel /></RequireAdmin>}
       </Route>
 
       {/* Protected inner pages — listed explicitly so they aren't caught by PublicPagesGroup */}
