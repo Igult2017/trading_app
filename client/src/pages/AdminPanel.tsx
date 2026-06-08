@@ -73,9 +73,10 @@ const ADMIN_THEMES: Record<string, Record<string, string>> = {
 };
 
 const ADMIN_FONTS: Record<string, string> = {
+  outfit:     "'Outfit', sans-serif",
+  inter:      "'Inter', sans-serif",
   montserrat: "'Montserrat', sans-serif",
   onest:      "'Onest', sans-serif",
-  inter:      "'Inter', sans-serif",
   mono:       "'DM Mono', monospace",
 };
 
@@ -86,14 +87,14 @@ function applyAdminTheme(id: string) {
 }
 
 function applyAdminFont(id: string) {
-  const stack = ADMIN_FONTS[id] ?? ADMIN_FONTS.mono;
+  const stack = ADMIN_FONTS[id] ?? ADMIN_FONTS.inter;
   document.documentElement.style.setProperty('--admin-font', stack);
-  document.documentElement.style.setProperty('--admin-header-font', ADMIN_FONTS.montserrat);
+  document.documentElement.style.setProperty('--admin-header-font', ADMIN_FONTS.outfit);
 }
 
 // Apply saved preferences immediately on module load
 applyAdminTheme(localStorage.getItem('admin_theme') ?? 'dark');
-applyAdminFont(localStorage.getItem('admin_font') ?? 'mono');
+applyAdminFont(localStorage.getItem('admin_font') ?? 'inter');
 
 const FONT = 'var(--admin-font)';
 const HFONT = 'var(--admin-header-font)';
@@ -2696,10 +2697,11 @@ const THEME_OPTIONS = [
 ];
 
 const FONT_OPTIONS = [
-  { id: 'montserrat', label: 'Montserrat', stack: "'Montserrat', sans-serif" },
-  { id: 'onest', label: 'Onest', stack: "'Onest', sans-serif" },
-  { id: 'inter', label: 'Inter', stack: "'Inter', sans-serif" },
-  { id: 'mono', label: 'DM Mono', stack: "'DM Mono', monospace" },
+  { id: 'inter',      label: 'Inter',       stack: "'Inter', sans-serif" },
+  { id: 'outfit',     label: 'Outfit',      stack: "'Outfit', sans-serif" },
+  { id: 'montserrat', label: 'Montserrat',  stack: "'Montserrat', sans-serif" },
+  { id: 'onest',      label: 'Onest',       stack: "'Onest', sans-serif" },
+  { id: 'mono',       label: 'DM Mono',     stack: "'DM Mono', monospace" },
 ];
 
 const MOCK_CC_USERS = [
@@ -3295,7 +3297,7 @@ export default function AdminPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@300;400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } input::placeholder { color: #2d4060; } select option { background: #0c1018; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@300;400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } input::placeholder { color: #2d4060; } select option { background: #0c1018; }`}</style>
 
       {/* ── HEADER — full width, always at the very top ── */}
       <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 96%, transparent)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, boxShadow: '0 1px 0 rgba(0,200,224,0.06), 0 4px 24px rgba(0,0,0,0.4)', padding: `0 ${contentPad}`, height: '52px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
