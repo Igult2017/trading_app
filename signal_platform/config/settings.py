@@ -5,11 +5,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # ── Database ──────────────────────────────────────────────────────────────
-    # MUST point at the same PostgreSQL as the Node.js app so signals appear
-    # in the AssetPage via /api/trading-signals.
-    # Example: postgresql://user:pass@localhost/mydb
-    # Default falls back to local SQLite for offline dev only.
-    database_url: str = "sqlite:///./signals.db"
+    # Must point at the same PostgreSQL as the Node.js app so signals appear
+    # in AssetPage via /api/trading-signals.
+    # Set DATABASE_URL in signal_platform/.env — e.g.:
+    #   DATABASE_URL=postgresql://user:pass@localhost/trading_app
+    database_url: str
 
     # ── Scanner ───────────────────────────────────────────────────────────────
     scan_enabled: bool = True

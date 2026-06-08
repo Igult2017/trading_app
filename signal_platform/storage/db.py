@@ -1,8 +1,6 @@
 """
-SQLAlchemy engine + session factory.
-Default: SQLite for local dev.
-Set DATABASE_URL=postgresql://... to write into the existing app DB
-that the AssetPage already queries.
+SQLAlchemy engine + session factory — PostgreSQL only.
+DATABASE_URL must be set in signal_platform/.env.
 """
 
 from contextlib import contextmanager
@@ -10,13 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from config.settings import settings
 
-engine = create_engine(
-    settings.database_url,
-    # SQLite needs check_same_thread=False; ignored for other dialects
-    connect_args={"check_same_thread": False}
-    if settings.database_url.startswith("sqlite") else {},
-    echo=False,
-)
+engine = create_engine(settings.database_url, echo=False)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
