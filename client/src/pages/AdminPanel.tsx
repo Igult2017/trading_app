@@ -168,13 +168,21 @@ const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; bo
 const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', imageUrl: '', excerpt: '', content: '', readTime: '5 min', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
 
+// Snap to nearest valid FlagCDN PNG width (20, 40, 80, 160, 320, 640)
+function snapCdnWidth(px: number): number {
+  for (const w of [20, 40, 80, 160, 320, 640]) if (px <= w) return w;
+  return 640;
+}
+
 const FlagImg = ({ country, size = 20 }: { country?: string; size?: number }) => {
   const code = countryToIso(country);
-  if (!code) return <span style={{ fontSize: size * 0.7, color: '#3d5878' }}>🌐</span>;
+  if (!code) return <span style={{ fontSize: (size ?? 20) * 0.7, color: '#3d5878' }}>🌐</span>;
+  const w1 = snapCdnWidth(size ?? 20);
+  const w2 = snapCdnWidth((size ?? 20) * 2);
   return (
     <img
-      src={`https://flagcdn.com/w${size}/${code}.png`}
-      srcSet={`https://flagcdn.com/w${size * 2}/${code}.png 2x`}
+      src={`https://flagcdn.com/w${w1}/${code}.png`}
+      srcSet={`https://flagcdn.com/w${w2}/${code}.png 2x`}
       width={size}
       alt={country}
       title={country}

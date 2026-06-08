@@ -137,6 +137,28 @@ async function invalidateComputeCaches(sessionId?: string, userId?: string) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Extract the real client IP in priority order:
+ *  1. CF-Connecting-IP  — Cloudflare always sets this to the real client IP
+ *  2. X-Real-IP         — set by nginx `proxy_set_header X-Real-IP $remote_addr`
+ *  3. X-Forwarded-For   — first (leftmost) entry is the originating client
+ *  4. req.ip            — Express value (respects trust proxy setting)
+ */
+function getRealIp(req: Request): string {
+  const cf = req.headers['cf-connecting-ip'];
+  if (cf) return (Array.isArray(cf) ? cf[0] : cf).trim();
+
+  const xri = req.headers['x-real-ip'];
+  if (xri) return (Array.isArray(xri) ? xri[0] : xri).trim();
+
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) {
+    const first = (Array.isArray(xff) ? xff[0] : xff).split(',')[0].trim();
+    if (first) return first;
+  }
+
+  return req.ip ?? '';
+}
+
 // ── Auth helper for user-data routes ─────────────────────────────────────────
 // Verifies a Supabase JWT and returns the authenticated user id.
 // Sends a 401 response and returns null when authentication fails so that
@@ -148,7 +170,7 @@ async function requireAuth(
   // Try Supabase JWT verification first
   const user = await verifyToken(req.headers.authorization);
   if (user) {
-    ensureUserProfile(user, req.ip).catch((err) =>
+    ensureUserProfile(user, getRealIp(req)).catch((err) =>
       console.warn('[ensureUserProfile] failed:', err?.message),
     );
     return { id: user.id };
@@ -4408,6 +4430,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── IP helpers ───────────────────────────────────────────────────────────────
   function getClientIp(req: Request): string {
+    const cf = req.headers['cf-connecting-ip'];
+    if (cf) return normalizeIp(Array.isArray(cf) ? cf[0] : cf);
     const fwd = req.headers['x-forwarded-for'];
     if (fwd) {
       const first = (Array.isArray(fwd) ? fwd[0] : fwd).split(',')[0].trim();
