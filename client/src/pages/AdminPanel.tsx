@@ -417,7 +417,7 @@ const StatCard = ({ title, value, change, trend, icon: Icon }) => (
       </span>
     </div>
     <div>
-      <div style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '5px' }}>
+      <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '5px' }}>
         {value}
       </div>
       <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.12em' }}>

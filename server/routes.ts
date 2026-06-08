@@ -3551,7 +3551,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recentUsers = [...users]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
-        .map(u => ({ type: 'signup', text: `New signup: ${(u.user_metadata as any)?.full_name || u.email}`, ts: u.created_at }));
+        .map(u => {
+          const raw: string = (u.user_metadata as any)?.full_name || u.email || '';
+          const name = raw.replace(/\b\w+/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+          return { type: 'signup', text: `New signup: ${name}`, ts: u.created_at };
+        });
 
       const recentPosts = (allPosts as any[])
         .filter(p => p.status === 'Published')
