@@ -182,18 +182,20 @@ setInterval(() => _profileEnsured.clear(), 60 * 60 * 1000).unref();
 // Tracks users for whom we've already attempted a geo lookup this process lifetime
 const _geoAttempted = new Set<string>();
 
-/** Fire-and-forget: if the user has no country, look it up from their IP and save it. */
+/** Fire-and-forget: if the user has no country, look it up from their IP and save it.
+ *  Only marks the user "done" when the country is confirmed — so a transient geo
+ *  failure allows a retry on the next request rather than silently giving up. */
 async function backfillCountryFromIp(userId: string, ip: string): Promise<void> {
   if (_geoAttempted.has(userId)) return;
-  _geoAttempted.add(userId);
   const { rows } = await pool.query(`SELECT country FROM user_profiles WHERE id = $1`, [userId]);
-  if (rows[0]?.country) return;          // already has a country — nothing to do
+  if (rows[0]?.country) { _geoAttempted.add(userId); return; } // already set — mark done
   const geo = await geolocateIp(ip);
-  if (!geo?.countryCode) return;
+  if (!geo?.countryCode) return;                               // geo failed — allow retry
   await pool.query(
     `UPDATE user_profiles SET country = $1 WHERE id = $2 AND (country IS NULL OR country = '')`,
     [geo.countryCode, userId],
   );
+  _geoAttempted.add(userId);                                   // success — mark done
 }
 
 function extractFullName(user: any): string {
