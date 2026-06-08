@@ -103,7 +103,7 @@ const toTitleCase = (s: string): string =>
 const C = {
   bg: 'var(--admin-bg)', sidebar: 'var(--admin-sidebar)', card: 'var(--admin-card)',
   border: 'var(--admin-border)', border2: 'var(--admin-border2)', dim: 'var(--admin-dim)',
-  text: '#d0dff0', muted: '#3a5070',
+  text: '#c2d8ef', muted: '#4e6a88',
   indigo: 'var(--admin-accent)', indigoL: 'var(--admin-accentL)',
   green: '#00d48a', greenL: '#00ff9d',
   red: '#ff3060', redL: '#ff6080',
@@ -132,7 +132,7 @@ class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactN
     return this.props.children;
   }
 }
-const cs = { background: C.card, border: `1px solid ${C.border}` };
+const cs = { background: C.card, border: `1px solid ${C.border}`, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 3px rgba(0,0,0,0.3)' };
 const inp = { width: '100%', background: 'var(--admin-bg)', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
 const lbl = { display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
 const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.04em' };
@@ -406,14 +406,22 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
 };
 
 const StatCard = ({ title, value, change, trend, icon: Icon }) => (
-  <div style={{ ...cs, padding: '20px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-      <div style={{ padding: '8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL }}><Icon size={18} /></div>
-      <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 7px', background: trend === 'up' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: trend === 'up' ? C.greenL : C.redL }}>{change}</span>
+  <div style={{ ...cs, padding: '18px 20px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ padding: '7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: '1px solid rgba(0,200,224,0.12)' }}>
+        <Icon size={15} />
+      </div>
+      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', background: trend === 'up' ? 'rgba(0,212,138,0.1)' : 'rgba(255,48,96,0.1)', color: trend === 'up' ? C.greenL : C.redL, border: `1px solid ${trend === 'up' ? 'rgba(0,212,138,0.2)' : 'rgba(255,48,96,0.2)'}`, letterSpacing: '0.04em' }}>
+        {change}
+      </span>
     </div>
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-      <span style={{ color: C.muted, fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{title}:</span>
-      <span style={{ color: 'white', fontSize: '10px', fontWeight: 700, letterSpacing: '0.01em', fontFamily: "'DM Mono', 'Courier New', monospace" }}>{value}</span>
+    <div>
+      <div style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '5px' }}>
+        {value}
+      </div>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+        {title}
+      </div>
     </div>
   </div>
 );
@@ -3161,9 +3169,9 @@ export default function AdminPanel() {
   const navBtn = item => {
     const isActive = activeTab === item.id;
     const isSoon = !item.ready;
-    const activeBg = isActive ? 'color-mix(in srgb, var(--admin-accent) 18%, transparent)' : 'transparent';
-    const activeColor = isActive ? 'white' : isSoon ? '#2a3d54' : '#607898';
-    const iconColor = isActive ? C.indigoL : isSoon ? '#1e3050' : '#3d5878';
+    const activeBg = isActive ? 'rgba(0,200,224,0.1)' : 'transparent';
+    const activeColor = isActive ? '#ffffff' : isSoon ? '#2a3d54' : '#6b8aaa';
+    const iconColor = isActive ? C.indigoL : isSoon ? '#1e3050' : '#4e6a88';
     const handleClick = () => {
       if (item.id === 'journal') { navigate('/journal'); return; }
       setActiveTab(item.id);
@@ -3172,13 +3180,16 @@ export default function AdminPanel() {
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 400, fontSize: '12px', position: 'relative', transition: 'background 0.15s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent', overflow: 'hidden' }}>
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: isSoon ? 'default' : 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 500, fontSize: '12px', position: 'relative', transition: 'background 0.12s, color 0.12s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent', overflow: 'hidden' }}
+        onMouseEnter={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#8faacc'; } }}
+        onMouseLeave={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b8aaa'; } }}
+      >
         <item.icon size={14} style={{ flexShrink: 0, color: iconColor }} />
         {!collapsed && (
           <>
             <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{item.label}</span>
             {isSoon && (
-              <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.1)', color: '#92400e', border: '1px solid rgba(245,158,11,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
+              <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.08)', color: '#6b5020', border: '1px solid rgba(245,158,11,0.15)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
             )}
             {item.id === 'journal' && <ExternalLink size={10} style={{ color: '#3d5878', flexShrink: 0 }} />}
           </>
@@ -3191,7 +3202,7 @@ export default function AdminPanel() {
   };
 
   const sectionLabel = label => (
-    <p style={{ color: '#2d3d52', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', padding: '10px 12px 3px', margin: 0, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
+    <p style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', padding: '14px 14px 4px', margin: 0, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
   );
 
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
@@ -3284,10 +3295,10 @@ export default function AdminPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@300;400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } input::placeholder { color: #2d4060; } select option { background: #0c1018; }`}</style>
 
       {/* ── HEADER — full width, always at the very top ── */}
-      <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 92%, transparent)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 96%, transparent)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, boxShadow: '0 1px 0 rgba(0,200,224,0.06), 0 4px 24px rgba(0,0,0,0.4)', padding: `0 ${contentPad}`, height: '52px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
         {/* ── Left: logo + hamburger ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -3371,8 +3382,8 @@ export default function AdminPanel() {
 
         {/* SIDEBAR */}
         <aside style={isMobileDrawer
-          ? { position: 'fixed', top: '49px', left: 0, bottom: 0, width: '230px', transform: collapsed ? 'translateX(-100%)' : 'translateX(0)', transition: 'transform 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', zIndex: 30, boxShadow: collapsed ? 'none' : '8px 0 24px rgba(0,0,0,0.5)' }
-          : { width: sidebarW, minWidth: sidebarW, transition: 'width 0.25s ease, min-width 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }
+          ? { position: 'fixed', top: '52px', left: 0, bottom: 0, width: '230px', transform: collapsed ? 'translateX(-100%)' : 'translateX(0)', transition: 'transform 0.25s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, boxShadow: collapsed ? 'none' : '8px 0 32px rgba(0,0,0,0.6), 1px 0 0 rgba(0,200,224,0.04)', display: 'flex', flexDirection: 'column', zIndex: 30 }
+          : { width: sidebarW, minWidth: sidebarW, transition: 'width 0.22s ease, min-width 0.22s ease', background: C.sidebar, borderRight: `1px solid ${C.border}`, boxShadow: '1px 0 0 rgba(0,200,224,0.04)', display: 'flex', flexDirection: 'column', flexShrink: 0 }
         }>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
             {SIDEBAR_GROUPS.map((group, gi) => (
@@ -3384,23 +3395,25 @@ export default function AdminPanel() {
           </div>
 
           {/* User profile + sign out */}
-          <div style={{ borderTop: `1px solid ${C.border}`, padding: '8px 0', flexShrink: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-              <div style={{ width: '28px', height: '28px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', color: 'white', flexShrink: 0 }}>
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: '10px 0 6px', flexShrink: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <div style={{ width: '30px', height: '30px', background: 'linear-gradient(135deg, var(--admin-accent), color-mix(in srgb, var(--admin-accent) 60%, #7c3aed))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', color: 'white', flexShrink: 0, boxShadow: '0 0 0 2px rgba(0,200,224,0.2)' }}>
                 {adminInitial}
               </div>
               {!collapsed && (
                 <div style={{ overflow: 'hidden' }}>
-                  <p style={{ color: 'white', fontSize: '11px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
-                  <p style={{ color: C.muted, fontSize: '10px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
+                  <p style={{ color: '#e8f4ff', fontSize: '12px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
+                  <p style={{ color: C.muted, fontSize: '10px', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
                 </div>
               )}
             </div>
             <button
               onClick={async () => { await signOut(); navigate('/'); }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 14px', justifyContent: 'flex-start', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.15s', overflow: 'hidden' }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 14px', justifyContent: 'flex-start', background: 'transparent', color: '#7a3a44', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.12s, color 0.12s', overflow: 'hidden' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,48,96,0.08)'; e.currentTarget.style.color = '#ff6080'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a3a44'; }}
             >
-              <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v6" />
                 <path d="M6.8 4.8a9 9 0 1 0 10.4 0" />
               </svg>
