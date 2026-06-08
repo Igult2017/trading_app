@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { authFetch } from '@/lib/queryClient';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer, Area,
@@ -3097,10 +3099,37 @@ export default function AdminPanel() {
 
   const { user, session, role, signOut, loading } = useAuth();
   const [, navigate] = useLocation();
-  const [apiUsers, setApiUsers] = useState<any[]>([]);
-  const [overviewStats, setOverviewStats] = useState<any>(null);
+  const queryClient = useQueryClient();
+
+  const { data: apiUsers = [], error: usersQueryError } = useQuery<any[]>({
+    queryKey: ['/api/admin/users'],
+    queryFn: async () => {
+      const r = await authFetch('/api/admin/users');
+      if (r.ok) return r.json();
+      const e = await r.json().catch(() => ({}));
+      throw new Error((e as any).error ?? `Failed to load users (${r.status})`);
+    },
+    enabled: role === 'admin',
+    staleTime: Infinity,
+    select: (data) => Array.isArray(data) ? data : [],
+  });
+  const usersLoadError: string | null = usersQueryError ? (usersQueryError as Error).message : null;
+
+  const { data: overviewStats = null } = useQuery<any>({
+    queryKey: ['/api/admin/stats'],
+    queryFn: () => authFetch('/api/admin/stats').then(r => r.ok ? r.json() : null).catch(() => null),
+    enabled: role === 'admin',
+    staleTime: Infinity,
+  });
+
   const [myIpInfo, setMyIpInfo] = useState<{ ip: string; isExcluded: boolean; configuredAdminIps: string[]; geo?: { country: string; countryCode: string; region: string; city: string; isp: string } | null } | null>(null);
-  const [usersLoadError, setUsersLoadError] = useState<string | null>(null);
+
+  const setApiUsers = (updater: ((prev: any[]) => any[]) | any[]) => {
+    queryClient.setQueryData<any[]>(['/api/admin/users'], (prev) => {
+      const current = prev ?? [];
+      return typeof updater === 'function' ? updater(current) : updater;
+    });
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -3110,42 +3139,8 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (role !== 'admin') return;
-    const token = session?.access_token;
-    if (!token) return;
-    const hdrs = { Authorization: `Bearer ${token}` };
-    const loadAdminData = async () => {
-      try {
-        const [usersRes, statsRes] = await Promise.all([
-          fetch('/api/admin/users', { headers: hdrs }),
-          fetch('/api/admin/stats', { headers: hdrs }),
-        ]);
-
-        if (usersRes.ok) {
-          const users = await usersRes.json();
-          setApiUsers(Array.isArray(users) ? users : []);
-          setUsersLoadError(null);
-        } else {
-          const err = await usersRes.json().catch(() => ({} as any));
-          setUsersLoadError(err.error ?? `Failed to load users (${usersRes.status})`);
-        }
-
-        if (statsRes.ok) {
-          setOverviewStats(await statsRes.json());
-        } else {
-          const err = await statsRes.json().catch(() => ({} as any));
-          console.warn('[AdminPanel] Failed to load admin stats', err.error ?? statsRes.statusText);
-        }
-      } catch (err: any) {
-        const message = err?.message ?? 'Unexpected error loading admin data';
-        setUsersLoadError(message);
-        console.error('[AdminPanel] Admin data load failed', err);
-      }
-    };
-
-    loadAdminData();
-    // Always fetch admin IP (doesn't need auth)
     fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
-  }, [role, session]);
+  }, [role]);
 
   async function handleRoleChange(userId: string, newRole: string) {
     const token = session?.access_token;
@@ -3155,7 +3150,7 @@ export default function AdminPanel() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ role: newRole }),
     });
-    setApiUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    setApiUsers((prev: any[]) => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
   }
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);

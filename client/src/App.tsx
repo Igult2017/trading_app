@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
+import { prefetchAdminData } from "@/lib/prefetchAdmin";
 import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
 
 // Populate cache from server-injected data before any component renders.
@@ -259,6 +260,22 @@ function InactivityWatcher() {
   return null;
 }
 
+function AdminPrefetcher() {
+  const { session, role } = useAuth();
+  const qc = useQueryClient();
+  const prefetchedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (role !== 'admin' || !session) return;
+    const key = session.access_token;
+    if (prefetchedFor.current === key) return;
+    prefetchedFor.current = key;
+    prefetchAdminData(qc);
+  }, [role, session?.access_token, qc]);
+
+  return null;
+}
+
 function JournalPrefetcher() {
   const { session, user } = useAuth();
   const qc = useQueryClient();
@@ -327,6 +344,7 @@ export default function App() {
         <TooltipProvider>
           <AuthProvider>
             <JournalPrefetcher />
+            <AdminPrefetcher />
             <AppRoutes />
           </AuthProvider>
           <Toaster />
