@@ -236,6 +236,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   addServerLog('info', 'Server', `API server started — Node ${process.version}`);
   startPriceAlertChecker();
 
+  // ── Health check ──────────────────────────────────────────────────────────────
+  app.get('/api/health', async (_req: Request, res: Response) => {
+    try {
+      await pool.query('SELECT 1');
+      res.json({ status: 'ok', db: 'ok', ts: Date.now() });
+    } catch {
+      res.status(503).json({ status: 'error', db: 'unreachable', ts: Date.now() });
+    }
+  });
+
   // ── robots.txt ────────────────────────────────────────────────────────────────
   app.get('/robots.txt', (_req: Request, res: Response) => {
     res.type('text/plain').send(
