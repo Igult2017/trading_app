@@ -649,6 +649,25 @@ export async function initializeDatabase() {
       }
     }
 
+    // Purge pre-feature page_views rows (recorded before referrer/section/country
+    // columns existed — all NULL, no analytics value, likely admin self-visits).
+    // Safe to re-run: new visits always populate these columns, so after the
+    // first deploy this delete matches zero rows and does nothing.
+    try {
+      const pvResult = await db.execute(sql.raw(`
+        DELETE FROM page_views
+        WHERE referrer_source IS NULL
+          AND page_section IS NULL
+          AND country IS NULL
+      `));
+      const deleted = (pvResult as any)?.rowCount ?? 0;
+      if (deleted > 0) {
+        console.log(`[Database] Cleared ${deleted} pre-feature page_views rows — analytics starts fresh`);
+      }
+    } catch (err) {
+      console.warn('[Database] page_views cleanup skipped:', (err as any)?.message);
+    }
+
     // Purge journal entries that reference a session which no longer exists.
     // This covers any orphans left behind by incomplete past deletes.
     try {
