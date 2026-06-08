@@ -4317,22 +4317,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return raw.split(',').map(s => normalizeIp(s)).filter(Boolean);
   }
 
-  // Merged admin IP set: env var + every IP that has ever made a successful admin login.
-  // Cached for 5 minutes so page-view checks are cheap.
+  // Merged admin IP set: env var + every IP that has ever logged in as admin.
+  // Strategy: stale-while-revalidate + single in-flight refresh + safe DB-failure TTL.
   let _adminIpCache: Set<string> | null = null;
   let _adminIpCachedAt = 0;
-  async function getAllAdminIps(): Promise<Set<string>> {
-    if (_adminIpCache && Date.now() - _adminIpCachedAt < 5 * 60 * 1000) return _adminIpCache;
+  let _adminIpRefresh: Promise<void> | null = null;
+  const ADMIN_IP_TTL     = 5 * 60 * 1000;  // normal TTL: 5 min
+  const ADMIN_IP_FAIL_TTL = 60 * 1000;     // retry after DB failure: 60s
+
+  async function _refreshAdminIpCache(): Promise<void> {
     const envIps = getAdminIps();
     try {
       const rows = await db.select({ ip: adminAccessLogs.ip }).from(adminAccessLogs);
-      const set = new Set<string>([...envIps, ...rows.map(r => normalizeIp(r.ip))]);
-      _adminIpCache = set;
+      _adminIpCache  = new Set<string>([...envIps, ...rows.map(r => normalizeIp(r.ip))]);
       _adminIpCachedAt = Date.now();
-      return set;
     } catch {
-      return new Set(envIps);
+      // DB unavailable — keep existing cache if any, otherwise use env IPs.
+      // Use a short TTL so we retry in 60s instead of waiting the full 5 min.
+      if (!_adminIpCache) _adminIpCache = new Set(envIps);
+      _adminIpCachedAt = Date.now() - (ADMIN_IP_TTL - ADMIN_IP_FAIL_TTL);
     }
+  }
+
+  async function getAllAdminIps(): Promise<Set<string>> {
+    const stale = Date.now() - _adminIpCachedAt >= ADMIN_IP_TTL;
+
+    // Cache is fresh — return immediately
+    if (_adminIpCache !== null && !stale) return _adminIpCache;
+
+    // Stale or missing — start one refresh; concurrent callers share it
+    if (!_adminIpRefresh) {
+      _adminIpRefresh = _refreshAdminIpCache().finally(() => { _adminIpRefresh = null; });
+    }
+
+    // Stale but present — return immediately, refresh runs in background
+    if (_adminIpCache !== null) return _adminIpCache;
+
+    // No cache at all (first ever call) — must wait
+    await _adminIpRefresh;
+    return _adminIpCache ?? new Set(getAdminIps());
   }
 
   // ── Page-view tracking — skip admin IPs automatically ───────────────────────
