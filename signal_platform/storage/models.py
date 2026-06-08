@@ -4,7 +4,7 @@ so the Node.js API and AssetPage work without any schema changes.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy import JSON
@@ -54,6 +54,6 @@ class SignalModel(Base):
     expires_at     = Column("expiresAt",     DateTime)
     executed_at    = Column("executedAt",    DateTime)
     invalidated_at = Column("invalidatedAt", DateTime)
-    created_at     = Column("createdAt",     DateTime, default=datetime.utcnow)
-    updated_at     = Column("updatedAt",     DateTime, default=datetime.utcnow,
-                            onupdate=datetime.utcnow)
+    created_at     = Column("createdAt",     DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at     = Column("updatedAt",     DateTime, default=lambda: datetime.now(timezone.utc),
+                            onupdate=lambda: datetime.now(timezone.utc))

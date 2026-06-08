@@ -104,7 +104,7 @@ async def fetch(now: datetime | None = None) -> NewsContext:
         return _build_context(_cache_events)
 
     log.info("[news_fetcher] fetching economic calendar (MyFXBook → TradingView → FF)...")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         events = await asyncio.wait_for(
             loop.run_in_executor(None, _scrape_sync),

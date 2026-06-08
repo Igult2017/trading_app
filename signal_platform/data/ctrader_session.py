@@ -37,7 +37,8 @@ _access_token:  str   = ""
 _token_expiry:  float = 0.0
 _reader: Optional[asyncio.StreamReader] = None
 _writer: Optional[asyncio.StreamWriter] = None
-_conn_lock = asyncio.Lock()
+_conn_lock  = asyncio.Lock()
+_token_lock = asyncio.Lock()
 
 
 def configure(client_id: str, client_secret: str,
@@ -65,35 +66,36 @@ def _write_tokens(data: dict) -> None:
 async def get_access_token() -> str:
     """Exchange refresh_token for access_token; persist any rotated refresh_token."""
     global _access_token, _token_expiry
-    if _access_token and time.monotonic() < _token_expiry:
+    async with _token_lock:
+        if _access_token and time.monotonic() < _token_expiry:
+            return _access_token
+
+        tokens = _read_tokens()
+        rt = tokens.get("refresh_token", "")
+        if not rt:
+            raise ValueError("No refresh token — run: python auth_setup.py")
+
+        async with httpx.AsyncClient(timeout=10) as http:
+            r = await http.post(_TOKEN_URL, data={
+                "grant_type":    "refresh_token",
+                "refresh_token": rt,
+                "client_id":     _client_id,
+                "client_secret": _client_secret,
+            })
+            j = r.json()
+
+        if "access_token" not in j:
+            raise ValueError(f"cTrader token refresh failed: {j}")
+
+        _access_token = j["access_token"]
+        _token_expiry = time.monotonic() + j.get("expires_in", 86_400) - 60
+
+        new_rt = j.get("refresh_token", "")
+        if new_rt and new_rt != rt:
+            _write_tokens({**tokens, "refresh_token": new_rt})
+            log.debug("[ctrader] refresh token rotated and saved")
+
         return _access_token
-
-    tokens = _read_tokens()
-    rt = tokens.get("refresh_token", "")
-    if not rt:
-        raise ValueError("No refresh token — run: python auth_setup.py")
-
-    async with httpx.AsyncClient(timeout=10) as http:
-        r = await http.post(_TOKEN_URL, data={
-            "grant_type":    "refresh_token",
-            "refresh_token": rt,
-            "client_id":     _client_id,
-            "client_secret": _client_secret,
-        })
-        j = r.json()
-
-    if "access_token" not in j:
-        raise ValueError(f"cTrader token refresh failed: {j}")
-
-    _access_token = j["access_token"]
-    _token_expiry = time.monotonic() + j.get("expires_in", 86_400) - 60
-
-    new_rt = j.get("refresh_token", "")
-    if new_rt and new_rt != rt:
-        _write_tokens({**tokens, "refresh_token": new_rt})
-        log.debug("[ctrader] refresh token rotated and saved")
-
-    return _access_token
 
 
 async def send(writer: asyncio.StreamWriter,

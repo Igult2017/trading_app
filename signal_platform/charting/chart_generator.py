@@ -23,7 +23,7 @@ async def generate_chart(candles: list[Candle], signal: Signal) -> str | None:
     """
     if not candles:
         return None
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         return await asyncio.wait_for(
             loop.run_in_executor(None, _render_sync, candles, signal),
@@ -48,7 +48,10 @@ def _render_sync(candles: list[Candle], signal: Signal) -> str | None:
         if df.empty:
             return None
 
-        path = Path(tempfile.mktemp(suffix=".png"))
+        import os
+        fd, tmp = tempfile.mkstemp(suffix=".png")
+        os.close(fd)
+        path = Path(tmp)
 
         add_lines = []
         if signal.entry_price:

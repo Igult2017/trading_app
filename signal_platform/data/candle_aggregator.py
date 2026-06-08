@@ -26,7 +26,7 @@ def aggregate(base_candles: list[Candle], target_tf: str) -> list[Candle]:
     target_secs = to_minutes(target_tf) * 60
     groups: dict[int, list[Candle]] = {}
 
-    for c in base_candles:
+    for c in sorted(base_candles, key=lambda c: c.time):
         bucket = (c.time // target_secs) * target_secs
         groups.setdefault(bucket, []).append(c)
 

@@ -68,6 +68,7 @@ def invalidate(symbol: str | None = None) -> None:
 def stats() -> dict:
     now = time.monotonic()
     with _lock:
+        total   = len(_store)
         fresh   = sum(1 for _, exp in _store.values() if now < exp)
-        expired = len(_store) - fresh
-    return {"fresh": fresh, "expired": expired, "total": len(_store)}
+        expired = total - fresh
+    return {"fresh": fresh, "expired": expired, "total": total}

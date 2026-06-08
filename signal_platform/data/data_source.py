@@ -43,7 +43,7 @@ async def fetch_raw(symbol: str, tf: str, count: int) -> list[dict]:
             ctrader_client.fetch_bars(broker_sym, tf, count), _TIMEOUT)
 
     # ── 2. yfinance history + ejtraderCT live overlay ────────────────────────
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     raw: list[dict] = await asyncio.wait_for(
         loop.run_in_executor(
             None, partial(yfinance_client.fetch_bars, symbol, tf, count)),

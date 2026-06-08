@@ -172,7 +172,7 @@ def detect_pullbacks(candles: list[Candle],
         impulse_origin_low = None
         for label, sp in lows:
             if sp.index > prev_high.index and sp.index < curr_high.index:
-                if label in ("HL", "LL"):
+                if label == "HL":
                     impulse_origin_low = sp
 
         if impulse_origin_low is None:

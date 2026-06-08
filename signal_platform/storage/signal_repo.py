@@ -4,7 +4,7 @@ All decisions about what to store are made in the orchestrator or monitor.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from core.types import Signal, SignalStatus
 from storage.db import get_session
 from storage.models import SignalModel
@@ -58,12 +58,12 @@ def update_status(signal_id: str, status: SignalStatus,
             return
         row.status = status.value
         if timestamp_field:
-            setattr(row, timestamp_field, datetime.utcnow())
+            setattr(row, timestamp_field, datetime.now(timezone.utc))
 
 
 def expire_stale(older_than_hours: int = 24) -> int:
     """Mark expired signals and return the count updated."""
-    cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
     with get_session() as s:
         rows = s.query(SignalModel).filter(
             SignalModel.status == "active",

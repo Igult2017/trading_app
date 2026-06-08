@@ -12,6 +12,7 @@ Failure policy (explicit):
     "no opinion" not "rejected".
 """
 
+import asyncio
 import logging
 from pathlib import Path
 from config.settings import settings
@@ -46,6 +47,11 @@ async def validate_chart(chart_path: str | None) -> bool:
 
 async def _call_gemini(chart_path: str) -> bool:
     """Send chart image to Gemini for visual signal review."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _call_gemini_sync, chart_path)
+
+
+def _call_gemini_sync(chart_path: str) -> bool:
     import google.generativeai as genai
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel("gemini-1.5-flash")

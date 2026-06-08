@@ -62,4 +62,12 @@ class PatternBundle:
     @classmethod
     def from_cache(cls, cache: dict[str, list[PatternMatch]],
                    ids: list[str]) -> "PatternBundle":
-        return cls(_data={CandlePattern(k): cache[k] for k in ids if k in cache})
+        data: dict[CandlePattern, list[PatternMatch]] = {}
+        for k in ids:
+            if k not in cache:
+                continue
+            try:
+                data[CandlePattern(k)] = cache[k]
+            except ValueError:
+                pass
+        return cls(_data=data)

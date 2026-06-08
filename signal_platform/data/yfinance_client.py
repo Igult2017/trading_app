@@ -10,7 +10,6 @@ pip install yfinance pandas  (already in Dockerfile.base)
 """
 
 import logging
-from functools import lru_cache
 
 import pandas as pd
 import yfinance as yf

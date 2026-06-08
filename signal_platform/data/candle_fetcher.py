@@ -78,7 +78,7 @@ async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
             pass
         return (candle_cache.get(symbol, tf) or [])[-count:]
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     fut: asyncio.Future = loop.create_future()
     _in_flight[key] = fut
     candles: list[Candle] = []
