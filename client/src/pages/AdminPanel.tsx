@@ -3140,7 +3140,7 @@ export default function AdminPanel() {
   useEffect(() => {
     if (role !== 'admin') return;
     fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
-  }, [role]);
+  }, [role, session?.access_token]);
 
   async function handleRoleChange(userId: string, newRole: string) {
     const token = session?.access_token;
