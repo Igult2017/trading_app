@@ -3847,6 +3847,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: traffic breakdown ─────────────────────────────────────────────────
+  app.get("/api/admin/traffic-breakdown", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const period  = (req.query.period as string) ?? 'month';
+      const interval = period === 'week' ? '7 days' : period === 'year' ? '365 days' : '30 days';
+      const trunc    = period === 'week'  ? 'day'   : period === 'year'  ? 'month'   : 'week';
+
+      const adminIpSet  = await getAllAdminIps();
+      const adminIpList = [...adminIpSet];
+      const ipFilter    = adminIpList.length > 0
+        ? drizzleSql`AND (ip_address IS NULL OR ip_address != ALL(ARRAY[${drizzleSql.raw(adminIpList.map(() => '?').join(','))}]::text[]))`
+        : drizzleSql``;
+
+      // ── By source ────────────────────────────────────────────────────────────
+      const srcRows = (await pool.query(
+        `SELECT COALESCE(referrer_source,'Unknown') AS source, COUNT(*)::int AS visits
+         FROM page_views
+         WHERE viewed_at >= NOW() - INTERVAL '${interval}'
+           ${adminIpList.length > 0 ? "AND (ip_address IS NULL OR ip_address != ALL($1::text[]))" : ""}
+         GROUP BY source ORDER BY visits DESC LIMIT 20`,
+        adminIpList.length > 0 ? [adminIpList] : []
+      )).rows as { source: string; visits: number }[];
+
+      const totalVisits = srcRows.reduce((s, r) => s + r.visits, 0);
+      const bySources = srcRows.map(r => ({
+        source: r.source,
+        visits: r.visits,
+        pct: totalVisits > 0 ? Math.round((r.visits / totalVisits) * 1000) / 10 : 0,
+      }));
+
+      // ── By country ───────────────────────────────────────────────────────────
+      const ctryRows = (await pool.query(
+        `SELECT COALESCE(country,'Unknown') AS country,
+                COALESCE(country_code,'')  AS country_code,
+                COUNT(*)::int AS visits
+         FROM page_views
+         WHERE viewed_at >= NOW() - INTERVAL '${interval}'
+           ${adminIpList.length > 0 ? "AND (ip_address IS NULL OR ip_address != ALL($1::text[]))" : ""}
+         GROUP BY country, country_code ORDER BY visits DESC LIMIT 30`,
+        adminIpList.length > 0 ? [adminIpList] : []
+      )).rows as { country: string; country_code: string; visits: number }[];
+
+      const byCountry = ctryRows.map(r => ({
+        country: r.country, countryCode: r.country_code, visits: r.visits,
+        pct: totalVisits > 0 ? Math.round((r.visits / totalVisits) * 1000) / 10 : 0,
+      }));
+
+      // ── By page section ───────────────────────────────────────────────────────
+      const secRows = (await pool.query(
+        `SELECT COALESCE(page_section,'Other') AS section, COUNT(*)::int AS visits
+         FROM page_views
+         WHERE viewed_at >= NOW() - INTERVAL '${interval}'
+           ${adminIpList.length > 0 ? "AND (ip_address IS NULL OR ip_address != ALL($1::text[]))" : ""}
+         GROUP BY section ORDER BY visits DESC`,
+        adminIpList.length > 0 ? [adminIpList] : []
+      )).rows as { section: string; visits: number }[];
+
+      const bySection = secRows.map(r => ({
+        section: r.section, visits: r.visits,
+        pct: totalVisits > 0 ? Math.round((r.visits / totalVisits) * 1000) / 10 : 0,
+      }));
+
+      // ── Source over time ─────────────────────────────────────────────────────
+      const timeRows = (await pool.query(
+        `SELECT date_trunc('${trunc}', viewed_at) AS period,
+                COALESCE(referrer_source,'Unknown') AS source,
+                COUNT(*)::int AS visits
+         FROM page_views
+         WHERE viewed_at >= NOW() - INTERVAL '${interval}'
+           ${adminIpList.length > 0 ? "AND (ip_address IS NULL OR ip_address != ALL($1::text[]))" : ""}
+         GROUP BY period, source ORDER BY period ASC`,
+        adminIpList.length > 0 ? [adminIpList] : []
+      )).rows as { period: Date; source: string; visits: number }[];
+
+      // Pivot into [{ label, Google, Facebook, ... }]
+      const periodMap = new Map<string, Record<string, number>>();
+      for (const r of timeRows) {
+        const label = period === 'year'
+          ? new Date(r.period).toLocaleString('default', { month: 'short' })
+          : period === 'week'
+          ? new Date(r.period).toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' })
+          : `${new Date(r.period).toLocaleString('default', { month: 'short' })} W${Math.ceil(new Date(r.period).getDate() / 7)}`;
+        if (!periodMap.has(label)) periodMap.set(label, { label } as any);
+        periodMap.get(label)![r.source] = r.visits;
+      }
+      const sourceOverTime = [...periodMap.values()];
+
+      return res.json({ bySources, byCountry, bySection, sourceOverTime, totalVisits });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin: notification CRUD ──────────────────────────────────────────────────
   app.get("/api/admin/notifications", requireAdmin, async (_req: Request, res: Response) => {
     return res.json(await getAdminNotifications(80));
@@ -4358,26 +4451,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return _adminIpCache ?? new Set(getAdminIps());
   }
 
+  function parseReferrerSource(referrer: string, utmSource: string): string {
+    const utm = (utmSource ?? '').toLowerCase().trim();
+    if (utm) {
+      if (utm.includes('google'))                       return 'Google';
+      if (utm.includes('facebook') || utm === 'fb')     return 'Facebook';
+      if (utm.includes('tiktok'))                       return 'TikTok';
+      if (utm.includes('twitter') || utm === 'x')       return 'X';
+      if (utm.includes('youtube') || utm === 'yt')      return 'YouTube';
+      if (utm.includes('instagram') || utm === 'ig')    return 'Instagram';
+      if (utm.includes('linkedin'))                     return 'LinkedIn';
+      if (utm.includes('reddit'))                       return 'Reddit';
+      return utm.charAt(0).toUpperCase() + utm.slice(1);
+    }
+    if (!referrer) return 'Direct';
+    try {
+      const host = new URL(referrer).hostname.replace(/^(www\.|m\.|l\.)/, '');
+      if (host.includes('google'))                      return 'Google';
+      if (host.includes('facebook') || host === 'fb.com') return 'Facebook';
+      if (host.includes('tiktok'))                      return 'TikTok';
+      if (host === 'x.com' || host.includes('twitter') || host === 't.co') return 'X';
+      if (host.includes('youtube') || host === 'youtu.be') return 'YouTube';
+      if (host.includes('instagram'))                   return 'Instagram';
+      if (host.includes('linkedin'))                    return 'LinkedIn';
+      if (host.includes('reddit'))                      return 'Reddit';
+      return 'Other';
+    } catch { return 'Direct'; }
+  }
+
+  function categorizePageSection(page: string): string {
+    const p = (page ?? '').split('?')[0].toLowerCase();
+    if (p === '/' || p === '')                          return 'Landing Page';
+    if (p.startsWith('/journal'))                       return 'Journal';
+    if (p.startsWith('/blog'))                          return 'Blog';
+    if (p.startsWith('/history'))                       return 'Trade History';
+    if (p.startsWith('/analytics'))                     return 'Analytics';
+    if (p.startsWith('/asset'))                         return 'Assets';
+    if (p.startsWith('/accounts'))                      return 'Accounts';
+    if (/^\/(stocks|major-pairs|commodities|crypto|markets)/.test(p)) return 'Markets';
+    if (p.startsWith('/signals'))                       return 'Signals';
+    if (p.startsWith('/economic-calendar') || p.startsWith('/calendar')) return 'Economic Calendar';
+    if (p.startsWith('/auth'))                          return 'Auth';
+    return 'Other';
+  }
+
   // ── Page-view tracking — skip admin IPs automatically ───────────────────────
   app.post("/api/track", async (req: Request, res: Response) => {
     try {
-      const { page, sessionId, durationSeconds } = req.body as { page: string; sessionId?: string; durationSeconds?: number };
+      const { page, sessionId, durationSeconds, referrer = '', utmSource = '' } =
+        req.body as { page: string; sessionId?: string; durationSeconds?: number; referrer?: string; utmSource?: string };
       if (!page?.trim()) {
-        console.warn('[Track] Missing page', {
-          body: req.body ?? null,
-          contentType: req.headers['content-type'] ?? null,
-          ip: getClientIp(req),
-        });
+        console.warn('[Track] Missing page', { body: req.body ?? null, ip: getClientIp(req) });
         return res.status(400).json({ error: 'page required' });
       }
       const ip = getClientIp(req);
-      // Don't count admin traffic in visitor stats
       const adminIps = await getAllAdminIps();
       if (adminIps.has(normalizeIp(ip))) return res.json({ ok: true, skipped: true });
-      await db.execute(drizzleSql`
-        INSERT INTO page_views (page, session_id, duration_seconds, ip_address)
-        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null}, ${ip})
+
+      const referrerSource = parseReferrerSource(referrer, utmSource);
+      const pageSection    = categorizePageSection(page.trim());
+
+      const result = await db.execute(drizzleSql`
+        INSERT INTO page_views (page, session_id, duration_seconds, ip_address, referrer_source, page_section)
+        VALUES (${page.trim()}, ${sessionId ?? null}, ${durationSeconds ?? null}, ${ip}, ${referrerSource}, ${pageSection})
+        RETURNING id
       `);
+
+      // Geolocation runs async — does not block response
+      const rowId = (result.rows?.[0] as any)?.id;
+      if (rowId) {
+        geolocateIp(ip).then(geo => {
+          if (!geo) return;
+          db.execute(drizzleSql`
+            UPDATE page_views SET country = ${geo.country ?? null}, country_code = ${geo.countryCode ?? null}
+            WHERE id = ${rowId}
+          `).catch(() => {});
+        }).catch(() => {});
+      }
+
       return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });

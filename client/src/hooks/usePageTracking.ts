@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getReferrer, getUtmSource } from '@/lib/parseReferrer';
 
 const SESSION_KEY = 'fsdz_session_id';
 
@@ -23,18 +24,22 @@ export function usePageTracking(page: string) {
     }
     startRef.current = Date.now();
 
+    const referrer   = getReferrer();
+    const utmSource  = getUtmSource();
+    const basePayload = { page: trackingPage, sessionId, referrer, utmSource };
+
     // Record page view
     fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page: trackingPage, sessionId }),
+      body: JSON.stringify(basePayload),
     }).catch(() => {});
 
     // Record duration on unmount / page hide
     const recordDuration = () => {
       const durationSeconds = Math.round((Date.now() - startRef.current) / 1000);
       if (durationSeconds < 2) return; // ignore bounces
-      navigator.sendBeacon('/api/track', new Blob([JSON.stringify({ page: trackingPage, sessionId, durationSeconds })], { type: 'application/json' }));
+      navigator.sendBeacon('/api/track', new Blob([JSON.stringify({ ...basePayload, durationSeconds })], { type: 'application/json' }));
     };
 
     window.addEventListener('beforeunload', recordDuration);

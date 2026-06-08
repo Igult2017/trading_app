@@ -745,6 +745,11 @@ export const pageViews = pgTable("page_views", {
   page:            text("page").notNull(),
   sessionId:       text("session_id"),
   durationSeconds: integer("duration_seconds"),
+  ipAddress:       text("ip_address"),
+  referrerSource:  text("referrer_source"),
+  pageSection:     text("page_section"),
+  country:         text("country"),
+  countryCode:     text("country_code"),
   viewedAt:        timestamp("viewed_at").defaultNow(),
 });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
+import TrafficSection from '@/features/admin-traffic/TrafficSection';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer, Area,
@@ -3166,7 +3167,7 @@ export default function AdminPanel() {
     { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: Users,         ready: true }] },
     { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: HeadphonesIcon, badge: openTickets, ready: true }] },
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
-    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }] },
+    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: Globe, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
   ];
 
@@ -3300,6 +3301,7 @@ export default function AdminPanel() {
       case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => session?.access_token ?? null} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
+      case 'traffic': return <TrafficSection getAdminToken={async () => session?.access_token ?? null} />;
       case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
 
     }
