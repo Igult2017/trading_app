@@ -1077,6 +1077,24 @@ const SERVICE_GROUPS = {
 };
 
 // ─── SYNC PERFORMANCE SECTION ────────────────────────────────────────────────
+async function getSyncAuthHeaders(): Promise<Record<string, string>> {
+  const h: Record<string, string> = {};
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) h['Authorization'] = `Bearer ${token}`;
+  } else {
+    try {
+      const stored = localStorage.getItem('local_admin_session');
+      if (stored) {
+        const { token } = JSON.parse(stored) as { token?: string };
+        if (token) h['Authorization'] = `Bearer ${token}`;
+      }
+    } catch {}
+  }
+  return h;
+}
+
 const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   type TabId = 'overview' | 'providers' | 'telegram' | 'followers' | 'trades' | 'leaderboard';
   const [tab, setTab] = useState<TabId>('overview');
@@ -1133,7 +1151,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const loadLbEntries = async () => {
     setLbLoading(true);
     try {
-      const r = await fetch('/api/admin/leaderboard/entries');
+      const h = await getSyncAuthHeaders();
+      const r = await fetch('/api/admin/leaderboard/entries', { headers: h });
       if (r.ok) { setLbEntries((await r.json()).entries ?? []); setLbLoaded(true); }
     } catch {}
     setLbLoading(false);
@@ -1143,9 +1162,10 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     if (!lbConfirm) return;
     setLbBusy(true);
     try {
+      const h = await getSyncAuthHeaders();
       const r = await fetch(`/api/admin/leaderboard/${lbConfirm.userId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...h, 'Content-Type': 'application/json' },
         body: JSON.stringify({ hidden: lbConfirm.hide }),
       });
       if (r.ok) {

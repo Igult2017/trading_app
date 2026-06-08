@@ -771,6 +771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Admin: leaderboard entries (all users incl. hidden) ───────────────────────
   app.get("/api/admin/leaderboard/entries", requireAdmin, async (_req: Request, res: Response) => {
     try {
+      // Ensure the column exists even if db-init hasn't run yet in this server session
+      await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false`).catch(() => {});
       const { rows } = await pool.query(`
         WITH resolved AS (
           SELECT
@@ -822,6 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { userId } = req.params;
     const { hidden } = req.body as { hidden: boolean };
     try {
+      await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false`).catch(() => {});
       await db.update(userProfiles).set({ leaderboardHidden: hidden }).where(eq(userProfiles.id, userId));
       res.json({ ok: true, userId, hidden });
     } catch (err: any) {
