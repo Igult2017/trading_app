@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { BarChart3, Calendar, PieChart, Diamond, Check, ArrowRight, Search, BookOpen, Brain } from 'lucide-react';
 import HomeHeader from "@/components/HomeHeader";
+import { usePublicTheme } from "@/context/PublicThemeContext";
 import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
@@ -35,7 +35,7 @@ const BROKERS = [
 ];
 
 export default function HomePage() {
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, setDarkMode } = usePublicTheme();
   const dm     = darkMode;
   const bg     = dm ? '#020817' : '#ffffff';
   const bg2    = dm ? 'rgba(15,23,42,0.6)' : '#f8fafc';
