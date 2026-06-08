@@ -512,24 +512,6 @@ export default function TscPage() {
           {/* Stats strip */}
           <StatsStrip sessions={SESSIONS} decimal={decimal} weekday={weekday} liveCount={liveCount} darkMode={darkMode} />
 
-          {/* Info cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 1, background: darkMode ? "#1e2740" : "#e2e8f0" }}>
-            {[
-              { title: "How Sessions Overlap", body: "The London–New York overlap (12:00–16:00 UTC) is historically the most volatile period. Both sessions are active and liquidity peaks during this window.", color: "#0ea5e9" },
-              { title: "Daylight Saving Time",  body: "London (BST) and New York (EDT) apply DST, shifting their sessions by ±1 hour. The clock adjusts automatically based on the current date.", color: "#8b5cf6" },
-              { title: "Weekend Closure",        body: "Forex markets close at 21:00 UTC Friday (New York close) and reopen 22:00 UTC Sunday (Sydney open). Crypto markets trade 24/7.", color: "#10b981" },
-            ].map(({ title, body, color }) => (
-              <div key={title} style={{ background: darkMode ? "#111827" : "#ffffff", padding: "20px 24px" }}>
-                <div style={{ width: 24, height: 3, background: color, marginBottom: 14 }} />
-                <h3 style={{ ...serif, fontSize: 14, fontWeight: 700, color: darkMode ? "#e5e7eb" : "#0f172a", margin: "0 0 8px" }}>
-                  {title}
-                </h3>
-                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: darkMode ? "#4b5563" : "#64748b", lineHeight: 1.8, margin: 0 }}>
-                  {body}
-                </p>
-              </div>
-            ))}
-          </div>
 
         </div>
       </div>
