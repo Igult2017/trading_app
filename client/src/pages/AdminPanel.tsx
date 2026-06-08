@@ -3143,7 +3143,6 @@ export default function AdminPanel() {
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
-    { label: 'Journal',          items: [{ id: 'journal',       label: 'Open Journal',    icon: BookOpen,      ready: true }] },
   ];
 
   const PAGE_TITLES = {
