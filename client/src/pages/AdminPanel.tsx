@@ -543,7 +543,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
       <div style={{ ...cs, overflowX: 'auto', marginTop: '3px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
           <thead>
-            <tr style={{ background: 'rgba(8,14,24,0.5)' }}>
+            <tr style={{ background: '#080e18' }}>
               {['User', 'Country', 'Plan', 'Status', 'Win Rate', 'Last Login', ''].map((h, i) => (
                 <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
@@ -3285,7 +3285,7 @@ export default function AdminPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } button:hover { opacity: 0.9; }`}</style>
 
       {/* ── HEADER — full width, always at the very top ── */}
       <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 92%, transparent)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: `0 ${contentPad}`, height: '49px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3411,7 +3411,7 @@ export default function AdminPanel() {
         </aside>
 
         {/* MAIN CONTENT */}
-        <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: `radial-gradient(ellipse at top, var(--admin-card) 0%, var(--admin-bg) 60%)`, display: 'flex', flexDirection: 'column' }}>
+        <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'var(--admin-bg)', display: 'flex', flexDirection: 'column' }}>
           <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
         </main>
 
