@@ -469,6 +469,28 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       )`,
 
+      `CREATE TABLE IF NOT EXISTS page_views (
+        id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        page            TEXT NOT NULL,
+        session_id      TEXT,
+        duration_seconds INTEGER,
+        ip_address      TEXT,
+        referrer_source TEXT,
+        page_section    TEXT,
+        country         TEXT,
+        country_code    TEXT,
+        viewed_at       TIMESTAMP DEFAULT NOW()
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS email_tracking (
+        id           VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id      VARCHAR,
+        campaign_ref TEXT,
+        token        TEXT NOT NULL UNIQUE,
+        opened_at    TIMESTAMP,
+        sent_at      TIMESTAMP DEFAULT NOW()
+      )`,
+
     ];
     
     for (const statement of createTableStatements) {
@@ -508,6 +530,13 @@ export async function initializeDatabase() {
       `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS analysis_tf_context TEXT`,
       `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS entry_tf_context TEXT`,
       `ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS other_confluences TEXT`,
+
+      // page_views — columns added for traffic analytics feature
+      `ALTER TABLE page_views ADD COLUMN IF NOT EXISTS ip_address       TEXT`,
+      `ALTER TABLE page_views ADD COLUMN IF NOT EXISTS referrer_source  TEXT`,
+      `ALTER TABLE page_views ADD COLUMN IF NOT EXISTS page_section     TEXT`,
+      `ALTER TABLE page_views ADD COLUMN IF NOT EXISTS country          TEXT`,
+      `ALTER TABLE page_views ADD COLUMN IF NOT EXISTS country_code     TEXT`,
     ];
     for (const stmt of columnAdditions) {
       try {
