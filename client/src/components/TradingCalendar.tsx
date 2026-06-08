@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useTranslation } from "react-i18next";
 
 const FONT   = "'Montserrat', sans-serif";
 const GREEN  = "#00E5A0";
@@ -261,6 +262,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
 }
 
 export default function TradingCalendar({ sessionId, darkMode = true }: { sessionId?: string | null; darkMode?: boolean }) {
+  const { t } = useTranslation();
   const now = new Date();
   const [date, setDate]         = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [flashKey, setFlashKey] = useState(0);
@@ -366,7 +368,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       }}>
         <div style={{ paddingLeft: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348" }}>PERFORMANCE OVERVIEW</div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348" }}>{t('calendar.overview')}</div>
             {isFetching && !isLoading && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: GREEN, animation: "dotBlink 1s ease infinite" }} />
@@ -457,10 +459,10 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
 
       {/* ── STATS ── */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 2, marginBottom: 2 }}>
-        <StatCard label="Net P&L"      value={fmt(stats.net)}       color={netColor} sub={`${stats.profitDays}W / ${stats.lossDays}L`} compact={compact} />
-        <StatCard label="Win Rate"      value={`${stats.winRate}%`}  color={GREEN}    sub={`${stats.profitDays} profit days`}            compact={compact} />
-        <StatCard label="Total Trades"  value={stats.trades}         color="#4D9FFF"  sub="All active days"                              compact={compact} />
-        <StatCard label="W/L Ratio"     value={stats.ratio}          color="#E8EDF5"  sub="Avg win ÷ avg loss"                           compact={compact} />
+        <StatCard label={t('calendar.netPnl')}      value={fmt(stats.net)}       color={netColor} sub={`${stats.profitDays}W / ${stats.lossDays}L`} compact={compact} />
+        <StatCard label={t('calendar.winRate')}      value={`${stats.winRate}%`}  color={GREEN}    sub={`${stats.profitDays} ${t('calendar.profitDays')}`}            compact={compact} />
+        <StatCard label={t('calendar.totalTrades')}  value={stats.trades}         color="#4D9FFF"  sub={t('calendar.allActiveDays')}                              compact={compact} />
+        <StatCard label={t('calendar.wlRatio')}      value={stats.ratio}          color="#E8EDF5"  sub={t('calendar.avgWinDivLoss')}                           compact={compact} />
       </div>
 
       {/* ── CALENDAR GRID ── */}
@@ -472,7 +474,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             background: "rgba(10,13,20,0.82)", gap: 10,
           }}>
             <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "#2A3A55" }}>NO CALENDAR DATA AVAILABLE</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "#2A3A55" }}>{t('calendar.noData')}</div>
           </div>
         )}
 
@@ -513,7 +515,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
         paddingLeft: 8, paddingRight: 8,
       }}>
         <div style={{ display: "flex", gap: isMobile ? 10 : 18, flexWrap: "wrap" as const }}>
-          {[{ dot: GREEN, label: "PROFIT" }, { dot: RED, label: "LOSS" }, { dot: "#2A3348", label: "NO TRADE" }].map(({ dot, label }) => (
+          {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: "#2A3348", label: t('calendar.noTrade') }].map(({ dot, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, background: dot }} />
               <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "#2A3348" }}>{label}</span>
@@ -521,7 +523,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" as const }}>
-          <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2A3348" }}>MONTH TOTAL</span>
+          <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2A3348" }}>{t('calendar.monthTotal')}</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />
           <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 900, color: netColor }} data-testid="text-month-total">{fmt(stats.net)}</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
 import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useTranslation } from "react-i18next";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -336,13 +337,13 @@ function Page1({ d }: { d: AuditData }) {
       {/* Row 1 */}
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
-          <CellTitle>Executive Summary</CellTitle>
+          <CellTitle>{t('strategy.executiveSummary')}</CellTitle>
           <p style={{ fontSize: 13, color: T.muted, lineHeight: 1.75, fontFamily: FONT, fontWeight: 400 }}>
-            {d.executiveSummary || "No trades found — add trades to your session to generate an audit."}
+            {d.executiveSummary || t('strategy.noTrades')}
           </p>
           <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
             <Badge color={verdict === "Confirmed" ? T.green : T.amber} border={verdict === "Confirmed" ? T.green2 : "#8a5a00"}>
-              {verdict === "Confirmed" ? "Edge Confirmed" : `Edge ${verdict}`}
+              {verdict === "Confirmed" ? t('strategy.edgeConfirmed') : t('strategy.edgeUnconfirmed')}
             </Badge>
             <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.dim }}>
               {confidence.toFixed(0)}% confidence · {sampleSize} samples
@@ -367,7 +368,7 @@ function Page1({ d }: { d: AuditData }) {
       {/* Row 2 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
-          <CellTitle>Probabilistic Edge</CellTitle>
+          <CellTitle>{t('strategy.probabilisticEdge')}</CellTitle>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <div>
               <div style={{ ...num, fontSize: 22, color: T.green, lineHeight: 1 }}>{baseRate.toFixed(1)}%</div>
@@ -388,10 +389,10 @@ function Page1({ d }: { d: AuditData }) {
           <StatRow label="Max Peak-to-Valley" value={`${maxPV.toFixed(1)}%`} color={T.red} last />
         </Cell>
         <Cell style={{ borderRight: "none" }}>
-          <CellTitle>Edge Components</CellTitle>
+          <CellTitle>{t('strategy.edgeComponents')}</CellTitle>
           {[
-            { label: "Win Rate", pct: wrContrib, color: T.blue },
-            { label: "Risk-Reward", pct: rrContrib, color: T.green },
+            { label: t('strategy.winRate'), pct: wrContrib, color: T.blue },
+            { label: t('strategy.riskReward'), pct: rrContrib, color: T.green },
           ].map((item, i) => (
             <div key={i} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -426,7 +427,7 @@ function Page1({ d }: { d: AuditData }) {
       {/* Row 3 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Cell>
-          <CellTitle>Weaknesses &amp; Failure Conditions</CellTitle>
+          <CellTitle>{t('strategy.weaknesses')}</CellTitle>
           {weakness ? (
             <div style={{ padding: 14, borderLeft: `2px solid ${T.red2}`, background: T.bg3 }}>
               <div style={{ ...mono, fontSize: 10, color: T.red, letterSpacing: ".1em", marginBottom: 6 }}>{weaknessFactor.toUpperCase()}</div>
@@ -441,7 +442,7 @@ function Page1({ d }: { d: AuditData }) {
           )}
         </Cell>
         <Cell style={{ borderRight: "none" }}>
-          <CellTitle>Psychology Impact</CellTitle>
+          <CellTitle>{t('strategy.psychologyImpact')}</CellTitle>
           <div style={{ display: "flex", gap: 12 }}>
             {[
               { value: psychScore.toFixed(1), label: "STRESS SCORE", color: psychScore > 7 ? T.amber : T.green },
@@ -942,7 +943,7 @@ function AIGate({ label, description, onRun }: { label: string; description: str
         <p style={{ fontFamily: FONT, fontSize: 11, color: T.dim, marginTop: 8 }}>Results are cached — repeated visits won't re-call the API if your trades haven't changed.</p>
       </div>
       <button onClick={onRun} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 24px", background: T.blue2, color: T.text, border: `1px solid ${T.blue}40`, borderRadius: 3, cursor: "pointer", ...mono, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase" }}>
-        <Sparkles style={{ width: 13, height: 13 }} /> Run Analysis
+        <Sparkles style={{ width: 13, height: 13 }} /> {t('strategy.runAnalysis')}
       </button>
     </div>
   );
@@ -966,7 +967,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   if (!requested) return (
     <AIGate label="AI Performance Analysis" description="Analyses your win/loss profiles, behavioural patterns, and pre-trade checklist from your logged trades." onRun={() => setRequested(true)} />
   );
-  if (isLoading) return <AILoadingState label="Running AI analysis…" />;
+  if (isLoading) return <AILoadingState label={t('strategy.runningAnalysis')} />;
   if (isError || !data?.success || data?.error) return <AIErrorState msg={data?.error ?? "AI analysis failed"} retry={refetch} />;
 
   const findings  = data.findings ?? [];
@@ -983,7 +984,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
           {data.headline && <div style={{ fontFamily: INTER, fontSize: 11, color: T.dim, lineHeight: 1.6, fontWeight: 400 }}>{data.headline.split("\n")[0]}</div>}
         </Cell>
         <Cell style={{ borderRight: "none" }}>
-          <CellTitle icon={<Activity size={13} />}>Health Score</CellTitle>
+          <CellTitle icon={<Activity size={13} />}>{t('strategy.healthScore')}</CellTitle>
           <div style={{ ...mono, fontSize: 16, color: healthColor, marginBottom: 8 }}>{data.health_score ?? "—"}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
             {findings.slice(0, 2).map((f, i) => (
@@ -1237,6 +1238,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function StrategyAudit({ sessionId, userId, darkMode = true }: Props & { darkMode?: boolean }) {
+  const { t } = useTranslation();
   const [active, setActive] = useState(1);
 
   const { data, isLoading, isError, error, refetch } = useQuery<AuditData>({

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { Layout, Clock, Zap, Network, CalendarDays, ShieldCheck, TrendingDown, Activity } from 'lucide-react';
 import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
+import { useTranslation } from 'react-i18next';
 
 // ── Primitive UI atoms ────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ function fmtRange(start: string | null | undefined, end: string | null | undefin
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DrawdownPanel({ sessionId }: { sessionId?: string | null }) {
+  const { t } = useTranslation();
   const [activeFreqView,   setActiveFreqView]   = useState('attr');
   const [activeStructView, setActiveStructView] = useState('context');
 
@@ -124,10 +126,10 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const ts = d?.topStats;
 
   const topStats = [
-    { label: 'Max Drawdown',    value: ts ? fmtDd(ts.maxDrawdown)    : '—', accent: '#f43f5e' },
-    { label: 'Avg. Drawdown',   value: ts ? fmtDd(ts.avgDrawdown)    : '—', accent: '#f59e0b' },
-    { label: 'Recovery Factor', value: ts ? String(ts.recoveryFactor) : '—', accent: '#10b981' },
-    { label: 'Trend Alignment', value: ts ? `${ts.trendAlignment}%`   : '—', accent: '#6366f1' },
+    { label: t('drawdown.maxDrawdown'),    value: ts ? fmtDd(ts.maxDrawdown)    : '—', accent: '#f43f5e' },
+    { label: t('drawdown.avgDrawdown'),    value: ts ? fmtDd(ts.avgDrawdown)    : '—', accent: '#f59e0b' },
+    { label: t('drawdown.recoveryFactor'), value: ts ? String(ts.recoveryFactor) : '—', accent: '#10b981' },
+    { label: t('drawdown.trendAlignment'), value: ts ? `${ts.trendAlignment}%`   : '—', accent: '#6366f1' },
   ];
 
   // Heatmap: rows from API, strategies derived from first row's cells
@@ -172,10 +174,10 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   // Streaks
   const sk = d?.streaks;
   const streaks = [
-    { label: 'Max Loss Streak',     value: String(sk?.maxLossStreak?.length ?? 0), sub: fmtRange(sk?.maxLossStreak?.startDate, sk?.maxLossStreak?.endDate) || 'no data', vColor: 'text-rose-500'    },
-    { label: 'Avg Loss Streak',     value: String(sk?.avgLossStreak  ?? 0),        sub: 'before recovery',      vColor: 'text-amber-500'   },
-    { label: 'Post-Streak Revenge', value: `${sk?.revengeRate ?? 0}%`,             sub: 'of streaks triggered', vColor: 'text-rose-400'    },
-    { label: 'Best Win Streak',     value: String(sk?.bestWinStreak?.length ?? 0), sub: fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data', vColor: 'text-emerald-500' },
+    { label: t('drawdown.maxLossStreak'),    value: String(sk?.maxLossStreak?.length ?? 0), sub: fmtRange(sk?.maxLossStreak?.startDate, sk?.maxLossStreak?.endDate) || 'no data', vColor: 'text-rose-500'    },
+    { label: t('drawdown.avgLossStreak'),    value: String(sk?.avgLossStreak  ?? 0),        sub: t('drawdown.beforeRecovery'),      vColor: 'text-amber-500'   },
+    { label: t('drawdown.postStreakRevenge'),value: `${sk?.revengeRate ?? 0}%`,             sub: 'of streaks triggered', vColor: 'text-rose-400'    },
+    { label: t('drawdown.bestWinStreak'),    value: String(sk?.bestWinStreak?.length ?? 0), sub: fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data', vColor: 'text-emerald-500' },
   ];
   const timeline: string[] = (sk?.timeline ?? []).map((t: any) => t.result);
 
@@ -214,10 +216,10 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
   const monthlyYears: number[] = d?.monthly?.map((m: any) => m.year) ?? [];
   const monthlyTitle = monthlyYears.length === 0
-    ? 'Monthly Drawdown'
+    ? t('drawdown.monthlyDrawdown')
     : monthlyYears[0] === monthlyYears[monthlyYears.length - 1]
-      ? `Monthly Drawdown · FY ${monthlyYears[0]}`
-      : `Monthly Drawdown · ${monthlyYears[0]}–${monthlyYears[monthlyYears.length - 1]}`;
+      ? `${t('drawdown.monthlyDrawdown')} · FY ${monthlyYears[0]}`
+      : `${t('drawdown.monthlyDrawdown')} · ${monthlyYears[0]}–${monthlyYears[monthlyYears.length - 1]}`;
 
   // ── Loading / error / no-session states ───────────────────────────────────
 
@@ -298,7 +300,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
           {/* Heatmap */}
           <div className="dd-card rounded p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-              <SectionTitle icon={<Layout className="w-3 h-3"/>}>Risk Heatmap · Pair vs Strategy</SectionTitle>
+              <SectionTitle icon={<Layout className="w-3 h-3"/>}>{t('drawdown.riskHeatmap')}</SectionTitle>
               <L>loss intensity by cell</L>
             </div>
             {heatRows.length === 0 ? (
@@ -377,7 +379,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
         {/* ── ROW 2: STRUCTURAL DIAGNOSTICS ──────────────────────── */}
         <div className="dd-card-dark rounded p-4 sm:p-6 mb-4 border-t border-indigo-500/10">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-7">
-            <SectionTitle icon={<Network className="w-3 h-3"/>}>Structural Diagnostics</SectionTitle>
+            <SectionTitle icon={<Network className="w-3 h-3"/>}>{t('drawdown.structuralDiagnostics')}</SectionTitle>
             <Toggle
               options={[{ value:'context', label:'Context' },{ value:'entry', label:'Entry' }]}
               active={activeStructView}
@@ -451,7 +453,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
           {/* Streak */}
           <div className="dd-card rounded p-4 sm:p-6">
-            <div className="mb-5"><SectionTitle icon={<TrendingDown className="w-3 h-3"/>}>Loss Streaks</SectionTitle></div>
+            <div className="mb-5"><SectionTitle icon={<TrendingDown className="w-3 h-3"/>}>{t('drawdown.lossStreaks')}</SectionTitle></div>
             <div className="grid grid-cols-2 gap-3 mb-6">
               {streaks.map((s, i) => (
                 <div key={i} className="dd-card-dark rounded p-3">

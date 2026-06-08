@@ -6,6 +6,7 @@ import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
 import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useTranslation } from "react-i18next";
 
 const CircleDownloadIcon = ({ success }: { success: boolean }) => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -207,7 +208,7 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
     <div style={styles.overlay}>
       <div style={styles.modal}>
         <div style={styles.modalHeader}>
-          <span style={styles.modalTitle}>Edit Trade</span>
+          <span style={styles.modalTitle}>{t('vault.editTrade')}</span>
           <button onClick={onClose} style={styles.closeBtn} data-testid="button-close-edit">&#x2715;</button>
         </div>
 
@@ -328,7 +329,7 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
             disabled={isPending}
             data-testid="button-save-edit"
           >
-            {isPending ? "Saving..." : "Save Changes"}
+            {isPending ? t('vault.saving') : t('vault.saveChanges')}
           </button>
         </div>
       </div>
@@ -360,6 +361,7 @@ function downloadCSV(trades: Trade[]) {
 }
 
 export default function TradeVault({ sessionId, startingBalance: sessionStartingBalance }: { sessionId?: string | null; startingBalance?: number }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -492,13 +494,13 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-text)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>TRADE VAULT</div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-text)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
           <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-muted)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
       <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "var(--jr-panel)", border: "1px solid var(--jr-border)", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
-        <VaultCell label="NET P/L"  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
-        <VaultCell label="WIN RATE" value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
+        <VaultCell label={t('vault.netPL')}  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
+        <VaultCell label={t('vault.winRate')} value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
         <VaultCell label="TRADES"   value={String(trades.length)} color="#f0f4ff" isMobile={isMobile} />
         <VaultCell label="NET GROWTH" value={`${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`} color="#a78bfa" isMobile={isMobile} />
         <VaultCell label="DAYS"     value={String(days)}     color="#f0f4ff" isMobile={isMobile} />
@@ -518,7 +520,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           data-testid="button-download-csv"
         >
           <span style={{ fontSize: 9, fontWeight: 900, color: "var(--jr-muted)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
-            {exported ? "EXPORTED" : "EXPORT CSV"}
+            {exported ? t('vault.exported') : t('vault.exportCsv')}
           </span>
           <CircleDownloadIcon success={exported} />
         </div>
@@ -619,7 +621,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         </div>
       ) : isLoading ? null : trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-muted)", fontSize: 14 }} data-testid="text-empty-state">No trades recorded yet. Start journaling to see your trades here.</div>
+          <div style={{ color: "var(--jr-muted)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
         </div>
       ) : (
         <div className="tv-table-wrap" style={{ ...styles.tableWrapper, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>

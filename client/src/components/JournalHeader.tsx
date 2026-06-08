@@ -6,8 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { authFetch } from "@/lib/queryClient";
 import { Notifications } from "@/components/Notifications";
 import { useLang } from "@/context/LanguageContext";
-import { ALL_LANGUAGES } from "@/i18n/translations";
-import type { LangCode } from "@/i18n/translations";
+import { useTranslation } from "react-i18next";
+import { ALL_LANGUAGES } from "@/i18n/languages";
+import type { LangCode } from "@/i18n/languages";
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -340,7 +341,8 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
-  const { lang, setLang, t, loading: langLoading } = useLang();
+  const { lang, setLang, loading: langLoading } = useLang();
+  const { t } = useTranslation();
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -558,14 +560,14 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <div style={{ width: 1, height: 24, background: theme.navBorder, margin: '0 6px' }} />
 
             <div ref={langRef} style={{ position: 'relative' }}>
-              <button className="jh-icon-btn" style={{ ...iconButtonStyle, position: 'relative' }} title={t('language')} onClick={() => setLangOpen(o => !o)}>
+              <button className="jh-icon-btn" style={{ ...iconButtonStyle, position: 'relative' }} title={t('nav.language')} onClick={() => setLangOpen(o => !o)}>
                 <Globe size={16} />
                 <span style={{ position: 'absolute', bottom: -2, right: -2, fontSize: 8, lineHeight: 1 }}>{ALL_LANGUAGES[lang]?.flag}</span>
               </button>
               {langOpen && (
                 <div style={{ position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: dm ? '#0c1219' : '#fff', border: `1px solid ${dm ? '#1e2d3d' : '#e2e8f0'}`, borderRadius: 10, padding: '6px 0', minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
                   <div style={{ padding: '4px 14px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#475569' : '#94a3b8', fontFamily: "'DM Mono',monospace" }}>{t('language')}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#475569' : '#94a3b8', fontFamily: "'DM Mono',monospace" }}>{t('nav.language')}</span>
                     {langLoading && <span style={{ fontSize: 9, color: '#3b82f6', fontFamily: "'DM Mono',monospace" }}>translating…</span>}
                   </div>
                   <div style={{ maxHeight: 320, overflowY: 'auto' }}>

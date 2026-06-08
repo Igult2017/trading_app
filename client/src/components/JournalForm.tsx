@@ -5,6 +5,7 @@ import { useSessionBalance } from "@/hooks/useSessionBalance";
 import { useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { calcDollarRisk } from "@/lib/tradeCalculations";
+import { useTranslation } from "react-i18next";
 
 // ─── Commission estimator ─────────────────────────────────────────────────────
 // Returns an estimated round-trip commission in USD based on instrument type,
@@ -601,7 +602,7 @@ function Step1({ d, set, hiddenPanels, sessionId }: any) {
 
       {!H.includes('core-thesis') && (
       <section>
-        <SectionLabel>Core Thesis</SectionLabel>
+        <SectionLabel>{t('form.coreThesis')}</SectionLabel>
         <InfoBox>Most traders fail due to impulsive entry. Use this module to force cognitive friction between the impulse and the execution.</InfoBox>
         <div className="space-y-4">
           <Txt label="Trade Thesis" value={d.thesis} onChange={f("thesis")} placeholder="What is the core reasoning behind this trade?" rows={3} />
@@ -614,7 +615,7 @@ function Step1({ d, set, hiddenPanels, sessionId }: any) {
 
       {!H.includes('pre-entry-state') && (
       <section>
-        <SectionLabel>Pre-Entry State Check</SectionLabel>
+        <SectionLabel>{t('form.preEntryCheck')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Slider label="Energy Level"         min={1} max={5} value={d.energyLevel}       onChange={f("energyLevel")}       suffix="/5" />
           <Slider label="Focus Level"          min={1} max={5} value={d.focusLevel}        onChange={f("focusLevel")}        suffix="/5" />
@@ -629,7 +630,7 @@ function Step1({ d, set, hiddenPanels, sessionId }: any) {
 
       {!H.includes('classification') && (
       <section>
-        <SectionLabel>Classification &amp; Quality</SectionLabel>
+        <SectionLabel>{t('form.classification')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Inp label="Strategy" placeholder="e.g. ICT Breaker Block, M1H1…" value={d.strategyVersionId} onChange={f("strategyVersionId")} />
           <Sel label="Setup Tag" options={["Breakout","Reversal","Continuation","Range Bound","Trend Following","Momentum","Pullback"]} value={d.setupTag} onChange={f("setupTag")} />
@@ -647,7 +648,7 @@ function Step1({ d, set, hiddenPanels, sessionId }: any) {
 
       {!H.includes('rule-governance') && (
       <section>
-        <SectionLabel>Rule Governance</SectionLabel>
+        <SectionLabel>{t('form.ruleGovernance')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Radio label="Setup Fully Valid" options={["Yes","No","Partial"]} value={d.setupFullyValid} onChange={f("setupFullyValid")} />
           <Radio label="Any Rule Broken?" options={["No","Yes"]}           value={d.anyRuleBroken}   onChange={f("anyRuleBroken")} />
@@ -662,7 +663,7 @@ function Step1({ d, set, hiddenPanels, sessionId }: any) {
 
       {!H.includes('impulse-control') && (
       <section>
-        <SectionLabel>Impulse Control Check</SectionLabel>
+        <SectionLabel>{t('form.impulseControl')}</SectionLabel>
         <Strip>Flag any emotional or reactive impulses before committing to this trade.</Strip>
         <div className="space-y-1">
           <Checkbox label="Entering due to FOMO"           checked={d.impulseCheckFOMO}      onChange={f("impulseCheckFOMO")} />
@@ -713,7 +714,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
 
       {!H.includes('screenshots') && (
       <section>
-        <SectionLabel>Trade Screenshots</SectionLabel>
+        <SectionLabel>{t('form.screenshots')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
           <UploadBox label="Entry / Setup Screenshot" value={d.screenshot} inputId="obs-entry-ss"
             onChange={(v: any) => onScreenshotUpload("screenshot", v)}
@@ -742,7 +743,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
       )}
 
       <section>
-        <SectionLabel>Position Details</SectionLabel>
+        <SectionLabel>{t('form.position')}</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <Inp label="Instrument"           placeholder="EURUSD"   value={d.instrument}             onChange={f("instrument")} />
           <Sel label="Pair Category"        options={["Major","Minor","Exotic","Index","Crypto","Commodity"]} value={d.pairCategory} onChange={f("pairCategory")} />
@@ -776,7 +777,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
 
       {!H.includes('timing-duration') && (
       <section>
-        <SectionLabel>Timing &amp; Duration</SectionLabel>
+        <SectionLabel>{t('form.timing')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Inp label="Entry Time" type="datetime-local" value={d.entryTime}     onChange={handleEntryTime} />
           <Inp label="Exit Time"  type="datetime-local" value={d.exitTime}      onChange={handleExitTime} />
@@ -788,7 +789,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
 
       {!H.includes('tf-analysis') && (
       <section>
-        <SectionLabel>Timeframe Analysis</SectionLabel>
+        <SectionLabel>{t('form.timeframeAnalysis')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <StickyTF storageKey="fsd:tf:entry"    label="Entry TF"    options={["1M","3M","5M","15M","30MIN"]}   value={d.entryTF}    onChange={f("entryTF")} />
           <StickyTF storageKey="fsd:tf:analysis" label="Analysis TF" options={["15M","30MIN","1HR","2HR","4HR"]} value={d.analysisTF} onChange={f("analysisTF")} />
@@ -799,7 +800,7 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
 
       {!H.includes('entry-management') && (
       <section>
-        <SectionLabel>Entry &amp; Trade Management</SectionLabel>
+        <SectionLabel>{t('form.entryManagement')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Sel label="Entry Method"    options={["Market","Limit","Stop"]}                     value={d.entryMethod}     onChange={f("entryMethod")} />
           <Inp label="Exit Strategy"   placeholder="e.g. Scale out at 1R, close at 2R"        value={d.exitStrategy}    onChange={f("exitStrategy")} />
@@ -859,7 +860,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 
       {!H.includes('market-env') && (
       <section>
-        <SectionLabel>Market Environment</SectionLabel>
+        <SectionLabel>{t('form.marketEnvironment')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Sel label="Market Regime"    options={["Bullish","Bearish","Ranging"]}           value={d.marketRegime}   onChange={f("marketRegime")} />
           <Sel label="Trend Direction"  options={["Bullish","Bearish","Sideways"]}          value={d.trendDirection} onChange={f("trendDirection")} />
@@ -875,7 +876,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 
       {!H.includes('htf-context') && (
       <section>
-        <SectionLabel>Higher Timeframe Context</SectionLabel>
+        <SectionLabel>{t('form.htfContext')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
           <Radio label="HTF Bias"              options={["Bull","Bear","Range"]} value={d.htfBias}                onChange={f("htfBias")} />
           <Radio label="HTF Key Level Present" options={["Yes","No"]}           value={d.htfKeyLevelPresent}     onChange={f("htfKeyLevelPresent")} />
@@ -893,7 +894,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 
       {!H.includes('tech-signals') && (
       <section>
-        <SectionLabel>Technical Signals</SectionLabel>
+        <SectionLabel>{t('form.technicalSignals')}</SectionLabel>
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <PinInp storageKey="fsd:pin:timingContext" label="Timing Context" value={d.timingContext}  onChange={f("timingContext")} placeholder="Kill zone, London open push…" />
@@ -909,7 +910,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 
       {!H.includes('key-level') && (
       <section>
-        <SectionLabel>Key Level Analysis</SectionLabel>
+        <SectionLabel>{t('form.keyLevel')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Radio label="Key Level Respect"     options={["Yes","No","Partial"]}      value={d.keyLevelRespect}   onChange={f("keyLevelRespect")} />
           <Sel   label="Key Level Type"        options={["Support","Resistance","Pivot","Fib Level"]} value={d.keyLevelType} onChange={f("keyLevelType")} />
@@ -921,7 +922,7 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
 
       {!H.includes('quality-scores') && (
       <section>
-        <SectionLabel>Setup Quality Scores (1–5)</SectionLabel>
+        <SectionLabel>{t('form.setupQuality')} (1–5)</SectionLabel>
         <div className="mt-1">
           {SCORES.map(([k, name]) => (
             <Dots key={k} name={name} value={d[k]} onChange={(v: number) => f(k)(v)} />
@@ -942,14 +943,14 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
     <div className="space-y-10">
 
       <section>
-        <SectionLabel>Exit Causation</SectionLabel>
+        <SectionLabel>{t('form.exitCausation')}</SectionLabel>
         <Sel label="Primary Exit Reason"
           options={["Target Hit","Partial TP","Trailing Stop","Stop Hit","Break-Even","Time Exit","Structure Change","News","Emotional Exit","Manual"]}
           value={d.primaryExitReason} onChange={f("primaryExitReason")} />
       </section>
 
       <section>
-        <SectionLabel>Performance Data</SectionLabel>
+        <SectionLabel>{t('form.performance')}</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Inp label="Pips / Points" type="number" placeholder="25"      value={d.pipsGainedLost} onChange={f("pipsGainedLost")} />
           <Inp label="P&L Amount $"  type="number" placeholder="+250.00" value={d.profitLoss} onChange={f("profitLoss")} />
@@ -967,7 +968,7 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
 
       {!H.includes('plan-vs-exec') && (
       <section>
-        <SectionLabel>Planning vs Execution</SectionLabel>
+        <SectionLabel>{t('form.planningVsExec')}</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <Inp label="Planned Entry"  type="number" placeholder="1.09250" value={d.plannedEntry} onChange={f("plannedEntry")} />
           <Inp label="Planned SL"     type="number" placeholder="1.09100" value={d.plannedSL}    onChange={f("plannedSL")} />
@@ -981,7 +982,7 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
 
       {!H.includes('trade-metrics') && (
       <section>
-        <SectionLabel>Trade Metrics</SectionLabel>
+        <SectionLabel>{t('form.tradeMetrics')}</SectionLabel>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <Inp label="MAE — Max Adverse"    placeholder="e.g. 12 pips"  value={d.mae}           onChange={f("mae")} />
           <Inp label="MFE — Max Favorable"  placeholder="e.g. 38 pips"  value={d.mfe}           onChange={f("mfe")} />
@@ -995,7 +996,7 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
 
       {!H.includes('psych-state') && (
       <section>
-        <SectionLabel>Psychological State</SectionLabel>
+        <SectionLabel>{t('form.psychology')}</SectionLabel>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <Sel label="Emotional State"     options={["Calm","Anxious","FOMO","Confident","Fearful","Frustrated","Neutral"]} value={d.emotionalState}    onChange={f("emotionalState")} />
           <Sel label="Focus / Stress"      options={["Low","Medium","High"]}                                                value={d.focusStressLevel}  onChange={f("focusStressLevel")} />
@@ -1013,7 +1014,7 @@ function Step4({ d, set, hiddenPanels, onAchievedRRChange }: any) {
 
       {!H.includes('trade-debrief') && (
       <section>
-        <SectionLabel>Trade Debrief</SectionLabel>
+        <SectionLabel>{t('form.debrief')}</SectionLabel>
         <div className="space-y-4">
           <Txt label="What Worked"         value={d.whatWorked}  onChange={f("whatWorked")}  placeholder="Describe what went well in this trade…" />
           <Txt label="What Failed"         value={d.whatFailed}  onChange={f("whatFailed")}  placeholder="Describe what went wrong or could be improved…" />
@@ -1308,6 +1309,7 @@ function getStickyRiskPct(sessionId: string | number | null | undefined): string
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JournalForm({ sessionId, startingBalance }: { sessionId?: string | number | null; startingBalance?: number }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [step, setStep]           = useState(1);
   const [s1, setS1]               = useState({ ...INIT_STEP1 });

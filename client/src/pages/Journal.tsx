@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { prefetchAllPanels } from '@/lib/prefetchPanels';
 import { useEntitlement } from '@/hooks/useEntitlement';
+import { useTranslation } from 'react-i18next';
 import JournalPaywall from '@/components/JournalPaywall';
 import JournalHeader from '@/components/JournalHeader';
 import MetricsPanel from '@/components/MetricsPanel';
@@ -25,7 +26,6 @@ import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
 import JournalSettingsPanel from '@/components/JournalSettingsPanel';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
-import { useLang } from '@/context/LanguageContext';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -132,7 +132,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
   const showLabels = isMobile || open;
   const [hovered, setHovered] = useState(false);
   const dm = darkMode ?? true;
-  const { t } = useLang();
+  const { t } = useTranslation();
   const sbBg = sidebarBg ?? (dm ? '#010409' : '#f8fafc');
   const sbBorder = dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.07)';
 
@@ -171,7 +171,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
                 {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels} darkMode={dm}
-                    label={t(item.id as any) !== item.id ? t(item.id as any) : item.label}
+                    label={t(`nav.${item.id}`, { defaultValue: item.label })}
                     onClick={() => { setActiveNav(item.id); if (isMobile) onClose(); }} />
                 ))}
               </div>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
 import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
+import { useTranslation } from 'react-i18next';
 
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS  (matches attached reference)
@@ -346,6 +347,7 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equity
    MAIN EXPORT
 ═════════════════════════════════════════════════════════════════════ */
 export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId?: string | null; darkMode?: boolean }) {
+  const { t } = useTranslation();
   const [strat, setStrat] = useState('ALL STRATEGIES');
 
   const queryUrl = sessionId
@@ -565,14 +567,14 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
 
   /* ─── KPI DATA ── */
   const kpis = [
-    { l: 'Total P&L',     v: fmtPL(totalPL),          s: isPos ? 'Profit' : 'Loss',    positive: isPos ? true : false },
-    { l: 'Win Rate',      v: fmtPct(winRate),          s: `${wins}W · ${losses}L`,      positive: winRate >= 50 },
-    { l: 'R Expectancy',  v: expectancy.toFixed(2),    s: 'Per trade',                  positive: expectancy > 0 as boolean | null },
-    { l: 'Trades',        v: `${totalTrades}`,         s: 'This period',                positive: null as boolean | null },
-    { l: 'Profit Factor', v: pfDisplay,                s: 'Gross ratio',                positive: profitFactor >= 1 },
-    { l: 'Avg R:R',       v: `1:${avgRR.toFixed(1)}`, s: 'Achieved',                   positive: null as boolean | null },
+    { l: t('metrics.totalPnl'),     v: fmtPL(totalPL),          s: isPos ? t('common.profit') : t('common.loss'),    positive: isPos ? true : false },
+    { l: t('metrics.winRate'),      v: fmtPct(winRate),          s: `${wins}W · ${losses}L`,      positive: winRate >= 50 },
+    { l: t('metrics.rExpectancy'),  v: expectancy.toFixed(2),    s: 'Per trade',                  positive: expectancy > 0 as boolean | null },
+    { l: t('metrics.trades'),       v: `${totalTrades}`,         s: 'This period',                positive: null as boolean | null },
+    { l: t('metrics.profitFactor'), v: pfDisplay,                s: 'Gross ratio',                positive: profitFactor >= 1 },
+    { l: t('metrics.avgRR'),        v: `1:${avgRR.toFixed(1)}`, s: 'Achieved',                   positive: null as boolean | null },
     {
-      l: 'Net Growth',
+      l: t('metrics.netGrowth'),
       v: netGrowthPct != null ? `${netGrowthPct >= 0 ? '+' : ''}${netGrowthPct.toFixed(1)}%` : '--',
       s: 'Account growth',
       positive: netGrowthPct == null ? null : netGrowthPct >= 0,
@@ -606,11 +608,11 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
       <div className="mp-page">
 
         {/* ─── CORE QUALITY METRICS ─── */}
-        <SectionDivider label="Core Quality Metrics" />
+        <SectionDivider label={t('metrics.coreQuality')} />
         <div className="mp-g4">
 
           {/* Market Regime */}
-          <Panel title="Market Regime" badge="Volatility" badgeColor="cyan">
+          <Panel title={t('metrics.marketRegime')} badge="Volatility" badgeColor="cyan">
             <DivLabel>Regime</DivLabel>
             {[
               { label: 'Bullish', dot: D.green, obj: regimeData['Bullish'] ?? regimeData['Trending'] },
@@ -636,7 +638,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Execution Precision */}
-          <Panel title="Execution Precision" badge="Score → Win%" badgeColor="blue">
+          <Panel title={t('metrics.executionPrecision')} badge="Score → Win%" badgeColor="blue">
             <Scroll>
               <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Score · win rate at threshold</div>
               <ScoreRow label="Entry Precision"   scores={scoreRowFromImpact(scoreImpacts.entryPrecisionScore)} />
@@ -663,7 +665,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Clarity & Confluence */}
-          <Panel title="Clarity & Confluence" badge="Confluence" badgeColor="purple">
+          <Panel title={t('metrics.clarity')} badge="Confluence" badgeColor="purple">
             <Scroll>
               <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>High / Low split</div>
               <Multi label="Clarity Level" options={[
@@ -692,7 +694,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Psychology & Discipline */}
-          <Panel title="Psychology & Discipline" badge="Psychology" badgeColor="amber">
+          <Panel title={t('metrics.psychology')} badge="Psychology" badgeColor="amber">
             <Scroll>
               <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>High / Medium / Low</div>
               <Multi label="Rules Followed"      options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.rulesFollowed?.[l]?.winRate ?? null }))} />
@@ -745,7 +747,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Setup Tags & Trade Grade */}
-          <Panel title="Setup Tags & Trade Grade" badge="Setup · Grade" badgeColor="amber">
+          <Panel title={t('metrics.setupTags')} badge="Setup · Grade" badgeColor="amber">
             <Scroll>
               <DivLabel>Setup Tag</DivLabel>
               {Object.entries(setupTags).map(([name, d]: [string, any], i) => (
@@ -760,7 +762,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Exit Causation */}
-          <Panel title="Exit Causation" badge="Exit Analysis" badgeColor="red">
+          <Panel title={t('metrics.exitCausation')} badge="Exit Analysis" badgeColor="red">
             <Scroll>
               {exitEntries.length > 0
                 ? exitEntries.map((x, i) => (
@@ -779,7 +781,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Rule Governance */}
-          <Panel title="Rule Governance" badge="Compliance" badgeColor="cyan">
+          <Panel title={t('metrics.ruleGovernance')} badge="Compliance" badgeColor="cyan">
             <Scroll>
               <DivLabel>Compliance</DivLabel>
               <BoolYN label="Setup Fully Valid" data={boolImpacts.setupFullyValid} />
@@ -798,11 +800,11 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         </div>
 
         {/* ─── ADVANCED ANALYTICS ─── */}
-        <SectionDivider label="Advanced Analytics" />
+        <SectionDivider label={t('metrics.advancedAnalytics')} />
         <div className="mp-g3">
 
           {/* News & Catalyst */}
-          <Panel title="News & Catalyst" badge="Fundamental" badgeColor="amber">
+          <Panel title={t('metrics.newsContext')} badge="Fundamental" badgeColor="amber">
             {newsEntries.length > 0
               ? newsEntries.map((x, i) => <Bar key={i} label={x.k} pct={x.wr || null} sub={`${x.r}R`} />)
               : ['High Impact', 'Medium Impact', 'Low Impact', 'None / Clean'].map((k, i) => <Bar key={i} label={k} pct={null} />)
@@ -823,7 +825,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Session */}
-          <Panel title="Session" badge="Session · Phase" badgeColor="blue">
+          <Panel title={t('metrics.sessionPerformance')} badge="Session · Phase" badgeColor="blue">
             <DivLabel>By Session Name</DivLabel>
             {sessEntries.length > 0
               ? sessEntries.map((x, i) => <Bar key={i} label={x.name} pct={x.wr || null} count={x.count} />)
@@ -855,7 +857,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         <div className="mp-g3">
 
           {/* Day of Week */}
-          <Panel title="Day of Week" badge="Win% · R Expectancy" badgeColor="amber">
+          <Panel title={t('metrics.dayOfWeek')} badge="Win% · R Expectancy" badgeColor="amber">
             {dayEntries.length > 0
               ? dayEntries.map((x, i) => <Bar key={i} label={x.day} pct={x.wr || null} count={x.count} />)
               : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((d, i) => <Bar key={i} label={d} pct={null} />)
@@ -863,7 +865,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Duration & Timing */}
-          <Panel title="Duration & Timing" badge="Hold Time" badgeColor="cyan">
+          <Panel title={t('metrics.duration')} badge="Hold Time" badgeColor="cyan">
             <DivLabel>Duration Bucket</DivLabel>
             <Bar label="0–30 min"   pct={durationBuckets['0-30 min']?.winRate   ?? null} count={durationBuckets['0-30 min']?.count   || 0} />
             <Bar label="30–120 min" pct={durationBuckets['30-120 min']?.winRate ?? null} count={durationBuckets['30-120 min']?.count || 0} />
@@ -877,7 +879,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Risk & Position Sizing */}
-          <Panel title="Risk & Position Sizing" badge="Heat Analysis" badgeColor="amber">
+          <Panel title={t('metrics.riskSizing')} badge="Heat Analysis" badgeColor="amber">
             <DR label="Avg Risk %" value={riskMetrics.avgRiskPercent != null ? `${riskMetrics.avgRiskPercent.toFixed(2)}%` : '--'} />
             <DR label="Max Risk %" value={riskMetrics.maxRiskPercent != null ? `${riskMetrics.maxRiskPercent.toFixed(2)}%` : '--'} />
             <DR label="Min Risk %" value={riskMetrics.minRiskPercent != null ? `${riskMetrics.minRiskPercent.toFixed(2)}%` : '--'} />
@@ -894,7 +896,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         <div className="mp-g3">
 
           {/* MAE / MFE */}
-          <Panel title="MAE / MFE Analysis" badge="Entry Quality" badgeColor="cyan">
+          <Panel title={t('metrics.maeMfe')} badge="Entry Quality" badgeColor="cyan">
             <DivLabel>MAE — Adverse Excursion</DivLabel>
             <DR label="Avg MAE"   value={maeMfe.avgMAE   != null ? `${maeMfe.avgMAE.toFixed(2)} pips`   : '--'} vc={D.red} />
             <DR label="Worst MAE" value={maeMfe.worstMAE != null ? `${maeMfe.worstMAE.toFixed(2)} pips` : '--'} vc={D.red} />
@@ -915,7 +917,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Candle Pattern × Timeframe */}
-          <Panel title="Candle Pattern × Timeframe" badge="Patterns · Indicators" badgeColor="green">
+          <Panel title={t('metrics.candlePatterns')} badge="Patterns · Indicators" badgeColor="green">
             <Scroll>
               <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Pattern · Indicator · TF → Performance</div>
               {Object.entries(candleIndicatorTFMatrix).length > 0
@@ -946,7 +948,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           {/* Execution Metrics */}
-          <Panel title="Execution Metrics" badge="Entry Timing · Slippage" badgeColor="amber">
+          <Panel title={t('metrics.executionMetrics')} badge="Entry Timing · Slippage" badgeColor="amber">
             <DR label="Avg Spread at Entry" value={riskMetrics.avgSpreadAtEntry != null ? `${riskMetrics.avgSpreadAtEntry.toFixed(2)} pips` : '--'} vc={D.green} />
             <DR label="Avg R:R Achieved"    value={avgRR ? `1:${avgRR.toFixed(1)}` : '--'} vc={D.cyan} />
             <DivLabel>Order Type</DivLabel>
@@ -965,7 +967,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         </div>
 
         {/* ─── INSTRUMENT MATRIX · TIMEFRAME PERFORMANCE ─── */}
-        <SectionDivider label="Instrument Matrix · Timeframe Performance" />
+        <SectionDivider label={t('metrics.instrumentMatrix')} />
         <div className="mp-g3">
 
           {/* Instrument × Phase × Momentum */}
