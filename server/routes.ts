@@ -772,22 +772,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/leaderboard/entries", requireAdmin, async (_req: Request, res: Response) => {
     try {
       const { rows } = await pool.query(`
+        WITH resolved AS (
+          SELECT
+            COALESCE(je.user_id, ts.user_id) AS user_id,
+            je.profit_loss,
+            je.session_id
+          FROM journal_entries je
+          LEFT JOIN trading_sessions ts ON ts.id = je.session_id
+          WHERE je.profit_loss IS NOT NULL
+            AND (je.session_id IS NULL OR ts.id IS NOT NULL)
+        )
         SELECT
-          COALESCE(je.user_id, ts.user_id)                                                   AS user_id,
+          r.user_id,
           MAX(up.full_name)                                                                   AS full_name,
           MAX(up.email)                                                                       AS email,
           MAX(up.country)                                                                     AS country,
-          COALESCE(MAX(up.leaderboard_hidden::int)::boolean, false)                           AS hidden,
-          COUNT(DISTINCT ts.id)                                                               AS session_count,
+          COALESCE(bool_or(up.leaderboard_hidden), false)                                     AS hidden,
+          COUNT(DISTINCT r.session_id)                                                        AS session_count,
           COUNT(*)                                                                            AS total_trades,
-          COUNT(*) FILTER (WHERE je.profit_loss > 0)                                          AS wins,
-          ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                         AS total_pnl
-        FROM trading_sessions ts
-        JOIN journal_entries je ON je.session_id = ts.id
-        LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
-        WHERE je.profit_loss IS NOT NULL
-        GROUP BY COALESCE(je.user_id, ts.user_id)
-        ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
+          COUNT(*) FILTER (WHERE r.profit_loss > 0)                                           AS wins,
+          ROUND(CAST(SUM(COALESCE(r.profit_loss, 0)) AS numeric), 2)                          AS total_pnl
+        FROM resolved r
+        LEFT JOIN user_profiles up ON up.id = r.user_id
+        WHERE r.user_id IS NOT NULL
+        GROUP BY r.user_id
+        ORDER BY SUM(COALESCE(r.profit_loss, 0)) DESC
         LIMIT 500
       `);
       const mapped = rows.map((r: any) => {
