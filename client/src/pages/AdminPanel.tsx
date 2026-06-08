@@ -2313,13 +2313,13 @@ const BlogSection = ({ bp }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: 0 }}>
       <div>
-        <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>Content Manager</h2>
-        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Blog & Verified Strategies</p>
+        <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0, fontFamily: HFONT }}>Content Manager</h2>
+        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0', fontFamily: FONT }}>Blog & Verified Strategies</p>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', flexWrap: 'wrap' }}>
           {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '12px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+            <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '12px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontFamily: FONT }}>
               {tab.label}
               <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.2)') : C.border, color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted }}>{tab.count}</span>
             </button>
@@ -2327,11 +2327,11 @@ const BlogSection = ({ bp }) => {
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {showModal && (
-            <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '9px 14px', fontSize: '13px', border: `1px solid ${C.border2}` }}>
+            <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '9px 14px', fontSize: '13px', border: `1px solid ${C.border2}`, fontFamily: FONT }}>
               <X size={14} /> Back to Posts
             </button>
           )}
-          <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap' }}><Plus size={15} /> New Post</button>
+          <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap', fontFamily: FONT }}><Plus size={15} /> New Post</button>
         </div>
       </div>
       {showModal ? (
@@ -2371,9 +2371,9 @@ const BlogSection = ({ bp }) => {
                   </div>
                   {sig.rationale && <p style={{ color: '#3d5878', fontSize: '12px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
                   <div style={{ paddingTop: '10px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
-                    <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
-                    <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Edit</button>
-                    <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Delete</button>
+                    <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
+                    <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
+                    <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
                   </div>
                 </div>
               </div>
@@ -2389,15 +2389,15 @@ const BlogSection = ({ bp }) => {
                   </div>
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
-                <h4 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 6px' }}>{post.title}</h4>
-                {post.excerpt ? <p style={{ color: '#607898', fontSize: '12px', margin: 0, lineHeight: 1.5 }}>{post.excerpt}</p> : <p style={{ color: '#3d5878', fontSize: '12px', margin: 0, fontStyle: 'italic' }}>No excerpt — add one when editing.</p>}
+                <h4 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 6px', fontFamily: HFONT }}>{post.title}</h4>
+                {post.excerpt ? <p style={{ color: '#607898', fontSize: '12px', margin: 0, lineHeight: 1.5, fontFamily: FONT }}>{post.excerpt}</p> : <p style={{ color: '#3d5878', fontSize: '12px', margin: 0, fontStyle: 'italic', fontFamily: FONT }}>No excerpt — add one when editing.</p>}
               </div>
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                <span style={{ color: C.dim, fontSize: '11px' }}>By {post.author}{post.readTime ? ` · ${post.readTime}` : ''}</span>
+                <span style={{ color: C.dim, fontSize: '11px', fontFamily: FONT }}>By {post.author}{post.readTime ? ` · ${post.readTime}` : ''}</span>
                 <div style={{ display: 'flex', gap: '3px' }}>
-                  <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
-                  <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Edit</button>
-                  <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px' }}>Delete</button>
+                  <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
+                  <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
+                  <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
                 </div>
               </div>
             </div>
@@ -2525,7 +2525,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }} />
-            <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Campaign Stats</h4>
+            <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, fontFamily: HFONT }}>Campaign Stats</h4>
           </div>
           <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
         </div>
@@ -2830,13 +2830,13 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
       <div>
-        <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0 }}>System Settings</h2>
-        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0' }}>Manage agents, tasks &amp; appearance</p>
+        <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0, fontFamily: HFONT }}>System Settings</h2>
+        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0', fontFamily: FONT }}>Manage agents, tasks &amp; appearance</p>
       </div>
 
       <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', width: 'fit-content' }}>
         {SETTINGS_TABS.map(t => (
-          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t.label}</button>
+          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: FONT }}>{t.label}</button>
         ))}
       </div>
 
