@@ -1,15 +1,14 @@
 """
-AI chart validation via Gemini.
+AI chart validation via Gemini — optional plugin.
 
 Failure policy (explicit):
-  - GEMINI_API_KEY absent   → signal PASSES (approved). Logged at INFO.
-  - chart_path is None      → signal PASSES (no chart to review).
-  - Gemini returns NO       → signal DROPPED. Logged at INFO.
-  - Gemini API error/timeout → signal PASSES with WARNING logged.
-    Rationale: Gemini going down must not equal zero signals. The strategy
-    validation (R:R, confidence, duplicate guard) already ran — Gemini is
-    an additional filter, not the last gate. A failed review is treated as
-    "no opinion" not "rejected".
+  - is_available() = False  → caller skips entirely, signal approved.
+  - chart_path is None      → signal approved (no chart to review).
+  - Gemini returns NO       → signal dropped.
+  - Gemini API error        → signal approved (failure is non-blocking).
+
+The scanner gates on is_available() before calling validate_chart(),
+so Gemini is never in the critical path when unconfigured.
 """
 
 import asyncio
@@ -20,16 +19,17 @@ from config.settings import settings
 log = logging.getLogger(__name__)
 
 
+def is_available() -> bool:
+    """True when Gemini is configured. Check this before calling validate_chart()."""
+    return bool(settings.gemini_api_key)
+
+
 async def validate_chart(chart_path: str | None) -> bool:
     """
-    Returns True  → signal may proceed (approved or no review possible).
-    Returns False → signal dropped (Gemini explicitly rejected it).
+    Returns True  → approved (or no chart to review).
+    Returns False → Gemini explicitly rejected the chart.
     """
     if not chart_path or not Path(chart_path).exists():
-        return True   # no chart → no review → pass
-
-    if not settings.gemini_api_key:
-        log.info("[ai_validator] no GEMINI_API_KEY — skipping AI review, signal approved")
         return True
 
     try:
@@ -42,11 +42,10 @@ async def validate_chart(chart_path: str | None) -> bool:
             f"[ai_validator] Gemini call failed ({exc}) — "
             "signal approved (failure policy: non-blocking)"
         )
-        return True   # explicit: Gemini failure → approve, not drop
+        return True
 
 
 async def _call_gemini(chart_path: str) -> bool:
-    """Send chart image to Gemini for visual signal review."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _call_gemini_sync, chart_path)
 

@@ -46,11 +46,13 @@ async def _startup() -> None:
             ejtrader_ct_client.subscribe(INSTRUMENTS)
             log.info("[boot] ejtraderCT live overlay: active")
 
-    # 3. Register plugins (strategies, indicators, patterns)
+    # 3. Register plugins (features first, then strategies/indicators/patterns)
+    import features      # noqa: F401 — side-effect: registers platform features
     import strategies    # noqa: F401 — side-effect: registers strategies
     import indicators    # noqa: F401
     import patterns      # noqa: F401
-    from core import strategy_registry
+    from core import strategy_registry, feature_registry
+    log.info(f"[boot] {len(feature_registry.registered_ids())} feature(s) registered")
     log.info(f"[boot] {strategy_registry.count()} strategy(ies) registered")
 
     # 3. Wire notifications dispatcher into event bus

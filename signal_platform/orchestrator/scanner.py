@@ -2,15 +2,13 @@
 scan_markets() — concurrent, on-demand scanner.
 
 Tenant/house model:
-  The platform (house) provides shared infrastructure: news, sessions, DB,
-  event bus, Telegram. Each strategy (tenant) runs independently, fetching
-  only the TFs it declared — on demand, only after passing all pre-filters.
+  Each strategy (tenant) declares what it needs. The platform (house) resolves
+  dependencies, fetches only the required TFs, builds a strategy-specific
+  StrategyContext, and calls analyze(context). Strategies never fetch candles,
+  import utilities, or call APIs.
 
-  When two strategies share a TF, the first fetch fills the TTL cache; the
-  second gets a cache hit at zero network cost. The in-flight dedup in
-  candle_fetcher prevents duplicate cTrader calls even under full concurrency.
-
-Runtime pause: create signal_platform/.scan_paused to stop scanning.
+  Shared TFs across strategies are served from the TTL cache — one network
+  call, zero duplication even under full concurrency.
 """
 
 import asyncio
@@ -19,22 +17,21 @@ import os
 import traceback
 from datetime import datetime, timezone
 
-from core import event_bus, strategy_registry, indicator_registry, pattern_registry
+from core import event_bus, strategy_registry
 from core.types import Session, Trend
-from core.indicator_types import IndicatorBundle
-from core.pattern_types import PatternBundle
+from core.dependency_resolver import resolve
+from core.strategy_context_builder import build as build_context
 from data import candle_fetcher, instrument_filter
 from data.candle_fetcher import fetch_candles
-from data.mtf_aligner import build as build_mtf
 from news import news_fetcher, news_filter
 from scheduler.session_windows import get_current_sessions
 from shared import trend_detector
 from shared.mtf_utils import to_minutes
 from storage import signal_repo
-from validation import signal_validator
-from validation.ai_validator import validate_chart
+from validation import signal_validator, ai_validator
 from charting.chart_generator import generate_chart
 from config.settings import settings
+from risk import spread_filter, volatility_filter, sl_validator
 
 log = logging.getLogger(__name__)
 _tick_now: datetime = datetime.now(timezone.utc)
@@ -49,100 +46,61 @@ def _is_paused() -> bool:
 
 async def _run_strategy(strategy, instrument: str,
                         news_context, current_sessions: list) -> None:
-    """
-    Run one strategy on one instrument — isolated, on-demand.
+    # Pre-filter 1: instrument whitelist
+    if strategy.allowed_instruments is not None:
+        if instrument not in strategy.allowed_instruments:
+            return
 
-    Candles are fetched only after passing all pre-filters, and only for the
-    TFs this strategy (and its indicators/patterns) declared. Shared TFs with
-    other strategies are served from the TTL cache — one network call, zero
-    duplication even when strategies run concurrently on the same instrument.
-    """
-    # Filter 1: instrument whitelist
-    if (strategy.allowed_instruments is not None
-            and instrument not in strategy.allowed_instruments):
-        return
-
-    # Filter 2: session
+    # Pre-filter 2: session
     if Session.ALL not in strategy.allowed_sessions:
         if not any(s in current_sessions for s in strategy.allowed_sessions):
             return
 
-    # Filter 3: trend — fetches only the HTF this check needs, on demand.
-    # If the cache is warm (another strategy already fetched this pair) this
-    # is a zero-cost read; otherwise one cTrader call fires and is cached.
+    # Pre-filter 3: trend — fetches only the HTF; cache hit if already warm
     if Trend.ANY not in strategy.allowed_trends:
         htf = max(strategy.required_timeframes, key=to_minutes)
         htf_candles = await fetch_candles(instrument, htf)
         if not htf_candles:
-            log.debug(f"[scanner] {instrument}/{strategy.id}: no HTF candles — skip")
             return
         if trend_detector.detect(htf_candles) not in strategy.allowed_trends:
             return
 
-    # Filter 4: news
+    # Pre-filter 4: news
     if not news_filter.check(strategy, news_context, instrument, now=_tick_now):
-        log.debug(f"[scanner] {instrument}/{strategy.id}: news filter — skip")
         return
 
-    # Fetch every TF this strategy (and its indicators/patterns) declared.
-    # Concurrent gather: unique TFs fire in parallel; TFs shared with another
-    # strategy that already fetched them are instant cache hits.
-    owned_tfs: list[str] = list(
-        set(strategy.required_timeframes)
-        | {tf for ind_id in strategy.required_indicators
-           for tf in indicator_registry.get_timeframes(ind_id)}
-        | {tf for pat_id in strategy.required_patterns
-           for tf in pattern_registry.get_timeframes(pat_id)}
-    )
+    # Resolve every TF and component this strategy needs from its declarations
+    deps = resolve(strategy)
 
+    # Fetch all required TFs concurrently — shared TFs are instant cache hits
     fetched = await asyncio.gather(
-        *[fetch_candles(instrument, tf) for tf in owned_tfs],
+        *[fetch_candles(instrument, tf) for tf in deps.timeframes],
         return_exceptions=True,
     )
-    candle_view: dict = {
+    candle_view = {
         tf: (r if isinstance(r, list) else [])
-        for tf, r in zip(owned_tfs, fetched)
+        for tf, r in zip(deps.timeframes, fetched)
     }
 
-    # Strategy receives exactly and only its declared TFs — nothing from other strategies
-    candles = build_mtf(candle_view, strategy.required_timeframes)
-
-    # Each indicator is computed with strategy TFs ∪ its own declared TFs.
-    # indicator_cache is local — not shared with any other strategy.
-    indicator_cache: dict = {}
-    for ind_id in strategy.required_indicators:
-        ind_tfs = set(strategy.required_timeframes) | set(indicator_registry.get_timeframes(ind_id))
-        ind_candles = build_mtf(candle_view, list(ind_tfs))
-        result = indicator_registry.compute(ind_id, ind_candles)
-        if result:
-            indicator_cache[ind_id] = result
-
-    indicators = IndicatorBundle.from_cache(indicator_cache, strategy.required_indicators)
-
-    # Patterns receive strategy TFs + any TFs the pattern itself declared.
-    # pattern_cache is local — not shared with any other strategy.
-    pattern_tfs = set(strategy.required_timeframes)
-    for pat_id in strategy.required_patterns:
-        pattern_tfs.update(pattern_registry.get_timeframes(pat_id))
-    candles_by_tf = {tf: candle_view[tf] for tf in pattern_tfs if tf in candle_view}
-    pattern_cache: dict = {}
-    for pat_id in strategy.required_patterns:
-        pattern_cache[pat_id] = pattern_registry.detect(pat_id, candles_by_tf)
-
-    patterns = PatternBundle.from_cache(pattern_cache, strategy.required_patterns)
+    # Build the strategy's context — returns None if any TF has too few candles
+    context = build_context(
+        symbol=instrument, deps=deps, candle_view=candle_view,
+        news_context=news_context, current_sessions=current_sessions,
+    )
+    if context is None:
+        return
 
     try:
-        result = await strategy.analyze(candles, indicators, patterns, news_context)
+        result = await strategy.analyze(context)
     except Exception:
-        log.error(f"[scanner] {strategy.id} on {instrument} raised:\n"
-                  + traceback.format_exc())
+        log.error(f"[scanner] {strategy.id} on {instrument}:\n{traceback.format_exc()}")
         return
 
     valid_signals = signal_validator.validate(result, instrument)
     if not valid_signals:
         return
 
-    htf = max(strategy.required_timeframes, key=to_minutes)
+    htf         = max(strategy.required_timeframes, key=to_minutes)
     pri_candles = candle_view.get(htf, [])
 
     for signal in valid_signals:
@@ -150,12 +108,23 @@ async def _run_strategy(strategy, instrument: str,
         signal.strategy_name = strategy.name
         signal.symbol        = instrument
 
+        # Risk filters — only run when strategy declared it needs them
+        if strategy.requires_volatility:
+            if not volatility_filter.check(signal, pri_candles):
+                continue
+            if not sl_validator.check(signal, pri_candles):
+                continue
+        if strategy.requires_spread and context.spread is not None:
+            if not spread_filter.check(signal, context.spread):
+                continue
+
         chart_path = await generate_chart(pri_candles, signal)
         signal.chart_path = chart_path
 
-        if not await validate_chart(chart_path):
-            log.info(f"[scanner] {instrument} signal rejected by AI validator")
-            continue
+        if ai_validator.is_available():
+            if not await ai_validator.validate_chart(chart_path):
+                log.info(f"[scanner] {instrument} rejected by AI validator")
+                continue
 
         signal_repo.save(signal)
         signal_validator.register_confirmed(signal)
@@ -184,7 +153,6 @@ async def scan_markets() -> None:
 
     if _is_paused():
         return
-
     if not settings.scan_enabled:
         log.debug("[scanner] SCAN_ENABLED=false — skipping tick")
         return
