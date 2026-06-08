@@ -48,7 +48,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function SourceChart({ bySources, sourceOverTime }: Props) {
-  const sources = [...new Set(sourceOverTime.flatMap(r => Object.keys(r).filter(k => k !== 'label')))];
+  const sources = bySources.map(r => r.source);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6 }}>
@@ -68,7 +68,7 @@ export default function SourceChart({ bySources, sourceOverTime }: Props) {
               </PieChart>
             </ResponsiveContainer>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
-              {bySources.slice(0, 6).map((r, i) => (
+              {bySources.map((r, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.text }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: colorFor(r.source), display: 'inline-block' }} />

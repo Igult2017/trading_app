@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, TrendingUp, Globe, BarChart2, Activity, ShoppingBag, Clock, Briefcase, Zap } from 'lucide-react';
+import { BookOpen, TrendingUp, Globe, BarChart2, Activity, ShoppingBag, Clock, Briefcase, Zap, Lock, HelpCircle } from 'lucide-react';
 
 const C = {
   card: 'var(--admin-card)', border: 'var(--admin-border)',
@@ -18,6 +18,8 @@ const SECTION_ICONS: Record<string, React.FC<{ size?: number; style?: React.CSSP
   'Accounts':          Briefcase,
   'Signals':           Zap,
   'Economic Calendar': Activity,
+  'Auth':              Lock,
+  'Other':             HelpCircle,
 };
 
 interface SectionRow { section: string; visits: number; pct: number; }

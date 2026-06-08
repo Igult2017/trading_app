@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Globe } from 'lucide-react';
 import SourceChart from './SourceChart';
 import CountryTable from './CountryTable';
@@ -24,11 +24,13 @@ export default function TrafficSection({ getAdminToken }: { getAdminToken: () =>
   const [period, setPeriod]   = useState<Period>('month');
   const [data, setData]       = useState<TrafficData | null>(null);
   const [loading, setLoading] = useState(true);
+  const getAdminTokenRef = useRef(getAdminToken);
+  useEffect(() => { getAdminTokenRef.current = getAdminToken; });
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getAdminToken().then(token => {
+    getAdminTokenRef.current().then(token => {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       return fetch(`/api/admin/traffic-breakdown?period=${period}`, { headers });

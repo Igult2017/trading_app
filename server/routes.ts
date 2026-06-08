@@ -3856,9 +3856,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const adminIpSet  = await getAllAdminIps();
       const adminIpList = [...adminIpSet];
-      const ipFilter    = adminIpList.length > 0
-        ? drizzleSql`AND (ip_address IS NULL OR ip_address != ALL(ARRAY[${drizzleSql.raw(adminIpList.map(() => '?').join(','))}]::text[]))`
-        : drizzleSql``;
 
       // ── By source ────────────────────────────────────────────────────────────
       const srcRows = (await pool.query(
@@ -3921,14 +3918,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adminIpList.length > 0 ? [adminIpList] : []
       )).rows as { period: Date; source: string; visits: number }[];
 
+      const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
       // Pivot into [{ label, Google, Facebook, ... }]
       const periodMap = new Map<string, Record<string, number>>();
       for (const r of timeRows) {
+        const d = new Date(r.period);
         const label = period === 'year'
-          ? new Date(r.period).toLocaleString('default', { month: 'short' })
+          ? MONTHS[d.getUTCMonth()]
           : period === 'week'
-          ? new Date(r.period).toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' })
-          : `${new Date(r.period).toLocaleString('default', { month: 'short' })} W${Math.ceil(new Date(r.period).getDate() / 7)}`;
+          ? `${DAYS[d.getUTCDay()]} ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
+          : `${MONTHS[d.getUTCMonth()]} W${Math.ceil(d.getUTCDate() / 7)}`;
         if (!periodMap.has(label)) periodMap.set(label, { label } as any);
         periodMap.get(label)![r.source] = r.visits;
       }

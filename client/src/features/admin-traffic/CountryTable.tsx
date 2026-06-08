@@ -9,7 +9,7 @@ const C = {
 interface CountryRow { country: string; countryCode: string; visits: number; pct: number; }
 
 function flagEmoji(code: string): string {
-  if (!code || code.length !== 2) return '🌐';
+  if (!/^[A-Za-z]{2}$/.test(code ?? '')) return '🌐';
   return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
 
