@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, TrendingUp, Percent, Loader2, Users, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
+import { countryToIso } from '@/lib/countryToIso';
 
 interface Trader {
   rank: number;
@@ -19,12 +20,13 @@ interface Trader {
 }
 
 const FlagCdn = ({ code, size = 28 }: { code?: string; size?: number }) => {
-  if (!code || code.length !== 2) return null;
+  const iso = countryToIso(code);
+  if (!iso) return null;
   return (
     <img
-      src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
-      alt={code.toUpperCase()}
-      title={code.toUpperCase()}
+      src={`https://flagcdn.com/w40/${iso}.png`}
+      alt={iso.toUpperCase()}
+      title={iso.toUpperCase()}
       width={size}
       height={Math.round(size * 0.67)}
       style={{ objectFit: 'cover', borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)', display: 'block', flexShrink: 0 }}
