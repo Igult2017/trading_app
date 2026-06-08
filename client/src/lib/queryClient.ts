@@ -29,22 +29,37 @@ async function buildAuthHeaders(extra?: Record<string, string>): Promise<Record<
   return headers;
 }
 
+const networkFallback = (status = 503) =>
+  new Response(JSON.stringify({ error: 'Network unavailable' }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
 export async function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const headers = await buildAuthHeaders(init.headers as Record<string, string> | undefined);
-  return fetch(input, { ...init, headers, credentials: init.credentials ?? "include" });
+  try {
+    return await fetch(input, { ...init, headers, credentials: init.credentials ?? "include" });
+  } catch {
+    return networkFallback();
+  }
 }
 
 export async function apiRequest(method: string, url: string, data?: unknown): Promise<Response> {
   const headers = await buildAuthHeaders(
     data ? { "Content-Type": "application/json" } : undefined,
   );
-  const res = await fetch(url, {
-    method, headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-  await throwIfResNotOk(res);
-  return res;
+  try {
+    const res = await fetch(url, {
+      method, headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+    await throwIfResNotOk(res);
+    return res;
+  } catch (err) {
+    if (err instanceof TypeError) throw new Error('Network unavailable — check your connection');
+    throw err;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -52,10 +67,15 @@ export const getQueryFn: <T>(options: { on401: UnauthorizedBehavior }) => QueryF
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const headers = await buildAuthHeaders();
-    const res = await fetch(queryKey.join("/") as string, { headers, credentials: "include" });
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) return null;
-    await throwIfResNotOk(res);
-    return await res.json();
+    try {
+      const res = await fetch(queryKey.join("/") as string, { headers, credentials: "include" });
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) return null;
+      await throwIfResNotOk(res);
+      return await res.json();
+    } catch (err) {
+      if (err instanceof TypeError) return null;
+      throw err;
+    }
   };
 
 const DAY = 24 * 60 * 60 * 1000;

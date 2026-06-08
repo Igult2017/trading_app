@@ -72,9 +72,9 @@ export function prefetchAllPanels(
     queryClient.prefetchQuery({
       queryKey,
       queryFn: () =>
-        authFetch(url).then(r =>
-          r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)),
-        ),
+        authFetch(url)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null),
       staleTime,
     });
   }
@@ -87,9 +87,10 @@ export function prefetchAllPanels(
     queryClient.prefetchQuery({
       queryKey: ["strategyAudit", sessionId, userId],
       queryFn: async () => {
-        const r = await authFetch(`/api/strategy-audit/compute?${p}`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+        try {
+          const r = await authFetch(`/api/strategy-audit/compute?${p}`);
+          return r.ok ? r.json() : null;
+        } catch { return null; }
       },
       staleTime: STALE_AUDIT,
     });

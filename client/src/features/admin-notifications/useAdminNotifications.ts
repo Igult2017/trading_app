@@ -30,7 +30,7 @@ export function useAdminNotifications() {
   }, [fetchAll]);
 
   const markRead = useCallback(async (id: string) => {
-    await authFetch(`/api/admin/notifications/${id}/read`, { method: 'PATCH' });
+    try { await authFetch(`/api/admin/notifications/${id}/read`, { method: 'PATCH' }); } catch {}
     fetchAll();
   }, [fetchAll]);
 
@@ -38,12 +38,12 @@ export function useAdminNotifications() {
     const path = category
       ? `/api/admin/notifications/read-all?category=${category}`
       : '/api/admin/notifications/read-all';
-    await authFetch(path, { method: 'PATCH' });
+    try { await authFetch(path, { method: 'PATCH' }); } catch {}
     fetchAll();
   }, [fetchAll]);
 
   const deleteOne = useCallback(async (id: string) => {
-    await authFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
+    try { await authFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' }); } catch {}
     fetchAll();
   }, [fetchAll]);
 
@@ -51,7 +51,7 @@ export function useAdminNotifications() {
     const path = category
       ? `/api/admin/notifications/clear?category=${category}`
       : '/api/admin/notifications/clear';
-    await authFetch(path, { method: 'DELETE' });
+    try { await authFetch(path, { method: 'DELETE' }); } catch {}
     fetchAll();
   }, [fetchAll]);
 
