@@ -35,6 +35,7 @@ _client_id = _client_secret = _env = ""
 _account_id:    int = 0
 _access_token:  str   = ""
 _token_expiry:  float = 0.0
+_refresh_backoff_until: float = 0.0   # monotonic timestamp; skip refresh until then
 _reader: Optional[asyncio.StreamReader] = None
 _writer: Optional[asyncio.StreamWriter] = None
 _conn_lock  = asyncio.Lock()
@@ -65,37 +66,51 @@ def _write_tokens(data: dict) -> None:
 
 async def get_access_token() -> str:
     """Exchange refresh_token for access_token; persist any rotated refresh_token."""
-    global _access_token, _token_expiry
+    global _access_token, _token_expiry, _refresh_backoff_until
     async with _token_lock:
         if _access_token and time.monotonic() < _token_expiry:
             return _access_token
+
+        # Backoff: avoid hammering Spotware after repeated failures
+        if time.monotonic() < _refresh_backoff_until:
+            raise ValueError(
+                "cTrader token refresh in backoff — re-run auth_setup.py to reset"
+            )
 
         tokens = _read_tokens()
         rt = tokens.get("refresh_token", "")
         if not rt:
             raise ValueError("No refresh token — run: python auth_setup.py")
 
-        async with httpx.AsyncClient(timeout=10) as http:
-            r = await http.post(_TOKEN_URL, data={
-                "grant_type":    "refresh_token",
-                "refresh_token": rt,
-                "client_id":     _client_id,
-                "client_secret": _client_secret,
-            })
-            j = r.json()
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                r = await http.post(_TOKEN_URL, data={
+                    "grant_type":    "refresh_token",
+                    "refresh_token": rt,
+                    "client_id":     _client_id,
+                    "client_secret": _client_secret,
+                })
+                r.raise_for_status()
+                j = r.json()
 
-        if "access_token" not in j:
-            raise ValueError(f"cTrader token refresh failed: {j}")
+            if "access_token" not in j:
+                raise ValueError(f"cTrader token refresh failed: {j}")
 
-        _access_token = j["access_token"]
-        _token_expiry = time.monotonic() + j.get("expires_in", 86_400) - 60
+            _access_token = j["access_token"]
+            _token_expiry = time.monotonic() + j.get("expires_in", 86_400) - 60
 
-        new_rt = j.get("refresh_token", "")
-        if new_rt and new_rt != rt:
-            _write_tokens({**tokens, "refresh_token": new_rt})
-            log.debug("[ctrader] refresh token rotated and saved")
+            new_rt = j.get("refresh_token", "")
+            if new_rt and new_rt != rt:
+                _write_tokens({**tokens, "refresh_token": new_rt})
+                log.debug("[ctrader] refresh token rotated and saved")
 
-        return _access_token
+            return _access_token
+
+        except Exception:
+            # Back off for 5 minutes to avoid flooding Spotware's token endpoint
+            _refresh_backoff_until = time.monotonic() + 300
+            log.warning("[ctrader] token refresh failed — backing off 5 min")
+            raise
 
 
 async def send(writer: asyncio.StreamWriter,

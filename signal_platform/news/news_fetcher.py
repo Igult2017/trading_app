@@ -35,6 +35,7 @@ if _SERVER_PYTHON not in sys.path:
 _cache_events: list[NewsEvent] = []
 _cache_expires: datetime = datetime.min.replace(tzinfo=timezone.utc)
 _CACHE_TTL_MINUTES = 30
+_fetch_lock = asyncio.Lock()   # prevents concurrent scrapes when cache is stale
 
 _IMPACT_MAP = {
     "High":    NewsImpact.HIGH,
@@ -103,23 +104,30 @@ async def fetch(now: datetime | None = None) -> NewsContext:
         log.debug(f"[news_fetcher] cache hit — {len(_cache_events)} events")
         return _build_context(_cache_events)
 
-    log.info("[news_fetcher] fetching economic calendar (MyFXBook → TradingView → FF)...")
-    loop = asyncio.get_running_loop()
-    try:
-        events = await asyncio.wait_for(
-            loop.run_in_executor(None, _scrape_sync),
-            timeout=45,   # MyFXBook can be slow; allow extra time
-        )
-        _cache_events  = events
-        _cache_expires = now + timedelta(minutes=_CACHE_TTL_MINUTES)
-        log.info(
-            f"[news_fetcher] loaded {len(events)} events — "
-            f"cache valid for {_CACHE_TTL_MINUTES}m"
-        )
-    except asyncio.TimeoutError:
-        log.warning("[news_fetcher] scrape timed out (45s) — using stale/empty cache")
-    except Exception as exc:
-        log.warning(f"[news_fetcher] error ({exc}) — using stale/empty cache")
+    # Lock prevents multiple concurrent coroutines from each firing a scrape
+    # when the cache turns stale between scan ticks.
+    async with _fetch_lock:
+        # Re-check inside the lock — another coroutine may have refreshed already
+        if now < _cache_expires:
+            return _build_context(_cache_events)
+
+        log.info("[news_fetcher] fetching economic calendar (MyFXBook → TradingView → FF)...")
+        loop = asyncio.get_running_loop()
+        try:
+            events = await asyncio.wait_for(
+                loop.run_in_executor(None, _scrape_sync),
+                timeout=45,   # MyFXBook can be slow; allow extra time
+            )
+            _cache_events  = events
+            _cache_expires = now + timedelta(minutes=_CACHE_TTL_MINUTES)
+            log.info(
+                f"[news_fetcher] loaded {len(events)} events — "
+                f"cache valid for {_CACHE_TTL_MINUTES}m"
+            )
+        except asyncio.TimeoutError:
+            log.warning("[news_fetcher] scrape timed out (45s) — using stale/empty cache")
+        except Exception as exc:
+            log.warning(f"[news_fetcher] error ({exc}) — using stale/empty cache")
 
     return _build_context(_cache_events)
 

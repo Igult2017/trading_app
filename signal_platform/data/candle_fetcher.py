@@ -89,10 +89,10 @@ async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
             candle_cache.put(symbol, tf, candles)
         fut.set_result(None)
     except asyncio.TimeoutError:
-        log.error(f"[candle_fetcher] {symbol} {tf}: timed out")
+        log.error(f"[candle_fetcher] {symbol} {tf}: timed out — treated as empty")
         fut.set_result(None)
     except Exception as exc:
-        log.error(f"[candle_fetcher] {symbol} {tf}: {exc}")
+        log.error(f"[candle_fetcher] {symbol} {tf}: {exc} — treated as empty")
         fut.set_result(None)
     finally:
         _in_flight.pop(key, None)

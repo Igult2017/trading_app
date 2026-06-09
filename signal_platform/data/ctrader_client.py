@@ -82,7 +82,11 @@ async def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:
             await _sess.send(writer, req.payloadType, req.SerializeToString())
             resp = await asyncio.wait_for(_sess.recv(reader), timeout=20)
 
-        except (ConnectionError, asyncio.IncompleteReadError, OSError):
+        except ValueError:
+            raise  # symbol not found — logic error, no connection to reset
+        except BaseException:
+            # CancelledError (outer wait_for timeout), OSError, or any other
+            # failure — reset the TCP stream so the next request starts clean
             _sess.reset_connection()
             raise
 

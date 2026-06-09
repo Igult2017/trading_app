@@ -5,9 +5,7 @@ so the Node.js API and AssetPage work without any schema changes.
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, DateTime, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
-from sqlalchemy import JSON
+from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, Numeric, String, Text
 
 from storage.db import Base
 

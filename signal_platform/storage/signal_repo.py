@@ -5,6 +5,7 @@ All decisions about what to store are made in the orchestrator or monitor.
 
 import logging
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.exc import IntegrityError
 from core.types import Signal, SignalStatus
 from storage.db import get_session
 from storage.models import SignalModel
@@ -13,7 +14,7 @@ log = logging.getLogger(__name__)
 
 
 def save(signal: Signal) -> str:
-    """Persist a new signal. Returns the generated ID."""
+    """Persist a new signal. Returns the generated ID, or '' on duplicate."""
     with get_session() as s:
         row = SignalModel(
             symbol=signal.symbol,
@@ -36,7 +37,11 @@ def save(signal: Signal) -> str:
             updated_at=signal.created_at,
         )
         s.add(row)
-        s.flush()
+        try:
+            s.flush()
+        except IntegrityError:
+            log.warning(f"[signal_repo] duplicate signal for {signal.symbol} — skipped")
+            return ""
         log.info(f"[signal_repo] saved signal {row.id} for {signal.symbol}")
         return row.id
 

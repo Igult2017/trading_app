@@ -1,4 +1,8 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolved once at import time — CWD-independent regardless of where python is invoked from
+_PLATFORM_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -16,21 +20,19 @@ class Settings(BaseSettings):
     min_rr: float = 2.0
     min_confidence: float = 0.70
 
-    # Runtime pause: create a file named ".scan_paused" in the
-    # signal_platform/ directory to stop scanning without restarting.
-    # Delete the file to resume. Checked at the start of every scan tick.
-    scan_pause_file: str = ".scan_paused"
+    # Runtime pause: create .scan_paused in the signal_platform/ directory to
+    # stop scanning without restarting. Delete the file to resume.
+    # Path is absolute so it works regardless of CWD at launch.
+    scan_pause_file: str = str(_PLATFORM_ROOT / ".scan_paused")
 
     # ── News filter ───────────────────────────────────────────────────────────
     news_pre_window_mins: int = 15
     news_post_window_mins: int = 15
-    # NEWS_CALENDAR_API_KEY is unused — fetcher pulls from Forex Factory
-    # public JSON feed which requires no key.
     news_calendar_api_key: str = ""
 
     # ── Notifications ─────────────────────────────────────────────────────────
     telegram_bot_token: str = ""
-    telegram_chat_id: str = ""   # single channel; subscriber management TBD
+    telegram_chat_id: str = ""
 
     # ── AI validation ─────────────────────────────────────────────────────────
     # Optional. When absent: signals pass AI validation automatically.
@@ -46,22 +48,16 @@ class Settings(BaseSettings):
     ctrader_env:           str = "demo" # "demo" or "live"
 
     # ── Data source 2: MT5 via Wine/Docker (Pepperstone-accurate, no GUI needed) ─
-    # Connects to the gmag11/metatrader5_vnc container via mt5linux (RPyC).
-    # MT5_HOST = Docker service name ("mt5") or IP; MT5_PORT = RPyC port (8812).
-    # Login: your Pepperstone MT5 account number + trading password + server name.
-    # First time only: log in once via VNC at http://localhost:3010
-    mt5_host:     str = "mt5"               # Docker service hostname
-    mt5_port:     int = 8812                # RPyC server port
-    mt5_login:    int = 0                   # MT5 account number
-    mt5_password: str = ""                  # MT5 trading password
-    mt5_server:   str = "Pepperstone-Demo"  # MT5 server name
+    mt5_host:     str = "mt5"
+    mt5_port:     int = 8812
+    mt5_login:    int = 0
+    mt5_password: str = ""
+    mt5_server:   str = "Pepperstone-Demo"
 
     # ── Data source 3: ejtraderCT FIX (live price overlay on yfinance history) ─
-    # FIX server + credentials: cTrader platform → Settings → FIX API
-    # Password is a numeric PIN set there — NOT your trading password.
-    ctrader_fix_server:   str = ""          # e.g. h21.p.ctrader.com:5211
-    ctrader_fix_login:    str = ""          # account number
-    ctrader_fix_password: str = ""          # numeric FIX API PIN
+    ctrader_fix_server:   str = ""
+    ctrader_fix_login:    str = ""
+    ctrader_fix_password: str = ""
     ctrader_fix_broker:   str = "pepperstone"
     ctrader_fix_currency: str = "USD"
 

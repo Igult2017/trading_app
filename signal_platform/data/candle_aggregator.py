@@ -16,6 +16,10 @@ def aggregate(base_candles: list[Candle], target_tf: str) -> list[Candle]:
     Output timestamps align to the target bar's open-time boundary —
     matching how TradingView and most brokers stamp their bars.
 
+    Incomplete buckets (fewer base bars than ratio) are silently dropped —
+    this can happen at session open or when the data source returns fewer
+    bars than requested.
+
     Args:
         base_candles: Validated candles at the finer (base) timeframe.
         target_tf:    Target timeframe string, e.g. "H2", "H6", "M10".
@@ -24,8 +28,10 @@ def aggregate(base_candles: list[Candle], target_tf: str) -> list[Candle]:
         return []
 
     target_secs = to_minutes(target_tf) * 60
-    groups: dict[int, list[Candle]] = {}
+    base_secs   = to_minutes(base_candles[0].timeframe) * 60
+    ratio       = target_secs // base_secs if base_secs else 1
 
+    groups: dict[int, list[Candle]] = {}
     for c in sorted(base_candles, key=lambda c: c.time):
         bucket = (c.time // target_secs) * target_secs
         groups.setdefault(bucket, []).append(c)
@@ -33,6 +39,8 @@ def aggregate(base_candles: list[Candle], target_tf: str) -> list[Candle]:
     result: list[Candle] = []
     for bucket_ts in sorted(groups):
         bars = groups[bucket_ts]
+        if len(bars) < ratio:
+            continue   # incomplete bar — boundary edge or session open
         result.append(Candle(
             time=bucket_ts,
             open=bars[0].open,

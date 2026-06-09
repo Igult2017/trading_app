@@ -30,6 +30,10 @@ def build(
     Returns None when any required TF has fewer than _MIN_CANDLES candles.
     Returning None signals the scanner to skip this strategy for this tick.
     """
+    if not deps.timeframes:
+        log.warning(f"[context_builder] {symbol}: strategy resolved zero timeframes — skip")
+        return None
+
     for tf in deps.timeframes:
         count = len(candle_view.get(tf, []))
         if count < _MIN_CANDLES:

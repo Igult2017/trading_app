@@ -85,24 +85,37 @@ async def on_signal_confirmed(signal: Signal) -> None:
     chart = signal.chart_path
     if chart and os.path.isfile(chart):
         await _send_photo(chart, message)
+        try:
+            os.unlink(chart)
+        except OSError:
+            pass
     else:
         await _send_text(message)
 
 
 async def on_signal_closed(signal_id: str) -> None:
     try:
-        from storage.db import get_session
-        from storage.models import SignalModel
-        with get_session() as s:
-            row: SignalModel | None = s.get(SignalModel, signal_id)
-            if not row:
-                return
-            message = format_signal_closed(
-                symbol=row.symbol,
-                direction=row.type,
-                status=row.status,
-                entry=float(row.entry_price) if row.entry_price else None,
-            )
+        loop = asyncio.get_running_loop()
+
+        def _load_row():
+            from storage.db import get_session
+            from storage.models import SignalModel
+            with get_session() as s:
+                row = s.get(SignalModel, signal_id)
+                if row is None:
+                    return None
+                return (
+                    row.symbol, row.type, row.status,
+                    float(row.entry_price) if row.entry_price else None,
+                )
+
+        data = await loop.run_in_executor(None, _load_row)
+        if data is None:
+            return
+        symbol, direction, status, entry = data
+        message = format_signal_closed(
+            symbol=symbol, direction=direction, status=status, entry=entry,
+        )
         await _send_text(message)
     except Exception as exc:
         log.warning(f"[dispatcher] on_signal_closed error: {exc}")

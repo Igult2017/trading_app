@@ -18,13 +18,14 @@ log = logging.getLogger(__name__)
 async def check_all() -> None:
     """Iterate all active signals and update their status."""
     try:
-        active = signal_repo.get_active()
+        loop = asyncio.get_running_loop()
+        active = await loop.run_in_executor(None, signal_repo.get_active)
         if not active:
             return
 
         await asyncio.gather(*[_check_signal(row) for row in active],
                              return_exceptions=True)
-        signal_repo.expire_stale(older_than_hours=24)
+        await loop.run_in_executor(None, signal_repo.expire_stale, 24)
 
     except Exception as exc:
         log.error(f"[signal_monitor] check_all error: {exc}")
@@ -52,7 +53,10 @@ async def _check_signal(row) -> None:
     if hit_tp or hit_sl:
         new_status = SignalStatus.EXECUTED if hit_tp else SignalStatus.INVALIDATED
         ts_field   = "executed_at" if hit_tp else "invalidated_at"
-        signal_repo.update_status(row.id, new_status, ts_field)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None, signal_repo.update_status, row.id, new_status, ts_field
+        )
         from validation.signal_validator import release
         release(row.symbol, row.type)
         await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
