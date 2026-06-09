@@ -291,6 +291,7 @@ export interface Props {
   height?: number;
   activeIndicators: Set<IndicatorId>;
   chartType?: ChartType;
+  signalLevels?: { entry?: number; sl?: number; tp?: number; direction?: string };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -443,6 +444,7 @@ export default function TradingChart({
   height   = 320,
   activeIndicators,
   chartType = "candle",
+  signalLevels,
 }: Props) {
   const chartTypeRef = useRef<ChartType>(chartType);
   chartTypeRef.current = chartType;
@@ -451,7 +453,10 @@ export default function TradingChart({
   const chartRef     = useRef<IChartApi | null>(null);
   const candleRef    = useRef<ISeriesApi<any> | null>(null);
   const seriesMap    = useRef<Map<string, ISeriesApi<any>[]>>(new Map());
-  const candlesRef   = useRef<CandleBar[]>([]);
+  const candlesRef      = useRef<CandleBar[]>([]);
+  const priceLinesRef   = useRef<any[]>([]);
+  const signalLevelsRef = useRef(signalLevels);
+  signalLevelsRef.current = signalLevels;
 
   const wsRef              = useRef<WebSocket | null>(null);
   const wsReconnectTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -517,18 +522,21 @@ export default function TradingChart({
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    // Remove current main series
     if (candleRef.current) {
       try { chart.removeSeries(candleRef.current); } catch {}
       candleRef.current = null;
     }
-    // Create a new one of the right type
     const newSeries = buildMainSeries(chart, chartType);
     candleRef.current = newSeries;
-    // Re-populate if we already have candle data
     if (candlesRef.current.length > 0) {
       applyMainData(newSeries, candlesRef.current, chartType);
     }
+    // Reapply signal lines onto the new series
+    priceLinesRef.current = [];
+    const lvl = signalLevelsRef.current;
+    if (lvl?.entry != null) priceLinesRef.current.push(newSeries.createPriceLine({ price: lvl.entry, color: "#3b82f6", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "ENTRY" }));
+    if (lvl?.tp    != null) priceLinesRef.current.push(newSeries.createPriceLine({ price: lvl.tp,    color: "#22d3a5", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "TP"    }));
+    if (lvl?.sl    != null) priceLinesRef.current.push(newSeries.createPriceLine({ price: lvl.sl,    color: "#ef5350", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "SL"    }));
   }, [chartType]);
 
   // ── Draw Volume Profile on canvas ───────────────────────────────────────────
@@ -590,13 +598,10 @@ export default function TradingChart({
   }, [drawVP]);
 
   // ── Fetch + populate all series ─────────────────────────────────────────────
-  // DISABLED — chart data fetching turned off temporarily
-  /*
   const fetchAndDraw = useCallback(async () => {
     const ac  = getAssetClass(symbol);
     const key = `${symbol}-${interval}-${period}`;
 
-    // Serve from client cache immediately — no spinner, no blank chart
     const cached = _candleCache.get(key);
     if (cached?.length) {
       applyCandles(cached);
@@ -613,10 +618,8 @@ export default function TradingChart({
       if (!data.candles?.length) throw new Error("No candle data");
 
       const cs = data.candles;
-      _candleCache.set(key, cs);   // store in client cache
+      _candleCache.set(key, cs);
       applyCandles(cs);
-
-      // Re-draw VP after data update
       requestAnimationFrame(drawVP);
     } catch (e) {
       console.error("[TradingChart] fetch error:", e);
@@ -626,14 +629,12 @@ export default function TradingChart({
   }, [symbol, interval, period, drawVP, applyCandles]);
 
   useEffect(() => {
-    // Only show spinner if we have no cached data for this symbol+TF
     const key = `${symbol}-${interval}-${period}`;
     if (!_candleCache.has(key)) setLoading(true);
     fetchAndDraw();
     const id = setInterval(fetchAndDraw, 30_000);
     return () => clearInterval(id);
   }, [fetchAndDraw]);
-  */
 
   // ── Live WebSocket — Binance → Kraken cascade (crypto only) ─────────────────
   // DISABLED — WebSocket streaming turned off temporarily
@@ -873,6 +874,19 @@ export default function TradingChart({
       if (created.length > 0) seriesMap.current.set(id, created);
     });
   }, [activeIndicators]);
+
+  // ── Signal price lines ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const series = candleRef.current;
+    if (!series) return;
+    priceLinesRef.current.forEach(pl => { try { series.removePriceLine(pl); } catch {} });
+    priceLinesRef.current = [];
+    if (!signalLevels) return;
+    const { entry, sl, tp } = signalLevels;
+    if (entry != null) priceLinesRef.current.push(series.createPriceLine({ price: entry, color: "#3b82f6", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "ENTRY" }));
+    if (tp    != null) priceLinesRef.current.push(series.createPriceLine({ price: tp,    color: "#22d3a5", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "TP"    }));
+    if (sl    != null) priceLinesRef.current.push(series.createPriceLine({ price: sl,    color: "#ef5350", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "SL"    }));
+  }, [signalLevels]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   const activeDefs = INDICATOR_DEFS.filter(d => activeIndicators.has(d.id));

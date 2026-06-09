@@ -21,7 +21,6 @@ from shared import trend_detector
 from shared.mtf_utils import to_minutes
 from storage import signal_repo
 from validation import signal_validator, ai_validator
-from charting.chart_generator import generate_chart
 from risk import spread_filter, volatility_filter, sl_validator
 
 log = logging.getLogger(__name__)
@@ -115,11 +114,8 @@ async def run_strategy(
                 signal_validator.release(signal.symbol, signal.direction.value)
                 continue
 
-        chart_path = await generate_chart(pri_candles, signal)
-        signal.chart_path = chart_path
-
         if ai_validator.is_available():
-            if not await ai_validator.validate_chart(chart_path):
+            if not await ai_validator.validate_signal(signal, pri_candles):
                 log.info(f"[runner] {instrument} rejected by AI validator")
                 signal_validator.release(signal.symbol, signal.direction.value)
                 continue

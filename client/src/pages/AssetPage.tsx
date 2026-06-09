@@ -862,7 +862,20 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             </div>
 
             {/* Chart */}
-            <TradingChart symbol={selected} interval={currentTF.interval} period={currentTF.period} height={360} activeIndicators={activeIndicators} chartType={chartType} />
+            <TradingChart
+              symbol={selected}
+              interval={currentTF.interval}
+              period={currentTF.period}
+              height={360}
+              activeIndicators={activeIndicators}
+              chartType={chartType}
+              signalLevels={rawSignal ? {
+                entry: rawSignal.entryPrice != null ? Number(rawSignal.entryPrice) : undefined,
+                sl:    rawSignal.stopLoss   != null ? Number(rawSignal.stopLoss)   : undefined,
+                tp:    rawSignal.takeProfit != null ? Number(rawSignal.takeProfit) : undefined,
+                direction: rawSignal.type,
+              } : undefined}
+            />
           </div>
         </div>
       </div>
