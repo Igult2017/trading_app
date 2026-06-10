@@ -166,6 +166,7 @@ function RRBadge({ rr }: { rr: string }) {
 }
 
 function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ ...trade });
 
   const handleChange = (field: string, value: string | number) => {

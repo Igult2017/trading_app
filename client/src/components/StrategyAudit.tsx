@@ -302,6 +302,7 @@ function VerdictBar({ d }: { d: AuditData }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Page1({ d }: { d: AuditData }) {
+  const { t } = useTranslation();
   const verdict = d.edgeVerdict?.verdict ?? "Unconfirmed";
   const confidence = d.edgeVerdict?.confidence ?? 0;
   const sampleSize = d.edgeVerdict?.sampleSize ?? d.auditSummary?.sampleSize ?? 0;
@@ -609,7 +610,7 @@ function Page3({ d }: { d: AuditData }) {
     { label: "Monte Carlo Stability", pct: cr.monteCarloStability, color: T.amber },
   ];
 
-  const adverseRatio = ea.slippageWins > 0 ? (ea.slippageLosses / ea.slippageWins).toFixed(1) : "—";
+  const adverseRatio = (ea.slippageWins ?? 0) > 0 ? ((ea.slippageLosses ?? 0) / (ea.slippageWins ?? 1)).toFixed(1) : "—";
 
   return (
     <div>
@@ -934,6 +935,7 @@ function AIText({ text, alertColor }: { text: string; alertColor?: string }) {
 }
 
 function AIGate({ label, description, onRun }: { label: string; description: string; onRun: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 20, padding: "40px 24px" }}>
       <Brain style={{ width: 36, height: 36, color: T.blue, opacity: 0.7 }} />
@@ -950,6 +952,7 @@ function AIGate({ label, description, onRun }: { label: string; description: str
 }
 
 function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
+  const { t } = useTranslation();
   const params = new URLSearchParams();
   if (sessionId) params.set("sessionId", sessionId);
   if (userId)    params.set("userId",    userId);
