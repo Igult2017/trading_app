@@ -3094,6 +3094,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const nonce = randomBytes(16).toString('hex');
       _ctNonces.set(nonce, { accountId, expiry: Date.now() + 10 * 60 * 1000 });
       const url = getCTraderAuthUrl(nonce);
+      // Cookie survives the Spotware redirect even if state is not echoed back.
+      // sameSite=lax ensures it is sent on the top-level GET from Spotware → our callback.
+      res.cookie('ct_pending', accountId, { httpOnly: true, maxAge: 600000, sameSite: 'lax', path: '/api/broker/ctrader/callback' });
       return res.json({ url });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -3108,8 +3111,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function _pruneCtMaps() {
     const now = Date.now();
-    for (const [k, v] of _ctNonces)    if (v.expiry < now) _ctNonces.delete(k);
-    for (const [k, v] of _ctSelectMap) if (v.expiry < now) _ctSelectMap.delete(k);
+    Array.from(_ctNonces).forEach(([k, v])    => { if (v.expiry < now) _ctNonces.delete(k); });
+    Array.from(_ctSelectMap).forEach(([k, v]) => { if (v.expiry < now) _ctSelectMap.delete(k); });
+  }
+
+  function _parseCookie(cookieHeader: string | undefined, name: string): string | undefined {
+    for (const part of (cookieHeader ?? '').split(';')) {
+      const [k, ...rest] = part.trim().split('=');
+      if (k === name) return decodeURIComponent(rest.join('='));
+    }
   }
 
   let _signalPlatformPending = false;
@@ -3149,14 +3159,20 @@ ${authUrl}</pre>
       return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(oauthError)}`);
     }
 
-    // Resolve broker account ID from the per-request nonce (safe for concurrent users)
-    const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
+    // Resolve broker account ID.
+    // Primary: short-lived cookie set in the connect route (survives Spotware redirect even if state is not echoed).
+    // Fallback: nonce map (works if Spotware does echo state).
+    const cookieAccountId = _parseCookie(req.headers.cookie, 'ct_pending');
     const pending = nonce ? _ctNonces.get(nonce) : undefined;
-    const resolvedAccountId = pending?.accountId ?? '';
+    const resolvedAccountId = cookieAccountId || pending?.accountId || '';
+
+    const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
 
     if (!code || (!resolvedAccountId && !isSignalPlatform)) {
       return res.redirect('/accounts?ctrader_error=missing_code_or_expired');
     }
+    // Consume both storage entries
+    res.clearCookie('ct_pending', { path: '/api/broker/ctrader/callback' });
     if (pending) _ctNonces.delete(nonce);
 
     // Signal platform setup flow — display tokens for copying to Coolify
