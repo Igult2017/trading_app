@@ -1,0 +1,214 @@
+[Supabase] Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY — auth endpoints will not work
+[Database] Connecting to PostgreSQL...
+[Database] Database pool initialized
+[DrawdownCalculator] PYTHON_BIN=/home/runner/workspace/.pythonlibs/bin/python3  SCRIPT=/home/runner/workspace/server/python/drawdown/main.py
+[Telegram] Service is muted. Notifications disabled.
+[homepageCalendar] Warming up calendar + rates cache in background…
+[crypto] Warming up crypto data cache in background…
+[Strategies] Initializing trading strategies...
+[StrategyRegistry] Registered strategy: Smart Money Concepts (smc-v1)
+[Strategies] Registered 1 strategies (1 enabled)
+[Database] Initializing schema...
+[Database] Running constraint cleanup: ALTER TABLE trading_sessions DROP CONSTRAINT IF EXISTS trading_sessions_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE journal_entries  DROP CONSTRAINT IF EXISTS journal_entries_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE journal_entries  DROP CONSTRAINT IF EXISTS journal_entries_session_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE trades           DROP CONSTRAINT IF EXISTS trades_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE copy_accounts    DROP CONSTRAINT IF EXISTS copy_accounts_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE copy_masters     DROP CONSTRAINT IF EXISTS copy_masters_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Running constraint cleanup: ALTER TABLE copy_followers   DROP CONSTRAINT IF EXISTS copy_followers_user_id_fkey
+[Database] Constraint cleanup OK
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS user_profiles (
+        id VARCHAR PRIMARY KEY,
+        email T...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS trades (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS trading_sessions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_r...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS journal_entries (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ra...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS economic_events (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ra...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS telegram_subscribers (
+        id VARCHAR PRIMARY KEY DEFAULT g...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR PRIMARY KEY DEFAULT gen_rand...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS trading_signals (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ra...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS pending_setups (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ran...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS interest_rates (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ran...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_accounts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_rand...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_masters (
+        id VARCHAR PRIMARY KEY DEFAULT gen_rando...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS telegram_signal_sources (
+        id VARCHAR PRIMARY KEY DEFAUL...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_followers (
+        id VARCHAR PRIMARY KEY DEFAULT gen_ran...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_trades_master (
+        id VARCHAR PRIMARY KEY DEFAULT gen...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_trades_follower (
+        id VARCHAR PRIMARY KEY DEFAULT g...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS copy_execution_logs (
+        id VARCHAR PRIMARY KEY DEFAULT ge...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS ai_chats (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uu...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS ai_chat_messages (
+        id VARCHAR PRIMARY KEY DEFAULT gen_r...
+[Database] Creating statement: CREATE TABLE IF NOT EXISTS admin_notifications (
+        id VARCHAR PRIMARY KEY DEFAULT ge...
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS full_name  TEXT DEFAULT ''
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS country    TEXT DEFAULT ''
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plan       TEXT DEFAULT 'Free'
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free'
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMP
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_ends_at TIMESTAMP
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS journal_access_granted_by VARCHAR
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'Active'
+[Database] Applying column change: ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS win_rate   TEXT DEFAULT ''
+[Database] blog_comments table ready
+[Database] Creating index: CREATE UNIQUE INDEX IF NOT EXISTS idx_copy_trades_master_dedup
+         ON copy_trades_master (master_id, external_id)
+[Database] Schema initialization complete - all tables created
+[Server] Signal monitor: DISABLED
+2:33:17 PM [express] serving on port 5000
+Starting economic calendar scheduler (scraper only)...
+MyFXBook scraper: DISABLED
+Interest rate scraper: DISABLED
+Scheduled Telegram notifications: every 5 minutes
+Signal scanning: DISABLED
+[homepageCalendar/calendar] [news_calendar] cloudscraper unavailable; skipping MyFXBook
+[news_calendar] Falling back to TradingView…
+[news_calendar] TradingView: 351 events
+[news_calendar] https://www.coindesk.com/arc/outboundfeeds/rss/: not XML, skipping
+[news_calendar] https://cointelegraph.com/rss: not XML, skipping
+[news_calendar] crypto events: 10
+[homepageCalendar] Calendar cache ready (361 events)
+Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+warn - The class `duration-[2000ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;2000ms&rsqb;` to silence this warning.
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+[crypto/all] [crypto_data] market: 20 coins
+[crypto_data] fear/greed: 9 (Extreme Fear)
+[crypto_data] trending: 7 coins
+[crypto] Cache ready — 20 coins
+2:33:30 PM [express] GET /api/homepage/calendar 200 in 3ms :: [{"date":"Jun 08","time":"5:00am","cur…
+[homepageCalendar/rates] [news_calendar] FRED FEDFUNDS: 3.63%
+[news_calendar] USD -> 3.63% (via FRED FEDFUNDS)
+[news_calendar] FRED ECBDFR failed: HTTPSConnectionPool(host='fred.stlouisfed.org', port=443): Read timed out. (read timeout=12)
+[news_calendar] BoE website: 3.75%
+[news_calendar] GBP -> 3.75% (via BoE website)
+[news_calendar] BoC Valet: 2.25%
+[news_calendar] CAD -> 2.25% (via BoC Valet API)
+[news_calendar] RBA CSV: 4.75%
+[news_calendar] AUD -> 4.75% (via RBA CSV)
+[news_calendar] TE JPY failed: No rate value found on page
+[news_calendar] TE CHF failed: No rate value found on page
+[news_calendar] TE NZD failed: No rate value found on page
+[news_calendar] TE EUR failed: No rate value found on page
+[news_calendar] TE JPY failed: No rate value found on page
+[news_calendar] TE CHF failed: No rate value found on page
+[news_calendar] TE NZD failed: No rate value found on page
+[news_calendar] Using hardcoded fallback for EUR: 2.4%
+[news_calendar] Using hardcoded fallback for JPY: 0.5%
+[news_calendar] Using hardcoded fallback for CHF: 0.0%
+[news_calendar] Using hardcoded fallback for NZD: 3.5%
+[news_calendar] World Bank inflation (AUD) failed: HTTPSConnectionPool(host='api.worldbank.org', port=443): Read timed out. (read timeout=10)
+[news_calendar] rates live: ['USD', 'GBP', 'CAD', 'AUD']  fallback: ['EUR', 'JPY', 'CHF', 'NZD']
+[homepageCalendar] Rates cache ready (8 currencies)
+2:33:43 PM [express] GET /api/homepage/rates 200 in 12730ms :: {"USD":{"bank":"Federal Reserve","nom…
+2:34:39 PM [vite] page reload index.html
+2:34:39 PM [vite] hmr update /src/components/BlogPostEditor.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/CopyManagementDashboard.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/CreateSession.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/DrawdownPanel.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/HomeFooter.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/HomeHeader.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/JournalForm.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/JournalHeader.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/JournalPaywall.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/JournalSettingsPanel.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/Leaderboard.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/MetricsPanel.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] page reload src/components/NoSessionPrompt.tsx
+2:34:39 PM [vite] hmr update /src/components/StrategyAudit.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/TFMetricsPanel.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/App.tsx?v=X0BevlkcLE0lL6LTDr_Zz, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] page reload src/components/Footer.tsx
+2:34:39 PM [vite] page reload src/components/NewFooter.tsx
+2:34:39 PM [vite] page reload src/components/TradeSync.tsx
+2:34:39 PM [vite] hmr update /src/components/TradeVault.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/TraderAI.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] page reload src/components/TradeSync.tsx
+2:34:39 PM [vite] hmr update /src/components/TradingCalendar.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/TradingChart.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/TradingLoader.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] page reload src/components/TradingSession.tsx
+2:34:39 PM [vite] page reload src/components/ui/avatar.tsx
+2:34:39 PM [vite] hmr update /src/components/ui/badge.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/ui/button.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/components/ui/card.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] page reload src/components/ui/chart.tsx
+2:34:39 PM [vite] page reload src/components/ui/checkbox.tsx
+2:34:39 PM [vite] page reload src/components/ui/collapsible.tsx
+2:34:39 PM [vite] page reload src/components/ui/dropdown-menu.tsx
+2:34:39 PM [vite] page reload src/components/ui/input.tsx
+2:34:39 PM [vite] page reload src/components/ui/popover.tsx
+2:34:39 PM [vite] page reload src/components/ui/select.tsx
+2:34:39 PM [vite] page reload src/components/ui/sheet.tsx
+2:34:39 PM [vite] page reload src/components/ui/sidebar.tsx
+2:34:39 PM [vite] page reload src/components/ui/skeleton.tsx
+2:34:39 PM [vite] page reload src/components/ui/tabs.tsx
+2:34:39 PM [vite] page reload src/components/ui/toggle-group.tsx
+2:34:39 PM [vite] page reload src/components/ui/toggle.tsx
+2:34:39 PM [vite] hmr update /src/components/ui/tooltip.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/context/AuthContext.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz, /src/pages/AdminPanel.tsx
+2:34:39 PM [vite] hmr update /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz, /src/pages/Journal.tsx
+2:34:39 PM [vite] hmr update /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz, /src/pages/Journal.tsx, /src/components/JournalSettingsPanel.tsx
+2:34:39 PM [vite] hmr update /src/pages/BlogPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz, /src/pages/TscPage.tsx, /src/pages/BlogPostPage.tsx, /src/pages/EconomicCalendarPage.tsx, /src/pages/Journal.tsx
+2:34:39 PM [vite] hmr update /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz, /src/components/MetricsPanel.tsx, /src/components/JournalForm.tsx, /src/components/CreateSession.tsx
+2:34:39 PM [vite] hmr update /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/App.tsx?v=X0BevlkcLE0lL6LTDr_Zz, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz, /src/pages/Journal.tsx, /src/components/JournalHeader.tsx, /src/components/TradeVault.tsx, /src/components/MetricsPanel.tsx, /src/components/TradingCalendar.tsx, /src/components/JournalForm.tsx, /src/components/TFMetricsPanel.tsx, /src/components/CreateSession.tsx, /src/components/StrategyAudit.tsx, /src/components/TraderAI.tsx, /src/components/DrawdownPanel.tsx, /src/components/Notifications.tsx, /src/components/LivePriceDisplay.tsx
+2:34:39 PM [vite] page reload src/main.tsx
+2:34:39 PM [vite] hmr update /src/pages/AccountsPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/AdminPanel.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/AssetPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/AuthCallbackPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/AuthPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/BlogPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/BlogPostPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/EconomicCalendarPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/HomePage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/Journal.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/SupportPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/TradeSyncPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/LegalPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] hmr update /src/pages/TscPage.tsx, /src/index.css?v=X0BevlkcLE0lL6LTDr_Zz
+2:34:39 PM [vite] page reload src/components/ui/table.tsx
+2:34:39 PM [vite] page reload /home/runner/workspace/tailwind.config.ts
+Unable to resolve `@import "@fontsource-variable/inter"` from /home/runner/workspace/client/src
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.16.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.16.0
+npm notice To update run: npm install -g npm@11.16.0
+npm notice
+
+
+
+
+
