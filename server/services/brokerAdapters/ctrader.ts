@@ -1,7 +1,10 @@
 /**
  * cTrader Open API adapter (JSON over WebSocket, port 5036)
- * Auth: OAuth2 (authorization code flow via openapi.ctrader.com)
+ * Auth: OAuth2 (authorization code flow via connect.spotware.com)
  * Requires: CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET, CTRADER_REDIRECT_URI
+ *
+ * Payload types sourced from:
+ * github.com/spotware/openapi-proto-messages/OpenApiModelMessages.proto
  */
 import WebSocket from 'ws';
 import type { RawBrokerTrade } from '../brokerSyncService';
@@ -12,26 +15,25 @@ const TOKEN_URL = `${CONNECT}/apps/token`;
 const LIVE_WS = 'wss://live.ctraderapi.com:5036';
 const DEMO_WS = 'wss://demo.ctraderapi.com:5036';
 
-// Open API JSON payload types
-const PT_APP_AUTH_REQ   = 2100;
-const PT_APP_AUTH_RES   = 2101;
-const PT_ACCT_AUTH_REQ  = 2102;
-const PT_ACCT_AUTH_RES  = 2103;
-const PT_ACCOUNTS_REQ   = 2149;
-const PT_ACCOUNTS_RES   = 2150;
-const PT_DEALS_REQ      = 2254;
-const PT_DEALS_RES      = 2255;
-const PT_SYMBOLS_REQ    = 2110;
-const PT_SYMBOLS_RES    = 2111;
-const PT_ERROR          = 50;
-const PT_OA_ERROR       = 2142;
+// Verified payload types from openapi-proto-messages
+const PT_APP_AUTH_REQ  = 2100;
+const PT_APP_AUTH_RES  = 2101;
+const PT_ACCT_AUTH_REQ = 2102;
+const PT_ACCT_AUTH_RES = 2103;
+const PT_SYMBOLS_REQ   = 2114;
+const PT_SYMBOLS_RES   = 2115;
+const PT_DEALS_REQ     = 2133;
+const PT_DEALS_RES     = 2134;
+const PT_ACCOUNTS_REQ  = 2149;
+const PT_ACCOUNTS_RES  = 2150;
+const PT_OA_ERROR      = 2142;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function openWS(url: string): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
-    const t = setTimeout(() => { ws.terminate(); reject(new Error(`WS connect timeout: ${url}`)); }, 10000);
+    const t = setTimeout(() => { ws.terminate(); reject(new Error(`WS connect timeout: ${url}`)); }, 12000);
     ws.once('open',  () => { clearTimeout(t); resolve(ws); });
     ws.once('error', (e) => { clearTimeout(t); reject(e); });
   });
@@ -41,17 +43,18 @@ function send(ws: WebSocket, payloadType: number, payload: object) {
   ws.send(JSON.stringify({ payloadType, payload }));
 }
 
-function waitFor(ws: WebSocket, targetType: number, timeoutMs = 10000): Promise<any> {
+function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<any> {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timeout waiting for payloadType ${targetType}`)), timeoutMs);
+    const t = setTimeout(() => reject(new Error(`cTrader timeout waiting for type ${targetType}`)), timeoutMs);
     ws.on('message', function handler(raw) {
-      const msg = JSON.parse(raw.toString());
-      if (msg.payloadType === PT_ERROR || msg.payloadType === PT_OA_ERROR) {
+      let msg: any;
+      try { msg = JSON.parse(raw.toString()); } catch { return; }
+      if (msg.payloadType === PT_OA_ERROR) {
         clearTimeout(t); ws.off('message', handler);
-        reject(new Error(`cTrader error: ${msg.payload?.description ?? msg.payload?.errorCode ?? 'unknown'}`));
+        reject(new Error(`cTrader: ${msg.payload?.description ?? msg.payload?.errorCode ?? 'unknown error'}`));
       } else if (msg.payloadType === targetType) {
         clearTimeout(t); ws.off('message', handler);
-        resolve(msg.payload);
+        resolve(msg.payload ?? {});
       }
     });
   });
@@ -149,8 +152,8 @@ export async function getCTraderAccounts(accessToken: string): Promise<CTraderAc
   ];
   if (accounts.length === 0) {
     const reasons = [
-      liveResult.status === 'rejected' ? `live: ${(liveResult as any).reason?.message}` : null,
-      demoResult.status === 'rejected' ? `demo: ${(demoResult as any).reason?.message}` : null,
+      liveResult.status === 'rejected'  ? `live: ${(liveResult  as any).reason?.message}` : null,
+      demoResult.status === 'rejected'  ? `demo: ${(demoResult  as any).reason?.message}` : null,
     ].filter(Boolean).join('; ');
     throw new Error(`No cTrader accounts found (${reasons})`);
   }
@@ -159,14 +162,16 @@ export async function getCTraderAccounts(accessToken: string): Promise<CTraderAc
 
 // ── Trade history (WebSocket) ─────────────────────────────────────────────────
 
+// isLive is passed from the stored accountType — avoids redundant WS connections on every sync chunk
 export async function fetchCTraderTrades(
   accessToken: string,
   ctraderId:   string,
   fromMs:      number,
   toMs:        number,
+  isLive:      boolean = false,
 ): Promise<RawBrokerTrade[]> {
   const acctId = Number(ctraderId);
-  const wsUrl  = (await isLiveAccount(accessToken, acctId)) ? LIVE_WS : DEMO_WS;
+  const wsUrl  = isLive ? LIVE_WS : DEMO_WS;
 
   const ws = await openWS(wsUrl);
   try {
@@ -175,21 +180,21 @@ export async function fetchCTraderTrades(
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
     await waitFor(ws, PT_ACCT_AUTH_RES);
 
-    // Fetch symbol list to map symbolId → name
+    // Build symbolId → name map
     send(ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: acctId });
-    const symPayload = await waitFor(ws, PT_SYMBOLS_RES, 15000);
+    const symPayload = await waitFor(ws, PT_SYMBOLS_RES, 30000);
     const symbolMap: Record<number, string> = {};
     for (const s of (symPayload?.symbol ?? [])) {
       if (s.symbolId && s.symbolName) symbolMap[s.symbolId] = s.symbolName;
     }
 
-    // Fetch deals in 10-day chunks (API limit)
-    const CHUNK = 10 * 24 * 60 * 60 * 1000;
+    // Fetch deals — cTrader max range per request is not documented but 7 days is safe
+    const CHUNK_MS = 7 * 24 * 60 * 60 * 1000;
     const allDeals: any[] = [];
-    for (let from = fromMs; from < toMs; from += CHUNK) {
-      const to = Math.min(from + CHUNK, toMs);
-      send(ws, PT_DEALS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to });
-      const dp = await waitFor(ws, PT_DEALS_RES, 15000);
+    for (let from = fromMs; from < toMs; from += CHUNK_MS) {
+      const to = Math.min(from + CHUNK_MS, toMs);
+      send(ws, PT_DEALS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows: 500 });
+      const dp = await waitFor(ws, PT_DEALS_RES, 20000);
       allDeals.push(...(dp?.deal ?? []));
     }
 
@@ -201,25 +206,18 @@ export async function fetchCTraderTrades(
           externalId: String(d.dealId),
           symbol:     symbolMap[d.symbolId] ?? String(d.symbolId),
           direction:  d.tradeSide === 1 ? 'Long' : 'Short',
-          lots:       d.filledVolume  ? d.filledVolume / 10000000  : undefined,
-          openPrice:  close?.entryPrice    ? close.entryPrice / 100000    : undefined,
-          closePrice: d.executionPrice     ? d.executionPrice / 100000    : undefined,
+          lots:       d.filledVolume        ? d.filledVolume / 100           : undefined,
+          openPrice:  close?.entryPrice     != null ? close.entryPrice       : undefined,
+          closePrice: d.executionPrice      != null ? d.executionPrice       : undefined,
           openTime:   close?.entryTimestamp ? String(Math.floor(close.entryTimestamp / 1000)) : undefined,
-          closeTime:  d.executionTimestamp  ? String(Math.floor(d.executionTimestamp / 1000)) : undefined,
-          profit:     close?.grossProfit    ? close.grossProfit / 100     : undefined,
-          commission: d.commission          ? d.commission / 100          : undefined,
-          swap:       close?.swap           ? close.swap / 100            : undefined,
+          closeTime:  d.executionTimestamp  ? String(Math.floor(d.executionTimestamp  / 1000)) : undefined,
+          profit:     close?.grossProfit    != null ? close.grossProfit / 100 : undefined,
+          commission: d.commission          != null ? d.commission / 100      : undefined,
+          swap:       close?.swap           != null ? close.swap / 100        : undefined,
           comment:    d.comment,
         };
       });
   } finally {
     ws.close();
   }
-}
-
-// Returns true if the given account ID is a live account
-async function isLiveAccount(accessToken: string, acctId: number): Promise<boolean> {
-  const accounts = await getCTraderAccounts(accessToken);
-  const match = accounts.find(a => String(a.ctidTraderAccountId) === String(acctId));
-  return match?.isLive ?? true;
 }

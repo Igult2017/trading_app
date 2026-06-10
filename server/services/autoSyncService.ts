@@ -9,7 +9,7 @@ import { brokerAccounts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
-import { safeDecrypt, encrypt } from '../lib/crypto';
+import { safeDecrypt, safeEncrypt } from '../lib/crypto';
 import { refreshAccessToken } from './brokerAdapters/ctrader';
 import type { BrokerAccount } from '../../shared/schema';
 
@@ -31,7 +31,7 @@ async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccoun
     const tokens = await refreshAccessToken(creds.refreshToken);
     const newCreds = { ...creds, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
     await db.update(brokerAccounts)
-      .set({ passwordEnc: encrypt(JSON.stringify(newCreds)) })
+      .set({ passwordEnc: safeEncrypt(JSON.stringify(newCreds)) })
       .where(eq(brokerAccounts.id, account.id));
     const [fresh] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, account.id));
     return fresh ?? null;

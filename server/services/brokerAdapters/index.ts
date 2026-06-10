@@ -54,8 +54,9 @@ export async function fetchTradesForAccount(
     case 'ctrader': {
       const { accessToken, ctraderId } = creds;
       if (!accessToken) throw new Error('cTrader: not connected. Complete OAuth first.');
-      const id = ctraderId ?? apiKey;
-      return fetchCTraderTrades(accessToken, id, fromMs, toMs);
+      const id     = ctraderId ?? apiKey;
+      const isLive = account.accountType?.toLowerCase() !== 'demo';
+      return fetchCTraderTrades(accessToken, id, fromMs, toMs, isLive);
     }
 
     case 'binance': {
