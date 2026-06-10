@@ -17,6 +17,7 @@ interface BrokerAccount {
   balance: string | null;
   syncStatus: string;
   lastSyncAt: string | null;
+  lastSyncError: string | null;
   tradeCount: number;
   webhookToken: string | null;
   defaultSessionId: string | null;
@@ -50,12 +51,22 @@ async function authHeaders(): Promise<HeadersInit> {
 }
 
 // ── Sync status badge ─────────────────────────────────────────────────────────
-function SyncBadge({ status, lastSyncAt }: { status: string; lastSyncAt: string | null }) {
+function SyncBadge({ status, lastSyncAt, lastSyncError }: { status: string; lastSyncAt: string | null; lastSyncError?: string | null }) {
   const color = status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "#64748b";
   const label = status === "ok" && lastSyncAt
     ? new Date(lastSyncAt).toLocaleDateString()
     : status === "error" ? "Error" : status === "syncing" ? "Syncing…" : "Pending";
-  return <span style={{ color, fontWeight: 600, fontSize: 13 }}>{label}</span>;
+  return (
+    <span title={status === "error" && lastSyncError ? lastSyncError : undefined}
+          style={{ color, fontWeight: 600, fontSize: 13, cursor: status === "error" && lastSyncError ? "help" : "default" }}>
+      {label}
+      {status === "error" && lastSyncError && (
+        <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {lastSyncError}
+        </span>
+      )}
+    </span>
+  );
 }
 
 // ── Copy-to-clipboard button ──────────────────────────────────────────────────
@@ -569,7 +580,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                   </td>
                   <td style={s.td as CSSProperties}>{a.balance ? `$${parseFloat(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</td>
                   <td style={s.td as CSSProperties}>{a.connectionType === "webhook" ? "EA" : "API"}</td>
-                  <td style={s.td as CSSProperties}><SyncBadge status={a.syncStatus} lastSyncAt={a.lastSyncAt} /></td>
+                  <td style={s.td as CSSProperties}><SyncBadge status={a.syncStatus} lastSyncAt={a.lastSyncAt} lastSyncError={a.lastSyncError} /></td>
                   <td style={s.td as CSSProperties}>
                     <div style={{ display: "flex", gap: isMobile ? 2 : 5, alignItems: "center" }}>
                       {a.defaultSessionId && onViewSession && (

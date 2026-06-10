@@ -3069,7 +3069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       syncAccount(account).catch(() => {});
       return res.json({ message: 'Sync started in background', platform: account.platform });
     } catch (err: any) {
-      await storage.updateBrokerAccountSyncStatus(account.id, 'error', 0);
+      await storage.updateBrokerAccount(account.id, { syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) });
       return res.status(500).json({ error: err.message ?? 'Sync failed' });
     }
   });
@@ -3230,7 +3230,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     traderLogin,
         passwordEnc: safeEncrypt(credJson),
+        accountType: ct.isLive ? 'live' : 'demo',
+        balance:     ct.balance != null ? String(ct.balance) : undefined,
+        currency:    ct.currency || undefined,
         syncStatus:  'pending',
+        lastSyncError: null as any,
       });
 
       const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
@@ -3275,7 +3279,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     await storage.updateBrokerAccount(entry.brokerAccountId, {
       loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
       passwordEnc: safeEncrypt(credJson),
+      accountType: chosen.isLive ? 'live' : 'demo',
+      balance:     chosen.balance != null ? String(chosen.balance) : undefined,
+      currency:    chosen.currency || undefined,
       syncStatus:  'pending',
+      lastSyncError: null as any,
     });
     const freshAccount = await storage.getBrokerAccountById(entry.brokerAccountId);
     if (freshAccount) syncAccount(freshAccount).catch(() => {});
