@@ -3095,6 +3095,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /** Signal-platform token setup — visit once to get Coolify env var values. */
+  app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
+    if (req.query.secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
+    try {
+      return res.redirect(getCTraderAuthUrl('signal_platform'));
+    } catch (err: any) {
+      return res.status(500).send(err.message);
+    }
+  });
+
   /** Step 2: OAuth callback — exchange code, store tokens, fetch cTrader accounts. */
   app.get("/api/broker/ctrader/callback", async (req: Request, res: Response) => {
     const { code, state: accountId, error: oauthError } = req.query as Record<string, string>;
@@ -3104,6 +3114,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     if (!code || !accountId) {
       return res.redirect('/accounts?ctrader_error=missing_code');
+    }
+
+    // Signal platform setup flow — display tokens for copying to Coolify
+    if (accountId === 'signal_platform') {
+      try {
+        const tokens = await exchangeCodeForTokens(code);
+        return res.send(`<!DOCTYPE html><html><head><title>Signal Platform Tokens</title>
+<style>body{font-family:monospace;padding:40px;background:#0d1117;color:#e6edf3}
+pre{background:#161b22;padding:20px;border-radius:8px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all}
+h2{color:#58a6ff}</style></head><body>
+<h2>cTrader Signal Platform Tokens</h2>
+<p>Copy these two values into Coolify environment variables:</p>
+<pre>CTRADER_ACCESS_TOKEN=${tokens.accessToken}
+
+CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
+<p style="color:#8b949e">You can close this page once copied. Tokens auto-refresh — you will only need to repeat this if you revoke the app in the cTrader portal.</p>
+</body></html>`);
+      } catch (err: any) {
+        return res.status(500).send(`Token exchange failed: ${err.message}`);
+      }
     }
 
     try {
