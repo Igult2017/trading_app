@@ -3194,8 +3194,10 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
       return res.redirect('/accounts?ctrader_connected=1');
     } catch (err: any) {
-      console.error('[cTrader OAuth]', err);
-      return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(err.message)}`);
+      const cause = (err.cause as any)?.code ?? (err.cause as any)?.message ?? '';
+      console.error('[cTrader OAuth]', err.message, cause, err.cause ?? '');
+      const detail = cause ? `${err.message} (${cause})` : err.message;
+      return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(detail)}`);
     }
   });
 

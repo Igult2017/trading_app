@@ -11,8 +11,8 @@
 import type { RawBrokerTrade } from '../brokerSyncService';
 
 const CONNECT     = 'https://connect.spotware.com';
-const TOKEN_URL   = 'https://openapi.ctrader.com/apps/token';
-const API         = 'https://api.ctrader.com';
+const TOKEN_URL   = `${CONNECT}/apps/token`;
+const API         = CONNECT;
 
 // ── OAuth2 ────────────────────────────────────────────────────────────────────
 
