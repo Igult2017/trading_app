@@ -3089,14 +3089,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const url = getCTraderAuthUrl(accountId);
+      _pendingBrokerAccountId = accountId; // store since Spotware doesn't echo state
       return res.json({ url });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
   });
 
-  /** In-memory flag: next callback is a signal-platform token setup, not a broker link. */
+  /** In-memory state: Spotware does not echo OAuth state param back, so we store it server-side. */
   let _signalPlatformPending = false;
+  let _pendingBrokerAccountId: string | null = null;
 
   /** Signal-platform token setup — visit once to get Coolify env var values. */
   app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
@@ -3133,10 +3135,11 @@ ${authUrl}</pre>
       return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(oauthError)}`);
     }
 
-    // Spotware Open API does not echo state — detect signal_platform via server-side flag
+    // Spotware does not echo state — resolve accountId from server-side storage
     const isSignalPlatform = accountId === 'signal_platform' || _signalPlatformPending;
+    const resolvedAccountId = accountId || _pendingBrokerAccountId || '';
 
-    if (!code || (!accountId && !isSignalPlatform)) {
+    if (!code || (!resolvedAccountId && !isSignalPlatform)) {
       return res.redirect('/accounts?ctrader_error=missing_code');
     }
 
@@ -3162,6 +3165,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
 
     try {
+      _pendingBrokerAccountId = null;
       const tokens   = await exchangeCodeForTokens(code);
       const ctAccounts = await getCTraderAccounts(tokens.accessToken);
 
@@ -3176,14 +3180,14 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         ctraderId,
       });
 
-      await storage.updateBrokerAccount(accountId, {
-        loginId:     ctraderId || accountId,
+      await storage.updateBrokerAccount(resolvedAccountId, {
+        loginId:     ctraderId || resolvedAccountId,
         passwordEnc: encrypt(credJson),
         syncStatus:  'pending',
       });
 
       // Kick off a full 2-year history sync in background — user lands on /accounts while it runs
-      const freshAccount = await storage.getBrokerAccountById(accountId);
+      const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
       if (freshAccount) syncAccount(freshAccount).catch(() => {});
 
       return res.redirect('/accounts?ctrader_connected=1');
