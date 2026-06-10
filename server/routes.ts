@@ -3095,6 +3095,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /** In-memory flag: next callback is a signal-platform token setup, not a broker link. */
+  let _signalPlatformPending = false;
+
   /** Signal-platform token setup — visit once to get Coolify env var values. */
   app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
     if (req.query.secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
@@ -3115,6 +3118,7 @@ ${authUrl}</pre>
 <p><a href="${authUrl}">Click here to proceed to Spotware consent page &rarr;</a></p>
 </body></html>`);
       }
+      _signalPlatformPending = true;
       return res.redirect(authUrl);
     } catch (err: any) {
       return res.status(500).send(`<pre style="font-family:monospace;padding:40px;background:#0d1117;color:#f85149">Error: ${err.message}\n\nCTRADER_CLIENT_ID:    ${process.env.CTRADER_CLIENT_ID || '(NOT SET)'}\nCTRADER_REDIRECT_URI: ${process.env.CTRADER_REDIRECT_URI || '(NOT SET)'}</pre>`);
@@ -3128,12 +3132,17 @@ ${authUrl}</pre>
     if (oauthError) {
       return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(oauthError)}`);
     }
-    if (!code || !accountId) {
+
+    // Spotware Open API does not echo state — detect signal_platform via server-side flag
+    const isSignalPlatform = accountId === 'signal_platform' || _signalPlatformPending;
+
+    if (!code || (!accountId && !isSignalPlatform)) {
       return res.redirect('/accounts?ctrader_error=missing_code');
     }
 
     // Signal platform setup flow — display tokens for copying to Coolify
-    if (accountId === 'signal_platform') {
+    if (isSignalPlatform) {
+      _signalPlatformPending = false;
       try {
         const tokens = await exchangeCodeForTokens(code);
         return res.send(`<!DOCTYPE html><html><head><title>Signal Platform Tokens</title>
