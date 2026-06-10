@@ -1,5 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+const cloudscraper = _require('cloudscraper') as any;
 import { ScraperConfig, scraperSettings, getRandomUserAgent, getActiveScrapers } from './config';
 
 export interface ScrapedEvent {
@@ -38,7 +41,7 @@ export class EconomicCalendarScraper {
     await this.respectRateLimit();
 
     try {
-      const response = await axios.get(url, {
+      const html = await cloudscraper.get(url, {
         headers: {
           'User-Agent': getRandomUserAgent(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -49,8 +52,7 @@ export class EconomicCalendarScraper {
         },
         timeout: scraperSettings.timeout,
       });
-
-      return response.data;
+      return html as string;
     } catch (error) {
       console.error(`Failed to fetch ${url}:`, error);
       throw error;
