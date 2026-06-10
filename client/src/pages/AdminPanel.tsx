@@ -6,7 +6,6 @@ import TrafficSection from '@/features/admin-traffic/TrafficSection';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer, Area,
-  defs as RechartsDefs, linearGradient as RechartsLinearGradient,
 } from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 import TradingLoader from '@/components/TradingLoader';
@@ -58,7 +57,7 @@ const MOCK_TICKETS = [
   { id: 'TK-1038', user: 'Sarah Chen', email: 'sarah.c@trading.io', subject: 'Login 2FA not sending SMS code', priority: 'Critical', status: 'Resolved', created: '2d ago', channel: 'email', satisfaction: 4 },
 ];
 
-const generateMetric = (base, variance) => +(base + (Math.random() - 0.5) * variance).toFixed(1);
+const generateMetric = (base: number, variance: number) => +(base + (Math.random() - 0.5) * variance).toFixed(1);
 const INITIAL_METRICS = { cpu: 34, memory: 61, latency: 42, uptime: 99.97, requestsPerSec: 847, errorRate: 0.12, dbQueryTime: 18, activeConnections: 1243 };
 const INITIAL_LOGS: any[] = [];
 
@@ -223,9 +222,9 @@ const GrowthChartTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-const Sparkline = ({ data, danger }) => {
+const Sparkline = ({ data, danger }: { data: number[]; danger?: boolean }) => {
   const W = 80, H = 32, pd = 2, max = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * (W - pd * 2) + pd},${H - ((v / max) * (H - pd * 2) + pd)}`).join(' ');
+  const pts = data.map((v: number, i: number) => `${(i / (data.length - 1)) * (W - pd * 2) + pd},${H - ((v / max) * (H - pd * 2) + pd)}`).join(' ');
   return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '80px', height: '32px' }}><polyline fill="none" stroke={danger ? C.red : C.indigo} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} opacity="0.8" /></svg>;
 };
 
@@ -233,7 +232,7 @@ const _skeletonStyle = document.createElement('style');
 _skeletonStyle.textContent = '@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}';
 if (!document.head.querySelector('[data-sk]')) { _skeletonStyle.setAttribute('data-sk','1'); document.head.appendChild(_skeletonStyle); }
 
-const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
+const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }: { value: number; max?: number; color: string; size?: number; sw?: number }) => {
   const r = (size - sw) / 2, circ = 2 * Math.PI * r, pct = Math.min(value / max, 1), dash = pct * circ;
   const ring = pct > 0.8 ? C.red : pct > 0.6 ? C.amber : color;
   return (
@@ -244,7 +243,7 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }) => {
   );
 };
 
-const StatCard = ({ title, value, change, trend, icon: Icon }) => (
+const StatCard = ({ title, value, change, trend, icon: Icon }: { title: string; value: string; change?: string; trend?: string; icon: React.ElementType }) => (
   <div style={{ ...cs, padding: '18px 20px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
       <div style={{ padding: '7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: '1px solid rgba(0,200,224,0.12)' }}>
@@ -557,13 +556,18 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
 };
 
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
-const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
+interface Ticket {
+  id: string; _id?: number; user: string; email: string; subject: string;
+  priority: string; status: string; created: string; channel: string;
+  satisfaction?: number; reply?: string; userId?: string;
+}
+const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoadError = null }: { bp: any; apiUsers?: any[]; getAdminToken?: (() => Promise<string | null>) | null; usersLoadError?: string | null }) => {
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [tickets, setTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [replyText, setReplyText] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
-  const [actionUser, setActionUser] = useState(null);
+  const [actionUser, setActionUser] = useState<{ name: string; userId: string } | null>(null);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [sendingReply, setSendingReply] = useState(false);
   const [careError, setCareError] = useState<string | null>(null);
@@ -603,7 +607,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
 
   const openCount = tickets.filter(t => t.status === 'Open').length;
   const resolvedCount = tickets.filter(t => t.status === 'Resolved').length;
-  const avgSat = (tickets.filter(t => t.satisfaction).reduce((a, t) => a + t.satisfaction, 0) / Math.max(tickets.filter(t => t.satisfaction).length, 1)).toFixed(1);
+  const avgSat = (tickets.filter(t => t.satisfaction).reduce((a, t) => a + (t.satisfaction ?? 0), 0) / Math.max(tickets.filter(t => t.satisfaction).length, 1)).toFixed(1);
   const filtered = filterStatus === 'All' ? tickets : tickets.filter(t => t.status === filterStatus);
 
   const PC = {
@@ -740,7 +744,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
             </div>
           </div>
           {filtered.map((ticket, idx) => {
-            const priority = PC[ticket?.priority] || PC.Medium;
+            const priority = PC[ticket?.priority as keyof typeof PC] || PC.Medium;
             const channelKey = ticket?.channel && ChanIcon[ticket.channel as keyof typeof ChanIcon] ? ticket.channel : 'email';
             const CI = ChanIcon[channelKey as keyof typeof ChanIcon] || Mail;
             const sel = selectedTicket?.id === ticket?.id;
@@ -794,8 +798,8 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null }) => {
                     <p style={{ ...lbl }}>Quick Actions</p>
                     <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '6px' }}>
                       {[
-                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(safeTicketId(selectedTicket), selectedTicket?.id) },
-                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(safeTicketId(selectedTicket), selectedTicket?.id) },
+                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(safeTicketId(selectedTicket), selectedTicket?._id ?? 0) },
+                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(safeTicketId(selectedTicket), selectedTicket?._id ?? 0) },
                         { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => selectedTicket?.userId ? setActionUser({ name: safeTicketUser(selectedTicket), userId: selectedTicket.userId }) : setCareError('This ticket has no user id to ban') },
                         { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket?.id) await fetch(`/api/admin/tickets/${selectedTicket.id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket?.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
                       ].map((b, i) => (
@@ -1482,7 +1486,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   );
 };
 
-const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
+const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?: (() => Promise<string | null>) | null }) => {
   const [metrics, setMetrics]     = useState<any>(null);
   const [logs, setLogs]           = useState<any[]>([]);
   const [services, setServices]   = useState<any[]>([]);
@@ -1561,7 +1565,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
     return () => { clearInterval(timerRef.current); clearInterval(logTimerRef.current); };
   }, [isLive]);
 
-  const resolveLog  = (id: number) => setResolvedIds(prev => new Set([...prev, id]));
+  const resolveLog  = (id: number) => setResolvedIds(prev => new Set([...Array.from(prev), id]));
   const errorCount  = logs.filter(l => l.level === 'error' && !resolvedIds.has(l.id)).length;
   const warnCount   = logs.filter(l => l.level === 'warn'  && !resolvedIds.has(l.id)).length;
   const allOk       = services.length > 0 && services.every(s => s.status === 'operational' || s.status === 'not-configured');
@@ -1743,7 +1747,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
                 <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>No active incidents</p>
               </div>
             ) : logs.filter(l => !resolvedIds.has(l.id)).map(log => {
-              const lc = LC[log.level];
+              const lc = LC[log.level as keyof typeof LC] ?? LC.info;
               const levelColor = log.level === 'error' ? C.red : log.level === 'warn' ? C.amber : '#3d5878';
               return (
                 <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '11px 16px', borderBottom: `1px solid ${C.border}`, background: log.level === 'error' ? 'rgba(244,63,94,0.03)' : log.level === 'warn' ? 'rgba(245,158,11,0.02)' : 'transparent' }}>
@@ -1772,7 +1776,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }) => {
 };
 
 // ─── BLOG SECTION ────────────────────────────────────────────────────────────
-const BlogSection = ({ bp }) => {
+const BlogSection = ({ bp }: { bp: any }) => {
   const [posts, setPosts] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState(() => localStorage.getItem('admin_active_section') || 'all');
   const [showModal, setShowModal] = useState(false);
@@ -2127,9 +2131,9 @@ const BlogSection = ({ bp }) => {
     const r = await fetch(`/api/blog/${id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: newStatus }) });
     if (r.ok) setPosts(p => p.map(x => x.id === id ? { ...x, status: newStatus } : x));
   };
-  const fv = k => form[k]; const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const setSig = (k, v) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
-  const sg = k => form.signal[k];
+  const fv = (k: string) => (form as Record<string, unknown>)[k]; const setF = (k: string, v: unknown) => setForm(p => ({ ...p, [k]: v }));
+  const setSig = (k: string, v: unknown) => setForm(p => ({ ...p, signal: { ...p.signal, [k]: v } }));
+  const sg = (k: string) => (form.signal as Record<string, unknown>)[k];
 
   const TABS = [{ id: 'post', label: 'Post', icon: FileText }, { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
@@ -2170,7 +2174,7 @@ const BlogSection = ({ bp }) => {
       ) : (
       <div style={{ display: 'grid', gridTemplateColumns: postCols, gap: '6px' }}>
         {filtered.map(post => {
-          const sec = SECTION_META[post.section];
+          const sec = SECTION_META[post.section as keyof typeof SECTION_META];
           const sig = post.signal;
           if (sig && post.section === 'trade-signals') {
             const isBuy = sig.action === 'BUY';
@@ -2234,7 +2238,7 @@ const BlogSection = ({ bp }) => {
 };
 
 // ─── MARKETING SECTION ───────────────────────────────────────────────────────
-const UpdatesSection = ({ bp, getAdminToken = null }) => {
+const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?: (() => Promise<string | null>) | null }) => {
   const [activeChannels, setActiveChannels] = useState(['In-App']);
   const [audience, setAudience] = useState('all');
   const [subject, setSubject] = useState('');
@@ -2258,7 +2262,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }) => {
 
   useEffect(() => { loadStats(); }, []);
 
-  const toggleChannel = label => {
+  const toggleChannel = (label: string) => {
     setActiveChannels(prev =>
       prev.includes(label) ? prev.filter(c => c !== label) : [...prev, label]
     );
@@ -2560,7 +2564,7 @@ const MOCK_TASKS = [
   { id: 4, title: 'Prepare weekly support summary report', assignee: 'Nadia Osei', due: '2023-10-27', status: 'Pending' },
 ];
 
-const SettingsSection = ({ bp, getAdminToken = null }) => {
+const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?: (() => Promise<string | null>) | null }) => {
   const [settingsTab, setSettingsTab] = useState('agents');
   const [ccUsers, setCcUsers] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -2675,7 +2679,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
               <div key={user.id} onClick={() => setSelectedAgent(selectedAgent?.id === user.id ? null : user)} style={{ padding: '12px 16px', borderBottom: idx < ccUsers.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', background: selectedAgent?.id === user.id ? 'rgba(0,200,224,0.07)' : 'transparent', borderLeft: `3px solid ${selectedAgent?.id === user.id ? C.indigo : 'transparent'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                    {user.name.split(' ').map(n => n[0]).join('')}
+                    {user.name.split(' ').map((n: string) => n[0]).join('')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{toTitleCase(user.name)}</p>
@@ -2784,7 +2788,7 @@ const SettingsSection = ({ bp, getAdminToken = null }) => {
               <p style={{ color: task.status === 'Complete' ? C.muted : 'white', fontSize: '13px', fontWeight: 600, margin: 0, textDecoration: task.status === 'Complete' ? 'line-through' : 'none' }}>{task.title}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '22px', height: '22px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                  {task.assignee.split(' ').map(n => n[0]).join('')}
+                  {task.assignee.split(' ').map((n: string) => n[0]).join('')}
                 </div>
                 <span style={{ color: C.muted, fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.assignee}</span>
               </div>
@@ -3005,7 +3009,7 @@ export default function AdminPanel() {
     'sync-performance': 'Sync Performance',
   };
 
-  const navBtn = item => {
+  const navBtn = (item: any) => {
     const isActive = activeTab === item.id;
     const isSoon = !item.ready;
     const activeBg = isActive ? 'rgba(0,200,224,0.1)' : 'transparent';
@@ -3040,7 +3044,7 @@ export default function AdminPanel() {
     );
   };
 
-  const sectionLabel = label => (
+  const sectionLabel = (label: string) => (
     <p style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', padding: '14px 14px 4px', margin: 0, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
   );
 
@@ -3119,7 +3123,7 @@ export default function AdminPanel() {
       case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => session?.access_token ?? null} />;
       case 'blog': return <BlogSection bp={bp} />;
       case 'updates': return <UpdatesSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
-      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => session?.access_token ?? null} />;
+      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => session?.access_token ?? null} usersLoadError={usersLoadError} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
       case 'traffic': return <TrafficSection getAdminToken={async () => session?.access_token ?? null} />;
