@@ -24,7 +24,7 @@ export function getCTraderAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id:     clientId,
     redirect_uri:  redirectUri,
-    scope:         'accounts trading',
+    scope:         'trading',
     response_type: 'code',
     state,
   });
