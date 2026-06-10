@@ -71,7 +71,7 @@ export function getCTraderAuthUrl(state: string): string {
   const clientId    = process.env.CTRADER_CLIENT_ID ?? '';
   const redirectUri = process.env.CTRADER_REDIRECT_URI ?? '';
   if (!clientId) throw new Error('CTRADER_CLIENT_ID is not set');
-  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: 'trading', response_type: 'code', state });
+  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: 'accounts', response_type: 'code', state });
   return `${CONNECT}/apps/auth?${params}`;
 }
 
