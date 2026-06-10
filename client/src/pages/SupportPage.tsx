@@ -60,7 +60,7 @@ export default function SupportPage() {
     <>
     <SEOHead
       title="Support & Help Center"
-      description="Get help with MyfmJournal. Browse FAQs, contact our support team, and find answers to common questions about your trading journal."
+      description="Get help with trade&amp;journal. Browse FAQs, contact our support team, and find answers to common questions about your trading journal."
       canonical="/support"
       noindex={false}
     />
@@ -91,7 +91,7 @@ export default function SupportPage() {
             <div className="sp-sidebar-inner" style={{ background: sidebarBg, border: `1px solid ${border}`, borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
               <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, fontWeight: 400, letterSpacing: '0.01em', lineHeight: 1 }}>
-                  <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+                  <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>journal</span>
                 </span>
                 <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: textMut, whiteSpace: 'nowrap' }}>Support</span>
               </div>
@@ -135,7 +135,7 @@ export default function SupportPage() {
                 <span style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: textMut }}>Contact</span>
               </div>
               {[
-                { label: 'Email',    value: 'support@\nmyfmjournal.com', color: '#2563eb' },
+                { label: 'Email',    value: 'support@\ntradeandjournal.com', color: '#2563eb' },
                 { label: 'Response', value: '24 – 48 hours',            color: '#059669' },
                 { label: 'Hours',    value: 'Mon–Fri\n9am–6pm UTC',     color: '#7c3aed' },
               ].map(({ label, value, color }) => (
@@ -159,12 +159,12 @@ export default function SupportPage() {
                 Last Updated: 01/01/2025
               </p>
               <p style={{ fontFamily: F, fontSize: 13, color: textBody, lineHeight: 1.9, margin: 0, maxWidth: 640 }}>
-                Have a question, found a bug, or need help with your account? Browse the FAQ below or fill in the form to submit a support ticket. Our team responds within 24–48 hours on business days. You can also reach us directly at <strong style={{ color: textPrim }}>support@myfmjournal.com</strong>.
+                Have a question, found a bug, or need help with your account? Browse the FAQ below or fill in the form to submit a support ticket. Our team responds within 24–48 hours on business days. You can also reach us directly at <strong style={{ color: textPrim }}>support@tradeandjournal.com</strong>.
               </p>
               {/* Contact strip — visible only on mobile */}
               <div style={{ display: 'none', marginTop: 20, gap: 10, flexWrap: 'wrap' }} className="sp-contact-strip">
                 {[
-                  { label: 'Email',    value: 'support@myfmjournal.com', color: '#2563eb' },
+                  { label: 'Email',    value: 'support@tradeandjournal.com', color: '#2563eb' },
                   { label: 'Response', value: '24–48 hours',             color: '#059669' },
                   { label: 'Hours',    value: 'Mon–Fri 9am–6pm UTC',     color: '#7c3aed' },
                 ].map(({ label, value, color }) => (

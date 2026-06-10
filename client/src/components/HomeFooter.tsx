@@ -82,7 +82,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div>
             <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
               <span style={{ ...hFont, fontSize: 20, color: logoClr }}>
-                Myfm<span style={{ color: "#3b82f6" }}>Journal</span>
+                trade<span style={{ color: "#2563eb" }}>&</span>journal
               </span>
             </Link>
             <p style={{ fontSize: 13, color: descClr, lineHeight: 1.8, margin: 0, ...bFont }}>
@@ -133,7 +133,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         {/* Bottom bar */}
         <div style={{ borderTop: `1px solid ${divider}`, padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 12, color: muted, ...bFont }}>
-            © {new Date().getFullYear()} MyfmJournal. All rights reserved.
+            © {new Date().getFullYear()} trade&amp;journal. All rights reserved.
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (

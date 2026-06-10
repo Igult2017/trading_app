@@ -310,14 +310,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'Disallow: /auth/callback\n' +
       'Disallow: /auth/reset-password\n' +
       '\n' +
-      'Sitemap: https://myfmjournal.com/sitemap.xml\n'
+      'Sitemap: https://tradeandjournal.com/sitemap.xml\n'
     );
   });
 
   // ── sitemap.xml ───────────────────────────────────────────────────────────────
   app.get('/sitemap.xml', async (_req: Request, res: Response) => {
     try {
-      const base = 'https://myfmjournal.com';
+      const base = 'https://tradeandjournal.com';
       const now = new Date().toISOString().split('T')[0];
 
       const staticUrls = [

@@ -1,9 +1,9 @@
 import { Helmet } from 'react-helmet-async';
 
-const SITE_NAME = 'MyfmJournal';
+const SITE_NAME = 'trade&journal';
 const DEFAULT_DESC = 'A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders. Log trades, track psychology, and unlock your edge with AI-powered analytics.';
-const DEFAULT_IMAGE = 'https://myfmjournal.com/og-image.png';
-const SITE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://myfmjournal.com';
+const DEFAULT_IMAGE = 'https://tradeandjournal.com/og-image.png';
+const SITE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://tradeandjournal.com';
 
 interface SEOHeadProps {
   title?: string;
@@ -62,7 +62,7 @@ export default function SEOHead({
 
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:site" content="@myfmjournal" />
+      <meta name="twitter:site" content="@tradeandjournal" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />

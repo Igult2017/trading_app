@@ -9,7 +9,7 @@ const reviews = [
     name: "Alex M.", city: "London", service: "Trade Journal",
   },
   {
-    quote: "Used MyfmJournal for our trading desk monthly review. The analytics team is professional, the export dashboard is a dream. Our whole firm switched after the first month.",
+    quote: "Used trade&journal for our trading desk monthly review. The analytics team is professional, the export dashboard is a dream. Our whole firm switched after the first month.",
     name: "Jordan K.", city: "New York", service: "Analytics",
   },
   {
@@ -36,7 +36,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
           Loved by thousands across the globe
         </h2>
         <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 56, ...sans }}>
-          Real reviews from verified MyfmJournal traders
+          Real reviews from verified trade&amp;journal traders
         </p>
 
         <div className="grid md:grid-cols-3 gap-8">

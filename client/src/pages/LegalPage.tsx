@@ -54,7 +54,7 @@ function UL({ items, dm }: { items: string[]; dm: boolean }) {
 function Brand({ dm }: { dm: boolean }) {
   return (
     <span style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
-      <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Myfm</span><span style={{ color: '#3b82f6' }}>journal</span>
+      <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>journal</span>
     </span>
   );
 }
@@ -67,7 +67,7 @@ function PrivacyContent({ dm }: { dm: boolean }) {
       <Updated dm={dm} />
 
       <P dm={dm}>
-        <Brand dm={dm} /> ("we", "us", "our", or the "Platform") is committed to safeguarding the privacy of everyone who uses our services. This Privacy Policy describes how we collect, process, store, transfer, and protect your personal data when you access myfmjournal.com and any related web applications. By using our services you acknowledge that you have read and understood this policy.
+        <Brand dm={dm} /> ("we", "us", "our", or the "Platform") is committed to safeguarding the privacy of everyone who uses our services. This Privacy Policy describes how we collect, process, store, transfer, and protect your personal data when you access tradeandjournal.com and any related web applications. By using our services you acknowledge that you have read and understood this policy.
       </P>
 
       <H2 dm={dm}>1. Information We Collect</H2>
@@ -159,7 +159,7 @@ function PrivacyContent({ dm }: { dm: boolean }) {
 
       <H2 dm={dm}>12. Contact</H2>
       <P dm={dm}>
-        For privacy-related enquiries, contact us at <strong>privacy@myfmjournal.com</strong> or via the Support page. We respond to privacy requests within 72 hours.
+        For privacy-related enquiries, contact us at <strong>privacy@tradeandjournal.com</strong> or via the Support page. We respond to privacy requests within 72 hours.
       </P>
     </>
   );
@@ -173,7 +173,7 @@ function TermsContent({ dm }: { dm: boolean }) {
       <Updated dm={dm} />
 
       <P dm={dm}>
-        These Terms of Service ("Terms") constitute a legally binding agreement between you ("User", "you") and <Brand dm={dm} /> ("Company", "we", "us") governing your access to and use of myfmjournal.com and any related services (collectively, the "Services"). By creating an account or using any part of our Services, you confirm that you are at least 18 years old and agree to be bound by these Terms and our Privacy Policy.
+        These Terms of Service ("Terms") constitute a legally binding agreement between you ("User", "you") and <Brand dm={dm} /> ("Company", "we", "us") governing your access to and use of tradeandjournal.com and any related services (collectively, the "Services"). By creating an account or using any part of our Services, you confirm that you are at least 18 years old and agree to be bound by these Terms and our Privacy Policy.
       </P>
 
       <H2 dm={dm}>1. Acceptance & Eligibility</H2>
@@ -205,7 +205,7 @@ function TermsContent({ dm }: { dm: boolean }) {
       <UL dm={dm} items={[
         'You must provide accurate, current, and complete information during registration.',
         'You are solely responsible for maintaining the confidentiality of your login credentials.',
-        'You must notify us immediately at support@myfmjournal.com if you suspect unauthorised access.',
+        'You must notify us immediately at support@tradeandjournal.com if you suspect unauthorised access.',
         'You may not share your account with others or allow third parties to use your credentials.',
         'We are not liable for losses resulting from unauthorised use of your account.',
       ]} />
@@ -216,7 +216,7 @@ function TermsContent({ dm }: { dm: boolean }) {
         'All fees are stated exclusive of VAT or applicable sales taxes.',
         'Subscriptions renew automatically unless cancelled before the renewal date.',
         'Cancellation takes effect at the end of the current billing period. No partial-period refunds are issued.',
-        'Refunds may be granted for billing errors or service failures. Submit requests within 7 days to support@myfmjournal.com.',
+        'Refunds may be granted for billing errors or service failures. Submit requests within 7 days to support@tradeandjournal.com.',
         'We reserve the right to change pricing with 30 days prior notice to active subscribers.',
       ]} />
 
@@ -276,7 +276,7 @@ function TermsContent({ dm }: { dm: boolean }) {
 
       <H2 dm={dm}>15. Contact</H2>
       <P dm={dm}>
-        For legal enquiries, contact us at <strong>legal@myfmjournal.com</strong>. For general support, reach us at <strong>support@myfmjournal.com</strong>.
+        For legal enquiries, contact us at <strong>legal@tradeandjournal.com</strong>. For general support, reach us at <strong>support@tradeandjournal.com</strong>.
       </P>
     </>
   );
@@ -332,13 +332,13 @@ function ContactContent({ dm }: { dm: boolean }) {
       <p style={{ fontFamily: F, fontSize: 12, color: dm ? '#64748b' : '#94a3b8', margin: '0 0 16px' }}>Last Updated: 01/01/2025</p>
 
       <P dm={dm}>
-        Have a question, found a bug, or need help with your account? Fill in the form below and our support team will respond within 24–48 hours on business days. You can also reach us directly at <strong>support@myfmjournal.com</strong>.
+        Have a question, found a bug, or need help with your account? Fill in the form below and our support team will respond within 24–48 hours on business days. You can also reach us directly at <strong>support@tradeandjournal.com</strong>.
       </P>
 
       {/* Contact cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '24px 0 40px' }}>
         {[
-          { label: 'Email',         value: 'support@myfmjournal.com',   color: '#2563eb' },
+          { label: 'Email',         value: 'support@tradeandjournal.com',   color: '#2563eb' },
           { label: 'Response Time', value: '24 – 48 hours',              color: '#059669' },
           { label: 'Hours',         value: 'Mon – Fri · 9am – 6pm UTC', color: '#7c3aed' },
         ].map(({ label, value, color }) => (
@@ -461,7 +461,7 @@ export default function LegalPage() {
     <>
     <SEOHead
       title="Privacy Policy & Terms of Service"
-      description="Read MyfmJournal's privacy policy, terms of service, and contact information. We are committed to protecting your data and your trading privacy."
+      description="Read trade&amp;journal's privacy policy, terms of service, and contact information. We are committed to protecting your data and your trading privacy."
       canonical="/legal"
       noindex={false}
     />
