@@ -3090,17 +3090,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!accountId) return res.status(400).json({ error: "accountId required" });
 
     try {
-      const url = getCTraderAuthUrl(accountId);
-      _pendingBrokerAccountId = accountId; // store since Spotware doesn't echo state
+      _pruneCtMaps();
+      const nonce = randomBytes(16).toString('hex');
+      _ctNonces.set(nonce, { accountId, expiry: Date.now() + 10 * 60 * 1000 });
+      const url = getCTraderAuthUrl(nonce);
       return res.json({ url });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
   });
 
-  /** In-memory state: Spotware does not echo OAuth state param back, so we store it server-side. */
+  // Nonce map: each OAuth "Connect" click generates a unique nonce stored here.
+  // Fixes race condition when two users connect simultaneously, and is safe after a server restart
+  // (user just retries — their original OAuth code would be consumed on the dead nonce anyway).
+  const _ctNonces = new Map<string, { accountId: string; expiry: number }>();
+  const _ctSelectMap = new Map<string, { accounts: any[]; brokerAccountId: string; expiry: number }>();
+
+  function _pruneCtMaps() {
+    const now = Date.now();
+    for (const [k, v] of _ctNonces)    if (v.expiry < now) _ctNonces.delete(k);
+    for (const [k, v] of _ctSelectMap) if (v.expiry < now) _ctSelectMap.delete(k);
+  }
+
   let _signalPlatformPending = false;
-  let _pendingBrokerAccountId: string | null = null;
 
   /** Signal-platform token setup — visit once to get Coolify env var values. */
   app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
@@ -3131,19 +3143,21 @@ ${authUrl}</pre>
 
   /** Step 2: OAuth callback — exchange code, store tokens, fetch cTrader accounts. */
   app.get("/api/broker/ctrader/callback", async (req: Request, res: Response) => {
-    const { code, state: accountId, error: oauthError } = req.query as Record<string, string>;
+    const { code, state: nonce, error: oauthError } = req.query as Record<string, string>;
 
     if (oauthError) {
       return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(oauthError)}`);
     }
 
-    // Spotware does not echo state — resolve accountId from server-side storage
-    const isSignalPlatform = accountId === 'signal_platform' || _signalPlatformPending;
-    const resolvedAccountId = accountId || _pendingBrokerAccountId || '';
+    // Resolve broker account ID from the per-request nonce (safe for concurrent users)
+    const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
+    const pending = nonce ? _ctNonces.get(nonce) : undefined;
+    const resolvedAccountId = pending?.accountId ?? '';
 
     if (!code || (!resolvedAccountId && !isSignalPlatform)) {
-      return res.redirect('/accounts?ctrader_error=missing_code');
+      return res.redirect('/accounts?ctrader_error=missing_code_or_expired');
     }
+    if (pending) _ctNonces.delete(nonce);
 
     // Signal platform setup flow — display tokens for copying to Coolify
     if (isSignalPlatform) {
@@ -3167,21 +3181,35 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
 
     try {
-      _pendingBrokerAccountId = null;
-      const tokens   = await exchangeCodeForTokens(code);
+      const tokens     = await exchangeCodeForTokens(code);
       const ctAccounts = await getCTraderAccounts(tokens.accessToken);
 
-      // Pick the first cTrader account (or let user choose later)
-      const ct          = ctAccounts[0];
-      const ctraderId   = String(ct?.ctidTraderAccountId ?? '');  // internal API ID
-      const traderLogin = String(ct?.traderLogin ?? ctraderId);   // broker login number shown in UI
+      // If multiple accounts, let user pick — store choices and redirect to selection UI
+      if (ctAccounts.length > 1) {
+        _pruneCtMaps();
+        const selToken = randomBytes(16).toString('hex');
+        _ctSelectMap.set(selToken, {
+          accounts: ctAccounts.map(a => ({
+            ctidTraderAccountId: String(a.ctidTraderAccountId),
+            traderLogin:         String(a.traderLogin),
+            brokerName:          a.brokerName,
+            isLive:              a.isLive,
+            balance:             a.balance,
+            currency:            a.currency,
+            accessToken:         tokens.accessToken,
+            refreshToken:        tokens.refreshToken,
+          })),
+          brokerAccountId: resolvedAccountId,
+          expiry: Date.now() + 10 * 60 * 1000,
+        });
+        return res.redirect(`/accounts?ctrader_select=${selToken}`);
+      }
 
-      // Store tokens encrypted in passwordEnc as JSON
-      const credJson = JSON.stringify({
-        accessToken:  tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        ctraderId,
-      });
+      // Single account — link directly
+      const ct          = ctAccounts[0];
+      const ctraderId   = String(ct?.ctidTraderAccountId ?? '');
+      const traderLogin = String(ct?.traderLogin ?? ctraderId);
+      const credJson = JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, ctraderId });
 
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     traderLogin,
@@ -3189,7 +3217,6 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         syncStatus:  'pending',
       });
 
-      // Kick off a full 2-year history sync in background — user lands on /accounts while it runs
       const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
       if (freshAccount) syncAccount(freshAccount).catch(() => {});
 
@@ -3200,6 +3227,43 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const detail = cause ? `${err.message} (${cause})` : err.message;
       return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(detail)}`);
     }
+  });
+
+  /** Return pending cTrader account choices for the account-picker UI. */
+  app.get("/api/broker/ctrader/pending-accounts", (req: Request, res: Response) => {
+    const token = String(req.query.token ?? '');
+    const entry = _ctSelectMap.get(token);
+    if (!entry || entry.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
+    return res.json({ accounts: entry.accounts.map(a => ({
+      ctidTraderAccountId: a.ctidTraderAccountId,
+      traderLogin:         a.traderLogin,
+      brokerName:          a.brokerName,
+      isLive:              a.isLive,
+      balance:             a.balance,
+      currency:            a.currency,
+    })) });
+  });
+
+  /** Finalize cTrader account selection when user has multiple accounts. */
+  app.post("/api/broker/ctrader/select-account", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { token, ctidTraderAccountId } = req.body as { token: string; ctidTraderAccountId: string };
+    if (!token || !ctidTraderAccountId) return res.status(400).json({ error: 'token and ctidTraderAccountId required' });
+    const entry = _ctSelectMap.get(token);
+    if (!entry || entry.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
+    const chosen = entry.accounts.find((a: any) => String(a.ctidTraderAccountId) === String(ctidTraderAccountId));
+    if (!chosen) return res.status(400).json({ error: 'Account not in selection list' });
+    _ctSelectMap.delete(token);
+    const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId });
+    await storage.updateBrokerAccount(entry.brokerAccountId, {
+      loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
+      passwordEnc: safeEncrypt(credJson),
+      syncStatus:  'pending',
+    });
+    const freshAccount = await storage.getBrokerAccountById(entry.brokerAccountId);
+    if (freshAccount) syncAccount(freshAccount).catch(() => {});
+    return res.json({ ok: true });
   });
 
   /** Get the EA webhook URL for an account. */

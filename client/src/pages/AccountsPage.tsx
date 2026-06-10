@@ -131,10 +131,9 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   const isBrokerApi = BROKER_API_PLATFORMS.has(platform);
   const connType    = platformConnType(platform);
 
-  // Check cTrader OAuth configuration once on mount
-  useState(() => {
+  useEffect(() => {
     if (isCT) fetch("/api/broker/ctrader/configured").then(r => r.json()).then(d => setCtConfigured(d.configured)).catch(() => setCtConfigured(false));
-  });
+  }, [isCT]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -388,6 +387,9 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   const [pageSize,    setPageSize]    = useState(10);
   const [page,        setPage]        = useState(1);
   const [isMobile,    setIsMobile]    = useState(false);
+  const [ctSelectToken,    setCtSelectToken]    = useState<string | null>(null);
+  const [ctSelectAccounts, setCtSelectAccounts] = useState<any[]>([]);
+  const [ctSelectBusy,     setCtSelectBusy]     = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -408,6 +410,13 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     } else if (p.get('ctrader_error')) {
       setInfo(`cTrader error: ${decodeURIComponent(p.get('ctrader_error') ?? '')}`);
       window.history.replaceState({}, '', '/accounts');
+    } else if (p.get('ctrader_select')) {
+      const token = p.get('ctrader_select')!;
+      window.history.replaceState({}, '', '/accounts');
+      fetch(`/api/broker/ctrader/pending-accounts?token=${token}`)
+        .then(r => r.json())
+        .then(d => { if (d.accounts) { setCtSelectToken(token); setCtSelectAccounts(d.accounts); } else setInfo(`cTrader: ${d.error}`); })
+        .catch(() => setInfo('cTrader: failed to load account choices'));
     }
   }, []);
 
@@ -465,6 +474,37 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
         <span>Issues syncing? Try an account history repair</span>
         <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
       </div>
+
+      {/* cTrader multi-account picker */}
+      {ctSelectAccounts.length > 0 && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 28, width: 360, maxWidth: '90vw' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Select cTrader Account</div>
+            <div style={{ color: '#64748b', fontSize: 12, marginBottom: 20 }}>Multiple accounts found. Choose which one to link.</div>
+            {ctSelectAccounts.map((a: any) => (
+              <button
+                key={a.ctidTraderAccountId}
+                disabled={ctSelectBusy}
+                onClick={async () => {
+                  setCtSelectBusy(true);
+                  try {
+                    const res = await fetch('/api/broker/ctrader/select-account', { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ token: ctSelectToken, ctidTraderAccountId: a.ctidTraderAccountId }) });
+                    const d = await res.json();
+                    if (d.ok) { setCtSelectAccounts([]); setCtSelectToken(null); setInfo('cTrader connected! Trade history syncing in background.'); fetchAccounts(); }
+                    else setInfo(`cTrader: ${d.error}`);
+                  } catch { setInfo('cTrader: selection failed'); }
+                  setCtSelectBusy(false);
+                }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#111e30', border: '1px solid #1e3a55', borderRadius: 8, padding: '12px 16px', marginBottom: 10, cursor: 'pointer', color: '#e2e8f0', fontSize: 13 }}
+              >
+                <span><strong>{a.traderLogin}</strong> · {a.brokerName}</span>
+                <span style={{ color: a.isLive ? '#4ade80' : '#facc15', fontSize: 11, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
+              </button>
+            ))}
+            <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* OAuth / info message */}
       {info && (
