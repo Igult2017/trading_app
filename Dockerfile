@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install ALL Node deps (dev included — vite, esbuild, tsx needed for build)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --registry https://registry.npmjs.org
 
 # Copy source and compile
 COPY . .
@@ -26,7 +26,7 @@ WORKDIR /app
 
 # Production Node deps only (no dev tools)
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --registry https://registry.npmjs.org
 
 # Compiled JS from builder
 COPY --from=builder /app/dist ./dist
