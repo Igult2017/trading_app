@@ -3172,8 +3172,9 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const ctAccounts = await getCTraderAccounts(tokens.accessToken);
 
       // Pick the first cTrader account (or let user choose later)
-      const ct = ctAccounts[0];
-      const ctraderId = String(ct?.ctidTraderAccountId ?? '');
+      const ct          = ctAccounts[0];
+      const ctraderId   = String(ct?.ctidTraderAccountId ?? '');  // internal API ID
+      const traderLogin = String(ct?.traderLogin ?? ctraderId);   // broker login number shown in UI
 
       // Store tokens encrypted in passwordEnc as JSON
       const credJson = JSON.stringify({
@@ -3183,7 +3184,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       });
 
       await storage.updateBrokerAccount(resolvedAccountId, {
-        loginId:     ctraderId || resolvedAccountId,
+        loginId:     traderLogin,
         passwordEnc: safeEncrypt(credJson),
         syncStatus:  'pending',
       });
