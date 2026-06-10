@@ -10,8 +10,9 @@
  */
 import type { RawBrokerTrade } from '../brokerSyncService';
 
-const CONNECT = 'https://connect.ctrader.com';
-const API     = 'https://api.ctrader.com';
+const CONNECT     = 'https://connect.spotware.com';
+const TOKEN_URL   = 'https://openapi.ctrader.com/apps/token';
+const API         = 'https://api.ctrader.com';
 
 // ── OAuth2 ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ export function getCTraderAuthUrl(state: string): string {
     response_type: 'code',
     state,
   });
-  return `${CONNECT}/oauth2/auth?${params}`;
+  return `${CONNECT}/apps/auth?${params}`;
 }
 
 export async function exchangeCodeForTokens(code: string): Promise<{
@@ -35,7 +36,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{
   refreshToken: string;
   expiresIn: number;
 }> {
-  const res = await fetch(`${CONNECT}/oauth2/token`, {
+  const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -59,7 +60,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
   accessToken: string;
   refreshToken: string;
 }> {
-  const res = await fetch(`${CONNECT}/oauth2/token`, {
+  const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
