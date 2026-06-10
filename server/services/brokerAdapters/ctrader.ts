@@ -87,10 +87,10 @@ export interface CTraderAccount {
 }
 
 export async function getCTraderAccounts(accessToken: string): Promise<CTraderAccount[]> {
-  const res = await fetch(`${API}/connect/tradingaccounts`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) throw new Error(`cTrader accounts: ${res.status}`);
+  const res = await fetch(
+    `${API}/connect/tradingaccounts?oauth_token=${encodeURIComponent(accessToken)}`,
+  );
+  if (!res.ok) throw new Error(`cTrader accounts: ${res.status} ${await res.text()}`);
   const body = await res.json() as any;
   return body.data ?? body ?? [];
 }
@@ -104,11 +104,9 @@ export async function fetchCTraderTrades(
   toMs:          number,
 ): Promise<RawBrokerTrade[]> {
   const url = `${API}/connect/tradingaccounts/${ctraderId}/deals`
-    + `?from=${fromMs}&to=${toMs}&maxRows=500`;
+    + `?oauth_token=${encodeURIComponent(accessToken)}&from=${fromMs}&to=${toMs}&maxRows=500`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`cTrader deals ${res.status}: ${await res.text()}`);
 
   const body = await res.json() as any;
