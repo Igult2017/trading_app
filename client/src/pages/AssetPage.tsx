@@ -869,12 +869,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               height={360}
               activeIndicators={activeIndicators}
               chartType={chartType}
-              signalLevels={rawSignal ? {
-                entry: rawSignal.entryPrice != null ? Number(rawSignal.entryPrice) : undefined,
-                sl:    rawSignal.stopLoss   != null ? Number(rawSignal.stopLoss)   : undefined,
-                tp:    rawSignal.takeProfit != null ? Number(rawSignal.takeProfit) : undefined,
-                direction: rawSignal.type,
-              } : undefined}
+              signalLevels={rawSignal ? (() => {
+                const safeNum = (v: any) => { const n = Number(v); return (v != null && !isNaN(n)) ? n : undefined; };
+                return { entry: safeNum(rawSignal.entryPrice), sl: safeNum(rawSignal.stopLoss), tp: safeNum(rawSignal.takeProfit), direction: rawSignal.type };
+              })() : undefined}
             />
           </div>
         </div>
