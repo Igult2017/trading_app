@@ -3184,7 +3184,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     ctraderId || resolvedAccountId,
-        passwordEnc: encrypt(credJson),
+        passwordEnc: safeEncrypt(credJson),
         syncStatus:  'pending',
       });
 
