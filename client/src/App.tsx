@@ -104,8 +104,8 @@ function InnerPages() {
         <Switch>
           <Route path="/history"     component={TradeHistoryPage} />
           <Route path="/analytics"   component={Analytics} />
-          <Route path="/assets"      component={AssetPage} />
-          <Route path="/accounts"    component={AccountsPage} />
+          <Route path="/assets"      component={AssetPage as React.ComponentType<any>} />
+          <Route path="/accounts"    component={AccountsPage as React.ComponentType<any>} />
           <Route path="/stocks"      component={Stocks} />
           <Route path="/major-pairs" component={MajorPairs} />
           <Route path="/commodities" component={Commodities} />
@@ -223,16 +223,16 @@ function AppRoutes() {
       </Route>
 
       {/* Protected inner pages — listed explicitly so they aren't caught by PublicPagesGroup */}
-      <Route path="/history">    {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/analytics">  {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/assets">     {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/accounts">   {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/stocks">     {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/major-pairs">{() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/commodities">{() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/crypto">     {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/markets">    {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
-      <Route path="/signals">    {() => <RequireAuth><InnerPages /></RequireAuth>}</Route>
+      <Route path="/history">    <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/analytics">  <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/assets">     <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/accounts">   <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/stocks">     <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/major-pairs"><RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/commodities"><RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/crypto">     <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/markets">    <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/signals">    <RequireAuth><InnerPages /></RequireAuth></Route>
 
       {/* Public sub-pages — shared layout keeps HomeHeader mounted across navigations.
           This catch-all also handles 404 via NotFound inside PublicPagesGroup. */}

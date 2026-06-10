@@ -274,7 +274,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     setActiveIndicators(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
-      localStorage.setItem("asset-indicators", JSON.stringify([...next]));
+      localStorage.setItem("asset-indicators", JSON.stringify(Array.from(next)));
       return next;
     });
   }

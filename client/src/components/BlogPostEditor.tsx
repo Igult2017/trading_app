@@ -1239,7 +1239,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           ta.focus();
         });
         const blobRe = /!\[([^\]]*)\]\((blob:[^)]+)\)/g;
-        for (const match of [...processed.matchAll(blobRe)]) {
+        for (const match of Array.from(processed.matchAll(blobRe))) {
           const [full, alt, blobUrl] = match;
           (async () => {
             try {

@@ -10,7 +10,7 @@ interface CountryRow { country: string; countryCode: string; visits: number; pct
 
 function flagEmoji(code: string): string {
   if (!/^[A-Za-z]{2}$/.test(code ?? '')) return '🌐';
-  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+  return String.fromCodePoint(...Array.from(code.toUpperCase()).map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
 
 export default function CountryTable({ rows }: { rows: CountryRow[] }) {

@@ -200,7 +200,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
       {menuOpen && (
         <div style={{ background: mobBg, borderTop: `1px solid ${navBorder}`, boxShadow: "0 16px 40px rgba(0,0,0,0.12)" }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 32px 24px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px 16px" }}>
-            {[...NAV_LINKS, { label: "Sign in", href: "/auth", newTab: true }, { label: "Start free", href: "/auth?mode=signup", newTab: true }].map(({ label, href, newTab }) => {
+            {[...NAV_LINKS, { label: "Sign in", href: "/auth", newTab: true }, { label: "Start free", href: "/auth?mode=signup", newTab: true }].map(({ label, href, newTab }: { label: string; href: string; newTab?: boolean }) => {
               const isHash = href.includes("#");
               const style: React.CSSProperties = { ...nFont, fontSize: 14, color: linkClr, textDecoration: "none", display: "block" };
               if (isHash) return (

@@ -550,7 +550,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                       )}
                       <div className={`text-[8px] text-center px-1.5 py-0.5 rounded bg-white/5 border border-white/5 ${d.causeC} mb-3`} style={{ fontWeight: 600 }}>{d.cause}</div>
                       <div className="space-y-1.5 pt-2 border-t dd-divider">
-                        <div className="flex justify-between items-baseline"><L>Max DD</L><Sub className="text-rose-400" style={{ fontWeight: 700 }}>{d.dd}</Sub></div>
+                        <div className="flex justify-between items-baseline"><L>Max DD</L><Sub className="text-rose-400 font-bold">{d.dd}</Sub></div>
                         <div className="flex justify-between"><L>Big L</L><Sub className="text-rose-400">{d.bigL}</Sub></div>
                         <div className="flex justify-between"><L>Loss</L><Sub className="text-slate-400">{d.l}/{d.t}</Sub></div>
                       </div>

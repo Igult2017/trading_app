@@ -217,7 +217,7 @@ const ProviderCard = ({ provider, selected, onSelect }: any) => {
 };
 
 const StatusDot = ({ status }: any) => {
-  const s: any = { ready:{color:'#22c55e',shadow:'0 0 6px rgba(34,197,94,0.5)',label:'Ready'}, pending:{color:'#f59e0b',shadow:'none',label:'Pending'}, inactive:{color:'#1e293b',shadow:'none',label:'Not verified'} }[status] || {color:'#1e293b',shadow:'none',label:'—'};
+  const s = (({ ready:{color:'#22c55e',shadow:'0 0 6px rgba(34,197,94,0.5)',label:'Ready'}, pending:{color:'#f59e0b',shadow:'none',label:'Pending'}, inactive:{color:'#1e293b',shadow:'none',label:'Not verified'} } as Record<string,{color:string;shadow:string;label:string}>)[status as string]) || {color:'#1e293b',shadow:'none',label:'—'};
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
       <span style={{ width:7, height:7, borderRadius:'50%', background:s.color, boxShadow:s.shadow, display:'inline-block', flexShrink:0 }} />

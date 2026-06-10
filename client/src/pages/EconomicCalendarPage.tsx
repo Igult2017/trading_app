@@ -112,12 +112,12 @@ export default function EconomicCalendarPage() {
   const {
     data: stocksData,
     isFetching: fetchingStocks,
-  } = useQuery<{ indices: any[]; stocks: any[] }>({
+  } = useQuery<{ indices: any[]; stocks: any[]; commodities: any[] }>({
     queryKey: ['/api/homepage/stocks'],
-    queryFn: () => fetch('/api/homepage/stocks').then(r => r.json()).catch(() => ({ indices: [], stocks: [] })),
+    queryFn: () => fetch('/api/homepage/stocks').then(r => r.json()).catch(() => ({ indices: [], stocks: [], commodities: [] })),
     staleTime: 4 * 60 * 1000,
     gcTime:    30 * 60 * 1000,
-    placeholderData: (prev) => prev ?? { indices: [], stocks: [] },
+    placeholderData: (prev) => prev ?? { indices: [], stocks: [], commodities: [] },
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchInterval: 5 * 60 * 1000,

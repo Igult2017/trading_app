@@ -7,7 +7,7 @@ const C = {
   green: '#00d48a', greenL: '#00ff9d',
 };
 
-const SECTION_ICONS: Record<string, React.FC<{ size?: number; style?: React.CSSProperties }>> = {
+const SECTION_ICONS: Record<string, React.ComponentType<any>> = {
   'Journal':           BookOpen,
   'Landing Page':      Globe,
   'Blog':              BookOpen,
