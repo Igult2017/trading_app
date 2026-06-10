@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     ctrader_account_id:    int = 0      # numeric ID — MUST be set
     ctrader_env:           str = "demo" # "demo" or "live"
 
+    # OAuth tokens — set in Coolify env vars instead of running auth_setup.py.
+    # auth_setup.py prints these values after the one-time local OAuth flow.
+    # If the refresh token rotates the platform logs a WARNING with the new value.
+    ctrader_access_token:  str = ""
+    ctrader_refresh_token: str = ""
+
     # ── Data source 2: MT5 via Wine/Docker (Pepperstone-accurate, no GUI needed) ─
     mt5_host:     str = "mt5"
     mt5_port:     int = 8812

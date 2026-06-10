@@ -49,11 +49,23 @@ def configure(client_id: str, client_secret: str,
     log.info(f"[ctrader] configured — account {account_id} ({env})")
 
 
+def _has_env_tokens() -> bool:
+    from config.settings import settings
+    return bool(settings.ctrader_access_token and settings.ctrader_refresh_token)
+
+
 def is_configured() -> bool:
-    return bool(_client_id and _client_secret and _TOKEN_FILE.exists())
+    return bool(_client_id and _client_secret and (_has_env_tokens() or _TOKEN_FILE.exists()))
 
 
 def _read_tokens() -> dict:
+    # Env vars take priority — Coolify / production deployment
+    from config.settings import settings
+    if settings.ctrader_access_token and settings.ctrader_refresh_token:
+        return {
+            "access_token":  settings.ctrader_access_token,
+            "refresh_token": settings.ctrader_refresh_token,
+        }
     try:
         return json.loads(_TOKEN_FILE.read_text())
     except Exception:
@@ -61,7 +73,20 @@ def _read_tokens() -> dict:
 
 
 def _write_tokens(data: dict) -> None:
-    _TOKEN_FILE.write_text(json.dumps(data, indent=2))
+    # Try the file (works locally; silently ignored in read-only containers)
+    try:
+        _TOKEN_FILE.write_text(json.dumps(data, indent=2))
+    except OSError:
+        pass
+    # Warn when refresh token rotates so the Coolify env var can be updated
+    new_rt = data.get("refresh_token", "")
+    if new_rt:
+        from config.settings import settings
+        if settings.ctrader_refresh_token and new_rt != settings.ctrader_refresh_token:
+            log.warning(
+                "[ctrader] refresh token rotated — update CTRADER_REFRESH_TOKEN "
+                f"in Coolify to: {new_rt}"
+            )
 
 
 async def get_access_token() -> str:

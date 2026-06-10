@@ -124,7 +124,11 @@ def main() -> None:
     TOKEN_FILE.write_text(json.dumps(tokens, indent=2))
     print(f"\nSaved to: {TOKEN_FILE}")
     print("The signal platform will now use cTrader for market data.")
-    print("Delete .ctrader_token.json to fall back to MetaTrader 5.")
+    print("\n── Coolify / production deployment ──────────────────────────────")
+    print("Add these env vars in Coolify instead of mounting the token file:")
+    print(f"  CTRADER_ACCESS_TOKEN={tokens['access_token']}")
+    print(f"  CTRADER_REFRESH_TOKEN={tokens['refresh_token']}")
+    print("─────────────────────────────────────────────────────────────────")
 
 
 if __name__ == "__main__":
