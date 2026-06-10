@@ -3099,9 +3099,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
     if (req.query.secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
     try {
-      return res.redirect(getCTraderAuthUrl('signal_platform'));
+      const authUrl = getCTraderAuthUrl('signal_platform');
+      const clientId    = process.env.CTRADER_CLIENT_ID    || '(NOT SET)';
+      const redirectUri = process.env.CTRADER_REDIRECT_URI || '(NOT SET)';
+      if (req.query.debug === '1') {
+        return res.send(`<!DOCTYPE html><html><head><title>cTrader Setup Debug</title>
+<style>body{font-family:monospace;padding:40px;background:#0d1117;color:#e6edf3}
+pre{background:#161b22;padding:20px;border-radius:8px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all}
+a{color:#58a6ff}</style></head><body>
+<h2 style="color:#58a6ff">cTrader Setup — Debug Info</h2>
+<pre>CTRADER_CLIENT_ID:    ${clientId}
+CTRADER_REDIRECT_URI: ${redirectUri}
+Auth URL:
+${authUrl}</pre>
+<p><a href="${authUrl}">Click here to proceed to Spotware consent page &rarr;</a></p>
+</body></html>`);
+      }
+      return res.redirect(authUrl);
     } catch (err: any) {
-      return res.status(500).send(err.message);
+      return res.status(500).send(`<pre style="font-family:monospace;padding:40px;background:#0d1117;color:#f85149">Error: ${err.message}\n\nCTRADER_CLIENT_ID:    ${process.env.CTRADER_CLIENT_ID || '(NOT SET)'}\nCTRADER_REDIRECT_URI: ${process.env.CTRADER_REDIRECT_URI || '(NOT SET)'}</pre>`);
     }
   });
 
