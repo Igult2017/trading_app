@@ -40,6 +40,7 @@ export class ScraperScheduler {
       const events = await economicCalendarScraper.scrapeWithRetry();
       if (events.length > 0) {
         await cacheService.storeEvents(events);
+        telegramNotificationService?.scheduleEventNotifications(events as any);
         console.log(`[Calendar] Scraper fetched ${events.length} events`);
       } else {
         console.log('[Calendar] Scraper returned no events');
@@ -218,21 +219,14 @@ export class ScraperScheduler {
       await this.runCleanup();
     }, { timezone: 'UTC' });
 
-    // ── 5. Telegram notifications — every 5 min ──────────────────────────────
+    // ── 5. Telegram session alerts — reschedule at midnight UTC each day ────
     this._jobs.notifications.enabled = true;
-    this.notificationJob = cron.schedule('*/5 * * * *', async () => {
-      if (!telegramNotificationService) return;
-      try {
-        await telegramNotificationService.checkAndNotifyUpcomingEvents();
-        await telegramNotificationService.checkAndNotifyTradingSessions();
-        this._jobs.notifications.lastRunAt = Date.now();
-        this._jobs.notifications.lastResult = 'success';
-      } catch (err: any) {
-        this._jobs.notifications.lastRunAt = Date.now();
-        this._jobs.notifications.lastResult = 'error';
-        console.error('[Scheduler] Notification job error:', err?.message);
-      }
-    });
+    telegramNotificationService?.scheduleTradingSessionNotifications();
+    this.notificationJob = cron.schedule('0 0 * * *', () => {
+      telegramNotificationService?.scheduleTradingSessionNotifications();
+      this._jobs.notifications.lastRunAt = Date.now();
+      this._jobs.notifications.lastResult = 'success';
+    }, { timezone: 'UTC' });
 
     // Signal scanning disabled
     // Interest rate scraper disabled
@@ -243,7 +237,7 @@ export class ScraperScheduler {
     console.log('  • Safety-net:           every 2 hours on weekdays');
     console.log('  • Cleanup:              01:00 UTC daily');
     console.log('Interest rate scraper:   DISABLED');
-    console.log('Telegram notifications:  every 5 minutes');
+    console.log('Telegram notifications:  event-driven (scheduled per event)');
     console.log('Signal scanning:         DISABLED');
   }
 

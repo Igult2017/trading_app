@@ -18,10 +18,10 @@ const HIGH_VOLUME_SESSIONS: TradingSession[] = [
 export class TelegramNotificationService {
   private bot: TelegramBot | null = null;
   private isInitialized = false;
-  private notifiedSessions = new Set<string>();
-  private notifiedEvents = new Set<string>();
   private pollingRetryCount = 0;
   private maxPollingRetries = 5;
+  private _eventTimers: NodeJS.Timeout[] = [];
+  private _sessionTimers: NodeJS.Timeout[] = [];
 
   static async create(): Promise<TelegramNotificationService> {
     const service = new TelegramNotificationService();
@@ -451,85 +451,55 @@ export class TelegramNotificationService {
     }
   }
 
-  async checkAndNotifyUpcomingEvents(): Promise<void> {
+  scheduleEventNotifications(events: Array<{ id: string | number; eventTime: Date | string; impactLevel: string; currency?: string; title: string; expectedValue?: string; previousValue?: string }>): void {
     if (!this.bot || !this.isInitialized) return;
 
-    try {
-      const now = new Date();
-      const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000);
+    this._eventTimers.forEach(t => clearTimeout(t));
+    this._eventTimers = [];
 
-      const upcomingEvents = await db
-        .select()
-        .from(economicEvents)
-        .where(
-          and(
-            gte(economicEvents.eventTime, now),
-            lte(economicEvents.eventTime, fifteenMinutesFromNow),
-            eq(economicEvents.impactLevel, 'high')
-          )
-        );
+    const now = Date.now();
+    const ALERT_MS = 15 * 60 * 1000;
+    const MAX_MS   = 48 * 60 * 60 * 1000;
 
-      for (const event of upcomingEvents) {
-        const eventKey = `${event.id}-${event.eventTime}`;
-        if (this.notifiedEvents.has(eventKey)) continue;
+    for (const event of events) {
+      if (event.impactLevel?.toLowerCase() !== 'high') continue;
+      const eventMs  = new Date(event.eventTime).getTime();
+      const fireAt   = eventMs - ALERT_MS;
+      const delay    = fireAt - now;
+      if (delay < 0 || delay > MAX_MS) continue;
 
-        const message = `📊 *HIGH IMPACT EVENT ALERT*
-
-${event.currency} - ${event.title}
-Time: ${format(new Date(event.eventTime), 'HH:mm')} UTC
-Impact: ${event.impactLevel?.toUpperCase()}
-${event.expectedValue ? `Forecast: ${event.expectedValue}` : ''}
-${event.previousValue ? `Previous: ${event.previousValue}` : ''}`;
-
-        const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' });
-        if (result.sent > 0) {
-          this.notifiedEvents.add(eventKey);
-          console.log(`[Telegram] Notified ${result.sent} subscribers about ${event.title}`);
-        }
-      }
-    } catch (error: any) {
-      console.error('[Telegram] Error checking upcoming events:', error.message);
+      const t = setTimeout(async () => {
+        const message = `📊 *HIGH IMPACT EVENT — 15 MIN WARNING*\n\n${event.currency ?? ''} - ${event.title}\nTime: ${format(new Date(event.eventTime), 'HH:mm')} UTC${event.expectedValue ? `\nForecast: ${event.expectedValue}` : ''}${event.previousValue ? `\nPrevious: ${event.previousValue}` : ''}`;
+        const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' }).catch(() => ({ sent: 0 }));
+        if (result.sent > 0) console.log(`[Telegram] Event alert sent: ${event.title} (${result.sent} subscribers)`);
+      }, delay);
+      this._eventTimers.push(t);
     }
+    console.log(`[Telegram] Scheduled ${this._eventTimers.length} event alert(s)`);
   }
 
-  async checkAndNotifyTradingSessions(): Promise<void> {
+  scheduleTradingSessionNotifications(): void {
     if (!this.bot || !this.isInitialized) return;
 
-    try {
-      const now = new Date();
-      const currentHour = now.getUTCHours() + now.getUTCMinutes() / 60;
-      const today = format(now, 'yyyy-MM-dd');
+    this._sessionTimers.forEach(t => clearTimeout(t));
+    this._sessionTimers = [];
 
-      for (const session of HIGH_VOLUME_SESSIONS) {
-        const sessionKey = `${session.name}-${today}`;
-        
-        if (this.notifiedSessions.has(sessionKey)) continue;
+    const now = new Date();
+    const ALERT_MINS = 15;
 
-        const minutesToOpen = (session.openUTC - currentHour) * 60;
-        
-        if (minutesToOpen > 0 && minutesToOpen <= 15) {
-          const message = `🔔 *${session.name} Session Opening Soon*
+    for (const session of HIGH_VOLUME_SESSIONS) {
+      const openMs = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), session.openUTC)).getTime() - ALERT_MINS * 60 * 1000;
+      const delay  = openMs - Date.now();
+      if (delay < 0) continue;
 
-The ${session.name} trading session opens in ~${Math.round(minutesToOpen)} minutes.
-
-Session Hours: ${session.openUTC}:00 - ${session.closeUTC}:00 UTC
-Expect increased volatility and volume.`;
-
-          const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' });
-          if (result.sent > 0) {
-            this.notifiedSessions.add(sessionKey);
-            console.log(`[Telegram] Notified ${result.sent} subscribers about ${session.name} session`);
-          }
-        }
-      }
-
-      if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
-        this.notifiedSessions.clear();
-        this.notifiedEvents.clear();
-      }
-    } catch (error: any) {
-      console.error('[Telegram] Error checking trading sessions:', error.message);
+      const t = setTimeout(async () => {
+        const message = `🔔 *${session.name} Session Opening in 15 min*\n\n${session.name} opens at ${session.openUTC}:00 UTC. Expect increased volatility and volume.`;
+        const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' }).catch(() => ({ sent: 0 }));
+        if (result.sent > 0) console.log(`[Telegram] Session alert sent: ${session.name} (${result.sent} subscribers)`);
+      }, delay);
+      this._sessionTimers.push(t);
     }
+    console.log(`[Telegram] Scheduled ${this._sessionTimers.length} session alert(s) for today`);
   }
 
   stopPolling(): void {
