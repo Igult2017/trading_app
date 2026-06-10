@@ -593,6 +593,32 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
   );
 }
 
+// ─── Section label translations ───────────────────────────────────────────────
+const _LABELS: Record<string, string> = {
+  "form.coreThesis":       "Core Thesis",
+  "form.preEntryCheck":    "Pre-Entry State Check",
+  "form.classification":   "Classification & Quality",
+  "form.ruleGovernance":   "Rule Governance",
+  "form.impulseControl":   "Impulse Control Check",
+  "form.screenshots":      "Screenshots",
+  "form.position":         "Position",
+  "form.timing":           "Timing",
+  "form.timeframeAnalysis":"Timeframe Analysis",
+  "form.entryManagement":  "Entry Management",
+  "form.marketEnvironment":"Market Environment",
+  "form.htfContext":       "Higher Timeframe Context",
+  "form.technicalSignals": "Technical Signals",
+  "form.keyLevel":         "Key Level",
+  "form.setupQuality":     "Setup Quality",
+  "form.exitCausation":    "Exit Causation",
+  "form.performance":      "Performance",
+  "form.planningVsExec":   "Planning vs Execution",
+  "form.tradeMetrics":     "Trade Metrics",
+  "form.psychology":       "Psychology",
+  "form.debrief":          "Debrief",
+};
+const t = (key: string) => _LABELS[key] ?? key;
+
 // ─── Step 1 — Decision ────────────────────────────────────────────────────────
 function Step1({ d, set, hiddenPanels, sessionId }: any) {
   const f = (k: string) => (v: any) => set((prev: any) => ({ ...prev, [k]: v }));
