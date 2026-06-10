@@ -1,0 +1,2 @@
+[    7921ms] [WARNING] Function is not registered with pipeline. This may cause problems when serialising the index.
+ function(n){if(n&&r[n.toString()]!==n.toString())return n} @ https://help.ctrader.com/open-api/assets/javascripts/workers/search.2c215733.min.js:16
