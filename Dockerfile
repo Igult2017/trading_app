@@ -35,10 +35,13 @@ COPY --from=builder /app/dist ./dist
 COPY server/python ./server/python
 COPY python ./python
 
+# Signal platform (Python — runs alongside Node.js in the same container)
+COPY signal_platform ./signal_platform
+
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql
 
-# Startup: run DB migrations then launch the app
+# Startup: run DB migrations, start signal platform, then launch Node.js
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'echo "=== Environment Check ==="' \
@@ -48,6 +51,10 @@ RUN printf '%s\n' \
     'echo "========================="' \
     'echo "=== Running DB migrations ==="' \
     'if [ -n "$DATABASE_URL" ]; then psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"; fi' \
+    'echo "=== Starting signal platform ==="' \
+    'cd /app/signal_platform && python3 main.py >> /var/log/signal_platform.log 2>&1 &' \
+    'echo "Signal platform PID: $!"' \
+    'cd /app' \
     'exec node dist/index.prod.js' \
     > /app/start.sh && chmod +x /app/start.sh
 
