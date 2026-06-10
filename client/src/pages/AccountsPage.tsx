@@ -276,8 +276,8 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
           </div>
         ) : (
           <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px 16px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ color: "#38bdf8", fontWeight: 600 }}>cTrader uses OAuth — no password needed here</div>
-            <div>After clicking Connect, you'll be taken to cTrader's login page where you can sign in with <strong>Google</strong>, email, or your broker account. Your trades sync automatically once authorized.</div>
+            <div style={{ color: "#38bdf8", fontWeight: 600 }}>No account ID or password required</div>
+            <div>Click <strong>Connect with cTrader</strong> below. You'll be taken to cTrader's login page — sign in with your <strong>broker credentials, Google, or email</strong>. Your account number, balance, and trade history are fetched automatically after you approve access.</div>
             <div style={{ fontSize: 11, color: "#475569" }}>Works with Pepperstone, IC Markets, Exness, FP Markets, and all cTrader-powered brokers.</div>
           </div>
         )

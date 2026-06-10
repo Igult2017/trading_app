@@ -2943,7 +2943,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.status(201).json({ ...safe, webhookUrl: `/api/broker/webhook/${webhookToken}`, sessionId: session.id });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error('[BrokerAccount Create]', err.code ?? '', err.constraint ?? '', err.detail ?? '', err.message);
+      const detail = err.detail || err.constraint || err.code;
+      return res.status(500).json({ error: detail ? `${err.message} (${detail})` : err.message });
     }
   });
 
