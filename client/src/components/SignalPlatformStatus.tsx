@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 
-interface LastSignal { id: string; symbol: string; type: string; status: string; confidence: number; createdAt: string; }
+interface LastSignal { id: string; symbol: string; type: string; status: string; strategy: string | null; confidence: number; createdAt: string; }
 interface StatusData { ctraderConfigured: boolean; dataSource: string; lastSignal: LastSignal | null; signalsLast24h: number; activeSignalsLast24h: number; error?: string; }
 interface Props { darkMode?: boolean; selectedSymbol?: string; }
 
@@ -13,7 +13,7 @@ function timeAgo(iso: string): string {
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "EUR/USD" }: Props) {
+export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "" }: Props) {
   const C = darkMode
     ? { bg: "#080c10", bg2: "#0a0f16", bg3: "#0c1219", border: "#0f1923", border2: "#172233",
         text: "#c8d8e8", muted: "#4a6580", dim: "#2d4a63", hero: "#ffffff" }
@@ -76,10 +76,10 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
                 boxShadow: connected ? "0 0 6px rgba(59,130,246,0.6)" : "none" }} />
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: connected ? "#60a5fa" : C.muted, letterSpacing: "0.12em" }}>
-                  {connected ? "SCANNING EUR/USD" : "SCANNER IDLE"}
+                  {connected ? `SCANNING ${selectedSymbol || data?.lastSignal?.symbol || "—"}` : "SCANNER IDLE"}
                 </div>
                 <div style={{ fontSize: 9, color: C.muted, letterSpacing: "0.08em", marginTop: 3 }}>
-                  EURUSD Pullback Strategy · interval 60s
+                  {data?.lastSignal?.strategy?.toUpperCase() ?? "ACTIVE STRATEGY"} · scan every 60s
                 </div>
               </div>
             </div>

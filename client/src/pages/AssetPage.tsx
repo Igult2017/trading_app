@@ -179,7 +179,7 @@ function LiveClock() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
-  const [selected, setSelected]   = useState("EUR/USD");
+  const [selected, setSelected]   = useState("");
   const [search,   setSearch]     = useState("");
   const [alertModal, setAlertModal] = useState(false);
   const [alertTarget, setAlertTarget] = useState("");
@@ -353,6 +353,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     return list;
   })();
 
+  // Auto-select the first active signal instrument when nothing is selected yet
+  useEffect(() => {
+    if (!selected && sidebarInstruments.length > 0) {
+      setSelected(sidebarInstruments[0].symbol);
+    }
+  }, [sidebarInstruments, selected]);
+
   // Live prices — sidebar batch every 35s, selected instrument every 8s
   const sidebarSymbols = sidebarInstruments.map(i => i.symbol);
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
@@ -391,11 +398,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const { data: rawSignal, isLoading: signalLoading } = useQuery({
     queryKey: ["asset-signal", selected],
     queryFn: async () => {
+      if (!selected) return null;
       const res = await fetch(`/api/trading-signals?symbol=${encodeURIComponent(selected)}&status=active`);
       if (!res.ok) return null;
       const json = await res.json();
       return Array.isArray(json) ? (json[0] ?? null) : null;
     },
+    enabled: Boolean(selected),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });

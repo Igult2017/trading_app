@@ -2042,6 +2042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [lastSignal] = await db.select({
         id: tradingSignals.id, symbol: tradingSignals.symbol,
         type: tradingSignals.type, status: tradingSignals.status,
+        strategy: tradingSignals.strategy,
         confidence: tradingSignals.overallConfidence,
         createdAt: tradingSignals.createdAt,
       }).from(tradingSignals).orderBy(desc(tradingSignals.createdAt)).limit(1);
