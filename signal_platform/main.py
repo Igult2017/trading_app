@@ -25,25 +25,36 @@ async def _startup() -> None:
     create_tables()
     log.info("[boot] database ready")
 
-    # 2. Configure data sources
-    from data import ctrader_session, ejtrader_ct_client
-    from config.instruments import INSTRUMENTS
-
-    # 2a. cTrader Open API (primary — requires approved app + auth_setup.py)
+    # 2. Configure + verify cTrader data source
+    from data import ctrader_session
     ctrader_session.configure(
         client_id=settings.ctrader_client_id,
         client_secret=settings.ctrader_client_secret,
         account_id=settings.ctrader_account_id,
         env=settings.ctrader_env,
     )
-    from data.data_source import active_source
-    log.info(f"[boot] data source: {active_source()}")
 
-    # 2b. ejtraderCT tick feed — live price overlay on yfinance bars
     if not ctrader_session.is_configured():
-        if ejtrader_ct_client.is_configured():
-            ejtrader_ct_client.subscribe(INSTRUMENTS)
-            log.info("[boot] ejtraderCT live overlay: active")
+        missing = []
+        if not settings.ctrader_client_id:     missing.append("CTRADER_CLIENT_ID")
+        if not settings.ctrader_client_secret: missing.append("CTRADER_CLIENT_SECRET")
+        if not settings.ctrader_account_id:    missing.append("CTRADER_ACCOUNT_ID")
+        if not settings.ctrader_access_token:  missing.append("CTRADER_ACCESS_TOKEN")
+        if not settings.ctrader_refresh_token: missing.append("CTRADER_REFRESH_TOKEN")
+        log.error("[boot] cTrader not configured — missing env vars: %s", ", ".join(missing))
+        sys.exit(1)
+
+    log.info("[boot] probing cTrader connection (EUR/USD H1)...")
+    try:
+        from data.data_source import fetch_raw
+        probe = await asyncio.wait_for(fetch_raw("EUR/USD", "H1", 5), timeout=25)
+        if not probe:
+            raise RuntimeError("Spotware returned 0 bars — account ID may be wrong")
+        log.info("[boot] cTrader OK — %d bars received for EUR/USD H1", len(probe))
+    except Exception as exc:
+        log.error("[boot] cTrader probe FAILED: %s", exc)
+        log.error("[boot] check CTRADER_ACCESS_TOKEN, CTRADER_REFRESH_TOKEN, CTRADER_ACCOUNT_ID")
+        sys.exit(1)
 
     # 3. Register plugins (features first, then strategies/indicators/patterns)
     import features      # noqa: F401 — side-effect: registers platform features
