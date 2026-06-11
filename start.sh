@@ -14,6 +14,10 @@ if [ -n "$DATABASE_URL" ]; then
     psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"
 fi
 
+echo "=== Starting price daemon ==="
+cd /app && python3 -u server/python/price_daemon.py 2>&1 &
+echo "Price daemon PID: $!"
+
 echo "=== Starting signal platform ==="
 cd /app/signal_platform && python3 -u main.py 2>&1 &
 echo "Signal platform PID: $!"
