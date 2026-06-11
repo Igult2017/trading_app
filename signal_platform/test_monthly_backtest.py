@@ -109,12 +109,35 @@ def fetch() -> tuple:
 
 # ── D1 trend for a given bar time ─────────────────────────────────────────────
 
-def _d1_trend_at(d1: list, bar_time: int) -> Trend:
-    """Return D1 structural trend using all D1 bars up to (but not including) bar_time."""
+def _d1_trend_at(d1: list, bar_time: int) -> tuple:
+    """
+    Return (trend, momentum_confirmed) where:
+    - trend: structural D1 trend from swing structure
+    - momentum_confirmed: last 2 closed D1 candles are closing in trend direction
+      (UPTREND → both bullish closes; DOWNTREND → both bearish closes)
+    This catches lagging-structure situations where trend label is stale
+    but recent D1 price action has already reversed.
+    """
     past = [c for c in d1 if c.time < bar_time]
     if len(past) < 10:
-        return Trend.RANGING
-    return detect_trend(past)
+        return Trend.RANGING, False
+    trend = detect_trend(past)
+    if trend == Trend.RANGING:
+        return trend, False
+    # 5-day D1 net move must agree with the structural trend label.
+    # Single-candle checks miss shock reversals where the label is stale
+    # (e.g. April 2026 tariff rally: D1 structure still said DOWNTREND
+    # but price had already moved 200 pips higher over 5 days).
+    if len(past) < 6:
+        return trend, False
+    five_bars_ago = past[-6].close
+    now_price     = past[-1].close
+    net_up = now_price > five_bars_ago
+    if trend == Trend.UPTREND:
+        confirmed = net_up
+    else:
+        confirmed = not net_up
+    return trend, confirmed
 
 
 # ── backtest ──────────────────────────────────────────────────────────────────
@@ -123,7 +146,7 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
     fired: set = set()
     signals_by_month: dict = {}
 
-    c_total = c_news = c_session = c_trade = c_d1 = c_vol = c_dedup = c_pb = c_frac = c_4h = 0
+    c_total = c_news = c_session = c_trade = c_d1 = c_d1m = c_vol = c_dedup = c_pb = c_frac = c_4h = 0
 
     # Need at least 30 bars for vol-candle lookback + pullback
     for i in range(30, len(h1)):
@@ -148,10 +171,16 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
         c_trade += 1
 
         # Block 4 — D1 institutional context
-        trend = _d1_trend_at(d1, cur.time)
+        trend, d1_confirmed = _d1_trend_at(d1, cur.time)
         if trend == Trend.RANGING:
             continue
         c_d1 += 1
+
+        # Block 4b — D1 momentum: last 2 D1 closes must agree with the trend
+        # Filters lagging structure labels during sharp reversals (e.g. April tariff shock)
+        if not d1_confirmed:
+            continue
+        c_d1m += 1
         bullish = (trend == Trend.UPTREND)
 
         # Step 1 — Volume candle in last 15 H1 bars
@@ -212,11 +241,12 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
     print(f"  After session gate      : {c_session}")
     print(f"  After market condition  : {c_trade}")
     print(f"  After D1 trend gate     : {c_d1}")
+    print(f"  After D1 momentum       : {c_d1m}")
     print(f"  After volume candle     : {c_vol}")
     print(f"  After dedup             : {c_dedup}")
     print(f"  After pullback check    : {c_pb}")
     print(f"  After fractal break     : {c_frac}")
-    print(f"  After fractal break     : {c_4h}  <- final signals (no 4H obstruction)")
+    print(f"  After fractal break     : {c_4h}  <- final signals")
     return signals_by_month
 
 
