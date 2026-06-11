@@ -158,11 +158,11 @@ def run_backtest(h1: list[Candle], h4: list[Candle]) -> dict[str, list[dict]]:
             continue
         tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
 
-        # 4H obstruction — last 30 H4 bars (~5 days) up to signal time.
-        # Old swing points from weeks ago are already mitigated; only
-        # fresh structure near current price blocks the path.
+        # 4H obstruction — last 50 H4 bars up to signal time (~8 days).
+        # Mitigation is checked inside has_4h_obstruction; stale levels
+        # that price has already closed through are automatically skipped.
         h4_ts   = cur.time
-        h4_past = [c for c in h4 if c.time <= h4_ts][-30:]
+        h4_past = [c for c in h4 if c.time <= h4_ts][-50:]
         if has_4h_obstruction(h4_past, entry, bullish, risk):
             continue
         c_4h += 1

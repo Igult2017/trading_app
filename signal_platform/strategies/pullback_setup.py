@@ -56,6 +56,20 @@ def measure_pullback(
     )
 
 
+def _is_mitigated(h4: list[Candle], swing: "SwingPoint") -> bool:
+    """
+    A swing HIGH is mitigated when a later candle closed above it.
+    A swing LOW  is mitigated when a later candle closed below it.
+    Wick-only touches do not count — full close required.
+    """
+    for c in h4[swing.index + 1:]:
+        if swing.is_high and c.close >= swing.price:
+            return True
+        if not swing.is_high and c.close <= swing.price:
+            return True
+    return False
+
+
 def has_4h_obstruction(
     h4: list[Candle],
     entry: float,
@@ -64,18 +78,20 @@ def has_4h_obstruction(
     min_rr: float = 2.0,
 ) -> bool:
     """
-    True if a 4H swing level is near current price OR sits between
-    entry and the 2R target — both block a clean small move.
+    True if an UNMITIGATED 4H swing level is near current price or sits
+    between entry and the 2R target.  Mitigated levels are skipped —
+    their orders have already been filled and they no longer defend price.
     Proximity threshold = 0.5× risk to catch "price at key level" case.
     """
     target    = entry + risk * min_rr if bullish else entry - risk * min_rr
     proximity = risk * 0.50
 
     for s in find_swing_points(h4):
-        # Price is already near a 4H key level — reject
+        if _is_mitigated(h4, s):
+            continue   # orders consumed — no longer a live level
+
         if abs(entry - s.price) < proximity:
             return True
-        # A 4H swing level sits between entry and TP — blocks the move
         if bullish     and s.is_high     and entry < s.price < target:
             return True
         if not bullish and not s.is_high and target < s.price < entry:
