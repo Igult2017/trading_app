@@ -187,6 +187,7 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
   }, () => {
     log(`serving on port ${port}`);
     logServiceStatus();
+    log(`[Signal] Platform status: GET /api/signal-platform/status  (cTrader + last signal + 24h count)`);
     // Only worker 0 runs scrapers — prevents N-core duplicate DB writes + external API bans
     if (isPrimaryWorker) scraperScheduler.start();
     if (isPrimaryWorker) startAutoSync();

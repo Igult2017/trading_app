@@ -33,6 +33,17 @@ export function logServiceStatus(): void {
       ok: Boolean(env.VITE_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
       note: "Falling back to local admin-only login",
     },
+    {
+      label: "cTrader signal data (CTRADER_CLIENT_ID + ACCESS/REFRESH TOKEN)",
+      ok: Boolean(
+        env.CTRADER_CLIENT_ID &&
+        env.CTRADER_CLIENT_SECRET &&
+        env.CTRADER_ACCOUNT_ID &&
+        env.CTRADER_ACCESS_TOKEN &&
+        env.CTRADER_REFRESH_TOKEN
+      ),
+      note: "Signal platform will exit(1) at boot — no EUR/USD signals without this",
+    },
   ];
 
   const width = 60;

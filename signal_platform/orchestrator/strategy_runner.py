@@ -36,17 +36,20 @@ async def run_strategy(
     # Pre-filter 1: instrument whitelist
     if strategy.allowed_instruments is not None:
         if instrument not in strategy.allowed_instruments:
+            log.debug(f"[runner] {strategy.id}: {instrument} not in allowed_instruments — skip")
             return
 
     # Pre-filter 2: session
     if Session.ALL not in strategy.allowed_sessions:
         if not any(s in current_sessions for s in strategy.allowed_sessions):
+            log.info(f"[runner] {strategy.id}/{instrument}: outside allowed session — skip")
             return
 
     # Resolve deps early — pure computation, gives correct HTF for all filters
     deps = resolve(strategy)
 
     if not deps.timeframes:
+        log.warning(f"[runner] {strategy.id}/{instrument}: no timeframes resolved — skip")
         return  # no TFs resolved — strategy cannot run
 
     # Pre-filter 3: trend — only fetches HTF; instant cache hit if scanner ran recently
@@ -54,12 +57,16 @@ async def run_strategy(
         htf = max(deps.timeframes, key=to_minutes)
         htf_candles = await fetch_candles(instrument, htf)
         if not htf_candles:
+            log.warning(f"[runner] {strategy.id}/{instrument}: no {htf} candles for trend check — skip")
             return
-        if trend_detector.detect(htf_candles) not in strategy.allowed_trends:
+        current_trend = trend_detector.detect(htf_candles)
+        if current_trend not in strategy.allowed_trends:
+            log.info(f"[runner] {strategy.id}/{instrument}: trend={current_trend.value} not in allowed — skip")
             return
 
     # Pre-filter 4: news
     if not news_filter.check(strategy, news_context, instrument, now=tick_now):
+        log.info(f"[runner] {strategy.id}/{instrument}: blocked by news filter — skip")
         return
 
     # Fetch all required TFs concurrently — shared TFs are instant cache hits
@@ -87,6 +94,7 @@ async def run_strategy(
 
     valid_signals = signal_validator.validate(result, instrument)
     if not valid_signals:
+        log.info(f"[runner] {strategy.id}/{instrument}: analyze() ran — no valid signal (rr/confidence/dedup filter)")
         return
 
     htf         = max(deps.timeframes, key=to_minutes)

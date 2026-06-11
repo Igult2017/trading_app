@@ -4,7 +4,7 @@ import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking } from "@shared/schema";
-import { eq, desc, and, lt, isNotNull, sql as drizzleSql } from "drizzle-orm";
+import { eq, desc, and, lt, gte, isNotNull, count, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
@@ -2030,6 +2030,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/trading-signals", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
   app.patch("/api/trading-signals/:id", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
   app.delete("/api/trading-signals/:id", async (_req, res) => { res.status(503).json({ error: "Signal generation is disabled" }); });
+
+  app.get("/api/signal-platform/status", async (_req, res) => {
+    const env = process.env;
+    const ctraderConfigured = Boolean(
+      env.CTRADER_CLIENT_ID && env.CTRADER_CLIENT_SECRET &&
+      env.CTRADER_ACCOUNT_ID && env.CTRADER_ACCESS_TOKEN && env.CTRADER_REFRESH_TOKEN
+    );
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    try {
+      const [lastSignal] = await db.select({
+        id: tradingSignals.id, symbol: tradingSignals.symbol,
+        type: tradingSignals.type, status: tradingSignals.status,
+        confidence: tradingSignals.overallConfidence,
+        createdAt: tradingSignals.createdAt,
+      }).from(tradingSignals).orderBy(desc(tradingSignals.createdAt)).limit(1);
+
+      const [{ total }] = await db.select({ total: count() })
+        .from(tradingSignals)
+        .where(gte(tradingSignals.createdAt, since24h));
+
+      const [{ active }] = await db.select({ active: count() })
+        .from(tradingSignals)
+        .where(and(eq(tradingSignals.status, "active"), gte(tradingSignals.createdAt, since24h)));
+
+      return res.json({
+        ctraderConfigured,
+        lastSignal: lastSignal ?? null,
+        signalsLast24h: Number(total),
+        activeSignalsLast24h: Number(active),
+        dataSource: ctraderConfigured ? "cTrader Open API" : "NOT CONFIGURED",
+      });
+    } catch (err) {
+      return res.json({ ctraderConfigured, lastSignal: null, signalsLast24h: 0, activeSignalsLast24h: 0, dataSource: ctraderConfigured ? "cTrader Open API" : "NOT CONFIGURED", error: String(err) });
+    }
+  });
 
   app.get("/api/signals/watchlist", async (_req, res) => { res.json([]); });
   app.get("/api/signals/active", async (_req, res) => { res.json([]); });
