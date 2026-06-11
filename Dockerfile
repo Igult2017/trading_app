@@ -39,7 +39,7 @@ COPY python ./python
 COPY signal_platform ./signal_platform
 
 # Install signal platform Python deps (separate from the base image's server/python deps)
-RUN pip install --no-cache-dir -r signal_platform/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r signal_platform/requirements.txt
 
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql
