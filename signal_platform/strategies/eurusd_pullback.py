@@ -41,7 +41,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
     allowed_sessions    = [Session.ALL]
     allowed_trends      = [Trend.UPTREND, Trend.DOWNTREND]
-    allowed_instruments = ["EURUSD"]
+    allowed_instruments = ["EUR/USD"]
     news_stance         = NewsStance.AVOID_HIGH_ONLY
     news_impact_filter  = [NewsImpact.HIGH]
 

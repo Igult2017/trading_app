@@ -58,8 +58,8 @@ def update(
 
     # SL check
     if (buy and current_price <= state.current_sl) or (not buy and current_price >= state.current_sl):
-        state.phase  = "closed"
         state.result = "BE" if state.phase == "breakeven" else "SL"
+        state.phase  = "closed"
         return state
 
     if state.phase == "initial":

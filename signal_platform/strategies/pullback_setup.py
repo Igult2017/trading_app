@@ -137,7 +137,7 @@ def fractal_entry(
 
     post = window[fractal_pos + 1:]
     for j, c in enumerate(post):
-        bars_since = len(post) - 1 - j
+        bars_since = j
         if bullish     and c.close > fractal_level:
             return fractal_level if bars_since <= max_stale else None
         if not bullish and c.close < fractal_level:
