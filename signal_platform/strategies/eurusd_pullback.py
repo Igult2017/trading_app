@@ -92,8 +92,10 @@ class EURUSDPullbackStrategy(BaseStrategy):
         if risk <= 0:
             return StrategyResult.empty()
 
-        # Step 2 — 4H structure: no key level blocking the path to 2R
-        if has_4h_obstruction(h4, entry, bullish, risk):
+        # Step 2 — 4H structure: no key level blocking the path to 2R.
+        # Only last 30 H4 bars (~5 days): older swing points are mitigated
+        # and scatter too densely in trending markets to be meaningful.
+        if has_4h_obstruction(h4[-30:], entry, bullish, risk):
             return StrategyResult.empty()
 
         direction = Direction.BUY if bullish else Direction.SELL
