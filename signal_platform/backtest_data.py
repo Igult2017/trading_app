@@ -14,7 +14,11 @@ from indicators.ema_200 import EMA200Indicator
 SYMBOL      = "EURUSD=X"
 _EMA_PERIOD = 200
 
-# High-impact USD/EUR events (date + UTC hour) — ±30 min window
+# --- Backtest-only news list ---
+# The live signal platform calls GET /api/homepage/calendar (via news_fetcher.py).
+# The app's economic calendar only holds a ±14 day window so it cannot serve
+# historical backtest dates. These hardcoded events are ONLY used here.
+# Source: FOMC/NFP/CPI/ECB release schedule for the backtest period.
 HIGH_IMPACT_EVENTS: list[datetime] = [
     # NFP
     datetime(2026, 4,  3, 12, 30, tzinfo=timezone.utc),
