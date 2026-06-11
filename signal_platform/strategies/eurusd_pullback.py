@@ -58,7 +58,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         utc_now = datetime.fromtimestamp(m1[-1].time, tz=timezone.utc)
 
-        # Block 1 — High-impact news: skip 2H before and after any USD/EUR event
+        # Block 1 — High-impact news: skip 30 min before and after any USD/EUR event
         if context.news and context.news.has_high_impact(["USD", "EUR"]):
             return StrategyResult.empty()
 

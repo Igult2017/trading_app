@@ -51,7 +51,7 @@ HIGH_IMPACT_EVENTS = [
     datetime(2026, 4, 17,  13, 15, tzinfo=timezone.utc),
     datetime(2026, 6,  5,  13, 15, tzinfo=timezone.utc),
 ]
-NEWS_WINDOW_HOURS = 2
+NEWS_WINDOW_HOURS = 0.5  # 30 minutes — standard prop firm rule
 
 
 def _near_high_impact_news(dt: datetime) -> bool:
