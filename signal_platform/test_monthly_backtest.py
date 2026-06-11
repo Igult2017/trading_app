@@ -179,6 +179,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle]) -> dict[str, list[dict]]:
             "rr":        2.0,
             "pb_count":  pb_count,
             "ema_dist":  round(dist_pct * 100, 3),
+            "bar_idx":   i,          # used for outcome simulation
         })
 
     print("\n=== Filter Funnel ===")
@@ -195,31 +196,80 @@ def run_backtest(h1: list[Candle], h4: list[Candle]) -> dict[str, list[dict]]:
     return signals_by_month
 
 
+# ── outcome simulation ────────────────────────────────────────────────────────
+
+def simulate_outcomes(signals_by_month: dict[str, list[dict]],
+                      h1: list[Candle],
+                      max_bars: int = 120) -> None:
+    """
+    Walk forward through H1 CLOSES for each signal (up to max_bars = 5 days).
+
+    Close-based logic avoids the wick problem: H1 candles regularly span
+    30-50 pips and would falsely trigger 8-pip SLs using high/low.
+    A close past a level is the honest signal that price has committed.
+
+    BUY:  TP if close >= tp, SL if close <= sl
+    SELL: TP if close <= tp, SL if close >= sl
+    """
+    for sigs in signals_by_month.values():
+        for s in sigs:
+            start   = s["bar_idx"] + 1
+            sl, tp  = s["sl"], s["tp"]
+            buy     = s["dir"] == "BUY"
+            outcome = "open"
+            bars    = 0
+
+            for j, c in enumerate(h1[start: start + max_bars]):
+                bars = j + 1
+                tp_hit = c.close >= tp if buy else c.close <= tp
+                sl_hit = c.close <= sl if buy else c.close >= sl
+
+                if tp_hit:
+                    outcome = "TP"
+                    break
+                if sl_hit:
+                    outcome = "SL"
+                    break
+
+            s["outcome"]       = outcome
+            s["bars_to_close"] = bars if outcome != "open" else None
+
+
 # ── report ────────────────────────────────────────────────────────────────────
 
 def report(signals_by_month: dict[str, list[dict]]) -> None:
-    total = sum(len(v) for v in signals_by_month.values())
-    months = sorted(signals_by_month)
+    months  = sorted(signals_by_month)
+    all_sig = [s for m in months for s in signals_by_month[m]]
+    total   = len(all_sig)
+    wins    = [s for s in all_sig if s.get("outcome") == "TP"]
+    losses  = [s for s in all_sig if s.get("outcome") == "SL"]
+    open_   = [s for s in all_sig if s.get("outcome") == "open"]
+    wr      = len(wins) / (len(wins) + len(losses)) * 100 if (wins or losses) else 0
 
     print("\n=== Monthly Signal Count ===")
-    print(f"{'Month':<12}  {'Count':>5}  Signals")
-    print("-" * 60)
+    print(f"{'Month':<12}  {'Signals':>7}  {'W':>4}  {'L':>4}  {'Open':>5}")
+    print("-" * 42)
     for m in months:
         sigs = signals_by_month[m]
-        bar = "#" * len(sigs)
-        print(f"{m:<12}  {len(sigs):>5}  {bar}")
-    print("-" * 60)
+        w = sum(1 for s in sigs if s.get("outcome") == "TP")
+        l = sum(1 for s in sigs if s.get("outcome") == "SL")
+        o = sum(1 for s in sigs if s.get("outcome") == "open")
+        print(f"{m:<12}  {len(sigs):>7}  {w:>4}  {l:>4}  {o:>5}")
+    print("-" * 42)
     months_covered = max(len(months), 1)
-    print(f"Total: {total} signals over {months_covered} months "
-          f"(avg {total / months_covered:.1f}/month)")
-    print()
-    print("=== Signal Detail ===")
+    print(f"Total   {total} signals  |  {len(wins)}W  {len(losses)}L  {len(open_)} open")
+    print(f"Win rate (closed trades): {wr:.0f}%")
+    print(f"Avg per month: {total / months_covered:.1f}")
+
+    print("\n=== Signal Detail ===")
+    icons = {"TP": "[WIN]", "SL": "[LOSS]", "open": "[OPEN]"}
     for m in months:
         print(f"\n  {m}:")
         for s in signals_by_month[m]:
-            print(f"    [{s['date']} UTC] {s['dir']:4}  "
-                  f"entry={s['entry']}  sl={s['sl']}  tp={s['tp']}  "
-                  f"pb={s['pb_count']}c  ema_dist={s['ema_dist']}%")
+            icon  = icons.get(s.get("outcome", "open"), "")
+            bars  = f"  ({s['bars_to_close']}h)" if s.get("bars_to_close") else ""
+            print(f"    {icon:<6} [{s['date']} UTC] {s['dir']:4}  "
+                  f"entry={s['entry']}  sl={s['sl']}  tp={s['tp']}{bars}")
 
 
 if __name__ == "__main__":
@@ -228,4 +278,5 @@ if __name__ == "__main__":
         print("Not enough H1 data.")
         sys.exit(1)
     results = run_backtest(h1, h4)
+    simulate_outcomes(results, h1)
     report(results)
