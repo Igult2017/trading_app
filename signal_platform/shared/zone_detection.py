@@ -54,3 +54,51 @@ def _mark_mitigated(zones: list[Zone], candles: list[Candle]) -> None:
 
 def unmitigated(zones: list[Zone]) -> list[Zone]:
     return [z for z in zones if not z.mitigated]
+
+
+def find_fvg_zones(candles: list[Candle], timeframe: str = "") -> list[Zone]:
+    """
+    Detect Fair Value Gaps (FVGs) — 3-candle imbalances where the middle
+    candle's move left a price gap between candle[i-1]'s wick and
+    candle[i+1]'s wick that price has not yet returned to fill.
+
+    Bullish FVG (demand): candle[i-1].high < candle[i+1].low
+      — upward impulse left a gap below; demand zone = [c[i-1].high, c[i+1].low]
+    Bearish FVG (supply): candle[i-1].low  > candle[i+1].high
+      — downward impulse left a gap above; supply zone = [c[i+1].high, c[i-1].low]
+
+    Mitigation: price closes FULLY THROUGH the gap (bottom for demand, top for supply).
+    A wick entry or 50% fill does not count — the zone still has unfilled orders.
+    """
+    zones: list[Zone] = []
+    for i in range(1, len(candles) - 1):
+        p, n = candles[i - 1], candles[i + 1]
+
+        if p.high < n.low:
+            zones.append(Zone(
+                type=ZoneType.DEMAND, top=n.low, bottom=p.high,
+                timeframe=timeframe, formed_at=i,
+            ))
+        elif p.low > n.high:
+            zones.append(Zone(
+                type=ZoneType.SUPPLY, top=p.low, bottom=n.high,
+                timeframe=timeframe, formed_at=i,
+            ))
+
+    _mark_fvg_mitigated(zones, candles)
+    return zones
+
+
+def _mark_fvg_mitigated(zones: list[Zone], candles: list[Candle]) -> None:
+    """
+    Demand FVG: mitigated when price closes below the gap's bottom (fully filled).
+    Supply FVG: mitigated when price closes above the gap's top (fully filled).
+    """
+    for zone in zones:
+        for c in candles[zone.formed_at + 2:]:
+            if zone.type == ZoneType.DEMAND and c.close <= zone.bottom:
+                zone.mitigated = True
+                break
+            if zone.type == ZoneType.SUPPLY and c.close >= zone.top:
+                zone.mitigated = True
+                break

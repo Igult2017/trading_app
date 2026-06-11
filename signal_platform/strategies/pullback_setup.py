@@ -3,9 +3,10 @@ Helper functions for EURUSD Pullback strategy.
 Handles: volume candle detection, pullback measurement,
 4H obstruction check, and 1M fractal break confirmation.
 """
-from core.types import Candle
+from core.types import Candle, ZoneType
 from shared.candle_math import body_size, body_ratio, is_bullish
 from shared.swing_points import find_swing_points
+from shared.zone_detection import find_fvg_zones
 
 
 def find_volume_candle(candles: list[Candle], bullish: bool, lookback: int = 15) -> int | None:
@@ -78,24 +79,51 @@ def has_4h_obstruction(
     min_rr: float = 2.0,
 ) -> bool:
     """
-    True if an UNMITIGATED 4H swing level is near current price or sits
-    between entry and the 2R target.  Mitigated levels are skipped —
-    their orders have already been filled and they no longer defend price.
-    Proximity threshold = 0.5× risk to catch "price at key level" case.
+    True if an UNMITIGATED 4H level blocks the path to 2R.
+    Two types of levels are checked:
+
+    1. Swing highs / lows (S&R):
+       - Unmitigated swing HIGH between entry and TP blocks a BUY.
+       - Unmitigated swing LOW  between entry and TP blocks a SELL.
+       - Any unmitigated level within 0.5R of entry is also a block.
+
+    2. FVG zones (Fair Value Gaps / demand-supply imbalance):
+       - Unmitigated 4H demand FVG (bullish imbalance) overlapping the
+         SELL path → institutions sitting there can reverse price.
+       - Unmitigated 4H supply FVG (bearish imbalance) overlapping the
+         BUY path → institutions sitting there can reverse price.
+
+    Mitigated = price already closed through the level → orders consumed,
+    level no longer defends.
     """
     target    = entry + risk * min_rr if bullish else entry - risk * min_rr
     proximity = risk * 0.50
 
+    # ── 1. Swing highs / lows ─────────────────────────────────────────
     for s in find_swing_points(h4):
         if _is_mitigated(h4, s):
-            continue   # orders consumed — no longer a live level
-
+            continue
         if abs(entry - s.price) < proximity:
             return True
         if bullish     and s.is_high     and entry < s.price < target:
             return True
         if not bullish and not s.is_high and target < s.price < entry:
             return True
+
+    # ── 2. FVG zones (demand / supply imbalances) ─────────────────────
+    lo, hi = (target, entry) if not bullish else (entry, target)
+    for fvg in find_fvg_zones(h4, "H4"):
+        if fvg.mitigated:
+            continue
+        # Zone overlaps the trade path if it sits anywhere between lo and hi
+        zone_overlaps = fvg.bottom < hi and fvg.top > lo
+        if not zone_overlaps:
+            continue
+        if not bullish and fvg.type == ZoneType.DEMAND:
+            return True   # demand in SELL path — likely bounce before TP
+        if bullish     and fvg.type == ZoneType.SUPPLY:
+            return True   # supply in BUY path — likely reversal before TP
+
     return False
 
 
