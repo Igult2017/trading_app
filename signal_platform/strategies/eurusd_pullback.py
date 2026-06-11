@@ -1,16 +1,15 @@
 """
-EURUSD Pullback Strategy — H1 momentum run + controlled pullback + 1M fractal entry.
+EURUSD Pullback Strategy v2 — faithful implementation of the spec.
 
-Full flow:
-  1. News     — no trade within 30 min of high-impact USD/EUR event
-  2. Session  — London and NY only (07:00–17:00 UTC)
-  3. Condition— reject volatile or choppy H1 environment
-  4. D1 trend — structural daily bias must be clear (not ranging)
-  5. Volume   — 3+ candle H1 momentum run ending in a clean institutional candle
-  6. Pullback — 1-2 H1 bars retracing 25–80% of the volume candle, fresh (<= 3 bars ago)
-  7. Fractal  — first 1M fractal after the pullback extreme, broken within 5 bars
-  8. Risk     — SL anchored to pullback zone; 5–60 pip risk band enforced
-  9. Path     — 4H obstruction check (unmitigated S/R or FVG blocking 2R target)
+Flow (matches document order):
+  1. News     — skip 30 min around high-impact USD/EUR events
+  2. Session  — all 6 institutional windows (07:00-20:00 + 22:00-03:00 UTC)
+  3. EMA 200  — H1 and D1 must agree (both above = BUY, both below = SELL)
+  4. Volume   — most recent H1 candle: body > previous, body_ratio >= 0.60
+  5. Pullback — 1-3 H1 candles retracing 25-80% of the volume candle range
+  6. Fractal  — first 1M fractal break after pullback extreme; entry = fractal level
+  7. Risk     — SL at pullback zone boundary + 15% buffer; 5-60 pip band
+  8. 4H zone  — reject if entry price is at or inside any unmitigated 4H level
 """
 from datetime import datetime, timezone
 
@@ -18,20 +17,20 @@ from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, Direction, NewsStance,
                          NewsImpact, Signal, StrategyResult, TF)
 from core.strategy_context import StrategyContext
-from shared.market_condition import is_tradeable
+from indicators.ema_200 import EMA200Indicator
 from shared.session_clock import is_valid_session
-from shared.trend_detector import detect as detect_trend
 from strategies.pullback_setup import find_volume_candle, measure_pullback, fractal_entry
-from strategies.pullback_obstruction import has_4h_obstruction
+from strategies.pullback_obstruction import is_at_4h_key_level
 
-_PIP     = 0.00010
-MIN_RISK = 5  * _PIP   # 5 pips  — filters micro doji-pullback setups
-MAX_RISK = 60 * _PIP   # 60 pips — filters news-spike overshoot setups
+_PIP        = 0.00010
+MIN_RISK    = 5  * _PIP
+MAX_RISK    = 60 * _PIP
+_EMA_PERIOD = 200
 
 
 class EURUSDPullbackStrategy(BaseStrategy):
     name    = "EURUSD Pullback"
-    id      = "eurusd_pullback_v1"
+    id      = "eurusd_pullback_v2"
     enabled = True
 
     required_timeframes  = [TF.M1, TF.H1, TF.H4, TF.D1]
@@ -51,47 +50,46 @@ class EURUSDPullbackStrategy(BaseStrategy):
         h1 = context.candles.get(TF.H1)
         h4 = context.candles.get(TF.H4)
         d1 = context.candles.get(TF.D1)
-        if len(m1) < 10 or len(h1) < 30 or len(h4) < 10 or len(d1) < 15:
+
+        if len(m1) < 10 or len(h1) < _EMA_PERIOD or len(h4) < 10 or len(d1) < _EMA_PERIOD:
             return StrategyResult.empty()
 
         utc_now = datetime.fromtimestamp(m1[-1].time, tz=timezone.utc)
 
-        # 1 — News: skip 30 min before/after high-impact USD or EUR events
+        # 1 — News
         if context.news and context.news.has_high_impact(["USD", "EUR"]):
             return StrategyResult.empty()
 
-        # 2 — Session: London + NY only
+        # 2 — Session
         if not is_valid_session(utc_now):
             return StrategyResult.empty()
 
-        # 3 — Environment: clean trending conditions on last 30 H1 bars
-        if not is_tradeable(h1[-30:]):
+        # 3 — EMA 200: H1 and D1 must agree
+        ema_h1     = EMA200Indicator._ema([c.close for c in h1[-_EMA_PERIOD:]], _EMA_PERIOD)
+        ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
+        h1_bull    = h1[-1].close > ema_h1
+        d1_bull    = d1[-1].close > ema_d1
+        if h1_bull != d1_bull:
             return StrategyResult.empty()
+        bullish = h1_bull
 
-        # 4 — D1 structural trend (20-bar lookback — fast enough to catch reversals
-        #     without being noisy; 50 bars lags by weeks at inflection points)
-        d1_trend = detect_trend(d1, lookback=20)
-        if d1_trend == Trend.RANGING:
-            return StrategyResult.empty()
-        bullish = (d1_trend == Trend.UPTREND)
-
-        # 5 — Volume candle: 3+ bar momentum run, body >= 1.5× average, ratio >= 0.60
+        # 4 — Volume candle
         vol_idx = find_volume_candle(h1, bullish=bullish)
         if vol_idx is None:
             return StrategyResult.empty()
 
-        # 6 — Pullback: 1-2 bars, depth 25–80% of vol body, ended <= 3 bars ago
+        # 5 — Pullback
         pb = measure_pullback(h1, vol_idx, bullish)
         if pb is None:
             return StrategyResult.empty()
         pb_high, pb_low, pb_count, pb_end_time = pb
 
-        # 7 — 1M fractal entry: returns the actual break price, or None
+        # 6 — 1M fractal entry
         entry = fractal_entry(m1, pb_high, pb_low, bullish, pb_end_time)
         if entry is None:
             return StrategyResult.empty()
 
-        # 8 — Risk levels: SL anchored to pullback zone boundary + 15% buffer
+        # 7 — Risk levels
         pb_range = pb_high - pb_low
         buffer   = max(2 * _PIP, pb_range * 0.15)
         sl       = (pb_low - buffer) if bullish else (pb_high + buffer)
@@ -102,13 +100,12 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
 
-        # 9 — 4H path: no unmitigated S/R or FVG between entry and 2R target
-        if has_4h_obstruction(h4[-50:], entry, bullish, risk):
+        # 8 — 4H key zone check
+        if is_at_4h_key_level(h4[-50:], entry):
             return StrategyResult.empty()
 
         direction = Direction.BUY if bullish else Direction.SELL
         side      = "bullish" if bullish else "bearish"
-        d1_label  = "uptrend" if bullish else "downtrend"
 
         return StrategyResult(signals=[Signal(
             symbol            = context.symbol,
@@ -122,12 +119,12 @@ class EURUSDPullbackStrategy(BaseStrategy):
             confidence        = 0.75,
             primary_timeframe = TF.H1,
             technical_reasons = [
-                f"D1 {d1_label} structural context (20-bar lookback)",
-                f"1H {side} 3-candle run → volume candle",
-                f"{pb_count}-candle pullback [{pb_low:.5f}–{pb_high:.5f}], depth {pb_range/0.0001:.1f} pips",
-                f"1M fractal broken at {entry:.5f}, SL {sl:.5f}, risk {risk/0.0001:.1f} pips",
-                f"TP {tp:.5f} (2R), 4H path clear",
+                f"EMA 200 aligned {side}: H1={ema_h1:.5f}, D1={ema_d1:.5f}",
+                f"1H volume candle (body > prev, BR >= 0.60)",
+                f"{pb_count}-candle pullback [{pb_low:.5f}–{pb_high:.5f}], {pb_range/0.0001:.1f} pips",
+                f"1M fractal entry {entry:.5f}, SL {sl:.5f}, risk {risk/0.0001:.1f} pips",
+                f"TP {tp:.5f} (2R), 4H zone clear",
             ],
-            smc_factors    = ["d1_structural_trend", "h1_momentum_run", "pullback_continuation"],
-            market_context = f"D1 {d1_label} | {side} run | {pb_count}c pb | fractal entry",
+            smc_factors    = ["ema_200_alignment", "h1_volume_candle", "pullback_continuation"],
+            market_context = f"EMA aligned {side} | {pb_count}c pullback | fractal entry",
         )])

@@ -1,19 +1,23 @@
 """
-4H obstruction check for EURUSD Pullback strategy.
-Blocks a trade when an unmitigated S/R level or FVG zone sits between
-entry and the 2R target on the H4 timeframe.
+4H key zone check for EURUSD Pullback.
+
+Rule (from spec): if the entry price is AT OR INSIDE an unmitigated 4H
+swing level or FVG zone, reject the trade.
+
+This is a proximity check on the current entry price — not a forward-path
+calculation. If price is already sitting in a key zone, institutional
+orders at that level create an unfavourable entry environment.
 """
 from core.types import Candle, ZoneType
 from shared.swing_points import find_swing_points
 from shared.zone_detection import find_fvg_zones
 
+_PIP       = 0.00010
+_PROXIMITY = 10 * _PIP   # within 10 pips = "at" a key level
+
 
 def _is_mitigated(h4: list[Candle], swing) -> bool:
-    """
-    Swing HIGH mitigated when a later H4 candle closes above it.
-    Swing LOW  mitigated when a later H4 candle closes below it.
-    Wick-only touches do not count.
-    """
+    """Swing mitigated when a later candle closes through its price."""
     for c in h4[swing.index + 1:]:
         if swing.is_high and c.close >= swing.price:
             return True
@@ -22,50 +26,24 @@ def _is_mitigated(h4: list[Candle], swing) -> bool:
     return False
 
 
-def has_4h_obstruction(
-    h4: list[Candle],
-    entry: float,
-    bullish: bool,
-    risk: float,
-    min_rr: float = 2.0,
-) -> bool:
+def is_at_4h_key_level(h4: list[Candle], entry: float) -> bool:
     """
-    True if an UNMITIGATED 4H level blocks the path to 2R.
+    True if entry price is at or inside any unmitigated 4H key level.
 
     Checked levels:
-    1. Swing S/R: unmitigated H4 swing high (BUY path) or swing low (SELL path)
-       between entry and TP. Also blocks if any unmitigated level is within 0.5R.
-    2. FVG zones: unmitigated supply FVG in BUY path or demand FVG in SELL path.
-
-    Mitigated = price closed through the level → orders consumed, no longer active.
+    1. Swing S/R: unmitigated H4 swing high or low within 10 pips of entry
+    2. FVG zones: entry price falls inside an unmitigated H4 fair-value gap
     """
-    target    = entry + risk * min_rr if bullish else entry - risk * min_rr
-    proximity = risk * 0.50
-
-    for s in find_swing_points(h4, n=5):   # n=5: only significant pivots, not micro-structure
+    for s in find_swing_points(h4, n=5):
         if _is_mitigated(h4, s):
             continue
-        # Bug 6 fix: proximity check must be direction-aware.
-        # An unmitigated swing HIGH clustered near a BUY entry = price likely to stall there.
-        # An unmitigated swing LOW clustered near a SELL entry = same problem on the other side.
-        # A swing LOW near a BUY entry is below entry (near SL side) — not an obstruction.
-        if bullish     and s.is_high     and abs(entry - s.price) < proximity:
-            return True
-        if not bullish and not s.is_high and abs(entry - s.price) < proximity:
-            return True
-        if bullish     and s.is_high     and entry < s.price < target:
-            return True
-        if not bullish and not s.is_high and target < s.price < entry:
+        if abs(entry - s.price) < _PROXIMITY:
             return True
 
-    lo, hi = (target, entry) if not bullish else (entry, target)
     for fvg in find_fvg_zones(h4, "H4"):
         if fvg.mitigated:
             continue
-        if fvg.bottom < hi and fvg.top > lo:
-            if not bullish and fvg.type == ZoneType.DEMAND:
-                return True
-            if bullish     and fvg.type == ZoneType.SUPPLY:
-                return True
+        if fvg.bottom <= entry <= fvg.top:
+            return True
 
     return False
