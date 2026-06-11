@@ -2111,69 +2111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Prices — daemon proxy (127.0.0.1:8765) + candle subprocess ──────────────
-  const _DAEMON_URL = "http://127.0.0.1:8765";
-  const _PY_BIN     = process.env.PYTHON_BIN ?? "python3";
-
-  async function _queryDaemon(syms: string[]): Promise<Record<string, any>> {
-    const r = await fetch(_DAEMON_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbols: syms }),
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!r.ok) throw new Error(`daemon ${r.status}`);
-    return r.json() as Promise<Record<string, any>>;
-  }
-
-  app.get("/api/prices/status", async (_req, res) => {
-    try { await _queryDaemon([]); res.json({ ok: true }); }
-    catch { res.status(503).json({ ok: false, error: "price daemon unavailable" }); }
-  });
-
-  app.get("/api/prices/:symbol/candles", async (req, res) => {
-    const sym      = decodeURIComponent(req.params.symbol);
-    const ac       = String(req.query.assetClass ?? "forex");
-    const interval = String(req.query.interval   ?? "1h");
-    const period   = String(req.query.period     ?? "5d");
-    try {
-      const { execFile }  = await import("child_process");
-      const { promisify } = await import("util");
-      const { join }      = await import("path");
-      const script = join(process.cwd(), "server", "python", "price_service.py");
-      const input  = JSON.stringify({ action: "get_candles", symbol: sym, assetClass: ac, interval, period });
-      const { stdout } = await promisify(execFile)(_PY_BIN, [script, input], { timeout: 30_000 });
-      const data = JSON.parse(stdout) as any;
-      if (data.error) return res.status(500).json({ error: data.error });
-      res.json(data);
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message ?? "candle fetch failed" });
-    }
-  });
-
-  app.get("/api/prices/:symbol", async (req, res) => {
-    const sym = decodeURIComponent(req.params.symbol);
-    try {
-      const data  = await _queryDaemon([sym]);
-      const entry = (data as any)[sym];
-      if (!entry) return res.status(404).json({ error: "symbol not in price cache yet" });
-      res.json(entry);
-    } catch {
-      res.status(503).json({ error: "price daemon unavailable" });
-    }
-  });
-
-  app.post("/api/prices/batch", async (req, res) => {
-    const raw: Array<string | { symbol: string }> = (req.body as any)?.symbols ?? [];
-    const syms = raw.map((s: any) => (typeof s === "string" ? s : s.symbol));
-    try {
-      const data   = await _queryDaemon(syms);
-      const result = syms.map(s => (data as any)[s] ? { ...(data as any)[s], symbol: s } : { symbol: s, price: null });
-      res.json(result);
-    } catch {
-      res.status(503).json({ error: "price daemon unavailable" });
-    }
-  });
+  // Price routes — not used (signal-only mode, no price streaming)
+  app.get("/api/prices/status",          (_req, res) => res.json({ ok: false, mode: "signal-only" }));
+  app.get("/api/prices/:symbol/candles", (_req, res) => res.status(204).end());
+  app.get("/api/prices/:symbol",         (_req, res) => res.status(204).end());
+  app.post("/api/prices/batch",          (_req, res) => res.json([]));
 
   app.get("/api/gemini/status", async (req, res) => {
     try {
