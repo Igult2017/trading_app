@@ -38,6 +38,9 @@ COPY python ./python
 # Signal platform (Python — runs alongside Node.js in the same container)
 COPY signal_platform ./signal_platform
 
+# Install signal platform Python deps (separate from the base image's server/python deps)
+RUN pip install --no-cache-dir -r signal_platform/requirements.txt
+
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql
 

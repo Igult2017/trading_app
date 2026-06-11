@@ -38,4 +38,8 @@ dependencies = [
     "yfinance>=0.2.66",
     "cloudscraper>=1.2.71",
     "curl-cffi>=0.7.0",
+    "APScheduler>=3.10.0",
+    "pydantic-settings>=2.0.0",
+    "SQLAlchemy>=2.0.0",
+    "httpx>=0.27.0",
 ]
