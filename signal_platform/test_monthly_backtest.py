@@ -189,10 +189,6 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
             continue
         tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
 
-        # Step 2 — 4H obstruction check (last 50 H4 bars up to signal time)
-        h4_past = [c for c in h4 if c.time <= cur.time][-50:]
-        if has_4h_obstruction(h4_past, entry, bullish, risk):
-            continue
         c_4h += 1
 
         # Signal fires
@@ -220,7 +216,7 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
     print(f"  After dedup             : {c_dedup}")
     print(f"  After pullback check    : {c_pb}")
     print(f"  After fractal break     : {c_frac}")
-    print(f"  After 4H obstruction    : {c_4h}  <- final signals")
+    print(f"  After fractal break     : {c_4h}  <- final signals (no 4H obstruction)")
     return signals_by_month
 
 
