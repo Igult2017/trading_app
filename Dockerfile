@@ -52,7 +52,7 @@ RUN printf '%s\n' \
     'echo "=== Running DB migrations ==="' \
     'if [ -n "$DATABASE_URL" ]; then psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"; fi' \
     'echo "=== Starting signal platform ==="' \
-    'cd /app/signal_platform && python3 -u main.py 2>&1 | while IFS= read -r line; do printf "[signal_platform] %s\n" "$line"; done &' \
+    'cd /app/signal_platform && python3 -u main.py 2>&1 &' \
     'echo "Signal platform PID: $!"' \
     'cd /app' \
     'exec node dist/index.prod.js' \
