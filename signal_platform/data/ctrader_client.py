@@ -42,7 +42,8 @@ async def _load_symbols(reader, writer) -> None:
     res = ProtoOASymbolsListRes()
     res.ParseFromString(resp.payload)
     _symbols.update({s.symbolName: s.symbolId for s in res.symbol if s.enabled})
-    log.info(f"[ctrader] {len(_symbols)} symbols cached")
+    sample = list(_symbols.keys())[:15]
+    log.info(f"[ctrader] {len(_symbols)} symbols cached — first 15: {sample}")
 
 
 async def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:

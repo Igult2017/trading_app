@@ -7,6 +7,7 @@ echo "CTRADER_CLIENT_ID set: $([ -n "$CTRADER_CLIENT_ID" ] && echo YES || echo N
 echo "CTRADER_ACCESS_TOKEN set: $([ -n "$CTRADER_ACCESS_TOKEN" ] && echo YES || echo NO)"
 echo "CTRADER_REFRESH_TOKEN set: $([ -n "$CTRADER_REFRESH_TOKEN" ] && echo YES || echo NO)"
 echo "CTRADER_ACCOUNT_ID: $CTRADER_ACCOUNT_ID"
+echo "CTRADER_ENV: $CTRADER_ENV"
 echo "========================="
 
 echo "=== Running DB migrations ==="
@@ -14,9 +15,24 @@ if [ -n "$DATABASE_URL" ]; then
     psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"
 fi
 
-echo "=== Starting signal platform ==="
-cd /app/signal_platform && python3 -u main.py 2>&1 &
-echo "Signal platform PID: $!"
+echo "=== Starting signal platform (with auto-restart) ==="
+# Watchdog: restart Python on any non-0 exit except deliberate kill (exit 1 = config error, no point retrying immediately)
+(
+  ATTEMPTS=0
+  while true; do
+    ATTEMPTS=$((ATTEMPTS + 1))
+    echo "[watchdog] starting signal platform (attempt $ATTEMPTS)..."
+    cd /app/signal_platform && python3 -u main.py 2>&1
+    EXIT=$?
+    if [ $EXIT -eq 1 ]; then
+      echo "[watchdog] signal platform exited with code 1 (config/auth error) — retrying in 60s"
+    else
+      echo "[watchdog] signal platform exited with code $EXIT — restarting in 10s"
+    fi
+    sleep 60
+  done
+) &
+echo "Signal platform watchdog PID: $!"
 
 cd /app
 # Tell Node NOT to start a second Python process — we already started it above
