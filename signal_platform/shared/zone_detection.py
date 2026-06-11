@@ -42,12 +42,15 @@ def find_zones(candles: list[Candle], timeframe: str,
 def _mark_mitigated(zones: list[Zone], candles: list[Candle]) -> None:
     for zone in zones:
         for c in candles[zone.formed_at + 1:]:
-            # Use close-based check: a wick into the zone is not mitigation;
-            # price must close inside or through the zone boundary.
-            if zone.type == ZoneType.DEMAND and c.close <= zone.top:
+            # Bug 5 fix: mitigation requires a close FULLY THROUGH the zone.
+            # A close into the zone (even 99% of the way) does not consume the orders —
+            # the zone is only empty when price exits the other side.
+            # DEMAND zone bottom = where buy orders sit; fully mitigated when close < bottom.
+            # SUPPLY zone top    = where sell orders sit; fully mitigated when close > top.
+            if zone.type == ZoneType.DEMAND and c.close <= zone.bottom:
                 zone.mitigated = True
                 break
-            if zone.type == ZoneType.SUPPLY and c.close >= zone.bottom:
+            if zone.type == ZoneType.SUPPLY and c.close >= zone.top:
                 zone.mitigated = True
                 break
 

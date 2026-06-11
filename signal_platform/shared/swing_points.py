@@ -37,11 +37,19 @@ def classify_structure(points: list[SwingPoint]) -> list[tuple[str, SwingPoint]]
     result: list[tuple[str, SwingPoint]] = []
 
     for i, h in enumerate(highs):
-        label = "HH" if (i == 0 or h.price > highs[i - 1].price) else "LH"
+        # Bug 7 fix: skip the first swing — no prior reference point means no valid label.
+        # The old code always assigned "HH" to the first high and "HL" to the first low,
+        # which added +2 to the bullish score on every call and caused ranging markets
+        # with a random first swing to be misclassified as UPTREND.
+        if i == 0:
+            continue
+        label = "HH" if h.price > highs[i - 1].price else "LH"
         result.append((label, h))
 
     for i, l in enumerate(lows):
-        label = "HL" if (i == 0 or l.price > lows[i - 1].price) else "LL"
+        if i == 0:
+            continue
+        label = "HL" if l.price > lows[i - 1].price else "LL"
         result.append((label, l))
 
     return sorted(result, key=lambda x: x[1].index)

@@ -3,7 +3,7 @@ EURUSD Pullback: volume candle detection, pullback validation, 1M fractal entry.
 4H obstruction lives in pullback_obstruction.py.
 """
 from core.types import Candle
-from shared.candle_math import body_size, body_ratio, is_bullish, avg_body
+from shared.candle_math import body_size, body_ratio, full_range, is_bullish, is_bearish, avg_body
 
 _PIP = 0.00010
 
@@ -26,7 +26,7 @@ def find_volume_candle(
     end   = len(candles) - 1
     start = max(min_run, end - lookback)
 
-    for i in range(end, start - 1, -1):       # include the most recent bar
+    for i in range(end, start - 1, -1):
         c = candles[i]
         if is_bullish(c) != bullish or i == 0:
             continue
@@ -53,22 +53,22 @@ def measure_pullback(
 ) -> tuple[float, float, int, int] | None:
     """
     Validate the H1 pullback immediately after the volume candle.
-
     Returns (pb_high, pb_low, count, pb_end_time) or None.
 
-    pb_end_time is the unix timestamp when the last pullback candle CLOSED
-    (used to anchor 1M fractal search — only M1 bars after this count).
+    pb_end_time = unix timestamp when the last pullback candle CLOSED,
+    used to anchor the 1M fractal search to this specific setup.
 
     Rejection rules:
-    - Not 1 or 2 candles        → momentum reversal, not a pullback
-    - depth < 15% of vol body   → doji/flat, not a real retracement
-    - depth > 80% of vol body   → too deep, original momentum likely broken
+    - Not exactly 1-2 candles against direction  (doji ignored — close == open is not a pullback)
+    - depth < 25% of volume candle full range    (too shallow — noise/spread, not retracement)
+    - depth > 80% of volume candle full range    (too deep — original momentum likely broken)
     """
-    vol_body   = body_size(candles[vol_idx])
     pb_candles: list[Candle] = []
 
     for c in candles[vol_idx + 1:]:
-        against = (not is_bullish(c)) if bullish else is_bullish(c)
+        # Bug 8 fix: use explicit is_bearish/is_bullish — doji (close==open)
+        # is neither bullish nor bearish and must not count as a pullback candle.
+        against = is_bearish(c) if bullish else is_bullish(c)
         if against:
             pb_candles.append(c)
         else:
@@ -81,14 +81,15 @@ def measure_pullback(
     pb_low  = min(c.low  for c in pb_candles)
     depth   = pb_high - pb_low
 
-    # Depth 15–80% of volume candle body:
-    # - < 15%: doji/flat candle — not a real retracement, likely a pause not a pullback
-    # - > 80%: deep reversal — the original momentum is likely broken
-    if vol_body > 0 and (depth < vol_body * 0.15 or depth > vol_body * 0.80):
+    # Bug 1 + 2 fix: compare pullback depth against volume candle FULL RANGE
+    # (not body-only), and use 25% floor not 15%.
+    # Full range includes wicks — the actual price excursion, not just the close.
+    # A 28-pip pullback vs a 35-pip (full-range) volume candle is 80% — valid.
+    # The same pullback vs a 20-pip (body-only) is 140% — wrongly rejected.
+    vol_range = full_range(candles[vol_idx])
+    if vol_range > 0 and (depth < vol_range * 0.25 or depth > vol_range * 0.80):
         return None
 
-    # pb_end_time: when the last pullback H1 candle closed.
-    # fractal_entry() uses this to exclude M1 bars from before the pullback.
     return (pb_high, pb_low, len(pb_candles), pb_candles[-1].time + 3600)
 
 
@@ -101,20 +102,17 @@ def fractal_entry(
     max_stale: int = 5,
 ) -> float | None:
     """
-    Return the M1 entry price when the first post-pullback fractal is broken,
-    or None if no valid recent break exists.
+    Return the fractal break LEVEL as entry price, or None if no valid recent break.
 
     Steps:
-    1. Consider ONLY M1 candles that opened after pb_end_time (the H1 pullback
-       close) — this anchors the fractal to THIS specific pullback, not a
-       random move from the past 100 bars.
-    2. Find the pullback extreme (lowest M1 close for BUY, highest for SELL)
-       within the pb_low..pb_high zone — the turnaround point.
-    3. Scan forward for the first Williams 5-candle fractal: the bar whose
-       high (BUY) or low (SELL) is higher/lower than the 2 bars on each side.
-    4. Return the close of the bar that breaks the fractal ONLY if that break
-       happened within max_stale M1 bars of now. Older breaks are stale —
-       entering at current price would be chasing, not executing.
+    1. Only consider M1 bars that opened AFTER pb_end_time — anchors to this pullback.
+    2. Find the pullback extreme: lowest LOW (BUY) or highest HIGH (SELL) inside the
+       pullback zone — the actual price reversal point, not the close.
+    3. First Williams 5-candle fractal after the extreme: middle bar's high (BUY) or
+       low (SELL) is the highest/lowest among 2 bars on each side.
+    4. Entry = the fractal level itself (the break point), not the closing price
+       of the break candle. This matches the actual execution price at the break.
+    5. Break must be recent (within max_stale M1 bars) — older breaks are stale.
     """
     window = [c for c in m1 if c.time >= pb_end_time]
     if len(window) < 7:
@@ -123,15 +121,17 @@ def fractal_entry(
     zone_lo = pb_low  - 3 * _PIP
     zone_hi = pb_high + 3 * _PIP
 
+    # Bug 3 fix: use low (BUY) / high (SELL) for extreme — where price actually
+    # reversed, not where the candle closed.
     extreme_pos: int | None = None
     for i, c in enumerate(window):
-        if not (zone_lo <= c.close <= zone_hi):
+        if not (zone_lo <= c.low <= zone_hi) if bullish else not (zone_lo <= c.high <= zone_hi):
             continue
         if bullish:
-            if extreme_pos is None or c.close < window[extreme_pos].close:
+            if extreme_pos is None or c.low < window[extreme_pos].low:
                 extreme_pos = i
         else:
-            if extreme_pos is None or c.close > window[extreme_pos].close:
+            if extreme_pos is None or c.high > window[extreme_pos].high:
                 extreme_pos = i
 
     if extreme_pos is None or extreme_pos >= len(window) - 5:
@@ -156,11 +156,15 @@ def fractal_entry(
     if fractal_level is None or fractal_pos is None:
         return None
 
+    # Bug 4 fix: return fractal_level (the break point) not c.close.
+    # The execution engine should enter at the fractal level — the price at
+    # which the structure is broken — not at a candle close that already moved past it.
     post = window[fractal_pos + 1:]
     for j, c in enumerate(post):
+        bars_since = len(post) - 1 - j
         if bullish and c.close > fractal_level:
-            return c.close if (len(post) - 1 - j) <= max_stale else None
+            return fractal_level if bars_since <= max_stale else None
         if not bullish and c.close < fractal_level:
-            return c.close if (len(post) - 1 - j) <= max_stale else None
+            return fractal_level if bars_since <= max_stale else None
 
     return None

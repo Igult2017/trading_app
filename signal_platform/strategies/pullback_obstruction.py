@@ -45,7 +45,13 @@ def has_4h_obstruction(
     for s in find_swing_points(h4, n=5):   # n=5: only significant pivots, not micro-structure
         if _is_mitigated(h4, s):
             continue
-        if abs(entry - s.price) < proximity:
+        # Bug 6 fix: proximity check must be direction-aware.
+        # An unmitigated swing HIGH clustered near a BUY entry = price likely to stall there.
+        # An unmitigated swing LOW clustered near a SELL entry = same problem on the other side.
+        # A swing LOW near a BUY entry is below entry (near SL side) — not an obstruction.
+        if bullish     and s.is_high     and abs(entry - s.price) < proximity:
+            return True
+        if not bullish and not s.is_high and abs(entry - s.price) < proximity:
             return True
         if bullish     and s.is_high     and entry < s.price < target:
             return True
