@@ -53,19 +53,6 @@ class Settings(BaseSettings):
     ctrader_access_token:  str = ""
     ctrader_refresh_token: str = ""
 
-    # ── Data source 2: MT5 via Wine/Docker (Pepperstone-accurate, no GUI needed) ─
-    mt5_host:     str = "mt5"
-    mt5_port:     int = 8812
-    mt5_login:    int = 0
-    mt5_password: str = ""
-    mt5_server:   str = "Pepperstone-Demo"
-
-    # ── Data source 3: ejtraderCT FIX (live price overlay on yfinance history) ─
-    ctrader_fix_server:   str = ""
-    ctrader_fix_login:    str = ""
-    ctrader_fix_password: str = ""
-    ctrader_fix_broker:   str = "pepperstone"
-    ctrader_fix_currency: str = "USD"
 
 
 settings = Settings()

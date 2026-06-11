@@ -238,7 +238,7 @@ export class ScraperScheduler {
     console.log('  • Cleanup:              01:00 UTC daily');
     console.log('Interest rate scraper:   DISABLED');
     console.log('Telegram notifications:  event-driven (scheduled per event)');
-    console.log('Signal scanning:         DISABLED');
+    console.log('Signal scanning:         PYTHON SIGNAL PLATFORM (EUR/USD — see [SignalPlatform] logs)');
   }
 
   stop(): void {
