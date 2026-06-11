@@ -52,8 +52,7 @@ RUN printf '%s\n' \
     'echo "=== Running DB migrations ==="' \
     'if [ -n "$DATABASE_URL" ]; then psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"; fi' \
     'echo "=== Starting signal platform ==="' \
-    'mkdir -p /app/logs' \
-    'cd /app/signal_platform && python3 main.py >> /app/logs/signal_platform.log 2>&1 &' \
+    'cd /app/signal_platform && python3 -u main.py 2>&1 | while IFS= read -r line; do printf "[signal_platform] %s\n" "$line"; done &' \
     'echo "Signal platform PID: $!"' \
     'cd /app' \
     'exec node dist/index.prod.js' \
@@ -62,5 +61,6 @@ RUN printf '%s\n' \
 EXPOSE 5000
 ENV NODE_ENV=production
 ENV PYTHON_BIN=/usr/bin/python3
+ENV PYTHONUNBUFFERED=1
 
 CMD ["/app/start.sh"]
