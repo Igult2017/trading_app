@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
+import { Bell, AlertTriangle } from "lucide-react";
 
 interface LastSignal { id: string; symbol: string; type: string; status: string; strategy: string | null; confidence: number; createdAt: string; }
-interface StatusData { ctraderConfigured: boolean; dataSource: string; lastSignal: LastSignal | null; signalsLast24h: number; activeSignalsLast24h: number; error?: string; }
+interface PlatformStatus { status: "starting" | "ok" | "error"; error: string; hint: string; ts: number; }
+interface StatusData { ctraderConfigured: boolean; dataSource: string; platformStatus: PlatformStatus | null; lastSignal: LastSignal | null; signalsLast24h: number; activeSignalsLast24h: number; error?: string; }
 interface Props { darkMode?: boolean; selectedSymbol?: string; }
 
 function timeAgo(iso: string): string {
@@ -27,64 +28,75 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
     staleTime: 20_000,
   });
 
-  const connected  = data?.ctraderConfigured ?? false;
-  const statusColor = connected ? "#22d3a5" : "#f4617f";
-  const statusLabel = connected ? "CTRADER CONNECTED" : "CTRADER NOT CONFIGURED";
+  const ps         = data?.platformStatus;
+  const hasError   = ps?.status === "error";
+  const isStarting = ps?.status === "starting";
+  const isOk       = ps?.status === "ok";
+
+  // "connected" = env vars present AND Python didn't report an error
+  const connected   = (data?.ctraderConfigured ?? false) && !hasError;
+  const statusColor = hasError ? "#f4617f" : connected ? "#22d3a5" : "#f59e0b";
+  const statusLabel = hasError ? "SCANNER ERROR" : isStarting ? "SCANNER STARTING…" : connected ? "CTRADER CONNECTED" : "CTRADER NOT CONFIGURED";
 
   return (
     <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
-      {/* Header row — matches chart card header */}
+      {/* Header */}
       <div style={{ padding: "10px 16px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.06em", fontFamily: "monospace" }}>
-          SIGNAL PLATFORM STATUS
-        </div>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.text, fontFamily: "monospace" }}>
-          {selectedSymbol}
-        </div>
+        <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.06em", fontFamily: "monospace" }}>SIGNAL PLATFORM STATUS</div>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.text, fontFamily: "monospace" }}>{selectedSymbol}</div>
         <button style={{ background: C.bg3, border: `1px solid ${C.border2}`, color: C.text, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", padding: "5px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           <Bell size={11} /> ALERT
         </button>
       </div>
 
-      {/* Status body */}
       <div style={{ padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20, minHeight: 300, justifyContent: "center" }}>
-
         {isLoading ? (
           <div style={{ textAlign: "center", color: C.muted, fontSize: 10, letterSpacing: "0.1em" }}>CHECKING STATUS…</div>
         ) : (
           <>
-            {/* Connection status */}
+            {/* Connection status dot */}
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: statusColor }} />
-                {connected && (
-                  <div style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `2px solid ${statusColor}`, opacity: 0.35, animation: "sp-pulse 2s ease-in-out infinite" }} />
-                )}
+                {connected && <div style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `2px solid ${statusColor}`, opacity: 0.35, animation: "sp-pulse 2s ease-in-out infinite" }} />}
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: statusColor, letterSpacing: "0.12em" }}>{statusLabel}</div>
                 <div style={{ fontSize: 9, color: C.muted, letterSpacing: "0.08em", marginTop: 3 }}>
-                  {data?.dataSource ?? "—"} · {selectedSymbol}
+                  {data?.dataSource ?? "—"} · {selectedSymbol || "—"}
                 </div>
               </div>
             </div>
 
-            {/* Scanning status */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ flexShrink: 0, width: 10, height: 10, borderRadius: "50%",
-                background: connected ? "#3b82f6" : C.dim,
-                boxShadow: connected ? "0 0 6px rgba(59,130,246,0.6)" : "none" }} />
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: connected ? "#60a5fa" : C.muted, letterSpacing: "0.12em" }}>
-                  {connected ? `SCANNING ${selectedSymbol || data?.lastSignal?.symbol || "—"}` : "SCANNER IDLE"}
-                </div>
-                <div style={{ fontSize: 9, color: C.muted, letterSpacing: "0.08em", marginTop: 3 }}>
-                  {data?.lastSignal?.strategy?.toUpperCase() ?? "ACTIVE STRATEGY"} · scan every 60s
+            {/* Error box — only shown when Python reported a failure */}
+            {hasError && ps && (
+              <div style={{ background: "rgba(244,97,127,0.08)", border: "1px solid rgba(244,97,127,0.3)", borderRadius: 6, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <AlertTriangle size={14} color="#f4617f" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#f4617f", letterSpacing: "0.08em", marginBottom: 6 }}>BOOT ERROR</div>
+                  <div style={{ fontSize: 10, color: "#f4617f", marginBottom: ps.hint ? 8 : 0, lineHeight: 1.5 }}>{ps.error}</div>
+                  {ps.hint && <div style={{ fontSize: 9, color: C.muted, lineHeight: 1.5 }}>{ps.hint}</div>}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Divider */}
+            {/* Scanning status — only shown when not errored */}
+            {!hasError && (
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ flexShrink: 0, width: 10, height: 10, borderRadius: "50%",
+                  background: isOk ? "#3b82f6" : C.dim,
+                  boxShadow: isOk ? "0 0 6px rgba(59,130,246,0.6)" : "none" }} />
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: isOk ? "#60a5fa" : C.muted, letterSpacing: "0.12em" }}>
+                    {isOk ? `SCANNING ${selectedSymbol || data?.lastSignal?.symbol || "—"}` : isStarting ? "INITIALISING…" : "SCANNER IDLE"}
+                  </div>
+                  <div style={{ fontSize: 9, color: C.muted, letterSpacing: "0.08em", marginTop: 3 }}>
+                    {data?.lastSignal?.strategy?.toUpperCase() ?? "ACTIVE STRATEGY"} · scan every 60s
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
 
             {/* Last signal */}
@@ -95,34 +107,27 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
                   <div style={{
                     padding: "5px 12px", borderRadius: 3, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
                     background: data.lastSignal.type === "BUY" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)",
-                    color:      data.lastSignal.type === "BUY" ? "#22d3a5"               : "#f4617f",
+                    color:      data.lastSignal.type === "BUY" ? "#22d3a5" : "#f4617f",
                     border:     `1px solid ${data.lastSignal.type === "BUY" ? "rgba(34,211,165,0.3)" : "rgba(244,97,127,0.3)"}`,
                   }}>{data.lastSignal.type}</div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text, letterSpacing: "0.06em" }}>
-                      {data.lastSignal.symbol}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
-                      Conf {data.lastSignal.confidence}% · {timeAgo(data.lastSignal.createdAt)}
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{data.lastSignal.symbol}</div>
+                    <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>Conf {data.lastSignal.confidence}% · {timeAgo(data.lastSignal.createdAt)}</div>
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 10, color: C.muted, letterSpacing: "0.06em" }}>
-                  {connected ? "No signal generated yet — scanner is running" : "Configure cTrader to start receiving signals"}
+                <div style={{ fontSize: 10, color: C.muted }}>
+                  {hasError ? "Fix the error above to start receiving signals" : "No signal generated yet — scanner is running"}
                 </div>
               )}
             </div>
 
             {/* 24h stats */}
             <div style={{ display: "flex", gap: 16 }}>
-              {[
-                { label: "SIGNALS 24H", value: data?.signalsLast24h ?? 0 },
-                { label: "ACTIVE NOW",  value: data?.activeSignalsLast24h ?? 0 },
-              ].map(({ label, value }) => (
+              {[{ label: "SIGNALS 24H", value: data?.signalsLast24h ?? 0 }, { label: "ACTIVE NOW", value: data?.activeSignalsLast24h ?? 0 }].map(({ label, value }) => (
                 <div key={label} style={{ flex: 1, background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 4, padding: "12px 16px" }}>
                   <div style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.14em", marginBottom: 6 }}>{label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: value > 0 ? "#22d3a5" : C.muted, letterSpacing: "0.02em" }}>{value}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: value > 0 ? "#22d3a5" : C.muted }}>{value}</div>
                 </div>
               ))}
             </div>
@@ -130,12 +135,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
         )}
       </div>
 
-      <style>{`
-        @keyframes sp-pulse {
-          0%, 100% { transform: scale(1); opacity: 0.35; }
-          50%       { transform: scale(1.8); opacity: 0; }
-        }
-      `}</style>
+      <style>{`@keyframes sp-pulse { 0%,100%{transform:scale(1);opacity:.35} 50%{transform:scale(1.8);opacity:0} }`}</style>
     </div>
   );
 }

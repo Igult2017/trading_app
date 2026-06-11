@@ -2037,6 +2037,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       env.CTRADER_CLIENT_ID && env.CTRADER_CLIENT_SECRET &&
       env.CTRADER_ACCOUNT_ID && env.CTRADER_ACCESS_TOKEN && env.CTRADER_REFRESH_TOKEN
     );
+
+    // Read Python boot status file written by signal_platform/main.py
+    let platformStatus: { status: string; error: string; hint: string; ts: number } | null = null;
+    try {
+      const { readFileSync } = await import("fs");
+      const raw = readFileSync("/app/.signal_platform_status.json", "utf8");
+      platformStatus = JSON.parse(raw);
+    } catch { /* file absent = Python hasn't started yet or dev mode */ }
+
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     try {
       const [lastSignal] = await db.select({
@@ -2048,8 +2057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).from(tradingSignals).orderBy(desc(tradingSignals.createdAt)).limit(1);
 
       const [{ total }] = await db.select({ total: count() })
-        .from(tradingSignals)
-        .where(gte(tradingSignals.createdAt, since24h));
+        .from(tradingSignals).where(gte(tradingSignals.createdAt, since24h));
 
       const [{ active }] = await db.select({ active: count() })
         .from(tradingSignals)
@@ -2057,13 +2065,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({
         ctraderConfigured,
+        platformStatus,
         lastSignal: lastSignal ?? null,
         signalsLast24h: Number(total),
         activeSignalsLast24h: Number(active),
         dataSource: ctraderConfigured ? "cTrader Open API" : "NOT CONFIGURED",
       });
     } catch (err) {
-      return res.json({ ctraderConfigured, lastSignal: null, signalsLast24h: 0, activeSignalsLast24h: 0, dataSource: ctraderConfigured ? "cTrader Open API" : "NOT CONFIGURED", error: String(err) });
+      return res.json({ ctraderConfigured, platformStatus, lastSignal: null, signalsLast24h: 0, activeSignalsLast24h: 0, dataSource: ctraderConfigured ? "cTrader Open API" : "NOT CONFIGURED", error: String(err) });
     }
   });
 
