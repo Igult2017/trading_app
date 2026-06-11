@@ -1,5 +1,4 @@
-# Register strategies here when they are created.
-# Example:
-#   from strategies.my_strategy import MyStrategy
-#   from core import strategy_registry
-#   strategy_registry.register(MyStrategy())
+from strategies.eurusd_pullback import EURUSDPullbackStrategy
+from core import strategy_registry
+
+strategy_registry.register(EURUSDPullbackStrategy())

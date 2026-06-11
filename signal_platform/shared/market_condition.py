@@ -12,14 +12,20 @@ def is_volatile(
     spike_mult: float = 3.0,
 ) -> bool:
     """
-    True when recent candles contain explosive/erratic bodies.
-    Detects news spikes and sudden liquidity voids.
-    spike_mult: body must exceed this multiple of the baseline average to flag.
+    True when recent candles are erratic/explosive — news spikes, liquidity voids.
+    A candle is a spike only when BOTH conditions hold:
+      1. Body is oversized vs recent baseline (3× average)
+      2. Body ratio is low (< 0.55) — wicks dominate, candle is erratic
+    A clean volume candle (large body, small wicks, BR >= 0.60) is NOT a spike.
     """
     if len(candles) < lookback + 10:
         return False
     baseline = avg_body(candles[-(lookback + 20):-lookback]) or 1e-8
-    return any(body_size(c) > spike_mult * baseline for c in candles[-lookback:])
+    from shared.candle_math import body_ratio as _br
+    return any(
+        body_size(c) > spike_mult * baseline and _br(c) < 0.55
+        for c in candles[-lookback:]
+    )
 
 
 def is_choppy(
