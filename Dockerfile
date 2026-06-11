@@ -41,22 +41,9 @@ COPY signal_platform ./signal_platform
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql
 
-# Startup: run DB migrations, start signal platform, then launch Node.js
-RUN printf '%s\n' \
-    '#!/bin/sh' \
-    'echo "=== Environment Check ==="' \
-    'echo "NODE_ENV: $NODE_ENV"' \
-    'echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo YES || echo NO)"' \
-    'echo "GOOGLE_API_KEY set: $([ -n "$GOOGLE_API_KEY" ] && echo YES || echo NO)"' \
-    'echo "========================="' \
-    'echo "=== Running DB migrations ==="' \
-    'if [ -n "$DATABASE_URL" ]; then psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"; fi' \
-    'echo "=== Starting signal platform ==="' \
-    'cd /app/signal_platform && python3 -u main.py 2>&1 &' \
-    'echo "Signal platform PID: $!"' \
-    'cd /app' \
-    'exec node dist/index.prod.js' \
-    > /app/start.sh && chmod +x /app/start.sh
+# Startup script — copied from repo so any change invalidates the Docker layer cache
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 EXPOSE 5000
 ENV NODE_ENV=production
