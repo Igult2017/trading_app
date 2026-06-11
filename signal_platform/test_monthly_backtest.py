@@ -110,11 +110,11 @@ def fetch() -> tuple:
 # ── D1 trend for a given bar time ─────────────────────────────────────────────
 
 def _d1_trend_at(d1: list, bar_time: int) -> "Trend":
-    """D1 structural trend (HH/HL vs LH/LL swing structure) up to bar_time."""
+    """D1 structural trend up to bar_time. 20-bar lookback matches live strategy."""
     past = [c for c in d1 if c.time < bar_time]
-    if len(past) < 10:
+    if len(past) < 15:
         return Trend.RANGING
-    return detect_trend(past)
+    return detect_trend(past, lookback=20)
 
 
 # ── backtest ──────────────────────────────────────────────────────────────────
@@ -166,29 +166,34 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
             continue
         c_dedup += 1
 
-        # Step 1 — Pullback immediately after the volume candle
+        # Step 1 — Pullback: 1-2 bars, depth 25-80% of vol body, fresh
         pb = measure_pullback(h1_slice, rel_idx, bullish)
         if pb is None:
             continue
         c_pb += 1
-        pb_high, pb_low, pb_count = pb
+        pb_high, pb_low, pb_count, _pb_end_time = pb
 
-        # Step 3 — H1 close fractal-break proxy
+        # Step 3 — H1 close past pb_high/pb_low as 1M fractal proxy
+        # (real M1 data not available for 60-day backtest; H1 close is approximate)
         if bullish  and cur.close <= pb_high:
             continue
         if not bullish and cur.close >= pb_low:
             continue
         c_frac += 1
 
-        # Risk levels
-        entry = cur.close
-        zone  = (pb_high - pb_low) * 0.10
-        sl    = (pb_low  - zone) if bullish else (pb_high + zone)
-        risk  = abs(entry - sl)
-        if risk <= 0:
-            continue
-        tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+        # Risk levels — SL anchored to pullback zone boundary + 15% buffer
+        _pip     = 0.00010
+        pb_range = pb_high - pb_low
+        buffer   = max(2 * _pip, pb_range * 0.15)
+        entry    = cur.close
+        sl       = (pb_low - buffer) if bullish else (pb_high + buffer)
+        risk     = abs(entry - sl)
 
+        # Enforce same risk bounds as live strategy
+        if risk < 5 * _pip or risk > 60 * _pip:
+            continue
+
+        tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
         c_4h += 1
 
         # Signal fires
@@ -216,7 +221,7 @@ def run_backtest(h1: list, h4: list, d1: list) -> dict:
     print(f"  After dedup             : {c_dedup}")
     print(f"  After pullback check    : {c_pb}")
     print(f"  After fractal break     : {c_frac}")
-    print(f"  After fractal break     : {c_4h}  <- final signals")
+    print(f"  After risk bounds       : {c_4h}  <- final signals")
     return signals_by_month
 
 

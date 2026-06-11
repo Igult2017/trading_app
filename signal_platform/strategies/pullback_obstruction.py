@@ -42,7 +42,7 @@ def has_4h_obstruction(
     target    = entry + risk * min_rr if bullish else entry - risk * min_rr
     proximity = risk * 0.50
 
-    for s in find_swing_points(h4):
+    for s in find_swing_points(h4, n=5):   # n=5: only significant pivots, not micro-structure
         if _is_mitigated(h4, s):
             continue
         if abs(entry - s.price) < proximity:
