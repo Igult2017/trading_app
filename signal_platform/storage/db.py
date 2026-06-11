@@ -8,7 +8,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from config.settings import settings
 
-engine = create_engine(settings.database_url, echo=False)
+# SQLAlchemy 2.0 dropped the legacy "postgres://" prefix — rewrite to "postgresql://"
+_db_url = settings.database_url.replace("postgres://", "postgresql://", 1)
+engine = create_engine(_db_url, echo=False)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

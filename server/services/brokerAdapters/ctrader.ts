@@ -52,8 +52,12 @@ function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<
       let msg: any;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
       if (msg.payloadType === PT_OA_ERROR) {
+        const desc = String(msg.payload?.description ?? msg.payload?.errorCode ?? 'unknown error');
+        // Ignore errors about unsolicited server-push events (e.g. SymbolChangedEvent) —
+        // these are not responses to our request; keep waiting for the actual reply.
+        if (desc.includes('Event') || desc.toLowerCase().includes('not supported')) return;
         clearTimeout(t); ws.off('message', handler);
-        reject(new Error(`cTrader: ${msg.payload?.description ?? msg.payload?.errorCode ?? 'unknown error'}`));
+        reject(new Error(`cTrader: ${desc}`));
       } else if (msg.payloadType === targetType) {
         clearTimeout(t); ws.off('message', handler);
         resolve(msg.payload ?? {});
