@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { Search, Bell, BellOff, Share2, ChevronRight, Loader2, ZoomIn, X } from "lucide-react";
 import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId, type ChartType } from "@/components/TradingChart";
+import SignalPlatformStatus from "@/components/SignalPlatformStatus";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
 
@@ -178,7 +179,7 @@ function LiveClock() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
-  const [selected, setSelected]   = useState("ETH/USDT");
+  const [selected, setSelected]   = useState("EUR/USD");
   const [search,   setSearch]     = useState("");
   const [alertModal, setAlertModal] = useState(false);
   const [alertTarget, setAlertTarget] = useState("");
@@ -693,8 +694,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             </div>
           )}
 
-          {/* ── Live Visualizer Chart ── */}
-          <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
+          {/* ── Signal Platform Status (replaces live chart — signal-only mode) ── */}
+          <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} />
+
+          {/* ── Live Visualizer Chart (disabled — signal-only mode) ── */}
+          {false && <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
             {/* Chart Header */}
             {/* ── Row 1: symbol + clock + alert ── */}
             <div style={{ padding: "10px 16px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -874,7 +878,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 return { entry: safeNum(rawSignal.entryPrice), sl: safeNum(rawSignal.stopLoss), tp: safeNum(rawSignal.takeProfit), direction: rawSignal.type };
               })() : undefined}
             />
-          </div>
+          </div>}
         </div>
       </div>
 
