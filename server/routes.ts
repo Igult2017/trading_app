@@ -911,6 +911,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Market Session Clock (public — no auth required) ---
+  // Returns the 4 standard forex sessions with live active status.
+  // Used by the signal platform to determine valid trading windows.
+  app.get("/api/market-sessions", (_req, res) => {
+    const SESSION_DEFINITIONS = [
+      { name: "Sydney",   openUTC: 22,   closeUTC: 7    },
+      { name: "Tokyo",    openUTC: 0,    closeUTC: 9    },
+      { name: "London",   openUTC: 7,    closeUTC: 15.5 },
+      { name: "New York", openUTC: 12,   closeUTC: 21   },
+    ];
+
+    const now       = new Date();
+    const utcHour   = now.getUTCHours() + now.getUTCMinutes() / 60;
+    const dayOfWeek = now.getUTCDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    const sessions = SESSION_DEFINITIONS.map(s => {
+      let active = false;
+      if (!isWeekend) {
+        active = s.openUTC < s.closeUTC
+          ? utcHour >= s.openUTC && utcHour < s.closeUTC
+          : utcHour >= s.openUTC || utcHour < s.closeUTC;
+      }
+      return { name: s.name, openUTC: s.openUTC, closeUTC: s.closeUTC, isActive: active };
+    });
+
+    res.json({
+      utcHour:        Math.round(utcHour * 100) / 100,
+      isWeekend,
+      anyActive:      sessions.some(s => s.isActive),
+      sessions,
+    });
+  });
+
   // --- Session Routes ---
   app.get("/api/sessions", async (req, res) => {
     const auth = await requireAuth(req, res);
