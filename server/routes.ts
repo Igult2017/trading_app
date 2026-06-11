@@ -2033,9 +2033,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/signal-platform/status", async (_req, res) => {
     const env = process.env;
+    // cTrader is configured if client creds exist + either (a) tokens in env vars or
+    // (b) ADMIN_SECRET bridge is available (Python fetches tokens from broker_accounts DB)
     const ctraderConfigured = Boolean(
-      env.CTRADER_CLIENT_ID && env.CTRADER_CLIENT_SECRET &&
-      env.CTRADER_ACCOUNT_ID && env.CTRADER_ACCESS_TOKEN && env.CTRADER_REFRESH_TOKEN
+      env.CTRADER_CLIENT_ID && env.CTRADER_CLIENT_SECRET && env.CTRADER_ACCOUNT_ID &&
+      ((env.CTRADER_ACCESS_TOKEN && env.CTRADER_REFRESH_TOKEN) || env.ADMIN_SECRET)
     );
 
     // Read Python boot status file written by signal_platform/main.py
@@ -2073,6 +2075,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (err) {
       return res.json({ ctraderConfigured, platformStatus, lastSignal: null, signalsLast24h: 0, activeSignalsLast24h: 0, dataSource: ctraderConfigured ? "cTrader Open API" : "NOT CONFIGURED", error: String(err) });
+    }
+  });
+
+  // ── Internal cTrader token bridge (signal platform → Node) ──────────────
+  // Protected by ADMIN_SECRET. Signal platform calls GET on startup to get
+  // fresh tokens from broker_accounts (always kept up-to-date by Node OAuth).
+  // It calls PUT when cTrader rotates the refresh token so Node stores the new one.
+
+  const requireAdminSecret = (req: Request, res: Response, next: NextFunction) => {
+    const secret = process.env.ADMIN_SECRET;
+    if (!secret || req.headers['x-admin-secret'] !== secret)
+      return res.status(401).json({ error: 'Unauthorized' });
+    next();
+  };
+
+  app.get('/api/internal/ctrader-credentials', requireAdminSecret, async (_req, res) => {
+    try {
+      const { rows } = await pool.query<{
+        id: string; account_type: string; password_enc: string;
+      }>(`SELECT id, account_type, password_enc FROM broker_accounts WHERE platform = 'ctrader' LIMIT 5`);
+      for (const row of rows) {
+        try {
+          const plain = safeDecrypt(row.password_enc);
+          if (!plain) continue;
+          const creds = JSON.parse(plain);
+          if (creds.accessToken && creds.refreshToken) {
+            return res.json({
+              account_id: row.id,
+              access_token:  creds.accessToken,
+              refresh_token: creds.refreshToken,
+              expires_at:    creds.tokenExpiresAt ?? 0,
+              is_live:       (row.account_type ?? '').toLowerCase() !== 'demo',
+              ctrader_id:    String(creds.ctraderId ?? ''),
+            });
+          }
+        } catch { continue; }
+      }
+      return res.status(404).json({ error: 'No cTrader account with tokens found' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/internal/ctrader-credentials', requireAdminSecret, async (req, res) => {
+    const { account_id, access_token, refresh_token, expires_at } = req.body as Record<string, any>;
+    if (!account_id || !access_token || !refresh_token)
+      return res.status(400).json({ error: 'account_id, access_token, refresh_token required' });
+    try {
+      const { rows } = await pool.query<{ password_enc: string }>(
+        `SELECT password_enc FROM broker_accounts WHERE id = $1`, [account_id]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Account not found' });
+      const existing = (() => { try { return JSON.parse(safeDecrypt(rows[0].password_enc) ?? '{}'); } catch { return {}; } })();
+      const updated = { ...existing, accessToken: access_token, refreshToken: refresh_token, tokenExpiresAt: expires_at ?? (Date.now() + 86_400_000) };
+      await pool.query(`UPDATE broker_accounts SET password_enc = $1 WHERE id = $2`, [safeEncrypt(JSON.stringify(updated)), account_id]);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   });
 

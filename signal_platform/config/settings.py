@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     ctrader_access_token:  str = ""
     ctrader_refresh_token: str = ""
 
+    # ── Node.js token bridge ───────────────────────────────────────────────────
+    # When both are set, tokens are fetched from broker_accounts (always current)
+    # instead of relying on potentially-stale env vars.
+    # In Docker the default URL is correct (same container, port 5000).
+    admin_secret:   str = ""
+    node_api_url:   str = "http://localhost:5000"
+
 
 
 settings = Settings()

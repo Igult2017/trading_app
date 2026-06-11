@@ -1,15 +1,11 @@
 """
 Signal Platform — entrypoint.
 Wires up all layers and starts the scheduler.
-Nothing of substance lives here — each concern is in its own module.
 """
 
 import asyncio
-import json
 import logging
 import sys
-import time
-from pathlib import Path
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -19,33 +15,22 @@ logging.basicConfig(
 )
 log = logging.getLogger("signal_platform")
 
-# Shared status file — Node reads this to surface errors in the UI
-_STATUS_FILE = Path("/app/.signal_platform_status.json")
-
-
-def _write_status(status: str, error: str = "", hint: str = "") -> None:
-    try:
-        _STATUS_FILE.write_text(json.dumps({
-            "status": status,
-            "error":  error,
-            "hint":   hint,
-            "ts":     int(time.time()),
-        }))
-    except OSError:
-        pass  # read-only filesystem — ignore, logs are still visible
-
 
 async def _startup() -> None:
     from config.settings import settings
+    from core.startup_helpers import write_status, bootstrap_ctrader_tokens
 
-    _write_status("starting")
+    write_status("starting")
 
     # 1. Database — create tables if not present
     from storage.db import create_tables
     create_tables()
     log.info("[boot] database ready")
 
-    # 2. Configure + verify cTrader data source
+    # 2. Bootstrap tokens from Node DB (always fresh — overrides potentially-stale env vars)
+    await bootstrap_ctrader_tokens(settings)
+
+    # 3. Configure + verify cTrader data source
     from data import ctrader_session
     ctrader_session.configure(
         client_id=settings.ctrader_client_id,
@@ -62,7 +47,7 @@ async def _startup() -> None:
         if not settings.ctrader_access_token:  missing.append("CTRADER_ACCESS_TOKEN")
         if not settings.ctrader_refresh_token: missing.append("CTRADER_REFRESH_TOKEN")
         msg = "Missing env vars: " + ", ".join(missing)
-        _write_status("error", msg, "Add the missing env vars in Coolify and redeploy")
+        write_status("error", msg, "Add the missing env vars in Coolify and redeploy")
         log.error("[boot] cTrader not configured — %s", msg)
         sys.exit(1)
 
@@ -80,13 +65,13 @@ async def _startup() -> None:
     except asyncio.TimeoutError:
         msg  = f"TCP {_host}:5035 timeout — outbound port 5035 is blocked"
         hint = "Open outbound TCP 5035 in your VPS firewall (UFW / iptables / provider panel)"
-        _write_status("error", msg, hint)
+        write_status("error", msg, hint)
         log.error("[boot] %s", msg)
         sys.exit(1)
     except OSError as exc:
         msg  = f"TCP {_host}:5035 refused — {exc}"
         hint = "Check VPS firewall outbound rules for port 5035"
-        _write_status("error", msg, hint)
+        write_status("error", msg, hint)
         log.error("[boot] %s", msg)
         sys.exit(1)
 
@@ -98,26 +83,26 @@ async def _startup() -> None:
         if not probe:
             msg  = f"Spotware returned 0 bars — CTRADER_ACCOUNT_ID={settings.ctrader_account_id} may be wrong"
             hint = "Confirm CTRADER_ACCOUNT_ID is the ctid numeric ID, not your broker login number"
-            _write_status("error", msg, hint)
+            write_status("error", msg, hint)
             log.error("[boot] %s", msg)
             sys.exit(1)
         log.info("[boot] cTrader OK — %d bars received for EUR/USD H1", len(probe))
     except Exception as exc:
         raw = str(exc)
         if "refresh" in raw.lower() or "token" in raw.lower() or "backoff" in raw.lower():
-            hint = "CTRADER_REFRESH_TOKEN is stale (cTrader rotates it on every use). Check logs for 'refresh token rotated' to get the new value, then update Coolify."
+            hint = "CTRADER_REFRESH_TOKEN is stale. ADMIN_SECRET must be set so Python can auto-fetch tokens from Node DB."
         elif "app auth failed" in raw.lower():
             hint = "CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is wrong, OR the app is not Active in the cTrader portal"
         elif "account auth failed" in raw.lower():
-            hint = f"CTRADER_ACCOUNT_ID={settings.ctrader_account_id} is invalid on the {_env} server — confirm ctid vs broker login number"
+            hint = f"CTRADER_ACCOUNT_ID={settings.ctrader_account_id} is invalid on the {_env} server"
         else:
             hint = "Check CTRADER_ACCESS_TOKEN, CTRADER_REFRESH_TOKEN, CTRADER_ACCOUNT_ID in Coolify"
-        _write_status("error", raw, hint)
+        write_status("error", raw, hint)
         log.error("[boot] cTrader probe FAILED: %s", raw)
         log.error("[boot] hint: %s", hint)
         sys.exit(1)
 
-    # 3. Register plugins
+    # 4. Register plugins
     import features      # noqa: F401
     import strategies    # noqa: F401
     import indicators    # noqa: F401
@@ -126,21 +111,21 @@ async def _startup() -> None:
     log.info("[boot] %d feature(s), %d strategy(ies) registered",
              len(feature_registry.registered_ids()), strategy_registry.count())
 
-    # 4. Wire notifications
+    # 5. Wire notifications
     from notifications.dispatcher import register as register_dispatcher
     register_dispatcher()
 
-    # 5. Build + start scheduler
+    # 6. Build + start scheduler
     from orchestrator.scanner import scan_markets
     from monitor.signal_monitor import check_all
     from scheduler import scheduler
     scheduler.build(scan_markets, check_all)
     scheduler.start()
 
-    _write_status("ok")
+    write_status("ok")
     log.info("[boot] scheduler started — platform is running")
 
-    # 6. Run first scan immediately
+    # 7. Run first scan immediately
     log.info("[boot] running initial scan...")
     await scan_markets()
 

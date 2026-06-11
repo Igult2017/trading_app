@@ -35,11 +35,17 @@ _client_id = _client_secret = _env = ""
 _account_id:    int = 0
 _access_token:  str   = ""
 _token_expiry:  float = 0.0
-_refresh_backoff_until: float = 0.0   # monotonic timestamp; skip refresh until then
+_refresh_backoff_until: float = 0.0
 _reader: Optional[asyncio.StreamReader] = None
 _writer: Optional[asyncio.StreamWriter] = None
 _conn_lock  = asyncio.Lock()
 _token_lock = asyncio.Lock()
+
+
+def set_node_bridge(account_id: str, admin_secret: str, node_api_url: str) -> None:
+    """Delegate to node_bridge module — kept here so startup_helpers imports one place."""
+    from data.node_bridge import set_node_bridge as _set
+    _set(account_id, admin_secret, node_api_url)
 
 
 def configure(client_id: str, client_secret: str,
@@ -59,7 +65,6 @@ def is_configured() -> bool:
 
 
 def _read_tokens() -> dict:
-    # Env vars take priority — Coolify / production deployment
     from config.settings import settings
     if settings.ctrader_access_token and settings.ctrader_refresh_token:
         return {
@@ -73,12 +78,10 @@ def _read_tokens() -> dict:
 
 
 def _write_tokens(data: dict) -> None:
-    # Try the file (works locally; silently ignored in read-only containers)
     try:
         _TOKEN_FILE.write_text(json.dumps(data, indent=2))
     except OSError:
         pass
-    # Warn when refresh token rotates so the Coolify env var can be updated
     new_rt = data.get("refresh_token", "")
     if new_rt:
         from config.settings import settings
@@ -96,11 +99,8 @@ async def get_access_token() -> str:
         if _access_token and time.monotonic() < _token_expiry:
             return _access_token
 
-        # Backoff: avoid hammering Spotware after repeated failures
         if time.monotonic() < _refresh_backoff_until:
-            raise ValueError(
-                "cTrader token refresh in backoff — re-run auth_setup.py to reset"
-            )
+            raise ValueError("cTrader token refresh in backoff — re-run auth_setup.py to reset")
 
         tokens = _read_tokens()
         rt = tokens.get("refresh_token", "")
@@ -128,11 +128,12 @@ async def get_access_token() -> str:
             if new_rt and new_rt != rt:
                 _write_tokens({**tokens, "refresh_token": new_rt})
                 log.debug("[ctrader] refresh token rotated and saved")
+                from data.node_bridge import push_rotated_token
+                asyncio.create_task(push_rotated_token(new_rt, _access_token))
 
             return _access_token
 
         except Exception:
-            # Back off for 5 minutes to avoid flooding Spotware's token endpoint
             _refresh_backoff_until = time.monotonic() + 300
             log.warning("[ctrader] token refresh failed — backing off 5 min")
             raise
