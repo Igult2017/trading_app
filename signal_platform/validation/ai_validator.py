@@ -18,7 +18,13 @@ log = logging.getLogger(__name__)
 
 
 def is_available() -> bool:
-    return bool(settings.gemini_api_key)
+    if not settings.gemini_api_key:
+        return False
+    try:
+        import google.generativeai  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 
 async def validate_signal(signal, candles: list) -> bool:
