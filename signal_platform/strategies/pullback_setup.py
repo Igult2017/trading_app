@@ -1,12 +1,9 @@
 """
-Helper functions for EURUSD Pullback strategy.
-Handles: volume candle detection, pullback measurement,
-4H obstruction check, and 1M fractal break confirmation.
+EURUSD Pullback strategy helpers: volume candle, pullback measurement, fractal entry.
+4H obstruction logic lives in pullback_obstruction.py.
 """
-from core.types import Candle, ZoneType
+from core.types import Candle
 from shared.candle_math import body_size, body_ratio, is_bullish
-from shared.swing_points import find_swing_points
-from shared.zone_detection import find_fvg_zones
 
 
 def find_volume_candle(
@@ -16,14 +13,11 @@ def find_volume_candle(
     min_run: int = 3,
 ) -> int | None:
     """
-    Find the most recent volume candle that is the FINAL candle of a momentum run.
+    Find the most recent H1 volume candle that is the FINAL bar of a momentum run.
 
-    A valid volume candle requires:
-    1. At least `min_run` consecutive same-direction candles ending at this bar
-       (e.g. 3 bullish bars in a row — the run itself IS the signal of intent)
-    2. This last candle has a large clean body: body > prev body AND body_ratio >= 0.60
-
-    The 3-4 candle run confirms momentum; the volume candle is its culmination.
+    Valid when:
+    1. At least min_run consecutive same-direction candles ending at this bar.
+    2. This last candle has a large clean body (body > prev AND body_ratio >= 0.60).
     Returns index into the original candles list, or None.
     """
     end   = len(candles) - 1
@@ -35,7 +29,6 @@ def find_volume_candle(
             continue
         if not (body_size(c) > body_size(prev) and body_ratio(c) >= 0.60):
             continue
-        # Confirm at least min_run - 1 same-direction candles before this one
         consecutive = 1
         for j in range(i - 1, max(-1, i - min_run), -1):
             if is_bullish(candles[j]) == bullish:
@@ -53,9 +46,8 @@ def measure_pullback(
     bullish: bool,
 ) -> tuple[float, float, int] | None:
     """
-    Expect exactly 1 against-direction candle immediately after the volume candle
-    (the controlled retracement before continuation).
-    Returns (pullback_high, pullback_low, 1) or None.
+    Expect 1-2 against-direction H1 candles immediately after the volume candle.
+    Returns (pb_high, pb_low, count) or None if pullback is absent or too wide.
     """
     pb_candles: list[Candle] = []
 
@@ -66,7 +58,6 @@ def measure_pullback(
         else:
             break
 
-    # 1-2 candle pullback: clean, controlled retracement
     if len(pb_candles) < 1 or len(pb_candles) > 2:
         return None
 
@@ -77,89 +68,73 @@ def measure_pullback(
     )
 
 
-def _is_mitigated(h4: list[Candle], swing: "SwingPoint") -> bool:
-    """
-    A swing HIGH is mitigated when a later candle closed above it.
-    A swing LOW  is mitigated when a later candle closed below it.
-    Wick-only touches do not count — full close required.
-    """
-    for c in h4[swing.index + 1:]:
-        if swing.is_high and c.close >= swing.price:
-            return True
-        if not swing.is_high and c.close <= swing.price:
-            return True
-    return False
-
-
-def has_4h_obstruction(
-    h4: list[Candle],
-    entry: float,
-    bullish: bool,
-    risk: float,
-    min_rr: float = 2.0,
-) -> bool:
-    """
-    True if an UNMITIGATED 4H level blocks the path to 2R.
-    Two types of levels are checked:
-
-    1. Swing highs / lows (S&R):
-       - Unmitigated swing HIGH between entry and TP blocks a BUY.
-       - Unmitigated swing LOW  between entry and TP blocks a SELL.
-       - Any unmitigated level within 0.5R of entry is also a block.
-
-    2. FVG zones (Fair Value Gaps / demand-supply imbalance):
-       - Unmitigated 4H demand FVG (bullish imbalance) overlapping the
-         SELL path → institutions sitting there can reverse price.
-       - Unmitigated 4H supply FVG (bearish imbalance) overlapping the
-         BUY path → institutions sitting there can reverse price.
-
-    Mitigated = price already closed through the level → orders consumed,
-    level no longer defends.
-    """
-    target    = entry + risk * min_rr if bullish else entry - risk * min_rr
-    proximity = risk * 0.50
-
-    # ── 1. Swing highs / lows ─────────────────────────────────────────
-    for s in find_swing_points(h4):
-        if _is_mitigated(h4, s):
-            continue
-        if abs(entry - s.price) < proximity:
-            return True
-        if bullish     and s.is_high     and entry < s.price < target:
-            return True
-        if not bullish and not s.is_high and target < s.price < entry:
-            return True
-
-    # ── 2. FVG zones (demand / supply imbalances) ─────────────────────
-    lo, hi = (target, entry) if not bullish else (entry, target)
-    for fvg in find_fvg_zones(h4, "H4"):
-        if fvg.mitigated:
-            continue
-        # Zone overlaps the trade path if it sits anywhere between lo and hi
-        zone_overlaps = fvg.bottom < hi and fvg.top > lo
-        if not zone_overlaps:
-            continue
-        if not bullish and fvg.type == ZoneType.DEMAND:
-            return True   # demand in SELL path — likely bounce before TP
-        if bullish     and fvg.type == ZoneType.SUPPLY:
-            return True   # supply in BUY path — likely reversal before TP
-
-    return False
-
-
 def fractal_broken(
     m1: list[Candle],
     pb_high: float,
     pb_low: float,
     bullish: bool,
-    lookback: int = 5,
+    lookback: int = 100,
 ) -> bool:
     """
-    True when the 1M pullback structure is broken by a close.
-    BUY : any of the last `lookback` 1M candles closed ABOVE pb_high.
-    SELL: any of the last `lookback` 1M candles closed BELOW pb_low.
+    True when the FIRST 1M fractal after the pullback extreme has been broken.
+
+    1. Find the pullback extreme (lowest M1 close for BUY / highest for SELL)
+       within the pb_low..pb_high zone — the point where price turned.
+    2. Scan forward for the first Williams fractal: 5-candle pattern where the
+       middle bar has the highest high (BUY) or lowest low (SELL).
+    3. Return True when a subsequent M1 candle closes past that fractal level.
+
+    Entry is INSIDE the pullback zone, not after the full H1 range is cleared.
+    SL stays below pb_low (BUY) or above pb_high (SELL).
     """
-    recent = m1[-lookback:]
-    if bullish:
-        return any(c.close > pb_high for c in recent)
-    return any(c.close < pb_low for c in recent)
+    _pip   = 0.00010
+    window = m1[-lookback:] if len(m1) > lookback else m1
+    if len(window) < 7:
+        return False
+
+    zone_lo = pb_low  - 3 * _pip
+    zone_hi = pb_high + 3 * _pip
+    extreme_pos: int | None = None
+
+    for i, c in enumerate(window):
+        if not (zone_lo <= c.close <= zone_hi):
+            continue
+        if bullish:
+            if extreme_pos is None or c.close < window[extreme_pos].close:
+                extreme_pos = i
+        else:
+            if extreme_pos is None or c.close > window[extreme_pos].close:
+                extreme_pos = i
+
+    if extreme_pos is None or extreme_pos >= len(window) - 5:
+        return False
+
+    fractal_level: float | None = None
+    fractal_pos:   int   | None = None
+
+    for i in range(extreme_pos + 2, len(window) - 2):
+        c      = window[i]
+        p1, p2 = window[i - 1], window[i - 2]
+        n1, n2 = window[i + 1], window[i + 2]
+
+        if bullish:
+            if c.high > p1.high and c.high > p2.high and c.high > n1.high and c.high > n2.high:
+                fractal_level = c.high
+                fractal_pos   = i
+                break
+        else:
+            if c.low < p1.low and c.low < p2.low and c.low < n1.low and c.low < n2.low:
+                fractal_level = c.low
+                fractal_pos   = i
+                break
+
+    if fractal_level is None or fractal_pos is None:
+        return False
+
+    for c in window[fractal_pos + 1:]:
+        if bullish  and c.close > fractal_level:
+            return True
+        if not bullish and c.close < fractal_level:
+            return True
+
+    return False

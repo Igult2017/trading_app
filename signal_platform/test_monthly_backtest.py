@@ -25,7 +25,7 @@ from shared.candle_math import is_bullish
 from shared.session_clock    import is_valid_session
 from shared.market_condition import is_tradeable
 from shared.trend_detector   import detect as detect_trend
-from strategies.pullback_setup import find_volume_candle, measure_pullback, has_4h_obstruction
+from strategies.pullback_setup import find_volume_candle, measure_pullback
 
 logging.basicConfig(level=logging.WARNING)
 

@@ -19,7 +19,8 @@ from core.strategy_context import StrategyContext
 from shared.market_condition import is_tradeable
 from shared.session_clock import is_valid_session
 from shared.trend_detector import detect as detect_trend
-from strategies.pullback_setup import find_volume_candle, measure_pullback, has_4h_obstruction, fractal_broken
+from strategies.pullback_setup import find_volume_candle, measure_pullback, fractal_broken
+from strategies.pullback_obstruction import has_4h_obstruction
 
 
 class EURUSDPullbackStrategy(BaseStrategy):

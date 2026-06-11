@@ -25,7 +25,8 @@ from core.pattern_types import PatternBundle
 from core.strategy_context import StrategyContext
 from indicators.ema_200 import EMA200Indicator
 from strategies.eurusd_pullback import EURUSDPullbackStrategy
-from strategies.pullback_setup import find_volume_candle, measure_pullback, fractal_broken, has_4h_obstruction
+from strategies.pullback_setup import find_volume_candle, measure_pullback, fractal_broken
+from strategies.pullback_obstruction import has_4h_obstruction
 from shared.session_clock import is_valid_session
 from shared.market_condition import is_tradeable
 
