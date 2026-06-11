@@ -3,14 +3,16 @@ Monthly signal-count backtest for EURUSDPullbackStrategy.
 
 Uses 60 days of H1 EURUSD data from Yahoo Finance (free, no key).
 The 1M fractal-break check is approximated by an H1 close past the
-pullback level — acceptable proxy since a clean breakout H1 close is a
-superset of any 1M close that preceded it.
+pullback level.
+
+Direction bias: D1 structural trend (detect() from trend_detector.py)
+News avoidance: skips signals within 2H of high-impact USD/EUR events.
 
 Run from the signal_platform directory:
     python test_monthly_backtest.py
 """
 
-import sys, os, asyncio, logging
+import sys, os, logging
 sys.path.insert(0, os.path.dirname(__file__))
 
 from datetime import datetime, timezone
@@ -18,22 +20,51 @@ from datetime import datetime, timezone
 import yfinance as yf
 import pandas as pd
 
-from core.types        import Candle, MTFCandles, TF
+from core.types        import Candle, TF, Trend
 from shared.candle_math import is_bullish
 from shared.session_clock    import is_valid_session
 from shared.market_condition import is_tradeable
+from shared.trend_detector   import detect as detect_trend
 from strategies.pullback_setup import find_volume_candle, measure_pullback, has_4h_obstruction
 
 logging.basicConfig(level=logging.WARNING)
 
-SYMBOL        = "EURUSD=X"
-_EMA_CHOP_PCT = 0.0008
-_EMA_K        = 2.0 / (200 + 1)
+SYMBOL = "EURUSD=X"
+
+# High-impact USD/EUR news events Apr-Jun 2026 (date + UTC hour, window = +/-2h)
+# Sources: FOMC, NFP, CPI, ECB rate decisions
+HIGH_IMPACT_EVENTS = [
+    # NFP
+    datetime(2026, 4,  3,  12, 30, tzinfo=timezone.utc),
+    datetime(2026, 5,  1,  12, 30, tzinfo=timezone.utc),
+    datetime(2026, 6,  5,  12, 30, tzinfo=timezone.utc),
+    # FOMC
+    datetime(2026, 3, 19,  18,  0, tzinfo=timezone.utc),
+    datetime(2026, 5,  7,  18,  0, tzinfo=timezone.utc),
+    datetime(2026, 6, 18,  18,  0, tzinfo=timezone.utc),
+    # US CPI
+    datetime(2026, 4, 10,  12, 30, tzinfo=timezone.utc),
+    datetime(2026, 5, 13,  12, 30, tzinfo=timezone.utc),
+    datetime(2026, 6, 11,  12, 30, tzinfo=timezone.utc),
+    # ECB rate decisions
+    datetime(2026, 3,  6,  13, 15, tzinfo=timezone.utc),
+    datetime(2026, 4, 17,  13, 15, tzinfo=timezone.utc),
+    datetime(2026, 6,  5,  13, 15, tzinfo=timezone.utc),
+]
+NEWS_WINDOW_HOURS = 2
+
+
+def _near_high_impact_news(dt: datetime) -> bool:
+    ts = dt.timestamp()
+    for ev in HIGH_IMPACT_EVENTS:
+        if abs(ts - ev.timestamp()) <= NEWS_WINDOW_HOURS * 3600:
+            return True
+    return False
 
 
 # ── data helpers ──────────────────────────────────────────────────────────────
 
-def _to_candles(df: pd.DataFrame, tf_name: str) -> list[Candle]:
+def _to_candles(df: pd.DataFrame, tf_name: str) -> list:
     rows = []
     for ts, row in df.iterrows():
         try:
@@ -51,8 +82,8 @@ def _to_candles(df: pd.DataFrame, tf_name: str) -> list[Candle]:
     return rows
 
 
-def _resample_h4(h1: list[Candle]) -> list[Candle]:
-    grouped: dict[int, list[Candle]] = {}
+def _resample_h4(h1: list) -> list:
+    grouped: dict = {}
     for c in h1:
         b = c.time - c.time % (4 * 3600)
         grouped.setdefault(b, []).append(c)
@@ -65,7 +96,7 @@ def _resample_h4(h1: list[Candle]) -> list[Candle]:
     ]
 
 
-def fetch() -> tuple[list[Candle], list[Candle]]:
+def fetch() -> tuple:
     print("Fetching EURUSD H1 + D1 from Yahoo Finance ...")
     df_h1 = yf.download(SYMBOL, interval="1h", period="60d", progress=False, auto_adjust=True)
     h1 = _to_candles(df_h1, TF.H1)
@@ -76,54 +107,54 @@ def fetch() -> tuple[list[Candle], list[Candle]]:
     return h1, h4, d1
 
 
-# ── incremental EMA ───────────────────────────────────────────────────────────
+# ── D1 trend for a given bar time ─────────────────────────────────────────────
 
-def build_ema_series(h1: list[Candle]) -> list[float]:
-    ema = h1[0].close
-    out = []
-    for c in h1:
-        ema = c.close * _EMA_K + ema * (1 - _EMA_K)
-        out.append(ema)
-    return out
+def _d1_trend_at(d1: list, bar_time: int) -> Trend:
+    """Return D1 structural trend using all D1 bars up to (but not including) bar_time."""
+    past = [c for c in d1 if c.time < bar_time]
+    if len(past) < 10:
+        return Trend.RANGING
+    return detect_trend(past)
 
 
 # ── backtest ──────────────────────────────────────────────────────────────────
 
-def run_backtest(h1: list[Candle], h4: list[Candle]) -> dict[str, list[dict]]:
-    ema_series = build_ema_series(h1)
-    fired: set[int] = set()          # absolute vol_idx already used
-    signals_by_month: dict[str, list[dict]] = {}
-    # filter counters
-    c_total = c_ema = c_session = c_trade = c_vol = c_pb = c_frac = c_dedup = c_4h = 0
+def run_backtest(h1: list, h4: list, d1: list) -> dict:
+    fired: set = set()
+    signals_by_month: dict = {}
 
-    # Need at least 215 bars: 200 EMA warm-up + 15 lookback
-    for i in range(215, len(h1)):
-        cur      = h1[i]
-        ema_val  = ema_series[i]
-        price    = cur.close
-        bias     = "bullish" if price > ema_val else "bearish"
-        dist_pct = abs(price - ema_val) / ema_val
+    c_total = c_news = c_session = c_trade = c_d1 = c_vol = c_dedup = c_pb = c_frac = c_4h = 0
 
-        c_total += 1
-        # EMA gate
-        if dist_pct < _EMA_CHOP_PCT:
-            continue
-        c_ema += 1
-        bullish = (bias == "bullish")
-
-        # Session gate
+    # Need at least 30 bars for vol-candle lookback + pullback
+    for i in range(30, len(h1)):
+        cur     = h1[i]
         utc_now = datetime.fromtimestamp(cur.time, tz=timezone.utc)
+        c_total += 1
+
+        # Block 1 — High-impact news (+-2h window)
+        if _near_high_impact_news(utc_now):
+            continue
+        c_news += 1
+
+        # Block 2 — Session gate
         if not is_valid_session(utc_now):
             continue
         c_session += 1
 
-        # Market condition on last 30 H1 bars
+        # Block 3 — Market condition on last 30 H1 bars
         h1_window = h1[max(0, i - 29): i + 1]
         if not is_tradeable(h1_window):
             continue
         c_trade += 1
 
-        # Volume candle in last 15 confirmed H1 bars
+        # Block 4 — D1 institutional context
+        trend = _d1_trend_at(d1, cur.time)
+        if trend == Trend.RANGING:
+            continue
+        c_d1 += 1
+        bullish = (trend == Trend.UPTREND)
+
+        # Step 1 — Volume candle in last 15 H1 bars
         h1_slice = h1[max(0, i - 14): i + 1]
         rel_idx  = find_volume_candle(h1_slice, bullish=bullish)
         if rel_idx is None:
@@ -135,14 +166,14 @@ def run_backtest(h1: list[Candle], h4: list[Candle]) -> dict[str, list[dict]]:
             continue
         c_dedup += 1
 
-        # Pullback immediately after the volume candle
+        # Step 1 — Pullback immediately after the volume candle
         pb = measure_pullback(h1_slice, rel_idx, bullish)
         if pb is None:
             continue
         c_pb += 1
         pb_high, pb_low, pb_count = pb
 
-        # H1 fractal-break proxy: current bar closed past the pullback level
+        # Step 3 — H1 close fractal-break proxy
         if bullish  and cur.close <= pb_high:
             continue
         if not bullish and cur.close >= pb_low:
@@ -150,103 +181,90 @@ def run_backtest(h1: list[Candle], h4: list[Candle]) -> dict[str, list[dict]]:
         c_frac += 1
 
         # Risk levels
-        entry  = cur.close
-        zone   = (pb_high - pb_low) * 0.10
-        sl     = (pb_low  - zone) if bullish else (pb_high + zone)
-        risk   = abs(entry - sl)
+        entry = cur.close
+        zone  = (pb_high - pb_low) * 0.10
+        sl    = (pb_low  - zone) if bullish else (pb_high + zone)
+        risk  = abs(entry - sl)
         if risk <= 0:
             continue
         tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
 
-        # 4H obstruction — last 50 H4 bars up to signal time (~8 days).
-        # Mitigation is checked inside has_4h_obstruction; stale levels
-        # that price has already closed through are automatically skipped.
-        h4_ts   = cur.time
-        h4_past = [c for c in h4 if c.time <= h4_ts][-50:]
+        # Step 2 — 4H obstruction check (last 50 H4 bars up to signal time)
+        h4_past = [c for c in h4 if c.time <= cur.time][-50:]
         if has_4h_obstruction(h4_past, entry, bullish, risk):
             continue
         c_4h += 1
 
-        # ── Signal fires ──────────────────────────────────────────────────
+        # Signal fires
         fired.add(abs_idx)
         month = utc_now.strftime("%Y-%m")
         signals_by_month.setdefault(month, []).append({
-            "date":      utc_now.strftime("%Y-%m-%d %H:%M"),
-            "dir":       "BUY" if bullish else "SELL",
-            "entry":     round(entry, 5),
-            "sl":        round(sl, 5),
-            "tp":        round(tp, 5),
-            "rr":        2.0,
-            "pb_count":  pb_count,
-            "ema_dist":  round(dist_pct * 100, 3),
-            "bar_idx":   i,          # used for outcome simulation
+            "date":     utc_now.strftime("%Y-%m-%d %H:%M"),
+            "dir":      "BUY" if bullish else "SELL",
+            "d1_trend": "UPTREND" if bullish else "DOWNTREND",
+            "entry":    round(entry, 5),
+            "sl":       round(sl, 5),
+            "tp":       round(tp, 5),
+            "rr":       2.0,
+            "pb_count": pb_count,
+            "bar_idx":  i,
         })
 
     print("\n=== Filter Funnel ===")
     print(f"  H1 bars scanned         : {c_total}")
-    print(f"  After EMA 200 gate      : {c_ema}")
+    print(f"  After news filter       : {c_news}")
     print(f"  After session gate      : {c_session}")
     print(f"  After market condition  : {c_trade}")
+    print(f"  After D1 trend gate     : {c_d1}")
     print(f"  After volume candle     : {c_vol}")
-    print(f"  After dedup (new setup) : {c_dedup}")
+    print(f"  After dedup             : {c_dedup}")
     print(f"  After pullback check    : {c_pb}")
     print(f"  After fractal break     : {c_frac}")
     print(f"  After 4H obstruction    : {c_4h}  <- final signals")
-
     return signals_by_month
 
 
 # ── outcome simulation ────────────────────────────────────────────────────────
 
-def simulate_outcomes(signals_by_month: dict[str, list[dict]],
-                      h1: list[Candle],
-                      max_bars: int = 120) -> None:
+def simulate_outcomes(signals_by_month: dict, h1: list, max_bars: int = 120) -> None:
     """
-    Walk forward through H1 closes with trailing SL management:
+    Walk forward through H1 closes with trailing SL / BE management:
 
     Phase 1  — initial SL active
-      BUY:  exit if close <= sl (full loss)
-      SELL: exit if close >= sl (full loss)
+    Phase 2  — when price reaches 1R, SL moves to entry (breakeven)
+    Phase 3  — TP at 2R = full win
 
-    Phase 2  — price reaches 1R: move SL to breakeven (entry)
-      Any close back through entry = breakeven exit (0R)
-
-    Phase 3  — TP reached: full 2R win
-
-    This mirrors real management: BE at 1R means the worst outcome
-    after reaching 1R is 0, not a full loss.
+    Outcomes: TP (+2R), BE (0R), SL (-1R), open (still running)
     """
     for sigs in signals_by_month.values():
         for s in sigs:
-            start   = s["bar_idx"] + 1
-            entry   = s["entry"]
-            sl_init = s["sl"]
-            tp      = s["tp"]
-            buy     = s["dir"] == "BUY"
-            risk    = abs(entry - sl_init)
+            start     = s["bar_idx"] + 1
+            entry     = s["entry"]
+            sl_init   = s["sl"]
+            tp        = s["tp"]
+            buy       = s["dir"] == "BUY"
+            risk      = abs(entry - sl_init)
             target_1r = entry + risk if buy else entry - risk
 
-            current_sl  = sl_init
-            at_be       = False
-            outcome     = "open"
+            current_sl = sl_init
+            at_be      = False
+            outcome    = "open"
+            j          = 0
 
             for j, c in enumerate(h1[start: start + max_bars]):
-                # Phase 2: move SL to BE when 1R is reached
                 if not at_be:
                     hit_1r = c.close >= target_1r if buy else c.close <= target_1r
                     if hit_1r:
                         current_sl = entry
                         at_be      = True
 
-                tp_hit = c.close >= tp      if buy else c.close <= tp
+                tp_hit = c.close >= tp       if buy else c.close <= tp
                 sl_hit = c.close <= current_sl if buy else c.close >= current_sl
 
                 if tp_hit:
-                    outcome = "TP"
-                    break
+                    outcome = "TP"; break
                 if sl_hit:
-                    outcome = "BE" if at_be else "SL"
-                    break
+                    outcome = "BE" if at_be else "SL"; break
 
             s["outcome"]       = outcome
             s["bars_to_close"] = j + 1 if outcome != "open" else None
@@ -254,18 +272,17 @@ def simulate_outcomes(signals_by_month: dict[str, list[dict]],
 
 # ── report ────────────────────────────────────────────────────────────────────
 
-def report(signals_by_month: dict[str, list[dict]]) -> None:
+def report(signals_by_month: dict) -> None:
     months  = sorted(signals_by_month)
     all_sig = [s for m in months for s in signals_by_month[m]]
     total   = len(all_sig)
-    wins   = [s for s in all_sig if s.get("outcome") == "TP"]
-    bes    = [s for s in all_sig if s.get("outcome") == "BE"]
-    losses = [s for s in all_sig if s.get("outcome") == "SL"]
-    open_  = [s for s in all_sig if s.get("outcome") == "open"]
-    closed = len(wins) + len(bes) + len(losses)
-    wr     = len(wins) / closed * 100 if closed else 0
-    # P&L in R: each TP = +2R, each BE = 0R, each SL = -1R
-    pnl_r  = len(wins) * 2.0 + len(bes) * 0.0 + len(losses) * -1.0
+    wins    = [s for s in all_sig if s.get("outcome") == "TP"]
+    bes     = [s for s in all_sig if s.get("outcome") == "BE"]
+    losses  = [s for s in all_sig if s.get("outcome") == "SL"]
+    open_   = [s for s in all_sig if s.get("outcome") == "open"]
+    closed  = len(wins) + len(bes) + len(losses)
+    wr      = len(wins) / closed * 100 if closed else 0
+    pnl_r   = len(wins) * 2.0 + len(bes) * 0.0 + len(losses) * -1.0
 
     print("\n=== Monthly Signal Count ===")
     print(f"{'Month':<12}  {'Sig':>4}  {'TP':>4}  {'BE':>4}  {'SL':>4}  {'Open':>5}")
@@ -291,15 +308,16 @@ def report(signals_by_month: dict[str, list[dict]]) -> None:
         for s in signals_by_month[m]:
             icon = icons.get(s.get("outcome", "open"), "")
             hrs  = f"  ({s['bars_to_close']}h)" if s.get("bars_to_close") else ""
-            print(f"    {icon} [{s['date']} UTC] {s['dir']:4}  "
-                  f"entry={s['entry']}  sl={s['sl']}  tp={s['tp']}{hrs}")
+            trend_label = s.get("d1_trend", "?")
+            print(f"    {icon} [{s['date']} UTC] {s['dir']:4}  D1={trend_label}"
+                  f"  entry={s['entry']}  sl={s['sl']}  tp={s['tp']}{hrs}")
 
 
 if __name__ == "__main__":
     h1, h4, d1 = fetch()
-    if len(h1) < 215:
+    if len(h1) < 30:
         print("Not enough H1 data.")
         sys.exit(1)
-    results = run_backtest(h1, h4)
+    results = run_backtest(h1, h4, d1)
     simulate_outcomes(results, h1)
     report(results)
