@@ -61,10 +61,10 @@ function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<
 }
 
 async function appAuth(ws: WebSocket) {
-  send(ws, PT_APP_AUTH_REQ, {
-    clientId:     process.env.CTRADER_CLIENT_ID ?? '',
-    clientSecret: process.env.CTRADER_CLIENT_SECRET ?? '',
-  });
+  const clientId     = process.env.CTRADER_CLIENT_ID;
+  const clientSecret = process.env.CTRADER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is not configured');
+  send(ws, PT_APP_AUTH_REQ, { clientId, clientSecret });
   await waitFor(ws, PT_APP_AUTH_RES);
 }
 
@@ -95,7 +95,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{ accessToken
   return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in ?? 3600 };
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
   const res = await fetch(TOKEN_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -108,7 +108,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   });
   const data = await res.json() as any;
   if (!res.ok) throw new Error(data.error_description ?? `cTrader refresh error: ${res.status}`);
-  return { accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken };
+  return { accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken, expiresIn: data.expires_in ?? 3600 };
 }
 
 // ── Account list (WebSocket) ───────────────────────────────────────────────────
@@ -160,6 +160,22 @@ export async function getCTraderAccounts(accessToken: string): Promise<CTraderAc
   return accounts;
 }
 
+// ── Deal pagination helper ────────────────────────────────────────────────────
+
+// If a range returns exactly maxRows, the API may have truncated it. Split the
+// range in half and recurse so we never silently lose closed deals.
+async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to: number): Promise<any[]> {
+  const maxRows = 500;
+  send(ws, PT_DEALS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows });
+  const dp    = await waitFor(ws, PT_DEALS_RES, 20000);
+  const deals = dp?.deal ?? [];
+  if (deals.length < maxRows || from + 1 >= to) return deals;
+  const mid   = Math.floor((from + to) / 2);
+  const left  = await fetchDealsInRange(ws, acctId, from, mid);
+  const right = await fetchDealsInRange(ws, acctId, mid, to);
+  return [...left, ...right];
+}
+
 // ── Trade history (WebSocket) ─────────────────────────────────────────────────
 
 // isLive is passed from the stored accountType — avoids redundant WS connections on every sync chunk
@@ -188,14 +204,12 @@ export async function fetchCTraderTrades(
       if (s.symbolId && s.symbolName) symbolMap[s.symbolId] = s.symbolName;
     }
 
-    // Fetch deals — cTrader max range per request is not documented but 7 days is safe
+    // Fetch deals in 7-day chunks; each chunk recurses if it hits the 500-row cap
     const CHUNK_MS = 7 * 24 * 60 * 60 * 1000;
     const allDeals: any[] = [];
     for (let from = fromMs; from < toMs; from += CHUNK_MS) {
       const to = Math.min(from + CHUNK_MS, toMs);
-      send(ws, PT_DEALS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows: 500 });
-      const dp = await waitFor(ws, PT_DEALS_RES, 20000);
-      allDeals.push(...(dp?.deal ?? []));
+      allDeals.push(...await fetchDealsInRange(ws, acctId, from, to));
     }
 
     return allDeals

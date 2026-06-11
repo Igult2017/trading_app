@@ -2,7 +2,7 @@
  * Auto-sync service — runs every 15 min for all API-connected broker accounts.
  * First sync pulls 2 years of history (60-day batches).
  * Subsequent syncs pull only since lastSyncAt (with 2hr overlap).
- * cTrader access tokens are refreshed automatically on 401.
+ * cTrader tokens are refreshed reactively (on error) and proactively (near expiry).
  */
 import { db } from '../db';
 import { brokerAccounts } from '../../shared/schema';
@@ -17,6 +17,7 @@ const SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 const CHUNK_DAYS       = 60;
 const HISTORY_DAYS     = 730;   // 2 years
 const OVERLAP_MS       = 2 * 3_600_000;
+const PROACTIVE_MS     = 5 * 60 * 1_000; // refresh if token expires within 5 min
 
 async function getAllApiAccounts(): Promise<BrokerAccount[]> {
   return db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
@@ -29,7 +30,12 @@ async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccoun
     const creds = JSON.parse(plain);
     if (!creds.refreshToken) return null;
     const tokens = await refreshAccessToken(creds.refreshToken);
-    const newCreds = { ...creds, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
+    const newCreds = {
+      ...creds,
+      accessToken:      tokens.accessToken,
+      refreshToken:     tokens.refreshToken,
+      tokenExpiresAt:   Date.now() + (tokens.expiresIn * 1000),
+    };
     await db.update(brokerAccounts)
       .set({ passwordEnc: safeEncrypt(JSON.stringify(newCreds)) })
       .where(eq(brokerAccounts.id, account.id));
@@ -41,11 +47,31 @@ async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccoun
 }
 
 async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
+  let current = account;
+
+  // Proactive refresh: renew token before it expires
+  if (current.platform.toLowerCase() === 'ctrader' && current.passwordEnc) {
+    try {
+      const creds = JSON.parse(safeDecrypt(current.passwordEnc) ?? '{}');
+      if (creds.tokenExpiresAt && (creds.tokenExpiresAt - Date.now()) < PROACTIVE_MS) {
+        const fresh = await refreshCTraderToken(current);
+        if (fresh) current = fresh;
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
   try {
-    return await fetchTradesForAccount(account, fromMs, toMs);
+    return await fetchTradesForAccount(current, fromMs, toMs);
   } catch (err: any) {
-    if (account.platform.toLowerCase() === 'ctrader' && String(err.message).includes('401')) {
-      const fresh = await refreshCTraderToken(account);
+    const msg        = String(err.message ?? '');
+    const isTokenErr = current.platform.toLowerCase() === 'ctrader' && (
+      msg.includes('401') ||
+      msg.includes('ACCESS_TOKEN_INVALID') ||
+      msg.includes('ACCESS_TOKEN_EXPIRED') ||
+      msg.includes('AUTHENTICATION_FAILURE')
+    );
+    if (isTokenErr) {
+      const fresh = await refreshCTraderToken(current);
       if (!fresh) throw err;
       return fetchTradesForAccount(fresh, fromMs, toMs);
     }
@@ -55,6 +81,8 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
 
 export async function syncAccount(account: BrokerAccount): Promise<void> {
   if (!API_PLATFORMS.has(account.platform.toLowerCase())) return;
+  // Skip placeholder accounts awaiting OAuth completion
+  if (account.loginId?.startsWith('pending_')) return;
 
   await db.update(brokerAccounts).set({ syncStatus: 'syncing' }).where(eq(brokerAccounts.id, account.id));
 

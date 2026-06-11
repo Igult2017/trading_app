@@ -3089,6 +3089,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const accountId = String(req.query.accountId ?? '');
     if (!accountId) return res.status(400).json({ error: "accountId required" });
 
+    // Ownership check — prevent CSRF-style token hijack across accounts
+    const acctToConnect = await storage.getBrokerAccountById(accountId);
+    if (!acctToConnect || acctToConnect.userId !== user.id) return res.status(403).json({ error: "Account not found" });
+
     try {
       _pruneCtMaps();
       const nonce = randomBytes(16).toString('hex');
@@ -3096,7 +3100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const url = getCTraderAuthUrl(nonce);
       // Cookie survives the Spotware redirect even if state is not echoed back.
       // sameSite=lax ensures it is sent on the top-level GET from Spotware → our callback.
-      res.cookie('ct_pending', accountId, { httpOnly: true, maxAge: 600000, sameSite: 'lax', path: '/api/broker/ctrader/callback' });
+      // path='/' so it is sent regardless of which path Spotware redirects to.
+      res.cookie('ct_pending', accountId, { httpOnly: true, maxAge: 600000, sameSite: 'lax', path: '/' });
       return res.json({ url });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -3107,12 +3112,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fixes race condition when two users connect simultaneously, and is safe after a server restart
   // (user just retries — their original OAuth code would be consumed on the dead nonce anyway).
   const _ctNonces = new Map<string, { accountId: string; expiry: number }>();
-  const _ctSelectMap = new Map<string, { accounts: any[]; brokerAccountId: string; expiry: number }>();
 
   function _pruneCtMaps() {
     const now = Date.now();
-    Array.from(_ctNonces).forEach(([k, v])    => { if (v.expiry < now) _ctNonces.delete(k); });
-    Array.from(_ctSelectMap).forEach(([k, v]) => { if (v.expiry < now) _ctSelectMap.delete(k); });
+    Array.from(_ctNonces).forEach(([k, v]) => { if (v.expiry < now) _ctNonces.delete(k); });
   }
 
   function _parseCookie(cookieHeader: string | undefined, name: string): string | undefined {
@@ -3172,7 +3175,7 @@ ${authUrl}</pre>
       return res.redirect('/accounts?ctrader_error=missing_code_or_expired');
     }
     // Consume both storage entries
-    res.clearCookie('ct_pending', { path: '/api/broker/ctrader/callback' });
+    res.clearCookie('ct_pending', { path: '/' });
     if (pending) _ctNonces.delete(nonce);
 
     // Signal platform setup flow — display tokens for copying to Coolify
@@ -3200,11 +3203,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const tokens     = await exchangeCodeForTokens(code);
       const ctAccounts = await getCTraderAccounts(tokens.accessToken);
 
-      // If multiple accounts, let user pick — store choices and redirect to selection UI
+      // If multiple accounts, store choices in DB and redirect to selection UI
+      // (DB storage survives server restarts; token = brokerAccountId is already a secret UUID)
       if (ctAccounts.length > 1) {
-        _pruneCtMaps();
-        const selToken = randomBytes(16).toString('hex');
-        _ctSelectMap.set(selToken, {
+        const pendingCreds = JSON.stringify({
+          multiPending: true,
           accounts: ctAccounts.map(a => ({
             ctidTraderAccountId: String(a.ctidTraderAccountId),
             traderLogin:         String(a.traderLogin),
@@ -3214,18 +3217,19 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
             currency:            a.currency,
             accessToken:         tokens.accessToken,
             refreshToken:        tokens.refreshToken,
+            expiresIn:           tokens.expiresIn,
           })),
-          brokerAccountId: resolvedAccountId,
           expiry: Date.now() + 10 * 60 * 1000,
         });
-        return res.redirect(`/accounts?ctrader_select=${selToken}`);
+        await storage.updateBrokerAccount(resolvedAccountId, { passwordEnc: safeEncrypt(pendingCreds), syncStatus: 'pending' });
+        return res.redirect(`/accounts?ctrader_select=${encodeURIComponent(resolvedAccountId)}`);
       }
 
       // Single account — link directly
       const ct          = ctAccounts[0];
       const ctraderId   = String(ct?.ctidTraderAccountId ?? '');
       const traderLogin = String(ct?.traderLogin ?? ctraderId);
-      const credJson = JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, ctraderId });
+      const credJson = JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, ctraderId, tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000) });
 
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     traderLogin,
@@ -3249,12 +3253,18 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
   });
 
-  /** Return pending cTrader account choices for the account-picker UI. */
-  app.get("/api/broker/ctrader/pending-accounts", (req: Request, res: Response) => {
+  /** Return pending cTrader account choices for the account-picker UI (DB-backed, survives restart). */
+  app.get("/api/broker/ctrader/pending-accounts", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
     const token = String(req.query.token ?? '');
-    const entry = _ctSelectMap.get(token);
-    if (!entry || entry.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
-    return res.json({ accounts: entry.accounts.map(a => ({
+    if (!token) return res.status(400).json({ error: 'token required' });
+    const acct = await storage.getBrokerAccountById(token);
+    if (!acct || acct.userId !== user.id) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
+    let pending: any;
+    try { pending = JSON.parse(safeDecrypt(acct.passwordEnc) ?? '{}'); } catch { return res.status(410).json({ error: 'Selection expired.' }); }
+    if (!pending?.multiPending || pending.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
+    return res.json({ accounts: (pending.accounts as any[]).map(a => ({
       ctidTraderAccountId: a.ctidTraderAccountId,
       traderLogin:         a.traderLogin,
       brokerName:          a.brokerName,
@@ -3270,13 +3280,15 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     const { token, ctidTraderAccountId } = req.body as { token: string; ctidTraderAccountId: string };
     if (!token || !ctidTraderAccountId) return res.status(400).json({ error: 'token and ctidTraderAccountId required' });
-    const entry = _ctSelectMap.get(token);
-    if (!entry || entry.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
-    const chosen = entry.accounts.find((a: any) => String(a.ctidTraderAccountId) === String(ctidTraderAccountId));
+    const acct = await storage.getBrokerAccountById(token);
+    if (!acct || acct.userId !== user.id) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
+    let pending: any;
+    try { pending = JSON.parse(safeDecrypt(acct.passwordEnc) ?? '{}'); } catch { return res.status(410).json({ error: 'Selection expired.' }); }
+    if (!pending?.multiPending || pending.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
+    const chosen = (pending.accounts as any[]).find(a => String(a.ctidTraderAccountId) === String(ctidTraderAccountId));
     if (!chosen) return res.status(400).json({ error: 'Account not in selection list' });
-    _ctSelectMap.delete(token);
-    const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId });
-    await storage.updateBrokerAccount(entry.brokerAccountId, {
+    const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId, tokenExpiresAt: Date.now() + ((chosen.expiresIn ?? 3600) * 1000) });
+    await storage.updateBrokerAccount(token, {
       loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
       passwordEnc: safeEncrypt(credJson),
       accountType: chosen.isLive ? 'live' : 'demo',
@@ -3285,7 +3297,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       syncStatus:  'pending',
       lastSyncError: null as any,
     });
-    const freshAccount = await storage.getBrokerAccountById(entry.brokerAccountId);
+    const freshAccount = await storage.getBrokerAccountById(token);
     if (freshAccount) syncAccount(freshAccount).catch(() => {});
     return res.json({ ok: true });
   });

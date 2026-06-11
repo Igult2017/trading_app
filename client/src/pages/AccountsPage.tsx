@@ -385,6 +385,49 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
   );
 }
 
+// ── Edit Account Modal ────────────────────────────────────────────────────────
+function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onClose: () => void; onSaved: (a: BrokerAccount) => void }) {
+  const [name,        setName]        = useState(account.name);
+  const [accountType, setAccountType] = useState(account.accountType);
+  const [busy,        setBusy]        = useState(false);
+  const [err,         setErr]         = useState('');
+
+  async function save() {
+    setBusy(true); setErr('');
+    const res  = await fetch(`/api/broker-accounts/${account.id}`, { method: 'PUT', headers: await authHeaders(), body: JSON.stringify({ name, accountType }) });
+    const data = await res.json();
+    setBusy(false);
+    if (res.ok) onSaved({ ...account, name, accountType });
+    else setErr(data.error || 'Save failed');
+  }
+
+  const ov: CSSProperties  = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const card: CSSProperties = { background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 24, width: 320, maxWidth: '90vw' };
+  const inp: CSSProperties  = { background: '#0b1220', border: '1px solid #1e3050', color: '#e2e8f0', padding: '8px 12px', fontSize: 13, width: '100%', borderRadius: 4, outline: 'none' };
+  const lbl: CSSProperties  = { color: '#64748b', fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
+
+  return (
+    <div style={ov} onClick={onClose}>
+      <div style={card} onClick={e => e.stopPropagation()}>
+        <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 15, marginBottom: 18 }}>Edit Account</div>
+        <label style={lbl}>Name</label>
+        <input value={name} onChange={e => setName(e.target.value)} style={{ ...inp, marginBottom: 14 }} />
+        <label style={lbl}>Type</label>
+        <select value={accountType} onChange={e => setAccountType(e.target.value)} style={{ ...inp, marginBottom: err ? 8 : 20 }}>
+          {['demo', 'live', 'funded'].map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+        </select>
+        {err && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '7px 16px', cursor: 'pointer', fontSize: 13, borderRadius: 4 }}>Cancel</button>
+          <button onClick={save} disabled={busy} style={{ background: '#1d6ed8', border: 'none', color: 'white', padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600, borderRadius: 4 }}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main AccountsPage ─────────────────────────────────────────────────────────
 export default function AccountsPage({ openModal = false, darkMode = true, onViewSession }: { openModal?: boolean; darkMode?: boolean; onViewSession?: (sessionId: string) => void }) {
   const { session } = useAuth();
@@ -401,6 +444,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   const [ctSelectToken,    setCtSelectToken]    = useState<string | null>(null);
   const [ctSelectAccounts, setCtSelectAccounts] = useState<any[]>([]);
   const [ctSelectBusy,     setCtSelectBusy]     = useState(false);
+  const [editAccount,      setEditAccount]      = useState<BrokerAccount | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -424,10 +468,14 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     } else if (p.get('ctrader_select')) {
       const token = p.get('ctrader_select')!;
       window.history.replaceState({}, '', '/accounts');
-      fetch(`/api/broker/ctrader/pending-accounts?token=${token}`)
-        .then(r => r.json())
-        .then(d => { if (d.accounts) { setCtSelectToken(token); setCtSelectAccounts(d.accounts); } else setInfo(`cTrader: ${d.error}`); })
-        .catch(() => setInfo('cTrader: failed to load account choices'));
+      (async () => {
+        try {
+          const r = await fetch(`/api/broker/ctrader/pending-accounts?token=${token}`, { headers: await authHeaders() });
+          const d = await r.json();
+          if (d.accounts) { setCtSelectToken(token); setCtSelectAccounts(d.accounts); }
+          else setInfo(`cTrader: ${d.error}`);
+        } catch { setInfo('cTrader: failed to load account choices'); }
+      })();
     }
   }, []);
 
@@ -447,6 +495,14 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     setAccounts(prev => prev.filter(a => a.id !== id));
   }
 
+  async function handleSyncAll() {
+    const headers = await authHeaders();
+    for (const a of accounts) {
+      if (a.connectionType === 'api') fetch(`/api/broker-accounts/${a.id}/sync`, { method: 'POST', headers }).catch(() => {});
+    }
+    setTimeout(fetchAccounts, 3000);
+  }
+
   async function handleSync(account: BrokerAccount) {
     if (account.connectionType === "webhook") { setWebhookAcc(account); return; }
     await fetch(`/api/broker-accounts/${account.id}/sync`, { method: "POST", headers: await authHeaders() });
@@ -460,16 +516,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     setSelectedPlatform(null);
 
     if (account.connectionType === "webhook") { setWebhookAcc(account); return; }
-
-    // cTrader: kick off OAuth redirect
-    if (account.platform === "ctrader") {
-      try {
-        const res  = await fetch(`/api/broker/ctrader/connect?accountId=${account.id}`, { headers: await authHeaders() });
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-        else setInfo(`cTrader connect failed: ${data.error}`);
-      } catch (err: any) { setInfo(`cTrader connect failed: ${err.message}`); }
-    }
+    // cTrader redirect is handled inside AddAccountForm.handleSubmit — nothing to do here
   }
 
   const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
@@ -537,7 +584,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
             <button style={s.addBtn as CSSProperties} onClick={() => { setModalOpen(true); setShowForm(false); setSelectedPlatform(null); }}>
               <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
             </button>
-            <button style={s.syncBtn as CSSProperties} onClick={fetchAccounts}>
+            <button style={s.syncBtn as CSSProperties} onClick={handleSyncAll}>
               <RefreshCw size={13} /> {isMobile ? "Sync" : "Sync All"}
             </button>
           </div>
@@ -590,7 +637,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       )}
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Sync" onClick={() => handleSync(a)}><RefreshCw size={14} color="#94a3b8" /></button>
-                      <button style={s.actionBtn as CSSProperties} title="Edit"><Pencil size={14} color="#38bdf8" /></button>
+                      <button style={s.actionBtn as CSSProperties} title="Edit" onClick={() => setEditAccount(a)}><Pencil size={14} color="#38bdf8" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Delete" onClick={() => handleDelete(a.id)}><Trash2 size={14} color="#ef4444" /></button>
                     </div>
                   </td>
@@ -657,6 +704,15 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
             )}
           </div>
         </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {editAccount && (
+        <EditModal
+          account={editAccount}
+          onClose={() => setEditAccount(null)}
+          onSaved={updated => { setAccounts(prev => prev.map(a => a.id === updated.id ? updated : a)); setEditAccount(null); }}
+        />
       )}
 
       {/* Webhook Info Modal */}
