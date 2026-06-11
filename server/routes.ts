@@ -9,7 +9,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
-import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts } from "./services/brokerAdapters/ctrader";
+import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance } from "./services/brokerAdapters/ctrader";
 import { syncAccount } from "./services/autoSyncService";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
@@ -3265,7 +3265,20 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       });
 
       const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
-      if (freshAccount) syncAccount(freshAccount).catch(() => {});
+      if (freshAccount) {
+        syncAccount(freshAccount).catch(() => {});
+        // Fetch real balance immediately — PT_ACCOUNTS_RES never includes balance
+        (async () => {
+          try {
+            const creds = JSON.parse(safeDecrypt(freshAccount.passwordEnc) ?? '{}');
+            if (!creds.accessToken || !creds.ctraderId) return;
+            const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo');
+            if (bal !== null) {
+              await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+            }
+          } catch { /* best-effort */ }
+        })().catch(() => {});
+      }
 
       return res.redirect('/journal?tab=accounts&ctrader_connected=1');
     } catch (err: any) {
@@ -3321,7 +3334,20 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       lastSyncError: null as any,
     });
     const freshAccount = await storage.getBrokerAccountById(token);
-    if (freshAccount) syncAccount(freshAccount).catch(() => {});
+    if (freshAccount) {
+      syncAccount(freshAccount).catch(() => {});
+      // Fetch real balance immediately — PT_ACCOUNTS_RES never includes balance
+      (async () => {
+        try {
+          const creds = JSON.parse(safeDecrypt(freshAccount.passwordEnc) ?? '{}');
+          if (!creds.accessToken || !creds.ctraderId) return;
+          const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo');
+          if (bal !== null) {
+            await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+          }
+        } catch { /* best-effort */ }
+      })().catch(() => {});
+    }
     return res.json({ ok: true });
   });
 

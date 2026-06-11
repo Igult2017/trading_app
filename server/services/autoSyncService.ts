@@ -78,13 +78,15 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
 
 async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
   try {
-    const creds = JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}');
+    // Re-fetch from DB — token may have been refreshed during the preceding sync
+    const [fresh] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, account.id));
+    const creds = JSON.parse(safeDecrypt(fresh?.passwordEnc ?? account.passwordEnc) ?? '{}');
     if (!creds.accessToken || !creds.ctraderId) return;
-    const isLive = account.accountType?.toLowerCase() !== 'demo';
+    const isLive = (fresh ?? account).accountType?.toLowerCase() !== 'demo';
     const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
-    if (bal && bal.balance > 0) {
+    if (bal !== null) {
       await db.update(brokerAccounts)
-        .set({ balance: String(bal.balance), currency: bal.currency || account.currency })
+        .set({ balance: String(bal.balance), currency: bal.currency || (fresh ?? account).currency })
         .where(eq(brokerAccounts.id, account.id));
     }
   } catch { /* balance update is best-effort */ }
