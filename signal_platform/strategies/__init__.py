@@ -1,4 +1,5 @@
-from strategies.zone_pullback import ZonePullbackStrategy
-from core import strategy_registry
-
-strategy_registry.register(ZonePullbackStrategy())
+# Register strategies here when they are created.
+# Example:
+#   from strategies.my_strategy import MyStrategy
+#   from core import strategy_registry
+#   strategy_registry.register(MyStrategy())
