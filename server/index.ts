@@ -196,6 +196,26 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
     // Start signal platform unless Docker already started it via start.sh
     if (isPrimaryWorker && !process.env.SIGNAL_PLATFORM_MANAGED) startSignalPlatform();
 
+    // Mirror Python signal platform boot status into Node logs so it appears in Coolify.
+    // Python writes /app/.signal_platform_status.json; Node polls and re-logs it.
+    if (isPrimaryWorker && process.env.SIGNAL_PLATFORM_MANAGED) {
+      const STATUS_FILE = "/app/.signal_platform_status.json";
+      let lastStatus = "";
+      const pollStatus = () => {
+        try {
+          const raw = fs.readFileSync(STATUS_FILE, "utf8");
+          const s = JSON.parse(raw) as { status: string; error?: string; hint?: string; ts?: number };
+          const line = s.status === "error"
+            ? `[SignalPlatform] BOOT ERROR: ${s.error} | FIX: ${s.hint}`
+            : `[SignalPlatform] status=${s.status}`;
+          if (line !== lastStatus) { log(line); lastStatus = line; }
+          if (s.status === "ok") clearInterval(interval);       // stop polling once running
+        } catch { /* file not written yet — Python still starting */ }
+      };
+      setTimeout(pollStatus, 8_000);                            // first check after 8s
+      const interval = setInterval(pollStatus, 15_000);         // then every 15s until ok
+    }
+
     // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests
     /*
     // Wait for the price daemon to be ready, then pre-warm the cache
