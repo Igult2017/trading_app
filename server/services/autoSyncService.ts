@@ -130,6 +130,8 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
 async function syncAllAccounts(): Promise<void> {
   const accounts = await getAllApiAccounts();
   for (const account of accounts) {
+    // cTrader has strict WS rate limits — only sync on connect or manual trigger, never on timer
+    if (account.platform.toLowerCase() === 'ctrader') continue;
     syncAccount(account).catch(() => {});
   }
 }
