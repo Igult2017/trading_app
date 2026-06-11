@@ -193,6 +193,7 @@ async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to
   if (deals.length < maxRows || from + 1 >= to) return deals;
   const mid   = Math.floor((from + to) / 2);
   const left  = await fetchDealsInRange(ws, acctId, from, mid);
+  await new Promise(r => setTimeout(r, 250)); // pause between recursive splits
   const right = await fetchDealsInRange(ws, acctId, mid, to);
   return [...left, ...right];
 }
@@ -225,10 +226,14 @@ export async function fetchCTraderTrades(
       if (s.symbolId && s.symbolName) symbolMap[s.symbolId] = s.symbolName;
     }
 
-    // Fetch deals in 7-day chunks; each chunk recurses if it hits the 500-row cap
-    const CHUNK_MS = 7 * 24 * 60 * 60 * 1000;
+    // Fetch deals in 7-day chunks; 250ms pause between chunks prevents rate limiting
+    const CHUNK_MS  = 7 * 24 * 60 * 60 * 1000;
+    const CHUNK_GAP = 250; // ms — cTrader rate-limits ~100+ rapid requests on one WS
     const allDeals: any[] = [];
+    let firstChunk = true;
     for (let from = fromMs; from < toMs; from += CHUNK_MS) {
+      if (!firstChunk) await new Promise(r => setTimeout(r, CHUNK_GAP));
+      firstChunk = false;
       const to = Math.min(from + CHUNK_MS, toMs);
       allDeals.push(...await fetchDealsInRange(ws, acctId, from, to));
     }
