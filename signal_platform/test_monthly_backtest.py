@@ -202,37 +202,54 @@ def simulate_outcomes(signals_by_month: dict[str, list[dict]],
                       h1: list[Candle],
                       max_bars: int = 120) -> None:
     """
-    Walk forward through H1 CLOSES for each signal (up to max_bars = 5 days).
+    Walk forward through H1 closes with trailing SL management:
 
-    Close-based logic avoids the wick problem: H1 candles regularly span
-    30-50 pips and would falsely trigger 8-pip SLs using high/low.
-    A close past a level is the honest signal that price has committed.
+    Phase 1  — initial SL active
+      BUY:  exit if close <= sl (full loss)
+      SELL: exit if close >= sl (full loss)
 
-    BUY:  TP if close >= tp, SL if close <= sl
-    SELL: TP if close <= tp, SL if close >= sl
+    Phase 2  — price reaches 1R: move SL to breakeven (entry)
+      Any close back through entry = breakeven exit (0R)
+
+    Phase 3  — TP reached: full 2R win
+
+    This mirrors real management: BE at 1R means the worst outcome
+    after reaching 1R is 0, not a full loss.
     """
     for sigs in signals_by_month.values():
         for s in sigs:
             start   = s["bar_idx"] + 1
-            sl, tp  = s["sl"], s["tp"]
+            entry   = s["entry"]
+            sl_init = s["sl"]
+            tp      = s["tp"]
             buy     = s["dir"] == "BUY"
-            outcome = "open"
-            bars    = 0
+            risk    = abs(entry - sl_init)
+            target_1r = entry + risk if buy else entry - risk
+
+            current_sl  = sl_init
+            at_be       = False
+            outcome     = "open"
 
             for j, c in enumerate(h1[start: start + max_bars]):
-                bars = j + 1
-                tp_hit = c.close >= tp if buy else c.close <= tp
-                sl_hit = c.close <= sl if buy else c.close >= sl
+                # Phase 2: move SL to BE when 1R is reached
+                if not at_be:
+                    hit_1r = c.close >= target_1r if buy else c.close <= target_1r
+                    if hit_1r:
+                        current_sl = entry
+                        at_be      = True
+
+                tp_hit = c.close >= tp      if buy else c.close <= tp
+                sl_hit = c.close <= current_sl if buy else c.close >= current_sl
 
                 if tp_hit:
                     outcome = "TP"
                     break
                 if sl_hit:
-                    outcome = "SL"
+                    outcome = "BE" if at_be else "SL"
                     break
 
             s["outcome"]       = outcome
-            s["bars_to_close"] = bars if outcome != "open" else None
+            s["bars_to_close"] = j + 1 if outcome != "open" else None
 
 
 # ── report ────────────────────────────────────────────────────────────────────
@@ -241,35 +258,41 @@ def report(signals_by_month: dict[str, list[dict]]) -> None:
     months  = sorted(signals_by_month)
     all_sig = [s for m in months for s in signals_by_month[m]]
     total   = len(all_sig)
-    wins    = [s for s in all_sig if s.get("outcome") == "TP"]
-    losses  = [s for s in all_sig if s.get("outcome") == "SL"]
-    open_   = [s for s in all_sig if s.get("outcome") == "open"]
-    wr      = len(wins) / (len(wins) + len(losses)) * 100 if (wins or losses) else 0
+    wins   = [s for s in all_sig if s.get("outcome") == "TP"]
+    bes    = [s for s in all_sig if s.get("outcome") == "BE"]
+    losses = [s for s in all_sig if s.get("outcome") == "SL"]
+    open_  = [s for s in all_sig if s.get("outcome") == "open"]
+    closed = len(wins) + len(bes) + len(losses)
+    wr     = len(wins) / closed * 100 if closed else 0
+    # P&L in R: each TP = +2R, each BE = 0R, each SL = -1R
+    pnl_r  = len(wins) * 2.0 + len(bes) * 0.0 + len(losses) * -1.0
 
     print("\n=== Monthly Signal Count ===")
-    print(f"{'Month':<12}  {'Signals':>7}  {'W':>4}  {'L':>4}  {'Open':>5}")
-    print("-" * 42)
+    print(f"{'Month':<12}  {'Sig':>4}  {'TP':>4}  {'BE':>4}  {'SL':>4}  {'Open':>5}")
+    print("-" * 46)
     for m in months:
         sigs = signals_by_month[m]
         w = sum(1 for s in sigs if s.get("outcome") == "TP")
+        b = sum(1 for s in sigs if s.get("outcome") == "BE")
         l = sum(1 for s in sigs if s.get("outcome") == "SL")
         o = sum(1 for s in sigs if s.get("outcome") == "open")
-        print(f"{m:<12}  {len(sigs):>7}  {w:>4}  {l:>4}  {o:>5}")
-    print("-" * 42)
+        print(f"{m:<12}  {len(sigs):>4}  {w:>4}  {b:>4}  {l:>4}  {o:>5}")
+    print("-" * 46)
     months_covered = max(len(months), 1)
-    print(f"Total   {total} signals  |  {len(wins)}W  {len(losses)}L  {len(open_)} open")
-    print(f"Win rate (closed trades): {wr:.0f}%")
-    print(f"Avg per month: {total / months_covered:.1f}")
+    print(f"Total  {total} signals  |  {len(wins)} TP  {len(bes)} BE  {len(losses)} SL  {len(open_)} open")
+    print(f"Win rate (TP only):     {wr:.0f}%")
+    print(f"P&L (in R):            {pnl_r:+.1f}R  over {closed} closed trades")
+    print(f"Avg signals per month: {total / months_covered:.1f}")
 
     print("\n=== Signal Detail ===")
-    icons = {"TP": "[WIN]", "SL": "[LOSS]", "open": "[OPEN]"}
+    icons = {"TP": "[TP] ", "BE": "[BE] ", "SL": "[SL] ", "open": "[???]"}
     for m in months:
         print(f"\n  {m}:")
         for s in signals_by_month[m]:
-            icon  = icons.get(s.get("outcome", "open"), "")
-            bars  = f"  ({s['bars_to_close']}h)" if s.get("bars_to_close") else ""
-            print(f"    {icon:<6} [{s['date']} UTC] {s['dir']:4}  "
-                  f"entry={s['entry']}  sl={s['sl']}  tp={s['tp']}{bars}")
+            icon = icons.get(s.get("outcome", "open"), "")
+            hrs  = f"  ({s['bars_to_close']}h)" if s.get("bars_to_close") else ""
+            print(f"    {icon} [{s['date']} UTC] {s['dir']:4}  "
+                  f"entry={s['entry']}  sl={s['sl']}  tp={s['tp']}{hrs}")
 
 
 if __name__ == "__main__":

@@ -9,20 +9,40 @@ from shared.swing_points import find_swing_points
 from shared.zone_detection import find_fvg_zones
 
 
-def find_volume_candle(candles: list[Candle], bullish: bool, lookback: int = 15) -> int | None:
+def find_volume_candle(
+    candles: list[Candle],
+    bullish: bool,
+    lookback: int = 15,
+    min_run: int = 3,
+) -> int | None:
     """
-    Scan the last `lookback` confirmed 1H bars (newest-first) for a volume candle
-    aligned with `bullish` direction.
-    Criteria: body > previous candle body AND body_ratio >= 0.60 (small wicks).
-    Returns index in the original list, or None.
+    Find the most recent volume candle that is the FINAL candle of a momentum run.
+
+    A valid volume candle requires:
+    1. At least `min_run` consecutive same-direction candles ending at this bar
+       (e.g. 3 bullish bars in a row — the run itself IS the signal of intent)
+    2. This last candle has a large clean body: body > prev body AND body_ratio >= 0.60
+
+    The 3-4 candle run confirms momentum; the volume candle is its culmination.
+    Returns index into the original candles list, or None.
     """
-    end   = len(candles) - 1       # exclude the currently-forming bar
-    start = max(1, end - lookback)
+    end   = len(candles) - 1
+    start = max(min_run, end - lookback)
+
     for i in range(end - 1, start - 1, -1):
         c, prev = candles[i], candles[i - 1]
         if is_bullish(c) != bullish:
             continue
-        if body_size(c) > body_size(prev) and body_ratio(c) >= 0.60:
+        if not (body_size(c) > body_size(prev) and body_ratio(c) >= 0.60):
+            continue
+        # Confirm at least min_run - 1 same-direction candles before this one
+        consecutive = 1
+        for j in range(i - 1, max(-1, i - min_run), -1):
+            if is_bullish(candles[j]) == bullish:
+                consecutive += 1
+            else:
+                break
+        if consecutive >= min_run:
             return i
     return None
 
@@ -33,9 +53,9 @@ def measure_pullback(
     bullish: bool,
 ) -> tuple[float, float, int] | None:
     """
-    Count consecutive against-direction candles immediately after the volume candle.
-    Bullish impulse → count bearish pullback candles. Bearish → count bullish.
-    Returns (pullback_high, pullback_low, count) if 1 ≤ count ≤ 3, else None.
+    Expect exactly 1 against-direction candle immediately after the volume candle
+    (the controlled retracement before continuation).
+    Returns (pullback_high, pullback_low, 1) or None.
     """
     pb_candles: list[Candle] = []
 
@@ -44,16 +64,16 @@ def measure_pullback(
         if going_against:
             pb_candles.append(c)
         else:
-            break   # impulse resuming — pullback ends here
+            break
 
-    count = len(pb_candles)
-    if count < 1 or count > 3:
+    # 1-2 candle pullback: clean, controlled retracement
+    if len(pb_candles) < 1 or len(pb_candles) > 2:
         return None
 
     return (
         max(c.high for c in pb_candles),
         min(c.low  for c in pb_candles),
-        count,
+        len(pb_candles),
     )
 
 
