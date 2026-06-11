@@ -14,6 +14,7 @@ import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { startAutoSync } from "./services/autoSyncService";
 import { startCopyPlatform, stopCopyPlatform } from "./services/copyPlatformProcess";
+import { startSignalPlatform, stopSignalPlatform } from "./services/signalPlatformProcess";
 import { initializeDatabase } from "./db-init";
 import { getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 import { PYTHON_BIN } from "./lib/pythonBin";
@@ -61,7 +62,7 @@ function startPriceDaemon() {
     setTimeout(() => { if (!daemonRestarting) startPriceDaemon(); }, 5000);
   });
 }
-// ────────────────────────────────────────────────────────────────────────────
+
 
 const app = express();
 
@@ -192,6 +193,8 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
     if (isPrimaryWorker) scraperScheduler.start();
     if (isPrimaryWorker) startAutoSync();
     if (isPrimaryWorker) startCopyPlatform();
+    // Start signal platform unless Docker already started it via start.sh
+    if (isPrimaryWorker && !process.env.SIGNAL_PLATFORM_MANAGED) startSignalPlatform();
 
     // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests
     /*
@@ -245,6 +248,7 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
     log(`${signal} received: shutting down`);
     daemonRestarting = true;
     priceDaemon?.kill();
+    stopSignalPlatform();
     scraperScheduler.stop();
     stopCopyPlatform();
     server.close(() => log("HTTP server closed"));

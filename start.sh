@@ -19,4 +19,6 @@ cd /app/signal_platform && python3 -u main.py 2>&1 &
 echo "Signal platform PID: $!"
 
 cd /app
+# Tell Node NOT to start a second Python process — we already started it above
+export SIGNAL_PLATFORM_MANAGED=true
 exec node dist/index.prod.js
