@@ -44,16 +44,44 @@ async def _startup() -> None:
         log.error("[boot] cTrader not configured — missing env vars: %s", ", ".join(missing))
         sys.exit(1)
 
+    # Port-reachability check first — gives a clear error before the OAuth round-trip
+    _env = settings.ctrader_env or "demo"
+    _host = "demo.ctraderapi.com" if _env == "demo" else "live.ctraderapi.com"
+    log.info("[boot] checking TCP reachability of %s:5035 ...", _host)
+    try:
+        _, _w = await asyncio.wait_for(
+            asyncio.open_connection(_host, 5035, ssl=__import__("ssl").create_default_context()),
+            timeout=10,
+        )
+        _w.close()
+        log.info("[boot] TCP %s:5035 reachable", _host)
+    except asyncio.TimeoutError:
+        log.error("[boot] TCP %s:5035 TIMEOUT — outbound port 5035 is likely blocked on this VPS", _host)
+        log.error("[boot] fix: open outbound TCP 5035 in your VPS firewall (UFW / iptables / provider panel)")
+        sys.exit(1)
+    except OSError as _e:
+        log.error("[boot] TCP %s:5035 REFUSED — %s", _host, _e)
+        sys.exit(1)
+
     log.info("[boot] probing cTrader connection (EUR/USD H1)...")
     try:
         from data.data_source import fetch_raw
         probe = await asyncio.wait_for(fetch_raw("EUR/USD", "H1", 5), timeout=25)
         if not probe:
-            raise RuntimeError("Spotware returned 0 bars — account ID may be wrong")
+            log.error("[boot] cTrader probe FAILED: Spotware returned 0 bars")
+            log.error("[boot] CTRADER_ACCOUNT_ID=%s — confirm this is the ctid (numeric), not your broker login", settings.ctrader_account_id)
+            sys.exit(1)
         log.info("[boot] cTrader OK — %d bars received for EUR/USD H1", len(probe))
     except Exception as exc:
-        log.error("[boot] cTrader probe FAILED: %s", exc)
-        log.error("[boot] check CTRADER_ACCESS_TOKEN, CTRADER_REFRESH_TOKEN, CTRADER_ACCOUNT_ID")
+        msg = str(exc)
+        log.error("[boot] cTrader probe FAILED: %s", msg)
+        if "refresh" in msg.lower() or "token" in msg.lower() or "backoff" in msg.lower():
+            log.error("[boot] hint: CTRADER_REFRESH_TOKEN is stale — cTrader rotates it on every use")
+            log.error("[boot] fix: check container logs for 'refresh token rotated' to get the new value, then update Coolify env var")
+        elif "app auth failed" in msg.lower():
+            log.error("[boot] hint: CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is wrong, OR app is not 'Active' in the cTrader portal")
+        elif "account auth failed" in msg.lower():
+            log.error("[boot] hint: CTRADER_ACCOUNT_ID=%s is invalid on the %s server — confirm ctid vs broker login number", settings.ctrader_account_id, _env)
         sys.exit(1)
 
     # 3. Register plugins (features first, then strategies/indicators/patterns)
