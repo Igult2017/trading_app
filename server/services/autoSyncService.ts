@@ -119,8 +119,10 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
       .set({ syncStatus: 'ok', lastSyncAt: new Date(), lastSyncError: null as any })
       .where(eq(brokerAccounts.id, account.id));
 
-    // Refresh balance from broker after trade sync (fire-and-forget, best-effort)
-    if (account.platform.toLowerCase() === 'ctrader') updateCTraderBalance(account).catch(() => {});
+    // Refresh balance after sync — delay 3s so cTrader's rate-limit window clears
+    if (account.platform.toLowerCase() === 'ctrader') {
+      setTimeout(() => updateCTraderBalance(account).catch(() => {}), 3000);
+    }
   } catch (err: any) {
     await db.update(brokerAccounts)
       .set({ syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) })

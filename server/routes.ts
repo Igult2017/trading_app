@@ -3345,17 +3345,23 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
       const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
       if (freshAccount) {
-        syncAccount(freshAccount).catch(() => {});
-        // Fetch real balance immediately — PT_ACCOUNTS_RES never includes balance
+        // Fetch balance first (PT_ACCOUNTS_RES never includes it), then sync.
+        // Sequential — not concurrent — so both don't race on the same WS rate limit.
         (async () => {
           try {
             const creds = JSON.parse(safeDecrypt(freshAccount.passwordEnc) ?? '{}');
             if (!creds.accessToken || !creds.ctraderId) return;
-            const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo');
+            const isLive = freshAccount.accountType?.toLowerCase() !== 'demo';
+            const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
             if (bal !== null) {
               await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+              console.log(`[cTrader] balance updated on connect: ${bal.balance} ${bal.currency}`);
             }
-          } catch { /* best-effort */ }
+          } catch (e: any) {
+            console.error(`[cTrader] balance fetch on connect failed: ${e.message}`);
+          }
+          // Kick off trade sync AFTER balance fetch completes to avoid concurrent WS rate limiting
+          syncAccount(freshAccount).catch(() => {});
         })().catch(() => {});
       }
 

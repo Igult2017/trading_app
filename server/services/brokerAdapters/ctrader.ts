@@ -178,7 +178,10 @@ export async function fetchCTraderBalance(
     send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
     const t = await waitFor(ws, PT_TRADER_RES, 10000);
     return { balance: (t?.trader?.balance ?? 0) / 100, currency: t?.trader?.depositCurrency ?? '' };
-  } catch { return null; } finally { ws.close(); }
+  } catch (err: any) {
+    console.error(`[cTrader] fetchCTraderBalance failed for account ${ctraderId}: ${err.message}`);
+    return null;
+  } finally { ws.close(); }
 }
 
 // ── Deal pagination helper ────────────────────────────────────────────────────
