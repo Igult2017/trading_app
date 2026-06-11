@@ -24,6 +24,8 @@ const PT_SYMBOLS_REQ   = 2114;
 const PT_SYMBOLS_RES   = 2115;
 const PT_DEALS_REQ     = 2133;
 const PT_DEALS_RES     = 2134;
+const PT_TRADER_REQ    = 2120;
+const PT_TRADER_RES    = 2121;
 const PT_ACCOUNTS_REQ  = 2149;
 const PT_ACCOUNTS_RES  = 2150;
 const PT_OA_ERROR      = 2142;
@@ -158,6 +160,25 @@ export async function getCTraderAccounts(accessToken: string): Promise<CTraderAc
     throw new Error(`No cTrader accounts found (${reasons})`);
   }
   return accounts;
+}
+
+// ── Account balance (single WS fetch) ────────────────────────────────────────
+
+export async function fetchCTraderBalance(
+  accessToken: string,
+  ctraderId:   string,
+  isLive:      boolean = false,
+): Promise<{ balance: number; currency: string } | null> {
+  const acctId = Number(ctraderId);
+  const ws = await openWS(isLive ? LIVE_WS : DEMO_WS);
+  try {
+    await appAuth(ws);
+    send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
+    await waitFor(ws, PT_ACCT_AUTH_RES);
+    send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
+    const t = await waitFor(ws, PT_TRADER_RES, 10000);
+    return { balance: (t?.trader?.balance ?? 0) / 100, currency: t?.trader?.depositCurrency ?? '' };
+  } catch { return null; } finally { ws.close(); }
 }
 
 // ── Deal pagination helper ────────────────────────────────────────────────────

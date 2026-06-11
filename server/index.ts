@@ -84,7 +84,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts, please try again later.' },
-  ...(redis ? { store: new RedisStore({ sendCommand: (...args: string[]) => redis.call(...args) }) } : {}),
+  ...(redis ? { store: new RedisStore({ sendCommand: ((...args: string[]) => (redis as any).call(...args)) as any }) } : {}),
 });
 app.use('/api/auth', authLimiter);
 
@@ -95,7 +95,7 @@ app.use('/api', rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests, please try again in a minute.' },
-  ...(redis ? { store: new RedisStore({ sendCommand: (...args: string[]) => redis.call(...args) }) } : {}),
+  ...(redis ? { store: new RedisStore({ sendCommand: ((...args: string[]) => (redis as any).call(...args)) as any }) } : {}),
 }));
 
 app.use(express.json({ limit: '50mb' }));

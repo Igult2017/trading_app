@@ -3165,7 +3165,7 @@ ${authUrl}</pre>
     const { code, state: nonce, error: oauthError } = req.query as Record<string, string>;
 
     if (oauthError) {
-      return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(oauthError)}`);
+      return res.redirect(`/journal?tab=accounts&ctrader_error=${encodeURIComponent(oauthError)}`);
     }
 
     // Resolve broker account ID.
@@ -3195,7 +3195,7 @@ ${authUrl}</pre>
     const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
 
     if (!code || (!resolvedAccountId && !isSignalPlatform)) {
-      return res.redirect('/accounts?ctrader_error=missing_code_or_expired');
+      return res.redirect('/journal?tab=accounts&ctrader_error=missing_code_or_expired');
     }
     // Consume both storage entries
     res.clearCookie('ct_pending', { path: '/' });
@@ -3245,7 +3245,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           expiry: Date.now() + 10 * 60 * 1000,
         });
         await storage.updateBrokerAccount(resolvedAccountId, { passwordEnc: safeEncrypt(pendingCreds), syncStatus: 'pending' });
-        return res.redirect(`/accounts?ctrader_select=${encodeURIComponent(resolvedAccountId)}`);
+        return res.redirect(`/journal?tab=accounts&ctrader_select=${encodeURIComponent(resolvedAccountId)}`);
       }
 
       // Single account — link directly
@@ -3267,12 +3267,12 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
       if (freshAccount) syncAccount(freshAccount).catch(() => {});
 
-      return res.redirect('/accounts?ctrader_connected=1');
+      return res.redirect('/journal?tab=accounts&ctrader_connected=1');
     } catch (err: any) {
       const cause = (err.cause as any)?.code ?? (err.cause as any)?.message ?? '';
       console.error('[cTrader OAuth]', err.message, cause, err.cause ?? '');
       const detail = cause ? `${err.message} (${cause})` : err.message;
-      return res.redirect(`/accounts?ctrader_error=${encodeURIComponent(detail)}`);
+      return res.redirect(`/journal?tab=accounts&ctrader_error=${encodeURIComponent(detail)}`);
     }
   });
 

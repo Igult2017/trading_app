@@ -1,7 +1,7 @@
 /**
  * Auto-sync service — runs every 15 min for all API-connected broker accounts.
- * First sync pulls 2 years of history (60-day batches).
- * Subsequent syncs pull only since lastSyncAt (with 2hr overlap).
+ * First sync fetches full 2-year history in a SINGLE WS connection to avoid rate limiting.
+ * Subsequent syncs pull since lastSyncAt with a 2hr overlap.
  * cTrader tokens are refreshed reactively (on error) and proactively (near expiry).
  */
 import { db } from '../db';
@@ -10,11 +10,10 @@ import { eq } from 'drizzle-orm';
 import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
-import { refreshAccessToken } from './brokerAdapters/ctrader';
+import { refreshAccessToken, fetchCTraderBalance } from './brokerAdapters/ctrader';
 import type { BrokerAccount } from '../../shared/schema';
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1_000;
-const CHUNK_DAYS       = 60;
 const HISTORY_DAYS     = 730;   // 2 years
 const OVERLAP_MS       = 2 * 3_600_000;
 const PROACTIVE_MS     = 5 * 60 * 1_000; // refresh if token expires within 5 min
@@ -32,18 +31,16 @@ async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccoun
     const tokens = await refreshAccessToken(creds.refreshToken);
     const newCreds = {
       ...creds,
-      accessToken:      tokens.accessToken,
-      refreshToken:     tokens.refreshToken,
-      tokenExpiresAt:   Date.now() + (tokens.expiresIn * 1000),
+      accessToken:    tokens.accessToken,
+      refreshToken:   tokens.refreshToken,
+      tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000),
     };
     await db.update(brokerAccounts)
       .set({ passwordEnc: safeEncrypt(JSON.stringify(newCreds)) })
       .where(eq(brokerAccounts.id, account.id));
     const [fresh] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, account.id));
     return fresh ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
@@ -79,6 +76,20 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
   }
 }
 
+async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
+  try {
+    const creds = JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}');
+    if (!creds.accessToken || !creds.ctraderId) return;
+    const isLive = account.accountType?.toLowerCase() !== 'demo';
+    const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
+    if (bal && bal.balance > 0) {
+      await db.update(brokerAccounts)
+        .set({ balance: String(bal.balance), currency: bal.currency || account.currency })
+        .where(eq(brokerAccounts.id, account.id));
+    }
+  } catch { /* balance update is best-effort */ }
+}
+
 export async function syncAccount(account: BrokerAccount): Promise<void> {
   if (!API_PLATFORMS.has(account.platform.toLowerCase())) return;
   // Skip placeholder accounts awaiting OAuth completion
@@ -91,11 +102,11 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
     const isNew = !account.lastSyncAt;
 
     if (isNew) {
-      const start = now - HISTORY_DAYS * 86_400_000;
-      for (let t = start; t < now; t += CHUNK_DAYS * 86_400_000) {
-        const raw = await doFetch(account, t, Math.min(t + CHUNK_DAYS * 86_400_000, now));
-        if (raw.length) await processIncomingTrades(account.id, account.userId, raw);
-      }
+      // Single WS call for the full 2-year history — avoids rate limiting from opening
+      // one connection per 60-day chunk (that was 12 connections, hitting cTrader's limit).
+      // fetchTradesForAccount handles 7-day sub-chunking internally on the same connection.
+      const raw = await doFetch(account, now - HISTORY_DAYS * 86_400_000, now);
+      if (raw.length) await processIncomingTrades(account.id, account.userId, raw);
     } else {
       const fromMs = Math.max(account.lastSyncAt!.getTime() - OVERLAP_MS, 0);
       const raw    = await doFetch(account, fromMs, now);
@@ -105,6 +116,9 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
     await db.update(brokerAccounts)
       .set({ syncStatus: 'ok', lastSyncAt: new Date(), lastSyncError: null as any })
       .where(eq(brokerAccounts.id, account.id));
+
+    // Refresh balance from broker after trade sync (fire-and-forget, best-effort)
+    if (account.platform.toLowerCase() === 'ctrader') updateCTraderBalance(account).catch(() => {});
   } catch (err: any) {
     await db.update(brokerAccounts)
       .set({ syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) })

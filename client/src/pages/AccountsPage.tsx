@@ -458,16 +458,23 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   // Handle cTrader OAuth callback query params
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+    // Strip ctrader params from URL without losing the base path (works both at /accounts and /journal?tab=accounts)
+    function cleanCtUrl() {
+      const q = new URLSearchParams(window.location.search);
+      q.delete('ctrader_connected'); q.delete('ctrader_error'); q.delete('ctrader_select');
+      const qs = q.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+    }
     if (p.get('ctrader_connected')) {
       setInfo('cTrader connected! Your full trade history is syncing in the background — this may take a minute.');
-      window.history.replaceState({}, '', '/accounts');
+      cleanCtUrl();
       fetchAccounts();
     } else if (p.get('ctrader_error')) {
       setInfo(`cTrader error: ${decodeURIComponent(p.get('ctrader_error') ?? '')}`);
-      window.history.replaceState({}, '', '/accounts');
+      cleanCtUrl();
     } else if (p.get('ctrader_select')) {
       const token = p.get('ctrader_select')!;
-      window.history.replaceState({}, '', '/accounts');
+      cleanCtUrl();
       (async () => {
         try {
           const r = await fetch(`/api/broker/ctrader/pending-accounts?token=${token}`, { headers: await authHeaders() });
