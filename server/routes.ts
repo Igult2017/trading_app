@@ -3095,13 +3095,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       _pruneCtMaps();
-      const nonce = randomBytes(16).toString('hex');
-      _ctNonces.set(nonce, { accountId, expiry: Date.now() + 10 * 60 * 1000 });
+      const nonce   = randomBytes(16).toString('hex');
+      const expiry  = Date.now() + 10 * 60 * 1000;
+      _ctNonces.set(nonce, { accountId, expiry });
+      // Persist nonce to DB — callback can verify freshness even after server restart
+      const existingRaw = safeDecrypt(acctToConnect.passwordEnc);
+      const existingCreds = existingRaw ? (() => { try { return JSON.parse(existingRaw); } catch { return {}; } })() : {};
+      await storage.updateBrokerAccount(accountId, {
+        passwordEnc: safeEncrypt(JSON.stringify({ ...existingCreds, oauthNonce: nonce, oauthNonceExpiry: expiry })),
+      });
       const url = getCTraderAuthUrl(nonce);
-      // Cookie survives the Spotware redirect even if state is not echoed back.
-      // sameSite=lax ensures it is sent on the top-level GET from Spotware → our callback.
-      // path='/' so it is sent regardless of which path Spotware redirects to.
-      res.cookie('ct_pending', accountId, { httpOnly: true, maxAge: 600000, sameSite: 'lax', path: '/' });
+      // Cookie value = nonce:accountId so callback can detect stale cookies from old OAuth attempts.
+      // sameSite=lax + path='/' ensures it arrives on the Spotware → callback redirect.
+      res.cookie('ct_pending', `${nonce}:${accountId}`, { httpOnly: true, maxAge: 600000, sameSite: 'lax', path: '/' });
       return res.json({ url });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -3163,11 +3169,28 @@ ${authUrl}</pre>
     }
 
     // Resolve broker account ID.
-    // Primary: short-lived cookie set in the connect route (survives Spotware redirect even if state is not echoed).
-    // Fallback: nonce map (works if Spotware does echo state).
-    const cookieAccountId = _parseCookie(req.headers.cookie, 'ct_pending');
+    // Cookie value = "nonce:accountId" — nonce binds it to a specific OAuth attempt so stale
+    // cookies from previous attempts are rejected even if the server restarted (nonce is also
+    // persisted to DB in the connect route for restart-safe verification).
+    const cookieRaw      = _parseCookie(req.headers.cookie, 'ct_pending') ?? '';
+    const sepIdx         = cookieRaw.indexOf(':');
+    const cookieNonce    = sepIdx > 0 ? cookieRaw.slice(0, sepIdx) : '';
+    const cookieAcctId   = sepIdx > 0 ? cookieRaw.slice(sepIdx + 1) : cookieRaw;
+
+    // Fast path: nonce map is populated (server hasn't restarted)
     const pending = nonce ? _ctNonces.get(nonce) : undefined;
-    const resolvedAccountId = cookieAccountId || pending?.accountId || '';
+    let resolvedAccountId = pending?.accountId || '';
+
+    // Restart-safe path: verify cookie nonce against DB-persisted nonce
+    if (!resolvedAccountId && cookieNonce && cookieAcctId) {
+      const dbAcct = await storage.getBrokerAccountById(cookieAcctId);
+      if (dbAcct) {
+        const saved = (() => { try { return JSON.parse(safeDecrypt(dbAcct.passwordEnc) ?? '{}'); } catch { return {}; } })();
+        if (saved.oauthNonce === cookieNonce && saved.oauthNonceExpiry > Date.now()) {
+          resolvedAccountId = cookieAcctId;
+        }
+      }
+    }
 
     const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
 

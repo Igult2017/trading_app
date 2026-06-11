@@ -38,10 +38,19 @@ export function decrypt(encoded: string): string {
   return decipher.update(encData).toString('utf8') + decipher.final('utf8');
 }
 
-/** Safe decrypt — returns null instead of throwing on malformed input. */
+/**
+ * Safe decrypt — mirrors safeEncrypt's two possible output formats:
+ *   AES format:    ivHex:tagHex:ciphertextHex  (three colon-separated hex segments)
+ *   Base64 format: plain base64               (written when COPY_ENCRYPTION_KEY was not set)
+ * Returns null on any error rather than throwing.
+ */
 export function safeDecrypt(encoded: string | null | undefined): string | null {
   if (!encoded) return null;
-  try { return decrypt(encoded); } catch { return null; }
+  if (/^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/i.test(encoded)) {
+    try { return decrypt(encoded); } catch { return null; }
+  }
+  // Base64 fallback — symmetric with safeEncrypt when COPY_ENCRYPTION_KEY is absent
+  try { return Buffer.from(encoded, 'base64').toString('utf8') || null; } catch { return null; }
 }
 
 /**
