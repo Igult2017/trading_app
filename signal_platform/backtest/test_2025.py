@@ -1,5 +1,5 @@
 """
-2025 EURUSD Pullback backtest — full year via yfinance.
+2025 EURUSD Pullback backtest — cTrader H1/D1 data.
 Shows monthly P&L, BUY vs SELL breakdown, and session breakdown.
 
 Run from signal_platform/:
@@ -15,7 +15,7 @@ for _p in (_PLATFORM, _DIR):
 
 logging.basicConfig(level=logging.WARNING)
 
-from yf_fetch import fetch
+from ctrader_fetch import fetch, _H1_BACKTEST, _D1_DEFAULT
 from test_ctrader_pullbacks import run_backtest
 from backtest_report import simulate_outcomes, report, breakdown_direction, breakdown_session
 
@@ -29,13 +29,8 @@ def _filter_2025(signals_by_month: dict) -> dict:
 
 
 if __name__ == "__main__":
-    # H1 from Jul 2024 for warmup — D1 from Jan 2024 for EMA 200 warmup
-    # H1 extends to Jun 2026 so late-2025 signals get outcome bars
-    h1, h4, d1 = fetch(
-        h1_start="2024-07-01",
-        h1_end  ="2026-06-01",
-        d1_start="2024-01-01",
-    )
+    # 4900 H1 bars ≈ 1.5 years of history (cTrader's per-request cap is 5000)
+    h1, h4, d1 = fetch(h1_count=_H1_BACKTEST, d1_count=_D1_DEFAULT)
 
     confirmed, watch = run_backtest(h1, h4, d1)
 

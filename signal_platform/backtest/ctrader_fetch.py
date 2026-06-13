@@ -13,28 +13,30 @@ from config.settings import settings
 import data.ctrader_session as _sess
 from data.ctrader_client import fetch_bars
 
-H1_COUNT    = 1500   # ~62 days of H1
-D1_COUNT    = 400    # enough for EMA 200 warmup + scan window
-_M1_PER_REQ = 4900   # safe under cTrader's 5000-bar-per-request cap
+_H1_DEFAULT  = 1500    # ~62 days — enough for live scanner
+_D1_DEFAULT  = 400     # enough for EMA 200 warmup + scan window
+_H1_BACKTEST = 4900    # ~1.5 years of H1 bars (under cTrader 5000-bar cap)
+_M1_PER_REQ  = 4900    # safe under cTrader's 5000-bar-per-request cap
 
 
-async def _fetch() -> tuple[list[dict], list[dict]]:
+def _configure_session() -> None:
     _sess.configure(
         client_id=settings.ctrader_client_id,
         client_secret=settings.ctrader_client_secret,
         account_id=settings.ctrader_account_id,
         env=settings.ctrader_env,
     )
-    # Use stored access token directly — the live platform may have already
-    # rotated the refresh token, making a refresh attempt fail with ACCESS_DENIED.
     if settings.ctrader_access_token:
         _sess._access_token = settings.ctrader_access_token
         _sess._token_expiry  = time.monotonic() + 3600
 
-    print(f"[cTrader] fetching EURUSD H1 ({H1_COUNT} bars)...")
-    h1_raw = await fetch_bars("EURUSD", "H1", count=H1_COUNT)
-    print(f"[cTrader] fetching EURUSD D1 ({D1_COUNT} bars)...")
-    d1_raw = await fetch_bars("EURUSD", "D1", count=D1_COUNT)
+
+async def _fetch(h1_count: int, d1_count: int) -> tuple[list[dict], list[dict]]:
+    _configure_session()
+    print(f"[cTrader] fetching EURUSD H1 ({h1_count} bars)...")
+    h1_raw = await fetch_bars("EURUSD", "H1", count=h1_count)
+    print(f"[cTrader] fetching EURUSD D1 ({d1_count} bars)...")
+    d1_raw = await fetch_bars("EURUSD", "D1", count=d1_count)
     return h1_raw, d1_raw
 
 
@@ -57,9 +59,16 @@ def _resample_h4(h1: list[Candle]) -> list[Candle]:
     ]
 
 
-def fetch() -> tuple[list[Candle], list[Candle], list[Candle]]:
-    """Returns (h1, h4, d1) as Candle lists, sorted ascending by time."""
-    h1_raw, d1_raw = asyncio.run(_fetch())
+def fetch(
+    h1_count: int = _H1_DEFAULT,
+    d1_count: int = _D1_DEFAULT,
+) -> tuple[list[Candle], list[Candle], list[Candle]]:
+    """
+    Returns (h1, h4, d1) Candle lists sorted ascending by time.
+    Pass h1_count=_H1_BACKTEST (4900) for full-year backtests.
+    cTrader caps requests at 5000 bars — paginate M1 via fetch_m1() instead.
+    """
+    h1_raw, d1_raw = asyncio.run(_fetch(h1_count, d1_count))
     h1 = _raw_to_candles(h1_raw, TF.H1)
     d1 = _raw_to_candles(d1_raw, TF.D1)
     h4 = _resample_h4(h1)
@@ -69,16 +78,7 @@ def fetch() -> tuple[list[Candle], list[Candle], list[Candle]]:
 
 async def _fetch_m1_paginated(start_unix: int) -> list[dict]:
     """Paginate M1 bars backwards from now to start_unix."""
-    _sess.configure(
-        client_id=settings.ctrader_client_id,
-        client_secret=settings.ctrader_client_secret,
-        account_id=settings.ctrader_account_id,
-        env=settings.ctrader_env,
-    )
-    if settings.ctrader_access_token:
-        _sess._access_token = settings.ctrader_access_token
-        _sess._token_expiry  = time.monotonic() + 3600
-
+    _configure_session()
     start_ms = start_unix * 1000
     to_ms    = int(time.time() * 1000)
     seen: set[int]  = set()

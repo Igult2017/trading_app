@@ -26,8 +26,7 @@ from shared.adx import calc_adx
 from strategies.pullback_setup import find_volume_cluster, measure_pullback
 from strategies.pullback_fractal import fractal_entry
 from backtest_report import simulate_outcomes, report, breakdown_direction, breakdown_session
-from yf_fetch import fetch as fetch_ohlc
-from ctrader_fetch import fetch_m1
+from ctrader_fetch import fetch, fetch_m1, _H1_BACKTEST, _D1_DEFAULT
 
 _PIP        = 0.00010
 _SL_BUFFER  = 2 * _PIP
@@ -147,11 +146,10 @@ def run(h1, d1, m1):
 
 
 if __name__ == "__main__":
-    # H1/D1 via yfinance (fast)
-    h1, _, d1 = fetch_ohlc(h1_start="2024-07-01", h1_end="2026-06-01",
-                            d1_start="2024-01-01")
+    # H1/D1 via cTrader (4900 bars ≈ 1.5 years, D1=400 for EMA warmup)
+    h1, _, d1 = fetch(h1_count=_H1_BACKTEST, d1_count=_D1_DEFAULT)
 
-    # M1 via cTrader — fetch from start of 2025 warmup
+    # M1 via cTrader — paginated from start of 2025 (~45 requests, ~15 min)
     m1 = fetch_m1(start_unix=_2025_START)
 
     confirmed, watch = run(h1, d1, m1)
