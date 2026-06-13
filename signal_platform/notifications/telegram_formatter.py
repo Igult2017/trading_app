@@ -51,6 +51,44 @@ def format_signal_confirmed(signal: Signal) -> str:
     return "\n".join(lines)
 
 
+def format_signal_watch(signal: Signal) -> str:
+    arrow = "📈" if signal.direction == Direction.BUY else "📉"
+    side  = "BUY" if signal.direction == Direction.BUY else "SELL"
+
+    lines = [
+        f"⚠️ <b>WATCH SIGNAL — Not aligning with D1 EMA 200</b>",
+        "──────────────────────────",
+        f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>",
+        f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id)}",
+        f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
+        "",
+    ]
+
+    if signal.entry_price is not None:
+        lines.append(f"💰 <b>Entry:</b>        <code>{signal.entry_price:.5f}</code>")
+    if signal.stop_loss is not None:
+        lines.append(f"🛑 <b>Stop Loss:</b>    <code>{signal.stop_loss:.5f}</code>")
+    if signal.take_profit is not None:
+        lines.append(f"🎯 <b>Take Profit:</b>  <code>{signal.take_profit:.5f}</code>")
+    if signal.risk_reward is not None:
+        lines.append(f"⚖️ <b>R:R:</b>          <code>1:{signal.risk_reward:.1f}</code>")
+
+    if signal.technical_reasons:
+        lines += ["", "📝 <b>Reasons:</b>"]
+        for r in signal.technical_reasons[:5]:
+            lines.append(f"  • {_h(r)}")
+
+    if signal.market_context:
+        lines += ["", f"<i>{_h(signal.market_context)}</i>"]
+
+    lines += [
+        "──────────────────────────",
+        "👁 <i>Monitor only — trade at your discretion</i>",
+    ]
+
+    return "\n".join(lines)
+
+
 def format_signal_closed(symbol: str, direction: str, status: str,
                           entry: float | None = None,
                           close_price: float | None = None) -> str:

@@ -15,7 +15,9 @@ import os
 from config.settings import settings
 from core import event_bus
 from core.types import Signal
-from notifications.telegram_formatter import format_signal_confirmed, format_signal_closed
+from notifications.telegram_formatter import (
+    format_signal_confirmed, format_signal_watch, format_signal_closed,
+)
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +83,8 @@ async def _send_photo(chart_path: str, caption: str) -> None:
 
 
 async def on_signal_confirmed(signal: Signal) -> None:
-    message = format_signal_confirmed(signal)
+    is_watch = signal.strategy_id.endswith("_watch")
+    message  = format_signal_watch(signal) if is_watch else format_signal_confirmed(signal)
     chart = signal.chart_path
     if chart and os.path.isfile(chart):
         await _send_photo(chart, message)
