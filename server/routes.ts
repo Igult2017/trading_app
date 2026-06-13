@@ -2094,7 +2094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { rows } = await pool.query<{
         id: string; account_type: string; password_enc: string;
-      }>(`SELECT id, account_type, password_enc FROM broker_accounts WHERE platform = 'ctrader' LIMIT 5`);
+      }>(`SELECT id, account_type, password_enc FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC LIMIT 5`);
       for (const row of rows) {
         try {
           const plain = safeDecrypt(row.password_enc);
