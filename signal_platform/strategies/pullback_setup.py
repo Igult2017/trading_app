@@ -94,14 +94,13 @@ def measure_pullback(
     if vol_range > 0 and (depth < vol_range * 0.25 or depth > vol_range * 0.80):
         return None
 
-    # Structure change guard: a valid pullback stays within the cluster's range.
-    # If a pullback candle's low goes below cluster_low (BUY) or its high goes above
-    # cluster_high (SELL), the cluster move is being fully erased — that is a reversal,
-    # not a pullback, and the setup must be discarded.
+    # Structure change guard: reject only when a pullback candle CLOSES beyond the
+    # cluster boundary (body breaks structure). Wicks through cluster_low / cluster_high
+    # are allowed — price sometimes sweeps liquidity then recovers.
     for c in pb_candles:
-        if bullish     and c.low  < cluster_low:
+        if bullish     and c.close < cluster_low:
             return None
-        if not bullish and c.high > cluster_high:
+        if not bullish and c.close > cluster_high:
             return None
 
     return (pb_high, pb_low, len(pb_candles), pb_candles[-1].time + 3600)
