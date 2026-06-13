@@ -1,5 +1,6 @@
 """
-EURUSD Pullback: volume cluster detection, pullback validation, 1M fractal entry.
+EURUSD Pullback: volume cluster detection and pullback validation.
+Fractal detection lives in pullback_fractal.py.
 4H zone check lives in pullback_obstruction.py.
 """
 from core.types import Candle
@@ -106,80 +107,3 @@ def measure_pullback(
     return (pb_high, pb_low, len(pb_candles), pb_candles[-1].time + 3600)
 
 
-def fractal_entry(
-    m1: list[Candle],
-    pb_high: float,
-    pb_low: float,
-    bullish: bool,
-    pb_end_time: int,
-    max_stale: int = 5,
-) -> float | None:
-    """
-    Return the fractal break level as entry price, or None.
-
-    Invalidation: M1 closes through the wrong zone boundary before fractal
-    forms → setup dead (counter-momentum violated pullback structure).
-
-    Entry: first Williams 5-bar fractal after pullback extreme, broken
-    within max_stale M1 bars. Returns the fractal LEVEL, not the break close.
-    """
-    window = [c for c in m1 if c.time >= pb_end_time]
-    if len(window) < 7:
-        return None
-
-    zone_lo = pb_low  - 3 * _PIP
-    zone_hi = pb_high + 3 * _PIP
-
-    # Step 1 — find the deepest M1 extreme inside the pullback zone.
-    # Invalidate only if price closes through the wrong boundary BEFORE
-    # the extreme forms — not after (that is the trade running, not a
-    # setup failure).
-    extreme_pos: int | None = None
-    for i, c in enumerate(window):
-        # Invalidation: M1 body breaks structure before the pullback extreme forms
-        if bullish     and c.close < pb_low:
-            return None
-        if not bullish and c.close > pb_high:
-            return None
-
-        in_zone = (zone_lo <= c.low  <= zone_hi) if bullish else (zone_lo <= c.high <= zone_hi)
-        if not in_zone:
-            continue
-        if bullish:
-            if extreme_pos is None or c.low < window[extreme_pos].low:
-                extreme_pos = i
-        else:
-            if extreme_pos is None or c.high > window[extreme_pos].high:
-                extreme_pos = i
-
-    if extreme_pos is None or extreme_pos >= len(window) - 5:
-        return None
-
-    # Step 2 — find the first 5-bar Williams fractal after the extreme.
-    fractal_level: float | None = None
-    fractal_pos:   int   | None = None
-
-    for i in range(extreme_pos + 2, len(window) - 2):
-        c      = window[i]
-        p1, p2 = window[i - 1], window[i - 2]
-        n1, n2 = window[i + 1], window[i + 2]
-        if bullish:
-            if c.high > p1.high and c.high > p2.high and c.high > n1.high and c.high > n2.high:
-                fractal_level, fractal_pos = c.high, i
-                break
-        else:
-            if c.low < p1.low and c.low < p2.low and c.low < n1.low and c.low < n2.low:
-                fractal_level, fractal_pos = c.low, i
-                break
-
-    if fractal_level is None or fractal_pos is None:
-        return None
-
-    post = window[fractal_pos + 1:]
-    for j, c in enumerate(post):
-        if bullish     and c.close > fractal_level:
-            return fractal_level if j <= max_stale else None
-        if not bullish and c.close < fractal_level:
-            return fractal_level if j <= max_stale else None
-
-    return None

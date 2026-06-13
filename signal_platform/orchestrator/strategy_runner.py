@@ -102,9 +102,20 @@ async def run_strategy(
     loop        = asyncio.get_running_loop()
 
     for signal in valid_signals:
-        signal.strategy_id   = strategy.id
+        # Preserve strategy-set strategy_id (e.g. _watch / _setup suffixes)
+        if not signal.strategy_id:
+            signal.strategy_id = strategy.id
         signal.strategy_name = strategy.name
         signal.symbol        = instrument
+
+        # Setup alerts: Telegram only — no DB save, no dedup registration
+        if signal.alert_only:
+            await event_bus.emit(event_bus.SIGNAL_ALERT, signal)
+            log.info(
+                f"[runner] SETUP ALERT — {instrument} "
+                f"{signal.direction.value.upper()} strategy={signal.strategy_id}"
+            )
+            continue
 
         # Risk filters — only run when strategy opted in
         if strategy.requires_volatility:

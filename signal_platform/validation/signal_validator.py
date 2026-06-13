@@ -58,6 +58,9 @@ def validate(result: StrategyResult, instrument: str) -> list[Signal]:
 
     valid: list[Signal] = []
     for signal in result.signals:
+        if signal.alert_only:
+            valid.append(signal)   # setup alerts bypass all validation; strategy manages dedup
+            continue
         if not _check_rr(signal):
             continue
         if not _check_confidence(signal):

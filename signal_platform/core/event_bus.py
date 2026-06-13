@@ -40,3 +40,4 @@ async def emit(event: str, payload: Any = None) -> None:
 SIGNAL_PENDING   = "signal_pending"    # storage watchlist
 SIGNAL_CONFIRMED = "signal_confirmed"  # storage + notifications + monitor
 SIGNAL_CLOSED    = "signal_closed"     # storage final status
+SIGNAL_ALERT     = "signal_alert"      # setup alert — Telegram only, no DB save

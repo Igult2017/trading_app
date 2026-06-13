@@ -23,7 +23,8 @@ from core.types import Candle, TF
 from indicators.ema_200 import EMA200Indicator
 from shared.session_phases import is_valid_phase
 from shared.adx import calc_adx
-from strategies.pullback_setup import find_volume_cluster, measure_pullback, fractal_entry
+from strategies.pullback_setup import find_volume_cluster, measure_pullback
+from strategies.pullback_fractal import fractal_entry
 from backtest_report import simulate_outcomes, report, breakdown_direction, breakdown_session
 from yf_fetch import fetch as fetch_ohlc
 from ctrader_fetch import fetch_m1

@@ -11,6 +11,33 @@ def _h(text: str) -> str:
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def format_setup_alert(signal: Signal) -> str:
+    """Stage 1 — H1 pullback spotted. Watch M1, do not enter yet."""
+    arrow = "📈" if signal.direction == Direction.BUY else "📉"
+    side  = "BUY" if signal.direction == Direction.BUY else "SELL"
+    lines = [
+        f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>",
+        "──────────────────────────",
+        f"{arrow} <b>H1 Pullback Identified — Watch M1</b>",
+        "",
+        f"📍 <b>Entry zone:</b>    <code>{signal.entry_price:.5f}</code>",
+        f"🛑 <b>SL (approx):</b>  <code>{signal.stop_loss:.5f}</code>",
+        f"🎯 <b>TP (approx):</b>  <code>{signal.take_profit:.5f}</code>",
+        "",
+    ]
+    if signal.technical_reasons:
+        lines += ["📝 <b>Setup details:</b>"]
+        for r in signal.technical_reasons[:4]:
+            lines.append(f"  • {_h(r)}")
+    lines += [
+        "",
+        "──────────────────────────",
+        "⏳ <i>Waiting for M1 fractal. A second alert will follow with exact entry.</i>",
+        "⚡️ <i>TradeJournal Signal Platform</i>",
+    ]
+    return "\n".join(lines)
+
+
 def format_signal_confirmed(signal: Signal) -> str:
     arrow = "📈" if signal.direction == Direction.BUY else "📉"
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"

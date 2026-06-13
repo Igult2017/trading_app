@@ -16,7 +16,7 @@ from config.settings import settings
 from core import event_bus
 from core.types import Signal
 from notifications.telegram_formatter import (
-    format_signal_confirmed, format_signal_watch, format_signal_closed,
+    format_setup_alert, format_signal_confirmed, format_signal_watch, format_signal_closed,
 )
 
 log = logging.getLogger(__name__)
@@ -82,6 +82,10 @@ async def _send_photo(chart_path: str, caption: str) -> None:
         await _send_text(caption)
 
 
+async def on_setup_alert(signal: Signal) -> None:
+    await _send_text(format_setup_alert(signal))
+
+
 async def on_signal_confirmed(signal: Signal) -> None:
     is_watch = signal.strategy_id.endswith("_watch")
     message  = format_signal_watch(signal) if is_watch else format_signal_confirmed(signal)
@@ -125,6 +129,7 @@ async def on_signal_closed(signal_id: str) -> None:
 
 
 def register() -> None:
+    event_bus.subscribe(event_bus.SIGNAL_ALERT,     on_setup_alert)
     event_bus.subscribe(event_bus.SIGNAL_CONFIRMED, on_signal_confirmed)
     event_bus.subscribe(event_bus.SIGNAL_CLOSED,    on_signal_closed)
-    log.info("[dispatcher] registered — signal_confirmed + signal_closed")
+    log.info("[dispatcher] registered — signal_alert + signal_confirmed + signal_closed")

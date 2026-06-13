@@ -198,6 +198,7 @@ class Signal:
     chart_path:         Optional[str] = None
     created_at:         datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at:         Optional[datetime] = None
+    alert_only:         bool = False   # True = setup alert; bypasses dedup, DB, AI validator
 
 
 # ── Strategy result ────────────────────────────────────────────────────────────
