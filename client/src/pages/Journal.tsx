@@ -856,14 +856,14 @@ export default function Journal() {
   });
 
   // If the persisted activeSessionId points to a session that no longer
-  // exists (deleted on another device, etc.), clear it so we don't keep
-  // querying for ghost data.
+  // exists (deleted on another device, etc.), fall back to the first available session.
+  // Also auto-selects the first session when none is active (e.g. first visit, cleared storage).
   // Guard: skip while sessions are being fetched/refetched to avoid
   // clearing a newly-created session that hasn't landed in cache yet.
   useEffect(() => {
-    if (!activeSessionId || !sessions.length || sessionsFetching) return;
-    if (!sessions.some((s: any) => s.id === activeSessionId)) {
-      setActiveSessionId(null);
+    if (!sessions.length || sessionsFetching) return;
+    if (!activeSessionId || !sessions.some((s: any) => s.id === activeSessionId)) {
+      setActiveSessionId((sessions[0] as any).id ?? null);
     }
   }, [sessions, activeSessionId, sessionsFetching]);
 

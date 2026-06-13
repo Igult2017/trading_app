@@ -310,7 +310,7 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
               type="number"
               value={Math.abs(form.pl)}
               onChange={(e) => {
-                const val = parseInt(e.target.value) || 0;
+                const val = parseFloat(e.target.value) || 0;
                 handleChange("pl", form.outcome === "LOSS" ? -val : val);
               }}
               style={styles.input}
@@ -419,7 +419,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   const updateMutation = useMutation({
     mutationFn: async (updated: Trade) => {
       // Normalize free-text inputs so backend / Python receive clean values
-      const normalizedOutcome = String(updated.outcome).trim().toLowerCase();
+      const normalizedOutcome = String(updated.outcome).trim().toUpperCase();
       const normalizedDirection = updated.direction
         ? String(updated.direction).trim().toLowerCase()
         : null;
