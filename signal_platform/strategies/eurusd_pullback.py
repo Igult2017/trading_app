@@ -5,7 +5,7 @@ Flow:
   1. News     — skip around high-impact USD/EUR events
   2. Session  — 6 institutional UTC phase windows
   3. Volume   — H1 cluster: 2+ consecutive directional candles, body_ratio >= 0.55
-  4. Pullback — 1-3 H1 candles retracing 25-80% of cluster range
+  4. Pullback — 1-6 H1 candles retracing 25-80% of cluster range
   5. 4H zone  — reject if pullback extreme sits at a 4H key level
   6. Fractal  — 1M fractal break; entry = fractal level
   7. Risk     — SL at pullback extreme + 2 pip buffer; 5-60 pip band

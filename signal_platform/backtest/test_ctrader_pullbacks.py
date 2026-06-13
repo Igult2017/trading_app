@@ -85,21 +85,39 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
         c_pb += 1
         pb_high, pb_low, pb_count, _ = pb
 
-        # Fractal proxy: H1 close breaks pullback boundary
-        if bullish  and cur.close <= pb_high:
+        # H1 close must confirm breakout (close > pb_high for BUY, < pb_low for SELL).
+        # This filters out spike bars where high briefly tagged pb_high then reversed —
+        # a real M1 fractal would never form/hold in that case.
+        # Entry is at the stop level (pb_high / pb_low), not the H1 close.
+        if bullish     and cur.close <= pb_high:
             continue
         if not bullish and cur.close >= pb_low:
             continue
+
+        # Invalidation: if any bar between pullback end and now closed through the
+        # wrong boundary (stop-loss zone), the setup is dead — cancel the stop order.
+        abs_start   = max(0, i - 30)
+        pb_end_abs  = abs_start + ve + pb_count
+        invalidated = False
+        for bar in h1[pb_end_abs + 1: i]:
+            if bullish     and bar.low  < (pb_low  - _SL_BUFFER):
+                invalidated = True; break
+            if not bullish and bar.high > (pb_high + _SL_BUFFER):
+                invalidated = True; break
+        if invalidated:
+            continue
         c_frac += 1
 
-        sl   = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
-        risk = abs(cur.close - sl)
+        # Entry at stop level; risk spans full pullback range + buffer
+        entry_price = pb_high if bullish else pb_low
+        sl_price    = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
+        risk        = abs(entry_price - sl_price)
         if risk < MIN_RISK or risk > MAX_RISK:
             continue
         c_risk += 1
 
         h4_win   = [c for c in h4 if c.time <= cur.time][-50:]
-        at_4h    = is_at_4h_key_level(h4_win, cur.close)
+        at_4h    = is_at_4h_key_level(h4_win, entry_price)
 
         # EMA 200 on D1
         d1_past = [c for c in d1 if c.time < cur.time]
@@ -108,8 +126,8 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
         ema_d1     = EMA200Indicator._ema([c.close for c in d1_past[-_EMA_PERIOD:]], _EMA_PERIOD)
         d1_aligned = (d1_past[-1].close > ema_d1) == bullish
 
-        entry  = round(cur.close, 5)
-        sl_r   = round(sl, 5)
+        entry  = round(entry_price, 5)
+        sl_r   = round(sl_price, 5)
         tp_r   = round(entry + 2.0 * risk if bullish else entry - 2.0 * risk, 5)
         rec    = {
             "date":     utc_now.strftime("%Y-%m-%d %H:%M"),
@@ -140,7 +158,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     print(f"  After session phases     : {c_sess}")
     print(f"  After volume cluster     : {c_vol}")
     print(f"  After dedup              : {c_dedup}")
-    print(f"  After pullback (1-3c)    : {c_pb}")
+    print(f"  After pullback (1-6c)    : {c_pb}")
     print(f"  After fractal proxy      : {c_frac}")
     print(f"  After risk (5-60 pips)   : {c_risk}")
     print(f"  >> Confirmed (EMA OK)    : {c_conf}")

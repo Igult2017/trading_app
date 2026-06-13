@@ -66,7 +66,7 @@ def measure_pullback(
     Returns (pb_high, pb_low, count, pb_end_time) or None.
 
     Rules:
-    - 1 to 3 candles against direction
+    - 1 to 6 candles against direction
     - depth 25–80% of full cluster range (from cluster_start to vol_idx)
     """
     pb_candles: list[Candle] = []
@@ -78,7 +78,7 @@ def measure_pullback(
         else:
             break
 
-    if len(pb_candles) < 1 or len(pb_candles) > 3:
+    if len(pb_candles) < 1 or len(pb_candles) > 6:
         return None
 
     pb_high = max(c.high for c in pb_candles)

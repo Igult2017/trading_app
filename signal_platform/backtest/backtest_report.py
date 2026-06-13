@@ -33,13 +33,14 @@ def simulate_outcomes(signals_by_month: dict, h1: list[Candle], max_bars: int = 
             outcome = "open"
 
             for j, c in enumerate(h1[start: start + max_bars]):
+                # Use H1 high/low — matches how stop orders and limits actually fill
                 if not at_be:
-                    if (buy and c.close >= t1r) or (not buy and c.close <= t1r):
+                    if (buy and c.high >= t1r) or (not buy and c.low <= t1r):
                         cur_sl = entry
                         at_be  = True
 
-                tp_hit = c.close >= tp      if buy else c.close <= tp
-                sl_hit = c.close <= cur_sl  if buy else c.close >= cur_sl
+                tp_hit = c.high >= tp     if buy else c.low  <= tp
+                sl_hit = c.low  <= cur_sl if buy else c.high >= cur_sl
 
                 if tp_hit:
                     outcome = "TP"; break
