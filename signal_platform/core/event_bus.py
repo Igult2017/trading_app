@@ -41,3 +41,5 @@ SIGNAL_PENDING   = "signal_pending"    # storage watchlist
 SIGNAL_CONFIRMED = "signal_confirmed"  # storage + notifications + monitor
 SIGNAL_CLOSED    = "signal_closed"     # storage final status
 SIGNAL_ALERT     = "signal_alert"      # setup alert — Telegram only, no DB save
+SCAN_STARTED     = "scan_started"      # scanner first active tick (market just opened)
+SESSION_OPEN     = "session_open"      # major session open (London / NY / Sydney / Tokyo)

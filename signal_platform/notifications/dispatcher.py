@@ -18,6 +18,7 @@ from core.types import Signal
 from notifications.telegram_formatter import (
     format_setup_alert, format_signal_confirmed, format_signal_watch, format_signal_closed,
 )
+from notifications.telegram_system_formatter import format_scan_started, format_session_open
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +101,14 @@ async def on_signal_confirmed(signal: Signal) -> None:
         await _send_text(message)
 
 
+async def on_scan_started(payload: dict) -> None:
+    await _send_text(format_scan_started(payload))
+
+
+async def on_session_open(session_name: str) -> None:
+    await _send_text(format_session_open(session_name))
+
+
 async def on_signal_closed(signal_id: str) -> None:
     try:
         loop = asyncio.get_running_loop()
@@ -132,4 +141,6 @@ def register() -> None:
     event_bus.subscribe(event_bus.SIGNAL_ALERT,     on_setup_alert)
     event_bus.subscribe(event_bus.SIGNAL_CONFIRMED, on_signal_confirmed)
     event_bus.subscribe(event_bus.SIGNAL_CLOSED,    on_signal_closed)
-    log.info("[dispatcher] registered — signal_alert + signal_confirmed + signal_closed")
+    event_bus.subscribe(event_bus.SCAN_STARTED,     on_scan_started)
+    event_bus.subscribe(event_bus.SESSION_OPEN,     on_session_open)
+    log.info("[dispatcher] registered — signals + scan_started + session_open")
