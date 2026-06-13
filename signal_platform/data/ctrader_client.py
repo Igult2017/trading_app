@@ -7,7 +7,7 @@ Symbol names: cTrader format without slash — "EURUSD", "USDJPY".
 Price encoding: all prices are integers scaled by 10^digits.
   FX (non-JPY): divide by 100,000 (5 decimal places)
   JPY crosses:  divide by 1,000   (3 decimal places)
-ProtoOATrendbarPeriod enum values equal the TF duration in minutes.
+ProtoOATrendbarPeriod enum: sequential ints 1–14 (M1→MN1), NOT minutes.
 """
 
 import asyncio
@@ -26,6 +26,14 @@ log = logging.getLogger(__name__)
 TYPE_SYMBOLS_RES   = 2115
 TYPE_TRENDBARS_RES = 2138
 TYPE_ERROR         = 5
+
+# ProtoOATrendbarPeriod enum: values are sequential ints, NOT minutes.
+_TF_TO_PERIOD: dict[str, int] = {
+    "M1": 1, "M2": 2, "M3": 3, "M4": 4, "M5": 5,
+    "M10": 6, "M15": 7, "M30": 8,
+    "H1": 9, "H4": 10, "H12": 11,
+    "D1": 12, "W1": 13, "MN1": 14,
+}
 
 _symbols:  dict[str, int] = {}   # "EURUSD" → symbolId
 _req_lock  = asyncio.Lock()      # serialize all TCP request/response pairs
@@ -72,10 +80,13 @@ async def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:
             if sid is None:
                 raise ValueError(f"[ctrader] '{symbol}' not in symbol list")
 
+            period_val = _TF_TO_PERIOD.get(tf)
+            if period_val is None:
+                raise ValueError(f"[ctrader] no period enum for TF '{tf}'")
             req = ProtoOAGetTrendbarsReq(
                 ctidTraderAccountId=_sess._account_id,
                 symbolId=sid,
-                period=to_minutes(tf),   # ProtoOATrendbarPeriod values == minutes
+                period=period_val,
                 fromTimestamp=from_ts,
                 toTimestamp=to_ts,
                 count=count,
