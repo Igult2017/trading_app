@@ -26,6 +26,9 @@ class BaseStrategy(ABC):
     required_patterns:   list[str] = []
     required_features:   list[str] = []   # e.g. ["trend", "liquidity_sweep"]
 
+    # ── Bar counts per TF (0 / absent = platform default 100) ─────────────────
+    candle_counts: dict = {}   # e.g. {TF.H1: 250, TF.D1: 250}
+
     # ── Context opt-ins (platform populates only what is True) ─────────────────
     requires_news:       bool = False
     requires_session:    bool = False

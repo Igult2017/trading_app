@@ -43,8 +43,11 @@ class EURUSDPullbackStrategy(BaseStrategy):
     required_features    = []
     requires_news        = True
 
+    candle_counts = {TF.M1: 250, TF.H1: 250, TF.H4: 100, TF.D1: 250}  # EMA 200 needs 200+
+
     allowed_sessions    = [Session.ALL]
-    allowed_trends      = [Trend.UPTREND, Trend.DOWNTREND]
+    # Trend.ANY: strategy manages trend via D1 EMA 200; pre-filter would cache D1 with count=100
+    allowed_trends      = [Trend.ANY]
     allowed_instruments = ["EUR/USD"]
     news_stance         = NewsStance.AVOID_HIGH_ONLY
     news_impact_filter  = [NewsImpact.HIGH]

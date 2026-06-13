@@ -69,9 +69,11 @@ async def run_strategy(
         log.info(f"[runner] {strategy.id}/{instrument}: blocked by news filter — skip")
         return
 
-    # Fetch all required TFs concurrently — shared TFs are instant cache hits
+    # Fetch all required TFs — use per-strategy bar counts when declared
+    _counts = getattr(strategy, "candle_counts", {})
     fetched = await asyncio.gather(
-        *[fetch_candles(instrument, tf) for tf in deps.timeframes],
+        *[fetch_candles(instrument, tf, count=_counts.get(tf, 100))
+          for tf in deps.timeframes],
         return_exceptions=True,
     )
     candle_view = {
