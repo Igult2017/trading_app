@@ -49,7 +49,7 @@ async def _load_symbols(reader, writer) -> None:
         raise RuntimeError(f"[ctrader] symbol list failed (type={resp.payloadType})")
     res = ProtoOASymbolsListRes()
     res.ParseFromString(resp.payload)
-    _symbols.update({s.symbolName: s.symbolId for s in res.symbol if s.enabled})
+    _symbols.update({s.symbolName.rstrip("."): s.symbolId for s in res.symbol if s.enabled})
     sample = list(_symbols.keys())[:15]
     log.info(f"[ctrader] {len(_symbols)} symbols cached — first 15: {sample}")
 
