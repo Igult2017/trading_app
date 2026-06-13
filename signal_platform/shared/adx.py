@@ -25,15 +25,23 @@ def calc_adx(candles: list[Candle], period: int = 14) -> tuple[float, float, flo
         pdm_vals.append(pdm)
         mdm_vals.append(mdm)
 
-    def _smooth(data: list[float]) -> list[float]:
+    def _smooth_sum(data: list[float]) -> list[float]:
+        # Wilder running-sum form for TR / DM: initial = sum(N), update = prev - prev/N + new
         out = [sum(data[:period])]
         for v in data[period:]:
             out.append(out[-1] - out[-1] / period + v)
         return out
 
-    tr_s  = _smooth(tr_vals)
-    pdm_s = _smooth(pdm_vals)
-    mdm_s = _smooth(mdm_vals)
+    def _smooth_ema(data: list[float]) -> list[float]:
+        # Wilder EMA form for ADX: initial = mean(N), update = prev * (N-1)/N + new/N
+        out = [sum(data[:period]) / period]
+        for v in data[period:]:
+            out.append(out[-1] - out[-1] / period + v / period)
+        return out
+
+    tr_s  = _smooth_sum(tr_vals)
+    pdm_s = _smooth_sum(pdm_vals)
+    mdm_s = _smooth_sum(mdm_vals)
 
     dx_vals = []
     for tr_, pd_, md_ in zip(tr_s, pdm_s, mdm_s):
@@ -45,7 +53,7 @@ def calc_adx(candles: list[Candle], period: int = 14) -> tuple[float, float, flo
         denom = pdi + mdi
         dx_vals.append(100 * abs(pdi - mdi) / denom if denom > 0 else 0.0)
 
-    adx_s = _smooth(dx_vals)
+    adx_s = _smooth_ema(dx_vals)
 
     last_tr  = tr_s[-1]
     last_pdi = 100 * pdm_s[-1] / last_tr if last_tr > 0 else 0.0

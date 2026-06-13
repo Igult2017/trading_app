@@ -28,18 +28,21 @@ from core.types import Candle, TF
 from indicators.ema_200 import EMA200Indicator
 from shared.session_phases import is_valid_phase
 from shared.adx import calc_adx
+from shared.candle_math import body_ratio as candle_body_ratio
 from strategies.pullback_setup import find_volume_cluster, measure_pullback
 from strategies.pullback_obstruction import is_at_4h_key_level
 from backtest_report import simulate_outcomes, report
 from ctrader_fetch import fetch
 
-_PIP        = 0.00010
-_SL_BUFFER  = 2 * _PIP
-_EMA_PERIOD = 200
-_ADX_PERIOD = 14
-_ADX_MIN    = 25
-MIN_RISK    = 5  * _PIP
-MAX_RISK    = 60 * _PIP
+_PIP             = 0.00010
+_SL_BUFFER       = 2 * _PIP
+_EMA_PERIOD      = 200
+_ADX_PERIOD      = 14
+_ADX_MIN         = 25
+MIN_RISK         = 5  * _PIP
+MAX_RISK         = 60 * _PIP
+MIN_CLUSTER_PIPS = 14 * _PIP   # cluster range must be a real momentum move, not noise
+MAX_GAP_BARS     = 6           # max H1 bars from pullback end to trigger
 
 
 def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[dict, dict]:
@@ -47,7 +50,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     watch:     dict = {}
     fired:     set  = set()
 
-    c_total = c_sess = c_vol = c_dedup = c_pb = c_frac = c_risk = c_conf = c_watch = 0
+    c_total = c_sess = c_vol = c_dedup = c_cl = c_pb = c_frac = c_risk = c_conf = c_watch = 0
 
     for i in range(_EMA_PERIOD, len(h1)):
         cur     = h1[i]
@@ -79,6 +82,14 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
             continue
         c_dedup += 1
 
+        # Cluster must be a real momentum move — 2-pip candles are just noise
+        cluster_candles = h1_win[vs: ve + 1]
+        cl_high = max(c.high for c in cluster_candles)
+        cl_low  = min(c.low  for c in cluster_candles)
+        if (cl_high - cl_low) < MIN_CLUSTER_PIPS:
+            continue
+        c_cl += 1
+
         pb = measure_pullback(h1_win, ve, bullish, cluster_start=vs)
         if pb is None:
             continue
@@ -86,18 +97,26 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
         pb_high, pb_low, pb_count, _ = pb
 
         # H1 close must confirm breakout (close > pb_high for BUY, < pb_low for SELL).
-        # This filters out spike bars where high briefly tagged pb_high then reversed —
-        # a real M1 fractal would never form/hold in that case.
-        # Entry is at the stop level (pb_high / pb_low), not the H1 close.
+        # The trigger bar must also be directional — a doji-like bar barely crossing
+        # pb_high would not produce a clean M1 fractal in reality.
         if bullish     and cur.close <= pb_high:
             continue
         if not bullish and cur.close >= pb_low:
+            continue
+        if candle_body_ratio(cur) < 0.35:
+            continue
+        if bullish     and cur.close < cur.open:   # bearish trigger bar for BUY
+            continue
+        if not bullish and cur.close > cur.open:   # bullish trigger bar for SELL
             continue
 
         # Invalidation: if any bar between pullback end and now closed through the
         # wrong boundary (stop-loss zone), the setup is dead — cancel the stop order.
         abs_start   = max(0, i - 30)
         pb_end_abs  = abs_start + ve + pb_count
+        bars_gap    = i - pb_end_abs
+        if bars_gap > MAX_GAP_BARS:
+            continue
         invalidated = False
         for bar in h1[pb_end_abs + 1: i]:
             if bullish     and bar.low  < (pb_low  - _SL_BUFFER):
@@ -158,8 +177,9 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     print(f"  After session phases     : {c_sess}")
     print(f"  After volume cluster     : {c_vol}")
     print(f"  After dedup              : {c_dedup}")
+    print(f"  After cluster >=14 pips  : {c_cl}")
     print(f"  After pullback (1-6c)    : {c_pb}")
-    print(f"  After fractal proxy      : {c_frac}")
+    print(f"  After fractal+gap<=6     : {c_frac}")
     print(f"  After risk (5-60 pips)   : {c_risk}")
     print(f"  >> Confirmed (EMA OK)    : {c_conf}")
     print(f"  >> Watch (ADX OK,EMA no) : {c_watch}\n")
