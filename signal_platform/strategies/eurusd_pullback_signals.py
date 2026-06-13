@@ -14,31 +14,41 @@ MAX_RISK   = 60 * _PIP
 def build_setup_signal(
     symbol: str, bullish: bool, pb_high: float, pb_low: float,
     pb_count: int, cluster_len: int, strategy_id: str, strategy_name: str,
+    d1_aligned: bool = True,
 ) -> Signal:
     """Stage 1 — H1 pullback detected. Telegram alert only; no trade entry yet."""
-    side   = "BUY" if bullish else "SELL"
-    entry  = pb_high if bullish else pb_low
-    sl     = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
-    risk   = abs(entry - sl)
-    tp     = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+    side       = "BUY" if bullish else "SELL"
+    entry      = pb_high if bullish else pb_low
+    sl         = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
+    risk       = abs(entry - sl)
+    tp         = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+    ema_note   = "D1 EMA 200 aligned ✓" if d1_aligned else "D1 EMA 200 NOT aligned — watch only"
+    sig_id     = strategy_id + "_setup" if d1_aligned else strategy_id + "_watch_setup"
+    confidence = 0.60 if d1_aligned else 0.55
+    ctx        = (
+        f"SETUP — {side} H1 pullback | {cluster_len}c cluster | Awaiting M1 fractal"
+        if d1_aligned else
+        f"WATCH SETUP — {side} H1 pullback | EMA miss | ADX confirms trend | Awaiting M1 fractal"
+    )
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if bullish else Direction.SELL,
-        strategy_id       = strategy_id + "_setup",
+        strategy_id       = sig_id,
         strategy_name     = strategy_name,
         entry_price       = round(entry, 5),
         stop_loss         = round(sl, 5),
         take_profit       = round(tp, 5),
         risk_reward       = 2.0,
-        confidence        = 0.60,
+        confidence        = confidence,
         primary_timeframe = TF.H1,
         technical_reasons = [
             f"H1 {'bullish' if bullish else 'bearish'} cluster: {cluster_len} candles, body_ratio >= 0.55",
             f"Pullback: {pb_count}c [{pb_low:.5f} – {pb_high:.5f}], {(pb_high-pb_low)/_PIP:.1f} pips",
             f"Approximate entry zone: {entry:.5f} | SL: {sl:.5f} | Risk: ~{risk/_PIP:.0f} pips",
+            ema_note,
             "DO NOT enter yet — waiting for M1 fractal entry signal.",
         ],
-        market_context    = f"SETUP — {side} H1 pullback | {cluster_len}c cluster | Awaiting M1 fractal",
+        market_context    = ctx,
         alert_only        = True,
     )
 

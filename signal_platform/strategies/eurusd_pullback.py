@@ -102,10 +102,16 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         # Stage 1 — fire once when valid pullback is first detected
         if cluster_sig not in self._setup_alerted:
+            ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
+            d1_aligned = (d1[-1].close > ema_d1) == bullish
+            if not d1_aligned:
+                adx_s1, pdi_s1, mdi_s1 = calc_adx(h1, period=_ADX_PERIOD)
+                if adx_s1 < _ADX_MIN or (pdi_s1 > mdi_s1) != bullish:
+                    return StrategyResult.empty()   # doesn't qualify even as watch
             self._setup_alerted[cluster_sig] = time.monotonic()
             sig = build_setup_signal(
                 context.symbol, bullish, pb_high, pb_low,
-                pb_count, cluster_len, self.id, self.name,
+                pb_count, cluster_len, self.id, self.name, d1_aligned,
             )
             return StrategyResult(signals=[sig])
 

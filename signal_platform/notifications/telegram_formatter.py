@@ -13,12 +13,24 @@ def _h(text: str) -> str:
 
 def format_setup_alert(signal: Signal) -> str:
     """Stage 1 — H1 pullback spotted. Watch M1, do not enter yet."""
-    arrow = "📈" if signal.direction == Direction.BUY else "📉"
-    side  = "BUY" if signal.direction == Direction.BUY else "SELL"
+    is_watch = "_watch" in signal.strategy_id
+    arrow    = "📈" if signal.direction == Direction.BUY else "📉"
+    side     = "BUY" if signal.direction == Direction.BUY else "SELL"
+    header   = (
+        f"⚠️ <b>WATCH SETUP — {_h(signal.symbol)} {side}</b>"
+        if is_watch else
+        f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>"
+    )
+    ema_line = (
+        "📊 <b>EMA status:</b>  <i>D1 200 EMA NOT aligned — ADX confirms trend</i>"
+        if is_watch else
+        "📊 <b>EMA status:</b>  <i>D1 200 EMA aligned ✓</i>"
+    )
     lines = [
-        f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>",
+        header,
         "──────────────────────────",
         f"{arrow} <b>H1 Pullback Identified — Watch M1</b>",
+        ema_line,
         "",
         f"📍 <b>Entry zone:</b>    <code>{signal.entry_price:.5f}</code>",
         f"🛑 <b>SL (approx):</b>  <code>{signal.stop_loss:.5f}</code>",
@@ -27,12 +39,17 @@ def format_setup_alert(signal: Signal) -> str:
     ]
     if signal.technical_reasons:
         lines += ["📝 <b>Setup details:</b>"]
-        for r in signal.technical_reasons[:4]:
+        for r in signal.technical_reasons[:5]:
             lines.append(f"  • {_h(r)}")
+    footer = (
+        "⏳ <i>Watch only — EMA not aligned. Second alert follows if fractal forms.</i>"
+        if is_watch else
+        "⏳ <i>EMA confirmed. A second alert will follow with exact entry level.</i>"
+    )
     lines += [
         "",
         "──────────────────────────",
-        "⏳ <i>Waiting for M1 fractal. A second alert will follow with exact entry.</i>",
+        footer,
         "⚡️ <i>TradeJournal Signal Platform</i>",
     ]
     return "\n".join(lines)
