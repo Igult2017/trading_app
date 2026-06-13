@@ -50,7 +50,7 @@ async def _send_text(message: str) -> None:
             await bot.send_message(
                 chat_id=settings.telegram_chat_id,
                 text=message,
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
             )
             log.info("[dispatcher] message sent")
             return
@@ -72,7 +72,7 @@ async def _send_photo(chart_path: str, caption: str) -> None:
                 chat_id=settings.telegram_chat_id,
                 photo=f,
                 caption=caption,
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
             )
         log.info("[dispatcher] chart photo sent")
     except Exception as exc:
