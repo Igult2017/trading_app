@@ -20,6 +20,7 @@ Usage:
 """
 
 import sys
+import os
 import re
 import json
 import requests
@@ -169,6 +170,33 @@ def _scrape_tradingview() -> list:
         return []
 
 
+# FlareSolverr endpoint — set FLARESOLVERR_URL in env to enable headless Chrome bypass.
+# Deploy: ghcr.io/flaresolverr/flaresolverr:latest on port 8191 (same Coolify VPS).
+_FLARESOLVERR_URL = os.getenv('FLARESOLVERR_URL', '')
+
+
+def _fetch_via_flaresolverr(url: str) -> str | None:
+    """Fetch a Cloudflare-protected URL via FlareSolverr (headless Chrome). Returns HTML or None."""
+    if not _FLARESOLVERR_URL:
+        return None
+    try:
+        resp = requests.post(
+            f'{_FLARESOLVERR_URL}/v1',
+            json={'cmd': 'request.get', 'url': url, 'maxTimeout': 60000},
+            timeout=70,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('status') == 'ok':
+                code = data['solution'].get('status', '?')
+                print(f'[news_calendar] FlareSolverr: {url} -> HTTP {code}', file=sys.stderr)
+                return data['solution']['response']
+        print(f'[news_calendar] FlareSolverr: API returned HTTP {resp.status_code}', file=sys.stderr)
+    except Exception as exc:
+        print(f'[news_calendar] FlareSolverr error: {exc}', file=sys.stderr)
+    return None
+
+
 # TLS-impersonation profiles to try in order — different JA3/JA4 fingerprints
 # give Cloudflare's bot scorer different signals; rotation improves bypass rate.
 _MFX_PROFILES = ['safari17_2_ios', 'chrome131', 'firefox133', 'safari18_0_ios', 'chrome124']
@@ -213,31 +241,36 @@ def _scrape_myfxbook() -> list:
     """
     url = 'https://www.myfxbook.com/forex-economic-calendar'
 
-    if not _CFFI_OK:
-        print('[news_calendar] curl_cffi unavailable — install with: pip install curl_cffi', file=sys.stderr)
+    # Try 1: FlareSolverr — real Chrome executes the JS challenge (best bypass)
+    html = _fetch_via_flaresolverr(url)
+
+    # Try 2: curl_cffi TLS impersonation — works if block is fingerprint-only, not JS-based
+    if html is None and _CFFI_OK:
+        session, profile = _mfx_session()
+        if session is not None:
+            try:
+                resp = session.get(url, timeout=25)
+                print(
+                    f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
+                    file=sys.stderr,
+                )
+                if resp.status_code == 200:
+                    html = resp.text
+                else:
+                    print(f'[news_calendar] MyFXBook body snippet: {resp.text[:300]}', file=sys.stderr)
+            except Exception as _exc:
+                print(f'[news_calendar] MyFXBook curl_cffi error: {_exc}', file=sys.stderr)
+
+    if html is None:
+        print('[news_calendar] MyFXBook: all bypass methods failed', file=sys.stderr)
         return []
 
-    session, profile = _mfx_session()
-    if session is None:
-        print('[news_calendar] MyFXBook: all profiles blocked by Cloudflare', file=sys.stderr)
+    if 'Just a moment' in html or 'cf-browser-verification' in html:
+        print('[news_calendar] MyFXBook: Cloudflare challenge not bypassed', file=sys.stderr)
         return []
 
     try:
-        resp = session.get(url, timeout=25)
-        print(
-            f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
-            file=sys.stderr,
-        )
-
-        if resp.status_code != 200:
-            print(f'[news_calendar] MyFXBook body snippet: {resp.text[:300]}', file=sys.stderr)
-            return []
-
-        if 'Just a moment' in resp.text or 'cf-browser-verification' in resp.text:
-            print('[news_calendar] MyFXBook: Cloudflare challenge not bypassed', file=sys.stderr)
-            return []
-
-        soup = BeautifulSoup(resp.text, 'html.parser')
+        soup = BeautifulSoup(html, 'html.parser')
         cal_div = soup.find(id='calendarMobile')
 
         if not cal_div:
@@ -877,33 +910,38 @@ def _scrape_myfxbook_rates() -> dict:
     Returns a dict: currency -> {bank, nominal, inflation (None), live (True)}.
     Returns {} on any failure; caller falls back to bank APIs.
     """
-    if not _CFFI_OK:
-        print('[news_calendar] curl_cffi unavailable — skipping MyFXBook rates', file=sys.stderr)
-        return {}
-
     url = 'https://www.myfxbook.com/forex-economic-calendar/interest-rates'
 
-    session, profile = _mfx_session()
-    if session is None:
-        print('[news_calendar] MyFXBook rates: all profiles blocked by Cloudflare', file=sys.stderr)
+    # Try 1: FlareSolverr — real Chrome executes the JS challenge
+    html = _fetch_via_flaresolverr(url)
+
+    # Try 2: curl_cffi TLS impersonation
+    if html is None and _CFFI_OK:
+        session, profile = _mfx_session()
+        if session is not None:
+            try:
+                resp = session.get(url, timeout=25)
+                print(
+                    f'[news_calendar] MyFXBook rates HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
+                    file=sys.stderr,
+                )
+                if resp.status_code == 200:
+                    html = resp.text
+                else:
+                    print(f'[news_calendar] MyFXBook rates: unexpected status {resp.status_code}', file=sys.stderr)
+            except Exception as _exc:
+                print(f'[news_calendar] MyFXBook rates curl_cffi error: {_exc}', file=sys.stderr)
+
+    if html is None:
+        print('[news_calendar] MyFXBook rates: all bypass methods failed', file=sys.stderr)
+        return {}
+
+    if 'Just a moment' in html or 'cf-browser-verification' in html:
+        print('[news_calendar] MyFXBook rates: Cloudflare challenge not bypassed', file=sys.stderr)
         return {}
 
     try:
-        resp = session.get(url, timeout=25)
-        print(
-            f'[news_calendar] MyFXBook rates HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
-            file=sys.stderr,
-        )
-
-        if resp.status_code != 200:
-            print(f'[news_calendar] MyFXBook rates: unexpected status {resp.status_code}', file=sys.stderr)
-            return {}
-
-        if 'Just a moment' in resp.text or 'cf-browser-verification' in resp.text:
-            print('[news_calendar] MyFXBook rates: Cloudflare challenge not bypassed', file=sys.stderr)
-            return {}
-
-        soup = BeautifulSoup(resp.text, 'html.parser')
+        soup = BeautifulSoup(html, 'html.parser')
         rates: dict = {}
         seen: set = set()
 
