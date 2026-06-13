@@ -17,7 +17,7 @@ class SignalModel(Base):
 
     # Core
     symbol         = Column(String, nullable=False)
-    asset_class    = Column("assetClass", String, default="forex")
+    asset_class    = Column("asset_class", String, default="forex")
     type           = Column(String, nullable=False)           # buy | sell
     strategy       = Column(String, default="")
 
