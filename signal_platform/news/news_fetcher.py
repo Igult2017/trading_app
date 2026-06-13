@@ -28,8 +28,9 @@ from core.types import NewsContext, NewsEvent, NewsImpact
 
 log = logging.getLogger(__name__)
 
-_APP_BASE_URL  = os.getenv("APP_BASE_URL", "http://localhost:5000")
-_ENDPOINT      = f"{_APP_BASE_URL}/api/homepage/calendar"
+_PORT         = os.getenv("PORT", "5000")
+_APP_BASE_URL = os.getenv("APP_BASE_URL", f"http://localhost:{_PORT}")
+_ENDPOINT     = f"{_APP_BASE_URL}/api/homepage/calendar"
 
 # Add server/python to sys.path for the direct-scrape fallback
 _SERVER_PYTHON = os.path.normpath(

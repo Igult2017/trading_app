@@ -169,15 +169,37 @@ def _scrape_tradingview() -> list:
         return []
 
 
+# TLS-impersonation profiles to try in order — different JA3/JA4 fingerprints
+# give Cloudflare's bot scorer different signals; rotation improves bypass rate.
+_MFX_PROFILES = ['safari17_2_ios', 'chrome131', 'firefox133', 'safari18_0_ios', 'chrome124']
+
+
+def _mfx_session():
+    """
+    Return (session, profile) where the session has cleared the MyFXBook
+    homepage Cloudflare check. Tries profiles in order; returns (None, None)
+    if all are blocked (e.g. VPS IP flagged by Cloudflare Bot Fight Mode).
+    """
+    import time as _time
+    for profile in _MFX_PROFILES:
+        try:
+            s = cffi_requests.Session(impersonate=profile)
+            hp = s.get('https://www.myfxbook.com', timeout=15)
+            if (hp.status_code == 200
+                    and 'Just a moment' not in hp.text
+                    and 'cf-browser-verification' not in hp.text):
+                _time.sleep(1.5)  # human-like pause before target page
+                return s, profile
+        except Exception:
+            continue
+    return None, None
+
+
 def _scrape_myfxbook() -> list:
     """
     Scrape MyFXBook economic calendar.
 
-    Bypass strategy: curl_cffi with iOS Safari 17.2 TLS fingerprint impersonation.
-    Cloudflare rates Chrome/Firefox JA3 fingerprints as bots but passes real iOS
-    Safari traffic — impersonating that profile lets us bypass the JS challenge
-    without needing a headless browser.
-
+    Bypass strategy: curl_cffi TLS-fingerprint impersonation (multiple profiles).
     The page embeds all calendar events server-side inside #calendarMobile, so a
     single HTTP request is enough — no JS execution required after bypass.
     """
@@ -187,15 +209,15 @@ def _scrape_myfxbook() -> list:
         print('[news_calendar] curl_cffi unavailable — install with: pip install curl_cffi', file=sys.stderr)
         return []
 
+    session, profile = _mfx_session()
+    if session is None:
+        print('[news_calendar] MyFXBook: all profiles blocked by Cloudflare', file=sys.stderr)
+        return []
+
     try:
-        session = cffi_requests.Session(impersonate='safari17_2_ios')
-
-        # Prime cookies with a homepage visit (sets XSRF-TOKEN + session cookies)
-        session.get('https://www.myfxbook.com', timeout=15)
-
         resp = session.get(url, timeout=25)
         print(
-            f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes)',
+            f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
             file=sys.stderr,
         )
 
@@ -599,8 +621,37 @@ def _fetch_usd_rate() -> float | None:
     return _fetch_fred_csv('FEDFUNDS')
 
 
+def _fetch_ecb_sdw_rate() -> float | None:
+    """EUR — ECB Statistical Data Warehouse REST API (deposit facility rate, official, no key)."""
+    try:
+        url = (
+            'https://sdw-wsrest.ecb.europa.eu/service/data/'
+            'FM/B.U2.EUR.4F.KR.DFR_FR.LEV'
+            '?format=csvdata&lastNObservations=1'
+        )
+        r = requests.get(url, timeout=15)
+        if r.status_code != 200:
+            raise ValueError(f'HTTP {r.status_code}')
+        for line in reversed(r.text.strip().split('\n')):
+            parts = line.split(',')
+            if len(parts) >= 2:
+                try:
+                    val = float(parts[-1].strip())
+                    if 0 <= val < 20:
+                        print(f'[news_calendar] ECB SDW: {val}%', file=sys.stderr)
+                        return val
+                except ValueError:
+                    continue
+    except Exception as e:
+        print(f'[news_calendar] ECB SDW failed: {e}', file=sys.stderr)
+    return None
+
+
 def _fetch_eur_rate() -> float | None:
-    """EUR — FRED ECBDFR (ECB Deposit Facility Rate, no API key needed)."""
+    """EUR — ECB SDW API (primary), FRED ECBDFR CSV (backup)."""
+    val = _fetch_ecb_sdw_rate()
+    if val is not None:
+        return val
     return _fetch_fred_csv('ECBDFR')
 
 
@@ -812,8 +863,8 @@ def _scrape_myfxbook_rates() -> dict:
     """
     Scrape central bank interest rates from MyFXBook.
 
-    Uses curl_cffi iOS Safari 17.2 TLS impersonation — the same Cloudflare
-    bypass used by the calendar scraper — so no separate proxy or key is needed.
+    Uses curl_cffi TLS-fingerprint impersonation (multiple profiles) — same
+    Cloudflare bypass as the calendar scraper.
 
     Returns a dict: currency -> {bank, nominal, inflation (None), live (True)}.
     Returns {} on any failure; caller falls back to bank APIs.
@@ -824,14 +875,15 @@ def _scrape_myfxbook_rates() -> dict:
 
     url = 'https://www.myfxbook.com/forex-economic-calendar/interest-rates'
 
-    try:
-        session = cffi_requests.Session(impersonate='safari17_2_ios')
-        # Prime cookies with a homepage visit (sets XSRF-TOKEN + session cookie)
-        session.get('https://www.myfxbook.com', timeout=15)
+    session, profile = _mfx_session()
+    if session is None:
+        print('[news_calendar] MyFXBook rates: all profiles blocked by Cloudflare', file=sys.stderr)
+        return {}
 
+    try:
         resp = session.get(url, timeout=25)
         print(
-            f'[news_calendar] MyFXBook rates HTTP {resp.status_code} ({len(resp.text)} bytes)',
+            f'[news_calendar] MyFXBook rates HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
             file=sys.stderr,
         )
 
@@ -896,14 +948,14 @@ def _scrape_myfxbook_rates() -> dict:
 # --------------------------------------------------------------------------- #
 
 _FALLBACK_RATES = {
-    'USD': ('Federal Reserve',               4.33),
+    'USD': ('Federal Reserve',               3.63),
     'EUR': ('European Central Bank',         2.40),
-    'GBP': ('Bank of England',              4.50),
+    'GBP': ('Bank of England',              3.75),
     'JPY': ('Bank of Japan',                 0.50),
-    'CAD': ('Bank of Canada',               2.75),
+    'CAD': ('Bank of Canada',               2.25),
     'AUD': ('Reserve Bank of Australia',    4.10),
-    'CHF': ('Swiss National Bank',          0.00),
-    'NZD': ('Reserve Bank of New Zealand',  3.50),
+    'CHF': ('Swiss National Bank',          0.25),
+    'NZD': ('Reserve Bank of New Zealand',  3.25),
 }
 
 _BANK_NAMES = {
