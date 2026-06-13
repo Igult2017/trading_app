@@ -1,5 +1,5 @@
 """
-EURUSD Pullback: volume candle detection, pullback validation, 1M fractal entry.
+EURUSD Pullback: volume cluster detection, pullback validation, 1M fractal entry.
 4H zone check lives in pullback_obstruction.py.
 """
 from core.types import Candle
@@ -8,27 +8,50 @@ from shared.candle_math import body_size, body_ratio, full_range, is_bullish, is
 _PIP = 0.00010
 
 
-def find_volume_candle(
+def find_volume_cluster(
     candles: list[Candle],
     bullish: bool,
-    lookback: int = 15,
-) -> int | None:
+    lookback: int = 20,
+) -> tuple[int, int] | None:
     """
-    Find the most recent H1 volume candle.
+    Find the most recent H1 volume cluster: 2-4 consecutive directional candles.
 
-    Two conditions (spec, no additions):
-    1. body > previous candle body  — expanding momentum
-    2. body_ratio >= 0.60           — clean close, small wicks
+    Conditions (all required):
+    - 2-4 consecutive candles all moving in trade direction
+    - Each candle: body_ratio >= 0.55 (long body, small wicks)
+    - Cluster avg body > preceding candle body (growing vs pre-cluster activity)
+
+    Returns (start_idx, end_idx) of the cluster or None.
     """
     end   = len(candles) - 1
-    start = max(1, end - lookback)
+    start = max(2, end - lookback)
 
     for i in range(end, start - 1, -1):
         c = candles[i]
-        if is_bullish(c) != bullish:
+        if is_bullish(c) != bullish or body_ratio(c) < 0.55:
             continue
-        if body_size(c) > body_size(candles[i - 1]) and body_ratio(c) >= 0.60:
-            return i
+
+        length = 1
+        j = i - 1
+        while j >= 1 and length < 4:
+            cj = candles[j]
+            if is_bullish(cj) == bullish and body_ratio(cj) >= 0.55:
+                length += 1
+                j -= 1
+            else:
+                break
+
+        if length < 2:
+            continue
+
+        cluster_start = i - length + 1
+        if cluster_start < 1:
+            continue
+        preceding_body = body_size(candles[cluster_start - 1])
+        avg_body = sum(body_size(candles[k]) for k in range(cluster_start, i + 1)) / length
+        if avg_body > preceding_body:
+            return (cluster_start, i)
+
     return None
 
 
@@ -38,12 +61,12 @@ def measure_pullback(
     bullish: bool,
 ) -> tuple[float, float, int, int] | None:
     """
-    Validate the H1 pullback immediately after the volume candle.
+    Validate the H1 pullback immediately after the volume cluster end.
     Returns (pb_high, pb_low, count, pb_end_time) or None.
 
-    Rules (from spec):
-    - 1 to 3 candles against direction  (doji excluded — not a real pullback)
-    - depth 25–80% of volume candle full range
+    Rules:
+    - 1 to 3 candles against direction
+    - depth 25–80% of volume cluster last candle full range
     """
     pb_candles: list[Candle] = []
 
@@ -77,21 +100,18 @@ def fractal_entry(
     max_stale: int = 5,
 ) -> float | None:
     """
-    Return the fractal break LEVEL as entry price, or None.
+    Return the fractal break level as entry price, or None.
 
-    Invalidation rule (from spec): if M1 price closes through the wrong
-    zone boundary before a fractal forms, the setup is dead — strong
-    counter-momentum has already violated the pullback structure.
+    Invalidation: M1 closes through the wrong zone boundary before fractal
+    forms → setup dead (counter-momentum violated pullback structure).
 
-    Entry: first Williams 5-bar fractal after the pullback extreme,
-    broken within max_stale M1 bars. Returns the fractal LEVEL, not
-    the break candle's close.
+    Entry: first Williams 5-bar fractal after pullback extreme, broken
+    within max_stale M1 bars. Returns the fractal LEVEL, not the break close.
     """
     window = [c for c in m1 if c.time >= pb_end_time]
     if len(window) < 7:
         return None
 
-    # Invalidation: counter-momentum broke through the opposite zone boundary
     for c in window:
         if bullish     and c.close < pb_low:
             return None
@@ -137,10 +157,9 @@ def fractal_entry(
 
     post = window[fractal_pos + 1:]
     for j, c in enumerate(post):
-        bars_since = j
         if bullish     and c.close > fractal_level:
-            return fractal_level if bars_since <= max_stale else None
+            return fractal_level if j <= max_stale else None
         if not bullish and c.close < fractal_level:
-            return fractal_level if bars_since <= max_stale else None
+            return fractal_level if j <= max_stale else None
 
     return None
