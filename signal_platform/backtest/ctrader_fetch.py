@@ -26,9 +26,7 @@ def _configure_session() -> None:
         account_id=settings.ctrader_account_id,
         env=settings.ctrader_env,
     )
-    if settings.ctrader_access_token:
-        _sess._access_token = settings.ctrader_access_token
-        _sess._token_expiry  = time.monotonic() + 3600
+    # Don't inject access token here — let get_access_token() use the refresh flow; direct injection bypasses OAuth refresh and sends stale tokens.
 
 
 async def _fetch(h1_count: int, d1_count: int) -> tuple[list[dict], list[dict]]:
