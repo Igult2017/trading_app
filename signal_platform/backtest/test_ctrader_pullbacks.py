@@ -145,8 +145,8 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     print(f"  After fractal proxy      : {c_frac}")
     print(f"  After risk (5-60 pips)   : {c_risk}")
     print(f"  After 4H zone check      : {c_4h}")
-    print(f"  → Confirmed (EMA ✓)      : {c_conf}")
-    print(f"  → Watch (ADX ✓, EMA ✗)  : {c_watch}\n")
+    print(f"  >> Confirmed (EMA OK)    : {c_conf}")
+    print(f"  >> Watch (ADX OK,EMA no) : {c_watch}\n")
     return confirmed, watch
 
 

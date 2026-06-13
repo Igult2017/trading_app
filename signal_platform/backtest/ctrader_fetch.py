@@ -2,7 +2,7 @@
 cTrader data fetch for backtesting — EURUSD H1 + D1, derives H4 from H1.
 Run from signal_platform/backtest/ or signal_platform/.
 """
-import asyncio, os, sys
+import asyncio, os, sys, time
 
 _PLATFORM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PLATFORM not in sys.path:
@@ -24,12 +24,11 @@ async def _fetch() -> tuple[list[dict], list[dict]]:
         account_id=settings.ctrader_account_id,
         env=settings.ctrader_env,
     )
-    # optional: pull fresh tokens from Node DB (needed in deployed env)
-    try:
-        from core.startup_helpers import bootstrap_ctrader_tokens
-        await bootstrap_ctrader_tokens(settings)
-    except Exception:
-        pass
+    # Use stored access token directly — the live platform may have already
+    # rotated the refresh token, making a refresh attempt fail with ACCESS_DENIED.
+    if settings.ctrader_access_token:
+        _sess._access_token = settings.ctrader_access_token
+        _sess._token_expiry  = time.monotonic() + 3600
 
     print(f"[cTrader] fetching EURUSD H1 ({H1_COUNT} bars)...")
     h1_raw = await fetch_bars("EURUSD", "H1", count=H1_COUNT)
