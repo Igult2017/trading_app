@@ -89,3 +89,50 @@ def report(signals_by_month: dict) -> None:
             hrs  = f"  ({s['bars_to_close']}h)" if s.get("bars_to_close") else ""
             print(f"    {icon} [{s['date']} UTC] {s['dir']:4}  entry={s['entry']}"
                   f"  sl={s['sl']}  tp={s['tp']}{hrs}")
+
+
+def breakdown_direction(all_sigs: list) -> None:
+    """BUY vs SELL win rate and P&L."""
+    hdr = f"  {'DIR':<5}  {'Sigs':>5}  {'Closed':>6}  {'TP':>4}  {'BE':>4}  {'SL':>4}  {'WR':>5}  {'PnL':>7}"
+    print(hdr)
+    print("  " + "-" * 52)
+    for side in ("BUY", "SELL"):
+        sigs   = [s for s in all_sigs if s["dir"] == side]
+        closed = [s for s in sigs if s.get("outcome") in ("TP", "BE", "SL")]
+        wins   = sum(1 for s in closed if s.get("outcome") == "TP")
+        bes    = sum(1 for s in closed if s.get("outcome") == "BE")
+        losses = sum(1 for s in closed if s.get("outcome") == "SL")
+        wr     = wins / len(closed) * 100 if closed else 0
+        pnl    = wins * 2.0 + losses * -1.0
+        print(f"  {side:<5}  {len(sigs):>5}  {len(closed):>6}  {wins:>4}  {bes:>4}  {losses:>4}"
+              f"  {wr:>4.0f}%  {pnl:>+7.1f}R")
+
+
+def breakdown_session(all_sigs: list) -> None:
+    """Win rate and P&L by institutional session phase."""
+    from datetime import datetime, timezone
+    from shared.session_phases import active_phase
+
+    buckets: dict[str, list] = {}
+    for s in all_sigs:
+        dt   = datetime.strptime(s["date"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        name = active_phase(dt) or "Other"
+        buckets.setdefault(name, []).append(s)
+
+    order = ["Tokyo-Sydney Overlap", "Tokyo Mid", "London Open",
+             "London Mid", "NY-London Overlap", "NY Mid", "Other"]
+    hdr = f"  {'Session':<24}  {'Sigs':>4}  {'TP':>4}  {'BE':>4}  {'SL':>4}  {'WR':>5}  {'PnL':>7}"
+    print(hdr)
+    print("  " + "-" * 60)
+    for name in order:
+        sigs   = buckets.get(name, [])
+        if not sigs:
+            continue
+        closed = [s for s in sigs if s.get("outcome") in ("TP", "BE", "SL")]
+        wins   = sum(1 for s in closed if s.get("outcome") == "TP")
+        bes    = sum(1 for s in closed if s.get("outcome") == "BE")
+        losses = sum(1 for s in closed if s.get("outcome") == "SL")
+        wr     = wins / len(closed) * 100 if closed else 0
+        pnl    = wins * 2.0 + losses * -1.0
+        print(f"  {name:<24}  {len(sigs):>4}  {wins:>4}  {bes:>4}  {losses:>4}"
+              f"  {wr:>4.0f}%  {pnl:>+7.1f}R")
