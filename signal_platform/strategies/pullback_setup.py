@@ -59,6 +59,7 @@ def measure_pullback(
     candles: list[Candle],
     vol_idx: int,
     bullish: bool,
+    cluster_start: int | None = None,
 ) -> tuple[float, float, int, int] | None:
     """
     Validate the H1 pullback immediately after the volume cluster end.
@@ -66,7 +67,7 @@ def measure_pullback(
 
     Rules:
     - 1 to 3 candles against direction
-    - depth 25–80% of volume cluster last candle full range
+    - depth 25–80% of full cluster range (from cluster_start to vol_idx)
     """
     pb_candles: list[Candle] = []
 
@@ -84,7 +85,12 @@ def measure_pullback(
     pb_low  = min(c.low  for c in pb_candles)
     depth   = pb_high - pb_low
 
-    vol_range = full_range(candles[vol_idx])
+    # Use full cluster range so the pullback ratio is meaningful
+    start = cluster_start if cluster_start is not None else vol_idx
+    cluster_slice = candles[start:vol_idx + 1]
+    cluster_high  = max(c.high for c in cluster_slice)
+    cluster_low   = min(c.low  for c in cluster_slice)
+    vol_range     = cluster_high - cluster_low
     if vol_range > 0 and (depth < vol_range * 0.25 or depth > vol_range * 0.80):
         return None
 

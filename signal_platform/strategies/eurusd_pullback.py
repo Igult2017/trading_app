@@ -88,7 +88,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
             return StrategyResult.empty()
 
         # 5 — Pullback immediately after cluster end
-        pb = measure_pullback(h1, vol_end, bullish)
+        pb = measure_pullback(h1, vol_end, bullish, cluster_start=vol_start)
         if pb is None:
             return StrategyResult.empty()
         pb_high, pb_low, pb_count, pb_end_time = pb
