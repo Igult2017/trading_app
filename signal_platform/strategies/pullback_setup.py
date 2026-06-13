@@ -17,7 +17,7 @@ def find_volume_cluster(
     Find the most recent H1 volume cluster: 2-4 consecutive directional candles.
 
     Conditions (all required):
-    - 2-4 consecutive candles all moving in trade direction
+    - 2+ consecutive candles all moving in trade direction (no maximum)
     - Each candle: body_ratio >= 0.55 (long body, small wicks)
     - Cluster avg body > preceding candle body (growing vs pre-cluster activity)
 
@@ -33,7 +33,7 @@ def find_volume_cluster(
 
         length = 1
         j = i - 1
-        while j >= 1 and length < 4:
+        while j >= 1:
             cj = candles[j]
             if is_bullish(cj) == bullish and body_ratio(cj) >= 0.55:
                 length += 1
