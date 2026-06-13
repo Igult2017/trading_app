@@ -173,14 +173,21 @@ def _scrape_tradingview() -> list:
 # give Cloudflare's bot scorer different signals; rotation improves bypass rate.
 _MFX_PROFILES = ['safari17_2_ios', 'chrome131', 'firefox133', 'safari18_0_ios', 'chrome124']
 
+# After all profiles fail, skip MyFXBook for 4 hours so fallbacks fire immediately.
+_mfx_blocked_until: float = 0.0
+
 
 def _mfx_session():
     """
     Return (session, profile) where the session has cleared the MyFXBook
     homepage Cloudflare check. Tries profiles in order; returns (None, None)
     if all are blocked (e.g. VPS IP flagged by Cloudflare Bot Fight Mode).
+    After a total block, backs off for 4 hours before retrying.
     """
+    global _mfx_blocked_until
     import time as _time
+    if _time.time() < _mfx_blocked_until:
+        return None, None
     for profile in _MFX_PROFILES:
         try:
             s = cffi_requests.Session(impersonate=profile)
@@ -192,6 +199,7 @@ def _mfx_session():
                 return s, profile
         except Exception:
             continue
+    _mfx_blocked_until = _time.time() + 14400  # back off 4 h
     return None, None
 
 
@@ -622,10 +630,10 @@ def _fetch_usd_rate() -> float | None:
 
 
 def _fetch_ecb_sdw_rate() -> float | None:
-    """EUR — ECB Statistical Data Warehouse REST API (deposit facility rate, official, no key)."""
+    """EUR — ECB Data Portal REST API (deposit facility rate, official, no key)."""
     try:
         url = (
-            'https://sdw-wsrest.ecb.europa.eu/service/data/'
+            'https://data-api.ecb.europa.eu/service/data/'
             'FM/B.U2.EUR.4F.KR.DFR_FR.LEV'
             '?format=csvdata&lastNObservations=1'
         )

@@ -22,6 +22,9 @@ httpx>=0.27.0
 # Notifications (optional)
 python-telegram-bot>=20.0
 
+# TLS hostname verification for Twisted (used by ctrader_open_api)
+service_identity>=21.1.0
+
 # AI validation — google-generativeai intentionally omitted here.
 # It conflicts with ctrader_open_api over protobuf (3.20.1 vs 4.x).
 # The import is lazy inside _call_gemini_sync so the platform boots fine
