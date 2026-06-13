@@ -127,17 +127,21 @@ def fractal_entry(
     if len(window) < 7:
         return None
 
-    for c in window:
+    zone_lo = pb_low  - 3 * _PIP
+    zone_hi = pb_high + 3 * _PIP
+
+    # Step 1 — find the deepest M1 extreme inside the pullback zone.
+    # Invalidate only if price closes through the wrong boundary BEFORE
+    # the extreme forms — not after (that is the trade running, not a
+    # setup failure).
+    extreme_pos: int | None = None
+    for i, c in enumerate(window):
+        # Invalidation: M1 body breaks structure before the pullback extreme forms
         if bullish     and c.close < pb_low:
             return None
         if not bullish and c.close > pb_high:
             return None
 
-    zone_lo = pb_low  - 3 * _PIP
-    zone_hi = pb_high + 3 * _PIP
-
-    extreme_pos: int | None = None
-    for i, c in enumerate(window):
         in_zone = (zone_lo <= c.low  <= zone_hi) if bullish else (zone_lo <= c.high <= zone_hi)
         if not in_zone:
             continue
@@ -151,6 +155,7 @@ def fractal_entry(
     if extreme_pos is None or extreme_pos >= len(window) - 5:
         return None
 
+    # Step 2 — find the first 5-bar Williams fractal after the extreme.
     fractal_level: float | None = None
     fractal_pos:   int   | None = None
 
