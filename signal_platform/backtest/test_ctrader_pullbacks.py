@@ -47,7 +47,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     watch:     dict = {}
     fired:     set  = set()
 
-    c_total = c_sess = c_vol = c_dedup = c_pb = c_frac = c_risk = c_4h = c_conf = c_watch = 0
+    c_total = c_sess = c_vol = c_dedup = c_pb = c_frac = c_risk = c_conf = c_watch = 0
 
     for i in range(_EMA_PERIOD, len(h1)):
         cur     = h1[i]
@@ -98,10 +98,8 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
             continue
         c_risk += 1
 
-        h4_win = [c for c in h4 if c.time <= cur.time][-50:]
-        if is_at_4h_key_level(h4_win, cur.close):
-            continue
-        c_4h += 1
+        h4_win   = [c for c in h4 if c.time <= cur.time][-50:]
+        at_4h    = is_at_4h_key_level(h4_win, cur.close)
 
         # EMA 200 on D1
         d1_past = [c for c in d1 if c.time < cur.time]
@@ -123,6 +121,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
             "pb_count": pb_count,
             "cluster":  ve - vs + 1,
             "bar_idx":  i,
+            "at_4h":    at_4h,
         }
         month = utc_now.strftime("%Y-%m")
         fired.add(abs_ve)
@@ -144,7 +143,6 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     print(f"  After pullback (1-3c)    : {c_pb}")
     print(f"  After fractal proxy      : {c_frac}")
     print(f"  After risk (5-60 pips)   : {c_risk}")
-    print(f"  After 4H zone check      : {c_4h}")
     print(f"  >> Confirmed (EMA OK)    : {c_conf}")
     print(f"  >> Watch (ADX OK,EMA no) : {c_watch}\n")
     return confirmed, watch

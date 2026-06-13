@@ -88,10 +88,9 @@ class EURUSDPullbackStrategy(BaseStrategy):
             return StrategyResult.empty()
         pb_high, pb_low, pb_count, pb_end_time = pb
 
-        # 5 — 4H roadblock at pullback extreme
-        zone_ref = pb_low if bullish else pb_high
-        if is_at_4h_key_level(h4[-50:], zone_ref):
-            return StrategyResult.empty()
+        # 5 — 4H zone check (informational only — does not reject)
+        zone_ref   = pb_low if bullish else pb_high
+        at_4h_zone = is_at_4h_key_level(h4[-50:], zone_ref)
 
         # 6 — 1M fractal entry
         entry = fractal_entry(m1, pb_high, pb_low, bullish, pb_end_time)
@@ -122,7 +121,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
                 f"H1 cluster ({cluster_len}c, body_ratio≥0.55, expanding)",
                 f"{pb_count}c pullback [{pb_low:.5f}–{pb_high:.5f}], {pb_range/0.0001:.1f} pips",
                 f"Entry {entry:.5f} | SL {sl:.5f} (2 pip buffer) | risk {risk/0.0001:.1f} pips",
-                f"4H zone clear at pullback extreme",
+                f"4H zone: {'WARNING key level nearby' if at_4h_zone else 'clear'}",
             ]
         else:
             adx, pdi, mdi = calc_adx(h1, period=_ADX_PERIOD)
@@ -137,6 +136,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
                 f"H1 cluster ({cluster_len}c, body_ratio≥0.55, expanding)",
                 f"{pb_count}c pullback [{pb_low:.5f}–{pb_high:.5f}], {pb_range/0.0001:.1f} pips",
                 f"Entry {entry:.5f} | SL {sl:.5f} (2 pip buffer) | risk {risk/0.0001:.1f} pips",
+                f"4H zone: {'WARNING key level nearby' if at_4h_zone else 'clear'}",
             ]
 
         return StrategyResult(signals=[Signal(
