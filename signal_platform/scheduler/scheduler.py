@@ -1,30 +1,17 @@
 """
 APScheduler setup — session-aware scan frequency.
-Three job types:
+Two jobs:
   1. scan_markets()    — dynamic interval driven by active sessions
   2. monitor.check_all() — fixed every 30s
-  3. session_open notifications — CronTrigger per major session
+Session-open notifications are event-driven inside scan_markets(), not cron-based.
 """
 
 import logging
-from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from core import event_bus
-from scheduler.session_windows import is_market_open
 
 log = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
-
-
-def _make_session_job(name: str):
-    """Factory returning an async job that emits SESSION_OPEN for the named session."""
-    async def _job():
-        if is_market_open(datetime.now(timezone.utc)):
-            await event_bus.emit(event_bus.SESSION_OPEN, name)
-    _job.__name__ = f"session_open_{name.lower()}"
-    return _job
 
 
 def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
@@ -56,41 +43,7 @@ def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
         coalesce=True,
     )
 
-    # Session-open notifications — CronTrigger at each session's UTC open
-    # Sydney (Asian): 22:00 UTC Sun–Thu (Mon–Fri Sydney morning)
-    _scheduler.add_job(
-        _make_session_job("SYDNEY"),
-        trigger=CronTrigger(hour=22, minute=0, day_of_week="sun,mon,tue,wed,thu", timezone="UTC"),
-        id="session_open_sydney",
-        name="Sydney session open",
-        max_instances=1,
-    )
-    # Tokyo: 00:00 UTC Mon–Fri
-    _scheduler.add_job(
-        _make_session_job("TOKYO"),
-        trigger=CronTrigger(hour=0, minute=0, day_of_week="mon,tue,wed,thu,fri", timezone="UTC"),
-        id="session_open_tokyo",
-        name="Tokyo session open",
-        max_instances=1,
-    )
-    # London: 07:00 UTC Mon–Fri
-    _scheduler.add_job(
-        _make_session_job("LONDON"),
-        trigger=CronTrigger(hour=7, minute=0, day_of_week="mon,tue,wed,thu,fri", timezone="UTC"),
-        id="session_open_london",
-        name="London session open",
-        max_instances=1,
-    )
-    # New York: 12:00 UTC Mon–Fri
-    _scheduler.add_job(
-        _make_session_job("NEW_YORK"),
-        trigger=CronTrigger(hour=12, minute=0, day_of_week="mon,tue,wed,thu,fri", timezone="UTC"),
-        id="session_open_new_york",
-        name="New York session open",
-        max_instances=1,
-    )
-
-    log.info("[scheduler] built — scan 60s, monitor 30s, session opens: Sydney/Tokyo/London/NY")
+    log.info("[scheduler] built — scan every 60s, monitor every 30s")
     return _scheduler
 
 

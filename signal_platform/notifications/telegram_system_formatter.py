@@ -24,16 +24,16 @@ def format_scan_started(payload: dict) -> str:
     ])
 
 
+_SESSION_META = {
+    "asian":    ("🌏", "Asian (Sydney / Tokyo)"),
+    "london":   ("🎡", "London"),
+    "new_york": ("🗽", "New York"),
+}
+
+
 def format_session_open(session_name: str) -> str:
-    emojis = {
-        "SYDNEY":   "🦘",
-        "TOKYO":    "🗼",
-        "LONDON":   "🎡",
-        "NEW_YORK": "🗽",
-    }
+    emoji, label = _SESSION_META.get(session_name.lower(), ("🌍", session_name.replace("_", " ").title()))
     now_utc = datetime.now(timezone.utc).strftime("%H:%M UTC")
-    emoji   = emojis.get(session_name.upper(), "🌍")
-    label   = session_name.replace("_", " ").title()
     return "\n".join([
         f"{emoji} <b>{label} Session Open</b>",
         "──────────────────────────",

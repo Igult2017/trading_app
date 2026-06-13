@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 # Tracks whether the scanner was active on the previous tick.
 # SCAN_STARTED fires only on the closed→open transition, not every 60s tick.
 _was_scanning: bool = False
+_active_sessions: set[str] = set()  # tracks which sessions were live last tick
 
 
 def _is_paused() -> bool:
@@ -53,8 +54,16 @@ async def _scan_instrument(
 
 
 async def scan_markets() -> None:
-    global _was_scanning
+    global _was_scanning, _active_sessions
     tick_now = datetime.now(timezone.utc)
+
+    # ── Session-open detection (event-driven via sessions API, every tick) ────
+    current_sessions = get_current_sessions(tick_now)
+    live = {s.value for s in current_sessions if s.value != "all"}
+    for name in live - _active_sessions:
+        await event_bus.emit(event_bus.SESSION_OPEN, name)
+    _active_sessions = live
+    # ─────────────────────────────────────────────────────────────────────────
 
     if _is_paused():
         _was_scanning = False
@@ -66,9 +75,8 @@ async def scan_markets() -> None:
 
     log.info(f"[scanner] tick at {tick_now.strftime('%H:%M:%S UTC')}")
 
-    news_context     = await news_fetcher.fetch(tick_now)
-    current_sessions = get_current_sessions(tick_now)
-    instruments      = instrument_filter.get_open_instruments(tick_now)
+    news_context = await news_fetcher.fetch(tick_now)
+    instruments  = instrument_filter.get_open_instruments(tick_now)
 
     if not instruments:
         log.info("[scanner] market closed — nothing to scan")
@@ -85,7 +93,7 @@ async def scan_markets() -> None:
     if not _was_scanning:
         await event_bus.emit(event_bus.SCAN_STARTED, {
             "instruments": instruments,
-            "sessions":    current_sessions,
+            "sessions":    list(live),
             "tick_now":    tick_now.isoformat(),
         })
     _was_scanning = True
