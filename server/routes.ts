@@ -9,7 +9,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
-import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance } from "./services/brokerAdapters/ctrader";
+import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken } from "./services/brokerAdapters/ctrader";
 import { syncAccount } from "./services/autoSyncService";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
@@ -3210,6 +3210,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       await storage.updateBrokerAccount(account.id, { syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) });
       return res.status(500).json({ error: err.message ?? 'Sync failed' });
+    }
+  });
+
+  /** Refresh balance for a cTrader account — refreshes token if expired, then fetches live balance. */
+  app.post("/api/broker-accounts/:id/refresh-balance", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+    if (account.platform.toLowerCase() !== 'ctrader') return res.status(400).json({ error: "Only cTrader accounts support balance refresh" });
+
+    let creds: any;
+    try { creds = JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}'); } catch { return res.status(400).json({ error: "Invalid credentials" }); }
+    if (!creds.accessToken || !creds.ctraderId) return res.status(400).json({ error: "No cTrader credentials stored" });
+
+    try {
+      // Refresh access token if expired (or within 60s of expiry)
+      if (!creds.tokenExpiresAt || Date.now() > creds.tokenExpiresAt - 60_000) {
+        const fresh = await refreshAccessToken(creds.refreshToken);
+        creds.accessToken      = fresh.accessToken;
+        creds.refreshToken     = fresh.refreshToken;
+        creds.tokenExpiresAt   = Date.now() + fresh.expiresIn * 1000;
+        await storage.updateBrokerAccount(account.id, { passwordEnc: safeEncrypt(JSON.stringify(creds)) });
+      }
+
+      const isLive = account.accountType?.toLowerCase() !== 'demo';
+      const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
+      if (!bal) return res.status(502).json({ error: "Balance fetch failed — check logs" });
+
+      await storage.updateBrokerAccount(account.id, { balance: String(bal.balance), currency: bal.currency || account.currency || undefined });
+      return res.json({ balance: bal.balance, currency: bal.currency });
+    } catch (err: any) {
+      console.error(`[cTrader] refresh-balance error: ${err.message}`);
+      return res.status(502).json({ error: err.message });
     }
   });
 

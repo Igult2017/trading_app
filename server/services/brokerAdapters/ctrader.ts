@@ -181,7 +181,12 @@ export async function fetchCTraderBalance(
     await waitFor(ws, PT_ACCT_AUTH_RES);
     send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
     const t = await waitFor(ws, PT_TRADER_RES, 10000);
-    return { balance: (t?.trader?.balance ?? 0) / 100, currency: t?.trader?.depositCurrency ?? '' };
+    // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
+    const trader = t?.trader ?? t;
+    const rawBalance = trader?.balance ?? 0;
+    const currency   = trader?.depositCurrency ?? '';
+    console.log(`[cTrader] PT_TRADER_RES for ${ctraderId}: balance=${rawBalance} currency=${currency}`);
+    return { balance: rawBalance / 100, currency };
   } catch (err: any) {
     console.error(`[cTrader] fetchCTraderBalance failed for account ${ctraderId}: ${err.message}`);
     return null;

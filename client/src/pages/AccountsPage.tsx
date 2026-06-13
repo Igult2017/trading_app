@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2 } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, DollarSign } from "lucide-react";
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -516,6 +516,17 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     fetchAccounts();
   }
 
+  async function handleRefreshBalance(account: BrokerAccount) {
+    try {
+      const res = await fetch(`/api/broker-accounts/${account.id}/refresh-balance`, { method: "POST", headers: await authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Balance refresh failed");
+      setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, balance: String(data.balance), currency: data.currency } : a));
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
   async function handleCreated(account: BrokerAccount) {
     setAccounts(prev => [account, ...prev]);
     setModalOpen(false);
@@ -632,7 +643,16 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       {a.platform.toUpperCase()}
                     </div>
                   </td>
-                  <td style={s.td as CSSProperties}>{a.balance ? `$${parseFloat(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</td>
+                  <td style={s.td as CSSProperties}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>{a.balance ? `$${parseFloat(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+                      {a.platform?.toLowerCase() === "ctrader" && (
+                        <button style={s.actionBtn as CSSProperties} title="Refresh balance" onClick={() => handleRefreshBalance(a)}>
+                          <DollarSign size={13} color="#4ade80" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td style={s.td as CSSProperties}>{a.connectionType === "webhook" ? "EA" : "API"}</td>
                   <td style={s.td as CSSProperties}><SyncBadge status={a.syncStatus} lastSyncAt={a.lastSyncAt} lastSyncError={a.lastSyncError} /></td>
                   <td style={s.td as CSSProperties}>
