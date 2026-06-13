@@ -54,12 +54,18 @@ async def _load_symbols(reader, writer) -> None:
     log.info(f"[ctrader] {len(_symbols)} symbols cached — first 15: {sample}")
 
 
-async def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:
+async def fetch_bars(
+    symbol: str,
+    tf: str,
+    count: int = 100,
+    to_ms: int | None = None,
+) -> list[dict]:
     """
     Fetch up to `count` OHLCV bars for one native cTrader TF.
 
     symbol  — cTrader symbol name, e.g. 'EURUSD' (no slash)
     tf      — native TF string, e.g. 'H4'. Non-native TFs raise ValueError.
+    to_ms   — end of window in Unix ms; defaults to now (used for pagination).
     Returns list of {time (unix s), open, high, low, close, volume} ascending.
     """
     if not is_native(tf):
@@ -68,7 +74,7 @@ async def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:
     digits  = 3 if "JPY" in symbol else 5
     divisor = 10 ** digits
     bar_ms  = to_minutes(tf) * 60_000
-    to_ts   = int(time.time() * 1000)
+    to_ts   = to_ms if to_ms is not None else int(time.time() * 1000)
     from_ts = to_ts - (count + 10) * bar_ms   # +10 bars buffer for edge candle
 
     async with _req_lock:

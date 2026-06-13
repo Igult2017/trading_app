@@ -28,7 +28,6 @@ from core.types import Candle, TF
 from indicators.ema_200 import EMA200Indicator
 from shared.session_phases import is_valid_phase
 from shared.adx import calc_adx
-from shared.candle_math import body_ratio as candle_body_ratio
 from strategies.pullback_setup import find_volume_cluster, measure_pullback
 from strategies.pullback_obstruction import is_at_4h_key_level
 from backtest_report import simulate_outcomes, report
@@ -96,44 +95,34 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
         c_pb += 1
         pb_high, pb_low, pb_count, _ = pb
 
-        # H1 close must confirm breakout (close > pb_high for BUY, < pb_low for SELL).
-        # The trigger bar must also be directional — a doji-like bar barely crossing
-        # pb_high would not produce a clean M1 fractal in reality.
+        # H1 close proxy for M1 fractal: if H1 closes above pb_high (BUY), the move
+        # sustained momentum through the full bar — spike bars (high briefly touched
+        # pb_high then reversed) are filtered. For accurate results use test_m1_backtest.py.
         if bullish     and cur.close <= pb_high:
             continue
         if not bullish and cur.close >= pb_low:
             continue
-        if candle_body_ratio(cur) < 0.35:
-            continue
-        if bullish     and cur.close < cur.open:   # bearish trigger bar for BUY
-            continue
-        if not bullish and cur.close > cur.open:   # bullish trigger bar for SELL
-            continue
 
-        # Invalidation: if any bar between pullback end and now closed through the
-        # wrong boundary (stop-loss zone), the setup is dead — cancel the stop order.
-        abs_start   = max(0, i - 30)
-        pb_end_abs  = abs_start + ve + pb_count
-        bars_gap    = i - pb_end_abs
-        if bars_gap > MAX_GAP_BARS:
-            continue
-        invalidated = False
-        for bar in h1[pb_end_abs + 1: i]:
-            if bullish     and bar.low  < (pb_low  - _SL_BUFFER):
-                invalidated = True; break
-            if not bullish and bar.high > (pb_high + _SL_BUFFER):
-                invalidated = True; break
-        if invalidated:
-            continue
-        c_frac += 1
-
-        # Entry at stop level; risk spans full pullback range + buffer
         entry_price = pb_high if bullish else pb_low
         sl_price    = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
         risk        = abs(entry_price - sl_price)
         if risk < MIN_RISK or risk > MAX_RISK:
             continue
         c_risk += 1
+
+        abs_start  = max(0, i - 30)
+        pb_end_abs = abs_start + ve + pb_count
+        bars_gap   = i - pb_end_abs
+        if bars_gap < 1 or bars_gap > MAX_GAP_BARS:
+            continue
+
+        invalidated = False
+        for bar in h1[pb_end_abs + 1: i]:
+            if bullish     and bar.low  < sl_price: invalidated = True; break
+            if not bullish and bar.high > sl_price: invalidated = True; break
+        if invalidated:
+            continue
+        c_frac += 1
 
         h4_win   = [c for c in h4 if c.time <= cur.time][-50:]
         at_4h    = is_at_4h_key_level(h4_win, entry_price)
@@ -179,8 +168,8 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
     print(f"  After dedup              : {c_dedup}")
     print(f"  After cluster >=14 pips  : {c_cl}")
     print(f"  After pullback (1-6c)    : {c_pb}")
-    print(f"  After fractal+gap<=6     : {c_frac}")
     print(f"  After risk (5-60 pips)   : {c_risk}")
+    print(f"  After gap<=6 + invalidation : {c_frac}")
     print(f"  >> Confirmed (EMA OK)    : {c_conf}")
     print(f"  >> Watch (ADX OK,EMA no) : {c_watch}\n")
     return confirmed, watch
