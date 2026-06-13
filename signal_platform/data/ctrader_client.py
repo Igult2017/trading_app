@@ -112,7 +112,7 @@ async def fetch_bars(symbol: str, tf: str, count: int = 100) -> list[dict]:
 
     bars: list[dict] = []
     for tb in res.trendbar:
-        ts_ms = tb.timestamp if tb.timestamp else tb.utcTimestampInMinutes * 60_000
+        ts_ms = tb.utcTimestampInMinutes * 60_000
         low   = tb.low
         bars.append({
             "time":   ts_ms // 1000,
