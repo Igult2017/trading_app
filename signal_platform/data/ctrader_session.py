@@ -127,6 +127,10 @@ async def get_access_token() -> str:
             new_rt = j.get("refresh_token", "")
             if new_rt and new_rt != rt:
                 _write_tokens({**tokens, "refresh_token": new_rt})
+                # Keep in-memory settings in sync so _read_tokens() doesn't
+                # return the pre-rotation value on the very next access token expiry.
+                from config.settings import settings as _s
+                object.__setattr__(_s, "ctrader_refresh_token", new_rt)
                 log.debug("[ctrader] refresh token rotated and saved")
                 from data.node_bridge import push_rotated_token
                 asyncio.create_task(push_rotated_token(new_rt, _access_token))

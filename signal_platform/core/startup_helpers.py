@@ -29,8 +29,11 @@ def write_status(status: str, error: str = "", hint: str = "") -> None:
 
 async def bootstrap_ctrader_tokens(settings) -> None:
     """Pull fresh tokens from Node's broker_accounts — always current even after rotation."""
-    if not settings.admin_secret or not settings.node_api_url:
-        log.debug("[boot] Node token bridge not configured — using env vars")
+    if not settings.admin_secret:
+        log.warning("[boot] ADMIN_SECRET not set — cannot fetch tokens from Node DB, falling back to CTRADER_REFRESH_TOKEN env var (may be stale)")
+        return
+    if not settings.node_api_url:
+        log.warning("[boot] node_api_url not set — cannot fetch tokens from Node DB")
         return
     url = f"{settings.node_api_url}/api/internal/ctrader-credentials"
     for attempt in range(4):
