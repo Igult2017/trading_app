@@ -1,11 +1,11 @@
 """
-ORM model — column names match the existing tradingSignals PostgreSQL table
-so the Node.js API and AssetPage work without any schema changes.
+ORM model — column names match the trading_signals PostgreSQL table
+(all snake_case, matching the Drizzle schema in shared/schema.ts).
 """
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, Numeric, String, Text, ARRAY
 
 from storage.db import Base
 
@@ -16,42 +16,42 @@ class SignalModel(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Core
-    symbol         = Column(String, nullable=False)
-    asset_class    = Column("asset_class", String, default="forex")
-    type           = Column(String, nullable=False)           # buy | sell
-    strategy       = Column(String, default="")
+    symbol          = Column("symbol",      String, nullable=False)
+    asset_class     = Column("asset_class", String, default="forex")
+    type            = Column("type",        String, nullable=False)
+    strategy        = Column("strategy",    String, default="")
 
     # Price levels
-    entry_price    = Column("entryPrice",       Numeric(12, 5))
-    stop_loss      = Column("stopLoss",         Numeric(12, 5))
-    take_profit    = Column("takeProfit",       Numeric(12, 5))
-    risk_reward    = Column("riskRewardRatio",  Numeric(5, 2))
+    entry_price     = Column("entry_price",       Numeric(12, 5))
+    stop_loss       = Column("stop_loss",         Numeric(12, 5))
+    take_profit     = Column("take_profit",       Numeric(12, 5))
+    risk_reward     = Column("risk_reward_ratio", Numeric(5, 2))
 
     # Timeframes
-    primary_tf     = Column("primaryTimeframe",      String)
-    confirm_tf     = Column("confirmationTimeframe", String)
-    execution_tf   = Column("executionTimeframe",    String)
+    primary_tf      = Column("primary_timeframe",      String)
+    confirm_tf      = Column("confirmation_timeframe", String)
+    execution_tf    = Column("execution_timeframe",    String)
 
     # Scores
-    confidence     = Column("overallConfidence", Integer)      # 0–100
+    confidence      = Column("overall_confidence", Integer)
 
     # SMC fields
-    smc_score      = Column("smcScore",       Numeric(5, 2))
-    smc_factors    = Column("smcFactors",     JSON, default=list)
-    liquidity_sweep= Column("liquiditySweep", Boolean, default=False)
+    smc_score       = Column("smc_score",      Numeric(5, 2))
+    smc_factors     = Column("smc_factors",    ARRAY(Text), default=list)
+    liquidity_sweep = Column("liquidity_sweep", Boolean, default=False)
 
     # Context
-    trend_direction = Column("trendDirection", String)
-    technical_reasons = Column("technicalReasons", JSON, default=list)
-    market_context  = Column("marketContext",  Text)
+    trend_direction   = Column("trend_direction",   String)
+    technical_reasons = Column("technical_reasons", ARRAY(Text), default=list)
+    market_context    = Column("market_context",    Text)
 
     # Status
-    status         = Column(String, default="active")
+    status = Column("status", String, default="active")
 
     # Lifecycle
-    expires_at     = Column("expiresAt",     DateTime)
-    executed_at    = Column("executedAt",    DateTime)
-    invalidated_at = Column("invalidatedAt", DateTime)
-    created_at     = Column("createdAt",     DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at     = Column("updatedAt",     DateTime, default=lambda: datetime.now(timezone.utc),
+    expires_at     = Column("expires_at",     DateTime)
+    executed_at    = Column("executed_at",    DateTime)
+    invalidated_at = Column("invalidated_at", DateTime)
+    created_at     = Column("created_at",     DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at     = Column("updated_at",     DateTime, default=lambda: datetime.now(timezone.utc),
                             onupdate=lambda: datetime.now(timezone.utc))
