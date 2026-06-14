@@ -24,12 +24,18 @@ const FlagCdn = ({ code, size = 28 }: { code?: string; size?: number }) => {
   if (!iso) return null;
   return (
     <img
-      src={`https://flagcdn.com/w40/${iso}.png`}
+      src={`https://hatscripts.github.io/circle-flags/flags/${iso}.svg`}
       alt={iso.toUpperCase()}
       title={iso.toUpperCase()}
       width={size}
-      height={Math.round(size * 0.67)}
-      style={{ objectFit: 'cover', borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)', display: 'block', flexShrink: 0 }}
+      height={size}
+      style={{
+        borderRadius: '50%',
+        objectFit: 'cover',
+        display: 'block',
+        flexShrink: 0,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+      }}
       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
     />
   );
@@ -262,7 +268,7 @@ export default function Leaderboard() {
                     {/* Top-right country flag */}
                     {trader.country && (
                       <div style={{ position: 'absolute', top: 10, right: 12 }}>
-                        <FlagCdn code={trader.country} size={30} />
+                        <FlagCdn code={trader.country} size={26} />
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
