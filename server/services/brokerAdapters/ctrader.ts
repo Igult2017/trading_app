@@ -181,6 +181,7 @@ export async function fetchCTraderBalance(
     await waitFor(ws, PT_ACCT_AUTH_RES);
     send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
     const t = await waitFor(ws, PT_TRADER_RES, 10000);
+    console.log(`[cTrader] PT_TRADER_RES raw for ${ctraderId}:`, JSON.stringify(t));
     // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
     const trader = t?.trader ?? t;
     const rawBalance = trader?.balance ?? 0;

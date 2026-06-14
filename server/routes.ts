@@ -3527,8 +3527,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo');
           if (bal !== null) {
             await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+            console.log(`[cTrader] balance updated on select: ${bal.balance} ${bal.currency}`);
+          } else {
+            console.warn(`[cTrader] balance fetch returned null on select for account ${freshAccount.id}`);
           }
-        } catch { /* best-effort */ }
+        } catch (e: any) { console.error(`[cTrader] balance fetch error on select: ${e.message}`); }
       })().catch(() => {});
     }
     return res.json({ ok: true });
