@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Globe, ExternalLink, RefreshCw } from 'lucide-react';
 
-const UMAMI_URL = 'http://umami-y14oy8no4xefxw3l9zhzkjqa.76.13.139.253.sslip.io';
+const UMAMI_URL = 'http://umami-jb4p566jqmt51k93yze0psvs.72.61.3.130.sslip.io:3000';
 
 const C = {
   bg: 'var(--admin-bg)', card: 'var(--admin-card)', border: 'var(--admin-border)',
