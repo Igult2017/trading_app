@@ -721,6 +721,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- Leaderboard: per-session ranking ---
   app.get("/api/leaderboard/by-session", async (req, res) => {
     try {
+      // Guard: column may not exist yet in older DB deployments
+      await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false`).catch(() => {});
+
       const period      = (req.query.period      as string) || 'all';
       const sessionName = (req.query.session_name as string) || '';
 
