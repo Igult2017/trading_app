@@ -24,7 +24,6 @@ import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
-import JournalSettingsPanel from '@/components/JournalSettingsPanel';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
 
 const SI = {
@@ -78,9 +77,6 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'sync',        label: 'Sync Trade',      icon: SI.Sync },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
     { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
-  ]},
-  { section: null, items: [
-    { id: 'settings', label: 'Settings', icon: SI.Settings },
   ]},
 ];
 
@@ -1182,7 +1178,6 @@ export default function Journal() {
         onToggleDarkMode={toggleDarkMode}
         themeLabel={T.label}
         themeAccent={T.accent}
-        onNavigateToSettings={() => setActiveNav('settings')}
       />
 
       <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
@@ -1231,18 +1226,6 @@ export default function Journal() {
             <div style={{ padding: isMobile ? '10px' : '14px 16px' }}>
               <Leaderboard />
             </div>
-          ) : activeNav === 'settings' ? (
-            <JournalSettingsPanel
-              theme={settings.theme}
-              font={settings.font}
-              onThemeChange={(t) => setSettings({ theme: t })}
-              onFontChange={(f) => setSettings({ font: f })}
-              hiddenPanels={settings.hiddenPanels ?? []}
-              onTogglePanel={(id) => {
-                const cur = settings.hiddenPanels ?? [];
-                setSettings({ hiddenPanels: cur.includes(id) ? cur.filter(p => p !== id) : [...cur, id] });
-              }}
-            />
           ) : (
             <DashboardView sessionId={activeSessionId ?? undefined} isMobile={isMobile} windowWidth={windowWidth} darkMode={T.dark} />
           )}

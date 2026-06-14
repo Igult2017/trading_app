@@ -9,6 +9,8 @@ import {
 } from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 import TradingLoader from '@/components/TradingLoader';
+import JournalSettingsPanel from '@/components/JournalSettingsPanel';
+import { useJournalSettings, THEMES } from '@/hooks/useJournalSettings';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -2887,6 +2889,27 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
   );
 };
 
+// ─── JOURNAL SETTINGS TAB ────────────────────────────────────────────────────
+function JournalSettingsTab() {
+  const { settings, setSettings } = useJournalSettings();
+  const T = THEMES[settings.theme];
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', background: T.bg, minHeight: '100vh' }}>
+      <JournalSettingsPanel
+        theme={settings.theme}
+        font={settings.font}
+        onThemeChange={(t) => setSettings({ theme: t })}
+        onFontChange={(f) => setSettings({ font: f })}
+        hiddenPanels={settings.hiddenPanels ?? []}
+        onTogglePanel={(id) => {
+          const cur = settings.hiddenPanels ?? [];
+          setSettings({ hiddenPanels: cur.includes(id) ? cur.filter(p => p !== id) : [...cur, id] });
+        }}
+      />
+    </div>
+  );
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const bp = useBreakpoint();
@@ -2994,6 +3017,7 @@ export default function AdminPanel() {
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: Globe, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
+    { label: 'Journal',          items: [{ id: 'journal-settings', label: 'Journal Settings', icon: BookOpen,    ready: true }] },
   ];
 
   const PAGE_TITLES = {
@@ -3128,6 +3152,7 @@ export default function AdminPanel() {
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
       case 'traffic': return <TrafficSection getAdminToken={async () => session?.access_token ?? null} />;
       case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
+      case 'journal-settings': return <JournalSettingsTab />;
 
     }
   };

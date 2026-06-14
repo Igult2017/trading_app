@@ -49,7 +49,6 @@ interface JournalHeaderProps {
   onToggleDarkMode: () => void;
   themeLabel?: string;
   themeAccent?: string;
-  onNavigateToSettings?: () => void;
 }
 
 const PROFILE_CARD_CSS = `
@@ -334,7 +333,7 @@ function resizeImageToDataUrl(file: File, maxSize = 220): Promise<string> {
   });
 }
 
-export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeLabel, themeAccent, onNavigateToSettings }: JournalHeaderProps) {
+export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeLabel, themeAccent }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -410,11 +409,8 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
   function openAccountSettings() {
     setProfileOpen(false);
-    if (onNavigateToSettings) {
-      onNavigateToSettings();
-    } else {
-      navigate('/journal?tab=settings');
-    }
+    try { localStorage.setItem('admin_active_tab', 'journal-settings'); } catch {}
+    navigate('/admin');
   }
 
   async function handleLogout() {
