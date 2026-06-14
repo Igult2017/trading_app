@@ -378,7 +378,8 @@ export default function BlogPostPage() {
     setLoading(true);
     setNotFound(false);
     setComments([]);
-    let postCategory = 'Analysis'; // captured in closure so third .then() can use it
+    let postCategory = 'Analysis';
+
     fetch(`/api/blog/${id}`)
       .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
       .then((data: any) => {
@@ -400,34 +401,37 @@ export default function BlogPostPage() {
           status:     data.status      ?? 'Published',
           authorData: data.authorData  ?? data.author_data ?? null,
         });
-        return Promise.all([
-          fetch('/api/blog'),
-          fetch(`/api/blog/${id}/comments`),
-        ]);
-      })
-      .then(async ([postsRes, commentsRes]) => {
-        const all = postsRes?.ok ? await postsRes.json() : [];
-        const commentData = commentsRes?.ok ? await commentsRes.json() : [];
-        if (!all) return;
-        const mapRelated = (p: any) => {
-          const rawImage = p.imageUrl ?? p.image_url ?? '';
-          const firstImg = rawImage || (() => {
-            const m = (p.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
-            return m ? m[1] : '';
-          })();
-          return {
-            id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
-            content: '', category: p.category ?? 'Analysis',
-            author: p.author ?? 'Admin', date: p.date ?? '',
-            readTime: p.readTime ?? p.read_time ?? '5 min',
-            imageUrl: firstImg, status: p.status, authorData: null,
+
+        // Secondary fetches (related posts + comments) are isolated —
+        // a failure here must NOT trigger setNotFound for a post that loaded fine.
+        Promise.all([
+          fetch('/api/blog').catch(() => null),
+          fetch(`/api/blog/${id}/comments`).catch(() => null),
+        ]).then(async ([postsRes, commentsRes]) => {
+          const all = postsRes?.ok ? await postsRes.json().catch(() => []) : [];
+          const commentData = commentsRes?.ok ? await commentsRes.json().catch(() => []) : [];
+          const mapRelated = (p: any) => {
+            const rawImage = p.imageUrl ?? p.image_url ?? '';
+            const firstImg = rawImage || (() => {
+              const m = (p.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
+              return m ? m[1] : '';
+            })();
+            return {
+              id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
+              content: '', category: p.category ?? 'Analysis',
+              author: p.author ?? 'Admin', date: p.date ?? '',
+              readTime: p.readTime ?? p.read_time ?? '5 min',
+              imageUrl: firstImg, status: p.status, authorData: null,
+            };
           };
-        };
-        const notCurrent = (p: any) => p.id !== id && (p.slug ?? p.id) !== id;
-        const sameCat  = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === postCategory).slice(0, 5).map(mapRelated);
-        const fallback = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== postCategory).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
-        setRelated([...sameCat, ...fallback]);
-        setComments(Array.isArray(commentData) ? commentData : []);
+          const notCurrent = (p: any) => p.id !== id && (p.slug ?? p.id) !== id;
+          if (Array.isArray(all)) {
+            const sameCat  = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === postCategory).slice(0, 5).map(mapRelated);
+            const fallback = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== postCategory).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
+            setRelated([...sameCat, ...fallback]);
+          }
+          setComments(Array.isArray(commentData) ? commentData : []);
+        }).catch(() => {});
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
