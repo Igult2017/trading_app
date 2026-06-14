@@ -25,10 +25,36 @@ from orchestrator.strategy_runner import run_strategy
 
 log = logging.getLogger(__name__)
 
+_PORT = os.getenv("PORT", "5000")
+_SESSIONS_URL = os.getenv("APP_BASE_URL", f"http://localhost:{_PORT}") + "/api/market-sessions"
+
 # Tracks whether the scanner was active on the previous tick.
 # SCAN_STARTED fires only on the closed→open transition, not every 60s tick.
 _was_scanning: bool = False
 _active_sessions: set[str] = set()  # tracks which sessions were live last tick
+
+
+async def _fetch_active_sessions() -> set[str]:
+    """
+    Fetch active sessions from the Sessions page API (/api/market-sessions).
+    Returns lowercase underscore names e.g. {"london", "new_york"}.
+    Falls back to local session_windows calculation if the API is unreachable.
+    """
+    try:
+        import requests as _req
+        loop = asyncio.get_running_loop()
+        data = await asyncio.wait_for(
+            loop.run_in_executor(None, lambda: _req.get(_SESSIONS_URL, timeout=3).json()),
+            timeout=4,
+        )
+        return {
+            s["name"].lower().replace(" ", "_")
+            for s in data.get("sessions", [])
+            if s.get("isActive")
+        }
+    except Exception as exc:
+        log.debug("[scanner] sessions API unavailable (%s) — using local fallback", exc)
+        return {s.value for s in get_current_sessions() if s.value != "all"}
 
 
 def _is_paused() -> bool:
@@ -57,13 +83,15 @@ async def scan_markets() -> None:
     global _was_scanning, _active_sessions
     tick_now = datetime.now(timezone.utc)
 
-    # ── Session-open detection (event-driven via sessions API, every tick) ────
-    current_sessions = get_current_sessions(tick_now)
-    live = {s.value for s in current_sessions if s.value != "all"}
+    # ── Session-open detection — driven by /api/market-sessions (Sessions page) ─
+    live = await _fetch_active_sessions()
     for name in live - _active_sessions:
         await event_bus.emit(event_bus.SESSION_OPEN, name)
     _active_sessions = live
-    # ─────────────────────────────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────────────────
+
+    # Local session enum — still needed for strategy filtering (Session enum values)
+    current_sessions = get_current_sessions(tick_now)
 
     if _is_paused():
         _was_scanning = False

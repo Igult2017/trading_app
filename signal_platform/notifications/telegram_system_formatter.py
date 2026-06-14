@@ -25,7 +25,8 @@ def format_scan_started(payload: dict) -> str:
 
 
 _SESSION_META = {
-    "asian":    ("🌏", "Asian (Sydney / Tokyo)"),
+    "sydney":   ("🦘", "Sydney"),
+    "tokyo":    ("🗼", "Tokyo"),
     "london":   ("🎡", "London"),
     "new_york": ("🗽", "New York"),
 }
