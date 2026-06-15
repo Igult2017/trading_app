@@ -6,9 +6,9 @@ import { clearInactivityTracking } from '@/lib/inactivity';
 const LOCAL_ADMIN_KEY = 'local_admin_session';
 
 /**
- * Resolve initial auth state synchronously from localStorage.
+ * Resolve initial auth state synchronously from sessionStorage.
  * When running in local-admin mode (no Supabase), the session is persisted in
- * localStorage so we can skip the async useEffect entirely on reload —
+ * sessionStorage so we can skip the async useEffect entirely on reload —
  * loading starts as false and RequireAuth never shows the spinner.
  */
 function getLocalInitialState() {
@@ -17,7 +17,7 @@ function getLocalInitialState() {
     return { session: null as Session | null, user: null as User | null, role: null as 'admin' | 'user' | null, loading: true };
   }
   try {
-    const stored = localStorage.getItem(LOCAL_ADMIN_KEY);
+    const stored = sessionStorage.getItem(LOCAL_ADMIN_KEY);
     if (stored) {
       const { email, token } = JSON.parse(stored) as { email: string; token?: string };
       const { session, user, role } = makeLocalSession(email, token);
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase) {
-      const stored = localStorage.getItem(LOCAL_ADMIN_KEY);
+      const stored = sessionStorage.getItem(LOCAL_ADMIN_KEY);
       if (stored) {
         try {
           const { email, token } = JSON.parse(stored) as { email: string; token?: string };
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(u);
           setRole(r);
         } catch {
-          localStorage.removeItem(LOCAL_ADMIN_KEY);
+          sessionStorage.removeItem(LOCAL_ADMIN_KEY);
         }
       }
       setLoading(false);
@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         const data = await res.json() as { role: string; email: string; token?: string };
         const assignedRole: 'admin' | 'user' = data.role === 'admin' ? 'admin' : 'user';
-        localStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({ email: data.email, token: data.token }));
+        sessionStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({ email: data.email, token: data.token }));
         const { session: s, user: u } = makeLocalSession(data.email, data.token);
         clearInactivityTracking();   // fresh login — start a clean 10-min window
         setSession(s);
@@ -197,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     if (!supabase) {
-      localStorage.removeItem(LOCAL_ADMIN_KEY);
+      sessionStorage.removeItem(LOCAL_ADMIN_KEY);
       setSession(null);
       setUser(null);
       setRole(null);
