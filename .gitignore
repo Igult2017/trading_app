@@ -17,3 +17,5 @@ apps.json
 deploy_status.json
 deploy_status_now.json
 logs_raw.json
+clogs.json
+.playwright-mcp/

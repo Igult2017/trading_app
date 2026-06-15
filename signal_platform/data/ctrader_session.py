@@ -30,6 +30,7 @@ _MAX_BYTES  = 20 * 1024 * 1024
 _TOKEN_FILE = Path(__file__).parent.parent / ".ctrader_token.json"
 
 TYPE_APP_AUTH_RES, TYPE_ACCOUNT_AUTH_RES, TYPE_ERROR = 2101, 2103, 5
+_HEARTBEAT_EVENT = 51   # ProtoOA keep-alive pushed unsolicited on the shared stream
 
 _client_id = _client_secret = _env = ""
 _account_id:    int = 0
@@ -152,14 +153,22 @@ async def send(writer: asyncio.StreamWriter,
 
 
 async def recv(reader: asyncio.StreamReader) -> ProtoMessage:
-    header = await reader.readexactly(4)
-    length = struct.unpack(">I", header)[0]
-    if length > _MAX_BYTES:
-        raise ValueError(f"[ctrader] oversized message: {length} bytes")
-    raw = await reader.readexactly(length)
-    msg = ProtoMessage()
-    msg.ParseFromString(raw)
-    return msg
+    # Skip server keep-alive heartbeats (payloadType 51) that arrive unsolicited
+    # on the shared stream. Otherwise a heartbeat landing between a request and its
+    # response is misread as the response ("unexpected response type 51"), which
+    # then resets the connection and empties the candle fetch. Callers always wrap
+    # recv() in asyncio.wait_for, so this loop stays time-bounded.
+    while True:
+        header = await reader.readexactly(4)
+        length = struct.unpack(">I", header)[0]
+        if length > _MAX_BYTES:
+            raise ValueError(f"[ctrader] oversized message: {length} bytes")
+        raw = await reader.readexactly(length)
+        msg = ProtoMessage()
+        msg.ParseFromString(raw)
+        if msg.payloadType == _HEARTBEAT_EVENT:
+            continue
+        return msg
 
 
 async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
