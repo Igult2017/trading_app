@@ -8,6 +8,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import AuthModal from "@/components/auth/AuthModal";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { prefetchAdminData } from "@/lib/prefetchAdmin";
 import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
@@ -346,6 +347,7 @@ export default function App() {
             <JournalPrefetcher />
             <AdminPrefetcher />
             <AppRoutes />
+            <AuthModal />
           </AuthProvider>
           <Toaster />
         </TooltipProvider>
