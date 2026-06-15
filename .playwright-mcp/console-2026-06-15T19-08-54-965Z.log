@@ -1,0 +1,2 @@
+[     635ms] [ERROR] Mixed Content: The page at 'https://www.fsdzones.cloud/tsc' was loaded over HTTPS, but requested an insecure script 'http://umami-jb4p566jqmt51k93yze0psvs.72.61.3.130.sslip.io:3000/script.js'. This request has been blocked; the content must be served over HTTPS. @ https://www.fsdzones.cloud/tsc:0
+[    5327ms] [WARNING] [PageTracking] Missing page name {page: } @ https://www.fsdzones.cloud/assets/index-CgRj63ib.js:47
