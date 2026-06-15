@@ -76,7 +76,8 @@ def measure_pullback(
 
     Rules:
     - 1 to 6 candles against direction
-    - depth 25–80% of full cluster range (from cluster_start to vol_idx)
+    - depth 10–80% of full cluster range (from cluster_start to vol_idx)
+      (10% floor lets a shallow one-candle pullback after a strong cluster qualify)
     """
     pb_candles: list[Candle] = []
 
@@ -104,8 +105,8 @@ def measure_pullback(
     cluster_high  = max(c.high for c in cluster_slice)
     cluster_low   = min(c.low  for c in cluster_slice)
     vol_range     = cluster_high - cluster_low
-    if vol_range > 0 and (depth < vol_range * 0.25 or depth > vol_range * 0.80):
-        log.info(f"[eurusd_diag]   pullback REJECTED — depth {depth / vol_range * 100:.0f}% of cluster (need 25-80%)")
+    if vol_range > 0 and (depth < vol_range * 0.10 or depth > vol_range * 0.80):
+        log.info(f"[eurusd_diag]   pullback REJECTED — depth {depth / vol_range * 100:.0f}% of cluster (need 10-80%)")
         return None
 
     # Structure change guard: reject only when a pullback candle CLOSES beyond the
