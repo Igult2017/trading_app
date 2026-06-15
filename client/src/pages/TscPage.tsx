@@ -440,12 +440,9 @@ export default function TscPage() {
                   {weekday ? `${liveCount} Sessions Live` : "Weekend — Markets Closed"}
                 </span>
               </div>
-              <h1 style={{ margin: "0 0 10px", ...serif, fontWeight: 900, fontSize: "clamp(1.6rem,2.5vw,2.2rem)", lineHeight: 1.1, color: textPrim }}>
+              <h1 style={{ margin: 0, ...serif, fontWeight: 900, fontSize: "clamp(1.6rem,2.5vw,2.2rem)", lineHeight: 1.1, color: textPrim }}>
                 Trading Session <span style={{ color: "#2563eb" }}>Clock</span>
               </h1>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: textMuted, lineHeight: 1.7, maxWidth: 440 }}>
-                Track all four major forex market sessions in real time. See which markets are live, how much time remains, and when the next session opens.
-              </p>
             </div>
 
             <div style={{ flex: "0 0 auto", textAlign: "right" }}>

@@ -8,5 +8,12 @@ vite.config.ts.*
 # Environment files (never commit secrets)
 .env
 .env.local
-.env.production__pycache__/
+.env.production
+__pycache__/
 *.pyc
+
+# Diagnostic / scratch files (may contain API responses with secrets — never commit)
+apps.json
+deploy_status.json
+deploy_status_now.json
+logs_raw.json
