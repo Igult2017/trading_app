@@ -3,10 +3,18 @@ EURUSD Pullback: volume cluster detection and pullback validation.
 Fractal detection lives in pullback_fractal.py.
 4H zone check lives in pullback_obstruction.py.
 """
+import logging
 from core.types import Candle
 from shared.candle_math import body_size, body_ratio, full_range, is_bullish, is_bearish
 
+log = logging.getLogger(__name__)
 _PIP = 0.00010
+
+
+def recent_candles_summary(candles: list[Candle], n: int = 6) -> str:
+    """Compact direction + body-ratio summary of the last n candles (diagnostics)."""
+    parts = [f"{'BULL' if is_bullish(c) else 'BEAR'} br={body_ratio(c):.2f}" for c in candles[-n:]]
+    return "[" + ", ".join(parts) + "]"
 
 
 def find_volume_cluster(
@@ -79,7 +87,11 @@ def measure_pullback(
         else:
             break
 
-    if len(pb_candles) < 1 or len(pb_candles) > 6:
+    if len(pb_candles) < 1:
+        log.info("[eurusd_diag]   pullback REJECTED — no counter-trend candle after cluster")
+        return None
+    if len(pb_candles) > 6:
+        log.info(f"[eurusd_diag]   pullback REJECTED — {len(pb_candles)} counter candles (max 6)")
         return None
 
     pb_high = max(c.high for c in pb_candles)
@@ -93,6 +105,7 @@ def measure_pullback(
     cluster_low   = min(c.low  for c in cluster_slice)
     vol_range     = cluster_high - cluster_low
     if vol_range > 0 and (depth < vol_range * 0.25 or depth > vol_range * 0.80):
+        log.info(f"[eurusd_diag]   pullback REJECTED — depth {depth / vol_range * 100:.0f}% of cluster (need 25-80%)")
         return None
 
     # Structure change guard: reject only when a pullback candle CLOSES beyond the
@@ -100,8 +113,10 @@ def measure_pullback(
     # are allowed — price sometimes sweeps liquidity then recovers.
     for c in pb_candles:
         if bullish     and c.close < cluster_low:
+            log.info("[eurusd_diag]   pullback REJECTED — closed below cluster low (structure break)")
             return None
         if not bullish and c.close > cluster_high:
+            log.info("[eurusd_diag]   pullback REJECTED — closed above cluster high (structure break)")
             return None
 
     return (pb_high, pb_low, len(pb_candles), pb_candles[-1].time + 3600)

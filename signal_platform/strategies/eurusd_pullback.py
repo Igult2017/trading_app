@@ -12,19 +12,20 @@ State is in-memory. A platform restart resets stage tracking; Stage 2 may fire
 without a preceding Stage 1 if the platform restarted mid-setup. This is correct
 behaviour — Stage 2 is the actionable alert.
 """
+import logging
 import time
-from datetime import datetime, timezone
 
 from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, NewsStance, NewsImpact, StrategyResult, TF)
 from core.strategy_context import StrategyContext
 from indicators.ema_200 import EMA200Indicator
-from shared.session_phases import is_valid_phase
 from shared.adx import calc_adx
-from strategies.pullback_setup import find_volume_cluster, measure_pullback
+from strategies.pullback_setup import find_volume_cluster, measure_pullback, recent_candles_summary
 from strategies.pullback_fractal import fractal_identified
 from strategies.pullback_obstruction import is_at_4h_key_level
 from strategies.eurusd_pullback_signals import build_setup_signal, build_entry_signal
+
+log = logging.getLogger(__name__)
 
 _EMA_PERIOD = 200
 _ADX_PERIOD = 14
@@ -70,17 +71,18 @@ class EURUSDPullbackStrategy(BaseStrategy):
         d1 = context.candles.get(TF.D1)
 
         if len(m1) < 10 or len(h1) < _EMA_PERIOD or len(h4) < 10 or len(d1) < _EMA_PERIOD:
+            log.info(f"[eurusd_diag] insufficient candles: M1={len(m1)} H1={len(h1)}/{_EMA_PERIOD} H4={len(h4)} D1={len(d1)}/{_EMA_PERIOD}")
             return StrategyResult.empty()
 
-        utc_now = datetime.fromtimestamp(m1[-1].time, tz=timezone.utc)
         if context.news and context.news.has_high_impact(["USD", "EUR"]):
+            log.info("[eurusd_diag] skipped: high-impact USD/EUR news in window")
             return StrategyResult.empty()
-        if not is_valid_phase(utc_now):
-            return StrategyResult.empty()
+        # Phase/time-of-day filter removed — fire whenever trend + cluster + pullback present.
 
         bull_cluster = find_volume_cluster(h1, bullish=True)
         bear_cluster = find_volume_cluster(h1, bullish=False)
         if bull_cluster is None and bear_cluster is None:
+            log.info(f"[eurusd_diag] no H1 volume cluster — last H1 {recent_candles_summary(h1)} (need >=2 same-dir, body_ratio>=0.55, growing body)")
             return StrategyResult.empty()
 
         if bull_cluster is not None and bear_cluster is not None:
@@ -93,6 +95,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         pb = measure_pullback(h1, vol_end, bullish, cluster_start=vol_start)
         if pb is None:
+            log.info(f"[eurusd_diag] {'BULL' if bullish else 'BEAR'} H1 cluster ({vol_end - vol_start + 1}c) found but no valid pullback")
             return StrategyResult.empty()
         pb_high, pb_low, pb_count, pb_end_time = pb
 
@@ -110,7 +113,9 @@ class EURUSDPullbackStrategy(BaseStrategy):
             if not d1_aligned:
                 adx_s1, pdi_s1, mdi_s1 = calc_adx(h1, period=_ADX_PERIOD)
                 if adx_s1 < _ADX_MIN or (pdi_s1 > mdi_s1) != bullish:
+                    log.info(f"[eurusd_diag] {'BULL' if bullish else 'BEAR'} cluster+pullback FOUND but not trending — D1 EMA misaligned & ADX {adx_s1:.0f}<{_ADX_MIN}/DI mismatch")
                     return StrategyResult.empty()   # doesn't qualify even as watch
+            log.info(f"[eurusd_diag] SETUP EMITTED — {'BULL' if bullish else 'BEAR'} cluster+pullback, trend OK (d1_aligned={d1_aligned})")
             self._setup_alerted[cluster_sig] = time.monotonic()
             sig = build_setup_signal(
                 context.symbol, bullish, pb_high, pb_low,
