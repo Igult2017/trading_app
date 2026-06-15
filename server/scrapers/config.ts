@@ -97,42 +97,6 @@ export const scraperConfigs: Record<string, ScraperConfig> = {
     },
   },
   
-  forexFactory: {
-    name: 'ForexFactory',
-    url: 'https://www.forexfactory.com/calendar',
-    enabled: false,
-    priority: 3,
-    selectors: {
-      eventRow: 'tr.calendar__row',
-      eventName: 'td.calendar__event span.calendar__event-title',
-      country: 'td.calendar__currency',
-      time: 'td.calendar__time',
-      impact: 'td.calendar__impact span',
-      actual: 'td.calendar__actual',
-      forecast: 'td.calendar__forecast',
-      previous: 'td.calendar__previous',
-    },
-    dataMapping: {
-      impactLevels: {
-        'icon--ff-impact-yel': 'Low',
-        'icon--ff-impact-ora': 'Medium',
-        'icon--ff-impact-red': 'High',
-        'icon--ff-impact-gra': 'Holiday',
-      },
-      countryCodes: {
-        'USD': 'USD',
-        'EUR': 'EUR',
-        'GBP': 'GBP',
-        'JPY': 'JPY',
-        'CAD': 'CAD',
-        'AUD': 'AUD',
-        'NZD': 'NZD',
-        'CHF': 'CHF',
-        'CNY': 'CNY',
-      },
-    },
-  },
-
   fxStreet: {
     name: 'FXStreet',
     url: 'https://www.fxstreet.com/economic-calendar',

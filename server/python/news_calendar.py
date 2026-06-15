@@ -1,7 +1,8 @@
 """
 Economic calendar scraper.
-Primary source: MyFXBook — bypasses Cloudflare using curl_cffi iOS Safari TLS impersonation.
-Fallbacks (emergency only): TradingView JSON API, ForexFactory XML.
+Sole source: MyFXBook — bypasses Cloudflare using curl_cffi iOS Safari TLS impersonation.
+On a Cloudflare block this returns []; the Node service keeps serving the last
+good cache (see homepageCalendar). No third-party fallbacks.
 
 Fetches central bank interest rates from accessible free sources — no hardcoded values.
 
@@ -34,6 +35,20 @@ try:
 except Exception:
     _CFFI_OK = False
 
+# Cloudflare "Just a moment..." interstitial markers. If any appear in a
+# response body, the request was challenged — the HTML is NOT calendar data.
+_CF_CHALLENGE_MARKERS = (
+    'Just a moment',
+    'cf-browser-verification',
+    '_cf_chl_opt',
+    '/cdn-cgi/challenge-platform',
+)
+
+
+def _is_cloudflare_challenge(html: str) -> bool:
+    """True if the body is a Cloudflare challenge page rather than real content."""
+    return bool(html) and any(m in html for m in _CF_CHALLENGE_MARKERS)
+
 HEADERS = {
     'User-Agent': (
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -49,17 +64,6 @@ HEADERS = {
     'Sec-Fetch-Mode': 'navigate',
     'Sec-Fetch-Site': 'none',
     'Upgrade-Insecure-Requests': '1',
-}
-
-TV_HEADERS = {
-    'User-Agent': (
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/124.0.0.0 Safari/537.36'
-    ),
-    'Accept': 'application/json, text/plain, */*',
-    'Origin': 'https://www.tradingview.com',
-    'Referer': 'https://www.tradingview.com/',
 }
 
 MONTH_MAP = {
@@ -99,75 +103,6 @@ def _parse_datetime(date_str: str, year: int) -> tuple:
         return f"{dp[0]} {day_num:02d}", time_part, dt.isoformat()
     except Exception:
         return day_part, time_part, datetime.now().isoformat()
-
-
-def _tv_importance(level) -> str:
-    """Map TradingView importance int (1-3) to High/Medium/Low."""
-    try:
-        lvl = int(level)
-    except (TypeError, ValueError):
-        return 'Low'
-    return {3: 'High', 2: 'Medium', 1: 'Low'}.get(lvl, 'Low')
-
-
-def _scrape_tradingview() -> list:
-    """
-    Fetch forex economic calendar from TradingView's public JSON endpoint.
-    Covers current week + next week so the calendar is always populated.
-    """
-    from datetime import timedelta
-    now = datetime.utcnow()
-    # Fetch a 14-day window: past 2 days + next 12 days
-    date_from = (now - timedelta(days=2)).strftime('%Y-%m-%dT00:00:00.000Z')
-    date_to   = (now + timedelta(days=12)).strftime('%Y-%m-%dT23:59:59.000Z')
-    countries = 'US,EU,GB,JP,CA,AU,CH,NZ,CN'
-    url = (
-        'https://economic-calendar.tradingview.com/events'
-        f'?from={date_from}&to={date_to}&countries={countries}'
-    )
-    try:
-        resp = requests.get(url, headers=TV_HEADERS, timeout=15)
-        if resp.status_code != 200:
-            print(f'[news_calendar] TradingView HTTP {resp.status_code}', file=sys.stderr)
-            return []
-        data = resp.json()
-        events_raw = data if isinstance(data, list) else data.get('result', [])
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        results = []
-        for ev in events_raw:
-            try:
-                iso = ev.get('date', '')
-                dt  = datetime.fromisoformat(iso.replace('Z', '+00:00'))
-                date_label = f"{months[dt.month - 1]} {dt.day:02d}"
-                time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
-                currency   = ev.get('currency', ev.get('country', '?')).upper()
-                name       = (ev.get('title') or ev.get('event') or '').strip()
-                importance = _tv_importance(ev.get('importance', 1))
-                actual     = str(ev.get('actual')   or '-')
-                forecast   = str(ev.get('forecast') or '-')
-                previous   = str(ev.get('previous') or '-')
-                if not name:
-                    continue
-                results.append({
-                    'date':       date_label,
-                    'time':       time_label,
-                    'currency':   currency,
-                    'event':      name,
-                    'importance': importance,
-                    'actual':     actual,
-                    'forecast':   forecast,
-                    'previous':   previous,
-                    'eventTime':  iso,
-                    'category':   _categorize(name, currency),
-                })
-            except Exception:
-                continue
-        print(f'[news_calendar] TradingView: {len(results)} events', file=sys.stderr)
-        return results
-    except Exception as exc:
-        print(f'[news_calendar] TradingView error: {exc}', file=sys.stderr)
-        return []
 
 
 # FlareSolverr endpoint — set FLARESOLVERR_URL in env to enable headless Chrome bypass.
@@ -220,9 +155,7 @@ def _mfx_session():
         try:
             s = cffi_requests.Session(impersonate=profile)
             hp = s.get('https://www.myfxbook.com', timeout=15)
-            if (hp.status_code == 200
-                    and 'Just a moment' not in hp.text
-                    and 'cf-browser-verification' not in hp.text):
+            if hp.status_code == 200 and not _is_cloudflare_challenge(hp.text):
                 _time.sleep(1.5)  # human-like pause before target page
                 return s, profile
         except Exception:
@@ -265,8 +198,8 @@ def _scrape_myfxbook() -> list:
         print('[news_calendar] MyFXBook: all bypass methods failed', file=sys.stderr)
         return []
 
-    if 'Just a moment' in html or 'cf-browser-verification' in html:
-        print('[news_calendar] MyFXBook: Cloudflare challenge not bypassed', file=sys.stderr)
+    if _is_cloudflare_challenge(html):
+        print('[news_calendar] MyFXBook: Cloudflare challenge detected — not calendar data', file=sys.stderr)
         return []
 
     try:
@@ -372,119 +305,20 @@ def _scrape_myfxbook() -> list:
         return []
 
 
-_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-def _scrape_forexfactory() -> list:
-    """Scrape ForexFactory XML calendar (this week + next week).
-    No Cloudflare — plain HTTP, always accessible from servers.
-    Returns events in the same shape as _scrape_myfxbook().
-    """
-    feeds = [
-        'https://nfs.faireconomy.media/ff_calendar_thisweek.xml',
-        'https://nfs.faireconomy.media/ff_calendar_nextweek.xml',
-    ]
-    results = []
-    seen = set()
-
-    for url in feeds:
-        try:
-            r = requests.get(url, timeout=12, headers={'User-Agent': 'Mozilla/5.0'})
-            if r.status_code != 200:
-                print(f'[news_calendar] ForexFactory {url} -> HTTP {r.status_code}', file=sys.stderr)
-                continue
-            root = ET.fromstring(r.content)
-        except Exception as exc:
-            print(f'[news_calendar] ForexFactory fetch error: {exc}', file=sys.stderr)
-            continue
-
-        for ev in root.findall('event'):
-            def txt(tag):
-                node = ev.find(tag)
-                return (node.text or '').strip() if node is not None else ''
-
-            title    = txt('title')
-            currency = txt('country')
-            date_str = txt('date')   # "05-17-2026"
-            time_str = txt('time')   # "10:30pm" or "All Day" or ""
-            impact   = txt('impact') # "Low" / "Medium" / "High"
-            forecast = txt('forecast') or '-'
-            previous = txt('previous') or '-'
-
-            if not title or not currency or not date_str:
-                continue
-
-            dedup_key = f'{date_str}|{time_str}|{currency}|{title}'
-            if dedup_key in seen:
-                continue
-            seen.add(dedup_key)
-
-            # Parse date "05-17-2026" -> "May 17" + ISO
-            try:
-                month, day, year = int(date_str[:2]), int(date_str[3:5]), int(date_str[6:])
-                date_label = f'{_MONTH_NAMES[month - 1]} {day}'
-            except Exception:
-                date_label = date_str
-                year = datetime.now().year
-
-            # Parse time "10:30pm" -> ISO
-            time_label = time_str if time_str and time_str.lower() != 'tentative' else 'All Day'
-            iso_dt = ''
-            try:
-                if time_str and time_str.lower() not in ('tentative', 'all day', ''):
-                    dt = datetime.strptime(f'{date_str} {time_str}', '%m-%d-%Y %I:%M%p')
-                    iso_dt = dt.isoformat()
-            except Exception:
-                pass
-
-            importance = impact if impact in ('High', 'Medium', 'Low') else 'Low'
-
-            results.append({
-                'date':       date_label,
-                'time':       time_label,
-                'currency':   currency,
-                'event':      title,
-                'importance': importance,
-                'actual':     '-',
-                'forecast':   forecast,
-                'previous':   previous,
-                'eventTime':  iso_dt,
-                'category':   _categorize(title, currency),
-            })
-
-    print(f'[news_calendar] ForexFactory: {len(results)} events', file=sys.stderr)
-    return results
-
-
 def scrape_calendar() -> list:
-    """Fetch forex economic calendar.
+    """Fetch forex economic calendar from MyFXBook — the sole source.
 
-    Primary source: MyFXBook (sole intended source for forex news).
-      Uses curl_cffi iOS Safari TLS impersonation to bypass Cloudflare.
-
-    Emergency fallbacks (only activated if MyFXBook is completely unavailable):
-      1. TradingView JSON API  — 300+ events, no auth, always accessible
-      2. ForexFactory XML      — good from VPS, may 429 on shared IPs
-
-    The Node service keeps serving stale cache if all sources return 0 events,
-    so returning [] here is safe and won't break the UI.
+    Uses curl_cffi iOS Safari TLS impersonation (and FlareSolverr if configured)
+    to bypass Cloudflare. If MyFXBook is challenged or unavailable this returns [];
+    the Node service keeps serving the last good cache, so an empty result is safe
+    and never breaks the UI. No third-party fallbacks (TradingView / ForexFactory
+    removed by request).
     """
     events = _scrape_myfxbook()
     if events:
         print(f'[news_calendar] Using MyFXBook: {len(events)} events', file=sys.stderr)
-        return events
-
-    print('[news_calendar] MyFXBook unavailable — trying TradingView emergency fallback', file=sys.stderr)
-    events = _scrape_tradingview()
-    if events:
-        print(f'[news_calendar] Using TradingView fallback: {len(events)} events', file=sys.stderr)
-        return events
-
-    print('[news_calendar] TradingView failed — trying ForexFactory emergency fallback', file=sys.stderr)
-    events = _scrape_forexfactory()
-    if events:
-        print(f'[news_calendar] Using ForexFactory fallback: {len(events)} events', file=sys.stderr)
     else:
-        print('[news_calendar] All calendar sources failed', file=sys.stderr)
+        print('[news_calendar] MyFXBook unavailable — returning [] (Node serves last good cache)', file=sys.stderr)
     return events
 
 
@@ -936,8 +770,8 @@ def _scrape_myfxbook_rates() -> dict:
         print('[news_calendar] MyFXBook rates: all bypass methods failed', file=sys.stderr)
         return {}
 
-    if 'Just a moment' in html or 'cf-browser-verification' in html:
-        print('[news_calendar] MyFXBook rates: Cloudflare challenge not bypassed', file=sys.stderr)
+    if _is_cloudflare_challenge(html):
+        print('[news_calendar] MyFXBook rates: Cloudflare challenge detected — not rate data', file=sys.stderr)
         return {}
 
     try:

@@ -37,11 +37,17 @@ export class EconomicCalendarScraper {
     this.lastRequestTime = Date.now();
   }
 
+  /** True if the body is a Cloudflare challenge page rather than real content. */
+  private isCloudflareChallenge(html: string): boolean {
+    if (!html) return false;
+    return /Just a moment|cf-browser-verification|_cf_chl_opt|cdn-cgi\/challenge-platform/i.test(html);
+  }
+
   private async fetchHTML(url: string): Promise<string> {
     await this.respectRateLimit();
 
     try {
-      const html = await cloudscraper.get(url, {
+      const html = (await cloudscraper.get(url, {
         headers: {
           'User-Agent': getRandomUserAgent(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -51,10 +57,15 @@ export class EconomicCalendarScraper {
           'Upgrade-Insecure-Requests': '1',
         },
         timeout: scraperSettings.timeout,
-      });
-      return html as string;
-    } catch (error) {
-      console.error(`Failed to fetch ${url}:`, error);
+      })) as string;
+      if (this.isCloudflareChallenge(html)) {
+        throw new Error('Cloudflare challenge page returned — not real calendar data');
+      }
+      return html;
+    } catch (error: any) {
+      // Log only the message — the raw error object embeds the full Cloudflare
+      // challenge HTML, which floods the logs with thousands of bytes.
+      console.error(`Failed to fetch ${url}: ${error?.message ?? error}`);
       throw error;
     }
   }
@@ -95,52 +106,6 @@ export class EconomicCalendarScraper {
           previousValue: previous || undefined,
           actualValue: actual || undefined,
           currency: countryCode,
-          sourceSite: config.name,
-          sourceUrl: config.url,
-        });
-      } catch (error) {
-        console.error('Error parsing event row:', error);
-      }
-    });
-
-    return events;
-  }
-
-  private parseForexFactory(html: string, config: ScraperConfig): ScrapedEvent[] {
-    const $ = cheerio.load(html);
-    const events: ScrapedEvent[] = [];
-    const today = new Date();
-
-    $(config.selectors.eventRow!).each((_, element) => {
-      try {
-        const $row = $(element);
-        
-        const title = $row.find(config.selectors.eventName!).text().trim();
-        if (!title) return;
-
-        const currency = $row.find(config.selectors.country!).text().trim();
-        const timeText = $row.find(config.selectors.time!).text().trim();
-        const impactClass = $row.find(config.selectors.impact!).attr('class') || '';
-        const actual = $row.find(config.selectors.actual!).text().trim();
-        const forecast = $row.find(config.selectors.forecast!).text().trim();
-        const previous = $row.find(config.selectors.previous!).text().trim();
-
-        let impactLevel = 'Low';
-        if (impactClass.includes('red')) impactLevel = 'High';
-        else if (impactClass.includes('ora')) impactLevel = 'Medium';
-
-        const eventTime = this.parseTimeString(timeText, today);
-
-        events.push({
-          title,
-          country: this.getCurrencyCountry(currency),
-          countryCode: currency,
-          eventTime,
-          impactLevel,
-          expectedValue: forecast || undefined,
-          previousValue: previous || undefined,
-          actualValue: actual || undefined,
-          currency,
           sourceSite: config.name,
           sourceUrl: config.url,
         });
@@ -317,8 +282,6 @@ export class EconomicCalendarScraper {
         return this.parseMyFxBook(html, config);
       case 'Investing.com':
         return this.parseInvestingCom(html, config);
-      case 'ForexFactory':
-        return this.parseForexFactory(html, config);
       default:
         console.warn(`No parser implemented for ${config.name}`);
         return [];
@@ -341,9 +304,9 @@ export class EconomicCalendarScraper {
         if (events.length > 0) {
           break;
         }
-      } catch (error) {
-        console.error(`Failed to scrape ${config.name}:`, error);
-        
+      } catch (error: any) {
+        console.error(`Failed to scrape ${config.name}: ${error?.message ?? error}`);
+
         if (config.priority === scrapers[scrapers.length - 1].priority) {
           console.error('All scrapers failed');
         } else {
