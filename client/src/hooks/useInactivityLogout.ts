@@ -2,21 +2,27 @@ import { useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
-
-const TIMEOUT_MS         = 10 * 60 * 1000;
-const LAST_ACTIVITY_KEY  = "inactivity_last_activity";
-const LAST_SESSION_KEY   = "inactivity_session_id";
+import {
+  INACTIVITY_TIMEOUT_MS as TIMEOUT_MS,
+  LAST_ACTIVITY_KEY,
+  LAST_SESSION_KEY,
+  clearInactivityTracking,
+} from "@/lib/inactivity";
 
 const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
   "mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click",
 ];
 
 /**
- * Auto-logs the user out after 10 minutes of inactivity.
+ * Auto-logs the user out after 10 minutes of inactivity — including while the
+ * tab was closed.
  *
- * The session ID is stored alongside the timestamp so that stale timestamps
- * from a previous session are never applied to a fresh sign-in — that was the
- * root cause of the immediate-logout-after-sign-in bug.
+ * The activity clock is keyed on the STABLE user id, NOT the access token.
+ * Supabase rotates the access token on refresh, so keying on it made a
+ * reopened/refreshed session look like a "different" session — the stored
+ * timestamp was discarded and the timeout never fired. Keying on user.id fixes
+ * tab-close logout; clearInactivityTracking() on a fresh sign-in stops a new
+ * login from inheriting the previous session's clock.
  */
 export function useInactivityLogout() {
   const { session, signOut, loading } = useAuth();
@@ -27,10 +33,9 @@ export function useInactivityLogout() {
   signOutRef.current  = signOut;
   navigateRef.current = navigate;
 
-  // Always holds the current session ID so scheduleExpiry can stamp it
-  // without needing session as a useCallback dependency.
+  // Stable per-login identifier — survives access-token rotation.
   const sessionIdRef = useRef<string>("");
-  sessionIdRef.current = session?.access_token ?? "";
+  sessionIdRef.current = session?.user?.id ?? "";
 
   const logoutTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silentExpired = useRef(false);
@@ -49,60 +54,52 @@ export function useInactivityLogout() {
     }, TIMEOUT_MS);
   }, [clearTimers]);
 
+  const doLogout = useCallback(async () => {
+    clearTimers();
+    silentExpired.current = false;
+    clearInactivityTracking();
+    toast({
+      title: "Signed out due to inactivity",
+      description: "You were automatically signed out after 10 minutes of inactivity. Please log in again.",
+      duration: 7_000,
+    });
+    await signOutRef.current();
+    navigateRef.current("/auth");
+  }, [clearTimers]);
+
   useEffect(() => {
     if (!session) {
       if (!loading) {
         clearTimers();
         silentExpired.current = false;
-        localStorage.removeItem(LAST_ACTIVITY_KEY);
-        localStorage.removeItem(LAST_SESSION_KEY);
+        clearInactivityTracking();
       }
       return;
     }
 
-    // ── Tab-close / reopen detection ──────────────────────────────────────
-    // Only apply the stored timestamp if it belongs to THIS session.
-    // A timestamp from a previous session must never trigger logout on a
-    // fresh sign-in — that was the bug causing immediate sign-out.
-    const storedTime = localStorage.getItem(LAST_ACTIVITY_KEY);
-    const storedSid  = localStorage.getItem(LAST_SESSION_KEY);
+    // ── Resume detection (tab reopened / token refreshed) ─────────────────
+    // Apply the stored clock only when it belongs to THIS user.
+    const storedTime  = localStorage.getItem(LAST_ACTIVITY_KEY);
+    const storedSid   = localStorage.getItem(LAST_SESSION_KEY);
+    const sameSession = !!storedTime && storedSid === sessionIdRef.current;
+    const elapsed     = sameSession ? Date.now() - parseInt(storedTime!, 10) : 0;
 
-    if (storedTime && storedSid === session.access_token) {
-      // Same session resumed after tab close — check elapsed time
-      const elapsed = Date.now() - parseInt(storedTime, 10);
-      if (elapsed >= TIMEOUT_MS) {
-        silentExpired.current = true;
-      }
-    } else {
-      // Different or missing session ID — wipe stale data from old session
-      localStorage.removeItem(LAST_ACTIVITY_KEY);
-      localStorage.removeItem(LAST_SESSION_KEY);
-      silentExpired.current = false;
+    if (sameSession && elapsed >= TIMEOUT_MS) {
+      // Tab was closed (or left idle) past the timeout and is now back — the
+      // user just returned, so log out immediately rather than waiting.
+      doLogout();
+      return;
     }
+    if (!sameSession) clearInactivityTracking();   // stale clock from a prior login
+    silentExpired.current = false;
+    scheduleExpiry();
 
-    if (!silentExpired.current) {
-      scheduleExpiry();
-    }
-
-    const handleActivity = async () => {
+    const handleActivity = () => {
       if (silentExpired.current) {
-        silentExpired.current = false;
-        clearTimers();
-        localStorage.removeItem(LAST_ACTIVITY_KEY);
-        localStorage.removeItem(LAST_SESSION_KEY);
         ACTIVITY_EVENTS.forEach(evt => window.removeEventListener(evt, handleActivity));
-
-        toast({
-          title: "Signed out due to inactivity",
-          description: "You were automatically signed out after 10 minutes of inactivity. Please log in again.",
-          duration: 7_000,
-        });
-
-        await signOutRef.current();
-        navigateRef.current("/auth");
+        doLogout();
         return;
       }
-
       scheduleExpiry();
     };
 
@@ -114,5 +111,5 @@ export function useInactivityLogout() {
       clearTimers();
       ACTIVITY_EVENTS.forEach(evt => window.removeEventListener(evt, handleActivity));
     };
-  }, [session, loading, scheduleExpiry, clearTimers]);
+  }, [session, loading, scheduleExpiry, clearTimers, doLogout]);
 }

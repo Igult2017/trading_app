@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { clearInactivityTracking } from '@/lib/inactivity';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
 
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (data.session) {
       const assignedRole = await runSetup(data.session.access_token);
+      clearInactivityTracking();   // fresh login — start a clean 10-min window
       setRole(assignedRole ?? extractRole(data.session.user));
       return { error: null, emailConfirmationRequired: false };
     }
@@ -167,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const assignedRole: 'admin' | 'user' = data.role === 'admin' ? 'admin' : 'user';
         localStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({ email: data.email, token: data.token }));
         const { session: s, user: u } = makeLocalSession(data.email, data.token);
+        clearInactivityTracking();   // fresh login — start a clean 10-min window
         setSession(s);
         setUser(u);
         setRole(assignedRole);
@@ -187,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Set role directly — avoids calling refreshSession() which can fire
     // a SIGNED_OUT event on failure and silently kill the new session.
+    clearInactivityTracking();   // fresh login — start a clean 10-min window
     setRole(role);
     return { error: null, role };
   }
