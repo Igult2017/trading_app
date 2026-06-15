@@ -8,12 +8,17 @@ from config.instruments import TRADEABLE_INSTRUMENTS
 
 
 def is_forex_open(now: datetime | None = None) -> bool:
-    """Forex: open Mon–Fri, closed all Saturday, closed Sun before 22:00 UTC."""
+    """
+    Forex week: opens Sun 22:00 UTC, closes Fri 22:00 UTC.
+    Closed all Saturday, Sunday before 22:00, and Friday from 22:00 onward.
+    """
     now = now or datetime.now(timezone.utc)
     wd = now.weekday()   # 0=Mon … 6=Sun
-    if wd == 5:
+    if wd == 5:                       # Saturday — closed all day
         return False
-    if wd == 6 and now.hour < 22:
+    if wd == 6 and now.hour < 22:     # Sunday before the 22:00 UTC open
+        return False
+    if wd == 4 and now.hour >= 22:    # Friday from 22:00 UTC — weekend close
         return False
     return True
 

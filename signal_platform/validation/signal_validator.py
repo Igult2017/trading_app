@@ -92,6 +92,12 @@ def _check_confidence(signal: Signal) -> bool:
 
 
 def _is_duplicate(signal: Signal) -> bool:
+    # INVARIANT: dedup is scoped to symbol+direction, NOT per-strategy. This is
+    # intentional and load-bearing — the same scope is assumed by the monitor
+    # (closes/releases by symbol:direction) and enforced by the DB unique
+    # constraint (signal_repo.save raises IntegrityError on a duplicate). One
+    # active signal per symbol+direction across ALL strategies. Do not scope this
+    # key by strategy_id without updating the monitor and DB constraint together.
     key = f"{signal.symbol}:{signal.direction.value.lower()}"
     if key in _seen:
         log.debug(f"[validator] duplicate skipped: {key}")

@@ -141,7 +141,14 @@ async def run_strategy(
                 signal_validator.release(signal.symbol, signal.direction.value)
                 continue
 
-        await loop.run_in_executor(None, signal_repo.save, signal)
+        # Release the dedup reservation on a hard save failure — else this
+        # symbol+direction stays locked for the process lifetime with nothing saved.
+        try:
+            await loop.run_in_executor(None, signal_repo.save, signal)
+        except Exception as exc:
+            log.error(f"[runner] {instrument} save failed ({exc}) — releasing dedup reservation")
+            signal_validator.release(signal.symbol, signal.direction.value)
+            continue
         signal_validator.register_confirmed(signal)
         await event_bus.emit(event_bus.SIGNAL_CONFIRMED, signal)
         log.info(

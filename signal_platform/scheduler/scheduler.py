@@ -47,6 +47,17 @@ def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
     return _scheduler
 
 
+def set_scan_interval(seconds: int) -> None:
+    """
+    Reschedule the scan job to a new interval (session-aware cadence).
+    Called by the scanner each tick when the desired interval changes.
+    APScheduler resets next_run_time relative to now.
+    """
+    if _scheduler and _scheduler.get_job("scan_markets"):
+        _scheduler.reschedule_job("scan_markets", trigger=IntervalTrigger(seconds=seconds))
+        log.info(f"[scheduler] scan interval → {seconds}s")
+
+
 def start() -> None:
     if _scheduler:
         _scheduler.start()

@@ -59,6 +59,11 @@ def _parse(item: dict) -> NewsEvent | None:
         iso = item.get("eventTime", "")
         if not iso:
             return None
+        # datetime.fromisoformat rejects a trailing 'Z' on Python < 3.11 — a
+        # parse failure here silently drops the event, so the news filter would
+        # see nothing and let trades through during high-impact news. Normalise.
+        if iso.endswith("Z"):
+            iso = iso[:-1] + "+00:00"
         dt = datetime.fromisoformat(iso)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
