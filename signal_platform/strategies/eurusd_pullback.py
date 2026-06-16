@@ -110,9 +110,8 @@ class EURUSDPullbackStrategy(BaseStrategy):
         disqualifiers = list(pb_reasons)
         if not trend_ok:
             disqualifiers.append(f"not trending (D1 EMA misaligned, ADX {adx:.0f} < {_ADX_MIN})")
-        if at_4h_zone:
-            disqualifiers.append("entry at an unmitigated 4H key level (zone reject)")
         qualified = not disqualifiers
+        # at_4h_zone is a WARNING shown on the card (below), never a reject — user's call.
 
         # Stage 1 — alert once, and again on upgrade to qualified (re-evaluated each tick, never frozen).
         prev_q = self._qualified.get(cluster_sig)
@@ -125,7 +124,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
             sig = build_setup_signal(
                 context.symbol, bullish, pb_high, pb_low, pb_count, cluster_len,
                 self.id, self.name, d1_aligned=d1_aligned,
-                qualified=qualified, disqualifiers=disqualifiers,
+                qualified=qualified, disqualifiers=disqualifiers, at_4h_zone=at_4h_zone,
             )
             return StrategyResult(signals=[sig])
         self._qualified[cluster_sig] = qualified   # keep status fresh between alerts

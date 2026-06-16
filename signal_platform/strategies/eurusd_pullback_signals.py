@@ -15,7 +15,7 @@ def build_setup_signal(
     symbol: str, bullish: bool, pb_high: float, pb_low: float,
     pb_count: int, cluster_len: int, strategy_id: str, strategy_name: str,
     d1_aligned: bool = True, qualified: bool = True,
-    disqualifiers: list[str] | None = None,
+    disqualifiers: list[str] | None = None, at_4h_zone: bool = False,
 ) -> Signal:
     """Stage 1 — H1 pullback detected. Telegram alert only; no trade entry yet.
 
@@ -47,6 +47,8 @@ def build_setup_signal(
     ]
     if ema_note:
         reasons.append(ema_note)
+    if at_4h_zone:
+        reasons.append("⚠️ At/near an unmitigated 4H key level — trade with caution")
 
     return Signal(
         symbol            = symbol,
