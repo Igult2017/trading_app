@@ -15,7 +15,7 @@ from indicators.ema_200 import EMA200Indicator
 from shared.adx import calc_adx
 from strategies.pullback_setup import find_volume_cluster, measure_pullback, recent_candles_summary, cluster_strength
 from strategies.pullback_fractal import fractal_identified
-from strategies.pullback_obstruction import is_at_4h_key_level
+from strategies.pullback_obstruction import is_at_4h_key_level, nearby_zone_warnings
 from strategies.eurusd_pullback_signals import build_setup_signal, build_entry_signal
 
 log = logging.getLogger(__name__)
@@ -97,6 +97,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
         cluster_len = vol_end - vol_start + 1
         self._cleanup()
         at_4h_zone = is_at_4h_key_level(h4[-50:], pb_low if bullish else pb_high)
+        zone_notes = nearby_zone_warnings(h4, d1, pb_high if bullish else pb_low)
 
         # Trend gate — D1 EMA 200, with H1 ADX as a fallback confirmation.
         ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
@@ -123,8 +124,8 @@ class EURUSDPullbackStrategy(BaseStrategy):
                      + ("" if qualified else f" | {'; '.join(disqualifiers)}"))
             sig = build_setup_signal(
                 context.symbol, bullish, pb_high, pb_low, pb_count, cluster_len,
-                self.id, self.name, d1_aligned=d1_aligned,
-                qualified=qualified, disqualifiers=disqualifiers, at_4h_zone=at_4h_zone,
+                self.id, self.name, d1_aligned=d1_aligned, qualified=qualified,
+                disqualifiers=disqualifiers, at_4h_zone=at_4h_zone, zone_notes=zone_notes,
             )
             return StrategyResult(signals=[sig])
         self._qualified[cluster_sig] = qualified   # keep status fresh between alerts
@@ -139,7 +140,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         sig = build_entry_signal(
             context.symbol, bullish, entry, pb_high, pb_low,
-            pb_count, cluster_len, at_4h_zone, d1_aligned, adx, self.name,
+            pb_count, cluster_len, at_4h_zone, d1_aligned, adx, self.name, zone_notes,
         )
         if sig is None:
             return StrategyResult.empty()

@@ -10,7 +10,7 @@ orders at that level create an unfavourable entry environment.
 """
 from core.types import Candle, ZoneType
 from shared.swing_points import find_swing_points
-from shared.zone_detection import find_fvg_zones
+from shared.zone_detection import find_fvg_zones, find_zones, unmitigated
 
 _PIP       = 0.00010
 _PROXIMITY = 10 * _PIP   # within 10 pips = "at" a key level
@@ -47,3 +47,23 @@ def is_at_4h_key_level(h4: list[Candle], entry: float) -> bool:
             return True
 
     return False
+
+
+def nearby_zone_warnings(h4: list[Candle], d1: list[Candle], ref: float) -> list[str]:
+    """
+    Informational (NEVER disqualifying) report of the nearest unmitigated supply
+    above `ref` and nearest unmitigated demand below `ref`, on H4 and D1.
+    Returns card-ready lines so the trader can see what's overhead/below.
+    """
+    out: list[str] = []
+    for tf, candles in (("H4", h4), ("D1", d1)):
+        zones = unmitigated(find_zones(candles, tf))
+        sup = [z for z in zones if z.type == ZoneType.SUPPLY and z.bottom >= ref]
+        dem = [z for z in zones if z.type == ZoneType.DEMAND and z.top <= ref]
+        if sup:
+            z = min(sup, key=lambda z: z.bottom - ref)
+            out.append(f"{tf} supply {z.bottom:.5f}-{z.top:.5f} (~{(z.bottom - ref) / _PIP:.0f} pips above)")
+        if dem:
+            z = max(dem, key=lambda z: z.top)
+            out.append(f"{tf} demand {z.bottom:.5f}-{z.top:.5f} (~{(ref - z.top) / _PIP:.0f} pips below)")
+    return out
