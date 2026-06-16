@@ -915,13 +915,15 @@ def calc_core(ctx: SharedContext) -> Dict:
 
     # R Expectancy: expectancy expressed in R-multiples, NOT dollars.
     # Each winning trade contributes its rr_ratio (defaulting to 1R when absent).
-    # Each losing trade contributes -1R. Breakevens contribute 0R.
-    # Formula: Σ(outcome_in_R) / total_trades
+    # Each losing trade contributes -1R. Breakevens contribute 0R and ARE counted
+    # in the denominator — expectancy is per-trade over all decided trades
+    # (wins + losses + breakevens). Omitting BE inflates the mean by shrinking the
+    # denominator, so they must be included as explicit 0.0 entries.
     r_outcomes: List[float] = (
         [t.rr_ratio if (t.rr_ratio is not None and t.rr_ratio > 0) else 1.0
          for t in ctx.wins] +
-        [-1.0 for _ in ctx.losses]
-        # breakevens → 0R (omitting them is equivalent to adding 0.0)
+        [-1.0 for _ in ctx.losses] +
+        [0.0 for _ in ctx.breakevens]
     )
     r_exp = safe_mean(r_outcomes) if r_outcomes else None
 
@@ -951,6 +953,11 @@ def calc_streaks(ctx: SharedContext) -> Dict:
     peak = cumulative = max_dd = 0.0
     in_dd = False
     recovery = 0
+    # Equity-peak base for percentage drawdown: peak EQUITY = starting balance +
+    # peak cumulative P&L. Standard max-DD% is trough measured against this peak,
+    # NOT against the starting balance (which understates DD once the account grows).
+    start_bal = next((t.starting_balance for t in ctx.trades if t.starting_balance), 0.0)
+    max_dd_pct = 0.0
 
     for t in ctx.trades:
         cumulative += t.pnl
@@ -963,20 +970,33 @@ def calc_streaks(ctx: SharedContext) -> Dict:
         if dd > max_dd:
             max_dd = dd
             in_dd = True
+        if start_bal > 0:
+            equity_peak = start_bal + peak
+            if equity_peak > 0:
+                max_dd_pct = max(max_dd_pct, dd / equity_peak * 100)
 
-        oc = "win" if is_win(t) else "loss" if is_loss(t) else None
-        if oc:
-            if oc == cur_type:
-                cur_count += 1
-            else:
-                cur_type = oc
-                cur_count = 1
-            if oc == "win":
-                max_win  = max(max_win,  cur_count)
-            else:
-                max_loss = max(max_loss, cur_count)
+        # Streaks: a win extends a win run, a loss extends a loss run; a break-even
+        # (or unknown) ENDS the current run rather than being skipped — otherwise
+        # W,BE,W counts as a 2-win streak and a trailing BE leaves a phantom run.
+        if is_win(t):
+            cur_count = cur_count + 1 if cur_type == "win" else 1
+            cur_type  = "win"
+            max_win   = max(max_win, cur_count)
+        elif is_loss(t):
+            cur_count = cur_count + 1 if cur_type == "loss" else 1
+            cur_type  = "loss"
+            max_loss  = max(max_loss, cur_count)
+        else:
+            cur_type, cur_count = None, 0
 
     current_dd = max(0.0, peak - cumulative)
+    if start_bal > 0:
+        eq_peak_final     = start_bal + peak
+        current_dd_pct    = round(current_dd / eq_peak_final * 100, 2) if eq_peak_final > 0 else None
+        max_drawdown_pct  = round(max_dd_pct, 2)
+    else:
+        current_dd_pct    = None   # no starting balance → % is undefined; client falls back
+        max_drawdown_pct  = None
     return {
         "maxWinStreak":       max_win,
         "maxLossStreak":      max_loss,
@@ -984,6 +1004,8 @@ def calc_streaks(ctx: SharedContext) -> Dict:
         "currentStreakCount": cur_count,
         "maxDrawdown":        round(max_dd, 2),
         "currentDrawdown":    round(current_dd, 2),
+        "maxDrawdownPct":     max_drawdown_pct,
+        "currentDrawdownPct": current_dd_pct,
         "recoverySequences":  recovery,
     }
 

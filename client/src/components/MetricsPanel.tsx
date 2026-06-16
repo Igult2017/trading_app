@@ -503,19 +503,39 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   const instrPhaseMomEntries  = Object.entries(instrPhaseMomMatrix).map(([k, d]: [string, any]) => ({ k, win: Math.round((d as any).winRate || 0), loss: 100 - Math.round((d as any).winRate || 0), count: (d as any).count || 0 }));
   const newsEntries       = Object.entries(newsImpactBreakdown).map(([k, d]: [string, any]) => ({ k, wr: Math.round((d as any).winRate || 0), r: (d as any).avgRR?.toFixed(2) || '--' }));
 
-  const riskOfRuin = (() => {
-    if (winRate <= 0 || profitFactor <= 0) return 100;
-    const wr2 = winRate / 100; const lr = 1 - wr2;
-    if (lr === 0) return 0;
-    return Math.max(0, Math.min(100, Math.round(Math.pow(lr / wr2, 10) * 100)));
+  // Risk of Ruin — standard fixed-fractional model (payoff-aware):
+  //   edge  = W − (1−W)/payoff     fractional advantage; reduces to 2W−1 at even money
+  //   units = capital / risk-per-trade  (how many max-risk losses to bust the account)
+  //   RoR   = ((1−edge)/(1+edge))^units   classic gambler's-ruin, * 100
+  // The old formula was (lossRate/winRate)^10 — an arbitrary fixed exponent that
+  // ignored the reward:risk ratio and risk-per-trade entirely. Returns null when
+  // there isn't enough data (no losses to establish a payoff ratio).
+  const riskOfRuin: number | null = (() => {
+    const W = winRate / 100;
+    const payoff = avgLoss > 0 ? avgWin / avgLoss : null;       // reward:risk in $ terms
+    if (!W || payoff == null || payoff <= 0) return null;        // insufficient data
+    const edge = W - (1 - W) / payoff;
+    if (edge <= 0) return 100;                                   // no positive edge → ruin certain
+    const riskPct = (riskMetrics.avgRiskPercent && riskMetrics.avgRiskPercent > 0)
+      ? riskMetrics.avgRiskPercent : 2;                          // assume 2% risk/trade when unknown
+    const units = Math.max(1, Math.round(100 / riskPct));
+    return Math.max(0, Math.min(100, Math.round(Math.pow((1 - edge) / (1 + edge), units) * 100)));
   })();
-  const rorStatus = riskOfRuin < 5 ? '✓ SAFE' : riskOfRuin < 20 ? '~ MODERATE' : riskOfRuin < 50 ? '⚠ ELEVATED' : '✕ CRITICAL';
-  const rorColor  = riskOfRuin < 5 ? D.green : riskOfRuin < 20 ? D.amber : D.red;
+  const rorStatus = riskOfRuin == null ? '—'
+    : riskOfRuin < 5 ? '✓ SAFE' : riskOfRuin < 20 ? '~ MODERATE' : riskOfRuin < 50 ? '⚠ ELEVATED' : '✕ CRITICAL';
+  const rorColor  = riskOfRuin == null ? D.dim
+    : riskOfRuin < 5 ? D.green : riskOfRuin < 20 ? D.amber : D.red;
 
   const topStrat = stratEntries.length > 0 ? stratEntries.reduce((a, b) => a.pl > b.pl ? a : b) : null;
 
-  const ddPct        = equityGrowth?.startingBalance && maxDD > 0 ? ((maxDD / equityGrowth.startingBalance) * 100).toFixed(2) : '0.00';
-  const currentDDPct = equityGrowth?.startingBalance && currentDD > 0 ? ((currentDD / equityGrowth.startingBalance) * 100).toFixed(2) : '0.00';
+  // Peak-relative drawdown % from the calculator (trough vs equity peak, the
+  // standard base) — not trough vs starting balance, which understates DD once
+  // the account grows. Falls back to the old ratio only if the calculator
+  // couldn't compute it (no starting balance present on the trades).
+  const ddPct        = streaks.maxDrawdownPct     != null ? streaks.maxDrawdownPct.toFixed(2)
+                     : (equityGrowth?.startingBalance && maxDD > 0 ? ((maxDD / equityGrowth.startingBalance) * 100).toFixed(2) : '0.00');
+  const currentDDPct = streaks.currentDrawdownPct != null ? streaks.currentDrawdownPct.toFixed(2)
+                     : (equityGrowth?.startingBalance && currentDD > 0 ? ((currentDD / equityGrowth.startingBalance) * 100).toFixed(2) : '0.00');
 
   const catWR = (field: string, label: string): number | null => catBreakdown[field]?.[label]?.winRate ?? null;
 
@@ -1109,7 +1129,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           </Panel>
 
           <Panel title="Risk of Ruin" badge="Account Safety" badgeColor="amber">
-            <DR label="Ruin Probability" value={`${riskOfRuin}%`}       vc={rorColor} />
+            <DR label="Ruin Probability" value={riskOfRuin != null ? `${riskOfRuin}%` : '--'} vc={rorColor} />
             <DR label="Win Rate"         value={fmtPct(winRate)}         vc={winRate >= 50 ? D.green : D.red} />
             <DR label="Risk per Trade"   value={riskMetrics.avgRiskPercent != null ? `${riskMetrics.avgRiskPercent.toFixed(2)}%` : '--'} vc={D.cyan} />
             <DR label="Profit Factor"    value={pfDisplay}               vc={profitFactor >= 1 ? D.green : D.red} />
