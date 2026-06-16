@@ -399,9 +399,16 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
+    // The persisted cache is re-seeded on every reload with dataUpdatedAt=now,
+    // which can make a stale/empty entry look fresh and suppress the refetch —
+    // leaving the vault stuck on "no trades". Always revalidate on mount so the
+    // cached value shows instantly (keepPreviousData) but real trades load in.
+    refetchOnMount: "always",
   });
 
-  const trades: Trade[] = journalEntries.map(journalEntryToTrade);
+  // Coerce defensively: a poisoned cache (e.g. a prefetch that stored null on a
+  // transient error) must never reach .map() — show empty, then the refetch fixes it.
+  const trades: Trade[] = (Array.isArray(journalEntries) ? journalEntries : []).map(journalEntryToTrade);
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });

@@ -18,7 +18,7 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
-import { authFetch } from "./queryClient";
+import { authFetch, fetchJson } from "./queryClient";
 
 // Match the global queryClient default (staleTime: Infinity) so persisted
 // cache entries are never considered stale on reload. Data is invalidated
@@ -69,12 +69,13 @@ export function prefetchAllPanels(
   ];
 
   for (const { queryKey, url, staleTime } of fast) {
+    // fetchJson THROWS on a non-OK/transient response instead of resolving with
+    // null. A rejected prefetch is swallowed by prefetchQuery and leaves any
+    // existing good data in place — it must never overwrite the cache (especially
+    // the shared "/api/journal/entries" key the Trade Vault reads) with null.
     queryClient.prefetchQuery({
       queryKey,
-      queryFn: () =>
-        authFetch(url)
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null),
+      queryFn: () => fetchJson(url),
       staleTime,
     });
   }
