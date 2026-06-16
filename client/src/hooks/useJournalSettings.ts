@@ -121,9 +121,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     bg: '#FFFFFF',
     sidebarBg: '#F1F5F9',
     surface: '#F8FAFC',
-    text: '#1E293B',
-    textMuted: '#64748B',
-    border: '#E2E8F0',
+    text: '#0F172A',        // slate-900 — crisp headings/values (~16:1 on white)
+    textMuted: '#475569',   // slate-600 — labels readable at small sizes (~7:1, was #64748B ~4.75:1)
+    border: '#D7DEE8',      // a touch more definition than #E2E8F0 without looking heavy
     accent: '#2563eb',
     swatches: ['#FFFFFF', '#F8FAFC', '#2563eb'],
   },

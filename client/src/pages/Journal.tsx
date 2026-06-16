@@ -943,6 +943,11 @@ export default function Journal() {
         .journal-light *::before,
         .journal-light *::after { border-color: ${T.border} !important; }
 
+        /* Dark-theme neon glows read as blur on a light bg — strip text-shadow. */
+        .journal-light *,
+        .journal-light *::before,
+        .journal-light *::after { text-shadow: none !important; }
+
         /* Pure-white / near-white inline text → dark slate so it's readable on light bg. */
         .journal-light [style*="color: #fff"],
         .journal-light [style*="color:#fff"],
@@ -1036,6 +1041,32 @@ export default function Journal() {
         .journal-light [style*="color:rgba(203,213,225"],
         .journal-light [style*="color: rgba(100,116,139"],
         .journal-light [style*="color:rgba(100,116,139"] { color: ${T.textMuted} !important; }
+
+        /* Bright accent text (Tailwind 300/400 shades) is tuned for dark backgrounds;
+           on white it drops to ~1.5–3:1 and reads faded/blurred. Remap each accent
+           family to an AA-contrast variant for the light theme. */
+        .journal-light [style*="color: #34d399"], .journal-light [style*="color:#34d399"],
+        .journal-light [style*="color: #10b981"], .journal-light [style*="color:#10b981"],
+        .journal-light [style*="color: #00d48a"], .journal-light [style*="color:#00d48a"],
+        .journal-light [style*="color: #00e5a0"], .journal-light [style*="color:#00e5a0"] { color: #047857 !important; }
+
+        .journal-light [style*="color: #fb7185"], .journal-light [style*="color:#fb7185"],
+        .journal-light [style*="color: #ff4d6d"], .journal-light [style*="color:#ff4d6d"],
+        .journal-light [style*="color: #f43f5e"], .journal-light [style*="color:#f43f5e"] { color: #be123c !important; }
+
+        .journal-light [style*="color: #fbbf24"], .journal-light [style*="color:#fbbf24"],
+        .journal-light [style*="color: #facc15"], .journal-light [style*="color:#facc15"],
+        .journal-light [style*="color: #f59e0b"], .journal-light [style*="color:#f59e0b"] { color: #b45309 !important; }
+
+        .journal-light [style*="color: #818cf8"], .journal-light [style*="color:#818cf8"],
+        .journal-light [style*="color: #a78bfa"], .journal-light [style*="color:#a78bfa"] { color: #4f46e5 !important; }
+
+        .journal-light [style*="color: #c084fc"], .journal-light [style*="color:#c084fc"] { color: #9333ea !important; }
+
+        .journal-light [style*="color: #38bdf8"], .journal-light [style*="color:#38bdf8"],
+        .journal-light [style*="color: #4da6ff"], .journal-light [style*="color:#4da6ff"],
+        .journal-light [style*="color: #4da8f0"], .journal-light [style*="color:#4da8f0"],
+        .journal-light [style*="color: #7dd3fc"], .journal-light [style*="color:#7dd3fc"] { color: #0369a1 !important; }
 
         /* Faint white borders/dividers → theme border. */
         .journal-light [style*="rgba(255,255,255,0.04)"],
