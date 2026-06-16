@@ -91,11 +91,15 @@ def fractal_identified(
     pb_low: float,
     bullish: bool,
     pb_end_time: int,
+    max_stale: int = 20,
 ) -> float | None:
     """
     Return fractal level when M1 HIGH (BUY) or LOW (SELL) TOUCHES the fractal level.
     Fires BEFORE the fractal is broken — place buy/sell stop at this level NOW.
     The stop order fills naturally when price reaches it.
+
+    Staleness guard: if price only touches the fractal more than `max_stale` M1
+    bars after it formed, the setup is stale → return None (no alert).
     """
     window, extreme_pos = _find_window_and_extreme(m1, pb_high, pb_low, bullish, pb_end_time)
     if window is None:
@@ -105,7 +109,7 @@ def fractal_identified(
     if fractal_level is None:
         return None
 
-    for c in window[fractal_pos + 1:]:
-        if bullish     and c.high >= fractal_level: return fractal_level
-        if not bullish and c.low  <= fractal_level: return fractal_level
+    for j, c in enumerate(window[fractal_pos + 1:]):
+        if bullish     and c.high >= fractal_level: return fractal_level if j <= max_stale else None
+        if not bullish and c.low  <= fractal_level: return fractal_level if j <= max_stale else None
     return None

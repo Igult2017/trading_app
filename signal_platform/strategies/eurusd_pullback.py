@@ -13,7 +13,7 @@ from core.types import (Session, Trend, NewsStance, NewsImpact, StrategyResult, 
 from core.strategy_context import StrategyContext
 from indicators.ema_200 import EMA200Indicator
 from shared.adx import calc_adx
-from strategies.pullback_setup import find_volume_cluster, measure_pullback, recent_candles_summary
+from strategies.pullback_setup import find_volume_cluster, measure_pullback, recent_candles_summary, cluster_strength
 from strategies.pullback_fractal import fractal_identified
 from strategies.pullback_obstruction import is_at_4h_key_level
 from strategies.eurusd_pullback_signals import build_setup_signal, build_entry_signal
@@ -72,8 +72,6 @@ class EURUSDPullbackStrategy(BaseStrategy):
         if context.news and context.news.has_high_impact(["USD", "EUR"]):
             log.info("[eurusd_diag] skipped: high-impact USD/EUR news in window")
             return StrategyResult.empty()
-        # Phase/time-of-day filter removed — fire whenever trend + cluster + pullback present.
-
         bull_cluster = find_volume_cluster(h1, bullish=True)
         bear_cluster = find_volume_cluster(h1, bullish=False)
         if bull_cluster is None and bear_cluster is None:
@@ -81,7 +79,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
             return StrategyResult.empty()
 
         if bull_cluster is not None and bear_cluster is not None:
-            bullish = bull_cluster[1] >= bear_cluster[1]
+            bullish = cluster_strength(h1, *bull_cluster) >= cluster_strength(h1, *bear_cluster)
         elif bull_cluster is not None:
             bullish = True
         else:
@@ -112,10 +110,13 @@ class EURUSDPullbackStrategy(BaseStrategy):
         disqualifiers = list(pb_reasons)
         if not trend_ok:
             disqualifiers.append(f"not trending (D1 EMA misaligned, ADX {adx:.0f} < {_ADX_MIN})")
+        if at_4h_zone:
+            disqualifiers.append("entry at an unmitigated 4H key level (zone reject)")
         qualified = not disqualifiers
 
-        # Stage 1 — report EVERY cluster+pullback once, qualified or not.
-        if cluster_sig not in self._setup_alerted:
+        # Stage 1 — alert once, and again on upgrade to qualified (re-evaluated each tick, never frozen).
+        prev_q = self._qualified.get(cluster_sig)
+        if prev_q is None or (prev_q is False and qualified):
             self._setup_alerted[cluster_sig] = time.monotonic()
             self._qualified[cluster_sig]     = qualified
             log.info(f"[eurusd_diag] {'QUALIFIED' if qualified else 'UNQUALIFIED'} pullback — "
@@ -127,9 +128,10 @@ class EURUSDPullbackStrategy(BaseStrategy):
                 qualified=qualified, disqualifiers=disqualifiers,
             )
             return StrategyResult(signals=[sig])
+        self._qualified[cluster_sig] = qualified   # keep status fresh between alerts
 
-        # Stage 2 — entry only for QUALIFIED setups, fired once.
-        if not self._qualified.get(cluster_sig) or cluster_sig in self._entry_alerted:
+        # Stage 2 — entry only while CURRENTLY qualified, fired once.
+        if not qualified or cluster_sig in self._entry_alerted:
             return StrategyResult.empty()
 
         entry = fractal_identified(m1, pb_high, pb_low, bullish, pb_end_time)

@@ -23,7 +23,7 @@ from shared.session_phases import is_valid_phase
 from shared.adx import calc_adx
 from shared.candle_math import body_ratio, body_size, full_range
 from shared.candle_math import is_bullish, is_bearish
-from strategies.pullback_setup import find_volume_cluster, measure_pullback
+from strategies.pullback_setup import find_volume_cluster, measure_pullback, cluster_strength
 from ctrader_fetch import fetch
 
 _PIP        = 0.00010
@@ -62,7 +62,7 @@ def diagnose(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> None:
             continue
 
         if bull_c is not None and bear_c is not None:
-            bullish = bull_c[1] >= bear_c[1]
+            bullish = cluster_strength(h1_win, *bull_c) >= cluster_strength(h1_win, *bear_c)
         elif bull_c is not None:
             bullish = True
         else:
@@ -77,7 +77,7 @@ def diagnose(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> None:
         if pb is None:
             continue
 
-        pb_high, pb_low, pb_count, _ = pb
+        pb_high, pb_low, pb_count = pb["pb_high"], pb["pb_low"], pb["count"]
 
         if bullish     and cur.close <= pb_high:
             continue

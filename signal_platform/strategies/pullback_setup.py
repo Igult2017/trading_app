@@ -5,10 +5,16 @@ Fractal detection lives in pullback_fractal.py.
 """
 import logging
 from core.types import Candle
-from shared.candle_math import body_size, body_ratio, full_range, is_bullish, is_bearish
+from shared.candle_math import body_size, body_ratio, full_range, is_bullish, is_bearish, is_doji
 
 log = logging.getLogger(__name__)
 _PIP = 0.00010
+
+
+def cluster_strength(candles: list[Candle], start: int, end: int) -> float:
+    """Total body movement of a cluster — used to pick the STRONGER of two
+    opposing clusters instead of merely the most recent one."""
+    return sum(body_size(candles[k]) for k in range(start, end + 1))
 
 
 def recent_candles_summary(candles: list[Candle], n: int = 6) -> str:
@@ -20,15 +26,19 @@ def recent_candles_summary(candles: list[Candle], n: int = 6) -> str:
 def find_volume_cluster(
     candles: list[Candle],
     bullish: bool,
-    lookback: int = 20,
+    lookback: int = 60,
 ) -> tuple[int, int] | None:
     """
-    Find the most recent H1 volume cluster: 2-4 consecutive directional candles.
+    Find the most recent H1 volume cluster: 2+ consecutive directional candles.
 
     Conditions (all required):
     - 2+ consecutive candles all moving in trade direction (no maximum)
     - Each candle: body_ratio >= 0.55 (long body, small wicks)
     - Cluster avg body > preceding candle body (growing vs pre-cluster activity)
+    - Cluster avg tick volume >= preceding candle volume (real participation)
+
+    lookback scans the last ~60 H1 candles so impulses up to ~2.5 trading days
+    old can still be found (not just the last 20 hours).
 
     Returns (start_idx, end_idx) of the cluster or None.
     """
@@ -56,9 +66,12 @@ def find_volume_cluster(
         cluster_start = i - length + 1
         if cluster_start < 1:
             continue
-        preceding_body = body_size(candles[cluster_start - 1])
+        prev     = candles[cluster_start - 1]
         avg_body = sum(body_size(candles[k]) for k in range(cluster_start, i + 1)) / length
-        if avg_body > preceding_body:
+        avg_vol  = sum(candles[k].volume    for k in range(cluster_start, i + 1)) / length
+        # Real participation: cluster bodies AND tick volume must exceed the
+        # candle right before the cluster (lenient — cTrader tick volume).
+        if avg_body > body_size(prev) and avg_vol >= prev.volume:
             return (cluster_start, i)
 
     return None
@@ -85,13 +98,22 @@ def measure_pullback(
     - depth 10–80% of the full cluster range (from cluster_start to vol_idx)
     - no candle CLOSES beyond the cluster boundary (wicks are allowed)
     """
+    # Collect the pullback. Tolerate dojis/pauses + a single with-trend rebound mid-pullback;
+    # stop only when the trend clearly resumes (2 consecutive with-trend candles).
     pb_candles: list[Candle] = []
+    resume = 0
     for c in candles[vol_idx + 1:]:
         against = is_bearish(c) if bullish else is_bullish(c)
-        if against:
+        if against or is_doji(c):
             pb_candles.append(c)
+            resume = 0
+        elif pb_candles:          # a with-trend candle, but the pullback is underway
+            resume += 1
+            if resume >= 2:
+                break             # trend resumed → pullback over
+            pb_candles.append(c)  # tolerate one isolated rebound/pause bar
         else:
-            break
+            break                 # trend continued immediately — no pullback at all
 
     if not pb_candles:
         return None  # no pullback yet — nothing to report
