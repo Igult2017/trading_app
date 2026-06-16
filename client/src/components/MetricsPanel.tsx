@@ -135,17 +135,6 @@ const Dot = ({ color }: { color: string }) => (
   <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: color }} />
 );
 
-const PipBar = ({ filled, total = 5, winPct }: { filled: number; total?: number; winPct: string }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-    <div style={{ display: 'flex', gap: 3 }}>
-      {Array.from({ length: total }).map((_, i) => (
-        <div key={i} style={{ width: 16, height: 3, borderRadius: 2, background: i < filled ? D.green : D.bdInner }} />
-      ))}
-    </div>
-    <span style={{ ...MONO, fontSize: 9, color: D.green, minWidth: 28, textAlign: 'right' as const, fontWeight: 600 }}>{winPct}</span>
-  </div>
-);
-
 const Scroll = ({ children }: { children: React.ReactNode }) => (
   <div className="mp-scroll">{children}</div>
 );
@@ -196,26 +185,19 @@ const SplitBar = ({ label, win, loss: _loss, count, labelSize = 10 }: { label: s
   </Row>
 );
 
-/* ─── Score impact → pip bar ─────────────────────────────────────── */
-function scoreRowFromImpact(arr: any[]): { score: string; pct: number | null }[] {
-  if (!Array.isArray(arr) || arr.length === 0)
-    return [{ score: '4.5', pct: null }, { score: '4.0', pct: null }, { score: '3.5', pct: null }, { score: '3.0', pct: null }];
-  return arr.map((b: any) => ({ score: String(b.score), pct: b.winRate ?? null }));
-}
-
-function scoreToPip(scores: { score: string; pct: number | null }[]): { filled: number; winPct: string } {
-  const withData = scores.filter(b => b.pct != null);
-  if (withData.length === 0) return { filled: 0, winPct: '—' };
-  const avgWR    = withData.reduce((s, b) => s + (b.pct || 0), 0) / withData.length;
-  const avgScore = withData.reduce((s, b) => s + parseFloat(b.score), 0) / withData.length;
-  return { filled: Math.min(5, Math.max(0, Math.round(avgScore))), winPct: `${Math.round(avgWR)}%` };
-}
-
-const ScoreRow = ({ label, scores }: { label: string; scores: { score: string; pct: number | null }[] }) => {
-  const { filled, winPct } = scoreToPip(scores);
+/* ─── Score impact → blended win% ────────────────────────────────────
+   Each category (entry precision, timing, …) is split into score buckets,
+   every bucket carrying its own winRate AND trade count. The row shows the
+   blended win rate COUNT-WEIGHTED across buckets — a simple mean would let a
+   1-trade bucket count the same as a 50-trade one. Green pip bars removed per
+   design; value renders as a chip like every other row. */
+const ScoreRow = ({ label, impact }: { label: string; impact: any[] }) => {
+  const buckets = Array.isArray(impact) ? impact.filter((b: any) => b && b.winRate != null && b.count) : [];
+  const n = buckets.reduce((s: number, b: any) => s + b.count, 0);
+  const v = n ? Math.round(buckets.reduce((s: number, b: any) => s + b.winRate * b.count, 0) / n) : null;
   return (
     <Row label={label}>
-      <PipBar filled={filled} winPct={winPct} />
+      <Chip variant={pVariant(v)}>{v != null ? `${v}%` : '—'}</Chip>
     </Row>
   );
 };
@@ -640,13 +622,13 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           {/* Execution Precision */}
           <Panel title={t('metrics.executionPrecision')} badge="Score → Win%" badgeColor="blue">
             <Scroll>
-              <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Score · win rate at threshold</div>
-              <ScoreRow label="Entry Precision"   scores={scoreRowFromImpact(scoreImpacts.entryPrecisionScore)} />
-              <ScoreRow label="Timing Quality"    scores={scoreRowFromImpact(scoreImpacts.timingQualityScore)} />
-              <ScoreRow label="Market Alignment"  scores={scoreRowFromImpact(scoreImpacts.marketAlignmentScore)} />
-              <ScoreRow label="Setup Clarity"     scores={scoreRowFromImpact(scoreImpacts.setupClarityScore)} />
-              <ScoreRow label="Confluence Score"  scores={scoreRowFromImpact(scoreImpacts.confluenceScore)} />
-              <ScoreRow label="Signal Validation" scores={scoreRowFromImpact(scoreImpacts.signalValidationScore)} />
+              <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Blended win rate by score</div>
+              <ScoreRow label="Entry Precision"   impact={scoreImpacts.entryPrecisionScore} />
+              <ScoreRow label="Timing Quality"    impact={scoreImpacts.timingQualityScore} />
+              <ScoreRow label="Market Alignment"  impact={scoreImpacts.marketAlignmentScore} />
+              <ScoreRow label="Setup Clarity"     impact={scoreImpacts.setupClarityScore} />
+              <ScoreRow label="Confluence Score"  impact={scoreImpacts.confluenceScore} />
+              <ScoreRow label="Signal Validation" impact={scoreImpacts.signalValidationScore} />
               <DivLabel>Planned vs Actual · avg pips</DivLabel>
               <DR label="Entry Deviation" value={riskMetrics.avgEntryDeviation != null ? `${riskMetrics.avgEntryDeviation.toFixed(2)} pips` : '--'} vc={D.green} />
               <DR label="SL Deviation"   value={riskMetrics.avgSLDeviation    != null ? `${riskMetrics.avgSLDeviation.toFixed(2)} pips`    : '--'} vc={D.amber} />
@@ -673,7 +655,14 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                 { label: 'Low',  pct: (() => { const arr = scoreImpacts.setupClarityScore; if (!arr) return null; const lo = arr.find((b: any) => b.score === '3.0'); return lo?.winRate ?? null; })() },
               ]} />
               <DR label="Setup Clarity Avg"
-                value={catBreakdown.setupClarityScore ? `${Math.round((Object.values(catBreakdown.setupClarityScore || {}) as any[]).reduce((a: number, b: any) => a + (b.winRate || 0), 0) / (Object.keys(catBreakdown.setupClarityScore || {}).length || 1))}%` : '--'}
+                value={(() => {
+                  // setupClarityScore is a SCORE field (scoreImpacts), never a categorical —
+                  // the old catBreakdown.setupClarityScore read was always undefined → '--'.
+                  const arr = scoreImpacts.setupClarityScore;
+                  const b = Array.isArray(arr) ? arr.filter((x: any) => x && x.winRate != null && x.count) : [];
+                  const n = b.reduce((s: number, x: any) => s + x.count, 0);
+                  return n ? `${Math.round(b.reduce((s: number, x: any) => s + x.winRate * x.count, 0) / n)}%` : '--';
+                })()}
                 vc={D.green} />
               <DivLabel>Yes / No</DivLabel>
               <BoolYN label="MTF Alignment"         data={boolImpacts.mtfAlignment} />
@@ -702,7 +691,13 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
               <Multi label="Energy Level"        options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.energyLevel?.[l]?.winRate ?? null }))} />
               <Multi label="Focus Level"         options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.focusLevel?.[l]?.winRate ?? null }))} />
               <Multi label="Confidence at Entry" options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.confidenceAtEntry?.[l]?.winRate ?? null }))} />
-              <Multi label="Emotional State"     options={['Calm', 'Neutral', 'Emotional'].map(l => ({ label: l, pct: catBreakdown.emotionalState?.[l]?.winRate ?? null }))} />
+              <DivLabel>Emotional State</DivLabel>
+              {Object.keys(catBreakdown.emotionalState || {}).length > 0
+                ? Object.entries(catBreakdown.emotionalState || {}).map(([label, d]: [string, any], i) => (
+                    <Bar key={`emo-${i}`} label={label} pct={d?.winRate ?? null} count={d?.count || 0} />
+                  ))
+                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No emotional-state data yet</span>
+              }
               <DivLabel>Yes / No</DivLabel>
               <BoolYN label="External Distraction" data={boolImpacts.externalDistraction} />
               <BoolYN label="Setup Fully Valid"     data={boolImpacts.setupFullyValid} />
@@ -857,7 +852,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         <div className="mp-g3">
 
           {/* Day of Week */}
-          <Panel title={t('metrics.dayOfWeek')} badge="Win% · R Expectancy" badgeColor="amber">
+          <Panel title={t('metrics.dayOfWeek')} badge="Win% · Trades" badgeColor="amber">
             {dayEntries.length > 0
               ? dayEntries.map((x, i) => <Bar key={i} label={x.day} pct={x.wr || null} count={x.count} />)
               : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((d, i) => <Bar key={i} label={d} pct={null} />)
