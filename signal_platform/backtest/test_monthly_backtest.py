@@ -76,7 +76,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> dict:
         if pb is None:
             continue
         c_pb += 1
-        pb_high, pb_low, pb_count, _ = pb
+        pb_high, pb_low, pb_count = pb["pb_high"], pb["pb_low"], pb["count"]
 
         # H1 close proxy for fractal break (real M1 not available in 60d backtest)
         if bullish  and cur.close <= pb_high:

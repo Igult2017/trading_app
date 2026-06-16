@@ -93,7 +93,7 @@ def run_backtest(h1: list[Candle], h4: list[Candle], d1: list[Candle]) -> tuple[
         if pb is None:
             continue
         c_pb += 1
-        pb_high, pb_low, pb_count, _ = pb
+        pb_high, pb_low, pb_count = pb["pb_high"], pb["pb_low"], pb["count"]
 
         # H1 close proxy for M1 fractal: if H1 closes above pb_high (BUY), the move
         # sustained momentum through the full bar — spike bars (high briefly touched

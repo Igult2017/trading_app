@@ -89,7 +89,7 @@ def run(h1, d1, m1):
         if pb is None:
             continue
         c_pb += 1
-        pb_high, pb_low, pb_count, pb_end_time = pb
+        pb_high, pb_low, pb_count, pb_end_time = pb["pb_high"], pb["pb_low"], pb["count"], pb["pb_end_time"]
 
         # M1 window: pb_end_time to end of this H1 bar (no look-ahead)
         m1_s = bisect.bisect_left(m1_times, pb_end_time)

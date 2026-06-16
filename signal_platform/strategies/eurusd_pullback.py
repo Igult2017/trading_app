@@ -116,7 +116,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         # Stage 1 — alert once, and again on upgrade to qualified (re-evaluated each tick, never frozen).
         prev_q = self._qualified.get(cluster_sig)
-        if prev_q is None or (prev_q is False and qualified):
+        if prev_q is None or (prev_q is False and qualified and cluster_sig not in self._entry_alerted):
             self._setup_alerted[cluster_sig] = time.monotonic()
             self._qualified[cluster_sig]     = qualified
             log.info(f"[eurusd_diag] {'QUALIFIED' if qualified else 'UNQUALIFIED'} pullback — "

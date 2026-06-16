@@ -200,7 +200,7 @@ async def run():
     pb = measure_pullback(h1, ve, bullish=True, cluster_start=vs) if cluster else None
     ok("measure_pullback returns a result", pb is not None)
     if pb:
-        pb_high, pb_low, pb_count, pb_et = pb
+        pb_high, pb_low, pb_count, pb_et = pb["pb_high"], pb["pb_low"], pb["count"], pb["pb_end_time"]
         ok("pullback count 1-6",        1 <= pb_count <= 6, f"got {pb_count}")
         ok("pb_end_time matches derived", pb_et == pb_end_time, f"{pb_et} vs {pb_end_time}")
         ok("pb_high = 1.08620",  abs(pb_high - 1.08620) < 0.00005, f"got {pb_high:.5f}")
