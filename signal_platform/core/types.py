@@ -5,7 +5,7 @@ Every module imports from here — no type duplication anywhere.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Optional
 
@@ -162,11 +162,22 @@ class NewsContext:
     pre_window_mins:    int = 15
     post_window_mins:   int = 15
 
-    def has_high_impact(self, currencies: list[str]) -> bool:
-        return any(
-            e.impact == NewsImpact.HIGH and e.currency in currencies
-            for e in self.events
-        )
+    def has_high_impact(self, currencies: list[str], now: datetime | None = None) -> bool:
+        """True only when a HIGH-impact event for one of `currencies` falls inside the
+        news window [scheduled - pre, scheduled + post] around `now` (defaults to UTC now).
+
+        Previously this ignored time and returned True if ANY such event existed
+        anywhere in the loaded calendar (hundreds of events across days) — which
+        permanently blocked the strategy. Now it only blocks near the actual release.
+        """
+        now  = now or datetime.now(timezone.utc)
+        pre  = timedelta(minutes=self.pre_window_mins)
+        post = timedelta(minutes=self.post_window_mins)
+        for e in self.events:
+            if (e.impact == NewsImpact.HIGH and e.currency in currencies
+                    and e.scheduled_at and (e.scheduled_at - pre) <= now <= (e.scheduled_at + post)):
+                return True
+        return False
 
     def upcoming(self, impact: NewsImpact, currencies: list[str]) -> list[NewsEvent]:
         return [e for e in self.events
