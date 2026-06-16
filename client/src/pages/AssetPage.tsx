@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authFetch } from "@/lib/queryClient";
+import { authFetch, fetchJson } from "@/lib/queryClient";
 import { Search, Bell, BellOff, Share2, ChevronRight, Loader2, ZoomIn, X } from "lucide-react";
 import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId, type ChartType } from "@/components/TradingChart";
 import SignalPlatformStatus from "@/components/SignalPlatformStatus";
@@ -368,7 +368,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   // Price alerts for the selected symbol (all, not just first)
   const { data: myAlerts = [] } = useQuery<any[]>({
     queryKey: ["/api/price-alerts", selected],
-    queryFn: () => authFetch(`/api/price-alerts?symbol=${encodeURIComponent(selected)}`).then(r => r.ok ? r.json() : []),
+    queryFn: async () => {
+      const d = await fetchJson<any[]>(`/api/price-alerts?symbol=${encodeURIComponent(selected)}`);
+      return Array.isArray(d) ? d : [];
+    },
     staleTime: 30_000,
   });
   const activeAlerts = myAlerts.filter((a: any) => !a.isTriggered);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { authFetch } from "@/lib/queryClient";
+import { authFetch, fetchJson } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
 import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 import { useTranslation } from "react-i18next";
@@ -961,7 +961,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
   const { data, isLoading, isError, refetch } = useQuery<AIAnalysisData>({
     queryKey:  ["aiAnalysis", sessionId, userId],
-    queryFn:   () => authFetch(`/api/ai/analysis?${params}`).then(r => r.json()),
+    queryFn:   () => fetchJson<AIAnalysisData>(`/api/ai/analysis?${params}`),
     staleTime: 30 * 60 * 1000,
     enabled:   requested,
     retry: 1,
@@ -1100,7 +1100,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
   const { data, isLoading, isError, refetch } = useQuery<AIStrategyData>({
     queryKey:  ["aiStrategy", sessionId, userId],
-    queryFn:   () => authFetch(`/api/ai/strategy?${params}`).then(r => r.json()),
+    queryFn:   () => fetchJson<AIStrategyData>(`/api/ai/strategy?${params}`),
     staleTime: 30 * 60 * 1000,
     enabled:   requested,
     retry: 1,

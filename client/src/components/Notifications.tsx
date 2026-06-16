@@ -4,7 +4,7 @@ import {
   Bell, Check, Trash2, X, TrendingUp, Calendar, Mail, Zap, Megaphone, Info,
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { queryClient, authFetch } from '@/lib/queryClient';
+import { queryClient, authFetch, fetchJson } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import type { Notification } from '@shared/schema';
 
@@ -187,13 +187,13 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
 
   const { data: allNotifs = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
-    queryFn: () => authFetch('/api/notifications').then(r => r.json()),
+    queryFn: () => fetchJson<Notification[]>('/api/notifications'),
     refetchInterval: 30000,
   });
 
   const { data: unread = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications/unread'],
-    queryFn: () => authFetch('/api/notifications/unread').then(r => r.json()),
+    queryFn: () => fetchJson<Notification[]>('/api/notifications/unread'),
     refetchInterval: 30000,
   });
 
@@ -349,7 +349,7 @@ export function Notifications({ dm }: { dm: boolean }) {
 
   const { data: unread = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications/unread'],
-    queryFn: () => authFetch('/api/notifications/unread').then(r => r.json()),
+    queryFn: () => fetchJson<Notification[]>('/api/notifications/unread'),
     refetchInterval: 30000,
   });
 

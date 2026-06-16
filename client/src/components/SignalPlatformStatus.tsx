@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bell, AlertTriangle } from "lucide-react";
+import { fetchJson } from "@/lib/queryClient";
 
 interface LastSignal { id: string; symbol: string; type: string; status: string; strategy: string | null; confidence: number; createdAt: string; }
 interface PlatformStatus { status: "starting" | "ok" | "error"; error: string; hint: string; ts: number; }
@@ -23,7 +24,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
 
   const { data, isLoading } = useQuery<StatusData>({
     queryKey: ["signal-platform-status"],
-    queryFn: () => fetch("/api/signal-platform/status").then(r => r.json()),
+    queryFn: () => fetchJson<StatusData>("/api/signal-platform/status"),
     refetchInterval: 30_000,
     staleTime: 20_000,
   });
