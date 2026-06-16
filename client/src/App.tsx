@@ -2,7 +2,7 @@ import { Switch, Route, useLocation } from "wouter";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { usePageTracking } from "@/hooks/usePageTracking";
 import { titleFromPath, usePageTitle } from "@/hooks/usePageTitle";
-import { queryClient, authFetch, localStoragePersister } from "./lib/queryClient";
+import { queryClient, fetchJson, localStoragePersister } from "./lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Toaster } from "@/components/ui/toaster";
@@ -306,8 +306,10 @@ function JournalPrefetcher() {
     // Step 1 — warm the sessions list
     // Key must match Journal.tsx useQuery key exactly: ['/api/sessions']
     qc.prefetchQuery({
+      // Throw on a bad response so a failed prefetch never overwrites the shared
+      // ['/api/sessions'] cache with [] (which would blank the session cards).
       queryKey: ['/api/sessions'],
-      queryFn: () => authFetch('/api/sessions').then(r => r.ok ? r.json() : []).catch(() => []),
+      queryFn: () => fetchJson('/api/sessions'),
       staleTime: STALE,
     }).then(() => {
       // Step 2 — resolve which session to warm panels for

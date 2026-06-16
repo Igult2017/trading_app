@@ -5,7 +5,7 @@ import { Link, useLocation } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { authFetch } from '@/lib/queryClient';
+import { authFetch, fetchJson } from '@/lib/queryClient';
 import { prefetchAllPanels } from '@/lib/prefetchPanels';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import { useTranslation } from 'react-i18next';
@@ -844,11 +844,15 @@ export default function Journal() {
 
   const { data: sessions = [], isFetching: sessionsFetching } = useQuery<any[]>({
     queryKey: ['/api/sessions'],
-    queryFn: () => user
-      ? authFetch(`/api/sessions`).then(r => r.json())
-      : Promise.resolve([]),
+    // Throws on a bad response (so the last-good list is retained instead of the
+    // cards blanking on a transient 502/401), and guards against a non-array body.
+    queryFn: async () => {
+      if (!user) return [];
+      const data = await fetchJson<any[]>('/api/sessions');
+      return Array.isArray(data) ? data : [];
+    },
     enabled: !!user,
-    staleTime: 0,
+    staleTime: 30_000,
   });
 
   // If the persisted activeSessionId points to a session that no longer

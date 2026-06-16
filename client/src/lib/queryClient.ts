@@ -1,4 +1,4 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryFunction, keepPreviousData } from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { supabase } from "./supabase";
 
@@ -42,6 +42,22 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   } catch {
     return networkFallback();
   }
+}
+
+/**
+ * Safe JSON fetch for React Query `queryFn`s. Authenticated, and THROWS on any
+ * non-OK response (401/5xx/502/503) instead of resolving with an error body.
+ *
+ * Why this matters: a queryFn that does `authFetch(url).then(r => r.json())`
+ * will *resolve* with a junk object on a 502/503 (or `[]` if it falls back),
+ * overwriting the last-good data and blanking the UI. By throwing, React Query
+ * keeps the previous successful data and just records the error — so a transient
+ * server hiccup no longer makes content disappear.
+ */
+export async function fetchJson<T = any>(url: string): Promise<T> {
+  const res = await authFetch(url);
+  await throwIfResNotOk(res);
+  return res.json();
 }
 
 export async function apiRequest(method: string, url: string, data?: unknown): Promise<Response> {
@@ -89,6 +105,9 @@ export const queryClient = new QueryClient({
       staleTime: Infinity,
       gcTime: DAY,
       retry: false,
+      // Keep showing the last-good data while a query refetches or its key
+      // changes, so a failed/slow refetch never flashes the UI empty.
+      placeholderData: keepPreviousData,
     },
     mutations: { retry: false },
   },
